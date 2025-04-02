@@ -1,5 +1,6 @@
 package com.databricks.jdbc.common.util;
 
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.api.IDatabricksSession;
@@ -253,10 +254,21 @@ public class DatabricksThriftUtil {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws DatabricksSQLException {
+    int statementMaxRows =
+        parentStatement != null ? parentStatement.getMaxRows() : DEFAULT_RESULT_ROW_LIMIT;
+    boolean hasRowLimit = statementMaxRows != DEFAULT_RESULT_ROW_LIMIT;
     List<List<Object>> rows = extractRowsFromColumnar(resultsResp.getResults());
     while (resultsResp.hasMoreRows) {
       resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
       rows.addAll(extractRowsFromColumnar(resultsResp.getResults()));
+      if (hasRowLimit
+          && rows.size() >= statementMaxRows) { // check if we have reached requested row limit
+        break;
+      }
+    }
+    if (hasRowLimit
+        && rows.size() > statementMaxRows) { // truncate rows to get exact number of rows requested
+      rows = rows.subList(0, statementMaxRows);
     }
     return rows;
   }

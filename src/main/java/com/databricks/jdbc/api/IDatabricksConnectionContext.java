@@ -228,6 +228,9 @@ public interface IDatabricksConnectionContext {
   /** Returns true if request tracing should be enabled. */
   boolean isRequestTracingEnabled();
 
+  /** Returns maximum number of characters that can be contained in STRING columns. */
+  int getDefaultStringColumnLength();
+
   /** Returns true if driver return complex data type java objects natively as opposed to string */
   boolean isComplexDatatypeSupportEnabled();
 
@@ -241,6 +244,9 @@ public interface IDatabricksConnectionContext {
   int getUCIngestionRetryTimeoutSeconds();
 
   String getAzureWorkspaceResourceId();
+
+  /** Returns maximum number of rows that a query returns at a time. */
+  int getRowsFetchedPerBlock();
 
   /** Returns the passphrase used for encrypting/decrypting token cache */
   String getTokenCachePassPhrase();

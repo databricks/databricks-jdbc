@@ -3,7 +3,10 @@ package com.databricks.jdbc.dbclient.impl.common;
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -12,6 +15,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -19,6 +24,19 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 public class MetadataResultSetBuilderTest {
+
+  @BeforeEach
+  void setUp() {
+    DatabricksThreadContextHolder.setConnectionContext(
+        Mockito.mock(IDatabricksConnectionContext.class));
+    when(DatabricksThreadContextHolder.getConnectionContext().getDefaultStringColumnLength())
+        .thenReturn(255);
+  }
+
+  @AfterEach
+  void tearDown() {
+    DatabricksThreadContextHolder.clearAllContext();
+  }
 
   @Test
   void testGetCode() {
@@ -180,8 +198,8 @@ public class MetadataResultSetBuilderTest {
   void testGetRowsHandlesTableTypeColumn(String tableTypeValue, String expectedTableType)
       throws SQLException {
     ResultSet resultSet = mock(ResultSet.class);
-    Mockito.when(resultSet.next()).thenReturn(true).thenReturn(false);
-    Mockito.when(resultSet.getObject(TABLE_TYPE_COLUMN.getResultSetColumnName()))
+    when(resultSet.next()).thenReturn(true).thenReturn(false);
+    when(resultSet.getObject(TABLE_TYPE_COLUMN.getResultSetColumnName()))
         .thenReturn(tableTypeValue);
 
     List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, TABLE_COLUMNS);
@@ -208,8 +226,8 @@ public class MetadataResultSetBuilderTest {
   void testGetRowsHandlesNullableColumn(String isNullableValue, int expectedNullable)
       throws SQLException {
     ResultSet resultSet = mock(ResultSet.class);
-    Mockito.when(resultSet.next()).thenReturn(true).thenReturn(false);
-    Mockito.when(resultSet.getObject(IS_NULLABLE_COLUMN.getResultSetColumnName()))
+    when(resultSet.next()).thenReturn(true).thenReturn(false);
+    when(resultSet.getObject(IS_NULLABLE_COLUMN.getResultSetColumnName()))
         .thenReturn(isNullableValue);
 
     List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, COLUMN_COLUMNS);
@@ -223,9 +241,8 @@ public class MetadataResultSetBuilderTest {
   @MethodSource("getRowsColumnTypeArguments")
   void testGetRowsColumnType(String typeName, String expectedTypeName) throws SQLException {
     ResultSet resultSet = mock(ResultSet.class);
-    Mockito.when(resultSet.next()).thenReturn(true).thenReturn(false);
-    Mockito.when(resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName()))
-        .thenReturn(typeName);
+    when(resultSet.next()).thenReturn(true).thenReturn(false);
+    when(resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName())).thenReturn(typeName);
 
     List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, COLUMN_COLUMNS);
 
