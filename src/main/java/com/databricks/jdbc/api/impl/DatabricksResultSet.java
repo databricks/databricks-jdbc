@@ -518,7 +518,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public int findColumn(String columnLabel) throws SQLException {
     checkIfClosed();
-    return getColumnNameIndex(columnLabel);
+    int columnIndex = getColumnNameIndex(columnLabel);
+    if (columnIndex == -1) {
+      LOGGER.error("Column not found: " + columnLabel);
+      throw new SQLException("Column not found: " + columnLabel);
+    }
+    return columnIndex;
   }
 
   @Override

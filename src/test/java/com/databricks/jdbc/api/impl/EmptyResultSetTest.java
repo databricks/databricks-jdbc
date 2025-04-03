@@ -132,8 +132,8 @@ public class EmptyResultSetTest {
   }
 
   @Test
-  public void testFindColumn() throws SQLException {
-    assertEquals(resultSet.findColumn("column"), 0);
+  public void testFindColumn() {
+    assertThrows(SQLException.class, () -> resultSet.findColumn("column"));
   }
 
   @Test

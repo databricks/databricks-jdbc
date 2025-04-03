@@ -1089,7 +1089,7 @@ public class EmptyResultSet
   @Override
   public int findColumn(String columnLabel) throws SQLException {
     checkIfClosed();
-    return 0;
+    throw new SQLException("Column not found: " + columnLabel);
   }
 
   @Override
