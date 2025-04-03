@@ -665,6 +665,27 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public List<Integer> getOAuth2RedirectUrlPorts() {
+    String portsStr = getParameter(DatabricksJdbcUrlParams.OAUTH_REDIRECT_URL_PORT);
+
+    try {
+      // Parse comma-separated list of ports
+      return Arrays.stream(portsStr.split(","))
+          .map(String::trim)
+          .filter(s -> !s.isEmpty())
+          .map(Integer::parseInt)
+          .collect(Collectors.toList());
+    } catch (NumberFormatException e) {
+      LOGGER.warn(
+          "Invalid port format in OAuth2RedirectUrlPort: {}. Using default port {}.",
+          portsStr,
+          DatabricksJdbcUrlParams.OAUTH_REDIRECT_URL_PORT.getDefaultValue());
+      return List.of(
+          Integer.parseInt(DatabricksJdbcUrlParams.OAUTH_REDIRECT_URL_PORT.getDefaultValue()));
+    }
+  }
+
+  @Override
   public Boolean getUseEmptyMetadata() {
     String param = getParameter(DatabricksJdbcUrlParams.USE_EMPTY_METADATA);
     return param != null && param.equals("1");
