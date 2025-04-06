@@ -792,6 +792,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return maxRows;
   }
 
+  /** {@inheritDoc} */
+  @Override
+  public int getSocketTimeout() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.SOCKET_TIMEOUT));
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }

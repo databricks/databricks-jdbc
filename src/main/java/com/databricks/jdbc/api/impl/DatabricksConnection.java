@@ -44,8 +44,8 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   public DatabricksConnection(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     this.connectionContext = connectionContext;
-    this.session = new DatabricksSession(connectionContext);
     DatabricksThreadContextHolder.setConnectionContext(connectionContext);
+    this.session = new DatabricksSession(connectionContext);
   }
 
   @VisibleForTesting

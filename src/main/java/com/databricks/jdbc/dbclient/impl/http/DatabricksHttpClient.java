@@ -45,8 +45,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksHttpClient.class);
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS = 1000;
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE = 1000;
-  private static final int DEFAULT_HTTP_CONNECTION_TIMEOUT = 60 * 1000; // ms
-  private static final int DEFAULT_HTTP_CLIENT_SOCKET_TIMEOUT = 300 * 1000; // ms
   private final PoolingHttpClientConnectionManager connectionManager;
   private final CloseableHttpClient httpClient;
   private IdleConnectionEvictor idleConnectionEvictor;
@@ -134,11 +132,12 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     return connectionManager;
   }
 
-  private RequestConfig makeRequestConfig() {
+  private RequestConfig makeRequestConfig(int timeoutSeconds) {
+    int timeoutMillis = timeoutSeconds * 1000;
     return RequestConfig.custom()
-        .setConnectionRequestTimeout(DEFAULT_HTTP_CONNECTION_TIMEOUT)
-        .setConnectTimeout(DEFAULT_HTTP_CONNECTION_TIMEOUT)
-        .setSocketTimeout(DEFAULT_HTTP_CLIENT_SOCKET_TIMEOUT)
+        .setConnectionRequestTimeout(timeoutMillis)
+        .setConnectTimeout(timeoutMillis)
+        .setSocketTimeout(timeoutMillis)
         .build();
   }
 
@@ -152,7 +151,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)
             .setUserAgent(UserAgentManager.getUserAgentString())
-            .setDefaultRequestConfig(makeRequestConfig())
+            .setDefaultRequestConfig(makeRequestConfig(connectionContext.getSocketTimeout()))
             .setRetryHandler(retryHandler)
             .addInterceptorFirst(retryHandler);
     setupProxy(connectionContext, builder);

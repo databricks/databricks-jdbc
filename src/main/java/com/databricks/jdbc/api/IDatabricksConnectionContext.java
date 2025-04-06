@@ -247,4 +247,7 @@ public interface IDatabricksConnectionContext {
 
   /** Returns maximum number of rows that a query returns at a time. */
   int getRowsFetchedPerBlock();
+
+  /** Returns the socket timeout in seconds for HTTP connections. */
+  int getSocketTimeout();
 }

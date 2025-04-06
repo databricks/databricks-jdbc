@@ -21,7 +21,6 @@ import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.utils.Cloud;
-import java.security.cert.*;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
@@ -40,6 +39,7 @@ public class ClientConfigurator {
     this.connectionContext = connectionContext;
     this.databricksConfig = new DatabricksConfig();
     CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
+    httpClientBuilder.withTimeoutSeconds(connectionContext.getSocketTimeout());
     setupProxyConfig(httpClientBuilder);
     setupConnectionManager(httpClientBuilder);
     this.databricksConfig.setHttpClient(httpClientBuilder.build());
