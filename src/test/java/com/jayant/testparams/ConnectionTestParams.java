@@ -87,7 +87,7 @@ public class ConnectionTestParams implements TestParams {
     putInMapForKey(
         functionToArgsMap,
         Map.entry("createArrayOf", 2),
-        new Object[] {"String", new Object[] {"String1", "String2", "String3"}});
+        new Object[] {"INTEGER", new Object[] {1, 2, 3}});
     putInMapForKey(
         functionToArgsMap,
         Map.entry("createStruct", 2),
