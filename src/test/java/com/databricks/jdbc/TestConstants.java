@@ -220,6 +220,9 @@ public class TestConstants {
   public static final String VALID_URL_WITH_CONN_CATALOG_CONN_SCHEMA_NOT_PROVIDED_WITHOUT_SCHEMA =
       "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;VolumeOperationAllowedLocalPaths=/tmp2;";
 
+  public static final String VALID_URL_WITH_CUSTOM_HEADERS =
+      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;LogLevel=debug;LogPath=./test1;auth_flow=2;http.header.HEADER_KEY_1=headerValue1;http.header.headerKey2=headerValue2;";
+
   public static final List<TSparkArrowBatch> ARROW_BATCH_LIST =
       Collections.singletonList(
           new TSparkArrowBatch().setRowCount(0).setBatch(new byte[] {65, 66, 67}));

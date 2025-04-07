@@ -37,6 +37,7 @@ public enum DatabricksJdbcUrlParams {
   PWD("pwd", "Password (used when AUTH_MECH = 3)", true),
   POLL_INTERVAL("asyncexecpollinterval", "Async execution poll interval", "200"),
   HTTP_PATH("httppath", "HTTP path", true),
+  HTTP_HEADERS("http.header.", "Custom HTTP headers"),
   SSL("ssl", "Use SSL"),
   USE_THRIFT_CLIENT("usethriftclient", "Use Thrift client", "1"),
   RATE_LIMIT_RETRY_TIMEOUT("RateLimitRetryTimeout", "Rate limit retry timeout", "120"),

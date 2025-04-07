@@ -380,6 +380,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.debug("Tracing header for method {%s}: [%s]", method, traceHeader);
       headers.put(TracingUtil.TRACE_HEADER, traceHeader);
     }
+
+    // Overriding with URL defined headers
+    headers.putAll(this.connectionContext.getCustomHeaders());
     return headers;
   }
 
