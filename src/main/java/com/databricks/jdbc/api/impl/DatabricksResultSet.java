@@ -521,7 +521,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     int columnIndex = getColumnNameIndex(columnLabel);
     if (columnIndex == -1) {
       LOGGER.error("Column not found: " + columnLabel);
-      throw new SQLException("Column not found: " + columnLabel);
+      throw new DatabricksSQLException("Column not found: " + columnLabel, DatabricksDriverErrorCode.RESULT_SET_ERROR);
     }
     return columnIndex;
   }

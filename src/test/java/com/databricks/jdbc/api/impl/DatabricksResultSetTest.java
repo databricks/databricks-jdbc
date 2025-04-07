@@ -1014,7 +1014,7 @@ public class DatabricksResultSetTest {
 
     // Verify that findColumn throws SQLException for non-existent column
     SQLException exception =
-        assertThrows(SQLException.class, () -> resultSet.findColumn("nonExistentColumn"));
+        assertThrows(DatabricksSQLException.class, () -> resultSet.findColumn("nonExistentColumn"));
 
     // Verify the exception message
     assertTrue(exception.getMessage().contains("Column not found"));
