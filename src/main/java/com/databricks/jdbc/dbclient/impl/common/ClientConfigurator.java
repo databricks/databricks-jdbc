@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.AzureMSICredentialProvider;
 import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;

@@ -12,6 +12,7 @@ import com.databricks.client.jdbc.Driver;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;

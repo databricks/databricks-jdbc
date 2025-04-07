@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.util.UserAgentManager.getUserAgentStrin
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
