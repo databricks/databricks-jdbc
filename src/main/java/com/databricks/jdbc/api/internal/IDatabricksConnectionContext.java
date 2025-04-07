@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api;
+package com.databricks.jdbc.api.internal;
 
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.exception.DatabricksParsingException;
