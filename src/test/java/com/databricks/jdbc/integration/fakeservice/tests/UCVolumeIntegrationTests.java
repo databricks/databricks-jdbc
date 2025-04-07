@@ -355,6 +355,7 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
     Properties connProps = new Properties();
     connProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
     connProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
+    connProps.put(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
     connProps.put(
         DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
         FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));

@@ -91,7 +91,7 @@ public enum DatabricksJdbcUrlParams {
   ENABLE_REQUEST_TRACING("EnableRequestTracing", "flag to enable request tracing", "0"),
   HTTP_CONNECTION_POOL_SIZE("HttpConnectionPoolSize", "Maximum HTTP connection pool size", "100"),
   ENABLE_SQL_EXEC_HYBRID_RESULTS(
-      "EnableSQLExecHybridResults", "flag to enable hybrid results", "0"),
+      "EnableSQLExecHybridResults", "flag to enable hybrid results", "1"),
   ENABLE_COMPLEX_DATATYPE_SUPPORT(
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",
