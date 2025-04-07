@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
@@ -133,7 +134,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testFindColumn() {
-    assertThrows(SQLException.class, () -> resultSet.findColumn("column"));
+    assertThrows(DatabricksSQLException.class, () -> resultSet.findColumn("column"));
   }
 
   @Test

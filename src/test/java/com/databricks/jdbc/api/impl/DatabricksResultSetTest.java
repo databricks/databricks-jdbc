@@ -1028,7 +1028,7 @@ public class DatabricksResultSetTest {
 
     // Verify that findColumn throws SQLException when result set is closed
     SQLException exception =
-        assertThrows(SQLException.class, () -> resultSet.findColumn("anyColumn"));
+        assertThrows(DatabricksSQLException.class, () -> resultSet.findColumn("anyColumn"));
 
     // Verify the exception message
     assertTrue(exception.getMessage().contains("ResultSet is closed"));
