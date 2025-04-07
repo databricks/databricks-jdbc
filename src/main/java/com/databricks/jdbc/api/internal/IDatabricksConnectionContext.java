@@ -175,6 +175,13 @@ public interface IDatabricksConnectionContext {
   Map<String, String> getClientInfoProperties();
 
   /**
+   * Returns the custom headers set in the JDBC connection string.
+   *
+   * @return Map of custom headers
+   */
+  Map<String, String> getCustomHeaders();
+
+  /**
    * Checks if the compute resource is an all-purpose cluster
    *
    * @return true if all-purpose cluster, false otherwise
