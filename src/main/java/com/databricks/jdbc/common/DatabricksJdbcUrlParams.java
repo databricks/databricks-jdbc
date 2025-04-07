@@ -107,7 +107,7 @@ public enum DatabricksJdbcUrlParams {
       "DefaultStringColumnLength",
       "Maximum number of characters that can be contained in STRING columns",
       "255"),
-  SOCKET_TIMEOUT("socketTimeout", "Socket timeout in seconds", "300");
+  SOCKET_TIMEOUT("socketTimeout", "Socket timeout in seconds", "900");
 
   private final String paramName;
   private final String defaultValue;
