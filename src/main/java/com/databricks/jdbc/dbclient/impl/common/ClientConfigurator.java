@@ -21,8 +21,12 @@ import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.utils.Cloud;
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.security.cert.*;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
@@ -129,14 +133,79 @@ public class ClientConfigurator {
 
   /** Setup the OAuth U2M authentication settings in the databricks config. */
   public void setupU2MConfig() throws DatabricksParsingException {
+    int redirectPort = findAvailablePort(connectionContext.getOAuth2RedirectUrlPorts());
+    String redirectUrl = String.format("http://localhost:%d", redirectPort);
+
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.U2M_AUTH_TYPE)
         .setHost(connectionContext.getHostForOAuth())
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret())
-        .setOAuthRedirectUrl(DatabricksJdbcConstants.U2M_AUTH_REDIRECT_URL);
+        .setOAuthRedirectUrl(redirectUrl);
+
+    LOGGER.info("Using OAuth redirect URL: {}", redirectUrl);
+
     if (!databricksConfig.isAzure()) {
       databricksConfig.setScopes(connectionContext.getOAuthScopesForU2M());
+    }
+  }
+
+  /**
+   * Finds the first available port from the provided list of ports. If a single port is provided,
+   * it tries incremental ports (port, port+1, port+2, etc.) If multiple ports are provided, it
+   * tries each port in the list.
+   *
+   * @param initialPorts List of ports to try
+   * @return The first available port
+   * @throws DatabricksException if no available port is found
+   */
+  int findAvailablePort(List<Integer> initialPorts) {
+    List<Integer> portsToTry;
+
+    // If single port provided, generate sequence of ports to try
+    if (initialPorts.size() == 1) {
+      int startPort = initialPorts.get(0);
+      int maxAttempts = 20;
+      portsToTry = new ArrayList<>(maxAttempts);
+      for (int i = 0; i < maxAttempts; i++) {
+        portsToTry.add(startPort + i);
+      }
+      LOGGER.debug(
+          "Single port provided ({}), will try ports {} through {}",
+          startPort,
+          startPort,
+          startPort + maxAttempts - 1);
+    } else {
+      portsToTry = initialPorts;
+      LOGGER.debug("Multiple ports provided, will try: {}", portsToTry);
+    }
+
+    // Try each port in the list
+    for (int port : portsToTry) {
+      if (isPortAvailable(port)) {
+        return port;
+      }
+      LOGGER.debug("Port {} is not available, trying next port", port);
+    }
+
+    // No available ports found
+    LOGGER.error("No available ports found among: {}", portsToTry);
+    throw new DatabricksException(
+        "No available port found for OAuth redirect URL. Tried ports: " + portsToTry);
+  }
+
+  /**
+   * Checks if a port is available by trying to open a server socket on it.
+   *
+   * @param port Port to check
+   * @return true if the port is available, false otherwise
+   */
+  boolean isPortAvailable(int port) {
+    try (ServerSocket serverSocket = new ServerSocket(port)) {
+      serverSocket.setReuseAddress(true);
+      return true;
+    } catch (IOException e) {
+      return false;
     }
   }
 

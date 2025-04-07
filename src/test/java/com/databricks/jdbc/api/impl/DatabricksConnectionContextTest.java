@@ -450,4 +450,48 @@ class DatabricksConnectionContextTest {
     assertEquals(getLogLevel(5), LogLevel.DEBUG);
     assertEquals(getLogLevel(6), LogLevel.TRACE);
   }
+
+  @Test
+  public void testGetOAuth2RedirectUrlPorts() throws DatabricksSQLException {
+    // Test default value
+    Properties props = new Properties();
+    DatabricksConnectionContext context =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
+    List<Integer> ports = context.getOAuth2RedirectUrlPorts();
+    assertEquals(1, ports.size());
+    assertEquals(8020, ports.get(0)); // Default value
+
+    // Test single port
+    props = new Properties();
+    props.setProperty("OAuth2RedirectUrlPort", "9090");
+    context =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
+    ports = context.getOAuth2RedirectUrlPorts();
+    assertEquals(1, ports.size());
+    assertEquals(9090, ports.get(0));
+
+    // Test multiple ports
+    props = new Properties();
+    props.setProperty("OAuth2RedirectUrlPort", "9090,9091,9092");
+    context =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
+    ports = context.getOAuth2RedirectUrlPorts();
+    assertEquals(3, ports.size());
+    assertEquals(9090, ports.get(0));
+    assertEquals(9091, ports.get(1));
+    assertEquals(9092, ports.get(2));
+
+    // Test invalid format - should fallback to default
+    props = new Properties();
+    props.setProperty("OAuth2RedirectUrlPort", "invalid");
+    context =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
+    ports = context.getOAuth2RedirectUrlPorts();
+    assertEquals(1, ports.size());
+    assertEquals(8020, ports.get(0)); // Default value when format is invalid
+  }
 }

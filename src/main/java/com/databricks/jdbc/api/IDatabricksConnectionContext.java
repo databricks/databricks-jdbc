@@ -181,6 +181,9 @@ public interface IDatabricksConnectionContext {
    */
   String getOAuthRefreshToken();
 
+  /** Returns the list of OAuth2 redirect URL ports used for OAuth authentication. */
+  List<Integer> getOAuth2RedirectUrlPorts();
+
   String getGcpAuthType() throws DatabricksParsingException;
 
   String getGoogleServiceAccount();
