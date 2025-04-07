@@ -377,6 +377,16 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void testParsingOfCustomHeaders() throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_WITH_CUSTOM_HEADERS, properties);
+    assertEquals("headerValue1", connectionContext.getCustomHeaders().get("HEADER_KEY_1"));
+    assertEquals("headerValue2", connectionContext.getCustomHeaders().get("headerKey2"));
+  }
+
+  @Test
   public void testGetVolumeOperationPathsFlag() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(

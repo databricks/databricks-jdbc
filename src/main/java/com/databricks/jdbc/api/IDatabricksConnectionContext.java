@@ -78,6 +78,13 @@ public interface IDatabricksConnectionContext {
 
   Map<String, String> getClientInfoProperties();
 
+  /**
+   * Returns the custom headers set in the JDBC connection string.
+   *
+   * @return Map of custom headers
+   */
+  Map<String, String> getCustomHeaders();
+
   boolean isAllPurposeCluster();
 
   String getHttpPath();
