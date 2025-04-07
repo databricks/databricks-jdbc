@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
-import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

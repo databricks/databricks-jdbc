@@ -7,7 +7,6 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.DatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
-import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;

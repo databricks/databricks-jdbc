@@ -1,7 +1,6 @@
 package com.databricks.jdbc.dbclient;
 
 import com.databricks.jdbc.api.impl.*;
-import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.IDatabricksComputeResource;

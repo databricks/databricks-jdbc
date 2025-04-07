@@ -3,7 +3,6 @@ package com.databricks.jdbc.telemetry;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
-import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.util.Properties;
