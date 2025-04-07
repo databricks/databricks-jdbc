@@ -29,7 +29,8 @@ public interface IDatabricksStatement extends Statement {
    * Retrieves the result set for a previously executed statement. This method should be called
    * after executing a statement using {@link #executeAsync(String)} to get the actual results.
    *
-   * @return A {@link ResultSet} containing the results of the statement execution
+   * @return A {@link ResultSet} containing the results of the statement execution in case of
+   *     successful completion, else handle for the result status.
    * @throws SQLException if the statement was never executed, has been closed, or if a database
    *     access error occurs
    */
