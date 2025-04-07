@@ -1,5 +1,6 @@
 package com.databricks.jdbc.common.util;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -193,6 +194,19 @@ public class DatabricksTypeUtil {
     }
   }
 
+  /*
+   * Returns default precision and scale based on column type. For string columns, returns the default string col length in precision.
+   */
+  public static int[] getBasePrecisionAndScale(int columnType) {
+    if (columnType == Types.VARCHAR || columnType == Types.CHAR) {
+      IDatabricksConnectionContext ctx = DatabricksThreadContextHolder.getConnectionContext();
+      return new int[] {ctx.getDefaultStringColumnLength(), 0};
+    }
+    return new int[] {
+      DatabricksTypeUtil.getPrecision(columnType), DatabricksTypeUtil.getScale(columnType)
+    };
+  }
+
   private static int calculateDisplaySize(int scale, int precision) {
     // scale = precision => only fractional digits. +3 for decimal point, sign and leading zero
     // scale = 0 => only integral part. +1 for sign
@@ -213,6 +227,7 @@ public class DatabricksTypeUtil {
       case BINARY:
         return precision + 1; // including negative sign
       case CHAR:
+      case STRING:
         return precision;
       case FLOAT:
         return 14;
@@ -230,7 +245,6 @@ public class DatabricksTypeUtil {
       case NULL:
         return 4; // Length of `NULL`
       case ARRAY:
-      case STRING:
       case STRUCT:
       default:
         return 255;

@@ -82,17 +82,31 @@ public enum DatabricksJdbcUrlParams {
   MAX_BATCH_SIZE("MaxBatchSize", "Maximum batch size", "500"),
   ALLOWED_VOLUME_INGESTION_PATHS("VolumeOperationAllowedLocalPaths", ""),
   ALLOWED_STAGING_INGESTION_PATHS("StagingAllowedLocalPaths", ""),
+  UC_INGESTION_RETRIABLE_HTTP_CODE(
+      "UCIngestionRetriableHttpCode", "Retriable HTTP codes for UC Ingestion", "408,502,503,504"),
+  UC_INGESTION_RETRY_TIMEOUT(
+      "UCIngestionRetryTimeout",
+      "The retry timeout in minutes for UC Ingestion HTTP requests.",
+      "15"),
   ENABLE_REQUEST_TRACING("EnableRequestTracing", "flag to enable request tracing", "0"),
   HTTP_CONNECTION_POOL_SIZE("HttpConnectionPoolSize", "Maximum HTTP connection pool size", "100"),
   ENABLE_SQL_EXEC_HYBRID_RESULTS(
-      "EnableSQLExecHybridResults", "flag to enable hybrid results", "0"),
+      "EnableSQLExecHybridResults", "flag to enable hybrid results", "1"),
   ENABLE_COMPLEX_DATATYPE_SUPPORT(
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",
       "0"),
-  AZURE_TENANT_ID("AzureTenantId", "Azure tenant ID"),
+  ROWS_FETCHED_PER_BLOCK(
+      "RowsFetchedPerBlock",
+      "The maximum number of rows that a query returns at a time.",
+      "2000000"), // works only for inline results.
   AZURE_WORKSPACE_RESOURCE_ID(
-      "azure_workspace_resource_id", "Resource ID of Azure Databricks workspace");
+      "azure_workspace_resource_id", "Resource ID of Azure Databricks workspace"),
+  AZURE_TENANT_ID("AzureTenantId", "Azure tenant ID"),
+  DEFAULT_STRING_COLUMN_LENGTH(
+      "DefaultStringColumnLength",
+      "Maximum number of characters that can be contained in STRING columns",
+      "255");
 
   private final String paramName;
   private final String defaultValue;

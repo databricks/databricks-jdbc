@@ -23,14 +23,16 @@ public class DatabricksHttpRetryHandler
     implements HttpResponseInterceptor, HttpRequestRetryHandler {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksHttpRetryHandler.class);
-  private static final String RETRY_INTERVAL_KEY = "retryInterval";
+
+  static final String RETRY_INTERVAL_KEY = "retryInterval";
   private static final String TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY =
       "tempUnavailableAccumulatedTime";
   private static final String RATE_LIMIT_ACCUMULATED_TIME_KEY = "rateLimitAccumulatedTime";
-  private static final String RETRY_AFTER_HEADER = "Retry-After";
+  static final String RETRY_AFTER_HEADER = "Retry-After";
   private static final int DEFAULT_BACKOFF_FACTOR = 2; // Exponential factor
   private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
   private static final int MAX_RETRY_INTERVAL = 10 * 1000; // 10s
+
   private final IDatabricksConnectionContext connectionContext;
 
   public DatabricksHttpRetryHandler(IDatabricksConnectionContext connectionContext) {
@@ -214,13 +216,13 @@ public class DatabricksHttpRetryHandler
     }
   }
 
-  private static long calculateExponentialBackoff(int executionCount) {
+  static long calculateExponentialBackoff(int executionCount) {
     return Math.min(
         MIN_BACKOFF_INTERVAL * (long) Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount),
         MAX_RETRY_INTERVAL);
   }
 
-  private static int getErrorCodeFromException(IOException exception) {
+  static int getErrorCodeFromException(IOException exception) {
     if (exception instanceof DatabricksRetryHandlerException) {
       return ((DatabricksRetryHandlerException) exception).getErrCode();
     }

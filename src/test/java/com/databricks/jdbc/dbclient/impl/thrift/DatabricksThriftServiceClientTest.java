@@ -88,6 +88,7 @@ public class DatabricksThriftServiceClientTest {
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     when(parentStatement.getStatement()).thenReturn(statement);
+    when(parentStatement.getMaxRows()).thenReturn(10);
     when(statement.getQueryTimeout()).thenReturn(10);
     TSparkArrowTypes arrowNativeTypes =
         new TSparkArrowTypes()
@@ -102,6 +103,7 @@ public class DatabricksThriftServiceClientTest {
             .setSessionHandle(SESSION_HANDLE)
             .setCanReadArrowResult(true)
             .setQueryTimeout(10)
+            .setResultRowLimit(10)
             .setCanDecompressLZ4Result(true)
             .setCanDownloadResult(true)
             .setParameters(Collections.emptyList())
@@ -127,6 +129,7 @@ public class DatabricksThriftServiceClientTest {
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     when(parentStatement.getStatement()).thenReturn(statement);
+    when(parentStatement.getMaxRows()).thenReturn(10);
     when(statement.getQueryTimeout()).thenReturn(20);
     TSparkArrowTypes arrowNativeTypes =
         new TSparkArrowTypes()
@@ -139,6 +142,7 @@ public class DatabricksThriftServiceClientTest {
         new TExecuteStatementReq()
             .setStatement(TEST_STRING)
             .setQueryTimeout(20)
+            .setResultRowLimit(10)
             .setSessionHandle(SESSION_HANDLE)
             .setCanReadArrowResult(true)
             .setCanDecompressLZ4Result(true)

@@ -1,7 +1,10 @@
 package com.databricks.jdbc.common.util;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.sql.Date;
@@ -259,5 +262,43 @@ class DatabricksTypeUtilTest {
     assertEquals(0, DatabricksTypeUtil.getScale(Types.DECIMAL));
     assertEquals(0, DatabricksTypeUtil.getScale(Types.VARCHAR));
     assertEquals(0, DatabricksTypeUtil.getScale(null));
+  }
+
+  @Test
+  void testGetBasePrecisionAndScale() {
+    // Mock the connection context
+    final int defaultStringLength = 128;
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getDefaultStringColumnLength()).thenReturn(defaultStringLength);
+
+    // Set the mock context in thread local
+    DatabricksThreadContextHolder.setConnectionContext(mockContext);
+
+    try {
+      // Test string types (should return default string length)
+      int[] varcharResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.VARCHAR);
+      assertEquals(defaultStringLength, varcharResult[0]);
+      assertEquals(0, varcharResult[1]);
+
+      int[] charResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.CHAR);
+      assertEquals(defaultStringLength, charResult[0]);
+      assertEquals(0, charResult[1]);
+
+      // Test numeric types
+      int[] decimalResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.DECIMAL);
+      assertEquals(10, decimalResult[0]); // Precision for DECIMAL
+      assertEquals(0, decimalResult[1]); // Scale for DECIMAL
+
+      int[] integerResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.INTEGER);
+      assertEquals(10, integerResult[0]); // Precision for INTEGER
+      assertEquals(0, integerResult[1]); // Scale for INTEGER
+
+      int[] timestampResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.TIMESTAMP);
+      assertEquals(29, timestampResult[0]); // Precision for TIMESTAMP
+      assertEquals(9, timestampResult[1]); // Scale for TIMESTAMP
+    } finally {
+      // Clean up thread local
+      DatabricksThreadContextHolder.clearAllContext();
+    }
   }
 }

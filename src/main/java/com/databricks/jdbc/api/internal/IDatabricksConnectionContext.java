@@ -594,6 +594,9 @@ public interface IDatabricksConnectionContext {
    */
   boolean isRequestTracingEnabled();
 
+  /** Returns maximum number of characters that can be contained in STRING columns. */
+  int getDefaultStringColumnLength();
+
   /**
    * Returns true if driver return complex data type java objects natively as opposed to string
    *
@@ -608,10 +611,19 @@ public interface IDatabricksConnectionContext {
    */
   int getHttpConnectionPoolSize();
 
+  /** Returns the list of HTTP codes to retry for UC Volume Ingestion */
+  List<Integer> getUCIngestionRetriableHttpCodes();
+
+  /** Returns retry timeout in seconds for UC Volume Ingestion */
+  int getUCIngestionRetryTimeoutSeconds();
+
   /**
    * Returns the Azure workspace resource ID
    *
    * @return Azure workspace resource ID
    */
   String getAzureWorkspaceResourceId();
+
+  /** Returns maximum number of rows that a query returns at a time. */
+  int getRowsFetchedPerBlock();
 }

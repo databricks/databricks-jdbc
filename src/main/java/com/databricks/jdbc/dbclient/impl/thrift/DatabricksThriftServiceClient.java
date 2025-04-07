@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSION;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
@@ -203,6 +204,13 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setCanDownloadResult(true)
             .setParameters(sparkParameters)
             .setUseArrowNativeTypes(arrowNativeTypes);
+
+    if (parentStatement.getMaxRows()
+        != DEFAULT_RESULT_ROW_LIMIT) { // set request param only if user has set maxRows. Similar
+      // behavior
+      // to SEA flow
+      request.setResultRowLimit(parentStatement.getMaxRows());
+    }
 
     if (runAsync || !DriverUtil.isRunningAgainstFake()) {
       request.setRunAsync(true);

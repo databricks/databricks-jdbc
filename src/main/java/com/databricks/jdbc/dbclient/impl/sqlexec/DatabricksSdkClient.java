@@ -2,7 +2,7 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
-import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
@@ -17,6 +17,7 @@ import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
 import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -181,8 +182,19 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (parentStatement != null) {
       parentStatement.setStatementId(typedStatementId);
     }
+
+    int timeoutInSeconds =
+        parentStatement != null ? parentStatement.getStatement().getQueryTimeout() : 0;
+
+    // Create timeout handler
+    TimeoutHandler timeoutHandler =
+        TimeoutHandler.forStatement(timeoutInSeconds, typedStatementId, this);
+
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
+      // Check for timeout
+      timeoutHandler.checkTimeout();
+
       if (pollCount > 0) { // First poll happens without a delay
         try {
           Thread.sleep(connectionContext.getAsyncExecPollInterval());
@@ -387,7 +399,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
             : Disposition.EXTERNAL_LINKS;
     Disposition disposition =
         useCloudFetchForResult(statementType) ? defaultDisposition : Disposition.INLINE;
-    long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
+    long maxRows =
+        (parentStatement == null) ? DEFAULT_RESULT_ROW_LIMIT : parentStatement.getMaxRows();
     CompressionCodec compressionCodec = session.getCompressionCodec();
     if (disposition.equals(Disposition.INLINE)) {
       LOGGER.debug("Results are inline, skipping compression.");
@@ -411,7 +424,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           .setWaitTimeout(SYNC_TIMEOUT_VALUE)
           .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE);
     }
-    if (maxRows != DEFAULT_ROW_LIMIT) {
+    if (maxRows != DEFAULT_RESULT_ROW_LIMIT) {
       request.setRowLimit(maxRows);
     }
     return request;

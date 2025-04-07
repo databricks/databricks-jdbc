@@ -171,6 +171,8 @@ public class IntegrationTestUtil {
     Properties connectionProperties = new Properties();
     connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
     connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
+    connectionProperties.put(
+        DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
 
     if (DriverUtil.isRunningAgainstFake()) {
       connectionProperties.put(
@@ -202,6 +204,8 @@ public class IntegrationTestUtil {
       throws SQLException {
     connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
     connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
+    connectionProperties.put(
+        DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
 
     if (DriverUtil.isRunningAgainstFake()) {
       connectionProperties.put(

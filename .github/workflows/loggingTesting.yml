@@ -10,6 +10,7 @@ jobs:
       fail-fast: false
       matrix:
         github-runner: [linux-ubuntu-latest, windows-server-latest]
+        thrift-client: [0, 1]
 
     runs-on:
       group: databricks-protected-runner-group
@@ -35,15 +36,32 @@ jobs:
         run: mvn clean package -DskipTests
 
       - name: Set Environment Variables
+        if: runner.os != 'Windows'
         shell: bash
         env:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          USE_THRIFT_CLIENT: ${{ matrix.thrift-client }}
         run: |
           echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
           echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
           echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+          echo "USE_THRIFT_CLIENT=${USE_THRIFT_CLIENT}" >> $GITHUB_ENV
+
+      - name: Set Environment Variables (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          USE_THRIFT_CLIENT: ${{ matrix.thrift-client }}
+        run: |
+          "DATABRICKS_TOKEN=$env:DATABRICKS_TOKEN" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DATABRICKS_HOST=$env:DATABRICKS_HOST" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "DATABRICKS_HTTP_PATH=$env:DATABRICKS_HTTP_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "USE_THRIFT_CLIENT=$env:USE_THRIFT_CLIENT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Clean & Compile LoggingTest
         shell: bash
@@ -62,7 +80,7 @@ jobs:
       - name: Run LoggingTest
         shell: bash
         run: |
-          echo "==== Running LoggingTest ===="
+          echo "==== Running LoggingTest with usethriftclient=${{ matrix.thrift-client }} ===="
           OS_TYPE=$(uname | tr '[:upper:]' '[:lower:]')
           if [[ "$OS_TYPE" == "linux" ]]; then SEP=":"; else SEP=";"; fi
           echo "Using classpath separator: '$SEP'"
@@ -83,23 +101,24 @@ jobs:
           if [ -f "$LOG_FILE" ]; then
             echo "Log file found. Checking contents..."
           
-            REQUIRED_STRINGS=("Executed sql [SELECT 1] with status [SUCCEEDED]"
-                              "Executing HTTP request"
+            REQUIRED_STRINGS=("Executing HTTP request"
                               "Result retrieved successfully"
-                              "Parsing data for chunk index [0]"
-                              "Data parsed for chunk index [0]"
                               "Closing global async HTTP client"
                               "Global async HTTP client has been shut down")
 
             for STRING in "${REQUIRED_STRINGS[@]}"; do
               if ! grep -qF "$STRING" "$LOG_FILE"; then
                 echo "ERROR: Required log string not found: $STRING"
+                echo "Showing last 100 lines of log file:"
+                tail -n 100 "$LOG_FILE"
                 exit 1
               fi
             done
 
             echo "All required log strings were found."
           else
+            echo "Log file directory contents:"
+            ls -la "${LOG_DIR}" || echo "Directory does not exist"
             echo "Log file ${LOG_FILE} does not exist. Failing the build."
             exit 1
           fi

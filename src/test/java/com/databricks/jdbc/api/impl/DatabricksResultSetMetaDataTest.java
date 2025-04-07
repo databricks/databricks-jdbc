@@ -5,9 +5,12 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTy
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -18,10 +21,13 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.*;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 public class DatabricksResultSetMetaDataTest {
   private static final StatementId STATEMENT_ID = new StatementId("statementId");
@@ -29,16 +35,25 @@ public class DatabricksResultSetMetaDataTest {
       StatementId.deserialize(
           "01efc77c-7c8b-1a8e-9ecb-a9a6e6aa050a|338d529d-8272-46eb-8482-cb419466839d");
 
+  @BeforeEach
+  void setUp() {
+    DatabricksThreadContextHolder.setConnectionContext(
+        Mockito.mock(IDatabricksConnectionContext.class));
+    when(DatabricksThreadContextHolder.getConnectionContext().getDefaultStringColumnLength())
+        .thenReturn(255);
+  }
+
+  @AfterEach
+  void tearDown() {
+    DatabricksThreadContextHolder.clearAllContext();
+  }
+
   static Stream<TSparkRowSetType> thriftResultFormats() {
     return Stream.of(
         TSparkRowSetType.ARROW_BASED_SET,
         TSparkRowSetType.COLUMN_BASED_SET,
         TSparkRowSetType.ROW_BASED_SET,
         TSparkRowSetType.URL_BASED_SET);
-  }
-
-  static Stream<Format> sdkResultFormats() {
-    return Stream.of(Format.ARROW_STREAM, Format.CSV, Format.JSON_ARRAY);
   }
 
   public ColumnInfo getColumn(String name, ColumnInfoTypeName typeName, String typeText) {
@@ -247,25 +262,25 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
-  public void testGetScaleAndPrecisionWithColumnInfo() throws SQLException {
+  public void testGetPrecisionAndScaleWithColumnInfo() throws SQLException {
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, getResultManifest(), false);
     ColumnInfo decimalColumnInfo = getColumn("col1", ColumnInfoTypeName.DECIMAL, "decimal");
     decimalColumnInfo.setTypePrecision(10L);
     decimalColumnInfo.setTypeScale(2L);
 
-    int[] scaleAndPrecision =
-        metaData.getScaleAndPrecision(
+    int[] precisionAndScale =
+        metaData.getPrecisionAndScale(
             decimalColumnInfo, DatabricksTypeUtil.getColumnType(decimalColumnInfo.getTypeName()));
-    assertEquals(10, scaleAndPrecision[0]);
-    assertEquals(2, scaleAndPrecision[1]);
+    assertEquals(10, precisionAndScale[0]);
+    assertEquals(2, precisionAndScale[1]);
 
     ColumnInfo stringColumnInfo = getColumn("col2", ColumnInfoTypeName.STRING, "string");
-    scaleAndPrecision =
-        metaData.getScaleAndPrecision(
+    precisionAndScale =
+        metaData.getPrecisionAndScale(
             stringColumnInfo, DatabricksTypeUtil.getColumnType(stringColumnInfo.getTypeName()));
-    assertEquals(255, scaleAndPrecision[0]);
-    assertEquals(0, scaleAndPrecision[1]);
+    assertEquals(255, precisionAndScale[0]);
+    assertEquals(0, precisionAndScale[1]);
   }
 
   @Test
@@ -295,7 +310,7 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
-  public void testGetScaleAndPrecisionWithTColumnDesc() {
+  public void testGetPrecisionAndScaleWithTColumnDesc() {
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(THRIFT_STATEMENT_ID, getResultManifest(), false);
 
@@ -316,12 +331,12 @@ public class DatabricksResultSetMetaDataTest {
     typeDesc.setTypes(Collections.singletonList(typeEntry));
     columnInfo.setTypeDesc(typeDesc);
 
-    int[] scaleAndPrecision =
-        metaData.getScaleAndPrecision(
+    int[] precisionAndScale =
+        metaData.getPrecisionAndScale(
             columnInfo,
             DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
-    assertEquals(10, scaleAndPrecision[0]);
-    assertEquals(2, scaleAndPrecision[1]);
+    assertEquals(10, precisionAndScale[0]);
+    assertEquals(2, precisionAndScale[1]);
 
     // Test with string type
     columnInfo = new TColumnDesc();
@@ -332,12 +347,12 @@ public class DatabricksResultSetMetaDataTest {
     typeDesc.setTypes(Collections.singletonList(typeEntry));
     columnInfo.setTypeDesc(typeDesc);
 
-    scaleAndPrecision =
-        metaData.getScaleAndPrecision(
+    precisionAndScale =
+        metaData.getPrecisionAndScale(
             columnInfo,
             DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
-    assertEquals(255, scaleAndPrecision[0]);
-    assertEquals(0, scaleAndPrecision[1]);
+    assertEquals(255, precisionAndScale[0]);
+    assertEquals(0, precisionAndScale[1]);
   }
 
   @ParameterizedTest
