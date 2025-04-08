@@ -23,6 +23,11 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
   private Connection connection;
   private Connection inlineConnection;
 
+  private static final String LEADING_TRAILING_SPACES = "   leading and trailing spaces   ";
+  private static final String UNICODE_TEXT = "こんにちは";
+  private static final String SPECIAL_CHARS = "special chars: !@#$%^&*()";
+  private static final String DOUBLE_QUOTES = "string with \"double quotes\" inside";
+
   @BeforeEach
   void setUp() throws SQLException {
     connection = getValidJDBCConnection();
@@ -39,32 +44,31 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
 
   @Test
   void testStringEdgeCases() throws SQLException {
-    String tableName = "string_edge_cases_table";
-    String createTableSQL =
-        "CREATE TABLE IF NOT EXISTS "
-            + getFullyQualifiedTableName(tableName)
-            + " (id INT PRIMARY KEY, test_string VARCHAR(255))";
-    setupDatabaseTable(connection, tableName, createTableSQL);
-    String insertSQL =
-        "INSERT INTO "
-            + getFullyQualifiedTableName(tableName)
-            + " (id, test_string) VALUES "
-            + "(1, '   leading and trailing spaces   '),"
-            + "(2, 'こんにちは'),"
-            + "(3, 'special chars: !@#$%^&*()'),"
-            + "(4, 'string with \"double quotes\" inside'),"
-            + "(5, NULL)";
-    executeSQL(connection, insertSQL);
-
     String query =
-        "SELECT id, test_string FROM " + getFullyQualifiedTableName(tableName) + " ORDER BY id";
+        "SELECT * FROM (VALUES "
+            + "(1, '"
+            + LEADING_TRAILING_SPACES
+            + "'),"
+            + "(2, '"
+            + UNICODE_TEXT
+            + "'),"
+            + "(3, '"
+            + SPECIAL_CHARS
+            + "'),"
+            + "(4, '"
+            + DOUBLE_QUOTES
+            + "'),"
+            + "(5, NULL)"
+            + ") AS string_edge_cases(id, test_string) "
+            + "ORDER BY id";
     ResultSet resultSet = executeQuery(connection, query);
     ResultSet inlineResultSet = executeQuery(inlineConnection, query);
 
     validateStringResults(resultSet);
     validateStringResults(inlineResultSet);
 
-    deleteTable(connection, tableName);
+    resultSet.close();
+    inlineResultSet.close();
   }
 
   @ParameterizedTest
@@ -97,19 +101,19 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
       String value = resultSet.getString("test_string");
       switch (id) {
         case 1:
-          assertEquals("   leading and trailing spaces   ", value);
+          assertEquals(LEADING_TRAILING_SPACES, value);
           break;
         case 2:
-          assertEquals("こんにちは", value);
+          assertEquals(UNICODE_TEXT, value);
           break;
         case 3:
-          assertEquals("special chars: !@#$%^&*()", value);
+          assertEquals(SPECIAL_CHARS, value);
           break;
         case 4:
-          assertEquals("string with \"double quotes\" inside", value);
+          assertEquals(DOUBLE_QUOTES, value);
           break;
         case 5:
-          assertNull(value);
+          assertEquals(null, value);
           break;
         default:
           fail("Unexpected row id: " + id);
@@ -173,6 +177,7 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
     }
     assertEquals(3, rowCount);
     deleteTable(connection, tableName);
+    rs.close();
   }
 
   @Test
@@ -207,6 +212,7 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
     Timestamp expected = Timestamp.valueOf("2021-06-15 05:34:56.789"); // Expected PDT value.
     assertEquals(expected, ts);
     deleteTable(connection, tableName);
+    rs.close();
   }
 
   @Test
@@ -233,6 +239,7 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
     validateTimestampResults(inlineResultSet);
 
     deleteTable(connection, tableName);
+    resultSet.close();
   }
 
   private void validateTimestampResults(ResultSet resultSet) throws SQLException {
