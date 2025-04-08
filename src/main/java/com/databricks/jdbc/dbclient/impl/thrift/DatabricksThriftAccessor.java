@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
@@ -53,6 +54,7 @@ final class DatabricksThriftAccessor {
   private final boolean enableDirectResults;
   private final int asyncPollIntervalMillis;
   private final int maxRowsPerBlock;
+  private int serverProtocolVersion = JDBC_THRIFT_VERSION.getValue();
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
@@ -388,7 +390,8 @@ final class DatabricksThriftAccessor {
             .setMaxRows(
                 maxRowsPerBlock) // Max number of rows that should be returned in the rowset.
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
-    if (fetchMetadata) {
+    if (fetchMetadata
+        && ProtocolFeatureUtil.supportsResultSetMetadataFromFetch(serverProtocolVersion)) {
       request.setIncludeResultSetMetadata(true);
     }
     TFetchResultsResp response;
@@ -615,6 +618,10 @@ final class DatabricksThriftAccessor {
 
   private boolean isPendingOperationState(TOperationState state) {
     return state == TOperationState.RUNNING_STATE || state == TOperationState.PENDING_STATE;
+  }
+
+  void setServerProtocolVersion(int protocolVersion) {
+    serverProtocolVersion = protocolVersion;
   }
 
   private TimeoutHandler getTimeoutHandler(TExecuteStatementResp response, int timeoutInSeconds) {
