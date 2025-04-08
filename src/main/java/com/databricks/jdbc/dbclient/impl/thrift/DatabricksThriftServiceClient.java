@@ -6,7 +6,6 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.*;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
-import static com.databricks.jdbc.model.client.thrift.generated.TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V2;
 
 import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksSession;
@@ -187,13 +186,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       boolean runAsync)
       throws SQLException {
 
-    TSparkArrowTypes arrowNativeTypes =
-        new TSparkArrowTypes()
-            .setComplexTypesAsArrow(true)
-            .setIntervalTypesAsArrow(true)
-            .setNullTypeAsArrow(true)
-            .setDecimalAsArrow(true)
-            .setTimestampAsArrow(true);
+    TSparkArrowTypes arrowNativeTypes = new TSparkArrowTypes().setTimestampAsArrow(true);
 
     // Convert the parameters to a list of TSparkParameter objects.
     List<TSparkParameter> sparkParameters =
@@ -206,18 +199,26 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setStatement(sql)
             .setQueryTimeout(parentStatement.getStatement().getQueryTimeout())
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
-            .setCanDecompressLZ4Result(true)
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
-            .setCanDownloadResult(true)
-            .setParameters(sparkParameters)
             .setUseArrowNativeTypes(arrowNativeTypes);
 
-    //    if (ProtocolFeatureUtil.supportsParameterizedQueries(serverProtocolVersion)) {
-    //      request.setParameters(sparkParameters);
-    //    }
-    //    if (ProtocolFeatureUtil.supportsCompressedArrowBatches(serverProtocolVersion)) {
-    //      request.setCanDecompressLZ4Result(true);
-    //    }
+    if (ProtocolFeatureUtil.supportsParameterizedQueries(serverProtocolVersion)) {
+      request.setParameters(sparkParameters);
+    }
+    if (ProtocolFeatureUtil.supportsCompressedArrowBatches(serverProtocolVersion)) {
+      request.setCanDecompressLZ4Result(true);
+    }
+    if (ProtocolFeatureUtil.supportsCloudFetch(serverProtocolVersion)) {
+      request.setCanDownloadResult(true);
+    }
+    if (ProtocolFeatureUtil.supportsAdvancedArrowTypes(serverProtocolVersion)) {
+      arrowNativeTypes
+          .setComplexTypesAsArrow(true)
+          .setIntervalTypesAsArrow(true)
+          .setNullTypeAsArrow(true)
+          .setDecimalAsArrow(true);
+      request.setUseArrowNativeTypes(arrowNativeTypes);
+    }
     if (parentStatement.getMaxRows()
         != DEFAULT_RESULT_ROW_LIMIT) { // set request param only if user has set maxRows. Similar
       // behavior
