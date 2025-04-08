@@ -1,15 +1,22 @@
 # Version Changelog
 
-## [v1.0.3-oss] - 2025-04-02
+## [v1.0.3-oss] - 2025-04-08
 
 ### Added
-- TBA
+- Introduces a centralized timeout check and automatic cancellation for statements
+- Allows specifying a default size for STRING columns (set to 255 by default)
+- Implements a custom retry strategy to handle long-running tasks and connection attempts
+- Added support for  Azure Managed Identity based authentication
+- Adds existence checks for volumes, objects, and prefixes to improve operational coverage
+- Allows adjusting the number of rows retrieved in each fetch operation for better performance via `RowsFetchedPerBlock` parameter
 
 ### Updated
-- TBA
+- Removes the hard-coded default poll interval configuration in favor of a user-defined parameter for greater flexibility
 
 ### Fixed
-- TBA
+- Ensures the driver respects the configured limit on the number of rows returned
+- Improves retry behaviour to cover all operations, relying solely on the total retry time specified via the driver URL parameter
+
 ---
 
 ## [v1.0.2-oss] - 2025-03-19
