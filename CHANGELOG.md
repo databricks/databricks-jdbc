@@ -6,7 +6,7 @@
 - Introduces a centralized timeout check and automatic cancellation for statements
 - Allows specifying a default size for STRING columns (set to 255 by default) via `defaultStringColumnLength` connection parameter
 - Implements a custom retry strategy to handle long-running tasks and connection attempts
-- Added support for  Azure Managed Identity based authentication
+- Added support for Azure Managed Identity based authentication
 - Adds existence checks for volumes, objects, and prefixes to improve operational coverage
 - Allows adjusting the number of rows retrieved in each fetch operation for better performance via `RowsFetchedPerBlock` parameter
 - Allows overriding the default OAuth redirect port (8020) with a single port or comma-separated list of ports using `OAuth2RedirectUrlPort`
