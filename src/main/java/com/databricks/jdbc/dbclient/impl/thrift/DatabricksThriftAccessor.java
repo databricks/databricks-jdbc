@@ -375,7 +375,7 @@ final class DatabricksThriftAccessor {
     return databricksConfig;
   }
 
-  private TFetchResultsResp getResultSetResp(
+  TFetchResultsResp getResultSetResp(
       TStatus responseStatus,
       TOperationHandle operationHandle,
       String context,

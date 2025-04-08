@@ -56,6 +56,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     this.connectionContext = connectionContext;
   }
 
+  @VisibleForTesting
+  void setServerProtocolVersion(int serverProtocolVersion) {
+    this.serverProtocolVersion = serverProtocolVersion;
+  }
+
   @Override
   public IDatabricksConnectionContext getConnectionContext() {
     return connectionContext;

@@ -1,7 +1,6 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.model.client.thrift.generated.TProtocolVersion.*;
-import static com.databricks.jdbc.model.client.thrift.generated.TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V7;
 
 /**
  * Utility class for checking Spark protocol version features. Provides methods to determine if
