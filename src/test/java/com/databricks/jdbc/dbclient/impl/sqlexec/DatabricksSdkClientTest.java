@@ -86,7 +86,7 @@ public class DatabricksSdkClientTest {
             .setSessionId(SESSION_ID)
             .setWarehouseId(WAREHOUSE_ID)
             .setStatement(STATEMENT)
-            .setDisposition(Disposition.EXTERNAL_LINKS)
+            .setDisposition(Disposition.INLINE_OR_EXTERNAL_LINKS)
             .setFormat(Format.ARROW_STREAM)
             .setRowLimit(100L)
             .setParameters(params);
