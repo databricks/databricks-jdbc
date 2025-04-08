@@ -92,7 +92,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TProtocolVersion serverProtocol = response.getServerProtocolVersion();
     // cache the server protocol version
     serverProtocolVersion = serverProtocol.getValue();
-    thriftAccessor.setServerProtocolVersion(serverProtocolVersion);
+    thriftAccessor.setServerProtocolVersion(
+        serverProtocolVersion); // save protocol version in thriftAccessor
 
     if (serverProtocolVersion <= TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10.getValue()) {
       throw new DatabricksSQLException(
@@ -202,6 +203,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
             .setUseArrowNativeTypes(arrowNativeTypes);
 
+    // Conditionally set parameters based on server protocol version
     if (ProtocolFeatureUtil.supportsParameterizedQueries(serverProtocolVersion)) {
       request.setParameters(sparkParameters);
     }
@@ -219,6 +221,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
           .setDecimalAsArrow(true);
       request.setUseArrowNativeTypes(arrowNativeTypes);
     }
+
     if (parentStatement.getMaxRows()
         != DEFAULT_RESULT_ROW_LIMIT) { // set request param only if user has set maxRows. Similar
       // behavior
@@ -314,7 +317,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         new TGetCatalogsReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle());
     if (ProtocolFeatureUtil.supportsAsyncMetadataExecution(serverProtocolVersion)) {
-      request.setRunAsync(true);
+      request.setRunAsync(true); // support async metadata execution if supported
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
     return getCatalogsResult(extractRowsFromColumnar(response.getResults()));

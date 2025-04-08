@@ -392,7 +392,7 @@ final class DatabricksThriftAccessor {
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
     if (fetchMetadata
         && ProtocolFeatureUtil.supportsResultSetMetadataFromFetch(serverProtocolVersion)) {
-      request.setIncludeResultSetMetadata(true);
+      request.setIncludeResultSetMetadata(true); // fetch metadata if supported
     }
     TFetchResultsResp response;
     try {
