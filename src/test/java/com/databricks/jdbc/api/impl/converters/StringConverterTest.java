@@ -123,16 +123,10 @@ public class StringConverterTest {
     assertFalse(new StringConverter().toBoolean(NUMBERICAL_ZERO_STRING));
     assertTrue(new StringConverter().toBoolean("true"));
     assertFalse(new StringConverter().toBoolean("false"));
-
-    DatabricksSQLException invalidCharactersException =
-        assertThrows(
-            DatabricksSQLException.class, () -> new StringConverter().toBoolean(CHARACTER_STRING));
-    assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
-
-    DatabricksSQLException invalidNumberException =
-        assertThrows(
-            DatabricksSQLException.class, () -> new StringConverter().toBoolean(NUMERICAL_STRING));
-    assertTrue(invalidNumberException.getMessage().contains("Invalid conversion"));
+    assertTrue(new StringConverter().toBoolean("TRUE"));
+    assertFalse(new StringConverter().toBoolean("FALSE"));
+    assertTrue(new StringConverter().toBoolean(CHARACTER_STRING));
+    assertTrue(new StringConverter().toBoolean(NUMERICAL_STRING));
   }
 
   @Test

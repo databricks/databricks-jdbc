@@ -1,5 +1,28 @@
 # Version Changelog
 
+## [v1.0.3-oss] - 2025-04-08
+
+### Added
+- Introduces a centralized timeout check and automatic cancellation for statements
+- Allows specifying a default size for STRING columns (set to 255 by default) via `defaultStringColumnLength` connection parameter
+- Implements a custom retry strategy to handle long-running tasks and connection attempts
+- Added support for Azure Managed Identity based authentication
+- Adds existence checks for volumes, objects, and prefixes to improve operational coverage
+- Allows adjusting the number of rows retrieved in each fetch operation for better performance via `RowsFetchedPerBlock` parameter
+- Allows overriding the default OAuth redirect port (8020) with a single port or comma-separated list of ports using `OAuth2RedirectUrlPort`
+- Support for custom headers in the JDBC URL via `http.header.<key>=<value>` connection parameter
+
+### Updated
+- Removes the hard-coded default poll interval configuration in favor of a user-defined parameter for greater flexibility
+- Adjusts the handling of NULL and non-NULL boolean values
+
+### Fixed
+- Ensures the driver respects the configured limit on the number of rows returned
+- Improves retry behaviour to cover all operations, relying solely on the total retry time specified via the driver URL parameter
+- Returns an exception instead of -1 when a column is not found
+
+---
+
 ## [v1.0.2-oss] - 2025-03-19
 
 ### Fixed

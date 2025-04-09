@@ -3,7 +3,7 @@ package com.databricks.jdbc.dbclient.impl.http;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import java.io.IOException;
 import java.time.Instant;

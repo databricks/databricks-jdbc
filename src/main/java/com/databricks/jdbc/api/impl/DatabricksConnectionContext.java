@@ -6,7 +6,7 @@ import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -34,6 +34,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final String schema;
   private final String connectionURL;
   private final IDatabricksComputeResource computeResource;
+  private final Map<String, String> customHeaders;
   private DatabricksClientType clientType;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
   @VisibleForTesting final String connectionUuid;
@@ -50,6 +51,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.port = port;
     this.schema = schema;
     this.parameters = parameters;
+    this.customHeaders = parseCustomHeaders(parameters);
     this.computeResource = buildCompute();
     this.connectionUuid = UUID.randomUUID().toString();
     this.clientType = getClientTypeFromContext();
@@ -62,6 +64,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.port = DEFAULT_PORT;
     this.schema = DEFAULT_SCHEMA;
     this.parameters = parameters;
+    this.customHeaders = parseCustomHeaders(parameters);
     this.computeResource = null;
     this.connectionUuid = UUID.randomUUID().toString();
   }
@@ -82,7 +85,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       if (pair.length == 1) {
         pair = new String[] {pair[0], ""};
       }
-      parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
+      if (pair[0].startsWith(DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName())) {
+        parametersBuilder.put(pair[0], pair[1]);
+      } else {
+        parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
+      }
     }
     for (Map.Entry<Object, Object> entry : properties.entrySet()) {
       parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
@@ -438,6 +445,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
                         : parameters.get(key))); // mask access token
   }
 
+  public Map<String, String> getCustomHeaders() {
+    return this.customHeaders;
+  }
+
   private boolean isAccessToken(String key) {
     return key.equalsIgnoreCase(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName());
   }
@@ -665,6 +676,27 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public List<Integer> getOAuth2RedirectUrlPorts() {
+    String portsStr = getParameter(DatabricksJdbcUrlParams.OAUTH_REDIRECT_URL_PORT);
+
+    try {
+      // Parse comma-separated list of ports
+      return Arrays.stream(portsStr.split(","))
+          .map(String::trim)
+          .filter(s -> !s.isEmpty())
+          .map(Integer::parseInt)
+          .collect(Collectors.toList());
+    } catch (NumberFormatException e) {
+      LOGGER.warn(
+          "Invalid port format in OAuth2RedirectUrlPort: {}. Using default port {}.",
+          portsStr,
+          DatabricksJdbcUrlParams.OAUTH_REDIRECT_URL_PORT.getDefaultValue());
+      return List.of(
+          Integer.parseInt(DatabricksJdbcUrlParams.OAUTH_REDIRECT_URL_PORT.getDefaultValue()));
+    }
+  }
+
+  @Override
   public Boolean getUseEmptyMetadata() {
     String param = getParameter(DatabricksJdbcUrlParams.USE_EMPTY_METADATA);
     return param != null && param.equals("1");
@@ -836,5 +868,15 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private String getParameter(DatabricksJdbcUrlParams key, String defaultValue) {
     return this.parameters.getOrDefault(key.getParamName().toLowerCase(), defaultValue);
+  }
+
+  private Map<String, String> parseCustomHeaders(ImmutableMap<String, String> parameters) {
+    String filterPrefix = DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName();
+
+    return parameters.entrySet().stream()
+        .filter(entry -> entry.getKey().startsWith(filterPrefix))
+        .collect(
+            Collectors.toMap(
+                entry -> entry.getKey().substring(filterPrefix.length()), Map.Entry::getValue));
   }
 }

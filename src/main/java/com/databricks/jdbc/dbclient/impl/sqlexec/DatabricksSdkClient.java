@@ -7,9 +7,9 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
@@ -380,6 +380,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.debug("Tracing header for method {%s}: [%s]", method, traceHeader);
       headers.put(TracingUtil.TRACE_HEADER, traceHeader);
     }
+
+    // Overriding with URL defined headers
+    headers.putAll(this.connectionContext.getCustomHeaders());
     return headers;
   }
 

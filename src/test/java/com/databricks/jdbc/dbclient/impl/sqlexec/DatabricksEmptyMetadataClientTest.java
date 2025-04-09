@@ -2,7 +2,7 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import org.junit.jupiter.api.Test;

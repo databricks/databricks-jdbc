@@ -3,7 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.exception.DatabricksParsingException;

@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;

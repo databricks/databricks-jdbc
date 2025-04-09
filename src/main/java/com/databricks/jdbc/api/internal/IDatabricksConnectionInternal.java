@@ -1,7 +1,5 @@
 package com.databricks.jdbc.api.internal;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.Connection;

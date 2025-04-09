@@ -33,9 +33,11 @@ public enum DatabricksJdbcUrlParams {
   AUTH_FLOW("auth_flow", "Authentication flow"),
   OAUTH_REFRESH_TOKEN("Auth_RefreshToken", "OAuth2 Refresh Token"),
   OAUTH_REFRESH_TOKEN_2("OAuthRefreshToken", "OAuth2 Refresh Token"), // Same as OAUTH_REFRESH_TOKEN
+  OAUTH_REDIRECT_URL_PORT("OAuth2RedirectUrlPort", "OAuth2 Redirect URL port", "8020"),
   PWD("pwd", "Password (used when AUTH_MECH = 3)", true),
   POLL_INTERVAL("asyncexecpollinterval", "Async execution poll interval", "200"),
   HTTP_PATH("httppath", "HTTP path", true),
+  HTTP_HEADERS("http.header.", "Custom HTTP headers"),
   SSL("ssl", "Use SSL"),
   USE_THRIFT_CLIENT("usethriftclient", "Use Thrift client", "1"),
   RATE_LIMIT_RETRY_TIMEOUT("RateLimitRetryTimeout", "Rate limit retry timeout", "120"),

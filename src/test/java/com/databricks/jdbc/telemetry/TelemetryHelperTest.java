@@ -4,7 +4,7 @@ import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.SqlExecutionEvent;
@@ -37,8 +37,7 @@ public class TelemetryHelperTest {
 
   @Test
   void testInitialTelemetryLogWithNullContextDoesNotThrowError() {
-    TelemetryHelper telemetryHelper = new TelemetryHelper(); // To cover the constructor too
-    assertDoesNotThrow(() -> telemetryHelper.exportInitialTelemetryLog(null));
+    assertDoesNotThrow(() -> TelemetryHelper.exportInitialTelemetryLog(null));
   }
 
   @Test

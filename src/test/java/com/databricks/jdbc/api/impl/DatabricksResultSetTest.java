@@ -9,9 +9,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
@@ -994,6 +994,44 @@ public class DatabricksResultSetTest {
     assertNotNull(resultSet.unwrap(IDatabricksResultSet.class));
     assertTrue(resultSet.isWrapperFor(IDatabricksResultSet.class));
     assertTrue(resultSet.isWrapperFor(IDatabricksResultSetInternal.class));
+  }
+
+  @Test
+  void testFindColumnSuccessful() throws SQLException {
+    // Setup
+    when(mockedResultSetMetadata.getColumnNameIndex("existingColumn")).thenReturn(3);
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+
+    // Verify that findColumn returns the correct index
+    assertEquals(3, resultSet.findColumn("existingColumn"));
+  }
+
+  @Test
+  void testFindColumnNotFound() throws SQLException {
+    // Setup
+    when(mockedResultSetMetadata.getColumnNameIndex("nonExistentColumn")).thenReturn(-1);
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+
+    // Verify that findColumn throws SQLException for non-existent column
+    SQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.findColumn("nonExistentColumn"));
+
+    // Verify the exception message
+    assertTrue(exception.getMessage().contains("Column not found"));
+  }
+
+  @Test
+  void testFindColumnClosedResultSet() throws SQLException {
+    // Setup
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    resultSet.close();
+
+    // Verify that findColumn throws SQLException when result set is closed
+    SQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.findColumn("anyColumn"));
+
+    // Verify the exception message
+    assertTrue(exception.getMessage().contains("ResultSet is closed"));
   }
 
   @Test

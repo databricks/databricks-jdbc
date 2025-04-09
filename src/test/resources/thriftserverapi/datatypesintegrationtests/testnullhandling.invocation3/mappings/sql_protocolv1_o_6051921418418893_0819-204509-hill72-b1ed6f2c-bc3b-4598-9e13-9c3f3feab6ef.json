@@ -1,0 +1,33 @@
+{
+  "id" : "b1ed6f2c-bc3b-4598-9e13-9c3f3feab6ef",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAQwAAQwAAQsAAQAAABD/j5umApZBf5QwvTdLJgfhCwACAAAAEJCubsy6Zku3nwgA87W8mDwAAAsAAgAAACdTRUxFQ1QgTlVMTCBVTklPTiAoU0VMRUNUIDEpIG9yZGVyIGJ5IDEKAAUAAAAAAAAAAAwFAQoAAQAAAAAAHoSACgACAAAAABghowAAAgUCAAIFAwECBQQBDAUGAgABAQIAAgECAAMBAgAEAQIABQEADwUIDAAAAAAAAA=="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEJC3rKF7eEtpqLvW/hEJ7dYLAAIAAAAQMD7DxQyERkmst1yDZ/Vg3gYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAggNAgAAAAAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAQsAAQAAAAROVUxMDAACDwABDAAAAAEMAAEIAAEAAAADAAAACAADAAAAAQsABAAAAAAAAAgFAQAAAAECBQIACAUEAAAAAAoFBQAAAAAAAABACgUGAAAAAAAAAEACBQcACA0BAAAAAAoNBQAAAAAAAAAAAg0RAAAMAAMMAAEIAAEAAAAAAAIAAgAMAAMKAAEAAAAAAAAAAA8AAgwAAAAADwADDAAAAAEMAAQPAAEIAAAAAgAAAAAAAAABCwACAAAAAQEAAAAADAAEDAABCAABAAAAAAAAAAAA",
+    "headers" : {
+      "x-request-id" : "989274dc-f523-46d6-a991-f82dce6ac9e4",
+      "date" : "Tue, 01 Apr 2025 21:28:51 GMT,Tue, 01 Apr 2025 21:28:51 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : [ "max-age=31536000; includeSubDomains; preload", "max-age=31536000; includeSubDomains; preload" ],
+      "x-content-type-options" : [ "nosniff", "nosniff" ],
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "b1ed6f2c-bc3b-4598-9e13-9c3f3feab6ef",
+  "insertionIndex" : 23
+}

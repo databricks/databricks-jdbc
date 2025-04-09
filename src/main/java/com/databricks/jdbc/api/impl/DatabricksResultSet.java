@@ -6,12 +6,12 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
@@ -518,7 +518,13 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public int findColumn(String columnLabel) throws SQLException {
     checkIfClosed();
-    return getColumnNameIndex(columnLabel);
+    int columnIndex = getColumnNameIndex(columnLabel);
+    if (columnIndex == -1) {
+      LOGGER.error("Column not found: " + columnLabel);
+      throw new DatabricksSQLException(
+          "Column not found: " + columnLabel, DatabricksDriverErrorCode.RESULT_SET_ERROR);
+    }
+    return columnIndex;
   }
 
   @Override

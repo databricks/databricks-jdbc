@@ -2,7 +2,7 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.api.impl.arrow.ArrowResultChunk.SECONDS_BUFFER_FOR_EXPIRY;
 
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;

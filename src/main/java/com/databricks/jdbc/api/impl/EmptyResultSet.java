@@ -1089,7 +1089,8 @@ public class EmptyResultSet
   @Override
   public int findColumn(String columnLabel) throws SQLException {
     checkIfClosed();
-    return 0;
+    throw new DatabricksSQLException(
+        "Column not found: " + columnLabel, DatabricksDriverErrorCode.RESULT_SET_ERROR);
   }
 
   @Override

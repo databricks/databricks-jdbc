@@ -5,9 +5,9 @@ import static com.databricks.jdbc.TestConstants.UC_VOLUME_SCHEMA;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getDogfoodJDBCConnectionContext;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
