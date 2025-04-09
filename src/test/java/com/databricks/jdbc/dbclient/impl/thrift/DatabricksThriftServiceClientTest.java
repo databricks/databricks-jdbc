@@ -9,6 +9,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getNamespace;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.GET_TABLE_TYPE_STATEMENT_ID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,9 +27,13 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.stream.Stream;
 import org.apache.thrift.protocol.TProtocol;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -73,6 +78,56 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
+  void testCreateSessionHandlesProtocolVersion() throws DatabricksSQLException {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+
+    TOpenSessionReq openSessionReq =
+        new TOpenSessionReq()
+            .setInitialNamespace(getNamespace(CATALOG, SCHEMA))
+            .setConfiguration(EMPTY_MAP)
+            .setCanUseMultipleCatalogs(true)
+            .setClient_protocol_i64(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9.getValue());
+
+    // Case 1: Server returns unsupported protocol version (too old)
+    TOpenSessionResp unsupportedVersionResp =
+        new TOpenSessionResp()
+            .setSessionHandle(SESSION_HANDLE)
+            .setServerProtocolVersion(TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+
+    when(thriftAccessor.getThriftResponse(openSessionReq)).thenReturn(unsupportedVersionResp);
+
+    // Verify that attempting to connect with an unsupported protocol throws the expected exception
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> client.createSession(CLUSTER_COMPUTE, CATALOG, SCHEMA, EMPTY_MAP));
+
+    assertEquals(
+        "Attempting to connect to a non Databricks compute using the Databricks driver.",
+        exception.getMessage());
+
+    // Case 2: Server returns supported protocol version
+    TOpenSessionResp supportedVersionResp =
+        new TOpenSessionResp()
+            .setSessionHandle(SESSION_HANDLE)
+            .setServerProtocolVersion(JDBC_THRIFT_VERSION)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+
+    when(thriftAccessor.getThriftResponse(openSessionReq)).thenReturn(supportedVersionResp);
+
+    ImmutableSessionInfo sessionInfo =
+        client.createSession(CLUSTER_COMPUTE, CATALOG, SCHEMA, EMPTY_MAP);
+
+    verify(thriftAccessor).setServerProtocolVersion(JDBC_THRIFT_VERSION.getValue());
+
+    // Verify returned session info
+    assertEquals(SESSION_HANDLE, sessionInfo.sessionHandle());
+    assertEquals(CLUSTER_COMPUTE, sessionInfo.computeResource());
+  }
+
+  @Test
   void testCloseSession() throws DatabricksSQLException {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
@@ -81,6 +136,99 @@ public class DatabricksThriftServiceClientTest {
         new TCloseSessionResp().setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
     when(thriftAccessor.getThriftResponse(closeSessionReq)).thenReturn(closeSessionResp);
     assertDoesNotThrow(() -> client.deleteSession(SESSION_INFO));
+  }
+
+  private static Stream<Arguments> protocolVersionProvider() {
+    return Stream.of(
+        Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V1.getValue()),
+        Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V2.getValue()),
+        Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V3.getValue()),
+        Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V4.getValue()),
+        Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V5.getValue()),
+        Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V6.getValue()),
+        Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V7.getValue()),
+        Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V8.getValue()),
+        Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
+  }
+
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  void testGetRequestWithDifferentProtocolVersions(int protocolVersion) throws SQLException {
+    when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(parentStatement.getMaxRows()).thenReturn(10);
+    when(statement.getQueryTimeout()).thenReturn(10);
+    client.setServerProtocolVersion(protocolVersion);
+
+    // Execute the method that will internally call getRequest
+    try {
+      client.executeStatement(
+          TEST_STRING,
+          CLUSTER_COMPUTE,
+          Collections.emptyMap(),
+          StatementType.SQL,
+          session,
+          parentStatement);
+    } catch (Exception e) {
+      // We expect this to throw since thriftAccessor is mocked
+      // We're only interested in capturing the request
+    }
+
+    // Capture the request
+    ArgumentCaptor<TExecuteStatementReq> requestCaptor =
+        ArgumentCaptor.forClass(TExecuteStatementReq.class);
+    verify(thriftAccessor)
+        .execute(requestCaptor.capture(), eq(parentStatement), eq(session), eq(StatementType.SQL));
+
+    // Get the captured request
+    TExecuteStatementReq request = requestCaptor.getValue();
+
+    // Common assertions for all protocol versions
+    assertNotNull(request);
+    assertEquals(TEST_STRING, request.getStatement());
+    assertEquals(10, request.getQueryTimeout());
+    assertEquals(SESSION_HANDLE, request.getSessionHandle());
+    assertTrue(request.isCanReadArrowResult());
+    assertEquals(10, request.getResultRowLimit());
+
+    // Protocol-specific assertions
+    boolean supportsParameterizedQueries =
+        protocolVersion >= TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V8.getValue();
+    boolean supportsCompressedArrowBatches =
+        protocolVersion >= TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V6.getValue();
+    boolean supportsCloudFetch =
+        protocolVersion >= TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V3.getValue();
+    boolean supportsAdvancedArrowTypes =
+        protocolVersion >= TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V5.getValue();
+
+    if (supportsParameterizedQueries) {
+      assertNotNull(request);
+    } else {
+      assertFalse(request.isSetParameters());
+    }
+
+    assertEquals(supportsCompressedArrowBatches, request.isCanDecompressLZ4Result());
+    assertEquals(supportsCloudFetch, request.isCanDownloadResult());
+
+    // Check advanced arrow types settings
+    TSparkArrowTypes arrowTypes = request.getUseArrowNativeTypes();
+    assertNotNull(arrowTypes);
+    assertTrue(arrowTypes.isTimestampAsArrow());
+
+    if (supportsAdvancedArrowTypes) {
+      assertTrue(arrowTypes.isComplexTypesAsArrow());
+      assertTrue(arrowTypes.isIntervalTypesAsArrow());
+      assertTrue(arrowTypes.isNullTypeAsArrow());
+      assertTrue(arrowTypes.isDecimalAsArrow());
+    } else {
+      assertFalse(arrowTypes.isComplexTypesAsArrow());
+      assertFalse(arrowTypes.isIntervalTypesAsArrow());
+      assertFalse(arrowTypes.isNullTypeAsArrow());
+      assertFalse(arrowTypes.isDecimalAsArrow());
+    }
   }
 
   @Test
