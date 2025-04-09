@@ -54,7 +54,7 @@ final class DatabricksThriftAccessor {
   private final boolean enableDirectResults;
   private final int asyncPollIntervalMillis;
   private final int maxRowsPerBlock;
-  private int serverProtocolVersion = JDBC_THRIFT_VERSION.getValue();
+  private TProtocolVersion serverProtocolVersion = JDBC_THRIFT_VERSION;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
@@ -620,7 +620,7 @@ final class DatabricksThriftAccessor {
     return state == TOperationState.RUNNING_STATE || state == TOperationState.PENDING_STATE;
   }
 
-  void setServerProtocolVersion(int protocolVersion) {
+  void setServerProtocolVersion(TProtocolVersion protocolVersion) {
     serverProtocolVersion = protocolVersion;
   }
 

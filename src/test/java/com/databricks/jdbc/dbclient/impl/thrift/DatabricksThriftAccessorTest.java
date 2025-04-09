@@ -334,7 +334,7 @@ public class DatabricksThriftAccessorTest {
       throws TException, DatabricksHttpException {
     DatabricksThriftAccessor accessor =
         new DatabricksThriftAccessor(thriftClient, connectionContext);
-    accessor.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V4.getValue());
+    accessor.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V4);
     TFetchResultsReq expectedReq = getFetchResultsRequest(false);
     when(thriftClient.FetchResults(expectedReq))
         .thenReturn(fetchResultsResponse); // request has no includeResultSetMetadata
@@ -345,7 +345,7 @@ public class DatabricksThriftAccessorTest {
         connectionContext.getRowsFetchedPerBlock(),
         true);
 
-    accessor.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9.getValue());
+    accessor.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9);
     expectedReq = getFetchResultsRequest(true);
     when(thriftClient.FetchResults(expectedReq))
         .thenReturn(fetchResultsResponse); // request has includeResultSetMetadata

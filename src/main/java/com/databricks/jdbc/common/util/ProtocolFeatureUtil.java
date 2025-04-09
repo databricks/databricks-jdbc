@@ -1,6 +1,6 @@
 package com.databricks.jdbc.common.util;
 
-import static com.databricks.jdbc.model.client.thrift.generated.TProtocolVersion.*;
+import com.databricks.jdbc.model.client.thrift.generated.TProtocolVersion;
 
 /**
  * Utility class for checking Spark protocol version features. Provides methods to determine if
@@ -16,8 +16,8 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if getInfos in OpenSession is supported, false otherwise
    */
-  public static boolean supportsGetInfosInOpenSession(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V1.getValue();
+  public static boolean supportsGetInfosInOpenSession(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V1) >= 0;
   }
 
   /**
@@ -26,8 +26,8 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if direct results are supported, false otherwise
    */
-  public static boolean supportsDirectResults(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V1.getValue();
+  public static boolean supportsDirectResults(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V1) >= 0;
   }
 
   /**
@@ -36,8 +36,8 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if modified hasMoreRows semantics are supported, false otherwise
    */
-  public static boolean supportsModifiedHasMoreRowsSemantics(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V1.getValue();
+  public static boolean supportsModifiedHasMoreRowsSemantics(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V1) >= 0;
   }
 
   /**
@@ -46,8 +46,8 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if cloud fetch is supported, false otherwise
    */
-  public static boolean supportsCloudFetch(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V3.getValue();
+  public static boolean supportsCloudFetch(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V3) >= 0;
   }
 
   /**
@@ -56,8 +56,8 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if multiple catalogs are supported, false otherwise
    */
-  public static boolean supportsMultipleCatalogs(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V4.getValue();
+  public static boolean supportsMultipleCatalogs(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V4) >= 0;
   }
 
   /**
@@ -66,8 +66,8 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if Arrow metadata is supported, false otherwise
    */
-  public static boolean supportsArrowMetadata(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V5.getValue();
+  public static boolean supportsArrowMetadata(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V5) >= 0;
   }
 
   /**
@@ -76,8 +76,8 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if getting result set metadata from fetch is supported, false otherwise
    */
-  public static boolean supportsResultSetMetadataFromFetch(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V5.getValue();
+  public static boolean supportsResultSetMetadataFromFetch(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V5) >= 0;
   }
 
   /**
@@ -86,8 +86,8 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if advanced Arrow types are supported, false otherwise
    */
-  public static boolean supportsAdvancedArrowTypes(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V5.getValue();
+  public static boolean supportsAdvancedArrowTypes(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V5) >= 0;
   }
 
   /**
@@ -96,8 +96,8 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if compressed Arrow batches are supported, false otherwise
    */
-  public static boolean supportsCompressedArrowBatches(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V6.getValue();
+  public static boolean supportsCompressedArrowBatches(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V6) >= 0;
   }
 
   /**
@@ -106,8 +106,8 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if async metadata execution is supported, false otherwise
    */
-  public static boolean supportsAsyncMetadataExecution(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V6.getValue();
+  public static boolean supportsAsyncMetadataExecution(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V6) >= 0;
   }
 
   /**
@@ -116,8 +116,8 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if result persistence mode is supported, false otherwise
    */
-  public static boolean supportsResultPersistenceMode(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V7.getValue();
+  public static boolean supportsResultPersistenceMode(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V7) >= 0;
   }
 
   /**
@@ -126,8 +126,8 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if parameterized queries are supported, false otherwise
    */
-  public static boolean supportsParameterizedQueries(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V8.getValue();
+  public static boolean supportsParameterizedQueries(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V8) >= 0;
   }
 
   /**
@@ -136,7 +136,7 @@ public final class ProtocolFeatureUtil {
    * @param protocolVersion The protocol version to check
    * @return true if async metadata operations are supported, false otherwise
    */
-  public static boolean supportsAsyncMetadataOperations(int protocolVersion) {
-    return protocolVersion >= SPARK_CLI_SERVICE_PROTOCOL_V9.getValue();
+  public static boolean supportsAsyncMetadataOperations(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9) >= 0;
   }
 }

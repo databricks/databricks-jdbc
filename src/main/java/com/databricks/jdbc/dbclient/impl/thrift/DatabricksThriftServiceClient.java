@@ -41,7 +41,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       JdbcLoggerFactory.getLogger(DatabricksThriftServiceClient.class);
   private final DatabricksThriftAccessor thriftAccessor;
   private final IDatabricksConnectionContext connectionContext;
-  private int serverProtocolVersion = JDBC_THRIFT_VERSION.getValue();
+  private TProtocolVersion serverProtocolVersion = JDBC_THRIFT_VERSION;
 
   public DatabricksThriftServiceClient(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
@@ -57,7 +57,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   @VisibleForTesting
-  void setServerProtocolVersion(int serverProtocolVersion) {
+  void setServerProtocolVersion(TProtocolVersion serverProtocolVersion) {
     this.serverProtocolVersion = serverProtocolVersion;
   }
 
@@ -94,13 +94,12 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TOpenSessionResp response = (TOpenSessionResp) thriftAccessor.getThriftResponse(openSessionReq);
     verifySuccessStatus(response.status, response.toString());
 
-    TProtocolVersion serverProtocol = response.getServerProtocolVersion();
     // cache the server protocol version
-    serverProtocolVersion = serverProtocol.getValue();
+    serverProtocolVersion = response.getServerProtocolVersion();
     thriftAccessor.setServerProtocolVersion(
         serverProtocolVersion); // save protocol version in thriftAccessor
 
-    if (serverProtocolVersion <= TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10.getValue()) {
+    if (serverProtocolVersion.compareTo(TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10) <= 0) {
       throw new DatabricksSQLException(
           "Attempting to connect to a non Databricks compute using the Databricks driver.",
           DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
