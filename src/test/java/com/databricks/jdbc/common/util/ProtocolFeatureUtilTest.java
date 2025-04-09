@@ -3,188 +3,147 @@ package com.databricks.jdbc.common.util;
 import static com.databricks.jdbc.model.client.thrift.generated.TProtocolVersion.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.Test;
+import java.util.stream.Stream;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Unit tests for {@link ProtocolFeatureUtil}. */
 public class ProtocolFeatureUtilTest {
 
-  @Test
-  public void testSupportsGetInfosInOpenSession() {
-    // Test versions that should support the feature
-    assertTrue(
-        ProtocolFeatureUtil.supportsGetInfosInOpenSession(
-            SPARK_CLI_SERVICE_PROTOCOL_V1.getValue()));
-    assertTrue(
-        ProtocolFeatureUtil.supportsGetInfosInOpenSession(
-            SPARK_CLI_SERVICE_PROTOCOL_V2.getValue()));
-    assertTrue(
-        ProtocolFeatureUtil.supportsGetInfosInOpenSession(
-            SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
+  // Store minimum protocol version for each feature
+  private static final int MIN_VERSION_GET_INFOS = SPARK_CLI_SERVICE_PROTOCOL_V1.getValue();
+  private static final int MIN_VERSION_DIRECT_RESULTS = SPARK_CLI_SERVICE_PROTOCOL_V1.getValue();
+  private static final int MIN_VERSION_MODIFIED_MORE_ROWS =
+      SPARK_CLI_SERVICE_PROTOCOL_V1.getValue();
+  private static final int MIN_VERSION_CLOUD_FETCH = SPARK_CLI_SERVICE_PROTOCOL_V3.getValue();
+  private static final int MIN_VERSION_MULTIPLE_CATALOGS = SPARK_CLI_SERVICE_PROTOCOL_V4.getValue();
+  private static final int MIN_VERSION_ARROW_METADATA = SPARK_CLI_SERVICE_PROTOCOL_V5.getValue();
+  private static final int MIN_VERSION_RESULTSET_METADATA =
+      SPARK_CLI_SERVICE_PROTOCOL_V5.getValue();
+  private static final int MIN_VERSION_ADVANCED_ARROW = SPARK_CLI_SERVICE_PROTOCOL_V5.getValue();
+  private static final int MIN_VERSION_COMPRESSED_ARROW = SPARK_CLI_SERVICE_PROTOCOL_V6.getValue();
+  private static final int MIN_VERSION_ASYNC_METADATA = SPARK_CLI_SERVICE_PROTOCOL_V6.getValue();
+  private static final int MIN_VERSION_RESULT_PERSISTENCE =
+      SPARK_CLI_SERVICE_PROTOCOL_V7.getValue();
+  private static final int MIN_VERSION_PARAMETERIZED = SPARK_CLI_SERVICE_PROTOCOL_V8.getValue();
+  private static final int MIN_VERSION_ASYNC_OPERATIONS = SPARK_CLI_SERVICE_PROTOCOL_V9.getValue();
 
-    // Test versions that should not support the feature
-    assertFalse(
-        ProtocolFeatureUtil.supportsGetInfosInOpenSession(
-            SPARK_CLI_SERVICE_PROTOCOL_V1.getValue() - 1));
+  private static Stream<Arguments> protocolVersionProvider() {
+    return Stream.of(
+        Arguments.of(HIVE_CLI_SERVICE_PROTOCOL_V1.getValue()),
+        Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V1.getValue()),
+        Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V2.getValue()),
+        Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V3.getValue()),
+        Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V4.getValue()),
+        Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V5.getValue()),
+        Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V6.getValue()),
+        Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V7.getValue()),
+        Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V8.getValue()),
+        Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
   }
 
-  @Test
-  public void testSupportsDirectResults() {
-    assertTrue(ProtocolFeatureUtil.supportsDirectResults(SPARK_CLI_SERVICE_PROTOCOL_V1.getValue()));
-    assertTrue(ProtocolFeatureUtil.supportsDirectResults(SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
-
-    assertFalse(
-        ProtocolFeatureUtil.supportsDirectResults(SPARK_CLI_SERVICE_PROTOCOL_V1.getValue() - 1));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsGetInfosInOpenSession(int version) {
+    boolean expected = version >= MIN_VERSION_GET_INFOS;
+    boolean actual = ProtocolFeatureUtil.supportsGetInfosInOpenSession(version);
+    assertEquals(expected, actual);
   }
 
-  @Test
-  public void testSupportsModifiedHasMoreRowsSemantics() {
-    assertTrue(
-        ProtocolFeatureUtil.supportsModifiedHasMoreRowsSemantics(
-            SPARK_CLI_SERVICE_PROTOCOL_V1.getValue()));
-    assertTrue(
-        ProtocolFeatureUtil.supportsModifiedHasMoreRowsSemantics(
-            SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
-
-    assertFalse(
-        ProtocolFeatureUtil.supportsModifiedHasMoreRowsSemantics(
-            SPARK_CLI_SERVICE_PROTOCOL_V1.getValue() - 1));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsDirectResults(int version) {
+    boolean expected = version >= MIN_VERSION_DIRECT_RESULTS;
+    boolean actual = ProtocolFeatureUtil.supportsDirectResults(version);
+    assertEquals(expected, actual);
   }
 
-  @Test
-  public void testSupportsCloudFetch() {
-    // Should support from V3 onwards
-    assertTrue(ProtocolFeatureUtil.supportsCloudFetch(SPARK_CLI_SERVICE_PROTOCOL_V3.getValue()));
-    assertTrue(ProtocolFeatureUtil.supportsCloudFetch(SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
-
-    // Should not support before V3
-    assertFalse(ProtocolFeatureUtil.supportsCloudFetch(SPARK_CLI_SERVICE_PROTOCOL_V2.getValue()));
-    assertFalse(ProtocolFeatureUtil.supportsCloudFetch(SPARK_CLI_SERVICE_PROTOCOL_V1.getValue()));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsModifiedHasMoreRowsSemantics(int version) {
+    boolean expected = version >= MIN_VERSION_MODIFIED_MORE_ROWS;
+    boolean actual = ProtocolFeatureUtil.supportsModifiedHasMoreRowsSemantics(version);
+    assertEquals(expected, actual);
   }
 
-  @Test
-  public void testSupportsMultipleCatalogs() {
-    // Should support from V4 onwards
-    assertTrue(
-        ProtocolFeatureUtil.supportsMultipleCatalogs(SPARK_CLI_SERVICE_PROTOCOL_V4.getValue()));
-    assertTrue(
-        ProtocolFeatureUtil.supportsMultipleCatalogs(SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
-
-    // Should not support before V4
-    assertFalse(
-        ProtocolFeatureUtil.supportsMultipleCatalogs(SPARK_CLI_SERVICE_PROTOCOL_V3.getValue()));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsCloudFetch(int version) {
+    boolean expected = version >= MIN_VERSION_CLOUD_FETCH;
+    boolean actual = ProtocolFeatureUtil.supportsCloudFetch(version);
+    assertEquals(expected, actual);
   }
 
-  @Test
-  public void testSupportsArrowMetadata() {
-    // Should support from V5 onwards
-    assertTrue(ProtocolFeatureUtil.supportsArrowMetadata(SPARK_CLI_SERVICE_PROTOCOL_V5.getValue()));
-    assertTrue(ProtocolFeatureUtil.supportsArrowMetadata(SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
-
-    // Should not support before V5
-    assertFalse(
-        ProtocolFeatureUtil.supportsArrowMetadata(SPARK_CLI_SERVICE_PROTOCOL_V4.getValue()));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsMultipleCatalogs(int version) {
+    boolean expected = version >= MIN_VERSION_MULTIPLE_CATALOGS;
+    boolean actual = ProtocolFeatureUtil.supportsMultipleCatalogs(version);
+    assertEquals(expected, actual);
   }
 
-  @Test
-  public void testSupportsResultSetMetadataFromFetch() {
-    // Should support from V5 onwards
-    assertTrue(
-        ProtocolFeatureUtil.supportsResultSetMetadataFromFetch(
-            SPARK_CLI_SERVICE_PROTOCOL_V5.getValue()));
-    assertTrue(
-        ProtocolFeatureUtil.supportsResultSetMetadataFromFetch(
-            SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
-
-    // Should not support before V5
-    assertFalse(
-        ProtocolFeatureUtil.supportsResultSetMetadataFromFetch(
-            SPARK_CLI_SERVICE_PROTOCOL_V4.getValue()));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsArrowMetadata(int version) {
+    boolean expected = version >= MIN_VERSION_ARROW_METADATA;
+    boolean actual = ProtocolFeatureUtil.supportsArrowMetadata(version);
+    assertEquals(expected, actual);
   }
 
-  @Test
-  public void testSupportsAdvancedArrowTypes() {
-    // Should support from V5 onwards
-    assertTrue(
-        ProtocolFeatureUtil.supportsAdvancedArrowTypes(SPARK_CLI_SERVICE_PROTOCOL_V5.getValue()));
-    assertTrue(
-        ProtocolFeatureUtil.supportsAdvancedArrowTypes(SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
-
-    // Should not support before V5
-    assertFalse(
-        ProtocolFeatureUtil.supportsAdvancedArrowTypes(SPARK_CLI_SERVICE_PROTOCOL_V4.getValue()));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsResultSetMetadataFromFetch(int version) {
+    boolean expected = version >= MIN_VERSION_RESULTSET_METADATA;
+    boolean actual = ProtocolFeatureUtil.supportsResultSetMetadataFromFetch(version);
+    assertEquals(expected, actual);
   }
 
-  @Test
-  public void testSupportsCompressedArrowBatches() {
-    // Should support from V6 onwards
-    assertTrue(
-        ProtocolFeatureUtil.supportsCompressedArrowBatches(
-            SPARK_CLI_SERVICE_PROTOCOL_V6.getValue()));
-    assertTrue(
-        ProtocolFeatureUtil.supportsCompressedArrowBatches(
-            SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
-
-    // Should not support before V6
-    assertFalse(
-        ProtocolFeatureUtil.supportsCompressedArrowBatches(
-            SPARK_CLI_SERVICE_PROTOCOL_V5.getValue()));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsAdvancedArrowTypes(int version) {
+    boolean expected = version >= MIN_VERSION_ADVANCED_ARROW;
+    boolean actual = ProtocolFeatureUtil.supportsAdvancedArrowTypes(version);
+    assertEquals(expected, actual);
   }
 
-  @Test
-  public void testSupportsAsyncMetadataExecution() {
-    // Should support from V6 onwards
-    assertTrue(
-        ProtocolFeatureUtil.supportsAsyncMetadataExecution(
-            SPARK_CLI_SERVICE_PROTOCOL_V6.getValue()));
-    assertTrue(
-        ProtocolFeatureUtil.supportsAsyncMetadataExecution(
-            SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
-
-    // Should not support before V6
-    assertFalse(
-        ProtocolFeatureUtil.supportsAsyncMetadataExecution(
-            SPARK_CLI_SERVICE_PROTOCOL_V5.getValue()));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsCompressedArrowBatches(int version) {
+    boolean expected = version >= MIN_VERSION_COMPRESSED_ARROW;
+    boolean actual = ProtocolFeatureUtil.supportsCompressedArrowBatches(version);
+    assertEquals(expected, actual);
   }
 
-  @Test
-  public void testSupportsResultPersistenceMode() {
-    // Should support from V7 onwards
-    assertTrue(
-        ProtocolFeatureUtil.supportsResultPersistenceMode(
-            SPARK_CLI_SERVICE_PROTOCOL_V7.getValue()));
-    assertTrue(
-        ProtocolFeatureUtil.supportsResultPersistenceMode(
-            SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
-
-    // Should not support before V7
-    assertFalse(
-        ProtocolFeatureUtil.supportsResultPersistenceMode(
-            SPARK_CLI_SERVICE_PROTOCOL_V6.getValue()));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsAsyncMetadataExecution(int version) {
+    boolean expected = version >= MIN_VERSION_ASYNC_METADATA;
+    boolean actual = ProtocolFeatureUtil.supportsAsyncMetadataExecution(version);
+    assertEquals(expected, actual);
   }
 
-  @Test
-  public void testSupportsParameterizedQueries() {
-    // Should support from V8 onwards
-    assertTrue(
-        ProtocolFeatureUtil.supportsParameterizedQueries(SPARK_CLI_SERVICE_PROTOCOL_V8.getValue()));
-    assertTrue(
-        ProtocolFeatureUtil.supportsParameterizedQueries(SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
-
-    // Should not support before V8
-    assertFalse(
-        ProtocolFeatureUtil.supportsParameterizedQueries(SPARK_CLI_SERVICE_PROTOCOL_V7.getValue()));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsResultPersistenceMode(int version) {
+    boolean expected = version >= MIN_VERSION_RESULT_PERSISTENCE;
+    boolean actual = ProtocolFeatureUtil.supportsResultPersistenceMode(version);
+    assertEquals(expected, actual);
   }
 
-  @Test
-  public void testSupportsAsyncMetadataOperations() {
-    // Should support from V9 onwards
-    assertTrue(
-        ProtocolFeatureUtil.supportsAsyncMetadataOperations(
-            SPARK_CLI_SERVICE_PROTOCOL_V9.getValue()));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsParameterizedQueries(int version) {
+    boolean expected = version >= MIN_VERSION_PARAMETERIZED;
+    boolean actual = ProtocolFeatureUtil.supportsParameterizedQueries(version);
+    assertEquals(expected, actual);
+  }
 
-    // Should not support before V9
-    assertFalse(
-        ProtocolFeatureUtil.supportsAsyncMetadataOperations(
-            SPARK_CLI_SERVICE_PROTOCOL_V8.getValue()));
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testSupportsAsyncMetadataOperations(int version) {
+    boolean expected = version >= MIN_VERSION_ASYNC_OPERATIONS;
+    boolean actual = ProtocolFeatureUtil.supportsAsyncMetadataOperations(version);
+    assertEquals(expected, actual);
   }
 }
