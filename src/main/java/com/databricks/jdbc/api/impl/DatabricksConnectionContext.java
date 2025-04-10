@@ -795,7 +795,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public List<Integer> getUCIngestionRetriableHttpCodes() {
     return Arrays.stream(
-            getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRIABLE_HTTP_CODE).split(","))
+            getParameter(
+                    DatabricksJdbcUrlParams.VOLUME_OPERATION_RETRYABLE_HTTP_CODE,
+                    getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRIABLE_HTTP_CODE))
+                .split(","))
         .map(String::trim)
         .filter(num -> num.matches("\\d+")) // Ensure only positive integers
         .map(Integer::parseInt)
@@ -805,7 +808,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getUCIngestionRetryTimeoutSeconds() {
     // The Url param takes value in minutes
-    return 60 * Integer.parseInt(getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRY_TIMEOUT));
+    return 60
+        * Integer.parseInt(
+            getParameter(
+                DatabricksJdbcUrlParams.VOLUME_OPERATION_RETRY_TIMEOUT,
+                getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRY_TIMEOUT)));
   }
 
   @Override

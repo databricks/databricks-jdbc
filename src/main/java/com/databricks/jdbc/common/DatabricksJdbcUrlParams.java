@@ -85,9 +85,17 @@ public enum DatabricksJdbcUrlParams {
   ALLOWED_VOLUME_INGESTION_PATHS("VolumeOperationAllowedLocalPaths", ""),
   ALLOWED_STAGING_INGESTION_PATHS("StagingAllowedLocalPaths", ""),
   UC_INGESTION_RETRIABLE_HTTP_CODE(
-      "UCIngestionRetriableHttpCode", "Retriable HTTP codes for UC Ingestion", "408,502,503,504"),
+      "UCIngestionRetriableHttpCode", "Retryable HTTP codes for UC Ingestion", "408,502,503,504"),
+  VOLUME_OPERATION_RETRYABLE_HTTP_CODE(
+      "VolumeOperationRetryableHttpCode",
+      "Retryable HTTP codes for UC Ingestion",
+      "408,502,503,504"),
   UC_INGESTION_RETRY_TIMEOUT(
       "UCIngestionRetryTimeout",
+      "The retry timeout in minutes for UC Ingestion HTTP requests.",
+      "15"),
+  VOLUME_OPERATION_RETRY_TIMEOUT(
+      "VolumeOperationRetryTimeout",
       "The retry timeout in minutes for UC Ingestion HTTP requests.",
       "15"),
   ENABLE_REQUEST_TRACING("EnableRequestTracing", "flag to enable request tracing", "0"),

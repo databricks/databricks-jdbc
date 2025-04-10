@@ -392,14 +392,20 @@ class DatabricksConnectionContextTest {
         DatabricksConnectionContext.parse(
             TestConstants.VALID_URL_WITH_VOLUME_ALLOWED_PATH, properties);
     assertEquals("/tmp2", connectionContext.getVolumeOperationAllowedPaths());
+    assertEquals(List.of(429, 503, 504), connectionContext.getUCIngestionRetriableHttpCodes());
+    assertEquals(600, connectionContext.getUCIngestionRetryTimeoutSeconds());
 
     connectionContext =
         DatabricksConnectionContext.parse(
             TestConstants.VALID_URL_WITH_STAGING_ALLOWED_PATH, properties);
     assertEquals("/tmp", connectionContext.getVolumeOperationAllowedPaths());
+    assertEquals(List.of(503, 504), connectionContext.getUCIngestionRetriableHttpCodes());
+    assertEquals(720, connectionContext.getUCIngestionRetryTimeoutSeconds());
 
     connectionContext = DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
     assertEquals("", connectionContext.getVolumeOperationAllowedPaths());
+    assertEquals(List.of(408, 502, 503, 504), connectionContext.getUCIngestionRetriableHttpCodes());
+    assertEquals(900, connectionContext.getUCIngestionRetryTimeoutSeconds());
   }
 
   @Test
