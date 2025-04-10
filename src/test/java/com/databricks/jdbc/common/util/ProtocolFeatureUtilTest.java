@@ -12,6 +12,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 /** Unit tests for {@link ProtocolFeatureUtil}. */
 public class ProtocolFeatureUtilTest {
 
+  private static final TProtocolVersion MIN_VERSION_DATABRICKS_COMPUTE =
+      SPARK_CLI_SERVICE_PROTOCOL_V1;
   // Store minimum protocol version for each feature
   private static final TProtocolVersion MIN_VERSION_GET_INFOS = SPARK_CLI_SERVICE_PROTOCOL_V1;
   private static final TProtocolVersion MIN_VERSION_DIRECT_RESULTS = SPARK_CLI_SERVICE_PROTOCOL_V1;
@@ -148,6 +150,14 @@ public class ProtocolFeatureUtilTest {
   public void testSupportsAsyncMetadataOperations(TProtocolVersion version) {
     boolean expected = version.compareTo(MIN_VERSION_ASYNC_OPERATIONS) >= 0;
     boolean actual = ProtocolFeatureUtil.supportsAsyncMetadataOperations(version);
+    assertEquals(expected, actual);
+  }
+
+  @ParameterizedTest
+  @MethodSource("protocolVersionProvider")
+  public void testIsNonDatabricksCompute(TProtocolVersion version) {
+    boolean expected = version.compareTo(MIN_VERSION_DATABRICKS_COMPUTE) < 0;
+    boolean actual = ProtocolFeatureUtil.isNonDatabricksCompute(version);
     assertEquals(expected, actual);
   }
 }

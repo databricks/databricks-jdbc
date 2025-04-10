@@ -139,4 +139,14 @@ public final class ProtocolFeatureUtil {
   public static boolean supportsAsyncMetadataOperations(TProtocolVersion protocolVersion) {
     return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9) >= 0;
   }
+
+  /**
+   * Checks if the given protocol version indicates a non-Databricks compute.
+   *
+   * @param protocolVersion The protocol version to check
+   * @return true if this is a non-Databricks compute, false otherwise
+   */
+  public static boolean isNonDatabricksCompute(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10) <= 0;
+  }
 }

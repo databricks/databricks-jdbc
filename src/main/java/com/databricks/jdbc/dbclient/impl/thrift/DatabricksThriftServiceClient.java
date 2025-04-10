@@ -99,7 +99,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     thriftAccessor.setServerProtocolVersion(
         serverProtocolVersion); // save protocol version in thriftAccessor
 
-    if (serverProtocolVersion.compareTo(TProtocolVersion.HIVE_CLI_SERVICE_PROTOCOL_V10) <= 0) {
+    if (ProtocolFeatureUtil.isNonDatabricksCompute(serverProtocolVersion)) {
       throw new DatabricksSQLException(
           "Attempting to connect to a non Databricks compute using the Databricks driver.",
           DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
