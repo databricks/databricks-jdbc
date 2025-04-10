@@ -95,7 +95,7 @@ public class StringConverter implements ObjectConverter {
     } else if ("1".equals(str) || "true".equals(str)) {
       return true;
     }
-    throw new DatabricksValidationException("Invalid conversion to boolean");
+    return true;
   }
 
   @Override

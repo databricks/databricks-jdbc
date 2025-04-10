@@ -2,7 +2,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_JDBC_TEST_ENV;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.SocketFactoryUtil;
 import com.databricks.jdbc.log.JdbcLogger;

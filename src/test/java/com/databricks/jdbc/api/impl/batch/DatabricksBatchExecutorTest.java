@@ -3,8 +3,8 @@ package com.databricks.jdbc.api.impl.batch;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import java.sql.BatchUpdateException;
 import java.sql.SQLException;
 import java.time.Instant;

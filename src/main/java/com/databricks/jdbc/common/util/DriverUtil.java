@@ -2,7 +2,7 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -20,7 +20,7 @@ import java.io.IOException;
 public class DriverUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DriverUtil.class);
-  private static final String DRIVER_VERSION = "1.0.2-oss";
+  private static final String DRIVER_VERSION = "1.0.3-oss";
   private static final String DRIVER_NAME = "oss-jdbc";
   private static final String JDBC_VERSION = "4.3";
 

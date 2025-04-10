@@ -2,9 +2,9 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.convertColumnarToRowBased;
 
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;

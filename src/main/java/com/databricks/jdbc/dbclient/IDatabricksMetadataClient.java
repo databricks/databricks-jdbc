@@ -1,7 +1,7 @@
 package com.databricks.jdbc.dbclient;
 
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import java.sql.SQLException;
 
 public interface IDatabricksMetadataClient {

@@ -3,10 +3,10 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP;
 
 import com.databricks.jdbc.api.*;
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
@@ -44,8 +44,8 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   public DatabricksConnection(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     this.connectionContext = connectionContext;
-    this.session = new DatabricksSession(connectionContext);
     DatabricksThreadContextHolder.setConnectionContext(connectionContext);
+    this.session = new DatabricksSession(connectionContext);
   }
 
   @VisibleForTesting

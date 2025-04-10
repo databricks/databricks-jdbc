@@ -1,0 +1,33 @@
+{
+  "id" : "1c4f9e78-236b-481a-8eb6-204325493f20",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAQwAAQwAAQsAAQAAABAvl7yI+9hA06IvhezQrmnsCwACAAAAEJKcIA6K6UyUn8CFglr2UPYAAAsAAgAAAN1TRUxFQ1QgKiBGUk9NIChWQUxVRVMgKDEsICcgICBsZWFkaW5nIGFuZCB0cmFpbGluZyBzcGFjZXMgICAnKSwoMiwgJ+OBk+OCk+OBq+OBoeOBrycpLCgzLCAnc3BlY2lhbCBjaGFyczogIUAjJCVeJiooKScpLCg0LCAnc3RyaW5nIHdpdGggImRvdWJsZSBxdW90ZXMiIGluc2lkZScpLCg1LCBOVUxMKSkgQVMgc3RyaW5nX2VkZ2VfY2FzZXMoaWQsIHRlc3Rfc3RyaW5nKSBPUkRFUiBCWSBpZAoABQAAAAAAAAAADAUBCgABAAAAAAAehIAKAAIAAAAAGCGjAAACBQIAAgUDAQIFBAEMBQYCAAEBAgACAQIAAwECAAQBAgAFAQAPBQgMAAAAAAAA"
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEHwur2+NlEKHtGwN/xCwESULAAIAAAAQnWzOAgbmTHS372bBO/Bu3gYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAggNAgAAAAAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAgsAAQAAAAJpZAwAAg8AAQwAAAABDAABCAABAAAAAwAAAAgAAwAAAAELAAQAAAAAAAsAAQAAAAt0ZXN0X3N0cmluZwwAAg8AAQwAAAABDAABCAABAAAABwAAAAgAAwAAAAILAAQAAAAAAAAIBQEAAAABAgUCAAgFBAAAAAAKBQUAAAAAAAABAAoFBgAAAAAAAAEAAgUHAAgNAQAAAAAKDQUAAAAAAAAACAINEQAADAADDAABCAABAAAAAAACAAIADAADCgABAAAAAAAAAAAPAAIMAAAAAA8AAwwAAAACDAAEDwABCAAAAAUAAAABAAAAAgAAAAMAAAAEAAAABQsAAgAAAAEAAAAMAAcPAAELAAAABQAAACEgICBsZWFkaW5nIGFuZCB0cmFpbGluZyBzcGFjZXMgICAAAAAP44GT44KT44Gr44Gh44GvAAAAGXNwZWNpYWwgY2hhcnM6ICFAIyQlXiYqKCkAAAAic3RyaW5nIHdpdGggImRvdWJsZSBxdW90ZXMiIGluc2lkZQAAAAALAAIAAAABEAAAAAAMAAQMAAEIAAEAAAAAAAAAAAA=",
+    "headers" : {
+      "x-request-id" : "2f4f6df9-604c-47cf-9095-d34423fe7936",
+      "date" : "Tue, 08 Apr 2025 09:21:18 GMT,Tue, 08 Apr 2025 09:21:19 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : [ "max-age=31536000; includeSubDomains; preload", "max-age=31536000; includeSubDomains; preload" ],
+      "x-content-type-options" : [ "nosniff", "nosniff" ],
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "1c4f9e78-236b-481a-8eb6-204325493f20",
+  "insertionIndex" : 5
+}

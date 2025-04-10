@@ -1,6 +1,6 @@
 package com.databricks.jdbc.telemetry;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.util.LinkedList;

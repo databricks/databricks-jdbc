@@ -47,17 +47,9 @@ public class ByteArrayConverterTest {
   }
 
   @Test
-  void testConvertToBooleanTrue() throws DatabricksSQLException {
-    byte[] byteArray = {1};
-    assertTrue(converter.toBoolean(byteArray));
-    byteArray = new byte[] {};
-    assertFalse(converter.toBoolean(byteArray));
-  }
-
-  @Test
-  void testConvertToBooleanFalse() throws DatabricksSQLException {
-    byte[] byteArray = {0};
-    assertFalse(converter.toBoolean(byteArray));
+  void testConvertToBoolean() throws DatabricksSQLException {
+    assertThrows(DatabricksSQLException.class, () -> converter.toBoolean(new byte[] {1}));
+    assertThrows(DatabricksSQLException.class, () -> converter.toBoolean(new byte[] {}));
   }
 
   @Test

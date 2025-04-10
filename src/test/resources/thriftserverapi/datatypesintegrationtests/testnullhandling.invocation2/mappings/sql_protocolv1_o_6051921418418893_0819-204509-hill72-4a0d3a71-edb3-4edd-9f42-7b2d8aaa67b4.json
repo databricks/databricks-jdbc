@@ -1,0 +1,33 @@
+{
+  "id" : "4a0d3a71-edb3-4edd-9f42-7b2d8aaa67b4",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAQwAAQwAAQsAAQAAABDvp4PGgvFKfL8HRrjeZY8zCwACAAAAECRrbuMkPE/uqPj/BmrRK1AAAAsAAgAAABtTRUxFQ1QgQ0FTVChOVUxMIEFTIERPVUJMRSkKAAUAAAAAAAAAAAwFAQoAAQAAAAAAHoSACgACAAAAABghowAAAgUCAAIFAwECBQQBDAUGAgABAQIAAgECAAMBAgAEAQIABQEADwUIDAAAAAAAAA=="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEM8egiI9VkS5kvSP2cJdYwULAAIAAAAQbhXzWgxVQCSMP9Q0sC/LxwYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAggNAgAAAAAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAQsAAQAAABRDQVNUKE5VTEwgQVMgRE9VQkxFKQwAAg8AAQwAAAABDAABCAABAAAABgAAAAgAAwAAAAELAAQAAAAAAAAIBQEAAAABAgUCAAgFBAAAAAAKBQUAAAAAAAAAOQoFBgAAAAAAAAA5AgUHAAgNAQAAAAAKDQUAAAAAAAAAAAINEQAADAADDAABCAABAAAAAAACAAIADAADCgABAAAAAAAAAAAPAAIMAAAAAA8AAwwAAAABDAAGDwABBAAAAAEAAAAAAAAAAAsAAgAAAAEBAAAAAAwABAwAAQgAAQAAAAAAAAAAAA==",
+    "headers" : {
+      "x-request-id" : "06edcb59-55a6-4e05-a447-7dd6acbdf394",
+      "date" : "Tue, 01 Apr 2025 21:28:38 GMT,Tue, 01 Apr 2025 21:28:38 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : [ "max-age=31536000; includeSubDomains; preload", "max-age=31536000; includeSubDomains; preload" ],
+      "x-content-type-options" : [ "nosniff", "nosniff" ],
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "4a0d3a71-edb3-4edd-9f42-7b2d8aaa67b4",
+  "insertionIndex" : 14
+}

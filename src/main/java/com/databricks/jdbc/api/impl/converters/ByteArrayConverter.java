@@ -40,16 +40,6 @@ public class ByteArrayConverter implements ObjectConverter {
   }
 
   @Override
-  public boolean toBoolean(Object object) throws DatabricksSQLException {
-    byte[] byteArray = toByteArray(object);
-    if (byteArray.length > 0) {
-      return byteArray[0] != 0;
-    } else {
-      return false;
-    }
-  }
-
-  @Override
   public String toString(Object object) throws DatabricksSQLException {
     return Base64.getEncoder().encodeToString(toByteArray(object));
   }
