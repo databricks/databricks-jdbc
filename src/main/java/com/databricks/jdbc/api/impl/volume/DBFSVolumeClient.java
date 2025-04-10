@@ -75,7 +75,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "Entering prefixExists method with parameters: catalog = %s, schema = %s, volume = %s, prefix = %s, caseSensitive = %b",
+            "Entering prefixExists method with parameters: catalog = {%s}, schema = {%s}, volume = {%s}, prefix = {%s}, caseSensitive = {%s}",
             catalog, schema, volume, prefix, caseSensitive));
     if (WildcardUtil.isNullOrEmpty(prefix)) {
       return false;
@@ -86,7 +86,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     } catch (Exception e) {
       LOGGER.error(
           String.format(
-              "Error checking prefix existence: catalog = %s, schema = %s, volume = %s, prefix = %s, caseSensitive = %b",
+              "Error checking prefix existence: catalog = {%s}, schema = {%s}, volume = {%s}, prefix = {%s}, caseSensitive = {%s}",
               catalog, schema, volume, prefix, caseSensitive),
           e);
       throw new DatabricksVolumeOperationException(
@@ -103,7 +103,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "Entering objectExists method with parameters: catalog = %s, schema = %s, volume = %s, objectPath = %s, caseSensitive = %b",
+            "Entering objectExists method with parameters: catalog = {%s}, schema = {%s}, volume = {%s}, objectPath = {%s}, caseSensitive = {%s}",
             catalog, schema, volume, objectPath, caseSensitive));
     if (WildcardUtil.isNullOrEmpty(objectPath)) {
       return false;
@@ -124,7 +124,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     } catch (Exception e) {
       LOGGER.error(
           String.format(
-              "Error checking object existence: catalog = %s, schema = %s, volume = %s, objectPath = %s, caseSensitive = %b",
+              "Error checking object existence: catalog = {%s}, schema = {%s}, volume = {%s}, objectPath = {%s}, caseSensitive = {%s}",
               catalog, schema, volume, objectPath, caseSensitive),
           e);
       throw new DatabricksVolumeOperationException(
@@ -140,14 +140,14 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
     LOGGER.debug(
         String.format(
-            "Entering volumeExists method with parameters: catalog = %s, schema = %s, volumeName = %s, caseSensitive = %b",
+            "Entering volumeExists method with parameters: catalog = {%s}, schema = {%s}, volumeName = {%s}, caseSensitive = {%s}",
             catalog, schema, volumeName, caseSensitive));
     if (WildcardUtil.isNullOrEmpty(volumeName)) {
       return false;
     }
     try {
       String volumePath = StringUtil.getVolumePath(catalog, schema, volumeName);
-      // If getListResponse does not throw, then the volume exists (even if it's empty).
+      // If getListResponse does not throw, then the volume exists (even if it’s empty).
       getListResponse(volumePath);
       return true;
     } catch (DatabricksVolumeOperationException e) {
@@ -158,7 +158,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       }
       LOGGER.error(
           String.format(
-              "Error checking volume existence: catalog = %s, schema = %s, volumeName = %s, caseSensitive = %b",
+              "Error checking volume existence: catalog = {%s}, schema = {%s}, volumeName = {%s}, caseSensitive = {%s}",
               catalog, schema, volumeName, caseSensitive),
           e);
       throw new DatabricksVolumeOperationException(
@@ -175,7 +175,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "Entering listObjects method with parameters: catalog=%s, schema=%s, volume=%s, prefix=%s, caseSensitive=%b",
+            "Entering listObjects method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
             catalog, schema, volume, prefix, caseSensitive));
 
     String basename = StringUtil.getBaseNameFromPath(prefix);
@@ -197,7 +197,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(
-            "Entering getObject method with parameters: catalog=%s, schema=%s, volume=%s, objectPath=%s, localPath=%s",
+            "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
             catalog, schema, volume, objectPath, localPath));
 
     try {
@@ -218,7 +218,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       volumeOperationProcessor.process();
       checkVolumeOperationError(volumeOperationProcessor);
     } catch (DatabricksSQLException e) {
-      String errorMessage = String.format("Failed to get object - %s", e.getMessage());
+      String errorMessage = String.format("Failed to get object - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_FILE_DOWNLOAD_ERROR);
@@ -233,7 +233,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(
-            "Entering getObject method with parameters: catalog=%s, schema=%s, volume=%s, objectPath=%s",
+            "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
             catalog, schema, volume, objectPath));
 
     try {
@@ -264,7 +264,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
       return getVolumeOperationInputStream();
     } catch (DatabricksSQLException e) {
-      String errorMessage = String.format("Failed to get object - %s", e.getMessage());
+      String errorMessage = String.format("Failed to get object - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_FILE_DOWNLOAD_ERROR);
@@ -284,8 +284,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
     LOGGER.debug(
         String.format(
-            "Entering putObject method with parameters: catalog=%s, schema=%s, volume=%s, objectPath=%s, localPath=%s, toOverwrite=%s",
-            catalog, schema, volume, objectPath, localPath, toOverwrite));
+            "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
+            catalog, schema, volume, objectPath, localPath));
 
     try {
       // Fetching the Pre Signed Url
@@ -305,7 +305,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       volumeOperationProcessor.process();
       checkVolumeOperationError(volumeOperationProcessor);
     } catch (DatabricksSQLException e) {
-      String errorMessage = String.format("Failed to put object - %s", e.getMessage());
+      String errorMessage = String.format("Failed to put object - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_PUT_OPERATION_EXCEPTION);
@@ -326,8 +326,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(
-            "Entering putObject method with parameters: catalog=%s, schema=%s, volume=%s, objectPath=%s, toOverwrite=%s",
-            catalog, schema, volume, objectPath, toOverwrite));
+            "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, inputStream={%s}, contentLength={%s}, toOverwrite={%s}",
+            catalog, schema, volume, objectPath, inputStream, contentLength, toOverwrite));
 
     try {
       // Fetching the Pre Signed Url
@@ -349,7 +349,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       checkVolumeOperationError(volumeOperationProcessor);
     } catch (DatabricksSQLException e) {
       String errorMessage =
-          String.format("Failed to put object with inputStream- %s", e.getMessage());
+          String.format("Failed to put object with inputStream- {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_PUT_OPERATION_EXCEPTION);
@@ -363,7 +363,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(
-            "Entering deleteObject method with parameters: catalog=%s, schema=%s, volume=%s, objectPath=%s",
+            "Entering deleteObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
             catalog, schema, volume, objectPath));
 
     try {
@@ -383,7 +383,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       volumeOperationProcessor.process();
       checkVolumeOperationError(volumeOperationProcessor);
     } catch (DatabricksSQLException e) {
-      String errorMessage = String.format("Failed to delete object %s", e.getMessage());
+      String errorMessage = String.format("Failed to delete object {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_DELETE_OPERATION_EXCEPTION);
@@ -403,7 +403,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(
-            "Entering getCreateUploadUrlResponse method with parameters: objectPath=%s",
+            "Entering getCreateUploadUrlResponse method with parameters: objectPath={%s}",
             objectPath));
 
     CreateUploadUrlRequest request = new CreateUploadUrlRequest(objectPath);
@@ -413,8 +413,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       return apiClient.execute(req, CreateUploadUrlResponse.class);
     } catch (IOException | DatabricksException e) {
       String errorMessage =
-          String.format("Failed to get create upload url response - %s", e.getMessage());
-      LOGGER.error(errorMessage, e);
+          String.format("Failed to get create upload url response - {%s}", e.getMessage());
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR);
     }
@@ -425,7 +425,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(
-            "Entering getCreateDownloadUrlResponse method with parameters: objectPath=%s",
+            "Entering getCreateDownloadUrlResponse method with parameters: objectPath={%s}",
             objectPath));
 
     CreateDownloadUrlRequest request = new CreateDownloadUrlRequest(objectPath);
@@ -437,8 +437,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       return apiClient.execute(req, CreateDownloadUrlResponse.class);
     } catch (IOException | DatabricksException e) {
       String errorMessage =
-          String.format("Failed to get create download url response - %s", e.getMessage());
-      LOGGER.error(errorMessage, e);
+          String.format("Failed to get create download url response - {%s}", e.getMessage());
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR);
     }
@@ -449,7 +449,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
         String.format(
-            "Entering getCreateDeleteUrlResponse method with parameters: objectPath=%s",
+            "Entering getCreateDeleteUrlResponse method with parameters: objectPath={%s}",
             objectPath));
     CreateDeleteUrlRequest request = new CreateDeleteUrlRequest(objectPath);
 
@@ -459,8 +459,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       return apiClient.execute(req, CreateDeleteUrlResponse.class);
     } catch (IOException | DatabricksException e) {
       String errorMessage =
-          String.format("Failed to get create delete url response - %s", e.getMessage());
-      LOGGER.error(errorMessage, e);
+          String.format("Failed to get create delete url response - {%s}", e.getMessage());
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR);
     }
@@ -469,15 +469,16 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   /** Fetches the list of objects in the volume using the SQL Exec API */
   ListResponse getListResponse(String listPath) throws DatabricksVolumeOperationException {
     LOGGER.debug(
-        String.format("Entering getListResponse method with parameters : listPath=%s", listPath));
+        String.format("Entering getListResponse method with parameters : listPath={%s}", listPath));
     ListRequest request = new ListRequest(listPath);
     try {
-      Request req = new Request(Request.GET, LIST_PATH, apiClient.serialize(request));
+      Request req = new Request(Request.GET, LIST_PATH);
       req.withHeaders(JSON_HTTP_HEADERS);
+      ApiClient.setQuery(req, request);
       return apiClient.execute(req, ListResponse.class);
     } catch (IOException | DatabricksException e) {
-      String errorMessage = String.format("Failed to get list response - %s", e.getMessage());
-      LOGGER.error(errorMessage, e);
+      String errorMessage = String.format("Failed to get list response - {%s}", e.getMessage());
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);
     }
