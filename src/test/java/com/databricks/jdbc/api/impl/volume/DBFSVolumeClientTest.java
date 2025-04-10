@@ -36,8 +36,8 @@ class DBFSVolumeClientTest {
   @BeforeEach
   void setup() {
     // DBFS Client Spy
-    client = new DBFSVolumeClient(mockWorkSpaceClient);
-    client = spy(client);
+    when(mockWorkSpaceClient.apiClient()).thenReturn(mockAPIClient);
+    client = spy(new DBFSVolumeClient(mockWorkSpaceClient));
   }
 
   @Test
@@ -215,11 +215,8 @@ class DBFSVolumeClientTest {
   @Test
   void testGetCreateDownloadUrlResponse() throws Exception {
     CreateDownloadUrlResponse mockResponse = new CreateDownloadUrlResponse();
-
-    when(client.workspaceClient.apiClient()).thenReturn(mockAPIClient);
-    when(mockAPIClient.POST(anyString(), any(), eq(CreateDownloadUrlResponse.class), anyMap()))
+    when(mockAPIClient.execute(any(), eq(CreateDownloadUrlResponse.class)))
         .thenReturn(mockResponse);
-
     CreateDownloadUrlResponse response = client.getCreateDownloadUrlResponse("path");
     assertEquals(response, mockResponse);
   }
@@ -227,11 +224,7 @@ class DBFSVolumeClientTest {
   @Test
   void testGetCreateUploadUrlResponse() throws Exception {
     CreateUploadUrlResponse mockResponse = new CreateUploadUrlResponse();
-
-    when(client.workspaceClient.apiClient()).thenReturn(mockAPIClient);
-    when(mockAPIClient.POST(anyString(), any(), eq(CreateUploadUrlResponse.class), anyMap()))
-        .thenReturn(mockResponse);
-
+    when(mockAPIClient.execute(any(), eq(CreateUploadUrlResponse.class))).thenReturn(mockResponse);
     CreateUploadUrlResponse response = client.getCreateUploadUrlResponse("path");
     assertEquals(response, mockResponse);
   }
@@ -239,11 +232,7 @@ class DBFSVolumeClientTest {
   @Test
   void testGetCreateDeleteUrlResponse() throws Exception {
     CreateDeleteUrlResponse mockResponse = new CreateDeleteUrlResponse();
-
-    when(client.workspaceClient.apiClient()).thenReturn(mockAPIClient);
-    when(mockAPIClient.POST(anyString(), any(), eq(CreateDeleteUrlResponse.class), anyMap()))
-        .thenReturn(mockResponse);
-
+    when(mockAPIClient.execute(any(), eq(CreateDeleteUrlResponse.class))).thenReturn(mockResponse);
     CreateDeleteUrlResponse response = client.getCreateDeleteUrlResponse("path");
     assertEquals(response, mockResponse);
   }

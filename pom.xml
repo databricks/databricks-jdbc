@@ -52,8 +52,9 @@
     <google.findbugs.annotations.version>3.0.1</google.findbugs.annotations.version>
     <immutables.value.version>2.9.2</immutables.value.version>
     <httpclient.version>4.5.14</httpclient.version>
+    <commons-configuration.version>2.10.1</commons-configuration.version>
     <commons-io.version>2.14.0</commons-io.version>
-    <databricks-sdk.version>0.37.0</databricks-sdk.version>
+    <databricks-sdk.version>0.43.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
     <lz4-compression.version>1.8.0</lz4-compression.version>
@@ -71,6 +72,11 @@
       <groupId>com.databricks</groupId>
       <artifactId>databricks-sdk-java</artifactId>
       <version>${databricks-sdk.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-configuration2</artifactId>
+      <version>${commons-configuration.version}</version> <!-- or latest stable -->
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
