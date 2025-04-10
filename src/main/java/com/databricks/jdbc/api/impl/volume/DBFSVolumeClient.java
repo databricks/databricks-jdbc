@@ -75,7 +75,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "Entering prefixExists method with parameters: catalog = %s, schema = %s, volume = %s, prefix = %s, caseSensitive = %s",
+            "Entering prefixExists method with parameters: catalog = %s, schema = %s, volume = %s, prefix = %s, caseSensitive = %b",
             catalog, schema, volume, prefix, caseSensitive));
     if (WildcardUtil.isNullOrEmpty(prefix)) {
       return false;
@@ -86,7 +86,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     } catch (Exception e) {
       LOGGER.error(
           String.format(
-              "Error checking prefix existence: catalog = %s, schema = %s, volume = %s, prefix = %s, caseSensitive = %s",
+              "Error checking prefix existence: catalog = %s, schema = %s, volume = %s, prefix = %s, caseSensitive = %b",
               catalog, schema, volume, prefix, caseSensitive),
           e);
       throw new DatabricksVolumeOperationException(
@@ -103,7 +103,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "Entering objectExists method with parameters: catalog = %s, schema = %s, volume = %s, objectPath = %s, caseSensitive = %s",
+            "Entering objectExists method with parameters: catalog = %s, schema = %s, volume = %s, objectPath = %s, caseSensitive = %b",
             catalog, schema, volume, objectPath, caseSensitive));
     if (WildcardUtil.isNullOrEmpty(objectPath)) {
       return false;
@@ -124,7 +124,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     } catch (Exception e) {
       LOGGER.error(
           String.format(
-              "Error checking object existence: catalog = %s, schema = %s, volume = %s, objectPath = %s, caseSensitive = %s",
+              "Error checking object existence: catalog = %s, schema = %s, volume = %s, objectPath = %s, caseSensitive = %b",
               catalog, schema, volume, objectPath, caseSensitive),
           e);
       throw new DatabricksVolumeOperationException(
@@ -140,7 +140,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
     LOGGER.debug(
         String.format(
-            "Entering volumeExists method with parameters: catalog = %s, schema = %s, volumeName = %s, caseSensitive = %s",
+            "Entering volumeExists method with parameters: catalog = %s, schema = %s, volumeName = %s, caseSensitive = %b",
             catalog, schema, volumeName, caseSensitive));
     if (WildcardUtil.isNullOrEmpty(volumeName)) {
       return false;
@@ -158,7 +158,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       }
       LOGGER.error(
           String.format(
-              "Error checking volume existence: catalog = %s, schema = %s, volumeName = %s, caseSensitive = %s",
+              "Error checking volume existence: catalog = %s, schema = %s, volumeName = %s, caseSensitive = %b",
               catalog, schema, volumeName, caseSensitive),
           e);
       throw new DatabricksVolumeOperationException(
@@ -175,7 +175,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "Entering listObjects method with parameters: catalog=%s, schema=%s, volume=%s, prefix=%s, caseSensitive=%s",
+            "Entering listObjects method with parameters: catalog=%s, schema=%s, volume=%s, prefix=%s, caseSensitive=%b",
             catalog, schema, volume, prefix, caseSensitive));
 
     String basename = StringUtil.getBaseNameFromPath(prefix);
