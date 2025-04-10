@@ -20,6 +20,7 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.utils.Cloud;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -148,6 +149,18 @@ public class ClientConfigurator {
     if (!databricksConfig.isAzure()) {
       databricksConfig.setScopes(connectionContext.getOAuthScopesForU2M());
     }
+
+    CredentialsProvider provider;
+    if (connectionContext.isTokenCacheEnabled()) {
+      if (connectionContext.getTokenCachePassPhrase() == null) {
+        LOGGER.error("No token cache passphrase configured");
+        throw new DatabricksException("No token cache passphrase configured");
+      }
+      databricksConfig.setOAuthTokenCachePassphrase(connectionContext.getTokenCachePassPhrase());
+    }
+    databricksConfig.setTokenCacheEnabled(connectionContext.isTokenCacheEnabled());
+    provider = new ExternalBrowserCredentialsProvider();
+    databricksConfig.setCredentialsProvider(provider).setAuthType(provider.authType());
   }
 
   /**
@@ -231,14 +244,13 @@ public class ClientConfigurator {
 
   /** Setup the OAuth U2M refresh token authentication settings in the databricks config. */
   public void setupU2MRefreshConfig() throws DatabricksParsingException {
-    CredentialsProvider provider =
-        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     databricksConfig
         .setHost(connectionContext.getHostForOAuth())
-        .setAuthType(provider.authType()) // oauth-refresh
-        .setCredentialsProvider(provider)
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret());
+    CredentialsProvider provider =
+        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
+    databricksConfig.setAuthType(provider.authType()).setCredentialsProvider(provider);
   }
 
   /** Setup the OAuth M2M authentication settings in the databricks config. */

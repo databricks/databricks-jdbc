@@ -260,4 +260,10 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the socket timeout in seconds for HTTP connections. */
   int getSocketTimeout();
+
+  /** Returns the passphrase used for encrypting/decrypting token cache */
+  String getTokenCachePassPhrase();
+
+  /** Returns whether token caching is enabled for OAuth authentication */
+  boolean isTokenCacheEnabled();
 }
