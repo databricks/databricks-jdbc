@@ -139,8 +139,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setWarehouseId(((Warehouse) sessionInfo.computeResource()).getWarehouseId());
     String path = String.format(SESSION_PATH_WITH_ID, request.getSessionId());
     try {
-      Request req = new Request(Request.DELETE, path, apiClient.serialize(request));
+      Request req = new Request(Request.DELETE, path);
       req.withHeaders(getHeaders("deleteSession"));
+      ApiClient.setQuery(req, request);
       apiClient.execute(req, Void.class);
     } catch (IOException e) {
       String errorMessage = "Error while performing the deleting session operation";
