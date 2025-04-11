@@ -687,12 +687,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           .map(Integer::parseInt)
           .collect(Collectors.toList());
     } catch (NumberFormatException e) {
-      LOGGER.warn(
-          "Invalid port format in OAuth2RedirectUrlPort: {}. Using default port {}.",
-          portsStr,
-          DatabricksJdbcUrlParams.OAUTH_REDIRECT_URL_PORT.getDefaultValue());
-      return List.of(
-          Integer.parseInt(DatabricksJdbcUrlParams.OAUTH_REDIRECT_URL_PORT.getDefaultValue()));
+      String errorMessage =
+          String.format("Invalid port format in OAuth2RedirectUrlPort: %s.", portsStr);
+      LOGGER.error(errorMessage, e);
+      throw new IllegalArgumentException(errorMessage);
     }
   }
 
