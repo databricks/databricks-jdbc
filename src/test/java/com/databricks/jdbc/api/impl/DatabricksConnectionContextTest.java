@@ -500,14 +500,12 @@ class DatabricksConnectionContextTest {
     assertEquals(9091, ports.get(1));
     assertEquals(9092, ports.get(2));
 
-    // Test invalid format - should fallback to default
+    // Test invalid format
     props = new Properties();
     props.setProperty("OAuth2RedirectUrlPort", "invalid");
     context =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
-    ports = context.getOAuth2RedirectUrlPorts();
-    assertEquals(1, ports.size());
-    assertEquals(8020, ports.get(0)); // Default value when format is invalid
+    assertThrows(IllegalArgumentException.class, context::getOAuth2RedirectUrlPorts);
   }
 }
