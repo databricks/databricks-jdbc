@@ -8,6 +8,8 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.auth.EncryptedFileTokenCache;
+import com.databricks.jdbc.auth.NoOpTokenCache;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
@@ -447,7 +449,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.isTokenCacheEnabled()).thenReturn(true);
     when(mockContext.getTokenCachePassPhrase()).thenReturn("testPassphrase");
-    
+
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -459,8 +461,7 @@ public class ClientConfiguratorTest {
     assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
-    assertTrue(config.isTokenCacheEnabled());
-    assertEquals("testPassphrase", config.getOAuthTokenCachePassphrase());
+    assertInstanceOf(EncryptedFileTokenCache.class, config.getTokenCache());
   }
 
   @Test
@@ -475,7 +476,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.isTokenCacheEnabled()).thenReturn(true);
     when(mockContext.getTokenCachePassPhrase()).thenReturn(null);
-    
+
     assertThrows(DatabricksException.class, () -> new ClientConfigurator(mockContext));
   }
 
@@ -502,7 +503,6 @@ public class ClientConfiguratorTest {
     assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
-    assertFalse(config.isTokenCacheEnabled());
-    assertNull(config.getOAuthTokenCachePassphrase());
+    assertInstanceOf(NoOpTokenCache.class, config.getTokenCache());
   }
 }
