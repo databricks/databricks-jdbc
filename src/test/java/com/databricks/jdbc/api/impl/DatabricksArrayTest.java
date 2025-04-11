@@ -1,11 +1,10 @@
 package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
-import com.databricks.jdbc.exception.DatabricksSQLRuntimeException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
@@ -195,7 +194,7 @@ public class DatabricksArrayTest {
 
   /**
    * Test the constructor with invalid STRUCT elements (expecting STRUCT but provided non-STRUCT).
-   * Expects DatabricksSQLRuntimeException.
+   * Expects DatabricksDriverException.
    */
   @Test
   public void constructor_ShouldThrowException_WhenStructElementIsNotStruct() throws SQLException {
@@ -214,14 +213,14 @@ public class DatabricksArrayTest {
     parsedStructType.put("name", "STRING");
     mockParseStructMetadata("STRUCT<id:INT,name:STRING>", parsedStructType);
 
-    // Expecting DatabricksSQLRuntimeException due to first element being a String instead of a Map
-    DatabricksSQLRuntimeException exception =
+    // Expecting DatabricksDriverException due to first element being a String instead of a Map
+    DatabricksDriverException exception =
         assertThrows(
-            DatabricksSQLRuntimeException.class,
+            DatabricksDriverException.class,
             () -> {
               new DatabricksArray(originalList, metadata);
             },
-            "Constructor should throw DatabricksSQLRuntimeException for invalid STRUCT elements");
+            "Constructor should throw DatabricksDriverException for invalid STRUCT elements");
 
     assertTrue(
         exception.getMessage().contains("Error converting elements"),
@@ -234,7 +233,7 @@ public class DatabricksArrayTest {
 
   /**
    * Test the constructor with invalid ARRAY elements (expecting ARRAY but provided non-ARRAY).
-   * Expects DatabricksSQLRuntimeException.
+   * Expects DatabricksDriverException.
    */
   @Test
   public void constructor_ShouldThrowException_WhenArrayElementIsNotArray() throws SQLException {
@@ -252,14 +251,14 @@ public class DatabricksArrayTest {
         .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
         .thenReturn("STRING");
 
-    // Expecting DatabricksSQLRuntimeException due to first element being a String instead of a List
-    DatabricksSQLRuntimeException exception =
+    // Expecting DatabricksDriverException due to first element being a String instead of a List
+    DatabricksDriverException exception =
         assertThrows(
-            DatabricksSQLRuntimeException.class,
+            DatabricksDriverException.class,
             () -> {
               new DatabricksArray(originalList, metadata);
             },
-            "Constructor should throw DatabricksSQLRuntimeException for invalid ARRAY elements");
+            "Constructor should throw DatabricksDriverException for invalid ARRAY elements");
 
     assertTrue(
         exception.getMessage().contains("Error converting elements"),

@@ -10,9 +10,9 @@ import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtils;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
-import com.databricks.jdbc.exception.DatabricksSQLRuntimeException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -230,7 +230,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
                     DefaultSchemePortResolver.INSTANCE.resolve(host),
                     host.getSchemeName());
           } catch (UnsupportedSchemeException e) {
-            throw new DatabricksSQLRuntimeException(
+            throw new DatabricksDriverException(
                 e.getMessage(), DatabricksDriverErrorCode.INTEGRATION_TEST_ERROR);
           }
 

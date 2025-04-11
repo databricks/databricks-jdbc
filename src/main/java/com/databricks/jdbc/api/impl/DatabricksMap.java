@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
-import com.databricks.jdbc.exception.DatabricksSQLRuntimeException;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -53,7 +53,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       }
     } catch (Exception e) {
       LOGGER.error("Error during map conversion: {}", e.getMessage(), e);
-      throw new DatabricksSQLRuntimeException(
+      throw new DatabricksDriverException(
           "Invalid metadata or map structure",
           e,
           DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
@@ -108,7 +108,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       String errorMessage =
           String.format("Error converting value of type %s: %s", valueType, e.getMessage());
       LOGGER.error(errorMessage, e);
-      throw new DatabricksSQLRuntimeException(
+      throw new DatabricksDriverException(
           errorMessage, e, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
     }
   }
@@ -158,7 +158,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       String errorMessage =
           String.format("Error converting simple value of type %s: %s", valueType, e.getMessage());
       LOGGER.error(String.format("%s, value: %s", errorMessage, value), e);
-      throw new DatabricksSQLRuntimeException(
+      throw new DatabricksDriverException(
           errorMessage, e, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
     }
   }

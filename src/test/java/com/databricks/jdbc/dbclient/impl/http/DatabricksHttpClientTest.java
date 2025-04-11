@@ -7,9 +7,9 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
-import com.databricks.jdbc.exception.DatabricksSQLRuntimeException;
 import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
 import java.net.URI;
@@ -166,7 +166,7 @@ public class DatabricksHttpClientTest {
 
     // Determine route should throw HTTP error as the target URI is invalid
     assertThrows(
-        DatabricksSQLRuntimeException.class,
+        DatabricksDriverException.class,
         () ->
             capturedRoutePlanner.determineRoute(
                 HttpHost.create(request.getURI().toString()), request, null));

@@ -1,6 +1,6 @@
 package com.databricks.jdbc.common;
 
-import com.databricks.jdbc.exception.DatabricksSQLRuntimeException;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 
 public enum AuthMech {
@@ -16,7 +16,7 @@ public enum AuthMech {
       case 11:
         return AuthMech.OAUTH;
       default:
-        throw new DatabricksSQLRuntimeException(
+        throw new DatabricksDriverException(
             String.format("Does not support authMech value %s", authMech),
             DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
@@ -26,7 +26,7 @@ public enum AuthMech {
     try {
       return Integer.parseInt(authMech);
     } catch (NumberFormatException e) {
-      throw new DatabricksSQLRuntimeException(
+      throw new DatabricksDriverException(
           String.format("AuthMech value must be an integer only, and not %s", authMech),
           DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }

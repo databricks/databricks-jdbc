@@ -1,8 +1,8 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
-import com.databricks.jdbc.exception.DatabricksSQLRuntimeException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -83,7 +83,7 @@ public class DatabricksArray implements Array {
         String errorMessage =
             String.format("Error converting element at index %s: %s", i, e.getMessage());
         LOGGER.error(errorMessage, e);
-        throw new DatabricksSQLRuntimeException(
+        throw new DatabricksDriverException(
             "Error converting elements",
             e,
             DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
@@ -137,7 +137,7 @@ public class DatabricksArray implements Array {
       String errorMessage =
           String.format("Error converting simple value of type %s: %s", type, e.getMessage());
       LOGGER.error(String.format("%s, value : %s", errorMessage, value), e);
-      throw new DatabricksSQLRuntimeException(
+      throw new DatabricksDriverException(
           errorMessage, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
     }
   }

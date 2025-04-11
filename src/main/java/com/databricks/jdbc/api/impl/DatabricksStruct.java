@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
-import com.databricks.jdbc.exception.DatabricksSQLRuntimeException;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -132,7 +132,7 @@ public class DatabricksStruct implements Struct {
     } catch (Exception e) {
       String errorMessage = String.format("Failed to convert value %s to type %s", value, type);
       LOGGER.error(errorMessage);
-      throw new DatabricksSQLRuntimeException(
+      throw new DatabricksDriverException(
           errorMessage, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR);
     }
   }
@@ -203,7 +203,7 @@ public class DatabricksStruct implements Struct {
             "Expected a %s but found: %s",
             datatype, (value == null ? "null" : value.getClass().getSimpleName()));
     LOGGER.error(errorMessage);
-    throw new DatabricksSQLRuntimeException(
+    throw new DatabricksDriverException(
         errorMessage, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR);
   }
 }
