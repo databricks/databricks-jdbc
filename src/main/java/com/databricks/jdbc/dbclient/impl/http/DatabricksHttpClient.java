@@ -50,7 +50,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private IdleConnectionEvictor idleConnectionEvictor;
   private CloseableHttpAsyncClient asyncClient;
 
-  DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type) {
+  DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type)
+      throws DatabricksHttpException {
     connectionManager = initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext, type);
     idleConnectionEvictor =
@@ -124,7 +125,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   }
 
   private PoolingHttpClientConnectionManager initializeConnectionManager(
-      IDatabricksConnectionContext connectionContext) {
+      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
     PoolingHttpClientConnectionManager connectionManager =
         ConfiguratorUtils.getBaseConnectionManager(connectionContext);
     connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);

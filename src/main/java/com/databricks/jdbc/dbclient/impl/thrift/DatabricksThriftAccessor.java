@@ -57,7 +57,7 @@ final class DatabricksThriftAccessor {
   private TProtocolVersion serverProtocolVersion = JDBC_THRIFT_VERSION;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
-      throws DatabricksParsingException {
+      throws DatabricksParsingException, DatabricksHttpException {
     this.enableDirectResults = connectionContext.getDirectResultMode();
     this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
     String endPointUrl = connectionContext.getEndpointURL();
