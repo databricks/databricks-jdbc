@@ -508,4 +508,38 @@ class DatabricksConnectionContextTest {
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
     assertThrows(IllegalArgumentException.class, context::getOAuth2RedirectUrlPorts);
   }
+
+  @Test
+  public void testTokenCacheSettings() throws DatabricksSQLException {
+    // Test with token cache disabled (default)
+    String jdbcUrl = "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;EnableTokenCache=0";
+    Properties properties = new Properties();
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(jdbcUrl, properties);
+    assertFalse(connectionContext.isTokenCacheEnabled());
+    assertNull(connectionContext.getTokenCachePassPhrase());
+
+    // Test with token cache enabled but no passphrase
+    jdbcUrl = "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;EnableTokenCache=1";
+    connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(jdbcUrl, properties);
+    assertTrue(connectionContext.isTokenCacheEnabled());
+    assertNull(connectionContext.getTokenCachePassPhrase());
+
+    // Test with token cache enabled and passphrase specified
+    jdbcUrl = "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;EnableTokenCache=1;TokenCachePassPhrase=testpass";
+    connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(jdbcUrl, properties);
+    assertTrue(connectionContext.isTokenCacheEnabled());
+    assertEquals("testpass", connectionContext.getTokenCachePassPhrase());
+
+    // Test with token cache enabled via properties
+    jdbcUrl = "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg";
+    properties.setProperty("EnableTokenCache", "1");
+    properties.setProperty("TokenCachePassPhrase", "proppass");
+    connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(jdbcUrl, properties);
+    assertTrue(connectionContext.isTokenCacheEnabled());
+    assertEquals("proppass", connectionContext.getTokenCachePassPhrase());
+  }
 }
