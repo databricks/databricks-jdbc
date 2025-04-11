@@ -5,6 +5,7 @@ import static java.util.AbstractMap.SimpleEntry;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.IOException;
@@ -33,7 +34,13 @@ public class DatabricksHttpClientFactory {
       IDatabricksConnectionContext context, HttpClientType type) {
     return instances.computeIfAbsent(
         getClientKey(context.getConnectionUuid(), type),
-        k -> new DatabricksHttpClient(context, type));
+        k -> {
+          try {
+            return new DatabricksHttpClient(context, type);
+          } catch (DatabricksHttpException e) {
+            throw new RuntimeException(e);
+          }
+        });
   }
 
   public void removeClient(IDatabricksConnectionContext context) {

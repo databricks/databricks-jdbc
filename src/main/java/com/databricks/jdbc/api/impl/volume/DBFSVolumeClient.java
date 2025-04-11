@@ -16,6 +16,7 @@ import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -58,7 +59,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     this.allowedVolumeIngestionPaths = "";
   }
 
-  public DBFSVolumeClient(IDatabricksConnectionContext connectionContext) {
+  public DBFSVolumeClient(IDatabricksConnectionContext connectionContext)
+      throws DatabricksHttpException {
     this.connectionContext = connectionContext;
     this.workspaceClient = getWorkspaceClientFromConnectionContext(connectionContext);
     this.apiClient = workspaceClient.apiClient();
@@ -392,7 +394,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   }
 
   WorkspaceClient getWorkspaceClientFromConnectionContext(
-      IDatabricksConnectionContext connectionContext) {
+      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
     ClientConfigurator clientConfigurator = new ClientConfigurator(connectionContext);
     DatabricksThreadContextHolder.setDatabricksConfig(clientConfigurator.getDatabricksConfig());
     return clientConfigurator.getWorkspaceClient();

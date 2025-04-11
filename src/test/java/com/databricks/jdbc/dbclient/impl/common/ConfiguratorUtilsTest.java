@@ -5,9 +5,9 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.sdk.core.DatabricksException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -134,12 +134,12 @@ public class ConfiguratorUtilsTest {
   }
 
   @Test
-  void testGetConnectionSocketFactoryRegistry() {
+  void testGetConnectionSocketFactoryRegistry() throws DatabricksHttpException {
     when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
     when(mockContext.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE);
     when(mockContext.getSSLTrustStore()).thenReturn(EMPTY_TRUST_STORE_PATH);
     assertThrows(
-        DatabricksException.class,
+        DatabricksHttpException.class,
         () -> ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext),
         "the trustAnchors parameter must be non-empty");
 
@@ -153,7 +153,7 @@ public class ConfiguratorUtilsTest {
   }
 
   @Test
-  void testGetTrustAnchorsFromTrustStore() {
+  void testGetTrustAnchorsFromTrustStore() throws DatabricksHttpException {
     when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
     when(mockContext.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE);
     when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
@@ -165,24 +165,24 @@ public class ConfiguratorUtilsTest {
   }
 
   @Test
-  void testGetBaseConnectionManager_NoSSLTrustStoreAndRevocationCheckEnabled() {
-    // Define behavior for mock context to meet conditions for not calling
-    // getConnectionSocketFactoryRegistry
+  void testGetBaseConnectionManager_NoSSLTrustStoreAndRevocationCheckEnabled()
+      throws DatabricksHttpException {
+    // Define behavior for mock context
     when(mockContext.getSSLTrustStore()).thenReturn(null);
     when(mockContext.checkCertificateRevocation()).thenReturn(true);
     when(mockContext.acceptUndeterminedCertificateRevocation()).thenReturn(false);
+    when(mockContext.useSystemTrustStore()).thenReturn(false);
+    when(mockContext.allowSelfSignedCerts()).thenReturn(false);
 
-    try (MockedStatic<ConfiguratorUtils> configuratorUtils = mockStatic(ConfiguratorUtils.class)) {
-      configuratorUtils
-          .when(() -> ConfiguratorUtils.getBaseConnectionManager(mockContext))
-          .thenCallRealMethod();
+    try (MockedStatic<ConfiguratorUtils> configuratorUtils =
+        mockStatic(ConfiguratorUtils.class, withSettings().defaultAnswer(CALLS_REAL_METHODS))) {
+
       // Call getBaseConnectionManager with the mock context
       PoolingHttpClientConnectionManager connManager =
           ConfiguratorUtils.getBaseConnectionManager(mockContext);
 
-      // Assert that getConnectionSocketFactoryRegistry was NOT called
       configuratorUtils.verify(
-          () -> ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext), never());
+          () -> ConfiguratorUtils.getConnectionSocketFactoryRegistry(any()), times(1));
 
       // Ensure the returned connection manager is not null
       assertNotNull(connManager);
@@ -190,10 +190,7 @@ public class ConfiguratorUtilsTest {
   }
 
   @Test
-  void testGetBaseConnectionManager_WithSSLTrustStore() {
-    // Define behavior for mock context where SSLTrustStore is set
-    when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
-
+  void testGetBaseConnectionManager_WithSSLTrustStore() throws DatabricksHttpException {
     try (MockedStatic<ConfiguratorUtils> configuratorUtils = mockStatic(ConfiguratorUtils.class)) {
       configuratorUtils
           .when(() -> ConfiguratorUtils.getBaseConnectionManager(mockContext))
@@ -211,6 +208,94 @@ public class ConfiguratorUtilsTest {
 
       // Ensure the returned connection manager is not null
       assertNotNull(connManager);
+    }
+  }
+
+  @Test
+  void testUseSystemTrustStoreFalse_NoCustomTrustStore() throws DatabricksHttpException {
+    // Scenario: useSystemTrustStore=false and no custom trust store provided
+    // Should use JDK default trust store and ignore system property
+
+    when(mockContext.getSSLTrustStore()).thenReturn(null);
+    when(mockContext.useSystemTrustStore()).thenReturn(false);
+    when(mockContext.checkCertificateRevocation()).thenReturn(false);
+
+    try {
+      Registry<ConnectionSocketFactory> registry =
+          ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext);
+      assertNotNull(registry);
+      assertInstanceOf(
+          SSLConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTPS));
+    } catch (Exception e) {
+      fail(
+          "Should not throw exception when useSystemTrustStore=false and no custom trust store: "
+              + e.getMessage());
+    }
+  }
+
+  @Test
+  void testAllowSelfSignedCerts() throws DatabricksHttpException {
+    // Scenario: allowSelfSignedCerts=true
+    // Should use trust-all socket factory
+
+    when(mockContext.allowSelfSignedCerts()).thenReturn(true);
+
+    PoolingHttpClientConnectionManager connManager =
+        ConfiguratorUtils.getBaseConnectionManager(mockContext);
+
+    assertNotNull(connManager);
+  }
+
+  @Test
+  void testCustomTrustStore_WithRevocationChecking() throws DatabricksHttpException {
+    // Scenario: Custom trust store with certificate revocation checking
+
+    when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
+    when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
+    when(mockContext.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE);
+    when(mockContext.checkCertificateRevocation()).thenReturn(true);
+    when(mockContext.acceptUndeterminedCertificateRevocation()).thenReturn(true);
+
+    Registry<ConnectionSocketFactory> registry =
+        ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext);
+
+    assertNotNull(registry);
+    assertInstanceOf(
+        SSLConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTPS));
+  }
+
+  @Test
+  void testLoadTruststoreWithAutoDetection()
+      throws DatabricksHttpException,
+          IOException,
+          KeyStoreException,
+          CertificateException,
+          NoSuchAlgorithmException {
+    // Scenario: Trust store type auto-detection
+    // Create a trust store with default type but try to load with different types
+
+    String tempTrustStorePath = BASE_TRUST_STORE_PATH + "auto-detect-truststore.jks";
+
+    try {
+      // Create a trust store with password but without specifying type
+      KeyStore keyStore = KeyStore.getInstance("JKS");
+      keyStore.load(null, TRUST_STORE_PASSWORD.toCharArray());
+      try (FileOutputStream fos = new FileOutputStream(tempTrustStorePath)) {
+        keyStore.store(fos, TRUST_STORE_PASSWORD.toCharArray());
+      }
+
+      when(mockContext.getSSLTrustStore()).thenReturn(tempTrustStorePath);
+      when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
+      when(mockContext.getSSLTrustStoreType()).thenReturn(null); // No type specified
+
+      KeyStore loadedStore = ConfiguratorUtils.loadTruststoreOrNull(mockContext);
+      assertNotNull(loadedStore, "Trust store should be auto-detected and loaded");
+    } finally {
+      try {
+        Files.delete(Path.of(tempTrustStorePath));
+      } catch (IOException e) {
+        LOGGER.info("Failed to delete temp trust store file: " + e.getMessage());
+      }
     }
   }
 }
