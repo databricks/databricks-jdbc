@@ -23,8 +23,8 @@ public class DriverErrorInfo {
   @Override
   public String toString() {
     return new ToStringer(DriverErrorInfo.class)
-            .add("error_name", errorName)
-            .add("stack_trace", stackTrace)
-            .toString();
+        .add("error_name", errorName)
+        .add("stack_trace", stackTrace)
+        .toString();
   }
 }

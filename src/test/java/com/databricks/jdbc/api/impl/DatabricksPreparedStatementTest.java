@@ -485,52 +485,73 @@ public class DatabricksPreparedStatementTest {
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
     // Unsupported methods
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setArray(1, null));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setBlob(1, (Blob) null));
+        DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setArray(1, null));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setClob(1, (Clob) null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setRef(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setURL(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setRowId(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setNString(1, null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBlob(1, (Blob) null));
     assertThrows(
-        UnsupportedOperationException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setClob(1, (Clob) null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setRef(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setURL(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setRowId(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setNString(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setNCharacterStream(1, null, 1));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setNClob(1, (NClob) null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setClob(1, null, 1));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setBlob(1, null, 1));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setNClob(1, null, 1));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setSQLXML(1, null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setNClob(1, (NClob) null));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setBinaryStream(1, null, 1));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setClob(1, null, 1));
     assertThrows(
-        UnsupportedOperationException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBlob(1, null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setNClob(1, null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setSQLXML(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBinaryStream(1, null, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1));
     assertThrows(
-        UnsupportedOperationException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1L));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setBinaryStream(1, null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBinaryStream(1, null));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setNCharacterStream(1, null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setNCharacterStream(1, null));
     assertThrows(
-        UnsupportedOperationException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setUnicodeStream(1, InputStream.nullInputStream(), 1));
     assertThrows(
-        UnsupportedOperationException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setClob(1, Reader.nullReader()));
     assertThrows(
-        UnsupportedOperationException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setBlob(1, InputStream.nullInputStream()));
     assertThrows(
-        UnsupportedOperationException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setNClob(1, Reader.nullReader()));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setTime(1, null));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null, null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setTime(1, null, null));
     assertThrows(
         SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null));
     assertThrows(

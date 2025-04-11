@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.exception.DatabricksSQLRuntimeException;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Time;
@@ -237,7 +238,7 @@ public class DatabricksStructTest {
 
   /**
    * Test the constructor with invalid Struct element (providing a non-Map). Expects
-   * IllegalArgumentException.
+   * DatabricksSQLRuntimeException.
    */
   @Test
   public void constructor_ShouldThrowException_WhenStructElementIsInvalid() throws SQLException {
@@ -259,14 +260,14 @@ public class DatabricksStructTest {
     innerTypeMap.put("city", "STRING");
     mockParseStructMetadata("STRUCT<street:STRING,city:STRING>", innerTypeMap);
 
-    // Expecting IllegalArgumentException due to 'address' being a String instead of a Map
-    IllegalArgumentException exception =
+    // Expecting DatabricksSQLRuntimeException due to 'address' being a String instead of a Map
+    DatabricksSQLRuntimeException exception =
         assertThrows(
-            IllegalArgumentException.class,
+            DatabricksSQLRuntimeException.class,
             () -> {
               new DatabricksStruct(attributes, metadata);
             },
-            "Constructor should throw IllegalArgumentException when struct element is invalid");
+            "Constructor should throw DatabricksSQLRuntimeException when struct element is invalid");
 
     assertTrue(
         exception.getMessage().contains("Expected a Map for STRUCT but found: String"),
@@ -279,7 +280,7 @@ public class DatabricksStructTest {
 
   /**
    * Test the constructor with invalid Array element (providing a non-List). Expects
-   * IllegalArgumentException.
+   * DatabricksSQLRuntimeException.
    */
   @Test
   public void constructor_ShouldThrowException_WhenArrayElementIsInvalid() throws SQLException {
@@ -300,14 +301,14 @@ public class DatabricksStructTest {
         .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
         .thenReturn("STRING");
 
-    // Expecting IllegalArgumentException due to 'tags' being a String instead of a List
-    IllegalArgumentException exception =
+    // Expecting DatabricksSQLRuntimeException due to 'tags' being a String instead of a List
+    DatabricksSQLRuntimeException exception =
         assertThrows(
-            IllegalArgumentException.class,
+            DatabricksSQLRuntimeException.class,
             () -> {
               new DatabricksStruct(attributes, metadata);
             },
-            "Constructor should throw IllegalArgumentException when array element is invalid");
+            "Constructor should throw DatabricksSQLRuntimeException when array element is invalid");
 
     assertTrue(
         exception.getMessage().contains("Expected a List for ARRAY but found: String"),
@@ -655,7 +656,7 @@ public class DatabricksStructTest {
 
   /**
    * Test the constructor with conversion failure in nested Struct. Expects
-   * IllegalArgumentException.
+   * DatabricksSQLRuntimeException.
    */
   @Test
   public void constructor_ShouldThrowException_WhenConversionFailsInNestedStruct()
@@ -681,14 +682,14 @@ public class DatabricksStructTest {
     innerTypeMap.put("zipcode", "INT");
     mockParseStructMetadata("STRUCT<street:STRING,zipcode:INT>", innerTypeMap);
 
-    // Expecting IllegalArgumentException due to conversion failure for 'zipcode'
-    IllegalArgumentException exception =
+    // Expecting DatabricksSQLRuntimeException due to conversion failure for 'zipcode'
+    DatabricksSQLRuntimeException exception =
         assertThrows(
-            IllegalArgumentException.class,
+            DatabricksSQLRuntimeException.class,
             () -> {
               new DatabricksStruct(attributes, metadata);
             },
-            "Constructor should throw IllegalArgumentException when conversion fails in nested struct");
+            "Constructor should throw DatabricksSQLRuntimeException when conversion fails in nested struct");
 
     assertTrue(
         exception.getMessage().contains("Failed to convert value"),

@@ -33,9 +33,9 @@ public class HostDetails {
   @Override
   public String toString() {
     return new ToStringer(HostDetails.class)
-            .add("host_url", hostUrl)
-            .add("port", port)
-            .add("proxy_auth_type", proxyType)
-            .toString();
+        .add("host_url", hostUrl)
+        .add("port", port)
+        .add("proxy_auth_type", proxyType)
+        .toString();
   }
 }

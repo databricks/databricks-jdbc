@@ -11,6 +11,7 @@ import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -149,7 +150,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return new DatabricksConnectionContext(url, hostValue, portValue, schema, propertiesMap);
     } else {
       // Should never reach here, since we have already checked for url validity
-      throw new IllegalArgumentException("Invalid url " + "incorrect");
+      throw new DatabricksValidationException("Connection Context invalid state error");
     }
   }
 
