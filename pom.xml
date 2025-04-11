@@ -76,7 +76,7 @@
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-configuration2</artifactId>
-      <version>${commons-configuration.version}</version> <!-- or latest stable -->
+      <version>${commons-configuration.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>

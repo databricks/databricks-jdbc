@@ -175,7 +175,6 @@ public class DatabricksSdkClientTest {
     databricksSdkClient.deleteSession(sessionInfo);
 
     // Verify a Request with DELETE method is created and executed
-    verify(apiClient).serialize(any(DeleteSessionRequest.class));
     verify(apiClient)
         .execute(
             argThat(req -> req.getMethod().equals(Request.DELETE) && req.getUrl().equals(path)),

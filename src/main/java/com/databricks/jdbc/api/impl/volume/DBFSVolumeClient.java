@@ -147,7 +147,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     }
     try {
       String volumePath = StringUtil.getVolumePath(catalog, schema, volumeName);
-      // If getListResponse does not throw, then the volume exists (even if it's empty).
+      // If getListResponse does not throw, then the volume exists (even if it’s empty).
       getListResponse(volumePath);
       return true;
     } catch (DatabricksVolumeOperationException e) {
@@ -414,7 +414,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     } catch (IOException | DatabricksException e) {
       String errorMessage =
           String.format("Failed to get create upload url response - {%s}", e.getMessage());
-      LOGGER.error(errorMessage, e);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR);
     }
@@ -438,7 +438,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     } catch (IOException | DatabricksException e) {
       String errorMessage =
           String.format("Failed to get create download url response - {%s}", e.getMessage());
-      LOGGER.error(errorMessage, e);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR);
     }
@@ -460,7 +460,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     } catch (IOException | DatabricksException e) {
       String errorMessage =
           String.format("Failed to get create delete url response - {%s}", e.getMessage());
-      LOGGER.error(errorMessage, e);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR);
     }
@@ -472,12 +472,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         String.format("Entering getListResponse method with parameters : listPath={%s}", listPath));
     ListRequest request = new ListRequest(listPath);
     try {
-      Request req = new Request(Request.GET, LIST_PATH, apiClient.serialize(request));
+      Request req = new Request(Request.GET, LIST_PATH);
       req.withHeaders(JSON_HTTP_HEADERS);
+      ApiClient.setQuery(req, request);
       return apiClient.execute(req, ListResponse.class);
     } catch (IOException | DatabricksException e) {
       String errorMessage = String.format("Failed to get list response - {%s}", e.getMessage());
-      LOGGER.error(errorMessage, e);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(
           errorMessage, e, DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);
     }
