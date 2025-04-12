@@ -78,7 +78,7 @@ public class LoggingTest {
             + httpPath
             + ";logPath="
             + logPath
-            + ";loglevel=DEBUG"
+            + ";loglevel=TRACE"
             + ";usethriftclient="
             + useThriftClient;
 
