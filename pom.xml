@@ -220,6 +220,12 @@
     <!-- The following dependency is added as a workaround to CVE-2025-25193-->
     <dependency>
       <groupId>io.netty</groupId>
+      <artifactId>netty-common</artifactId>
+      <version>4.2.0.Final</version>
+    </dependency>
+    <!-- The following dependency is added as a workaround to CVE-2024-49194-->
+    <dependency>
+      <groupId>io.netty</groupId>
       <artifactId>netty-buffer</artifactId>
       <version>4.2.0.Final</version>
     </dependency>
@@ -358,10 +364,15 @@
             <format>HTML</format>
             <format>JSON</format>
           </formats>
-          <failBuildOnCVSS>8</failBuildOnCVSS>
+            <!--
+              Setting threshold to 7.0 to catch both Critical (8.0-10.0) and High (7.0-7.9) severity vulnerabilities.
+              This helps us identify and address significant security risks early in the development process.
+           -->
+          <failBuildOnCVSS>7</failBuildOnCVSS>
         </configuration>
         <executions>
           <execution>
+            <phase>package</phase>
             <goals>
               <goal>check</goal>
             </goals>
