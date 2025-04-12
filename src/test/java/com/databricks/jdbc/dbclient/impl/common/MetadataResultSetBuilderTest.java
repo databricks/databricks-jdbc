@@ -202,7 +202,9 @@ public class MetadataResultSetBuilderTest {
     when(resultSet.getObject(TABLE_TYPE_COLUMN.getResultSetColumnName()))
         .thenReturn(tableTypeValue);
 
-    List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, TABLE_COLUMNS);
+    List<List<Object>> rows =
+        MetadataResultSetBuilder.getRows(
+            resultSet, TABLE_COLUMNS, new DefaultDatabricksResultSetAdapter());
 
     assertEquals(expectedTableType, rows.get(0).get(3));
     assertEquals(String.class, rows.get(0).get(3).getClass());
@@ -230,7 +232,9 @@ public class MetadataResultSetBuilderTest {
     when(resultSet.getObject(IS_NULLABLE_COLUMN.getResultSetColumnName()))
         .thenReturn(isNullableValue);
 
-    List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, COLUMN_COLUMNS);
+    List<List<Object>> rows =
+        MetadataResultSetBuilder.getRows(
+            resultSet, COLUMN_COLUMNS, new DefaultDatabricksResultSetAdapter());
 
     assertEquals(expectedNullable, rows.get(0).get(10));
     assertEquals(
@@ -244,7 +248,9 @@ public class MetadataResultSetBuilderTest {
     when(resultSet.next()).thenReturn(true).thenReturn(false);
     when(resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName())).thenReturn(typeName);
 
-    List<List<Object>> rows = MetadataResultSetBuilder.getRows(resultSet, COLUMN_COLUMNS);
+    List<List<Object>> rows =
+        MetadataResultSetBuilder.getRows(
+            resultSet, COLUMN_COLUMNS, new DefaultDatabricksResultSetAdapter());
 
     assertEquals(expectedTypeName, rows.get(0).get(5));
   }
