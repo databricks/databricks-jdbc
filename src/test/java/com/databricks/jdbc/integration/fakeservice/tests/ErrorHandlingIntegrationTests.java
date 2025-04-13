@@ -59,7 +59,9 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
             SQLException.class,
             () ->
                 getConnection(
-                    "jdbc:databricks://e2-wrongfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"));
+                    "jdbc:databricks://e2-wrongfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath="
+                        + getDatabricksDogfoodHTTPPath()
+                        + ";"));
     assertTrue(
         e.getMessage().contains("Connection failure while using the OSS Databricks JDBC driver."));
   }

@@ -39,14 +39,14 @@ public class DatabricksSdkClientTest {
   @Mock StatementExecutionService statementExecutionService;
   @Mock ApiClient apiClient;
   @Mock ResultData resultData;
-  private static final String WAREHOUSE_ID = "erg6767gg";
+  private static final String WAREHOUSE_ID = "99999999";
   private static final IDatabricksComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String SESSION_ID = "session_id";
   private static final StatementId STATEMENT_ID = new StatementId("statementId");
   private static final String STATEMENT =
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
   private static final Map<String, String> headers =
       new HashMap<>() {
         {
