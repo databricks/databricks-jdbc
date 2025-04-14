@@ -155,6 +155,31 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void testParseValidBasicUrl() throws DatabricksSQLException {
+    // test default AuthMech
+    Properties props = new Properties();
+    String httpPath = "/sql/1.0/warehouses/fgff575757";
+    props.put("password", "passwd");
+    props.put("httpPath", httpPath);
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_BASE_URL_1, props);
+    assertEquals(AuthMech.PAT, connectionContext.getAuthMech());
+    assertEquals("passwd", connectionContext.getToken());
+    assertEquals(httpPath, connectionContext.getHttpPath());
+    assertEquals(2, connectionContext.parameters.size());
+
+    // test url without <;>
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_BASE_URL_3, props);
+    assertEquals(AuthMech.PAT, connectionContext.getAuthMech());
+    assertEquals("passwd", connectionContext.getToken());
+    assertEquals(httpPath, connectionContext.getHttpPath());
+    assertEquals(2, connectionContext.parameters.size());
+  }
+
+  @Test
   public void testParseWithDefaultStringColumnLength() throws DatabricksSQLException {
     // Test case 1: Valid DefaultStringColumnLength
     String validJdbcUrl = TestConstants.VALID_URL_1;

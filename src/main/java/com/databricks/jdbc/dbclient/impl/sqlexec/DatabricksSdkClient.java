@@ -194,7 +194,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
     LOGGER.debug(
         String.format(
-            "Executing sql %s, statementType %s, compute %s, StatementID %s",
+            "Executing sql = {%s}, statementType %s, compute %s, StatementID %s",
             sql, statementType, computeResource, statementId));
     StatementId typedStatementId = new StatementId(statementId);
     if (parentStatement != null) {

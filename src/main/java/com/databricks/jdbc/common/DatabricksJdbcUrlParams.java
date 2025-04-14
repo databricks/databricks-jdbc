@@ -12,7 +12,7 @@ public enum DatabricksJdbcUrlParams {
   PASSWORD("password", "Password for authentication"),
   CLIENT_ID("OAuth2ClientId", "OAuth2 Client ID"),
   CLIENT_SECRET("OAuth2Secret", "OAuth2 Client Secret"),
-  AUTH_MECH("authmech", "Authentication mechanism", true),
+  AUTH_MECH("authmech", "Authentication mechanism", "3", true),
   AUTH_ACCESS_TOKEN("Auth_AccessToken", "OAuth2 Access Token"),
   CONN_CATALOG("conncatalog", "Connection catalog"),
   CONN_SCHEMA("connschema", "Connection schema"),
