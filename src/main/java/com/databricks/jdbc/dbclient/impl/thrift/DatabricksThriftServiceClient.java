@@ -176,6 +176,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         int precision = ((BigDecimal) value).precision();
         int scale = ((BigDecimal) value).scale();
         if (precision < scale) {
+          // In type(p,q) -> p should not be less than q
           precision = scale;
         }
         typeString += "(" + precision + "," + scale + ")";
