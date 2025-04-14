@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static java.sql.JDBCType.DECIMAL;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -319,6 +320,7 @@ public class DatabricksPreparedStatementTest {
 
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, DECIMAL));
     assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, Types.INTEGER, 1));
     assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, Types.INTEGER));
     assertEquals(Types.INTEGER, preparedStatement.getParameterMetaData().getParameterType(1));

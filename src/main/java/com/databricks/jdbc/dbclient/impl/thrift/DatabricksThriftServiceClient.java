@@ -167,7 +167,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
   }
 
-  private TSparkParameter mapToSparkParameterListItem(ImmutableSqlParameter parameter) {
+  @VisibleForTesting
+  TSparkParameter mapToSparkParameterListItem(ImmutableSqlParameter parameter) {
     Object value = parameter.value();
     String typeString = parameter.type().name();
     if (typeString.equals(DECIMAL)) {
