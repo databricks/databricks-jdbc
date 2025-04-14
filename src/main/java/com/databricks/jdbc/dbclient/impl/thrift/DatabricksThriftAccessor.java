@@ -572,7 +572,7 @@ final class DatabricksThriftAccessor {
     if (!response.isSet(operationHandleField) || isErrorStatusCode(status)) {
       // if the operationHandle has not been set, it is an error from the server.
       LOGGER.error("Error thrift response {%s}", response);
-      throw new DatabricksSQLException(status.errorMessage, status.sqlState);
+      throw new DatabricksSQLException(status.getErrorMessage(), status.getSqlState());
     }
   }
 
