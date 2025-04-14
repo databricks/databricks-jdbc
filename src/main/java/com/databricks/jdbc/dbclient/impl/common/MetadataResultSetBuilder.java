@@ -251,7 +251,7 @@ public class MetadataResultSetBuilder {
         }
 
         // Apply any transformations from the adapter
-        object = adapter.transformValue(column, object);
+        object = adapter.transformValue(mappedColumn, object);
 
         // Add the object to the current row
         row.add(object);
