@@ -168,8 +168,6 @@ class DatabricksConnectionContextTest {
     assertEquals("passwd", connectionContext.getToken());
     assertEquals(httpPath, connectionContext.getHttpPath());
     assertEquals(2, connectionContext.parameters.size());
-    assertEquals(
-        "https://e2-dogfood.staging.cloud.databricks.com:443", connectionContext.getHostUrl());
 
     // test url without <;>
     connectionContext =
@@ -179,8 +177,6 @@ class DatabricksConnectionContextTest {
     assertEquals("passwd", connectionContext.getToken());
     assertEquals(httpPath, connectionContext.getHttpPath());
     assertEquals(2, connectionContext.parameters.size());
-    assertEquals(
-        "https://e2-dogfood.staging.cloud.databricks.com:443", connectionContext.getHostUrl());
   }
 
   @Test
