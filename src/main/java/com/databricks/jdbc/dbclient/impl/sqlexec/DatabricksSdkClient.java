@@ -161,8 +161,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public DatabricksResultSet executeStatement(String sql = {%s}, compute resource = {%s}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {%s}, IDatabricksSession session)",
-            sql, computeResource.toString(), statementType));
+            "public DatabricksResultSet executeStatement(String sql = {%s}, compute resource = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s}, StatementType statementType = {%s}, IDatabricksSession session)",
+            sql, computeResource.toString(), parameters, statementType));
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
     DatabricksThreadContextHolder.setStatementType(statementType);

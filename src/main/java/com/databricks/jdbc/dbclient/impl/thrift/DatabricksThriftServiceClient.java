@@ -173,8 +173,12 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     if (typeString.equals(DECIMAL)) {
       // Add precision and scale info to type
       if (value instanceof BigDecimal) {
-        typeString +=
-            "(" + ((BigDecimal) value).precision() + "," + ((BigDecimal) value).scale() + ")";
+        int precision = ((BigDecimal) value).precision();
+        int scale = ((BigDecimal) value).scale();
+        if (precision < scale) {
+          precision = scale;
+        }
+        typeString += "(" + precision + "," + scale + ")";
       }
     }
     return new TSparkParameter()
