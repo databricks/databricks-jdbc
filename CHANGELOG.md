@@ -13,7 +13,7 @@
 
 ### Fixed
 - BigDecimal is now set correctly to NULL if null value is provided.
-- Fixed issue with JDBC URL not being parsed correctly.
+- Fixed issue with JDBC URL not being parsed correctly when compute path is provided via properties.
 - Addressed CVE vulnerabilities (CVE-2024-47535, CVE-2025-25193, CVE-2023-33953)
 - Fix bug in preparedStatement decimal parameter in thrift flow.
 
