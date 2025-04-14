@@ -44,6 +44,7 @@ jobs:
         env:
           DATABRICKS_TOKEN: ${{ secrets[matrix.token-secret] }}
           DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+          DATABRICKS_DOGFOOD_HTTP_PATH: ${{ secrets.DATABRICKS_DOGFOOD_HTTP_PATH }}
           FAKE_SERVICE_TYPE: ${{ matrix.fake-service-type }}
           DATABRICKS_JDBC_M2M_CLIENT_ID: ${{ secrets.DATABRICKS_JDBC_M2M_CLIENT_ID }}
           DATABRICKS_JDBC_M2M_CLIENT_SECRET: ${{ secrets.DATABRICKS_JDBC_M2M_CLIENT_SECRET }}
