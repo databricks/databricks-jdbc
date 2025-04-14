@@ -44,7 +44,7 @@
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
     <mockito.version>5.2.0</mockito.version>
-    <jackson.version>2.15.1</jackson.version>
+    <jackson.version>2.18.3</jackson.version>
     <log4j.version>2.22.1</log4j.version>
     <slf4j.version>2.0.13</slf4j.version>
     <google.guava.version>33.0.0-jre</google.guava.version>
@@ -54,7 +54,7 @@
     <httpclient.version>4.5.14</httpclient.version>
     <commons-configuration.version>2.10.1</commons-configuration.version>
     <commons-io.version>2.14.0</commons-io.version>
-    <databricks-sdk.version>0.43.0</databricks-sdk.version>
+    <databricks-sdk.version>0.44.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
     <lz4-compression.version>1.8.0</lz4-compression.version>
@@ -66,6 +66,8 @@
     <nimbusjose.version>9.40</nimbusjose.version>
     <bouncycastle.version>1.78.1</bouncycastle.version>
     <async-httpclient.version>5.3.1</async-httpclient.version>
+    <netty.version>4.2.0.Final</netty.version>
+    <grpc.version>1.71.0</grpc.version>
   </properties>
   <dependencies>
     <dependency>
@@ -211,6 +213,24 @@
       <artifactId>lz4-java</artifactId>
       <version>${lz4-compression.version}</version>
     </dependency>
+    <!-- The following dependency is added as a workaround to CVE-2023-33953-->
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-context</artifactId>
+      <version>${grpc.version}</version>
+    </dependency>
+    <!-- The following dependency is added as a workaround to CVE-2025-25193-->
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-common</artifactId>
+      <version>${netty.version}</version>
+    </dependency>
+    <!-- The following dependency is added as a workaround to CVE-2024-49194-->
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-buffer</artifactId>
+      <version>${netty.version}</version>
+    </dependency>
     <dependency>
       <groupId>jakarta.annotation</groupId>
       <artifactId>jakarta.annotation-api</artifactId>
@@ -336,6 +356,29 @@
             </path>
           </annotationProcessorPaths>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.owasp</groupId>
+        <artifactId>dependency-check-maven</artifactId>
+        <version>12.1.1</version>
+        <configuration>
+          <formats>
+            <format>HTML</format>
+            <format>JSON</format>
+          </formats>
+            <!--
+              Setting threshold to 7.0 to catch both Critical (8.0-10.0) and High (7.0-7.9) severity vulnerabilities.
+              This helps us identify and address significant security risks early in the development process.
+           -->
+          <failBuildOnCVSS>7</failBuildOnCVSS>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
