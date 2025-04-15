@@ -1,9 +1,7 @@
 name: Check for NEXT_CHANGELOG.md Changes
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches: [main]
+  pull_request_target:
 
 jobs:
   check-next-changelog:
@@ -68,14 +66,14 @@ jobs:
           if [ -z "$previous_comment_ids" ]; then
             gh pr comment $PR_NUMBER --body \
             "<!-- NEXT_CHANGELOG_INSTRUCTIONS -->
-Please ensure that the \`NEXT_CHANGELOG.md\` file is updated with any relevant changes.  
-If this is not necessary for your PR, include this in the PR body:
+            Please ensure that the \`NEXT_CHANGELOG.md\` file is updated with any relevant changes.  
+            If this is not necessary for your PR, include this in the PR body:
 
-\`\`\`
-NO_CHANGELOG=true
-\`\`\`
-
-and rerun the workflow."
+            \`\`\`
+            NO_CHANGELOG=true
+            \`\`\`
+            
+            and rerun the workflow."
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
