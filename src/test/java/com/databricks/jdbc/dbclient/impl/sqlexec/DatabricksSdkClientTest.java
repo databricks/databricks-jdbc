@@ -1,7 +1,11 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
+import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
+import static com.databricks.sdk.service.sql.ColumnInfoTypeName.DECIMAL;
+import static com.databricks.sdk.service.sql.ColumnInfoTypeName.INT;
+import static com.databricks.sdk.service.sql.ColumnInfoTypeName.STRING;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -28,6 +32,7 @@ import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.service.sql.*;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -430,6 +435,66 @@ public class DatabricksSdkClientTest {
 
     // Verify cancel was called
     verify(databricksSdkClient).cancelStatement(eq(STATEMENT_ID));
+  }
+
+  @Test
+  public void testDecimalTypeWithValidPrecisionAndScale() throws DatabricksSQLException {
+    BigDecimal decimalValue = new BigDecimal("123.45"); // precision: 5, scale: 2
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(0).type(DECIMAL).value(decimalValue).build();
+
+    StatementParameterListItem result = databricksSdkClient.mapToParameterListItem(parameter);
+
+    assertEquals("DECIMAL(5,2)", result.getType());
+    assertEquals("123.45", result.getValue());
+  }
+
+  @Test
+  public void testDecimalTypeWithScaleGreaterThanPrecision() throws DatabricksSQLException {
+    BigDecimal decimalValue = new BigDecimal("0.000123"); // scale: 6, precision: 3
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(1).type(DECIMAL).value(decimalValue).build();
+
+    StatementParameterListItem result = databricksSdkClient.mapToParameterListItem(parameter);
+
+    assertEquals("DECIMAL(6,6)", result.getType());
+    assertEquals("0.000123", result.getValue());
+  }
+
+  @Test
+  public void testNonDecimalType() throws DatabricksSQLException {
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(2).type(STRING).value(TEST_STRING).build();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    StatementParameterListItem result = databricksSdkClient.mapToParameterListItem(parameter);
+
+    assertEquals("STRING", result.getType());
+    assertEquals(TEST_STRING, result.getValue());
+  }
+
+  @Test
+  public void testNullValue() throws DatabricksSQLException {
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(3).type(INT).value(null).build();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    StatementParameterListItem result = databricksSdkClient.mapToParameterListItem(parameter);
+
+    assertEquals("INT", result.getType());
+    assertNull(result.getValue());
   }
 
   private static ImmutableSqlParameter getSqlParam(
