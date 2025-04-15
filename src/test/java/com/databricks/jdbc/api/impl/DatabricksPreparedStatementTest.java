@@ -222,14 +222,13 @@ public class DatabricksPreparedStatementTest {
     assertTrue(statement.isClosed());
   }
 
-
   @Test
   public void testExecuteBatchStatementThrowsError() throws Exception {
     IDatabricksConnectionContext connectionContext =
-            DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement =
-            new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
     // Setting to execute a batch of 4 statements
     for (int i = 1; i <= 4; i++) {
       statement.setLong(1, 100);
@@ -245,7 +244,7 @@ public class DatabricksPreparedStatementTest {
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
             eq(statement)))
-            .thenThrow(new RuntimeException());
+        .thenThrow(new SQLException());
     assertThrows(DatabricksBatchUpdateException.class, statement::executeBatch);
   }
 
