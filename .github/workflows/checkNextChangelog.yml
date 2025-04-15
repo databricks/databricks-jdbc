@@ -1,7 +1,9 @@
 name: Check for NEXT_CHANGELOG.md Changes
 
 on:
-  pull_request_target:
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+    branches: [ main ]
 
 jobs:
   check-next-changelog:
