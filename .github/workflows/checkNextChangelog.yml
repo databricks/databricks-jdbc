@@ -16,9 +16,10 @@ jobs:
       labels: linux-ubuntu-latest
 
     steps:
-      - name: Checkout PR code
+      - name: Checkout base branch (main)
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
 
       - name: Fetch list of changed files
