@@ -1,7 +1,9 @@
 name: Check for NEXT_CHANGELOG.md Changes
 
 on:
-  pull_request_target:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
 
 jobs:
   check-next-changelog:
@@ -14,21 +16,27 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
 
       - name: Checkout PR code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          fetch-depth: 0
 
       - name: Fetch list of changed files
         id: changed-files
         run: |
-          files=$(gh pr view ${{ github.event.pull_request.number }} --json files -q '.files[].path')
-          echo "$files" | sed 's/[^a-zA-Z0-9._/-]/_/g' > modified_files.txt
+          files=$(git diff --name-only HEAD^ HEAD)
+          echo "$files" > modified_files.txt
 
       - name: Fetch PR message
         id: pr-message
         run: |
-          body=$(gh pr view ${{ github.event.pull_request.number }} --json body -q '.body')
-          echo "$body" | sed 's/[^a-zA-Z0-9._/-=]/_/g' > pr_message.txt
+          # Get PR number from GITHUB_REF
+          PR_NUMBER=$(echo $GITHUB_REF | sed 's/refs\/pull\/\([0-9]*\)\/merge/\1/')
+          
+          # Use GitHub CLI to get PR body
+          body=$(gh pr view $PR_NUMBER --json body -q '.body')
+          echo "$body" > pr_message.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify NEXT_CHANGELOG.md was modified or PR message contains NO_CHANGELOG=true
         run: |
@@ -52,11 +60,13 @@ jobs:
       - name: Comment on PR with instructions if needed
         if: failure()
         run: |
-          previous_comment_ids=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+          PR_NUMBER=$(echo $GITHUB_REF | sed 's/refs\/pull\/\([0-9]*\)\/merge/\1/')
+          
+          previous_comment_ids=$(gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
             --jq '.[] | select(.body | startswith("<!-- NEXT_CHANGELOG_INSTRUCTIONS -->")) | .id')
 
           if [ -z "$previous_comment_ids" ]; then
-            gh pr comment ${{ github.event.pull_request.number }} --body \
+            gh pr comment $PR_NUMBER --body \
             "<!-- NEXT_CHANGELOG_INSTRUCTIONS -->
 Please ensure that the \`NEXT_CHANGELOG.md\` file is updated with any relevant changes.  
 If this is not necessary for your PR, include this in the PR body:
@@ -67,13 +77,19 @@ NO_CHANGELOG=true
 
 and rerun the workflow."
           fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Delete instructions comment on success
         if: success()
         run: |
-          previous_comment_ids=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+          PR_NUMBER=$(echo $GITHUB_REF | sed 's/refs\/pull\/\([0-9]*\)\/merge/\1/')
+          
+          previous_comment_ids=$(gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
             --jq '.[] | select(.body | startswith("<!-- NEXT_CHANGELOG_INSTRUCTIONS -->")) | .id')
 
           for comment_id in $previous_comment_ids; do
             gh api "repos/${{ github.repository }}/issues/comments/$comment_id" --method DELETE
           done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
