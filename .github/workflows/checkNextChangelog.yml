@@ -2,7 +2,6 @@ name: Check for NEXT_CHANGELOG.md Changes
 
 on:
   pull_request_target:
-    types: [ opened, synchronize, reopened ]
     branches: [ main ]
 
 permissions:
