@@ -47,7 +47,7 @@ public class SocketFactoryUtil {
           .build();
     } catch (Exception e) {
       String errorMessage = "Error while setting up trust-all SSL context.";
-      LOGGER.error(e, errorMessage);
+      LOGGER.error(errorMessage, e);
       throw new DatabricksException(errorMessage, e);
     }
   }
