@@ -12,7 +12,7 @@ public enum DatabricksJdbcUrlParams {
   PASSWORD("password", "Password for authentication"),
   CLIENT_ID("OAuth2ClientId", "OAuth2 Client ID"),
   CLIENT_SECRET("OAuth2Secret", "OAuth2 Client Secret"),
-  AUTH_MECH("authmech", "Authentication mechanism", true),
+  AUTH_MECH("authmech", "Authentication mechanism", "3", true),
   AUTH_ACCESS_TOKEN("Auth_AccessToken", "OAuth2 Access Token"),
   CONN_CATALOG("conncatalog", "Connection catalog"),
   CONN_SCHEMA("connschema", "Connection schema"),
@@ -106,6 +106,9 @@ public enum DatabricksJdbcUrlParams {
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",
       "0"),
+  ALLOW_SELF_SIGNED_CERTS("AllowSelfSignedCerts", "Allow self signed certificates", "0"),
+
+  USE_SYSTEM_TRUST_STORE("UseSystemTrustStore", "Use system trust store for SSL", "0"),
   ROWS_FETCHED_PER_BLOCK(
       "RowsFetchedPerBlock",
       "The maximum number of rows that a query returns at a time.",

@@ -208,7 +208,6 @@ final class DatabricksThriftAccessor {
           new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRowsPerBlock);
       request.setGetDirectResults(directResults);
     }
-
     TExecuteStatementResp response;
     TFetchResultsResp resultSet;
     int timeoutInSeconds =
@@ -567,13 +566,12 @@ final class DatabricksThriftAccessor {
   private <T extends TBase<T, F>, F extends TFieldIdEnum> void checkResponseForErrors(
       TBase<T, F> response) throws DatabricksSQLException {
     F operationHandleField = response.fieldForId(operationHandleFieldId);
-    if (!response.isSet(operationHandleField)) {
-      throw new DatabricksSQLException(
-          "Operation handle not set", DatabricksDriverErrorCode.INVALID_STATE);
-    }
     F statusField = response.fieldForId(statusFieldId);
     TStatus status = (TStatus) response.getFieldValue(statusField);
-    if (isErrorStatusCode(status.getStatusCode())) {
+
+    if (!response.isSet(operationHandleField) || isErrorStatusCode(status)) {
+      // if the operationHandle has not been set, it is an error from the server.
+      LOGGER.error("Error thrift response {%s}", response);
       throw new DatabricksSQLException(status.getErrorMessage(), status.getSqlState());
     }
   }
@@ -607,7 +605,12 @@ final class DatabricksThriftAccessor {
     return directResults.isSetResultSet() && directResults.isSetResultSetMetadata();
   }
 
-  private boolean isErrorStatusCode(TStatusCode statusCode) {
+  private boolean isErrorStatusCode(TStatus status) {
+    if (status == null || !status.isSetStatusCode()) {
+      LOGGER.error("Status code is not set, marking the response as failed");
+      return true;
+    }
+    TStatusCode statusCode = status.getStatusCode();
     return statusCode == TStatusCode.ERROR_STATUS
         || statusCode == TStatusCode.INVALID_HANDLE_STATUS;
   }

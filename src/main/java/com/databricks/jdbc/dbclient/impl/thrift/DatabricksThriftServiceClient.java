@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW
 import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSION;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDecimalTypeString;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.*;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
@@ -167,15 +168,12 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
   }
 
-  private TSparkParameter mapToSparkParameterListItem(ImmutableSqlParameter parameter) {
+  @VisibleForTesting
+  TSparkParameter mapToSparkParameterListItem(ImmutableSqlParameter parameter) {
     Object value = parameter.value();
     String typeString = parameter.type().name();
-    if (typeString.equals(DECIMAL)) {
-      // Add precision and scale info to type
-      if (value instanceof BigDecimal) {
-        typeString +=
-            "(" + ((BigDecimal) value).precision() + "," + ((BigDecimal) value).scale() + ")";
-      }
+    if (typeString.equals(DECIMAL) && value instanceof BigDecimal) {
+      typeString = getDecimalTypeString((BigDecimal) value);
     }
     return new TSparkParameter()
         .setOrdinal(parameter.cardinal())
