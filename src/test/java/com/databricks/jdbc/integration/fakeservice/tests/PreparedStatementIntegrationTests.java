@@ -169,18 +169,30 @@ public class PreparedStatementIntegrationTests extends AbstractFakeServiceIntegr
     return Stream.of(
         new Object[] {1, 1, Types.INTEGER, "INT", 0, 1},
         new Object[] {
-          2, 1.236, Types.DOUBLE, "DOUBLE", 2, 1.236
-        }, // rounding does not happen for double
+          2, 1.236, Types.DOUBLE, "DOUBLE", 2, 1.236 // rounding does not happen for double
+        },
         new Object[] {
           3, new BigDecimal("123.45"), Types.DECIMAL, "DECIMAL(10, 2)", 2, new BigDecimal("123.45")
         },
         new Object[] {
-          4, new BigDecimal("123.456"), Types.DECIMAL, "DECIMAL(10, 2)", 2, new BigDecimal("123.46")
+          4,
+          new BigDecimal("123.456"),
+          Types.DECIMAL,
+          "DECIMAL(10, 2)",
+          2,
+          new BigDecimal("123.46") // Rounding case
         },
-        // Rounding case
-        new Object[] {5, "test", Types.VARCHAR, "VARCHAR(255)", 0, "test"},
-        new Object[] {6, null, Types.VARCHAR, "VARCHAR(255)", 0, null},
-        new Object[] {7, true, Types.BOOLEAN, "BOOLEAN", 0, true});
+        new Object[] {
+          5,
+          new BigDecimal("0.00"),
+          Types.DECIMAL,
+          "DECIMAL(10, 4)",
+          4,
+          new BigDecimal("0.0000") // edge case (precision < scale)
+        },
+        new Object[] {6, "test", Types.VARCHAR, "VARCHAR(255)", 0, "test"},
+        new Object[] {7, null, Types.VARCHAR, "VARCHAR(255)", 0, null},
+        new Object[] {8, true, Types.BOOLEAN, "BOOLEAN", 0, true});
   }
 
   @ParameterizedTest

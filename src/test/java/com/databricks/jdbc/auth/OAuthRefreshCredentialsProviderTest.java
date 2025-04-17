@@ -21,7 +21,6 @@ import java.net.URL;
 import java.util.Map;
 import java.util.Properties;
 import org.apache.http.HttpHeaders;
-import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -41,15 +40,15 @@ public class OAuthRefreshCredentialsProviderTest {
   @Mock Response response;
   private OAuthRefreshCredentialsProvider credentialsProvider;
   private static final String REFRESH_TOKEN_URL_DEFAULT =
-      "jdbc:databricks://host:4423/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=/sql/1.0/warehouses/erg6767gg;OAuthRefreshToken=refresh-token";
+      "jdbc:databricks://host:4423/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=/sql/1.0/warehouses/99999999;OAuthRefreshToken=refresh-token";
   private static final String REFRESH_TOKEN_URL_OVERRIDE_CLIENT_ID =
-      "jdbc:databricks://host:4423/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=/sql/1.0/warehouses/erg6767gg;OAuthRefreshToken=refresh-token;OAuth2ClientID=client_id";
+      "jdbc:databricks://host:4423/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=/sql/1.0/warehouses/99999999;OAuthRefreshToken=refresh-token;OAuth2ClientID=client_id";
   private static final String REFRESH_TOKEN_URL_OVERRIDE_CLIENT_ID_CLIENT_SECRET =
-      "jdbc:databricks://host:4423/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=/sql/1.0/warehouses/erg6767gg;OAuthRefreshToken=refresh-token;OAuth2ClientID=client_id;OAuth2Secret=client_secret";
+      "jdbc:databricks://host:4423/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=/sql/1.0/warehouses/99999999;OAuthRefreshToken=refresh-token;OAuth2ClientID=client_id;OAuth2Secret=client_secret";
   private static final String REFRESH_TOKEN_URL_OVERRIDE_TOKEN_URL =
-      "jdbc:databricks://host:4423/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=/sql/1.0/warehouses/erg6767gg;OAuthRefreshToken=refresh-token;OAuth2TokenEndpoint=token_endpoint";
+      "jdbc:databricks://host:4423/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=/sql/1.0/warehouses/99999999;OAuthRefreshToken=refresh-token;OAuth2TokenEndpoint=token_endpoint";
   private static final String REFRESH_TOKEN_URL_OVERRIDE_EVERYTHING =
-      "jdbc:databricks://host:4423/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=/sql/1.0/warehouses/erg6767gg;OAuthRefreshToken=refresh-token;OAuth2TokenEndpoint=token_endpoint;OAuth2ClientID=client_id;OAuth2Secret=client_secret";
+      "jdbc:databricks://host:4423/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=/sql/1.0/warehouses/99999999;OAuthRefreshToken=refresh-token;OAuth2TokenEndpoint=token_endpoint;OAuth2ClientID=client_id;OAuth2Secret=client_secret";
 
   @Test
   void testRefreshThrowsExceptionWhenRefreshTokenIsNotSet() throws Exception {
@@ -100,12 +99,7 @@ public class OAuthRefreshCredentialsProviderTest {
     assertEquals("oauth-refresh", credentialsProvider.authType());
     // Reinitialize the OAUTH_RESPONSE InputStream for each test run
     String jsonResponse =
-        new JSONObject()
-            .put("access_token", "access-token")
-            .put("token_type", "token-type")
-            .put("expires_in", 360)
-            .put("refresh_token", "refresh-token")
-            .toString();
+        "{\"access_token\":\"access-token\",\"token_type\":\"token-type\",\"expires_in\":360,\"refresh_token\":\"refresh-token\"}";
 
     when(databricksConfig.getHttpClient()).thenReturn(httpClient);
     when(httpClient.execute(any())).thenReturn(new Response(jsonResponse, new URL(TEST_TOKEN_URL)));

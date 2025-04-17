@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static java.sql.JDBCType.DECIMAL;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -34,15 +35,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class DatabricksPreparedStatementTest {
 
-  private static final String WAREHOUSE_ID = "erg6767gg";
+  private static final String WAREHOUSE_ID = "99999999";
   private static final String STATEMENT =
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String BATCH_STATEMENT =
       "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?)";
   private static final String JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
   private static final String JDBC_URL_WITH_MANY_PARAMETERS =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;supportManyParameters=1;";
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;supportManyParameters=1;";
   private static final String JDBC_CLUSTER_URL_WITH_MANY_PARAMETERS =
       VALID_CLUSTER_URL + ";supportManyParameters=1;";
   @Mock DatabricksResultSet resultSet;
@@ -319,7 +320,8 @@ public class DatabricksPreparedStatementTest {
 
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
-
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, DECIMAL));
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, Types.INTEGER, 1));
     assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, Types.INTEGER));
     assertEquals(Types.INTEGER, preparedStatement.getParameterMetaData().getParameterType(1));
     assertThrows(
@@ -553,10 +555,6 @@ public class DatabricksPreparedStatementTest {
         DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setTime(1, null, null));
     assertThrows(
-        SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null));
-    assertThrows(
-        SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null, 1));
-    assertThrows(
         DatabricksSQLException.class, () -> preparedStatement.executeUpdate("SELECT * from table"));
     assertThrows(
         DatabricksSQLException.class,
@@ -579,6 +577,7 @@ public class DatabricksPreparedStatementTest {
         () ->
             preparedStatement.executeUpdate(
                 "UPDATE table SET column = 1", new String[] {"column"}));
+    assertThrows(DatabricksSQLException.class, preparedStatement::executeLargeUpdate);
     assertThrows(
         DatabricksSQLException.class,
         () -> preparedStatement.execute("SELECT * FROM table", new int[] {1}));

@@ -330,6 +330,34 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
+  void testIncludeResultSetMetadataNotSetForOldProtocol()
+      throws TException, DatabricksHttpException {
+    DatabricksThriftAccessor accessor =
+        new DatabricksThriftAccessor(thriftClient, connectionContext);
+    accessor.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V4);
+    TFetchResultsReq expectedReq = getFetchResultsRequest(false);
+    when(thriftClient.FetchResults(expectedReq))
+        .thenReturn(fetchResultsResponse); // request has no includeResultSetMetadata
+    accessor.getResultSetResp(
+        new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
+        tOperationHandle,
+        "context",
+        connectionContext.getRowsFetchedPerBlock(),
+        true);
+
+    accessor.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9);
+    expectedReq = getFetchResultsRequest(true);
+    when(thriftClient.FetchResults(expectedReq))
+        .thenReturn(fetchResultsResponse); // request has includeResultSetMetadata
+    accessor.getResultSetResp(
+        new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
+        tOperationHandle,
+        "context",
+        connectionContext.getRowsFetchedPerBlock(),
+        true);
+  }
+
+  @Test
   void testGetStatementResult_success() throws Exception {
     when(connectionContext.getDirectResultMode()).thenReturn(false);
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);

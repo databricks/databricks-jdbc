@@ -48,11 +48,11 @@ import org.junit.jupiter.api.Test;
 public class DatabricksDriverExamples {
 
   private static final String JDBC_URL_WAREHOUSE =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-          + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
+      "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;"
+          + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999999;";
   private static final String JDBC_URL_CLUSTER =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-          + "transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/0819-204509-hill72;AuthMech=3;";
+      "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;"
+          + "transportMode=http;ssl=1;httpPath=sql/protocolv1/o/9999999999999999/9999999999999999;AuthMech=3;";
   private static final String DATABRICKS_TOKEN = System.getenv("DATABRICKS_EXAMPLE_TOKEN");
 
   /**
@@ -358,7 +358,7 @@ public class DatabricksDriverExamples {
   void exampleGcpServiceAccountOauthM2M() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-        "jdbc:databricks://3396486410346666.6.gcp.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=1;OAuth2ClientId=your_client_id;OAuth2Secret=your_client_secret;httpPath=/sql/1.0/warehouses/2ce45060dd7d2a66;"
+        "jdbc:databricks://3396486410346666.6.gcp.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=1;OAuth2ClientId=your_client_id;OAuth2Secret=your_client_secret;httpPath=/sql/1.0/warehouses/999999999999;"
             + "GoogleServiceAccount=x-compute@developer.gserviceaccount.com";
 
     Connection con = DriverManager.getConnection(jdbcUrl);
@@ -382,7 +382,7 @@ public class DatabricksDriverExamples {
   void exampleGcpCredentialJsonOauthM2M() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-        "jdbc:databricks://3396486410346666.6.gcp.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/2ce45060dd7d2a66;"
+        "jdbc:databricks://3396486410346666.6.gcp.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999999;"
             + "GoogleCredentialsFile=<path_to_json_credential_file>";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
@@ -401,7 +401,7 @@ public class DatabricksDriverExamples {
   @Test
   void exampleGetPropertyInfo() throws Exception {
     DriverManager.registerDriver(new Driver());
-    String emptyJdbcUrl = "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com";
+    String emptyJdbcUrl = "jdbc:databricks://sample-host.cloud.databricks.com";
 
     // Retrieve driver property info for an "empty" URL
     DriverPropertyInfo[] driverPropertyInfos =
@@ -410,8 +410,8 @@ public class DatabricksDriverExamples {
     assertEquals(HTTP_PATH.getParamName(), driverPropertyInfos[0].name);
 
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com;AuthMech=11;Auth_Flow=0;"
-            + "httpPath=/sql/1.0/warehouses/58aa1b363649e722;loglevel=1";
+        "jdbc:databricks://sample-host.cloud.databricks.com;AuthMech=11;Auth_Flow=0;"
+            + "httpPath=/sql/1.0/warehouses/999999999999;loglevel=1";
     driverPropertyInfos = new Driver().getPropertyInfo(jdbcUrl, new Properties());
     for (DriverPropertyInfo driverPropertyInfo : driverPropertyInfos) {
       if (driverPropertyInfo.required) {
@@ -457,8 +457,8 @@ public class DatabricksDriverExamples {
   void exampleArclightConnection() throws Exception {
     DriverManager.registerDriver(new Driver());
     String jdbcUrl =
-        "jdbc:databricks://arclight-staging-e2-arclight-dmk-qa-staging-us-east-1.staging.cloud.databricks.com:443/"
-            + "default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/8561171c1d9afb1f;";
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/"
+            + "default;transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999999;";
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
     System.out.println("Connection established......");
@@ -1161,8 +1161,8 @@ public class DatabricksDriverExamples {
   @Test
   void exampleM2MJWT() throws SQLException {
     String jdbcUrl =
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
-            + "httpPath=sql/1.0/warehouses/58aa1b363649e722;"
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;"
+            + "httpPath=sql/1.0/warehouses/999999999999;"
             + "AuthMech=11;ssl=1;Auth_Flow=1;"
             + "OAuth2TokenEndpoint=https://dev-591123.oktapreview.com/oauth2/aus1mzu4zk5TWwMvx0h8/v1/token;"
             + "Auth_Scope=sql;OAuth2ClientId=0oa25wnir4ehnKDj10h8;"

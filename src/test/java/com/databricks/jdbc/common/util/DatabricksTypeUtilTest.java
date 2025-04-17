@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -300,5 +301,44 @@ class DatabricksTypeUtilTest {
       // Clean up thread local
       DatabricksThreadContextHolder.clearAllContext();
     }
+  }
+
+  @Test
+  void testGetDecimalTypeString() {
+    // Regular case - precision > scale
+    assertEquals("DECIMAL(5,2)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("123.45")));
+
+    // Edge case - precision = scale (all decimal digits, no integer part except 0)
+    assertEquals("DECIMAL(2,2)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("0.12")));
+
+    // Special case - precision < scale (e.g., 0.00)
+    assertEquals("DECIMAL(2,2)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("0.00")));
+
+    // Zero value
+    assertEquals("DECIMAL(1,0)", DatabricksTypeUtil.getDecimalTypeString(BigDecimal.ZERO));
+
+    // Large precision
+    assertEquals(
+        "DECIMAL(22,5)",
+        DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("12345678901234567.12345")));
+
+    // Large scale
+    assertEquals(
+        "DECIMAL(10,10)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("0.0123456789")));
+
+    // Negative values
+    assertEquals(
+        "DECIMAL(5,2)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("-123.45")));
+
+    // Zero scale
+    assertEquals("DECIMAL(3,0)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("123")));
+
+    // Scientific notation
+    BigDecimal scientificNotation = new BigDecimal("1.23E-4");
+    assertEquals("DECIMAL(6,6)", DatabricksTypeUtil.getDecimalTypeString(scientificNotation));
+
+    // Very small value with trailing zeros (ensures scale is preserved)
+    assertEquals(
+        "DECIMAL(8,8)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("0.00000123")));
   }
 }

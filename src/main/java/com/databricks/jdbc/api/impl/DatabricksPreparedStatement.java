@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.NULL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDatabricksTypeFromSQLType;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.inferDatabricksType;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
+import static com.databricks.jdbc.common.util.ValidationUtil.throwErrorIfNull;
 
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
@@ -248,6 +249,25 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public void clearParameters()");
     checkIfClosed();
     this.databricksParameterMetaData.getParameterBindings().clear();
+  }
+
+  @Override
+  public void setObject(int parameterIndex, Object x, SQLType targetSqlType) throws SQLException {
+    throwErrorIfNull("Prepared statement SQL setObject targetSqlType", targetSqlType);
+    this.setObject(parameterIndex, x, targetSqlType.getVendorTypeNumber());
+  }
+
+  @Override
+  public void setObject(int parameterIndex, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    throwErrorIfNull("Prepared statement SQL setObject targetSqlType", targetSqlType);
+    this.setObject(parameterIndex, x, targetSqlType.getVendorTypeNumber(), scaleOrLength);
+  }
+
+  @Override
+  public long executeLargeUpdate() throws SQLException {
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "executeLargeUpdate in preparedStatement is not implemented in OSS JDBC");
   }
 
   @Override
