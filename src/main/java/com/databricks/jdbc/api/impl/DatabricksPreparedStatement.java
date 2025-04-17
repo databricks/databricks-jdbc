@@ -76,6 +76,12 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       } catch (Exception e) {
         LOGGER.error(
             "Error executing batch update for index {}: {}", sqlQueryCount, e.getMessage(), e);
+        // Set the current failed statement's count
+        updateCount[sqlQueryCount] = Statement.EXECUTE_FAILED;
+        // Set all remaining statements as failed
+        for (int i = sqlQueryCount + 1; i < updateCount.length; i++) {
+          updateCount[i] = Statement.EXECUTE_FAILED;
+        }
         throw new DatabricksBatchUpdateException(
             e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, updateCount);
       }

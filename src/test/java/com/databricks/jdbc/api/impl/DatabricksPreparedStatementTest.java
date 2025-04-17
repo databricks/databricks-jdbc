@@ -237,6 +237,8 @@ public class DatabricksPreparedStatementTest {
       statement.setString(4, "value");
       statement.addBatch();
     }
+
+    // First call succeeds, subsequent calls fail
     when(client.executeStatement(
             eq(BATCH_STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -244,8 +246,20 @@ public class DatabricksPreparedStatementTest {
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
             eq(statement)))
+        .thenReturn(resultSet)
         .thenThrow(new SQLException());
-    assertThrows(DatabricksBatchUpdateException.class, statement::executeBatch);
+    when(resultSet.getUpdateCount()).thenReturn(1L);
+
+    DatabricksBatchUpdateException exception =
+        assertThrows(DatabricksBatchUpdateException.class, statement::executeBatch);
+    int[] updateCounts = exception.getUpdateCounts();
+    assertEquals(4, updateCounts.length);
+    // First statement should succeed
+    assertEquals(1, updateCounts[0]);
+    // Remaining statements should fail
+    for (int i = 1; i < 4; i++) {
+      assertEquals(Statement.EXECUTE_FAILED, updateCounts[i]);
+    }
   }
 
   public static ImmutableSqlParameter getSqlParam(
