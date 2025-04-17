@@ -64,22 +64,22 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public int executeBatch()");
     int[] updateCount = new int[databricksBatchParameterMetaData.size()];
 
-    for (int sqlQueryCount = 0;
-        sqlQueryCount < databricksBatchParameterMetaData.size();
-        sqlQueryCount++) {
+    for (int sqlQueryIndex = 0;
+        sqlQueryIndex < databricksBatchParameterMetaData.size();
+        sqlQueryIndex++) {
       DatabricksParameterMetaData databricksParameterMetaData =
-          databricksBatchParameterMetaData.get(sqlQueryCount);
+          databricksBatchParameterMetaData.get(sqlQueryIndex);
       try {
         executeInternal(
             sql, databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE, false);
-        updateCount[sqlQueryCount] = (int) resultSet.getUpdateCount();
+        updateCount[sqlQueryIndex] = (int) resultSet.getUpdateCount();
       } catch (Exception e) {
         LOGGER.error(
-            "Error executing batch update for index {}: {}", sqlQueryCount, e.getMessage(), e);
+            "Error executing batch update for index {}: {}", sqlQueryIndex, e.getMessage(), e);
         // Set the current failed statement's count
-        updateCount[sqlQueryCount] = Statement.EXECUTE_FAILED;
+        updateCount[sqlQueryIndex] = Statement.EXECUTE_FAILED;
         // Set all remaining statements as failed
-        for (int i = sqlQueryCount + 1; i < updateCount.length; i++) {
+        for (int i = sqlQueryIndex + 1; i < updateCount.length; i++) {
           updateCount[i] = Statement.EXECUTE_FAILED;
         }
         throw new DatabricksBatchUpdateException(
