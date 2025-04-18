@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.JdbcThreadUtils;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -969,8 +970,44 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getSchemas() throws SQLException {
     LOGGER.debug("public ResultSet getSchemas()");
     if (session.getConnectionContext().getClientType() == DatabricksClientType.SEA) {
-      return MetadataResultSetBuilder.getSchemasResult(null);
+      // Fetch catalogs from the metadata client
+      ResultSet catalogs = getCatalogs();
+      List<String> catalogList = new ArrayList<>();
+      while (catalogs.next()) {
+        String catalog = catalogs.getString(1);
+        if (catalog != null && !catalog.isEmpty()) {
+          catalogList.add(catalog);
+        }
+      }
+
+      // Process catalogs in parallel, gathering schema information
+      List<List<Object>> schemaRows =
+          JdbcThreadUtils.parallelFlatMap(
+              catalogList,
+              session.getConnectionContext(),
+              10, // Max 10 threads
+              30, // 30 second timeout
+              catalog -> {
+                List<List<Object>> rows = new ArrayList<>();
+                try {
+                  ResultSet catalogSchemas = getSchemas(catalog, "%");
+                  while (catalogSchemas.next()) {
+                    List<Object> schemaRow = new ArrayList<>();
+                    schemaRow.add(catalogSchemas.getString(1)); // TABLE_SCHEM
+                    schemaRow.add(catalogSchemas.getString(2)); // TABLE_CATALOG
+                    rows.add(schemaRow);
+                  }
+                } catch (SQLException e) {
+                  LOGGER.warn("Error fetching schemas for catalog %s %s", catalog, e.getMessage());
+                }
+                return rows;
+              });
+
+      // Convert combined data into a result set
+      return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+          SCHEMA_COLUMNS, schemaRows, METADATA_STATEMENT_ID, CommandName.LIST_SCHEMAS);
     }
+
     return getSchemas(null /* catalog */, null /* schema pattern */);
   }
 
