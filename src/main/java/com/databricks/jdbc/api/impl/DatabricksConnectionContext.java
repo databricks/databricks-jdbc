@@ -795,6 +795,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean allowSelfSignedCerts() {
+    return getParameter(DatabricksJdbcUrlParams.ALLOW_SELF_SIGNED_CERTS).equals("1");
+  }
+
+  @Override
+  public boolean useSystemTrustStore() {
+    return getParameter(DatabricksJdbcUrlParams.USE_SYSTEM_TRUST_STORE).equals("1");
+  }
+
+  @Override
   public List<Integer> getUCIngestionRetriableHttpCodes() {
     return Arrays.stream(
             getParameter(

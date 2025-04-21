@@ -260,4 +260,37 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the socket timeout in seconds for HTTP connections. */
   int getSocketTimeout();
+
+  /**
+   * Returns whether self-signed certificates are allowed for SSL connections.
+   *
+   * <p>When true, the driver will accept any certificate, including self-signed certificates. This
+   * option is insecure and should only be used in non-production environments.
+   *
+   * @return true if self-signed certificates are allowed, false otherwise
+   */
+  boolean allowSelfSignedCerts();
+
+  /**
+   * Returns whether the system property trust store should be used for SSL certificate validation.
+   *
+   * <p>When true, the driver will use either:
+   *
+   * <ol>
+   *   <li>The trust store specified by the Java system property <code>javax.net.ssl.trustStore
+   *       </code> if set
+   *   <li>Or the JDK's default trust store (cacerts) if no system property is set
+   * </ol>
+   *
+   * <p>When false, the driver will:
+   *
+   * <ol>
+   *   <li>Use the custom trust store specified by the SSLTrustStore parameter if provided
+   *   <li>Or use the JDK's default trust store (cacerts) but ignore any javax.net.ssl.trustStore
+   *       system property
+   * </ol>
+   *
+   * @return true if the system property trust store should be used, false otherwise
+   */
+  boolean useSystemTrustStore();
 }
