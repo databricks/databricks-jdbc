@@ -61,10 +61,9 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
-    assertEquals(
-        "https://adb-565757575.18.azuredatabricks.net:4423", connectionContext.getHostUrl());
+    assertEquals("https://sample-host.18.azuredatabricks.net:9999", connectionContext.getHostUrl());
     assertEquals(TestConstants.VALID_URL_1, connectionContext.getConnectionURL());
-    assertEquals("/sql/1.0/warehouses/erg6767gg", connectionContext.getHttpPath());
+    assertEquals("/sql/1.0/warehouses/999999999", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
     assertTrue(connectionContext.isOAuthDiscoveryModeEnabled());
     assertFalse(connectionContext.useJWTAssertion());
@@ -82,8 +81,8 @@ class DatabricksConnectionContextTest {
     connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_2, properties_with_pwd);
-    assertEquals("https://adb-565656.azuredatabricks.net:443", connectionContext.getHostUrl());
-    assertEquals("/sql/1.0/warehouses/fgff575757", connectionContext.getHttpPath());
+    assertEquals("https://sample-host.18.azuredatabricks.net:9999", connectionContext.getHostUrl());
+    assertEquals("/sql/1.0/warehouses/9999999999", connectionContext.getHttpPath());
     assertEquals("passwd2", connectionContext.getToken());
     assertEquals("96eecda7-19ea-49cc-abb5-240097d554f5", connectionContext.getClientId());
     assertEquals(7, connectionContext.parameters.size());
@@ -100,12 +99,11 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_3, properties);
     List<String> expected_scopes = List.of("sql", "offline_access");
-    assertEquals(
-        "http://e2-dogfood.staging.cloud.databricks.com:443", connectionContext.getHostUrl());
-    assertEquals("/sql/1.0/warehouses/5c89f447c476a5a8", connectionContext.getHttpPath());
+    assertEquals("http://sample-host.cloud.databricks.com:9999", connectionContext.getHostUrl());
+    assertEquals("/sql/1.0/warehouses/9999999999999999", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
     assertEquals("databricks-sql-jdbc", connectionContext.getClientId());
-    assertEquals("e2-dogfood.staging.cloud.databricks.com", connectionContext.getHostForOAuth());
+    assertEquals("sample-host.cloud.databricks.com", connectionContext.getHostForOAuth());
     assertEquals(AuthFlow.TOKEN_PASSTHROUGH, connectionContext.getAuthFlow());
     assertEquals(AuthMech.PAT, connectionContext.getAuthMech());
     assertEquals(CompressionCodec.NONE, connectionContext.getCompressionCodec());
@@ -121,11 +119,10 @@ class DatabricksConnectionContextTest {
     connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.GCP_TEST_URL, p1);
-    assertEquals(
-        "https://4371047901336987.7.gcp.databricks.com:443", connectionContext.getHostUrl());
-    assertEquals("/sql/1.0/warehouses/dd5955aacf3f09e5", connectionContext.getHttpPath());
+    assertEquals("https://sample-host.7.gcp.databricks.com:9999", connectionContext.getHostUrl());
+    assertEquals("/sql/1.0/warehouses/9999999999999999", connectionContext.getHttpPath());
     assertEquals("databricks-sql-jdbc", connectionContext.getClientId());
-    assertEquals("4371047901336987.7.gcp.databricks.com", connectionContext.getHostForOAuth());
+    assertEquals("sample-host.7.gcp.databricks.com", connectionContext.getHostForOAuth());
     assertEquals(AuthMech.OAUTH, connectionContext.getAuthMech());
     assertEquals(AuthFlow.CLIENT_CREDENTIALS, connectionContext.getAuthFlow());
     assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
@@ -272,7 +269,7 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_7, properties);
-    assertEquals("/sql/1.0/endpoints/erg6767gg", connectionContext.getHttpPath());
+    assertEquals("/sql/1.0/endpoints/999999999", connectionContext.getHttpPath());
   }
 
   @Test
@@ -281,7 +278,7 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
     assertEquals(
-        "https://e2-dogfood.staging.cloud.databricks.com:443/sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv",
+        "https://sample-host.cloud.databricks.com:9999/sql/protocolv1/o/9999999999999999/9999999999999999999",
         connectionContext.getEndpointURL());
   }
 
@@ -315,10 +312,9 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+    assertEquals("https://sample-host.cloud.databricks.com:9999", connectionContext.getHostUrl());
     assertEquals(
-        "https://e2-dogfood.staging.cloud.databricks.com:443", connectionContext.getHostUrl());
-    assertEquals(
-        "sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv", connectionContext.getHttpPath());
+        "sql/protocolv1/o/9999999999999999/9999999999999999999", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
     assertEquals(CompressionCodec.LZ4_FRAME, connectionContext.getCompressionCodec());
     assertEquals(5, connectionContext.parameters.size());
@@ -359,12 +355,11 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_5, properties);
-    assertEquals("/sql/1.0/warehouses/5c89f447c476a5a8", connectionContext.getHttpPath());
+    assertEquals("/sql/1.0/warehouses/9999999999999999", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
     assertEquals(CompressionCodec.LZ4_FRAME, connectionContext.getCompressionCodec());
     assertEquals(6, connectionContext.parameters.size());
-    assertEquals(
-        "http://e2-dogfood.staging.cloud.databricks.com:4473", connectionContext.getHostUrl());
+    assertEquals("http://sample-host.cloud.databricks.com:9999", connectionContext.getHostUrl());
     assertEquals(LogLevel.OFF, connectionContext.getLogLevel());
   }
 

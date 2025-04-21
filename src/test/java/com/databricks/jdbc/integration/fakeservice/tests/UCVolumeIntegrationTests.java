@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
+import com.databricks.jdbc.integration.IntegrationTestUtil;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
@@ -29,7 +30,7 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
   private Connection con;
   private static final String jdbcUrlTemplate =
       "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s";
-  private static final String HTTP_PATH = "/sql/1.0/warehouses/791ba2a31c7fd70a";
+  private static final String HTTP_PATH = IntegrationTestUtil.getDatabricksDogfoodHTTPPath();
   private static final String LOCAL_TEST_DIRECTORY = "/tmp";
 
   @BeforeEach
