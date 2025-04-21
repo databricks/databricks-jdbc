@@ -67,6 +67,10 @@ jobs:
           extendedKeyUsage = serverAuth
           subjectAltName = @alt_names
           
+          # to test strict certificate revocation
+          authorityInfoAccess   = OCSP;URI:http://ocsp.invalid/does-not-exist
+          crlDistributionPoints = URI:http://crl.invalid/dummy.crl
+          
           [alt_names]
           DNS.1 = localhost
           IP.1 = 127.0.0.1
