@@ -971,12 +971,13 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug("public ResultSet getSchemas()");
     if (session.getConnectionContext().getClientType() == DatabricksClientType.SEA) {
       // Fetch catalogs from the metadata client
-      ResultSet catalogs = getCatalogs();
       List<String> catalogList = new ArrayList<>();
-      while (catalogs.next()) {
-        String catalog = catalogs.getString(1);
-        if (catalog != null && !catalog.isEmpty()) {
-          catalogList.add(catalog);
+      try (ResultSet catalogs = getCatalogs()) {
+        while (catalogs.next()) {
+          String catalog = catalogs.getString(1);
+          if (catalog != null && !catalog.isEmpty()) {
+            catalogList.add(catalog);
+          }
         }
       }
 
@@ -989,8 +990,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
               30, // 30 second timeout
               catalog -> {
                 List<List<Object>> rows = new ArrayList<>();
-                try {
-                  ResultSet catalogSchemas = getSchemas(catalog, "%");
+                try (ResultSet catalogSchemas = getSchemas(catalog, "%")) {
                   while (catalogSchemas.next()) {
                     List<Object> schemaRow = new ArrayList<>();
                     schemaRow.add(catalogSchemas.getString(1)); // TABLE_SCHEM
