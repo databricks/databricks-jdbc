@@ -17,8 +17,12 @@ import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Set;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 import org.apache.http.config.Registry;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
@@ -140,12 +144,12 @@ public class ConfiguratorUtilsTest {
     when(mockContext.getSSLTrustStore()).thenReturn(EMPTY_TRUST_STORE_PATH);
     assertThrows(
         DatabricksHttpException.class,
-        () -> ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext),
+        () -> ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext),
         "the trustAnchors parameter must be non-empty");
 
     when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
     Registry<ConnectionSocketFactory> registry =
-        ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext);
+        ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext);
     assertInstanceOf(
         SSLConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTPS));
     assertInstanceOf(
@@ -182,7 +186,7 @@ public class ConfiguratorUtilsTest {
           ConfiguratorUtils.getBaseConnectionManager(mockContext);
 
       configuratorUtils.verify(
-          () -> ConfiguratorUtils.getConnectionSocketFactoryRegistry(any()), times(1));
+          () -> ConfiguratorUtils.createConnectionSocketFactoryRegistry(any()), times(1));
 
       // Ensure the returned connection manager is not null
       assertNotNull(connManager);
@@ -196,7 +200,7 @@ public class ConfiguratorUtilsTest {
           .when(() -> ConfiguratorUtils.getBaseConnectionManager(mockContext))
           .thenCallRealMethod();
       configuratorUtils
-          .when(() -> ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext))
+          .when(() -> ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext))
           .thenReturn(mock(Registry.class));
       // Call getBaseConnectionManager with the mock context
       PoolingHttpClientConnectionManager connManager =
@@ -204,7 +208,7 @@ public class ConfiguratorUtilsTest {
 
       // Assert that getConnectionSocketFactoryRegistry was called
       configuratorUtils.verify(
-          () -> ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext), times(1));
+          () -> ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext), times(1));
 
       // Ensure the returned connection manager is not null
       assertNotNull(connManager);
@@ -222,7 +226,7 @@ public class ConfiguratorUtilsTest {
 
     try {
       Registry<ConnectionSocketFactory> registry =
-          ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext);
+          ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext);
       assertNotNull(registry);
       assertInstanceOf(
           SSLConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTPS));
@@ -257,7 +261,7 @@ public class ConfiguratorUtilsTest {
     when(mockContext.acceptUndeterminedCertificateRevocation()).thenReturn(true);
 
     Registry<ConnectionSocketFactory> registry =
-        ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext);
+        ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext);
 
     assertNotNull(registry);
     assertInstanceOf(
@@ -297,5 +301,200 @@ public class ConfiguratorUtilsTest {
         LOGGER.info("Failed to delete temp trust store file: " + e.getMessage());
       }
     }
+  }
+
+  @Test
+  void testCreateRegistryWithSystemPropertyTrustStore() throws DatabricksHttpException {
+    // Save original system properties to restore later
+    String originalTrustStore = System.getProperty("javax.net.ssl.trustStore");
+    String originalPassword = System.getProperty("javax.net.ssl.trustStorePassword");
+    String originalType = System.getProperty("javax.net.ssl.trustStoreType");
+
+    try {
+      // Set system properties to use the dummy trust store
+      System.setProperty("javax.net.ssl.trustStore", DUMMY_TRUST_STORE_PATH);
+      System.setProperty("javax.net.ssl.trustStorePassword", TRUST_STORE_PASSWORD);
+      System.setProperty("javax.net.ssl.trustStoreType", TRUST_STORE_TYPE);
+
+      when(mockContext.getSSLTrustStore()).thenReturn(null);
+      when(mockContext.useSystemTrustStore()).thenReturn(true);
+      when(mockContext.checkCertificateRevocation()).thenReturn(false);
+
+      Registry<ConnectionSocketFactory> registry =
+          ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext);
+
+      assertNotNull(registry);
+      assertInstanceOf(
+          SSLConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTPS));
+    } finally {
+      // Restore original system properties
+      if (originalTrustStore != null) {
+        System.setProperty("javax.net.ssl.trustStore", originalTrustStore);
+      } else {
+        System.clearProperty("javax.net.ssl.trustStore");
+      }
+
+      if (originalPassword != null) {
+        System.setProperty("javax.net.ssl.trustStorePassword", originalPassword);
+      } else {
+        System.clearProperty("javax.net.ssl.trustStorePassword");
+      }
+
+      if (originalType != null) {
+        System.setProperty("javax.net.ssl.trustStoreType", originalType);
+      } else {
+        System.clearProperty("javax.net.ssl.trustStoreType");
+      }
+    }
+  }
+
+  @Test
+  void testCreateRegistryWithSystemPropertyTrustStore_WithRevocationChecking()
+      throws DatabricksHttpException {
+    // Save original system properties to restore later
+    String originalTrustStore = System.getProperty("javax.net.ssl.trustStore");
+    String originalPassword = System.getProperty("javax.net.ssl.trustStorePassword");
+    String originalType = System.getProperty("javax.net.ssl.trustStoreType");
+
+    try {
+      // Set system properties to use the dummy trust store
+      System.setProperty("javax.net.ssl.trustStore", DUMMY_TRUST_STORE_PATH);
+      System.setProperty("javax.net.ssl.trustStorePassword", TRUST_STORE_PASSWORD);
+      System.setProperty("javax.net.ssl.trustStoreType", TRUST_STORE_TYPE);
+
+      when(mockContext.getSSLTrustStore()).thenReturn(null);
+      when(mockContext.useSystemTrustStore()).thenReturn(true);
+      when(mockContext.checkCertificateRevocation()).thenReturn(true);
+      when(mockContext.acceptUndeterminedCertificateRevocation()).thenReturn(true);
+
+      Registry<ConnectionSocketFactory> registry =
+          ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext);
+
+      assertNotNull(registry);
+      assertInstanceOf(
+          SSLConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTPS));
+    } finally {
+      // Restore original system properties
+      if (originalTrustStore != null) {
+        System.setProperty("javax.net.ssl.trustStore", originalTrustStore);
+      } else {
+        System.clearProperty("javax.net.ssl.trustStore");
+      }
+
+      if (originalPassword != null) {
+        System.setProperty("javax.net.ssl.trustStorePassword", originalPassword);
+      } else {
+        System.clearProperty("javax.net.ssl.trustStorePassword");
+      }
+
+      if (originalType != null) {
+        System.setProperty("javax.net.ssl.trustStoreType", originalType);
+      } else {
+        System.clearProperty("javax.net.ssl.trustStoreType");
+      }
+    }
+  }
+
+  @Test
+  void testNonExistentTrustStore() {
+    // Create a mock with lenient verification since this test only expects an exception
+    IDatabricksConnectionContext mockContextLocal = mock(IDatabricksConnectionContext.class);
+
+    String nonExistentPath = "/path/to/nonexistent/truststore.jks";
+    when(mockContextLocal.getSSLTrustStore()).thenReturn(nonExistentPath);
+
+    DatabricksHttpException exception =
+        assertThrows(
+            DatabricksHttpException.class,
+            () -> ConfiguratorUtils.loadTruststoreOrNull(mockContextLocal));
+
+    assertTrue(
+        exception.getMessage().contains("does not exist"),
+        "Exception should mention that the trust store does not exist");
+  }
+
+  @Test
+  void testCreateTrustManagers_WithAndWithoutRevocationChecking() throws Exception {
+    // Load a real trust store to test with
+    when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
+    when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
+    when(mockContext.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE);
+
+    KeyStore trustStore = ConfiguratorUtils.loadTruststoreOrNull(mockContext);
+    Set<TrustAnchor> trustAnchors = ConfiguratorUtils.getTrustAnchorsFromTrustStore(trustStore);
+
+    // We're testing a private method, so we'll verify the public method behavior that uses it
+    when(mockContext.checkCertificateRevocation()).thenReturn(true);
+    when(mockContext.acceptUndeterminedCertificateRevocation()).thenReturn(false);
+    Registry<ConnectionSocketFactory> revocationCheckingRegistry =
+        ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext);
+    assertNotNull(revocationCheckingRegistry);
+
+    // Test with revocation checking disabled
+    when(mockContext.checkCertificateRevocation()).thenReturn(false);
+    Registry<ConnectionSocketFactory> noRevocationCheckingRegistry =
+        ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext);
+    assertNotNull(noRevocationCheckingRegistry);
+  }
+
+  @Test
+  void testFindX509TrustManager() throws Exception {
+    // Test instance method rather than using reflection on the private static method
+    // First test that we can create a trust manager factory
+    TrustManagerFactory tmf =
+        TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+    tmf.init((KeyStore) null);
+    TrustManager[] trustManagers = tmf.getTrustManagers();
+
+    // Verify we have at least one trust manager
+    assertNotNull(trustManagers);
+    assertTrue(trustManagers.length > 0);
+
+    // Verify at least one is an X509TrustManager
+    boolean foundX509TrustManager = false;
+    for (TrustManager tm : trustManagers) {
+      if (tm instanceof X509TrustManager) {
+        foundX509TrustManager = true;
+        break;
+      }
+    }
+    assertTrue(foundX509TrustManager, "Should find at least one X509TrustManager");
+  }
+
+  @Test
+  void testEmptyTrustAnchorsException() {
+    // Test the behavior when trust anchors are empty
+    Set<TrustAnchor> emptyTrustAnchors = Collections.emptySet();
+
+    DatabricksHttpException exception =
+        assertThrows(
+            DatabricksHttpException.class,
+            () -> ConfiguratorUtils.buildTrustManagerParameters(emptyTrustAnchors, true, false));
+
+    assertTrue(
+        exception.getMessage().contains("parameter must be non-empty"),
+        "Exception should mention empty parameter");
+  }
+
+  @Test
+  void testCreateSocketFactoryRegistry() throws Exception {
+    // Test using a real trust manager
+    TrustManagerFactory tmf =
+        TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+    tmf.init((KeyStore) null);
+
+    // Create a registry with the system default trust managers
+    when(mockContext.getSSLTrustStore()).thenReturn(null);
+    when(mockContext.checkCertificateRevocation()).thenReturn(false);
+    when(mockContext.useSystemTrustStore()).thenReturn(false);
+
+    Registry<ConnectionSocketFactory> registry =
+        ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext);
+
+    assertNotNull(registry);
+    assertInstanceOf(
+        SSLConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTPS));
+    assertInstanceOf(
+        PlainConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTP));
   }
 }

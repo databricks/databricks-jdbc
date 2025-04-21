@@ -62,7 +62,7 @@ public class ConfiguratorUtils {
 
     // For standard SSL configuration, create a custom socket factory registry
     Registry<ConnectionSocketFactory> socketFactoryRegistry =
-        getConnectionSocketFactoryRegistry(connectionContext);
+        createConnectionSocketFactoryRegistry(connectionContext);
     return new PoolingHttpClientConnectionManager(socketFactoryRegistry);
   }
 
@@ -73,7 +73,7 @@ public class ConfiguratorUtils {
    * @return A configured Registry of ConnectionSocketFactory.
    * @throws DatabricksHttpException If there is an error during configuration.
    */
-  public static Registry<ConnectionSocketFactory> getConnectionSocketFactoryRegistry(
+  public static Registry<ConnectionSocketFactory> createConnectionSocketFactoryRegistry(
       IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
 
     // First check if a custom trust store is specified
@@ -119,7 +119,6 @@ public class ConfiguratorUtils {
       // Create trust managers from trust store
       TrustManager[] trustManagers =
           createTrustManagers(
-              trustStore,
               trustAnchors,
               connectionContext.checkCertificateRevocation(),
               connectionContext.acceptUndeterminedCertificateRevocation());
@@ -154,7 +153,7 @@ public class ConfiguratorUtils {
 
     // If system property is set and useSystemTrustStore=true, use that trust store
     if (sysTrustStore != null && !sysTrustStore.isEmpty()) {
-      return createRegistryWithSystemPropertyTrustStore(sysTrustStore);
+      return createRegistryWithSystemPropertyTrustStore(connectionContext, sysTrustStore);
     }
     // No system property set or useSystemTrustStore=false, use JDK's default trust store (cacerts)
     else {
@@ -165,29 +164,65 @@ public class ConfiguratorUtils {
   /**
    * Creates a socket factory registry using the trust store specified by system property.
    *
+   * @param connectionContext The connection context for configuration.
    * @param sysTrustStore The path to the system property trust store.
    * @return A registry of connection socket factories.
    * @throws DatabricksHttpException If there is an error during setup.
    */
   private static Registry<ConnectionSocketFactory> createRegistryWithSystemPropertyTrustStore(
-      String sysTrustStore) throws DatabricksHttpException {
+      IDatabricksConnectionContext connectionContext, String sysTrustStore)
+      throws DatabricksHttpException {
 
     try {
       LOGGER.info(
           "Using system property javax.net.ssl.trustStore: "
               + sysTrustStore
               + " (This overrides the JDK's default cacerts store)");
-      // Let the default SSLContext handle this since it respects system properties
-      SSLContext sslContext = SSLContext.getInstance(DatabricksJdbcConstants.TLS);
-      sslContext.init(null, null, null);
-      SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
 
-      return RegistryBuilder.<ConnectionSocketFactory>create()
-          .register(DatabricksJdbcConstants.HTTPS, sslSocketFactory)
-          .register(DatabricksJdbcConstants.HTTP, new PlainConnectionSocketFactory())
-          .build();
+      // Load the system property trust store
+      File trustStoreFile = new File(sysTrustStore);
+      if (!trustStoreFile.exists()) {
+        String errorMessage = "System property trust store file does not exist: " + sysTrustStore;
+        LOGGER.error(errorMessage);
+        throw new DatabricksHttpException(
+            errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      }
+
+      // Load the system property trust store
+      KeyStore trustStore =
+          KeyStore.getInstance(System.getProperty("javax.net.ssl.trustStoreType", "JKS"));
+      char[] password = null;
+      String passwordProp = System.getProperty("javax.net.ssl.trustStorePassword");
+      if (passwordProp != null) {
+        password = passwordProp.toCharArray();
+      }
+
+      try (FileInputStream fis = new FileInputStream(sysTrustStore)) {
+        trustStore.load(fis, password);
+      }
+
+      // Get trust anchors and create trust managers
+      Set<TrustAnchor> trustAnchors = getTrustAnchorsFromTrustStore(trustStore);
+      if (trustAnchors.isEmpty()) {
+        String errorMessage = "System property trust store contains no trust anchors.";
+        LOGGER.error(errorMessage);
+        throw new DatabricksHttpException(
+            errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      }
+
+      TrustManager[] trustManagers =
+          createTrustManagers(
+              trustAnchors,
+              connectionContext.checkCertificateRevocation(),
+              connectionContext.acceptUndeterminedCertificateRevocation());
+
+      return createSocketFactoryRegistry(trustManagers);
     } catch (Exception e) {
-      String errorMessage = "Error while setting up system property trust store: " + sysTrustStore;
+      String errorMessage =
+          "Error while setting up system property trust store: "
+              + sysTrustStore
+              + ": "
+              + e.getMessage();
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(
           errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
@@ -213,22 +248,42 @@ public class ConfiguratorUtils {
             "UseSystemTrustStore=false, using JDK default trust store (cacerts) and ignoring system properties");
       }
 
-      // Explicitly initialize with default trust managers from JDK's cacerts
+      // Initialize with default trust managers from JDK's cacerts
       TrustManagerFactory tmf =
           TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
       tmf.init((KeyStore) null); // null uses the JDK's default trust store (cacerts)
 
-      // Configure certificate revocation checking if enabled
-      TrustManager[] trustManagers = tmf.getTrustManagers();
-      if (connectionContext.checkCertificateRevocation()) {
-        trustManagers =
-            configureCertificateRevocationForDefaultTrustStore(
-                trustManagers, connectionContext.acceptUndeterminedCertificateRevocation());
+      // Extract trust anchors from default trust store
+      X509TrustManager x509TrustManager = findX509TrustManager(tmf.getTrustManagers());
+      if (x509TrustManager == null) {
+        throw new DatabricksHttpException(
+            "No X509TrustManager found in JDK default trust store",
+            DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
       }
 
+      Set<TrustAnchor> systemTrustAnchors =
+          Arrays.stream(x509TrustManager.getAcceptedIssuers())
+              .map(cert -> new TrustAnchor(cert, null))
+              .collect(Collectors.toSet());
+
+      if (systemTrustAnchors.isEmpty()) {
+        throw new DatabricksHttpException(
+            "JDK default trust store contains no trust anchors",
+            DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      }
+
+      // Always use the same trust manager creation mechanism with revocation settings
+      TrustManager[] trustManagers =
+          createTrustManagers(
+              systemTrustAnchors,
+              connectionContext.checkCertificateRevocation(),
+              connectionContext.acceptUndeterminedCertificateRevocation());
+
       return createSocketFactoryRegistry(trustManagers);
+    } catch (DatabricksHttpException e) {
+      throw e;
     } catch (Exception e) {
-      String errorMessage = "Error while setting up JDK default trust store";
+      String errorMessage = "Error while setting up JDK default trust store: " + e.getMessage();
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(
           errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
@@ -256,84 +311,36 @@ public class ConfiguratorUtils {
   }
 
   /**
-   * Creates trust managers based on the provided trust store and settings.
+   * Creates trust managers based on the provided trust anchors and settings.
    *
-   * @param trustStore The trust store to use.
-   * @param trustAnchors The trust anchors from the trust store.
+   * @param trustAnchors The trust anchors to use.
    * @param checkCertificateRevocation Whether to check certificate revocation.
    * @param acceptUndeterminedRevocation Whether to accept undetermined revocation status.
    * @return An array of trust managers.
    * @throws Exception If there is an error during trust manager creation.
    */
   private static TrustManager[] createTrustManagers(
-      KeyStore trustStore,
       Set<TrustAnchor> trustAnchors,
       boolean checkCertificateRevocation,
       boolean acceptUndeterminedRevocation)
       throws Exception {
 
+    // Always use the custom trust manager with trust anchors
+    CertPathTrustManagerParameters trustManagerParams =
+        buildTrustManagerParameters(
+            trustAnchors, checkCertificateRevocation, acceptUndeterminedRevocation);
+
+    TrustManagerFactory customTmf =
+        TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+    customTmf.init(trustManagerParams);
+
     if (checkCertificateRevocation) {
-      // Configure with certificate revocation checking
-      CertPathTrustManagerParameters trustManagerParams =
-          buildTrustManagerParameters(
-              trustAnchors, checkCertificateRevocation, acceptUndeterminedRevocation);
-
-      TrustManagerFactory customTmf =
-          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-      customTmf.init(trustManagerParams);
-      LOGGER.info("Certificate revocation checking enabled with custom trust store");
-      return customTmf.getTrustManagers();
+      LOGGER.info("Certificate revocation checking enabled");
     } else {
-      // Standard trust manager without revocation checking
-      TrustManagerFactory tmf =
-          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-      tmf.init(trustStore);
-      return tmf.getTrustManagers();
+      LOGGER.info("Certificate revocation checking disabled");
     }
-  }
 
-  /**
-   * Configures certificate revocation checking for the JDK default trust store.
-   *
-   * @param trustManagers The trust managers from the JDK default trust store.
-   * @param acceptUndeterminedRevocation Whether to accept undetermined revocation status.
-   * @return An array of trust managers configured for certificate revocation checking.
-   * @throws Exception If there is an error during configuration.
-   */
-  private static TrustManager[] configureCertificateRevocationForDefaultTrustStore(
-      TrustManager[] trustManagers, boolean acceptUndeterminedRevocation) throws Exception {
-
-    try {
-      // Get trust anchors from JDK's default trust store
-      X509TrustManager x509TrustManager = findX509TrustManager(trustManagers);
-      if (x509TrustManager != null) {
-        Set<TrustAnchor> systemTrustAnchors =
-            Arrays.stream(x509TrustManager.getAcceptedIssuers())
-                .map(cert -> new TrustAnchor(cert, null))
-                .collect(Collectors.toSet());
-
-        // Build trust manager parameters with revocation checking
-        CertPathTrustManagerParameters trustManagerParams =
-            buildTrustManagerParameters(systemTrustAnchors, true, acceptUndeterminedRevocation);
-
-        TrustManagerFactory customTmf =
-            TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        customTmf.init(trustManagerParams);
-        LOGGER.info("Certificate revocation checking enabled with JDK default trust store");
-        return customTmf.getTrustManagers();
-      }
-      return trustManagers;
-    } catch (Exception e) {
-      LOGGER.warn(
-          "Failed to set up certificate revocation checking with JDK default trust store: "
-              + e.getMessage());
-      // Fall back to default trust managers if revocation checking setup fails
-      if (!acceptUndeterminedRevocation) {
-        throw new Exception(
-            "Certificate revocation checking failed to initialize and strict checking is enabled");
-      }
-      return trustManagers;
-    }
+    return customTmf.getTrustManagers();
   }
 
   /**
@@ -357,8 +364,7 @@ public class ConfiguratorUtils {
   }
 
   /**
-   * Loads a trust store from the path specified in the connection context. Tries multiple formats
-   * in this order: 1. The format specified in the connection context 2. PKCS12 3. JKS
+   * Loads a trust store from the path specified in the connection context.
    *
    * @param connectionContext The connection context containing trust store configuration.
    * @return The loaded KeyStore or null if it could not be loaded.
@@ -385,36 +391,30 @@ public class ConfiguratorUtils {
       password = connectionContext.getSSLTrustStorePassword().toCharArray();
     }
 
-    // Define the types to try, in order of preference
-    String[] typesToTry =
-        new String[] {
-          connectionContext.getSSLTrustStoreType(), // User-specified type (might be null/empty)
-          "PKCS12", // Standard PKCS12 format
-          "JKS" // Java KeyStore format
-        };
-
-    // Skip the first type if it's null or empty
-    int startIndex = (typesToTry[0] == null || typesToTry[0].isEmpty()) ? 1 : 0;
-
-    for (int i = startIndex; i < typesToTry.length; i++) {
-      String trustStoreType = typesToTry[i];
-      try (FileInputStream trustStoreStream = new FileInputStream(trustStorePath)) {
-        LOGGER.info("Attempting to load trust store as type: " + trustStoreType);
-        KeyStore trustStore = KeyStore.getInstance(trustStoreType);
-        trustStore.load(trustStoreStream, password);
-        LOGGER.info("Successfully loaded trust store as type: " + trustStoreType);
-        return trustStore;
-      } catch (Exception e) {
-        LOGGER.warn(
-            "Failed to load trust store as type "
-                + trustStoreType
-                + (i < typesToTry.length - 1 ? ", will try next type" : ""));
-      }
+    // Get the specified type, defaulting to JKS if not specified
+    String trustStoreType = connectionContext.getSSLTrustStoreType();
+    if (trustStoreType == null || trustStoreType.isEmpty()) {
+      trustStoreType = "JKS"; // Default to JKS if not specified
     }
 
-    String errorMessage = "Failed to load trust store using any of the supported types";
-    LOGGER.error(errorMessage);
-    throw new DatabricksHttpException(errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+    try (FileInputStream trustStoreStream = new FileInputStream(trustStorePath)) {
+      LOGGER.info("Loading trust store as type: " + trustStoreType);
+      KeyStore trustStore = KeyStore.getInstance(trustStoreType);
+      trustStore.load(trustStoreStream, password);
+      LOGGER.info("Successfully loaded trust store: " + trustStorePath);
+      return trustStore;
+    } catch (Exception e) {
+      String errorMessage =
+          "Failed to load trust store: "
+              + trustStorePath
+              + " with type "
+              + trustStoreType
+              + ": "
+              + e.getMessage();
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(
+          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+    }
   }
 
   /**
@@ -466,7 +466,7 @@ public class ConfiguratorUtils {
       LOGGER.info("Found " + trustAnchors.size() + " trust anchors in the trust store");
       return trustAnchors;
     } catch (Exception e) {
-      String errorMessage = "Error while getting trust anchors from trust store";
+      String errorMessage = "Error while getting trust anchors from trust store: " + e.getMessage();
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(
           errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
@@ -506,14 +506,26 @@ public class ConfiguratorUtils {
                   PKIXRevocationChecker.Option.SOFT_FAIL,
                   PKIXRevocationChecker.Option.NO_FALLBACK,
                   PKIXRevocationChecker.Option.PREFER_CRLS));
+          LOGGER.info(
+              "Configured revocation checker to accept undetermined certificate revocation status");
+        } else {
+          LOGGER.info(
+              "Configured revocation checker with strict validation (undetermined status is rejected)");
         }
 
         pkixBuilderParameters.addCertPathChecker(revocationChecker);
       }
 
       return new CertPathTrustManagerParameters(pkixBuilderParameters);
-    } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException e) {
-      String errorMessage = "Error while building trust manager parameters";
+    } catch (NoSuchAlgorithmException e) {
+      String errorMessage =
+          "No such algorithm error while building trust manager parameters: " + e.getMessage();
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksHttpException(
+          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+    } catch (InvalidAlgorithmParameterException e) {
+      String errorMessage =
+          "Invalid parameter error while building trust manager parameters: " + e.getMessage();
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(
           errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
