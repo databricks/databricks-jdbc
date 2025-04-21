@@ -98,9 +98,7 @@ public class ConfiguratorUtils {
       if (trustStore == null) {
         String errorMessage =
             "Specified trust store could not be loaded: " + connectionContext.getSSLTrustStore();
-        LOGGER.error(errorMessage);
-        throw new DatabricksHttpException(
-            errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+        handleError(errorMessage, new IOException(errorMessage));
       }
 
       // Get trust anchors from custom store
@@ -108,9 +106,7 @@ public class ConfiguratorUtils {
       if (trustAnchors.isEmpty()) {
         String errorMessage =
             "Custom trust store contains no trust anchors. Certificate validation will fail.";
-        LOGGER.error(errorMessage);
-        throw new DatabricksHttpException(
-            errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+        handleError(errorMessage, new KeyStoreException(errorMessage));
       }
 
       LOGGER.info("Using custom trust store: " + connectionContext.getSSLTrustStore());
@@ -124,17 +120,14 @@ public class ConfiguratorUtils {
 
       // Create socket factory registry
       return createSocketFactoryRegistry(trustManagers);
-    } catch (DatabricksHttpException e) {
-      throw e;
-    } catch (NoSuchAlgorithmException
+    } catch (DatabricksHttpException
+        | NoSuchAlgorithmException
         | InvalidAlgorithmParameterException
         | KeyManagementException e) {
-      String errorMessage =
-          "Error while setting up custom trust store: " + connectionContext.getSSLTrustStore();
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(
-          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      handleError(
+          "Error while setting up custom trust store: " + connectionContext.getSSLTrustStore(), e);
     }
+    return null; // This will never be reached, but is required for method signature.
   }
 
   /**
@@ -147,7 +140,6 @@ public class ConfiguratorUtils {
   private static Registry<ConnectionSocketFactory> createRegistryWithSystemOrDefaultTrustStore(
       IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
 
-    // Check if we should use the system property trust store based on useSystemTrustStore
     String sysTrustStore = null;
     if (connectionContext.useSystemTrustStore()) {
       // When useSystemTrustStore=true, check for javax.net.ssl.trustStore system property
@@ -186,9 +178,7 @@ public class ConfiguratorUtils {
       File trustStoreFile = new File(sysTrustStore);
       if (!trustStoreFile.exists()) {
         String errorMessage = "System property trust store file does not exist: " + sysTrustStore;
-        LOGGER.error(errorMessage);
-        throw new DatabricksHttpException(
-            errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+        handleError(errorMessage, new IOException(errorMessage));
       }
 
       // Load the system property trust store
@@ -208,9 +198,7 @@ public class ConfiguratorUtils {
       Set<TrustAnchor> trustAnchors = getTrustAnchorsFromTrustStore(trustStore);
       if (trustAnchors.isEmpty()) {
         String errorMessage = "System property trust store contains no trust anchors.";
-        LOGGER.error(errorMessage);
-        throw new DatabricksHttpException(
-            errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+        handleError(errorMessage, new KeyStoreException(errorMessage));
       }
 
       TrustManager[] trustManagers =
@@ -220,23 +208,16 @@ public class ConfiguratorUtils {
               connectionContext.acceptUndeterminedCertificateRevocation());
 
       return createSocketFactoryRegistry(trustManagers);
-    } catch (DatabricksHttpException e) {
-      throw e; // rethrow DatabricksHttpException
-    } catch (KeyStoreException
+    } catch (DatabricksHttpException
+        | KeyStoreException
         | NoSuchAlgorithmException
         | CertificateException
         | IOException
         | InvalidAlgorithmParameterException
         | KeyManagementException e) {
-      String errorMessage =
-          "Error while setting up system property trust store: "
-              + sysTrustStore
-              + ": "
-              + e.getMessage();
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(
-          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      handleError("Error while setting up system property trust store: " + sysTrustStore, e);
     }
+    return null; // This will never be reached, but is required for method signature.
   }
 
   /**
@@ -290,17 +271,14 @@ public class ConfiguratorUtils {
               connectionContext.acceptUndeterminedCertificateRevocation());
 
       return createSocketFactoryRegistry(trustManagers);
-    } catch (DatabricksHttpException e) {
-      throw e;
-    } catch (KeyStoreException
+    } catch (DatabricksHttpException
+        | KeyStoreException
         | NoSuchAlgorithmException
         | InvalidAlgorithmParameterException
         | KeyManagementException e) {
-      String errorMessage = "Error while setting up JDK default trust store: " + e.getMessage();
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(
-          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      handleError("Error while setting up JDK default trust store: ", e);
     }
+    return null; // This will never be reached, but is required for method signature.
   }
 
   /**
@@ -308,7 +286,8 @@ public class ConfiguratorUtils {
    *
    * @param trustManagers The trust managers to use.
    * @return A registry of connection socket factories.
-   * @throws Exception If there is an error during SSL context creation.
+   * @throws NoSuchAlgorithmException If there is an error during SSL context creation.
+   * @throws KeyManagementException If there is an error during SSL context creation.
    */
   private static Registry<ConnectionSocketFactory> createSocketFactoryRegistry(
       TrustManager[] trustManagers) throws NoSuchAlgorithmException, KeyManagementException {
@@ -328,9 +307,11 @@ public class ConfiguratorUtils {
    *
    * @param trustAnchors The trust anchors to use.
    * @param checkCertificateRevocation Whether to check certificate revocation.
-   * @param acceptUndeterminedCertificateRevocation Whether to accept undetermined revocation status.
+   * @param acceptUndeterminedCertificateRevocation Whether to accept undetermined revocation
+   *     status.
    * @return An array of trust managers.
-   * @throws Exception If there is an error during trust manager creation.
+   * @throws NoSuchAlgorithmException If there is an error during trust manager creation.
+   * @throws InvalidAlgorithmParameterException If there is an error during trust manager creation.
    */
   private static TrustManager[] createTrustManagers(
       Set<TrustAnchor> trustAnchors,
@@ -394,9 +375,7 @@ public class ConfiguratorUtils {
     File trustStoreFile = new File(trustStorePath);
     if (!trustStoreFile.exists()) {
       String errorMessage = "Specified trust store file does not exist: " + trustStorePath;
-      LOGGER.error(errorMessage);
-      throw new DatabricksHttpException(
-          errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      handleError(errorMessage, new IOException(errorMessage));
     }
 
     char[] password = null;
@@ -424,10 +403,9 @@ public class ConfiguratorUtils {
               + trustStoreType
               + ": "
               + e.getMessage();
-      LOGGER.error(errorMessage);
-      throw new DatabricksHttpException(
-          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      handleError(errorMessage, e);
     }
+    return null; // This will never be reached, but is required for method signature.
   }
 
   /**
@@ -480,10 +458,9 @@ public class ConfiguratorUtils {
       return trustAnchors;
     } catch (KeyStoreException | NoSuchAlgorithmException e) {
       String errorMessage = "Error while getting trust anchors from trust store: " + e.getMessage();
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(
-          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      handleError(errorMessage, e);
     }
+    return Collections.emptySet(); // Return empty set if error occurs
   }
 
   /**
@@ -533,15 +510,25 @@ public class ConfiguratorUtils {
     } catch (NoSuchAlgorithmException e) {
       String errorMessage =
           "No such algorithm error while building trust manager parameters: " + e.getMessage();
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(
-          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      handleError(errorMessage, e);
     } catch (InvalidAlgorithmParameterException e) {
       String errorMessage =
           "Invalid parameter error while building trust manager parameters: " + e.getMessage();
-      LOGGER.error(e, errorMessage);
-      throw new DatabricksHttpException(
-          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      handleError(errorMessage, e);
     }
+    return null; // Return null in case of error
+  }
+
+  /**
+   * Centralized error handling method for logging and throwing exceptions.
+   *
+   * @param errorMessage The error message to log.
+   * @param e The exception to log and throw.
+   * @throws DatabricksHttpException The wrapped exception.
+   */
+  private static void handleError(String errorMessage, Exception e) throws DatabricksHttpException {
+    LOGGER.error(errorMessage, e);
+    throw new DatabricksHttpException(
+            errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
   }
 }
