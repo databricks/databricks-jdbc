@@ -529,6 +529,6 @@ public class ConfiguratorUtils {
   private static void handleError(String errorMessage, Exception e) throws DatabricksHttpException {
     LOGGER.error(errorMessage, e);
     throw new DatabricksHttpException(
-            errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+        errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
   }
 }
