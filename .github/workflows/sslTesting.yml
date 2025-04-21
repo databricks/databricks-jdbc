@@ -120,20 +120,20 @@ jobs:
         run: |
           sudo cp /etc/squid/squid.conf /etc/squid/squid.conf.orig
           sudo tee /etc/squid/squid.conf >/dev/null <<'SQ'
-        http_port 3128
-        https_port 3129 tls-cert=/etc/squid/squid.pem
-        http_access allow all
-        always_direct allow all
-        dns_v4_first on
-        cache deny all
-        debug_options ALL,1
-        logfile_rotate 0
-        cache_log /var/log/squid/cache.log
-        access_log /var/log/squid/access.log squid
-        SQ
-        sudo mkdir -p /var/log/squid
-        sudo chown -R proxy:proxy /var/log/squid
-        sudo squid -k parse || true
+          http_port 3128
+          https_port 3129 tls-cert=/etc/squid/squid.pem
+          http_access allow all
+          always_direct allow all
+          dns_v4_first on
+          cache deny all
+          debug_options ALL,1
+          logfile_rotate 0
+          cache_log /var/log/squid/cache.log
+          access_log /var/log/squid/access.log squid
+          SQ
+          sudo mkdir -p /var/log/squid
+          sudo chown -R proxy:proxy /var/log/squid
+          sudo squid -k parse || true
 
       - name: Start Squid Proxy
         run: |
