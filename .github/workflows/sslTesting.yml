@@ -193,6 +193,10 @@ jobs:
           echo "TRUSTSTORE_PASSWORD=${TRUSTSTORE_PASSWORD}" >> $GITHUB_ENV
 
       - name: Run SSL Tests
+        env:
+          MAVEN_OPTS: >
+            -Docsp.enable=true
+            -Dcom.sun.security.enableCRLDP=true
         run: |
           mvn test -Dtest=**/SSLTest.java
 
