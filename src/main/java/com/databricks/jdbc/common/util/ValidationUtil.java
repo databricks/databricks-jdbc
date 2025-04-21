@@ -38,6 +38,15 @@ public class ValidationUtil {
     }
   }
 
+  public static void throwErrorIfNull(String field, Object value) throws DatabricksSQLException {
+    if (value != null) {
+      return;
+    }
+    String errorMessage = String.format("Unsupported null Input for field {%s}", field);
+    LOGGER.error(errorMessage);
+    throw new DatabricksValidationException(errorMessage);
+  }
+
   public static void checkHTTPError(HttpResponse response) throws DatabricksHttpException {
     int statusCode = response.getStatusLine().getStatusCode();
     String statusLine = response.getStatusLine().toString();

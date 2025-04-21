@@ -34,8 +34,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class DatabricksPooledConnectionTest {
 
   private static final String JDBC_URL =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-  private static final String WAREHOUSE_ID = "791ba2a31c7fd70a";
+      "jdbc:databricks://sample-host.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/9999999999999999;";
+  private static final String WAREHOUSE_ID = "9999999999999999";
   private static final IDatabricksComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String SESSION_ID = "session_id";
   @Mock private static DatabricksSdkClient databricksClient;

@@ -12,9 +12,9 @@ import org.junit.jupiter.api.Test;
 public class DatabricksDriverPropertyUtilTest {
 
   private static final String test_host =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;";
+      "jdbc:databricks://sample-host.cloud.databricks.com:9999;transportMode=http;httpPath=sql/protocolv1/o/9999999999999999/9999999999999999;";
   private static final String gcp_host =
-      "jdbc:databricks://4371047901336987.7.gcp.databricks.com:443;transportMode=http;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;";
+      "jdbc:databricks://sample-host.7.gcp.databricks.com:443;transportMode=http;httpPath=sql/protocolv1/o/9999999999999999/9999999999999999;";
 
   private void assertMissingProperties(String jdbcUrl, String... expectedProperties)
       throws DatabricksSQLException {

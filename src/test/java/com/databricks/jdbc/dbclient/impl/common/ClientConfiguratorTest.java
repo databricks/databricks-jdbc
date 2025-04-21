@@ -144,8 +144,8 @@ public class ClientConfiguratorTest {
   @Test
   void testM2MWithJWT() throws DatabricksSQLException {
     String jdbcUrl =
-        "jdbc:databricks://adb-565757575.18.azuredatabricks.net:123/default;ssl=1;port=123;AuthMech=11;"
-            + "httpPath=/sql/1.0/endpoints/erg6767gg;auth_flow=1;UseJWTAssertion=1;auth_scope=test_scope;"
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:123/default;ssl=1;port=123;AuthMech=11;"
+            + "httpPath=/sql/1.0/endpoints/99999999;auth_flow=1;UseJWTAssertion=1;auth_scope=test_scope;"
             + "OAuth2ClientId=test-client;auth_kid=test_kid;Auth_JWT_Key_Passphrase=test_phrase;Auth_JWT_Key_File=test_key_file;"
             + "Auth_JWT_Alg=test_algo;Oauth2TokenEndpoint=token_endpoint";
     IDatabricksConnectionContext connectionContext =
@@ -153,7 +153,7 @@ public class ClientConfiguratorTest {
     configurator = new ClientConfigurator(connectionContext);
     DatabricksConfig config = configurator.getDatabricksConfig();
     CredentialsProvider provider = config.getCredentialsProvider();
-    assertEquals("https://adb-565757575.18.azuredatabricks.net", config.getHost());
+    assertEquals("https://sample-host.18.azuredatabricks.net", config.getHost());
     assertEquals("test-client", config.getClientId());
     assertEquals("custom-oauth-m2m", provider.authType());
     assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
