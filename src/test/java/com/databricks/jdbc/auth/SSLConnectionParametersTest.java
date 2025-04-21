@@ -92,7 +92,7 @@ public class SSLConnectionParametersTest {
     when(mockContext.allowSelfSignedCerts()).thenReturn(true);
 
     Registry<ConnectionSocketFactory> registry =
-        ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext);
+        ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext);
 
     assertNotNull(registry, "Socket factory registry should not be null");
   }
@@ -107,7 +107,7 @@ public class SSLConnectionParametersTest {
 
     try {
       Registry<ConnectionSocketFactory> registry =
-          ConfiguratorUtils.getConnectionSocketFactoryRegistry(mockContext);
+          ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext);
 
       assertNotNull(registry, "Socket factory registry should not be null");
     } catch (Exception e) {
