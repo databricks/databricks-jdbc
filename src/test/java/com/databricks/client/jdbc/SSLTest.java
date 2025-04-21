@@ -2,7 +2,6 @@ package com.databricks.client.jdbc;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -176,59 +175,27 @@ public class SSLTest {
     }
   }
 
+  /**
+   * Revocation checking ON + STRICT (undetermined status is rejected). Because none of the certs we
+   * generate in the workflow have a CRL/OCSP endpoint, the status ends up “undetermined”, so the
+   * driver **must fail**.
+   */
   @Test
-  public void testWithSystemProperties() {
-    System.out.println("Scenario: Using system properties for SSL configuration");
+  public void testRevocationCheckStrictFail() {
+    System.out.println("Scenario: Revocation ON, undetermined NOT accepted – expect failure");
+    for (boolean thrift : new boolean[] {true, false}) {
 
-    String originalTrustStore = System.getProperty("javax.net.ssl.trustStore");
-    String originalTrustStorePassword = System.getProperty("javax.net.ssl.trustStorePassword");
-    String originalTrustStoreType = System.getProperty("javax.net.ssl.trustStoreType");
+      String url =
+          buildJdbcUrl(thrift, true, false, false, true, false)
+              + "CheckCertificateRevocation=1;"
+              + "AcceptUndeterminedCertificateRevocation=0;";
 
-    try {
-      // First check if trust store exists
-      if (trustStorePath == null || !new File(trustStorePath).exists()) {
-        System.out.println(
-            "Skipping system properties test - trust store not found: " + trustStorePath);
-        return;
-      }
-
-      System.setProperty("javax.net.ssl.trustStore", trustStorePath);
-      System.setProperty("javax.net.ssl.trustStorePassword", trustStorePassword);
-      System.setProperty("javax.net.ssl.trustStoreType", "JKS");
-
-      System.out.println("Trust store path: " + System.getProperty("javax.net.ssl.trustStore"));
-      System.out.println("Trust store exists: " + new java.io.File(trustStorePath).exists());
-      System.out.println(
-          "Trust store password set: "
-              + (System.getProperty("javax.net.ssl.trustStorePassword") != null));
-      System.out.println("Trust store type: " + System.getProperty("javax.net.ssl.trustStoreType"));
-
-      for (boolean thrift : new boolean[] {true, false}) {
-        try {
-          String url = buildJdbcUrl(thrift, false, false, false, false, false);
-          verifyConnect(url);
-        } catch (Exception e) {
-          System.out.println("Connection with system properties failed," + e.getMessage());
-        }
-      }
-    } finally {
-      if (originalTrustStore != null) {
-        System.setProperty("javax.net.ssl.trustStore", originalTrustStore);
-      } else {
-        System.clearProperty("javax.net.ssl.trustStore");
-      }
-
-      if (originalTrustStorePassword != null) {
-        System.setProperty("javax.net.ssl.trustStorePassword", originalTrustStorePassword);
-      } else {
-        System.clearProperty("javax.net.ssl.trustStorePassword");
-      }
-
-      if (originalTrustStoreType != null) {
-        System.setProperty("javax.net.ssl.trustStoreType", originalTrustStoreType);
-      } else {
-        System.clearProperty("javax.net.ssl.trustStoreType");
-      }
+      assertThrows(
+          Exception.class,
+          () -> verifyConnect(url),
+          "Strict revocation check should fail when revocation status is undetermined (thrift="
+              + thrift
+              + ")");
     }
   }
 }
