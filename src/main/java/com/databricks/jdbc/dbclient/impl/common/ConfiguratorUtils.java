@@ -11,9 +11,8 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.File;
 import java.io.FileInputStream;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.KeyStore;
-import java.security.NoSuchAlgorithmException;
+import java.io.IOException;
+import java.security.*;
 import java.security.cert.*;
 import java.util.Arrays;
 import java.util.Collections;
@@ -125,7 +124,11 @@ public class ConfiguratorUtils {
 
       // Create socket factory registry
       return createSocketFactoryRegistry(trustManagers);
-    } catch (Exception e) {
+    } catch (DatabricksHttpException e) {
+      throw e;
+    } catch (NoSuchAlgorithmException
+        | InvalidAlgorithmParameterException
+        | KeyManagementException e) {
       String errorMessage =
           "Error while setting up custom trust store: " + connectionContext.getSSLTrustStore();
       LOGGER.error(e, errorMessage);
@@ -217,7 +220,14 @@ public class ConfiguratorUtils {
               connectionContext.acceptUndeterminedCertificateRevocation());
 
       return createSocketFactoryRegistry(trustManagers);
-    } catch (Exception e) {
+    } catch (DatabricksHttpException e) {
+      throw e; // rethrow DatabricksHttpException
+    } catch (KeyStoreException
+        | NoSuchAlgorithmException
+        | CertificateException
+        | IOException
+        | InvalidAlgorithmParameterException
+        | KeyManagementException e) {
       String errorMessage =
           "Error while setting up system property trust store: "
               + sysTrustStore
@@ -282,7 +292,10 @@ public class ConfiguratorUtils {
       return createSocketFactoryRegistry(trustManagers);
     } catch (DatabricksHttpException e) {
       throw e;
-    } catch (Exception e) {
+    } catch (KeyStoreException
+        | NoSuchAlgorithmException
+        | InvalidAlgorithmParameterException
+        | KeyManagementException e) {
       String errorMessage = "Error while setting up JDK default trust store: " + e.getMessage();
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(
@@ -298,7 +311,7 @@ public class ConfiguratorUtils {
    * @throws Exception If there is an error during SSL context creation.
    */
   private static Registry<ConnectionSocketFactory> createSocketFactoryRegistry(
-      TrustManager[] trustManagers) throws Exception {
+      TrustManager[] trustManagers) throws NoSuchAlgorithmException, KeyManagementException {
 
     SSLContext sslContext = SSLContext.getInstance(DatabricksJdbcConstants.TLS);
     sslContext.init(null, trustManagers, null);
@@ -315,20 +328,20 @@ public class ConfiguratorUtils {
    *
    * @param trustAnchors The trust anchors to use.
    * @param checkCertificateRevocation Whether to check certificate revocation.
-   * @param acceptUndeterminedRevocation Whether to accept undetermined revocation status.
+   * @param acceptUndeterminedCertificateRevocation Whether to accept undetermined revocation status.
    * @return An array of trust managers.
    * @throws Exception If there is an error during trust manager creation.
    */
   private static TrustManager[] createTrustManagers(
       Set<TrustAnchor> trustAnchors,
       boolean checkCertificateRevocation,
-      boolean acceptUndeterminedRevocation)
-      throws Exception {
+      boolean acceptUndeterminedCertificateRevocation)
+      throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, DatabricksHttpException {
 
     // Always use the custom trust manager with trust anchors
     CertPathTrustManagerParameters trustManagerParams =
         buildTrustManagerParameters(
-            trustAnchors, checkCertificateRevocation, acceptUndeterminedRevocation);
+            trustAnchors, checkCertificateRevocation, acceptUndeterminedCertificateRevocation);
 
     TrustManagerFactory customTmf =
         TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
@@ -403,7 +416,7 @@ public class ConfiguratorUtils {
       trustStore.load(trustStoreStream, password);
       LOGGER.info("Successfully loaded trust store: " + trustStorePath);
       return trustStore;
-    } catch (Exception e) {
+    } catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | IOException e) {
       String errorMessage =
           "Failed to load trust store: "
               + trustStorePath
@@ -465,7 +478,7 @@ public class ConfiguratorUtils {
 
       LOGGER.info("Found " + trustAnchors.size() + " trust anchors in the trust store");
       return trustAnchors;
-    } catch (Exception e) {
+    } catch (KeyStoreException | NoSuchAlgorithmException e) {
       String errorMessage = "Error while getting trust anchors from trust store: " + e.getMessage();
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(
