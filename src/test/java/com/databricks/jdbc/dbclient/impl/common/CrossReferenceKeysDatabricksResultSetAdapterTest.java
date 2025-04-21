@@ -2,7 +2,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.common.MetadataResultConstants.PKCOLUMN_NAME;
-import static com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter.PARENT_TABLE_NAME;
+import static com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -21,6 +21,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class CrossReferenceKeysDatabricksResultSetAdapterTest {
 
+  private static final String TARGET_PARENT_CATALOG_NAME = "targetCatalog";
+  private static final String TARGET_PARENT_SCHEMA_NAME = "targetSchema";
   private static final String TARGET_PARENT_TABLE_NAME = "targetTable";
   private IDatabricksResultSetAdapter crossRefAdapter;
 
@@ -28,15 +30,23 @@ public class CrossReferenceKeysDatabricksResultSetAdapterTest {
 
   @BeforeEach
   public void setUp() {
-    crossRefAdapter = new CrossReferenceKeysDatabricksResultSetAdapter(TARGET_PARENT_TABLE_NAME);
+    crossRefAdapter =
+        new CrossReferenceKeysDatabricksResultSetAdapter(
+            TARGET_PARENT_CATALOG_NAME, TARGET_PARENT_SCHEMA_NAME, TARGET_PARENT_TABLE_NAME);
   }
 
   @Test
   public void testIncludeRowWhenParentTableNameMatches() throws SQLException {
     List<ResultColumn> columns = new ArrayList<>();
 
-    // Mock the ResultSet to return the matching target parent table name
+    // Mock the ResultSet to return the matching target parent catalog, schema, and table name
     // The result set contains the column name "pktableName" which is mapped to PARENT_TABLE_NAME
+    // Similarly, the catalog and schema names are mapped to PARENT_CATALOG_NAME and
+    // PARENT_NAMESPACE_NAME
+    when(mockResultSet.getString(PARENT_CATALOG_NAME.getResultSetColumnName()))
+        .thenReturn(TARGET_PARENT_CATALOG_NAME);
+    when(mockResultSet.getString(PARENT_NAMESPACE_NAME.getResultSetColumnName()))
+        .thenReturn(TARGET_PARENT_SCHEMA_NAME);
     when(mockResultSet.getString(PARENT_TABLE_NAME.getResultSetColumnName()))
         .thenReturn(TARGET_PARENT_TABLE_NAME);
 
@@ -50,6 +60,11 @@ public class CrossReferenceKeysDatabricksResultSetAdapterTest {
   public void testIncludeRowWhenParentTableNameDoesNotMatch() throws SQLException {
     List<ResultColumn> columns = new ArrayList<>();
 
+    // Mock the ResultSet to return the matching catalog and schema name
+    when(mockResultSet.getString(PARENT_CATALOG_NAME.getResultSetColumnName()))
+        .thenReturn(TARGET_PARENT_CATALOG_NAME);
+    when(mockResultSet.getString(PARENT_NAMESPACE_NAME.getResultSetColumnName()))
+        .thenReturn(TARGET_PARENT_SCHEMA_NAME);
     // Mock the ResultSet to return a non-matching parent table name
     when(mockResultSet.getString(PARENT_TABLE_NAME.getResultSetColumnName()))
         .thenReturn("differentTable");
@@ -74,7 +89,11 @@ public class CrossReferenceKeysDatabricksResultSetAdapterTest {
   public void testIncludeRowHandlesSQLException() throws SQLException {
     List<ResultColumn> columns = new ArrayList<>();
 
-    // Mock the ResultSet to throw SQLException when getString is called
+    when(mockResultSet.getString(PARENT_CATALOG_NAME.getResultSetColumnName()))
+        .thenReturn(TARGET_PARENT_CATALOG_NAME);
+    when(mockResultSet.getString(PARENT_NAMESPACE_NAME.getResultSetColumnName()))
+        .thenReturn(TARGET_PARENT_SCHEMA_NAME);
+    // Mock the ResultSet to throw SQLException when getString on table name is called
     when(mockResultSet.getString(PARENT_TABLE_NAME.getResultSetColumnName()))
         .thenThrow(new SQLException("Test exception"));
 
@@ -86,11 +105,18 @@ public class CrossReferenceKeysDatabricksResultSetAdapterTest {
 
   @Test
   public void testConstructorSetsTargetParentTableName() throws SQLException {
+    String customCatalog = "customCatalog";
+    String customSchema = "customSchema";
     String customTableName = "customTable";
     CrossReferenceKeysDatabricksResultSetAdapter customAdapter =
-        new CrossReferenceKeysDatabricksResultSetAdapter(customTableName);
+        new CrossReferenceKeysDatabricksResultSetAdapter(
+            customCatalog, customSchema, customTableName);
 
-    // Mock the ResultSet to return the matching custom table name
+    // Mock the ResultSet to return the matching custom catalog, schema, and table name
+    when(mockResultSet.getString(PARENT_CATALOG_NAME.getResultSetColumnName()))
+        .thenReturn(customCatalog);
+    when(mockResultSet.getString(PARENT_NAMESPACE_NAME.getResultSetColumnName()))
+        .thenReturn(customSchema);
     when(mockResultSet.getString(PARENT_TABLE_NAME.getResultSetColumnName()))
         .thenReturn(customTableName);
 

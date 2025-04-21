@@ -1,6 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
-import static com.databricks.jdbc.common.MetadataResultConstants.PKTABLE_NAME;
+import static com.databricks.jdbc.common.MetadataResultConstants.*;
 
 import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.ResultSet;
@@ -10,25 +10,46 @@ import java.util.List;
 public class CrossReferenceKeysDatabricksResultSetAdapter
     extends ImportedKeysDatabricksResultSetAdapter {
 
+  private final String targetParentCatalogName;
+  private final String targetParentNamespaceName;
   private final String targetParentTableName;
 
-  public CrossReferenceKeysDatabricksResultSetAdapter(String targetParentTableName) {
+  public CrossReferenceKeysDatabricksResultSetAdapter(
+      String targetParentCatalogName,
+      String targetParentNamespaceName,
+      String targetParentTableName) {
+    this.targetParentCatalogName = targetParentCatalogName;
+    this.targetParentNamespaceName = targetParentNamespaceName;
     this.targetParentTableName = targetParentTableName;
   }
 
   /**
    * {@inheritDoc}
    *
-   * <p>Returns true if the row's parent table name matches the expected parent table name. This is
-   * required because the SQL command returns all foreign keys.
+   * <p>Returns true if the row's parent catalog, schema, and table name matches the expected parent
+   * table name. This is required because the SQL command returns all foreign keys.
    */
   @Override
   public boolean includeRow(ResultSet resultSet, List<ResultColumn> columns) throws SQLException {
-    // check if the row's parent table name matches the expected parent table name
+    // check if the row's parent catalog, schema, and table name matches the expected values
+    final ResultColumn parentCatalogNameColumn = mapColumn(PKTABLE_CAT);
+    final ResultColumn parentNamespaceColumn = mapColumn(PKTABLE_SCHEM);
     final ResultColumn parentTableNameColumn = mapColumn(PKTABLE_NAME);
-    if (!resultSet
-        .getString(parentTableNameColumn.getResultSetColumnName())
-        .equals(targetParentTableName)) {
+
+    boolean isParentCatalogMatching =
+        resultSet
+            .getString(parentCatalogNameColumn.getResultSetColumnName())
+            .equals(targetParentCatalogName);
+    boolean isParentNamespaceMatching =
+        resultSet
+            .getString(parentNamespaceColumn.getResultSetColumnName())
+            .equals(targetParentNamespaceName);
+    boolean isParentTableMatching =
+        resultSet
+            .getString(parentTableNameColumn.getResultSetColumnName())
+            .equals(targetParentTableName);
+
+    if (!isParentTableMatching || !isParentCatalogMatching || !isParentNamespaceMatching) {
       return false;
     }
 

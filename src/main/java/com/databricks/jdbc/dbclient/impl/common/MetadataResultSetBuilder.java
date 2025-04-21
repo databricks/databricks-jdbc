@@ -116,11 +116,17 @@ public class MetadataResultSetBuilder {
   }
 
   public static DatabricksResultSet getCrossReferenceKeysResult(
-      ResultSet resultSet, String targetParentTableName) throws SQLException {
+      ResultSet resultSet,
+      String targetParentCatalogName,
+      String targetParentNamespaceName,
+      String targetParentTableName)
+      throws SQLException {
     final CrossReferenceKeysDatabricksResultSetAdapter crossReferenceKeysResultSetAdapter =
-        new CrossReferenceKeysDatabricksResultSetAdapter(targetParentTableName);
+        new CrossReferenceKeysDatabricksResultSetAdapter(
+            targetParentCatalogName, targetParentNamespaceName, targetParentTableName);
     List<List<Object>> rows =
         getRows(resultSet, CROSS_REFERENCE_COLUMNS, crossReferenceKeysResultSetAdapter);
+
     return buildResultSet(
         CROSS_REFERENCE_COLUMNS,
         rows,

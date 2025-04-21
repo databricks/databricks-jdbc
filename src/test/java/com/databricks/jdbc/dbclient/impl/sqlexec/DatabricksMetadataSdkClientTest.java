@@ -3,7 +3,7 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
-import static com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter.PARENT_TABLE_NAME;
+import static com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
@@ -547,7 +547,8 @@ public class DatabricksMetadataSdkClientTest {
   @Test
   void testListCrossReferences() throws Exception {
     CrossReferenceKeysDatabricksResultSetAdapter resultSetAdapter =
-        new CrossReferenceKeysDatabricksResultSetAdapter("parentTable");
+        new CrossReferenceKeysDatabricksResultSetAdapter(
+            "parentCatalog", "parentNamespace", "parentTable");
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
@@ -559,11 +560,27 @@ public class DatabricksMetadataSdkClientTest {
             null))
         .thenReturn(mockedResultSet);
     when(mockedResultSet.next()).thenReturn(true, false);
+    when(mockedResultSet.getString(PARENT_CATALOG_NAME.getResultSetColumnName()))
+        .thenReturn("parentCatalog");
+    when(mockedResultSet.getString(PARENT_NAMESPACE_NAME.getResultSetColumnName()))
+        .thenReturn("parentNamespace");
     when(mockedResultSet.getString(PARENT_TABLE_NAME.getResultSetColumnName()))
         .thenReturn("parentTable");
     for (ResultColumn resultColumn : CROSS_REFERENCE_COLUMNS) {
-      if (resultColumn.getResultSetColumnName().equals(PKTABLE_NAME.getResultSetColumnName())) {
-        // Foreign keys available for the required parent table
+      if (resultColumn.getResultSetColumnName().equals(PKTABLE_CAT.getResultSetColumnName())) {
+        when(mockedResultSet.getObject(
+                resultSetAdapter.mapColumn(resultColumn).getResultSetColumnName()))
+            .thenReturn("parentCatalog");
+      } else if (resultColumn
+          .getResultSetColumnName()
+          .equals(PKTABLE_SCHEM.getResultSetColumnName())) {
+        when(mockedResultSet.getObject(
+                resultSetAdapter.mapColumn(resultColumn).getResultSetColumnName()))
+            .thenReturn("parentNamespace");
+      } else if (resultColumn
+          .getResultSetColumnName()
+          .equals(PKTABLE_NAME.getResultSetColumnName())) {
+        // Foreign keys available for the required parent catalog, schema, and table
         when(mockedResultSet.getObject(
                 resultSetAdapter.mapColumn(resultColumn).getResultSetColumnName()))
             .thenReturn("parentTable");
@@ -593,7 +610,7 @@ public class DatabricksMetadataSdkClientTest {
         metadataClient.listCrossReferences(
             session,
             "parentCatalog",
-            "parentSchema",
+            "parentNamespace",
             "parentTable",
             TEST_CATALOG,
             TEST_SCHEMA,
@@ -649,6 +666,10 @@ public class DatabricksMetadataSdkClientTest {
             null))
         .thenReturn(mockedResultSet);
     when(mockedResultSet.next()).thenReturn(true, false);
+    when(mockedResultSet.getString(PARENT_CATALOG_NAME.getResultSetColumnName()))
+        .thenReturn("parentCatalog");
+    when(mockedResultSet.getString(PARENT_NAMESPACE_NAME.getResultSetColumnName()))
+        .thenReturn("parentSchema");
     // Foreign keys from a different parent table while the requirement is `parentTable`
     when(mockedResultSet.getString(PARENT_TABLE_NAME.getResultSetColumnName()))
         .thenReturn("differentParentTable");

@@ -10,9 +10,9 @@ import java.util.List;
 
 public class ImportedKeysDatabricksResultSetAdapter implements IDatabricksResultSetAdapter {
 
-  private static final ResultColumn PARENT_CATALOG_NAME =
+  public static final ResultColumn PARENT_CATALOG_NAME =
       new ResultColumn("PKTABLE_CAT", "parentCatalogName", Types.VARCHAR);
-  private static final ResultColumn PARENT_NAMESPACE =
+  public static final ResultColumn PARENT_NAMESPACE_NAME =
       new ResultColumn("PKTABLE_SCHEM", "parentNamespace", Types.VARCHAR);
   public static final ResultColumn PARENT_TABLE_NAME =
       new ResultColumn("PKTABLE_NAME", "parentTableName", Types.VARCHAR);
@@ -34,7 +34,7 @@ public class ImportedKeysDatabricksResultSetAdapter implements IDatabricksResult
     if (columnName.equals(PKTABLE_CAT.getResultSetColumnName())) {
       return PARENT_CATALOG_NAME;
     } else if (columnName.equals(PKTABLE_SCHEM.getResultSetColumnName())) {
-      return PARENT_NAMESPACE;
+      return PARENT_NAMESPACE_NAME;
     } else if (columnName.equals(PKTABLE_NAME.getResultSetColumnName())) {
       return PARENT_TABLE_NAME;
     } else if (columnName.equals(PKCOLUMN_NAME.getResultSetColumnName())) {

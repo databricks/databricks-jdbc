@@ -181,7 +181,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
     try {
       return MetadataResultSetBuilder.getCrossReferenceKeysResult(
-          getResultSet(SQL, session), parentTable);
+          getResultSet(SQL, session), parentCatalog, parentSchema, parentTable);
     } catch (SQLException e) {
       if (e.getSQLState().equals(PARSE_SYNTAX_ERROR_SQL_STATE)) {
         // This is a workaround for the issue where the SQL command fails with "syntax error at or
@@ -194,6 +194,11 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             METADATA_STATEMENT_ID,
             com.databricks.jdbc.common.CommandName.GET_CROSS_REFERENCE);
       } else {
+        LOGGER.error(
+            e,
+            "Error while executing SQL command: %s, SQL state: %s",
+            e.getMessage(),
+            e.getSQLState());
         throw e;
       }
     }
