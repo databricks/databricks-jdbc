@@ -213,11 +213,8 @@ public class ClientConfigurator {
     } else {
       tokenCache = new NoOpTokenCache();
     }
-    CredentialsProvider provider = new ExternalBrowserCredentialsProvider();
-    databricksConfig
-        .setTokenCache(tokenCache)
-        .setCredentialsProvider(provider)
-        .setAuthType(provider.authType());
+    CredentialsProvider provider = new ExternalBrowserCredentialsProvider(tokenCache);
+    databricksConfig.setCredentialsProvider(provider).setAuthType(provider.authType());
   }
 
   /**

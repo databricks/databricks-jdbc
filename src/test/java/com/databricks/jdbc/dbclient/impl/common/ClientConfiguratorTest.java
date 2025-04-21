@@ -8,8 +8,6 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.auth.EncryptedFileTokenCache;
-import com.databricks.jdbc.auth.NoOpTokenCache;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
@@ -22,6 +20,7 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.utils.Cloud;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -461,7 +460,7 @@ public class ClientConfiguratorTest {
     assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
-    assertInstanceOf(EncryptedFileTokenCache.class, config.getTokenCache());
+    assertInstanceOf(ExternalBrowserCredentialsProvider.class, config.getCredentialsProvider());
   }
 
   @Test
@@ -503,6 +502,6 @@ public class ClientConfiguratorTest {
     assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
-    assertInstanceOf(NoOpTokenCache.class, config.getTokenCache());
+    assertInstanceOf(ExternalBrowserCredentialsProvider.class, config.getCredentialsProvider());
   }
 }

@@ -81,7 +81,7 @@ public class EncryptedFileTokenCache implements TokenCache {
   public Token load() {
     try {
       if (!Files.exists(cacheFile)) {
-        LOGGER.debug("No token cache file found at: {}", cacheFile);
+        LOGGER.debug("No token cache file found at: %s", cacheFile);
         return null;
       }
 
@@ -92,19 +92,19 @@ public class EncryptedFileTokenCache implements TokenCache {
       try {
         decodedContent = decrypt(fileContent);
       } catch (Exception e) {
-        LOGGER.debug("Failed to decrypt token cache: {}", e.getMessage());
+        LOGGER.debug("Failed to decrypt token cache: %s", e.getMessage());
         return null;
       }
 
       // Deserialize token from JSON
       String json = new String(decodedContent, StandardCharsets.UTF_8);
       Token token = mapper.readValue(json, Token.class);
-      LOGGER.debug("Successfully loaded encrypted token from cache: {}", cacheFile);
+      LOGGER.debug("Successfully loaded encrypted token from cache: %s", cacheFile);
       return token;
     } catch (Exception e) {
       // If there's any issue loading the token, return null
       // to allow a fresh token to be obtained
-      LOGGER.debug("Failed to load token from cache: {}", e.getMessage());
+      LOGGER.debug("Failed to load token from cache: %s", e.getMessage());
       return null;
     }
   }
