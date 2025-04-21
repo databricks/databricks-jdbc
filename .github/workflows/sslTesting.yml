@@ -116,74 +116,74 @@ jobs:
           -keystore test-truststore.jks -storepass changeit
           chmod 644 test-truststore.jks
 
-        - name: Configure Squid
-          run: |
-            sudo cp /etc/squid/squid.conf /etc/squid/squid.conf.orig
-            sudo tee /etc/squid/squid.conf >/dev/null <<'SQ'
-          http_port 3128
-          https_port 3129 tls-cert=/etc/squid/squid.pem
-          http_access allow all
-          always_direct allow all
-          dns_v4_first on
-          cache deny all
-          debug_options ALL,1
-          logfile_rotate 0
-          cache_log /var/log/squid/cache.log
-          access_log /var/log/squid/access.log squid
-          SQ
-          sudo mkdir -p /var/log/squid
-          sudo chown -R proxy:proxy /var/log/squid
-          sudo squid -k parse || true
+      - name: Configure Squid
+        run: |
+          sudo cp /etc/squid/squid.conf /etc/squid/squid.conf.orig
+          sudo tee /etc/squid/squid.conf >/dev/null <<'SQ'
+        http_port 3128
+        https_port 3129 tls-cert=/etc/squid/squid.pem
+        http_access allow all
+        always_direct allow all
+        dns_v4_first on
+        cache deny all
+        debug_options ALL,1
+        logfile_rotate 0
+        cache_log /var/log/squid/cache.log
+        access_log /var/log/squid/access.log squid
+        SQ
+        sudo mkdir -p /var/log/squid
+        sudo chown -R proxy:proxy /var/log/squid
+        sudo squid -k parse || true
 
-        - name: Start Squid Proxy
-          run: |
-            sudo systemctl stop squid || true
-            sudo pkill squid || true
-            sudo squid -N -d 3 -f /etc/squid/squid.conf &
-            sleep 5
+      - name: Start Squid Proxy
+        run: |
+          sudo systemctl stop squid || true
+          sudo pkill squid || true
+          sudo squid -N -d 3 -f /etc/squid/squid.conf &
+          sleep 5
 
-        - name: Wait for Squid to be Ready
-          run: |
-            for i in {1..5}; do
-              curl -s -x http://localhost:3128 http://example.com -m 10 -o /dev/null && exit 0
-              sleep 3
-            done
-            exit 1
+      - name: Wait for Squid to be Ready
+        run: |
+          for i in {1..5}; do
+            curl -s -x http://localhost:3128 http://example.com -m 10 -o /dev/null && exit 0
+            sleep 3
+          done
+          exit 1
 
-        - name: Install Root CA in System Trust Store
-          run: |
-            sudo cp /tmp/ssl-certs/rootCA.crt /usr/local/share/ca-certificates/db-root.crt
-            sudo update-ca-certificates
+      - name: Install Root CA in System Trust Store
+        run: |
+          sudo cp /tmp/ssl-certs/rootCA.crt /usr/local/share/ca-certificates/db-root.crt
+          sudo update-ca-certificates
 
-        - name: Maven Build
-          run: mvn -q clean package -DskipTests
+      - name: Maven Build
+        run: mvn -q clean package -DskipTests
 
-        - name: Set Environment Variables
-          env:
-            DATABRICKS_TOKEN:      ${{ secrets.DATABRICKS_TOKEN }}
-            DATABRICKS_HOST:       ${{ secrets.DATABRICKS_HOST }}
-            DATABRICKS_HTTP_PATH:  ${{ secrets.DATABRICKS_HTTP_PATH }}
-            HTTP_PROXY_URL:        http://localhost:3128
-            HTTPS_PROXY_URL:       https://localhost:3129
-            TRUSTSTORE_PATH:       /tmp/ssl-certs/test-truststore.jks
-            TRUSTSTORE_PASSWORD:   changeit
-            MAVEN_OPTS: "-Docsp.enable=true -Dcom.sun.security.enableCRLDP=true"
-          run: |
-            echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}"      >> $GITHUB_ENV
-            echo "DATABRICKS_HOST=${DATABRICKS_HOST}"        >> $GITHUB_ENV
-            echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
-            echo "HTTP_PROXY_URL=${HTTP_PROXY_URL}"          >> $GITHUB_ENV
-            echo "HTTPS_PROXY_URL=${HTTPS_PROXY_URL}"        >> $GITHUB_ENV
-            echo "TRUSTSTORE_PATH=${TRUSTSTORE_PATH}"        >> $GITHUB_ENV
-            echo "TRUSTSTORE_PASSWORD=${TRUSTSTORE_PASSWORD}" >> $GITHUB_ENV
-            echo "MAVEN_OPTS=${MAVEN_OPTS}"                  >> $GITHUB_ENV
+      - name: Set Environment Variables
+        env:
+          DATABRICKS_TOKEN:      ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HOST:       ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH:  ${{ secrets.DATABRICKS_HTTP_PATH }}
+          HTTP_PROXY_URL:        http://localhost:3128
+          HTTPS_PROXY_URL:       https://localhost:3129
+          TRUSTSTORE_PATH:       /tmp/ssl-certs/test-truststore.jks
+          TRUSTSTORE_PASSWORD:   changeit
+          MAVEN_OPTS: "-Docsp.enable=true -Dcom.sun.security.enableCRLDP=true"
+        run: |
+          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}"      >> $GITHUB_ENV
+          echo "DATABRICKS_HOST=${DATABRICKS_HOST}"        >> $GITHUB_ENV
+          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+          echo "HTTP_PROXY_URL=${HTTP_PROXY_URL}"          >> $GITHUB_ENV
+          echo "HTTPS_PROXY_URL=${HTTPS_PROXY_URL}"        >> $GITHUB_ENV
+          echo "TRUSTSTORE_PATH=${TRUSTSTORE_PATH}"        >> $GITHUB_ENV
+          echo "TRUSTSTORE_PASSWORD=${TRUSTSTORE_PASSWORD}" >> $GITHUB_ENV
+          echo "MAVEN_OPTS=${MAVEN_OPTS}"                  >> $GITHUB_ENV
 
-        - name: Run SSL Tests
-          run: mvn test -Dtest=**/SSLTest.java
+      - name: Run SSL Tests
+        run: mvn test -Dtest=**/SSLTest.java
 
-        - name: Cleanup
-          if: always()
-          run: |
-            sudo pkill squid || true
-            sudo rm -f /usr/local/share/ca-certificates/db-root.crt
-            sudo update-ca-certificates --fresh
+      - name: Cleanup
+        if: always()
+        run: |
+          sudo pkill squid || true
+          sudo rm -f /usr/local/share/ca-certificates/db-root.crt
+          sudo update-ca-certificates --fresh
