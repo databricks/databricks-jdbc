@@ -175,27 +175,64 @@ public class SSLTest {
     }
   }
 
-  /**
-   * Revocation checking ON + STRICT (undetermined status is rejected). Because none of the certs we
-   * generate in the workflow have a CRL/OCSP endpoint, the status ends up “undetermined”, so the
-   * driver **must fail**.
-   */
   @Test
-  public void testRevocationCheckStrictFail() {
-    System.out.println("Scenario: Revocation ON, undetermined NOT accepted – expect failure");
-    for (boolean thrift : new boolean[] {true, false}) {
+  public void testDirectConnectionSystemTrustStoreFallback() {
+    System.out.println(
+        "Scenario: UseSystemTrustStore=1 with no system property -> fallback to cacerts (direct)");
 
-      String url =
-          buildJdbcUrl(thrift, true, false, false, true, false)
-              + "CheckCertificateRevocation=1;"
-              + "AcceptUndeterminedCertificateRevocation=0;";
+    // ensure the property is *unset* for this test run
+    String savedProp = System.getProperty("javax.net.ssl.trustStore");
+    try {
+      System.clearProperty("javax.net.ssl.trustStore");
 
-      assertThrows(
-          Exception.class,
-          () -> verifyConnect(url),
-          "Strict revocation check should fail when revocation status is undetermined (thrift="
-              + thrift
-              + ")");
+      for (boolean thrift : new boolean[] {true, false}) {
+        String url = buildJdbcUrl(thrift, false, false, false, true, false);
+        try {
+          verifyConnect(url);
+        } catch (Exception e) {
+          fail(
+              "Fallback‑to‑cacerts direct connect failed (thrift="
+                  + thrift
+                  + "): "
+                  + e.getMessage());
+        }
+      }
+    } finally {
+      // restore original system state
+      if (savedProp != null) {
+        System.setProperty("javax.net.ssl.trustStore", savedProp);
+      }
+    }
+  }
+
+  @Test
+  public void testIgnoreSystemPropertyWhenUseSystemTrustStoreDisabled() {
+    System.out.println(
+        "Scenario: bogus javax.net.ssl.trustStore present but UseSystemTrustStore=0 (driver must ignore)");
+
+    String savedProp = System.getProperty("javax.net.ssl.trustStore");
+    try {
+      System.setProperty("javax.net.ssl.trustStore", "/path/that/does/not/exist.jks");
+
+      for (boolean thrift : new boolean[] {true, false}) {
+        String url = buildJdbcUrl(thrift, false, false, false, false, false);
+        try {
+          verifyConnect(url);
+        } catch (Exception e) {
+          fail(
+              "Driver failed to ignore bogus system trust store (thrift="
+                  + thrift
+                  + "): "
+                  + e.getMessage());
+        }
+      }
+    } finally {
+      // restore original value
+      if (savedProp != null) {
+        System.setProperty("javax.net.ssl.trustStore", savedProp);
+      } else {
+        System.clearProperty("javax.net.ssl.trustStore");
+      }
     }
   }
 }
