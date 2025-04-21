@@ -7,6 +7,7 @@ import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSIO
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getNamespace;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.GET_TABLE_TYPE_STATEMENT_ID;
+import static com.databricks.sdk.service.sql.ColumnInfoTypeName.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -25,6 +26,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Stream;
@@ -795,5 +797,61 @@ public class DatabricksThriftServiceClientTest {
     when(mockProtocol.getTransport()).thenReturn(mockDatabricksHttpTTransport);
     client.resetAccessToken(NEW_ACCESS_TOKEN);
     verify(mockDatabricksHttpTTransport).resetAccessToken(NEW_ACCESS_TOKEN);
+  }
+
+  @Test
+  public void testDecimalTypeWithValidPrecisionAndScale() {
+    BigDecimal decimalValue = new BigDecimal("123.45"); // precision: 5, scale: 2
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(0).type(DECIMAL).value(decimalValue).build();
+
+    TSparkParameter result = client.mapToSparkParameterListItem(parameter);
+
+    assertEquals("DECIMAL(5,2)", result.getType());
+    assertEquals("123.45", result.getValue().getStringValue());
+    assertEquals(0, result.getOrdinal());
+  }
+
+  @Test
+  public void testDecimalTypeWithScaleGreaterThanPrecision() {
+    BigDecimal decimalValue = new BigDecimal("0.000123"); // scale: 6, precision: 3
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(1).type(DECIMAL).value(decimalValue).build();
+
+    TSparkParameter result = client.mapToSparkParameterListItem(parameter);
+
+    assertEquals("DECIMAL(6,6)", result.getType());
+    assertEquals("0.000123", result.getValue().getStringValue());
+    assertEquals(1, result.getOrdinal());
+  }
+
+  @Test
+  public void testNonDecimalType() {
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(2).type(STRING).value(TEST_STRING).build();
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    TSparkParameter result = client.mapToSparkParameterListItem(parameter);
+
+    assertEquals("STRING", result.getType());
+    assertEquals(TEST_STRING, result.getValue().getStringValue());
+    assertEquals(2, result.getOrdinal());
+  }
+
+  @Test
+  public void testNullValue() {
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(3).type(INT).value(null).build();
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    TSparkParameter result = client.mapToSparkParameterListItem(parameter);
+
+    assertEquals("INT", result.getType());
+    assertNull(result.getValue());
+    assertEquals(3, result.getOrdinal());
   }
 }

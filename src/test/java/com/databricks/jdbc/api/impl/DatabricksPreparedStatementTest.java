@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static java.sql.JDBCType.DECIMAL;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -319,7 +320,8 @@ public class DatabricksPreparedStatementTest {
 
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
-
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, DECIMAL));
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, Types.INTEGER, 1));
     assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, Types.INTEGER));
     assertEquals(Types.INTEGER, preparedStatement.getParameterMetaData().getParameterType(1));
     assertThrows(
@@ -532,10 +534,6 @@ public class DatabricksPreparedStatementTest {
     assertThrows(
         UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null, null));
     assertThrows(
-        SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null));
-    assertThrows(
-        SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null, 1));
-    assertThrows(
         DatabricksSQLException.class, () -> preparedStatement.executeUpdate("SELECT * from table"));
     assertThrows(
         DatabricksSQLException.class,
@@ -558,6 +556,7 @@ public class DatabricksPreparedStatementTest {
         () ->
             preparedStatement.executeUpdate(
                 "UPDATE table SET column = 1", new String[] {"column"}));
+    assertThrows(DatabricksSQLException.class, preparedStatement::executeLargeUpdate);
     assertThrows(
         DatabricksSQLException.class,
         () -> preparedStatement.execute("SELECT * FROM table", new int[] {1}));

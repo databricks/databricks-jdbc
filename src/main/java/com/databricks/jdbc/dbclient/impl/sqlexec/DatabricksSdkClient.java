@@ -161,8 +161,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public DatabricksResultSet executeStatement(String sql = {%s}, compute resource = {%s}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {%s}, IDatabricksSession session)",
-            sql, computeResource.toString(), statementType));
+            "public DatabricksResultSet executeStatement(String sql = {%s}, compute resource = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s}, StatementType statementType = {%s}, IDatabricksSession session)",
+            sql, computeResource.toString(), parameters, statementType));
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
     DatabricksThreadContextHolder.setStatementType(statementType);
@@ -194,7 +194,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
     LOGGER.debug(
         String.format(
-            "Executing sql %s, statementType %s, compute %s, StatementID %s",
+            "Executing sql = {%s}, statementType %s, compute %s, StatementID %s",
             sql, statementType, computeResource, statementId));
     StatementId typedStatementId = new StatementId(statementId);
     if (parentStatement != null) {

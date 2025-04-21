@@ -87,7 +87,7 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
       // Operation handle is not provided
       // @see
       // com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftAccessor#checkResponseForErrors(TBase)
-      assertTrue(e.getMessage().contains("Operation handle not set"));
+      assertTrue(e.getMessage().contains("Error running query"));
     } else {
       assertTrue(e.getMessage().contains("Syntax error"));
     }

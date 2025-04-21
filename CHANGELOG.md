@@ -1,5 +1,24 @@
 # Version Changelog
 
+## [v1.0.4-oss] - 2025-04-14
+
+### Added
+- Support for connection parameter SocketTimeout.
+- Handle server returned Thrift version as part of open session response gracefully
+- Added OWASP security check in the repository.
+
+### Updated
+- Updated SDK to the latest version (0.44.0).
+- Add descriptive messages in thrift error scenario
+
+### Fixed
+- BigDecimal is now set correctly to NULL if null value is provided.
+- Fixed issue with JDBC URL not being parsed correctly when compute path is provided via properties.
+- Addressed CVE vulnerabilities (CVE-2024-47535, CVE-2025-25193, CVE-2023-33953)
+- Fix bug in preparedStatement decimal parameter in thrift flow.
+
+---
+
 ## [v1.0.3-oss] - 2025-04-08
 
 ### Added

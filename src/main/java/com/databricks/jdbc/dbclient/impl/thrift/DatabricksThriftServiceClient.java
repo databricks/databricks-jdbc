@@ -168,14 +168,20 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     return thriftAccessor.executeAsync(request, parentStatement, session, StatementType.SQL);
   }
 
-  private TSparkParameter mapToSparkParameterListItem(ImmutableSqlParameter parameter) {
+  @VisibleForTesting
+  TSparkParameter mapToSparkParameterListItem(ImmutableSqlParameter parameter) {
     Object value = parameter.value();
     String typeString = parameter.type().name();
     if (typeString.equals(DECIMAL)) {
       // Add precision and scale info to type
       if (value instanceof BigDecimal) {
-        typeString +=
-            "(" + ((BigDecimal) value).precision() + "," + ((BigDecimal) value).scale() + ")";
+        int precision = ((BigDecimal) value).precision();
+        int scale = ((BigDecimal) value).scale();
+        if (precision < scale) {
+          // In type(p,q) -> p should not be less than q
+          precision = scale;
+        }
+        typeString += "(" + precision + "," + scale + ")";
       }
     }
     return new TSparkParameter()
