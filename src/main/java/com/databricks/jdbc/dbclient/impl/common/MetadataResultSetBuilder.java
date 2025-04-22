@@ -158,7 +158,7 @@ public class MetadataResultSetBuilder {
         // Map the column using the adapter
         ResultColumn mappedColumn = adapter.mapColumn(column);
 
-        // TODO (jayant): Put these transformations under IDatabricksResultSetAdapter#transformValue
+        // TODO: Put these transformations under IDatabricksResultSetAdapter#transformValue
         Object object;
         String typeVal = null;
         try {
