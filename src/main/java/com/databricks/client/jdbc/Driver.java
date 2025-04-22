@@ -15,14 +15,12 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-
 import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.logging.Logger;
@@ -43,51 +41,53 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
 
   private static void tryOpenModule() {
     try {
-      try {
-        // Only attempt for JDK 16+
-        if (Runtime.version().feature() >= 16) {
-          // Get the java.base module
-          Module javaBaseModule = Object.class.getModule();
+      // Only attempt for JDK 16+
+      if (Runtime.version().feature() >= 16) {
+        // Get the java.base module
+        Module javaBaseModule = Object.class.getModule();
 
-          // Get all Arrow-related packages in your driver that need access
-          String[] packagesToAdd = {
-                  "com.databricks.internal.apache.arrow.memory.util",
-                  "com.databricks.internal.apache.arrow.memory",
-                  "com.databricks.internal.apache.arrow",
-                  // Add any other relevant packages
-          };
+        // Get all Arrow-related packages in your driver that need access
+        String[] packagesToAdd = {
+          "com.databricks.internal.apache.arrow.memory.util",
+          "com.databricks.internal.apache.arrow.memory",
+          "com.databricks.internal.apache.arrow",
+          // Add any other relevant packages
+        };
 
-          // For all these packages, enable them to access java.nio
-          for (String pkg : packagesToAdd) {
-            try {
-              // Get a class from the package
-              Class<?> packageClass = Class.forName(pkg + ".package-info");
-              if (packageClass == null) {
-                // Try a common class if package-info doesn't exist
-                packageClass = Class.forName(pkg + ".BaseAllocator");
-              }
-              if (packageClass == null) {
-                continue; // Skip if we can't find a class in this package
-              }
-
-              // Get the module for the package
-              Module targetModule = packageClass.getModule();
-
-              // Use reflection to access the implAddOpens method
-              Method implAddOpens = Module.class.getDeclaredMethod("implAddOpens", String.class, Module.class);
-              implAddOpens.setAccessible(true);
-              implAddOpens.invoke(javaBaseModule, "java.nio", targetModule);
-            } catch (Exception e) {
-              // Continue with other packages even if one fails
-              System.err.println("Failed to open java.nio to " + pkg + ": " + e.getMessage());
+        // For all these packages, enable them to access java.nio
+        for (String pkg : packagesToAdd) {
+          try {
+            // Get a class from the package
+            Class<?> packageClass = Class.forName(pkg + ".package-info");
+            if (packageClass == null) {
+              // Try a common class if package-info doesn't exist
+              packageClass = Class.forName(pkg + ".BaseAllocator");
             }
+            if (packageClass == null) {
+              continue; // Skip if we can't find a class in this package
+            }
+
+            // Get the module for the package
+            Module targetModule = packageClass.getModule();
+
+            // Use reflection to access the implAddOpens method
+            Method implAddOpens =
+                Module.class.getDeclaredMethod("implAddOpens", String.class, Module.class);
+            implAddOpens.setAccessible(true);
+            implAddOpens.invoke(javaBaseModule, "java.nio", targetModule);
+          } catch (Exception e) {
+            // Continue with other packages even if one fails
+            System.err.println("Failed to open java.nio to " + pkg + ": " + e.getMessage());
           }
         }
-      } catch (Exception e) {
-        // Log but continue - we're doing this as a best effort
-        System.err.println("Warning: Could not open java.nio module programmatically: " + e.getMessage());
-        System.err.println("You may need to add --add-opens=java.base/java.nio=ALL-UNNAMED to your JVM arguments");
       }
+    } catch (Exception e) {
+      // Log but continue - we're doing this as a best effort
+      System.err.println(
+          "Warning: Could not open java.nio module programmatically: " + e.getMessage());
+      System.err.println(
+          "You may need to add --add-opens=java.base/java.nio=ALL-UNNAMED to your JVM arguments");
+    }
   }
 
   public static void main(String[] args) {
