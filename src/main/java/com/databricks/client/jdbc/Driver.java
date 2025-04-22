@@ -15,11 +15,14 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+
+import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.logging.Logger;
@@ -31,9 +34,44 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
 
   static {
     try {
+      tryOpenModule();
       DriverManager.registerDriver(INSTANCE = new Driver());
     } catch (SQLException e) {
       throw new IllegalStateException("Unable to register " + Driver.class, e);
+    }
+  }
+
+  private static void tryOpenModule() {
+    try {
+      if (Runtime.version().feature() >= 16) {
+        // Get module system classes
+        Class<?> moduleClass = Class.class.getMethod("getModule").getReturnType();
+        Class<?> moduleLayerClass = Class.forName("java.lang.ModuleLayer");
+
+        // Get the boot layer
+        Object bootLayer = moduleLayerClass.getMethod("boot").invoke(null);
+
+        // Find java.base module
+        Method findModuleMethod = moduleLayerClass.getMethod("findModule", String.class);
+        Optional<?> javaBaseOptional = (Optional<?>) findModuleMethod.invoke(bootLayer, "java.base");
+
+        if (javaBaseOptional.isPresent()) {
+          Object javaBaseModule = javaBaseOptional.get();
+
+          // Get current module
+          Object currentModule = Class.class.getMethod("getModule").invoke(Driver.class);
+
+          // Use implAddOpens via reflection
+          Method implAddOpensMethod = moduleClass.getDeclaredMethod("implAddOpens", String.class, moduleClass);
+          implAddOpensMethod.setAccessible(true);
+
+          // Open java.nio package to current module
+          implAddOpensMethod.invoke(javaBaseModule, "java.nio", currentModule);
+        }
+      }
+    } catch (Exception e) {
+      // Log the exception but continue - we'll fall back to requiring the flag
+      // Do not rethrow as this would prevent the driver from loading
     }
   }
 
