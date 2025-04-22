@@ -32,45 +32,24 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
 
   static {
     try {
-      tryOpenModule();
+      // Force the JvmModuleOpener to be loaded and initialized first
+      Class<?> openerClass = Class.forName("com.databricks.client.jdbc.JvmModuleOpener");
+      // Make sure class initialization has completed
+      Class.forName("com.databricks.jdbc.JvmModuleOpener", true, Driver.class.getClassLoader());
+
+      // Add a delay to make sure the module opening has time to take effect
+      try {
+        Thread.sleep(10);
+      } catch (InterruptedException e) {
+        // Ignore
+      }
+    } catch (ClassNotFoundException e) {
+      System.err.println("Failed to load JvmModuleOpener: " + e.getMessage());
+    }
+    try {
       DriverManager.registerDriver(INSTANCE = new Driver());
     } catch (SQLException e) {
       throw new IllegalStateException("Unable to register " + Driver.class, e);
-    }
-  }
-
-  private static void tryOpenModule() {
-    try {
-      if (Runtime.version().feature() >= 16) {
-        // Get the java.base module
-        Module javaBaseModule = Object.class.getModule();
-
-        // Get the unnamed module where Arrow classes will be loaded
-        Module unnamedModule = Driver.class.getClassLoader().getUnnamedModule();
-
-        // Open java.nio to the unnamed module
-        try {
-          Method implAddOpens = Module.class.getDeclaredMethod("implAddOpens", String.class, Module.class);
-          implAddOpens.setAccessible(true);
-          implAddOpens.invoke(javaBaseModule, "java.nio", unnamedModule);
-          System.out.println("Successfully opened java.nio module for Arrow");
-        } catch (Exception e) {
-          System.err.println("Warning: Could not open java.nio module: " + e.getMessage());
-          System.err.println("You may need to add --add-opens=java.base/java.nio=ALL-UNNAMED to your JVM arguments");
-        }
-
-        // Pre-load a key Arrow class to trigger initialization with the module opened
-        try {
-          // This ensures the Arrow code initializes after we've opened the module
-          Class.forName("com.databricks.internal.apache.arrow.memory.util.MemoryUtil");
-        } catch (Exception e) {
-          // This is expected to fail if MemoryUtil hasn't been loaded yet
-          // We're just trying to trigger class loading in the right order
-        }
-      }
-    } catch (Exception e) {
-      // Log but continue
-      System.err.println("Warning: Exception during Arrow preparation: " + e.getMessage());
     }
   }
 
