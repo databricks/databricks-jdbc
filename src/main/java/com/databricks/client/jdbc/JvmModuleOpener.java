@@ -4,7 +4,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 // This class must be in a package that gets loaded before any Arrow classes
-public class JvmModuleOpener {
+public class JvmModuleOpener extends ClassLoader {
     // This static initializer will run when the class is loaded
     static {
         openJavaNioModule();
@@ -86,4 +86,6 @@ public class JvmModuleOpener {
             System.err.println("You may need to add --add-opens=java.base/java.nio=ALL-UNNAMED to your JVM arguments");
         }
     }
+
+    public static void ensureInitialized() {}
 }

@@ -31,21 +31,7 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
   private static final Driver INSTANCE;
 
   static {
-    try {
-      // Force the JvmModuleOpener to be loaded and initialized first
-      Class<?> openerClass = Class.forName("com.databricks.client.jdbc.JvmModuleOpener");
-      // Make sure class initialization has completed
-      Class.forName("com.databricks.jdbc.JvmModuleOpener", true, Driver.class.getClassLoader());
-
-      // Add a delay to make sure the module opening has time to take effect
-      try {
-        Thread.sleep(10);
-      } catch (InterruptedException e) {
-        // Ignore
-      }
-    } catch (ClassNotFoundException e) {
-      System.err.println("Failed to load JvmModuleOpener: " + e.getMessage());
-    }
+    JvmModuleOpener.ensureInitialized();
     try {
       DriverManager.registerDriver(INSTANCE = new Driver());
     } catch (SQLException e) {
