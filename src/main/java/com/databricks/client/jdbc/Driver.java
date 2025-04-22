@@ -41,52 +41,36 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
 
   private static void tryOpenModule() {
     try {
-      // Only attempt for JDK 16+
       if (Runtime.version().feature() >= 16) {
         // Get the java.base module
         Module javaBaseModule = Object.class.getModule();
 
-        // Get all Arrow-related packages in your driver that need access
-        String[] packagesToAdd = {
-          "com.databricks.internal.apache.arrow.memory.util",
-          "com.databricks.internal.apache.arrow.memory",
-          "com.databricks.internal.apache.arrow",
-          // Add any other relevant packages
-        };
+        // Get the unnamed module where Arrow classes will be loaded
+        Module unnamedModule = Driver.class.getClassLoader().getUnnamedModule();
 
-        // For all these packages, enable them to access java.nio
-        for (String pkg : packagesToAdd) {
-          try {
-            // Get a class from the package
-            Class<?> packageClass = Class.forName(pkg + ".package-info");
-            if (packageClass == null) {
-              // Try a common class if package-info doesn't exist
-              packageClass = Class.forName(pkg + ".BaseAllocator");
-            }
-            if (packageClass == null) {
-              continue; // Skip if we can't find a class in this package
-            }
+        // Open java.nio to the unnamed module
+        try {
+          Method implAddOpens = Module.class.getDeclaredMethod("implAddOpens", String.class, Module.class);
+          implAddOpens.setAccessible(true);
+          implAddOpens.invoke(javaBaseModule, "java.nio", unnamedModule);
+          System.out.println("Successfully opened java.nio module for Arrow");
+        } catch (Exception e) {
+          System.err.println("Warning: Could not open java.nio module: " + e.getMessage());
+          System.err.println("You may need to add --add-opens=java.base/java.nio=ALL-UNNAMED to your JVM arguments");
+        }
 
-            // Get the module for the package
-            Module targetModule = packageClass.getModule();
-
-            // Use reflection to access the implAddOpens method
-            Method implAddOpens =
-                Module.class.getDeclaredMethod("implAddOpens", String.class, Module.class);
-            implAddOpens.setAccessible(true);
-            implAddOpens.invoke(javaBaseModule, "java.nio", targetModule);
-          } catch (Exception e) {
-            // Continue with other packages even if one fails
-            System.err.println("Failed to open java.nio to " + pkg + ": " + e.getMessage());
-          }
+        // Pre-load a key Arrow class to trigger initialization with the module opened
+        try {
+          // This ensures the Arrow code initializes after we've opened the module
+          Class.forName("com.databricks.internal.apache.arrow.memory.util.MemoryUtil");
+        } catch (Exception e) {
+          // This is expected to fail if MemoryUtil hasn't been loaded yet
+          // We're just trying to trigger class loading in the right order
         }
       }
     } catch (Exception e) {
-      // Log but continue - we're doing this as a best effort
-      System.err.println(
-          "Warning: Could not open java.nio module programmatically: " + e.getMessage());
-      System.err.println(
-          "You may need to add --add-opens=java.base/java.nio=ALL-UNNAMED to your JVM arguments");
+      // Log but continue
+      System.err.println("Warning: Exception during Arrow preparation: " + e.getMessage());
     }
   }
 
