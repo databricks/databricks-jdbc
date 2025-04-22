@@ -6,8 +6,8 @@ import java.sql.SQLException;
 import java.util.List;
 
 /**
- * A default implementation of {@link IDatabricksResultSetAdapter} that performs identity mapping and permits all rows
- * to pass through without any modifications.
+ * A default implementation of {@link IDatabricksResultSetAdapter} that performs identity mapping
+ * and permits all rows to pass through without any modifications.
  */
 public class DefaultDatabricksResultSetAdapter implements IDatabricksResultSetAdapter {
   @Override
