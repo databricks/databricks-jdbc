@@ -7,6 +7,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+/**
+ * Implementation of {@link IDatabricksResultSetAdapter} for processing the result set of the {@link
+ * java.sql.DatabaseMetaData#getCrossReference}.
+ */
 public class CrossReferenceKeysDatabricksResultSetAdapter
     extends ImportedKeysDatabricksResultSetAdapter {
 
@@ -27,7 +31,7 @@ public class CrossReferenceKeysDatabricksResultSetAdapter
    * {@inheritDoc}
    *
    * <p>Returns true if the row's parent catalog, schema, and table name matches the expected parent
-   * table name. This is required because the SQL command returns all foreign keys.
+   * values.
    */
   @Override
   public boolean includeRow(ResultSet resultSet, List<ResultColumn> columns) throws SQLException {

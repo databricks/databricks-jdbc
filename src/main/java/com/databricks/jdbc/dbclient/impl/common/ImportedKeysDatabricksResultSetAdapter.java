@@ -8,6 +8,10 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
 
+/**
+ * Implementation of {@link IDatabricksResultSetAdapter} for processing the result set of the {@link
+ * java.sql.DatabaseMetaData#getImportedKeys}.
+ */
 public class ImportedKeysDatabricksResultSetAdapter implements IDatabricksResultSetAdapter {
 
   public static final ResultColumn PARENT_CATALOG_NAME =
