@@ -87,7 +87,6 @@ jobs:
           CP="target/test-classes${SEP}target/databricks-jdbc-1.0.4-oss.jar"
           
           java \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
             -cp "$CP" \
             com.databricks.client.jdbc.LoggingTest
 
