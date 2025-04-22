@@ -43,36 +43,51 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
 
   private static void tryOpenModule() {
     try {
-      if (Runtime.version().feature() >= 16) {
-        // Get module system classes
-        Class<?> moduleClass = Class.class.getMethod("getModule").getReturnType();
-        Class<?> moduleLayerClass = Class.forName("java.lang.ModuleLayer");
+      try {
+        // Only attempt for JDK 16+
+        if (Runtime.version().feature() >= 16) {
+          // Get the java.base module
+          Module javaBaseModule = Object.class.getModule();
 
-        // Get the boot layer
-        Object bootLayer = moduleLayerClass.getMethod("boot").invoke(null);
+          // Get all Arrow-related packages in your driver that need access
+          String[] packagesToAdd = {
+                  "com.databricks.internal.apache.arrow.memory.util",
+                  "com.databricks.internal.apache.arrow.memory",
+                  "com.databricks.internal.apache.arrow",
+                  // Add any other relevant packages
+          };
 
-        // Find java.base module
-        Method findModuleMethod = moduleLayerClass.getMethod("findModule", String.class);
-        Optional<?> javaBaseOptional = (Optional<?>) findModuleMethod.invoke(bootLayer, "java.base");
+          // For all these packages, enable them to access java.nio
+          for (String pkg : packagesToAdd) {
+            try {
+              // Get a class from the package
+              Class<?> packageClass = Class.forName(pkg + ".package-info");
+              if (packageClass == null) {
+                // Try a common class if package-info doesn't exist
+                packageClass = Class.forName(pkg + ".BaseAllocator");
+              }
+              if (packageClass == null) {
+                continue; // Skip if we can't find a class in this package
+              }
 
-        if (javaBaseOptional.isPresent()) {
-          Object javaBaseModule = javaBaseOptional.get();
+              // Get the module for the package
+              Module targetModule = packageClass.getModule();
 
-          // Get current module
-          Object currentModule = Class.class.getMethod("getModule").invoke(Driver.class);
-
-          // Use implAddOpens via reflection
-          Method implAddOpensMethod = moduleClass.getDeclaredMethod("implAddOpens", String.class, moduleClass);
-          implAddOpensMethod.setAccessible(true);
-
-          // Open java.nio package to current module
-          implAddOpensMethod.invoke(javaBaseModule, "java.nio", currentModule);
+              // Use reflection to access the implAddOpens method
+              Method implAddOpens = Module.class.getDeclaredMethod("implAddOpens", String.class, Module.class);
+              implAddOpens.setAccessible(true);
+              implAddOpens.invoke(javaBaseModule, "java.nio", targetModule);
+            } catch (Exception e) {
+              // Continue with other packages even if one fails
+              System.err.println("Failed to open java.nio to " + pkg + ": " + e.getMessage());
+            }
+          }
         }
+      } catch (Exception e) {
+        // Log but continue - we're doing this as a best effort
+        System.err.println("Warning: Could not open java.nio module programmatically: " + e.getMessage());
+        System.err.println("You may need to add --add-opens=java.base/java.nio=ALL-UNNAMED to your JVM arguments");
       }
-    } catch (Exception e) {
-      // Log the exception but continue - we'll fall back to requiring the flag
-      // Do not rethrow as this would prevent the driver from loading
-    }
   }
 
   public static void main(String[] args) {
