@@ -385,8 +385,6 @@ public class SSLTest {
       for (boolean thrift : new boolean[] {true, false}) {
         String url = buildJdbcUrl(thrift, true, false, false, false, true);
         url += ";LogLevel=TRACE;";
-        // Explicitly set the trust store type
-        url += "SSLTrustStoreType=JKS;";
 
         try {
           // Try connecting with custom trust store
@@ -566,7 +564,6 @@ public class SSLTest {
     // is provided, the connection still works (falls back to JDK default trust store)
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, false, false, false, false, false);
-      url += ";UseSystemTrustStore=0;"; // Explicitly set to false
 
       try {
         LOGGER.info(
