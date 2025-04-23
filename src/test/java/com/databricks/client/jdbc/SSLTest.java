@@ -158,7 +158,7 @@ public class SSLTest {
 
   @Test
   public void testWithAllowSelfSigned() {
-    System.out.println("Scenario: Testing with AllowSelfSignedCerts=1");
+    LOGGER.info("Scenario: Testing with AllowSelfSignedCerts=1");
 
     // Save original system properties
     String originalTrustStore = System.getProperty("javax.net.ssl.trustStore");
@@ -191,14 +191,13 @@ public class SSLTest {
         url1 += "SSLTrustStoreType=JKS;";
 
         try {
-          System.out.println("\n\n==== TEST 1: Connection with empty trust store ====");
-          System.out.println("URL: " + url1);
-          System.out.println("Trust store: " + System.getProperty("javax.net.ssl.trustStore"));
+          LOGGER.info("\n\n==== TEST 1: Connection with empty trust store ====");
+          LOGGER.info("URL: " + url1);
+          LOGGER.info("Trust store: " + System.getProperty("javax.net.ssl.trustStore"));
           verifyConnect(url1);
           fail("Connection with empty trust store should have failed");
         } catch (Exception e) {
-          System.out.println(
-              "Connection correctly failed with empty trust store: " + e.getMessage());
+          LOGGER.info("Connection correctly failed with empty trust store: " + e.getMessage());
         }
 
         // Test 2: Non-existent trust store - should fail with clear error
@@ -208,19 +207,19 @@ public class SSLTest {
         url2 += "SSLTrustStore=" + nonExistentPath + ";";
 
         try {
-          System.out.println("\n\n==== TEST 2: Connection with non-existent trust store ====");
-          System.out.println("URL: " + url2);
-          System.out.println("Trust store: " + nonExistentPath);
+          LOGGER.info("\n\n==== TEST 2: Connection with non-existent trust store ====");
+          LOGGER.info("URL: " + url2);
+          LOGGER.info("Trust store: " + nonExistentPath);
           verifyConnect(url2);
           fail("Connection with non-existent trust store should have failed");
         } catch (SQLException e) {
-          System.out.println(
+          LOGGER.info(
               "Connection correctly failed with non-existent trust store: " + e.getMessage());
           assertTrue(
               e.getMessage().contains("trust store"),
               "Error message should mention trust store issues");
         } catch (Exception e) {
-          System.out.println(
+          LOGGER.info(
               "Connection correctly failed with non-existent trust store: " + e.getMessage());
           assertTrue(
               e.getMessage().contains("trust store") || e.getMessage().contains("truststore"),
@@ -233,13 +232,13 @@ public class SSLTest {
         url3 += ";LogLevel=TRACE;";
 
         try {
-          System.out.println("\n\n==== TEST 3: Connection with AllowSelfSignedCerts=1 ====");
-          System.out.println("URL: " + url3);
-          System.out.println("Trust store: " + System.getProperty("javax.net.ssl.trustStore"));
+          LOGGER.info("\n\n==== TEST 3: Connection with AllowSelfSignedCerts=1 ====");
+          LOGGER.info("URL: " + url3);
+          LOGGER.info("Trust store: " + System.getProperty("javax.net.ssl.trustStore"));
           verifyConnect(url3);
-          System.out.println("Connection succeeded with AllowSelfSignedCerts=1 as expected");
+          LOGGER.info("Connection succeeded with AllowSelfSignedCerts=1 as expected");
         } catch (Exception e) {
-          System.out.println("Connection failed with AllowSelfSignedCerts=1: " + e.getMessage());
+          LOGGER.info("Connection failed with AllowSelfSignedCerts=1: " + e.getMessage());
           fail("Connection with AllowSelfSignedCerts=1 should have succeeded: " + e.getMessage());
         }
       }
@@ -343,16 +342,16 @@ public class SSLTest {
 
   @Test
   public void testWithCustomTrustStore() {
-    System.out.println("Scenario: Testing with custom trust store");
+    LOGGER.info("Scenario: Testing with custom trust store");
     // First verify the trust store exists and is readable
     if (trustStorePath == null || trustStorePath.isEmpty()) {
-      System.out.println("Skipping custom trust store test - no trust store path provided");
+      LOGGER.info("Skipping custom trust store test - no trust store path provided");
       return;
     }
 
     File trustStoreFile = new File(trustStorePath);
     if (!trustStoreFile.exists() || !trustStoreFile.canRead()) {
-      System.out.println(
+      LOGGER.info(
           "Skipping custom trust store test - trust store does not exist or is not readable: "
               + trustStorePath);
       return;
@@ -365,7 +364,7 @@ public class SSLTest {
         ks.load(fis, trustStorePassword.toCharArray());
         int entriesCount = java.util.Collections.list(ks.aliases()).size();
 
-        System.out.println("Trust store contains " + entriesCount + " entries");
+        LOGGER.info("Trust store contains " + entriesCount + " entries");
         assertTrue(entriesCount > 0, "Trust store must contain at least one certificate");
 
         // Check if at least one entry is a trusted certificate entry
@@ -373,7 +372,7 @@ public class SSLTest {
         for (String alias : java.util.Collections.list(ks.aliases())) {
           if (ks.isCertificateEntry(alias)) {
             hasTrustedCert = true;
-            System.out.println("Found trusted certificate: " + alias);
+            LOGGER.info("Found trusted certificate: " + alias);
             break;
           }
         }
@@ -390,30 +389,30 @@ public class SSLTest {
         try {
           // Try connecting with custom trust store
           verifyConnect(url);
-          System.out.println("Connection established using custom trust store validation");
+          LOGGER.info("Connection established using custom trust store validation");
         } catch (Exception e) {
-          System.out.println(
+          LOGGER.info(
               "Connection failed with custom trust store, trying with AllowSelfSignedCerts=1: "
                   + e.getMessage());
           String fallbackUrl = buildJdbcUrl(thrift, true, false, true, false, false);
           fallbackUrl += ";LogLevel=TRACE;";
           try {
             verifyConnect(fallbackUrl);
-            System.out.println("Connection succeeded with AllowSelfSignedCerts=1 fallback");
+            LOGGER.info("Connection succeeded with AllowSelfSignedCerts=1 fallback");
           } catch (Exception e2) {
             fail("Custom trust store test failed with both approaches: " + e2.getMessage());
           }
         }
       }
     } catch (Exception e) {
-      System.out.println("Custom trust store test setup failed: " + e.getMessage());
+      LOGGER.info("Custom trust store test setup failed: " + e.getMessage());
       // Instead of failing the test, try with AllowSelfSignedCerts=1
       for (boolean thrift : new boolean[] {true}) {
         String fallbackUrl = buildJdbcUrl(thrift, true, false, true, false, false);
         fallbackUrl += ";LogLevel=TRACE;";
         try {
           verifyConnect(fallbackUrl);
-          System.out.println("Fallback connection succeeded with AllowSelfSignedCerts=1");
+          LOGGER.info("Fallback connection succeeded with AllowSelfSignedCerts=1");
           return; // Test passes with fallback
         } catch (Exception e2) {
           // Now we can fail the test as both approaches failed
@@ -425,7 +424,7 @@ public class SSLTest {
 
   @Test
   public void testWithSystemProperties() {
-    System.out.println("Scenario: Using system properties for SSL configuration");
+    LOGGER.info("Scenario: Using system properties for SSL configuration");
 
     String originalTrustStore = System.getProperty("javax.net.ssl.trustStore");
     String originalTrustStorePassword = System.getProperty("javax.net.ssl.trustStorePassword");
@@ -434,8 +433,7 @@ public class SSLTest {
     try {
       // First check if trust store exists
       if (trustStorePath == null || !new File(trustStorePath).exists()) {
-        System.out.println(
-            "Skipping system properties test - trust store not found: " + trustStorePath);
+        LOGGER.info("Skipping system properties test - trust store not found: " + trustStorePath);
         return;
       }
 
@@ -443,12 +441,12 @@ public class SSLTest {
       System.setProperty("javax.net.ssl.trustStorePassword", trustStorePassword);
       System.setProperty("javax.net.ssl.trustStoreType", "JKS");
 
-      System.out.println("Trust store path: " + System.getProperty("javax.net.ssl.trustStore"));
-      System.out.println("Trust store exists: " + new java.io.File(trustStorePath).exists());
-      System.out.println(
+      LOGGER.info("Trust store path: " + System.getProperty("javax.net.ssl.trustStore"));
+      LOGGER.info("Trust store exists: " + new java.io.File(trustStorePath).exists());
+      LOGGER.info(
           "Trust store password set: "
               + (System.getProperty("javax.net.ssl.trustStorePassword") != null));
-      System.out.println("Trust store type: " + System.getProperty("javax.net.ssl.trustStoreType"));
+      LOGGER.info("Trust store type: " + System.getProperty("javax.net.ssl.trustStoreType"));
 
       // Use AllowSelfSignedCerts as fallback mechanism
       for (boolean thrift : new boolean[] {true, false}) {
@@ -456,13 +454,13 @@ public class SSLTest {
           String url = buildJdbcUrl(thrift, false, false, false, false, false);
           verifyConnect(url);
         } catch (Exception e) {
-          System.out.println(
+          LOGGER.info(
               "Connection with system properties failed, trying with AllowSelfSignedCerts=1: "
                   + e.getMessage());
           String fallbackUrl = buildJdbcUrl(thrift, false, false, true, false, false);
           try {
             verifyConnect(fallbackUrl);
-            System.out.println("Successfully connected with AllowSelfSignedCerts=1 fallback");
+            LOGGER.info("Successfully connected with AllowSelfSignedCerts=1 fallback");
           } catch (Exception e2) {
             fail(
                 "Both system properties and AllowSelfSignedCerts approaches failed: "
@@ -493,7 +491,7 @@ public class SSLTest {
 
   @Test
   public void testEmptyTrustStore() {
-    System.out.println("Scenario: Testing with manually created empty trust store");
+    LOGGER.info("Scenario: Testing with manually created empty trust store");
 
     try {
       // Create an empty trust store file
@@ -518,8 +516,7 @@ public class SSLTest {
           verifyConnect(url);
           fail("Connection with empty trust store should have failed");
         } catch (Exception e) {
-          System.out.println(
-              "Connection correctly failed with empty trust store: " + e.getMessage());
+          LOGGER.info("Connection correctly failed with empty trust store: " + e.getMessage());
           // Expect an error message about no trust anchors
           assertTrue(
               e.getMessage().contains("no trust anchors")
@@ -535,7 +532,7 @@ public class SSLTest {
 
   @Test
   public void testNonExistentTrustStore() {
-    System.out.println("Scenario: Testing with non-existent trust store");
+    LOGGER.info("Scenario: Testing with non-existent trust store");
 
     String nonExistentPath = "/path/to/nonexistent/truststore.jks";
     for (boolean thrift : new boolean[] {true, false}) {
@@ -547,8 +544,7 @@ public class SSLTest {
         verifyConnect(url);
         fail("Connection with non-existent trust store should have failed");
       } catch (Exception e) {
-        System.out.println(
-            "Connection correctly failed with non-existent trust store: " + e.getMessage());
+        LOGGER.info("Connection correctly failed with non-existent trust store: " + e.getMessage());
         assertTrue(
             e.getMessage().contains("trust store") || e.getMessage().contains("truststore"),
             "Error message should mention trust store issues");
@@ -562,7 +558,7 @@ public class SSLTest {
    */
   @Test
   public void testNoCustomTrustStoreWithUseSystemTrustStoreFalse() {
-    System.out.println("Scenario: No custom trust store with UseSystemTrustStore=false");
+    LOGGER.info("Scenario: No custom trust store with UseSystemTrustStore=false");
 
     // This test simply verifies that when UseSystemTrustStore=false and no custom trust store
     // is provided, the connection still works (falls back to JDK default trust store)
@@ -571,17 +567,15 @@ public class SSLTest {
       url += ";UseSystemTrustStore=0;"; // Explicitly set to false
 
       try {
-        System.out.println(
+        LOGGER.info(
             "\n==== Testing connection with UseSystemTrustStore=0 and no custom trust store ====");
-        System.out.println("URL: " + url);
+        LOGGER.info("URL: " + url);
         verifyConnect(url);
-        System.out.println(
-            "Connection succeeded using default trust store with UseSystemTrustStore=0");
+        LOGGER.info("Connection succeeded using default trust store with UseSystemTrustStore=0");
       } catch (Exception e) {
         // Don't fail the test, just log the issue
-        System.out.println(
-            "Connection attempt with UseSystemTrustStore=0 failed: " + e.getMessage());
-        System.out.println(
+        LOGGER.info("Connection attempt with UseSystemTrustStore=0 failed: " + e.getMessage());
+        LOGGER.info(
             "This may be expected if the default trust store doesn't have the required certificates");
       }
     }
@@ -590,17 +584,17 @@ public class SSLTest {
   /** Test that verifies custom trust store takes precedence over system property trust store. */
   @Test
   public void testCustomTrustStorePrecedence() {
-    System.out.println("Scenario: Custom trust store takes precedence over system property");
+    LOGGER.info("Scenario: Custom trust store takes precedence over system property");
 
     // Skip if we don't have a valid trust store
     if (trustStorePath == null || trustStorePath.isEmpty()) {
-      System.out.println("Skipping this test - no trust store path provided");
+      LOGGER.info("Skipping this test - no trust store path provided");
       return;
     }
 
     File trustStoreFile = new File(trustStorePath);
     if (!trustStoreFile.exists() || !trustStoreFile.canRead()) {
-      System.out.println(
+      LOGGER.info(
           "Skipping this test - trust store does not exist or is not readable: " + trustStorePath);
       return;
     }
@@ -620,18 +614,15 @@ public class SSLTest {
         String url = buildJdbcUrl(thrift, false, false, false, true, true);
 
         try {
-          System.out.println("\n==== Testing custom trust store precedence ====");
-          System.out.println("URL: " + url);
-          System.out.println(
+          LOGGER.info("\n==== Testing custom trust store precedence ====");
+          LOGGER.info("URL: " + url);
+          LOGGER.info(
               "System property trust store: " + System.getProperty("javax.net.ssl.trustStore"));
-          System.out.println("Custom trust store: " + trustStorePath);
+          LOGGER.info("Custom trust store: " + trustStorePath);
           verifyConnect(url);
-          System.out.println(
-              "Connection succeeded - custom trust store took precedence as expected");
+          LOGGER.info("Connection succeeded - custom trust store took precedence as expected");
         } catch (Exception e) {
-          // This test only verifies the behavior if the connection would normally succeed
-          // If it fails for other reasons, that's fine
-          System.out.println(
+          LOGGER.info(
               "Connection failed, but not necessarily due to trust store precedence: "
                   + e.getMessage());
         }
