@@ -50,8 +50,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private IdleConnectionEvictor idleConnectionEvictor;
   private CloseableHttpAsyncClient asyncClient;
 
-  DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type)
-      throws DatabricksHttpException {
+  DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type) {
     connectionManager = initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext, type);
     idleConnectionEvictor =
@@ -125,12 +124,17 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   }
 
   private PoolingHttpClientConnectionManager initializeConnectionManager(
-      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
-    PoolingHttpClientConnectionManager connectionManager =
-        ConfiguratorUtils.getBaseConnectionManager(connectionContext);
-    connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
-    connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
-    return connectionManager;
+      IDatabricksConnectionContext connectionContext) {
+    try {
+      PoolingHttpClientConnectionManager connectionManager =
+          ConfiguratorUtils.getBaseConnectionManager(connectionContext);
+      connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
+      connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
+      return connectionManager;
+    } catch (DatabricksHttpException e) {
+      LOGGER.error("Failed to initialize HTTP connection manager", e);
+      throw new RuntimeException("Failed to initialize HTTP connection manager", e);
+    }
   }
 
   private RequestConfig makeRequestConfig(int timeoutSeconds) {

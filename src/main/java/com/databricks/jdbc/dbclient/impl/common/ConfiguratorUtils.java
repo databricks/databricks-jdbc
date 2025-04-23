@@ -30,6 +30,11 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 public class ConfiguratorUtils {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ConfiguratorUtils.class);
 
+  private static final String JAVA_TRUST_STORE_PATH_PROPERTY = "javax.net.ssl.trustStore";
+  private static final String JAVA_TRUST_STORE_PASSWORD_PROPERTY =
+      "javax.net.ssl.trustStorePassword";
+  private static final String JAVA_TRUST_STORE_TYPE_PROPERTY = "javax.net.ssl.trustStoreType";
+
   private static boolean isJDBCTestEnv() {
     return Boolean.parseBoolean(System.getenv(IS_JDBC_TEST_ENV));
   }
@@ -143,7 +148,7 @@ public class ConfiguratorUtils {
     String sysTrustStore = null;
     if (connectionContext.useSystemTrustStore()) {
       // When useSystemTrustStore=true, check for javax.net.ssl.trustStore system property
-      sysTrustStore = System.getProperty("javax.net.ssl.trustStore");
+      sysTrustStore = System.getProperty(JAVA_TRUST_STORE_PATH_PROPERTY);
     }
 
     // If system property is set and useSystemTrustStore=true, use that trust store
@@ -183,9 +188,9 @@ public class ConfiguratorUtils {
 
       // Load the system property trust store
       KeyStore trustStore =
-          KeyStore.getInstance(System.getProperty("javax.net.ssl.trustStoreType", "JKS"));
+          KeyStore.getInstance(System.getProperty(JAVA_TRUST_STORE_TYPE_PROPERTY, "JKS"));
       char[] password = null;
-      String passwordProp = System.getProperty("javax.net.ssl.trustStorePassword");
+      String passwordProp = System.getProperty(JAVA_TRUST_STORE_PASSWORD_PROPERTY);
       if (passwordProp != null) {
         password = passwordProp.toCharArray();
       }
@@ -196,28 +201,16 @@ public class ConfiguratorUtils {
 
       // Get trust anchors and create trust managers
       Set<TrustAnchor> trustAnchors = getTrustAnchorsFromTrustStore(trustStore);
-      if (trustAnchors.isEmpty()) {
-        String errorMessage = "System property trust store contains no trust anchors.";
-        handleError(errorMessage, new KeyStoreException(errorMessage));
-      }
-
-      TrustManager[] trustManagers =
-          createTrustManagers(
-              trustAnchors,
-              connectionContext.checkCertificateRevocation(),
-              connectionContext.acceptUndeterminedCertificateRevocation());
-
-      return createSocketFactoryRegistry(trustManagers);
+      return createRegistryFromTrustAnchors(
+          trustAnchors, connectionContext, "system property trust store: " + sysTrustStore);
     } catch (DatabricksHttpException
         | KeyStoreException
         | NoSuchAlgorithmException
         | CertificateException
-        | IOException
-        | InvalidAlgorithmParameterException
-        | KeyManagementException e) {
+        | IOException e) {
       handleError("Error while setting up system property trust store: " + sysTrustStore, e);
     }
-    return null; // This will never be reached, but is required for method signature.
+    return null;
   }
 
   /**
@@ -239,46 +232,38 @@ public class ConfiguratorUtils {
             "UseSystemTrustStore=false, using JDK default trust store (cacerts) and ignoring system properties");
       }
 
-      // Initialize with default trust managers from JDK's cacerts
-      TrustManagerFactory tmf =
-          TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-      tmf.init((KeyStore) null); // null uses the JDK's default trust store (cacerts)
+      Set<TrustAnchor> systemTrustAnchors = getTrustAnchorsFromTrustStore(null);
+      return createRegistryFromTrustAnchors(
+          systemTrustAnchors, connectionContext, "JDK default trust store (cacerts)");
+    } catch (DatabricksHttpException e) {
+      handleError("Error while setting up JDK default trust store", e);
+    }
+    return null;
+  }
 
-      // Extract trust anchors from default trust store
-      X509TrustManager x509TrustManager = findX509TrustManager(tmf.getTrustManagers());
-      if (x509TrustManager == null) {
-        throw new DatabricksHttpException(
-            "No X509TrustManager found in JDK default trust store",
-            DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
-      }
+  private static Registry<ConnectionSocketFactory> createRegistryFromTrustAnchors(
+      Set<TrustAnchor> trustAnchors,
+      IDatabricksConnectionContext connectionContext,
+      String sourceDescription)
+      throws DatabricksHttpException {
+    if (trustAnchors == null || trustAnchors.isEmpty()) {
+      throw new DatabricksHttpException(
+          sourceDescription + " contains no trust anchors",
+          DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+    }
 
-      Set<TrustAnchor> systemTrustAnchors =
-          Arrays.stream(x509TrustManager.getAcceptedIssuers())
-              .map(cert -> new TrustAnchor(cert, null))
-              .collect(Collectors.toSet());
-
-      if (systemTrustAnchors.isEmpty()) {
-        throw new DatabricksHttpException(
-            "JDK default trust store contains no trust anchors",
-            DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
-      }
-
-      // Always use the same trust manager creation mechanism with revocation settings
+    try {
       TrustManager[] trustManagers =
           createTrustManagers(
-              systemTrustAnchors,
+              trustAnchors,
               connectionContext.checkCertificateRevocation(),
               connectionContext.acceptUndeterminedCertificateRevocation());
 
       return createSocketFactoryRegistry(trustManagers);
-    } catch (DatabricksHttpException
-        | KeyStoreException
-        | NoSuchAlgorithmException
-        | InvalidAlgorithmParameterException
-        | KeyManagementException e) {
-      handleError("Error while setting up JDK default trust store: ", e);
+    } catch (Exception e) {
+      handleError("Error setting up trust managers for " + sourceDescription, e);
     }
-    return null; // This will never be reached, but is required for method signature.
+    return null;
   }
 
   /**
@@ -328,12 +313,7 @@ public class ConfiguratorUtils {
         TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
     customTmf.init(trustManagerParams);
 
-    if (checkCertificateRevocation) {
-      LOGGER.info("Certificate revocation checking enabled");
-    } else {
-      LOGGER.info("Certificate revocation checking disabled");
-    }
-
+    LOGGER.info("Certificate revocation check: " + checkCertificateRevocation);
     return customTmf.getTrustManagers();
   }
 
@@ -418,62 +398,28 @@ public class ConfiguratorUtils {
   public static Set<TrustAnchor> getTrustAnchorsFromTrustStore(KeyStore trustStore)
       throws DatabricksHttpException {
     try {
-      if (trustStore == null) {
-        return Collections.emptySet();
-      }
-
-      // Create a trust manager factory
       TrustManagerFactory trustManagerFactory =
           TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
       trustManagerFactory.init(trustStore);
 
       // Get the trust managers
       TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
-      if (trustManagers == null || trustManagers.length == 0) {
-        LOGGER.warn("No trust managers found in the trust store");
-        return Collections.emptySet();
-      }
-
-      // Find the X509TrustManager
       X509TrustManager x509TrustManager = findX509TrustManager(trustManagers);
-      if (x509TrustManager == null) {
-        LOGGER.warn("No X509TrustManager found in the trust store");
+
+      if (x509TrustManager == null || x509TrustManager.getAcceptedIssuers().length == 0) {
+        // No trust anchors found
         return Collections.emptySet();
       }
 
-      // Get the accepted issuers (trust anchors)
-      X509Certificate[] acceptedIssuers = x509TrustManager.getAcceptedIssuers();
-      if (acceptedIssuers == null || acceptedIssuers.length == 0) {
-        LOGGER.warn("No accepted issuers found in the X509TrustManager");
-        return Collections.emptySet();
-      }
-
-      // Convert certificates to trust anchors
-      Set<TrustAnchor> trustAnchors =
-          Arrays.stream(acceptedIssuers)
-              .map(cert -> new TrustAnchor(cert, null))
-              .collect(Collectors.toSet());
-
-      LOGGER.info("Found " + trustAnchors.size() + " trust anchors in the trust store");
-      return trustAnchors;
+      return Arrays.stream(x509TrustManager.getAcceptedIssuers())
+          .map(cert -> new TrustAnchor(cert, null))
+          .collect(Collectors.toSet());
     } catch (KeyStoreException | NoSuchAlgorithmException e) {
-      String errorMessage = "Error while getting trust anchors from trust store: " + e.getMessage();
-      handleError(errorMessage, e);
+      handleError("Error while getting trust anchors from trust store: " + e.getMessage(), e);
     }
-    return Collections.emptySet(); // Return empty set if error occurs
+    return Collections.emptySet();
   }
 
-  /**
-   * Builds trust manager parameters for certificate path validation including certificate
-   * revocation checking.
-   *
-   * @param trustAnchors The trust anchors to use in the trust manager.
-   * @param checkCertificateRevocation Whether to check certificate revocation.
-   * @param acceptUndeterminedCertificateRevocation Whether to accept undetermined certificate
-   *     revocation status.
-   * @return The trust manager parameters based on the input parameters.
-   * @throws DatabricksHttpException If there is an error during configuration.
-   */
   public static CertPathTrustManagerParameters buildTrustManagerParameters(
       Set<TrustAnchor> trustAnchors,
       boolean checkCertificateRevocation,
@@ -507,16 +453,10 @@ public class ConfiguratorUtils {
       }
 
       return new CertPathTrustManagerParameters(pkixBuilderParameters);
-    } catch (NoSuchAlgorithmException e) {
-      String errorMessage =
-          "No such algorithm error while building trust manager parameters: " + e.getMessage();
-      handleError(errorMessage, e);
-    } catch (InvalidAlgorithmParameterException e) {
-      String errorMessage =
-          "Invalid parameter error while building trust manager parameters: " + e.getMessage();
-      handleError(errorMessage, e);
+    } catch (NoSuchAlgorithmException | InvalidAlgorithmParameterException e) {
+      handleError("Error while building trust manager parameters: " + e.getMessage(), e);
     }
-    return null; // Return null in case of error
+    return null;
   }
 
   /**
