@@ -1,3 +1,22 @@
+# ===================================================================
+# GitHub Action: SSL Certificate Validation Test with Squid Proxy
+#
+# Purpose:
+# This workflow simulates real-world SSL trust chain configurations
+# to validate JDBC driver support for:
+#   - Custom trust stores
+#   - System trust stores
+#   - Self-signed certificate handling
+#   - Revocation and fallback behavior
+#
+# How:
+# - Generates a Root CA, Intermediate CA, and signs a server cert (mirroring real world use-cases)
+# - Starts a Squid HTTPS proxy using the signed cert
+# - Creates a Java truststore with the correct anchors
+# - Optionally installs the Root CA into system trust store
+# - Runs targeted JDBC integration tests using SSLTest.java
+# ===================================================================1
+
 name: SSL Certificate Validation Test with Squid Proxy
 
 on:
@@ -145,7 +164,7 @@ jobs:
       - name: Wait for Squid to be Ready
         run: |
           for i in {1..5}; do
-            if curl -v -x http://localhost:3128 http://example.com -m 10 -o /dev/null; then
+            if curl -v -x http://localhost:3128 http://databricks.com -m 10 -o /dev/null; then
               echo "HTTP proxy on 3128 is working!"
               break
             fi

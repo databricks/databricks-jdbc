@@ -6,11 +6,13 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.logging.Logger;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 public class SSLTest {
 
+  private static final Logger LOGGER = Logger.getLogger(SSLTest.class.getName());
   private static String patToken;
   private static String host;
   private static String httpPath;
@@ -28,17 +30,6 @@ public class SSLTest {
     httpsProxyUrl = System.getenv("HTTPS_PROXY_URL");
     trustStorePath = System.getenv("TRUSTSTORE_PATH");
     trustStorePassword = System.getenv("TRUSTSTORE_PASSWORD");
-
-    System.out.println("=== Environment ===");
-    System.out.println("PAT Token present? " + (patToken != null && !patToken.isEmpty()));
-    System.out.println("Host: " + host);
-    System.out.println("HttpPath: " + httpPath);
-    System.out.println("HTTP Proxy URL: " + httpProxyUrl);
-    System.out.println("HTTPS Proxy URL: " + httpsProxyUrl);
-    System.out.println("TrustStore Path: " + trustStorePath);
-    System.out.println(
-        "TrustStore Password present? "
-            + (trustStorePassword != null && !trustStorePassword.isEmpty()));
   }
 
   private String buildJdbcUrl(
@@ -125,20 +116,20 @@ public class SSLTest {
   }
 
   private void verifyConnect(String jdbcUrl) throws Exception {
-    System.out.println("Attempting to connect with URL: " + jdbcUrl);
+    LOGGER.info("Attempting to connect with URL: " + jdbcUrl);
 
     try (Connection conn = DriverManager.getConnection(jdbcUrl, "token", patToken)) {
       Statement stmt = conn.createStatement();
       ResultSet rs = stmt.executeQuery("SELECT 1");
       assertTrue(rs.next(), "Should get at least one row");
       assertEquals(1, rs.getInt(1), "Value should be 1");
-      System.out.println("Success!");
+      LOGGER.info("Success!");
     }
   }
 
   @Test
   public void testDirectConnectionDefaultSSL() {
-    System.out.println("Scenario: Direct connection with default SSL settings");
+    LOGGER.info("Scenario: Direct connection with default SSL settings");
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, false, false, false, false, false);
       try {
@@ -151,7 +142,7 @@ public class SSLTest {
 
   @Test
   public void testHttpProxyDefaultSSL() {
-    System.out.println("Scenario: HTTP Proxy with default SSL settings");
+    LOGGER.info("Scenario: HTTP Proxy with default SSL settings");
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, true, false, false, false, false);
       try {
@@ -164,7 +155,7 @@ public class SSLTest {
 
   @Test
   public void testWithSystemTrustStore() {
-    System.out.println("Scenario: Testing with UseSystemTrustStore=1");
+    LOGGER.info("Scenario: Testing with UseSystemTrustStore=1");
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, true, false, false, true, false);
       try {
@@ -177,7 +168,7 @@ public class SSLTest {
 
   @Test
   public void testDirectConnectionSystemTrustStoreFallback() {
-    System.out.println(
+    LOGGER.info(
         "Scenario: UseSystemTrustStore=1 with no system property -> fallback to cacerts (direct)");
 
     // ensure the property is *unset* for this test run
@@ -207,7 +198,7 @@ public class SSLTest {
 
   @Test
   public void testIgnoreSystemPropertyWhenUseSystemTrustStoreDisabled() {
-    System.out.println(
+    LOGGER.info(
         "Scenario: bogus javax.net.ssl.trustStore present but UseSystemTrustStore=0 (driver must ignore)");
 
     String savedProp = System.getProperty("javax.net.ssl.trustStore");
