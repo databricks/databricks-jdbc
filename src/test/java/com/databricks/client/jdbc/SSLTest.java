@@ -104,6 +104,8 @@ public class SSLTest {
         .append(useSystemTrustStore ? "1" : "0")
         .append(";");
 
+    sb.append("CheckCertRevocation=0;");
+
     if (useCustomTrustStore && trustStorePath != null && !trustStorePath.isEmpty()) {
       sb.append("SSLTrustStore=").append(trustStorePath).append(";");
 
