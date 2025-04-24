@@ -332,7 +332,8 @@ public class ConfiguratorUtils {
                   PKIXRevocationChecker.Option.NO_FALLBACK,
                   PKIXRevocationChecker.Option.PREFER_CRLS));
         }
-        LOGGER.info("Certificate revocation enabled. Undetermined revocation accepted: "
+        LOGGER.info(
+            "Certificate revocation enabled. Undetermined revocation accepted: "
                 + acceptUndeterminedCertificateRevocation);
 
         pkixBuilderParameters.addCertPathChecker(revocationChecker);
