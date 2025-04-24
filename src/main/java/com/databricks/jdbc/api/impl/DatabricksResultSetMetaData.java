@@ -10,13 +10,13 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP_NTZ;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getBasePrecisionAndScale;
-import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.stripTypeName;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.AccessType;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.WrapperUtil;
+import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -64,6 +64,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
+    MetadataResultSetBuilder metadataResultSetBuilder = new MetadataResultSetBuilder(ctx);
 
     int currIndex = 0;
     if (resultManifest.getIsVolumeOperation() != null && resultManifest.getIsVolumeOperation()) {
@@ -105,7 +106,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
               .columnType(columnType)
               .columnTypeText(
-                  stripTypeName(
+                  metadataResultSetBuilder.stripTypeName(
                       columnInfo
                           .getTypeText())) // store base type eg. DECIMAL instead of DECIMAL(7,2)
               .typePrecision(precision)
