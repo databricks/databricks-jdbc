@@ -56,14 +56,6 @@ public class ConfiguratorUtils {
           SocketFactoryUtil.getTrustAllSocketFactoryRegistry());
     }
 
-    // If self-signed certificates are allowed, use a trust-all socket factory
-    if (connectionContext.allowSelfSignedCerts()) {
-      LOGGER.warn(
-          "Self-signed certificates are allowed. Please only use this parameter (AllowSelfSignedCerts) when you're sure of what you're doing. This is not recommended for production use.");
-      return new PoolingHttpClientConnectionManager(
-          SocketFactoryUtil.getTrustAllSocketFactoryRegistry());
-    }
-
     // For standard SSL configuration, create a custom socket factory registry
     Registry<ConnectionSocketFactory> socketFactoryRegistry =
         createConnectionSocketFactoryRegistry(connectionContext);
@@ -80,59 +72,7 @@ public class ConfiguratorUtils {
   public static Registry<ConnectionSocketFactory> createConnectionSocketFactoryRegistry(
       IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
 
-    // First check if a custom trust store is specified
-    if (connectionContext.getSSLTrustStore() != null) {
-      return createRegistryWithCustomTrustStore(connectionContext);
-    } else {
-      return createRegistryWithSystemOrDefaultTrustStore(connectionContext);
-    }
-  }
-
-  /**
-   * Creates a socket factory registry using a custom trust store.
-   *
-   * @param connectionContext The connection context containing the trust store information.
-   * @return A registry of connection socket factories.
-   * @throws DatabricksHttpException If there is an error setting up the trust store.
-   */
-  private static Registry<ConnectionSocketFactory> createRegistryWithCustomTrustStore(
-      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
-
-    try {
-      KeyStore trustStore = loadTruststoreOrNull(connectionContext);
-      if (trustStore == null) {
-        String errorMessage =
-            "Specified trust store could not be loaded: " + connectionContext.getSSLTrustStore();
-        handleError(errorMessage, new IOException(errorMessage));
-      }
-
-      // Get trust anchors from custom store
-      Set<TrustAnchor> trustAnchors = getTrustAnchorsFromTrustStore(trustStore);
-      if (trustAnchors.isEmpty()) {
-        String errorMessage =
-            "Custom trust store contains no trust anchors. Certificate validation will fail.";
-        handleError(errorMessage, new KeyStoreException(errorMessage));
-      }
-
-      LOGGER.info("Using custom trust store: " + connectionContext.getSSLTrustStore());
-
-      // Create trust managers from trust store
-      TrustManager[] trustManagers =
-          createTrustManagers(
-              trustAnchors,
-              connectionContext.checkCertificateRevocation(),
-              connectionContext.acceptUndeterminedCertificateRevocation());
-
-      // Create socket factory registry
-      return createSocketFactoryRegistry(trustManagers);
-    } catch (DatabricksHttpException
-        | NoSuchAlgorithmException
-        | InvalidAlgorithmParameterException
-        | KeyManagementException e) {
-      handleError(
-          "Error while setting up custom trust store: " + connectionContext.getSSLTrustStore(), e);
-    }
-    return null; // This will never be reached, but is required for method signature.
+    return createRegistryWithSystemOrDefaultTrustStore(connectionContext);
   }
 
   /**
@@ -338,57 +278,6 @@ public class ConfiguratorUtils {
   }
 
   /**
-   * Loads a trust store from the path specified in the connection context.
-   *
-   * @param connectionContext The connection context containing trust store configuration.
-   * @return The loaded KeyStore or null if it could not be loaded.
-   * @throws DatabricksHttpException If there is an error during loading.
-   */
-  public static KeyStore loadTruststoreOrNull(IDatabricksConnectionContext connectionContext)
-      throws DatabricksHttpException {
-    String trustStorePath = connectionContext.getSSLTrustStore();
-    if (trustStorePath == null) {
-      return null;
-    }
-
-    // If the specified file doesn't exist, throw a specific error
-    File trustStoreFile = new File(trustStorePath);
-    if (!trustStoreFile.exists()) {
-      String errorMessage = "Specified trust store file does not exist: " + trustStorePath;
-      handleError(errorMessage, new IOException(errorMessage));
-    }
-
-    char[] password = null;
-    if (connectionContext.getSSLTrustStorePassword() != null) {
-      password = connectionContext.getSSLTrustStorePassword().toCharArray();
-    }
-
-    // Get the specified type, defaulting to JKS if not specified
-    String trustStoreType = connectionContext.getSSLTrustStoreType();
-    if (trustStoreType == null || trustStoreType.isEmpty()) {
-      trustStoreType = "JKS"; // Default to JKS if not specified
-    }
-
-    try (FileInputStream trustStoreStream = new FileInputStream(trustStorePath)) {
-      LOGGER.info("Loading trust store as type: " + trustStoreType);
-      KeyStore trustStore = KeyStore.getInstance(trustStoreType);
-      trustStore.load(trustStoreStream, password);
-      LOGGER.info("Successfully loaded trust store: " + trustStorePath);
-      return trustStore;
-    } catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | IOException e) {
-      String errorMessage =
-          "Failed to load trust store: "
-              + trustStorePath
-              + " with type "
-              + trustStoreType
-              + ": "
-              + e.getMessage();
-      handleError(errorMessage, e);
-    }
-    return null; // This will never be reached, but is required for method signature.
-  }
-
-  /**
    * Extracts trust anchors from a KeyStore.
    *
    * @param trustStore The KeyStore from which to extract trust anchors.
@@ -443,8 +332,9 @@ public class ConfiguratorUtils {
                   PKIXRevocationChecker.Option.NO_FALLBACK,
                   PKIXRevocationChecker.Option.PREFER_CRLS));
         }
-        LOGGER.info("Certificate revocation enabled. Undetermined revocation accepted: "
-            + acceptUndeterminedCertificateRevocation);
+        LOGGER.info(
+            "Certificate revocation enabled. Undetermined revocation accepted: "
+                + acceptUndeterminedCertificateRevocation);
 
         pkixBuilderParameters.addCertPathChecker(revocationChecker);
       }
