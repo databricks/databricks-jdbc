@@ -11,12 +11,14 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.SecureRandom;
 import java.security.spec.KeySpec;
 import java.util.Base64;
 import java.util.Objects;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -27,10 +29,12 @@ public class EncryptedFileTokenCache implements TokenCache {
 
   // Encryption constants
   private static final String ALGORITHM = "AES";
+  private static final String TRANSFORMATION = "AES/CBC/PKCS5Padding";
   private static final String SECRET_KEY_ALGORITHM = "PBKDF2WithHmacSHA256";
   private static final byte[] SALT = "DatabricksJdbcTokenCache".getBytes();
   private static final int ITERATION_COUNT = 65536;
   private static final int KEY_LENGTH = 256;
+  private static final int IV_SIZE = 16; // 128 bits
 
   private final Path cacheFile;
   private final ObjectMapper mapper;
@@ -122,28 +126,54 @@ public class EncryptedFileTokenCache implements TokenCache {
   }
 
   /**
-   * Encrypts the given data using AES encryption with a key derived from the passphrase.
+   * Encrypts the given data using AES/CBC/PKCS5Padding encryption with a key derived from the
+   * passphrase. The IV is generated randomly and prepended to the encrypted data.
    *
    * @param data The data to encrypt
-   * @return The encrypted data
+   * @return The encrypted data with IV prepended
    * @throws Exception If an error occurs during encryption
    */
   private byte[] encrypt(byte[] data) throws Exception {
-    Cipher cipher = Cipher.getInstance(ALGORITHM);
-    cipher.init(Cipher.ENCRYPT_MODE, generateSecretKey());
-    return Base64.getEncoder().encode(cipher.doFinal(data));
+    Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+
+    // Generate a random IV
+    SecureRandom random = new SecureRandom();
+    byte[] iv = new byte[IV_SIZE];
+    random.nextBytes(iv);
+    IvParameterSpec ivSpec = new IvParameterSpec(iv);
+
+    cipher.init(Cipher.ENCRYPT_MODE, generateSecretKey(), ivSpec);
+    byte[] encryptedData = cipher.doFinal(data);
+
+    // Combine IV and encrypted data
+    byte[] combined = new byte[iv.length + encryptedData.length];
+    System.arraycopy(iv, 0, combined, 0, iv.length);
+    System.arraycopy(encryptedData, 0, combined, iv.length, encryptedData.length);
+
+    return Base64.getEncoder().encode(combined);
   }
 
   /**
-   * Decrypts the given encrypted data using AES decryption with a key derived from the passphrase.
+   * Decrypts the given encrypted data using AES/CBC/PKCS5Padding decryption with a key derived from
+   * the passphrase. The IV is extracted from the beginning of the encrypted data.
    *
-   * @param encryptedData The encrypted data, Base64 encoded
+   * @param encryptedData The encrypted data with IV prepended, Base64 encoded
    * @return The decrypted data
    * @throws Exception If an error occurs during decryption
    */
   private byte[] decrypt(byte[] encryptedData) throws Exception {
-    Cipher cipher = Cipher.getInstance(ALGORITHM);
-    cipher.init(Cipher.DECRYPT_MODE, generateSecretKey());
-    return cipher.doFinal(Base64.getDecoder().decode(encryptedData));
+    byte[] decodedData = Base64.getDecoder().decode(encryptedData);
+
+    // Extract IV
+    byte[] iv = new byte[IV_SIZE];
+    byte[] actualData = new byte[decodedData.length - IV_SIZE];
+    System.arraycopy(decodedData, 0, iv, 0, IV_SIZE);
+    System.arraycopy(decodedData, IV_SIZE, actualData, 0, actualData.length);
+
+    Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+    IvParameterSpec ivSpec = new IvParameterSpec(iv);
+    cipher.init(Cipher.DECRYPT_MODE, generateSecretKey(), ivSpec);
+
+    return cipher.doFinal(actualData);
   }
 }
