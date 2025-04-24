@@ -12,6 +12,7 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getBasePrecisionAndScale;
 import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.stripTypeName;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.AccessType;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
@@ -38,6 +39,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksResultSetMetaData.class);
   private final StatementId statementId;
+  private IDatabricksConnectionContext ctx;
   private final ImmutableList<ImmutableDatabricksColumn> columns;
   private final ImmutableMap<String, Integer> columnNameIndex;
   private final long totalRows;
@@ -54,7 +56,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    *     used)
    */
   public DatabricksResultSetMetaData(
-      StatementId statementId, ResultManifest resultManifest, boolean usesExternalLinks) {
+      StatementId statementId,
+      ResultManifest resultManifest,
+      boolean usesExternalLinks,
+      IDatabricksConnectionContext ctx) {
+    this.ctx = ctx;
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -137,7 +143,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       TGetResultSetMetadataResp resultManifest,
       long rows,
       long chunkCount,
-      List<String> arrowMetadata) {
+      List<String> arrowMetadata,
+      IDatabricksConnectionContext ctx) {
+    this.ctx = ctx;
     this.statementId = statementId;
     Map<String, Integer> columnNameToIndexMap = new HashMap<>();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -519,7 +527,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   }
 
   public int[] getPrecisionAndScale(ColumnInfo columnInfo, int columnType) {
-    int[] result = getBasePrecisionAndScale(columnType);
+    int[] result = getBasePrecisionAndScale(columnType, ctx);
     if (columnInfo.getTypePrecision() != null) {
       result[0] = Math.toIntExact(columnInfo.getTypePrecision()); // precision
       result[1] = Math.toIntExact(columnInfo.getTypeScale()); // scale
@@ -528,7 +536,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   }
 
   public int[] getPrecisionAndScale(TColumnDesc columnInfo, int columnType) {
-    int[] result = getBasePrecisionAndScale(columnType);
+    int[] result = getBasePrecisionAndScale(columnType, ctx);
     if (columnInfo.getTypeDesc() != null && columnInfo.getTypeDesc().getTypesSize() > 0) {
       TTypeEntry tTypeEntry = columnInfo.getTypeDesc().getTypes().get(0);
       if (tTypeEntry.isSetPrimitiveEntry()
