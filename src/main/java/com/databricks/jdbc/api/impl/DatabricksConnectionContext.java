@@ -9,8 +9,10 @@ import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.ValidationUtil;
+import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -79,16 +81,19 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public static ImmutableMap<String, String> buildPropertiesMap(
       String connectionParamString, Properties properties) {
     ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
-    String[] urlParts = connectionParamString.split(DatabricksJdbcConstants.URL_DELIMITER);
-    for (String urlPart : urlParts) {
-      String[] pair = urlPart.split(DatabricksJdbcConstants.PAIR_DELIMITER);
-      if (pair.length == 1) {
-        pair = new String[] {pair[0], ""};
-      }
-      if (pair[0].startsWith(DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName())) {
-        parametersBuilder.put(pair[0], pair[1]);
-      } else {
-        parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
+    // check if connectionParamString is empty or null
+    if (!WildcardUtil.isNullOrEmpty(connectionParamString)) {
+      String[] urlParts = connectionParamString.split(DatabricksJdbcConstants.URL_DELIMITER);
+      for (String urlPart : urlParts) {
+        String[] pair = urlPart.split(DatabricksJdbcConstants.PAIR_DELIMITER);
+        if (pair.length == 1) {
+          pair = new String[] {pair[0], ""};
+        }
+        if (pair[0].startsWith(DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName())) {
+          parametersBuilder.put(pair[0], pair[1]);
+        } else {
+          parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
+        }
       }
     }
     for (Map.Entry<Object, Object> entry : properties.entrySet()) {
@@ -149,7 +154,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return new DatabricksConnectionContext(url, hostValue, portValue, schema, propertiesMap);
     } else {
       // Should never reach here, since we have already checked for url validity
-      throw new IllegalArgumentException("Invalid url " + "incorrect");
+      throw new DatabricksValidationException("Connection Context invalid state error");
     }
   }
 
@@ -788,6 +793,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getHttpConnectionPoolSize() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE));
+  }
+
+  @Override
+  public boolean allowSelfSignedCerts() {
+    return getParameter(DatabricksJdbcUrlParams.ALLOW_SELF_SIGNED_CERTS).equals("1");
+  }
+
+  @Override
+  public boolean useSystemTrustStore() {
+    return getParameter(DatabricksJdbcUrlParams.USE_SYSTEM_TRUST_STORE).equals("1");
   }
 
   @Override

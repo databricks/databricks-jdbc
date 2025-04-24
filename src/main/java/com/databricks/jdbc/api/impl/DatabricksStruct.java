@@ -1,6 +1,10 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.exception.DatabricksDriverException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
@@ -9,6 +13,8 @@ import java.util.Map;
 
 /** Class for representation of Struct complex object. */
 public class DatabricksStruct implements Struct {
+
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStruct.class);
   private final Object[] attributes;
   private final String typeName;
 
@@ -56,9 +62,7 @@ public class DatabricksStruct implements Struct {
         } else if (value instanceof DatabricksStruct) {
           convertedAttributes[index] = value;
         } else {
-          throw new IllegalArgumentException(
-              "Expected a Map for STRUCT but found: "
-                  + (value == null ? "null" : value.getClass().getSimpleName()));
+          throwConversionException("Map for STRUCT", value);
         }
       } else if (fieldType.startsWith(DatabricksTypeUtil.ARRAY)) {
         if (value instanceof List) {
@@ -66,9 +70,7 @@ public class DatabricksStruct implements Struct {
         } else if (value instanceof DatabricksArray) {
           convertedAttributes[index] = value;
         } else {
-          throw new IllegalArgumentException(
-              "Expected a List for ARRAY but found: "
-                  + (value == null ? "null" : value.getClass().getSimpleName()));
+          throwConversionException("List for ARRAY", value);
         }
       } else if (fieldType.startsWith(DatabricksTypeUtil.MAP)) {
         if (value instanceof Map) {
@@ -76,14 +78,11 @@ public class DatabricksStruct implements Struct {
         } else if (value instanceof DatabricksMap) {
           convertedAttributes[index] = value;
         } else {
-          throw new IllegalArgumentException(
-              "Expected a Map for MAP but found: "
-                  + (value == null ? "null" : value.getClass().getSimpleName()));
+          throwConversionException("Map for MAP", value);
         }
       } else {
         convertedAttributes[index] = convertSimpleValue(value, fieldType);
       }
-
       index++;
     }
 
@@ -131,8 +130,10 @@ public class DatabricksStruct implements Struct {
           return value.toString();
       }
     } catch (Exception e) {
-      throw new IllegalArgumentException(
-          "Failed to convert value " + value + " to type " + type, e);
+      String errorMessage = String.format("Failed to convert value %s to type %s", value, type);
+      LOGGER.error(errorMessage);
+      throw new DatabricksDriverException(
+          errorMessage, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR);
     }
   }
 
@@ -194,5 +195,15 @@ public class DatabricksStruct implements Struct {
     }
     sb.append("}");
     return sb.toString();
+  }
+
+  void throwConversionException(String datatype, Object value) {
+    String errorMessage =
+        String.format(
+            "Expected a %s but found: %s",
+            datatype, (value == null ? "null" : value.getClass().getSimpleName()));
+    LOGGER.error(errorMessage);
+    throw new DatabricksDriverException(
+        errorMessage, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR);
   }
 }

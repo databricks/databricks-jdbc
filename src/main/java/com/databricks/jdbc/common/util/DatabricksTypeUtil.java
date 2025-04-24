@@ -10,6 +10,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TTypeDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -484,5 +485,20 @@ public class DatabricksTypeUtil {
         throw new DatabricksSQLFeatureNotSupportedException(
             "Unsupported mapping of Thrift to ArrowType: " + typeId);
     }
+  }
+
+  /*
+   * Returns the Databricks type string for a given BigDecimal object.
+   * Format: DECIMAL(p,s) where p is the precision and s is the scale.
+   * Note: precision cannot be less than scale.
+   */
+  public static String getDecimalTypeString(BigDecimal bd) {
+    int precision = bd.precision();
+    int scale = bd.scale();
+    if (precision < scale) {
+      // In type(p,q) -> p should not be less than q. case BigDecimal("0.00")
+      precision = scale;
+    }
+    return DECIMAL + "(" + precision + "," + scale + ")";
   }
 }

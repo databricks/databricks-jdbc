@@ -8,15 +8,14 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -48,7 +47,8 @@ class ExecutionResultFactory {
       ResultData data, ResultManifest manifest, StatementId statementId, IDatabricksSession session)
       throws DatabricksSQLException {
     if (manifest.getFormat() == null) {
-      throw new IllegalStateException("Empty response format");
+      throw new DatabricksParsingException(
+          "Empty response format", DatabricksDriverErrorCode.INVALID_STATE);
     }
     LOGGER.info("Processing result of format %s from SQL Execution API", manifest.getFormat());
     // We use JSON_ARRAY for metadata and update commands, and ARROW_STREAM for query results
@@ -59,7 +59,9 @@ class ExecutionResultFactory {
         // This is used for metadata and update commands
         return new InlineJsonResult(manifest, data);
       default:
-        throw new IllegalStateException("Invalid response format " + manifest.getFormat());
+        String errorMessage = String.format("Invalid response format %s", manifest.getFormat());
+        LOGGER.error(errorMessage);
+        throw new DatabricksParsingException(errorMessage, DatabricksDriverErrorCode.INVALID_STATE);
     }
   }
 

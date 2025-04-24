@@ -1,0 +1,115 @@
+name: Check for NEXT_CHANGELOG.md Changes
+
+on:
+  pull_request_target:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check-next-changelog:
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+
+    steps:
+      - name: Checkout base branch (main)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 0
+
+      - name: Fetch list of changed files
+        id: changed-files
+        run: |
+          files=$(git diff --name-only HEAD^ HEAD || git diff --name-only origin/main HEAD)
+          echo "MODIFIED_FILES<<EOF" >> $GITHUB_ENV
+          echo "$files" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Verify NEXT_CHANGELOG.md was modified or PR message contains NO_CHANGELOG=true
+        id: verify-changelog
+        run: |
+          PR_BODY="${{ github.event.pull_request.body }}"
+          echo "PR body: $PR_BODY"
+          
+          if ! echo "$MODIFIED_FILES" | grep -q "NEXT_CHANGELOG.md"; then
+            if echo "$PR_BODY" | grep -q "NO_CHANGELOG=true"; then
+              echo "NO_CHANGELOG=true found in PR body."
+              echo "CHANGELOG_NEEDED=false" >> $GITHUB_ENV
+              exit 0
+            else
+              echo "ERROR: NEXT_CHANGELOG.md not modified and NO_CHANGELOG=true not present."
+              echo "CHANGELOG_NEEDED=true" >> $GITHUB_ENV
+              exit 1
+            fi
+          else
+            echo "✅ NEXT_CHANGELOG.md was updated."
+            echo "CHANGELOG_NEEDED=false" >> $GITHUB_ENV
+          fi
+
+      - name: Comment on PR with instructions if needed
+        if: failure() && env.CHANGELOG_NEEDED == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            
+            // Check if we've already commented
+            const comments = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number
+            });
+            
+            const existingComment = comments.data.find(comment => 
+              comment.body.includes('<!-- NEXT_CHANGELOG_INSTRUCTIONS -->')
+            );
+            
+            if (!existingComment) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body: `<!-- NEXT_CHANGELOG_INSTRUCTIONS -->
+                Please ensure that the \`NEXT_CHANGELOG.md\` file is updated with any relevant changes.  
+                If this is not necessary for your PR, include this in the PR body:
+                
+                \`\`\`
+                NO_CHANGELOG=true
+                \`\`\`
+                
+                and rerun the workflow.`
+              });
+            }
+
+      - name: Delete instructions comment on success
+        if: success() && env.CHANGELOG_NEEDED == 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            
+            const comments = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number
+            });
+            
+            const existingComments = comments.data.filter(comment => 
+              comment.body.includes('<!-- NEXT_CHANGELOG_INSTRUCTIONS -->')
+            );
+            
+            for (const comment of existingComments) {
+              await github.rest.issues.deleteComment({
+                owner,
+                repo,
+                comment_id: comment.id
+              });
+            }

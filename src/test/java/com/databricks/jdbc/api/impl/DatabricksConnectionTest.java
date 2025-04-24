@@ -34,7 +34,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class DatabricksConnectionTest {
 
-  private static final String WAREHOUSE_ID = "erg6767gg";
+  private static final String WAREHOUSE_ID = "99999999";
   private static final IDatabricksComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String CATALOG = "field_demos";
   private static final String SQL = "select 1";
@@ -45,17 +45,17 @@ public class DatabricksConnectionTest {
   private static final Map<String, String> SESSION_CONFIGS =
       Map.of("ANSI_MODE", "TRUE", "TIMEZONE", "UTC", "MAX_FILE_PARTITION_BYTES", "64m");
   private static final String JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;UserAgentEntry=MyApp";
 
   private static final String JDBC_URL_WITHOUT_SCHEMA_AND_CATALOG =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;UserAgentEntry=MyApp";
   private static final String CATALOG_SCHEMA_JDBC_URL =
       String.format(
-          "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/%s;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;ConnCatalog=%s;ConnSchema=%s;logLevel=FATAL",
+          "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/%s;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;ConnCatalog=%s;ConnSchema=%s;logLevel=FATAL",
           SCHEMA, CATALOG, SCHEMA);
   private static final String SESSION_CONF_JDBC_URL =
       String.format(
-          "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;%s",
+          "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;%s",
           SESSION_CONFIGS.entrySet().stream()
               .map(e -> e.getKey() + "=" + e.getValue())
               .collect(Collectors.joining(";")));

@@ -10,6 +10,7 @@ import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtils;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -26,7 +27,6 @@ import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.core5.concurrent.FutureCallback;
 import org.apache.hc.core5.http.nio.AsyncRequestProducer;
 import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
-import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -230,7 +230,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
                     DefaultSchemePortResolver.INSTANCE.resolve(host),
                     host.getSchemeName());
           } catch (UnsupportedSchemeException e) {
-            throw new HttpException(e.getMessage());
+            throw new DatabricksDriverException(
+                e.getMessage(), DatabricksDriverErrorCode.INTEGRATION_TEST_ERROR);
           }
 
           if (host.getHostName().equalsIgnoreCase(LOCALHOST.getHostName())
