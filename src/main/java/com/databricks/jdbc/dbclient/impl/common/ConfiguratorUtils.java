@@ -442,12 +442,9 @@ public class ConfiguratorUtils {
                   PKIXRevocationChecker.Option.SOFT_FAIL,
                   PKIXRevocationChecker.Option.NO_FALLBACK,
                   PKIXRevocationChecker.Option.PREFER_CRLS));
-          LOGGER.info(
-              "Configured revocation checker to accept undetermined certificate revocation status");
-        } else {
-          LOGGER.info(
-              "Configured revocation checker with strict validation (undetermined status is rejected)");
         }
+        LOGGER.info("Certificate revocation enabled. Undetermined revocation accepted: "
+            + acceptUndeterminedCertificateRevocation);
 
         pkixBuilderParameters.addCertPathChecker(revocationChecker);
       }
