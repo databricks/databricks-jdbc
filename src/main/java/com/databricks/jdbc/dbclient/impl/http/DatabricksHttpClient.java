@@ -124,11 +124,19 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
   private PoolingHttpClientConnectionManager initializeConnectionManager(
       IDatabricksConnectionContext connectionContext) {
-    PoolingHttpClientConnectionManager connectionManager =
-        ConfiguratorUtils.getBaseConnectionManager(connectionContext);
-    connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
-    connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
-    return connectionManager;
+    try {
+      PoolingHttpClientConnectionManager connectionManager =
+          ConfiguratorUtils.getBaseConnectionManager(connectionContext);
+      connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
+      connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
+      return connectionManager;
+    } catch (DatabricksHttpException e) {
+      LOGGER.error("Failed to initialize HTTP connection manager", e);
+      // Currently only SSL Handshake failure causes this exception.
+      throw new DatabricksDriverException(
+          "Failed to initialize HTTP connection manager",
+          DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+    }
   }
 
   private RequestConfig makeRequestConfig(int timeoutSeconds) {

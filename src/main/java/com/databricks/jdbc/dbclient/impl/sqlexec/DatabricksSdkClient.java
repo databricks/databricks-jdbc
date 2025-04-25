@@ -58,7 +58,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private volatile ApiClient apiClient;
 
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)
-      throws DatabricksParsingException {
+      throws DatabricksParsingException, DatabricksHttpException {
     this.connectionContext = connectionContext;
     this.clientConfigurator = new ClientConfigurator(connectionContext);
     this.workspaceClient = clientConfigurator.getWorkspaceClient();
@@ -70,7 +70,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksConnectionContext connectionContext,
       StatementExecutionService statementExecutionService,
       ApiClient apiClient)
-      throws DatabricksParsingException {
+      throws DatabricksParsingException, DatabricksHttpException {
     this.connectionContext = connectionContext;
     this.clientConfigurator = new ClientConfigurator(connectionContext);
     this.workspaceClient =

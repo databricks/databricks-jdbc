@@ -34,7 +34,9 @@ public class TelemetryClientFactory {
 
   public ITelemetryClient getTelemetryClient(
       IDatabricksConnectionContext connectionContext, DatabricksConfig databricksConfig) {
-    if (connectionContext != null && connectionContext.isTelemetryEnabled()) {
+    if (connectionContext != null
+        && connectionContext.isTelemetryEnabled()
+        && databricksConfig != null) {
       return telemetryClients.computeIfAbsent(
           connectionContext.getConnectionUuid(),
           k ->

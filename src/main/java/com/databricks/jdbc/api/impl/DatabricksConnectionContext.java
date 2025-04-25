@@ -852,6 +852,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.SOCKET_TIMEOUT));
   }
 
+  @Override
+  public String getTokenCachePassPhrase() {
+    return getParameter(DatabricksJdbcUrlParams.TOKEN_CACHE_PASS_PHRASE);
+  }
+
+  @Override
+  public boolean isTokenCacheEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_TOKEN_CACHE).equals("1");
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }
