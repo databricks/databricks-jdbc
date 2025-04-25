@@ -321,7 +321,7 @@ public class DatabricksResultSetTest {
     assertEquals(new BigDecimal("123.423123"), resultSet.getBigDecimal(2));
     // null object
     when(mockedExecutionResult.getObject(0)).thenReturn(null);
-    assertEquals(BigDecimal.ZERO, resultSet.getBigDecimal(1));
+    assertNull(resultSet.getBigDecimal(1));
     // Test with column label
     when(mockedExecutionResult.getObject(1)).thenReturn(new BigDecimal("123.423123"));
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(2);
@@ -1135,5 +1135,35 @@ public class DatabricksResultSetTest {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     resultSet.close();
     assertThrows(DatabricksSQLException.class, resultSet::getUpdateCount);
+  }
+
+  @Test
+  void testDefaultValuesForNullFields() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(anyInt())).thenReturn(null);
+
+    // Object types should return null
+    assertNull(resultSet.getString(1));
+    assertNull(resultSet.getBigDecimal(1));
+    assertNull(resultSet.getDate(1));
+    assertNull(resultSet.getTime(1));
+    assertNull(resultSet.getTimestamp(1));
+    assertNull(resultSet.getBytes(1));
+    assertNull(resultSet.getAsciiStream(1));
+    assertNull(resultSet.getUnicodeStream(1));
+    assertNull(resultSet.getBinaryStream(1));
+
+    // Primitive types should return their default values
+    assertEquals(false, resultSet.getBoolean(1));
+    assertEquals((byte) 0, resultSet.getByte(1));
+    assertEquals((short) 0, resultSet.getShort(1));
+    assertEquals(0, resultSet.getInt(1));
+    assertEquals(0L, resultSet.getLong(1));
+    assertEquals(0.0f, resultSet.getFloat(1));
+    assertEquals(0.0d, resultSet.getDouble(1));
+
+    // Make sure wasNull returns true after getting a null value
+    resultSet.getString(1);
+    assertTrue(resultSet.wasNull());
   }
 }

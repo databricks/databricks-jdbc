@@ -1,0 +1,221 @@
+# ===================================================================
+# GitHub Action: SSL Certificate Validation Test with Squid Proxy
+#
+# Purpose:
+# This workflow simulates real-world SSL trust chain configurations
+# to validate JDBC driver support for:
+#   - Custom trust stores
+#   - System trust stores
+#   - Self-signed certificate handling
+#   - Revocation and fallback behavior
+#
+# How:
+# - Generates a Root CA, Intermediate CA, and signs a server cert (mirroring real world use-cases)
+# - Starts a Squid HTTPS proxy using the signed cert
+# - Creates a Java truststore with the correct anchors
+# - Optionally installs the Root CA into system trust store
+# - Runs targeted JDBC integration tests using SSLTest.java
+# ===================================================================1
+
+name: SSL Certificate Validation Test with Squid Proxy
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  ssl-test:
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set Up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "adopt"
+
+      - name: Install Squid and SSL Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y squid openssl libnss3-tools ca-certificates
+
+      - name: Create Root CA and Certificates
+        run: |
+          mkdir -p /tmp/ssl-certs
+          cd /tmp/ssl-certs
+          
+          # Generate Root CA
+          openssl genrsa -out rootCA.key 4096
+          openssl req -x509 -new -nodes -key rootCA.key -sha256 -days 365 -out rootCA.crt \
+            -subj "/C=US/ST=California/L=San Francisco/O=Databricks Test/OU=Testing/CN=Databricks Test Root CA"
+          
+          # Generate Intermediate CA
+          openssl genrsa -out intermediateCA.key 4096
+          openssl req -new -key intermediateCA.key -out intermediateCA.csr \
+            -subj "/C=US/ST=California/L=San Francisco/O=Databricks Test/OU=Testing/CN=Databricks Test Intermediate CA"
+          
+          # Create extension file for intermediate CA
+          cat > intermediate_ext.cnf << EOF
+          [ v3_ca ]
+          subjectKeyIdentifier = hash
+          authorityKeyIdentifier = keyid:always,issuer
+          basicConstraints = critical, CA:true, pathlen:0
+          keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+          EOF
+          
+          # Sign Intermediate CA with Root CA
+          openssl x509 -req -in intermediateCA.csr -CA rootCA.crt -CAkey rootCA.key \
+            -CAcreateserial -out intermediateCA.crt -days 365 -sha256 \
+            -extfile intermediate_ext.cnf -extensions v3_ca
+          
+          # Generate Squid Proxy Certificate
+          openssl genrsa -out squid.key 2048
+          openssl req -new -key squid.key -out squid.csr \
+            -subj "/C=US/ST=California/L=San Francisco/O=Databricks Test/OU=Testing/CN=localhost"
+          
+          # Create extension file for Squid certificate
+          cat > squid_ext.cnf << EOF
+          [ v3_req ]
+          basicConstraints = CA:FALSE
+          keyUsage = digitalSignature, keyEncipherment
+          extendedKeyUsage = serverAuth
+          subjectAltName = @alt_names
+          
+          [alt_names]
+          DNS.1 = localhost
+          IP.1 = 127.0.0.1
+          EOF
+          
+          # Sign Squid certificate with Intermediate CA
+          openssl x509 -req -in squid.csr -CA intermediateCA.crt -CAkey intermediateCA.key \
+            -CAcreateserial -out squid.crt -days 365 -sha256 \
+            -extfile squid_ext.cnf -extensions v3_req
+          
+          # Create PEM file for Squid
+          cat squid.crt squid.key > squid.pem
+          chmod 400 squid.pem
+          
+          # Copy to appropriate locations
+          sudo cp squid.pem /etc/squid/
+          sudo chown proxy:proxy /etc/squid/squid.pem
+          
+          # Create Java Keystore from Root CA - with proper trust anchors
+          rm -f test-truststore.jks
+          
+          # Create a truststore with the root CA as a trusted certificate entry
+          keytool -importcert -noprompt -trustcacerts -alias rootca -file rootCA.crt \
+            -keystore test-truststore.jks -storepass changeit
+          
+          # Also add the intermediate CA to the trust store
+          keytool -importcert -noprompt -trustcacerts -alias intermediateca -file intermediateCA.crt \
+            -keystore test-truststore.jks -storepass changeit
+          
+          chmod 644 test-truststore.jks
+
+      - name: Configure Squid with Standard SSL
+        run: |
+          sudo cp /etc/squid/squid.conf /etc/squid/squid.conf.orig
+          
+          echo "
+          # Basic Configuration
+          http_port 3128
+          
+          # Plain HTTPS port with certificate
+          https_port 3129 tls-cert=/etc/squid/squid.pem
+          
+          # Access Control - very permissive for testing
+          http_access allow all
+          always_direct allow all
+          
+          # Avoid DNS issues in test environment
+          dns_v4_first on
+          
+          # Disable caching for testing
+          cache deny all
+          
+          # Logging
+          debug_options ALL,1
+          logfile_rotate 0
+          cache_log /var/log/squid/cache.log
+          access_log /var/log/squid/access.log squid
+          " | sudo tee /etc/squid/squid.conf
+          
+          sudo mkdir -p /var/log/squid
+          sudo chown -R proxy:proxy /var/log/squid
+          sudo chmod 755 /var/log/squid
+          
+          sudo squid -k parse || echo "Configuration has issues but we'll try to run it anyway"
+
+      - name: Start Squid Proxy
+        run: |
+          sudo systemctl stop squid || true
+          sudo pkill squid || true
+          
+          sudo squid -N -d 3 -f /etc/squid/squid.conf &
+          
+          sleep 5
+          ps aux | grep squid
+
+      - name: Wait for Squid to be Ready
+        run: |
+          for i in {1..5}; do
+            if curl -v -x http://localhost:3128 http://databricks.com -m 10 -o /dev/null; then
+              echo "HTTP proxy on 3128 is working!"
+              break
+            fi
+          
+            sleep 3
+          done
+          
+          if ps aux | grep -v grep | grep squid > /dev/null; then
+            echo "Squid is running"
+          else
+            echo "Squid is not running! Attempting restart..."
+            sudo squid -N -d 3 -f /etc/squid/squid.conf &
+            sleep 5
+          fi
+
+      - name: Install Root CA in System Trust Store
+        run: |
+          sudo cp /tmp/ssl-certs/rootCA.crt /usr/local/share/ca-certificates/databricks-test-rootca.crt
+          sudo update-ca-certificates
+
+      - name: Maven Build
+        run: |
+          mvn clean package -DskipTests
+
+      - name: Set Environment Variables
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          HTTP_PROXY_URL: "http://localhost:3128"
+          HTTPS_PROXY_URL: "https://localhost:3129"
+          TRUSTSTORE_PATH: "/tmp/ssl-certs/test-truststore.jks"
+          TRUSTSTORE_PASSWORD: "changeit"
+        run: |
+          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
+          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
+          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+          echo "HTTP_PROXY_URL=${HTTP_PROXY_URL}" >> $GITHUB_ENV
+          echo "HTTPS_PROXY_URL=${HTTPS_PROXY_URL}" >> $GITHUB_ENV
+          echo "TRUSTSTORE_PATH=${TRUSTSTORE_PATH}" >> $GITHUB_ENV
+          echo "TRUSTSTORE_PASSWORD=${TRUSTSTORE_PASSWORD}" >> $GITHUB_ENV
+
+      - name: Run SSL Tests
+        run: |
+          mvn test -Dtest=**/SSLTest.java
+
+      - name: Cleanup
+        if: always()
+        run: |
+          sudo systemctl stop squid
+          sudo systemctl disable squid
+          sudo pkill squid
+          sudo rm -f /usr/local/share/ca-certificates/databricks-test-rootca.crt
+          sudo update-ca-certificates --fresh

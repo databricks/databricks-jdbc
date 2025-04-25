@@ -326,7 +326,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
           BigDecimal bd = converter.toBigDecimal(object);
           return applyScaleToBigDecimal(bd, columnIndex, scale);
         },
-        () -> BigDecimal.ZERO.setScale(scale, RoundingMode.HALF_UP));
+        () -> null);
   }
 
   @Override

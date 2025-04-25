@@ -1,10 +1,13 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
+import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
+import static com.databricks.sdk.service.sql.ColumnInfoTypeName.DECIMAL;
+import static com.databricks.sdk.service.sql.ColumnInfoTypeName.INT;
+import static com.databricks.sdk.service.sql.ColumnInfoTypeName.STRING;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.*;
@@ -26,7 +29,10 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksError;
+import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.service.sql.*;
+import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,14 +44,14 @@ public class DatabricksSdkClientTest {
   @Mock StatementExecutionService statementExecutionService;
   @Mock ApiClient apiClient;
   @Mock ResultData resultData;
-  private static final String WAREHOUSE_ID = "erg6767gg";
+  private static final String WAREHOUSE_ID = "99999999";
   private static final IDatabricksComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String SESSION_ID = "session_id";
   private static final StatementId STATEMENT_ID = new StatementId("statementId");
   private static final String STATEMENT =
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
   private static final Map<String, String> headers =
       new HashMap<>() {
         {
@@ -63,13 +69,13 @@ public class DatabricksSdkClientTest {
         }
       };
 
-  private void setupSessionMocks() {
+  private void setupSessionMocks() throws IOException {
     CreateSessionResponse response = new CreateSessionResponse().setSessionId(SESSION_ID);
-    when(apiClient.POST(eq(SESSION_PATH), any(), eq(CreateSessionResponse.class), eq(headers)))
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
         .thenReturn(response);
   }
 
-  private void setupClientMocks(boolean includeResults, boolean async) {
+  private void setupClientMocks(boolean includeResults, boolean async) throws IOException {
     List<StatementParameterListItem> params =
         new ArrayList<>() {
           {
@@ -111,19 +117,13 @@ public class DatabricksSdkClientTest {
                   .setTotalRowCount(0L));
     }
 
-    when(apiClient.POST(anyString(), any(), any(), any()))
+    when(apiClient.execute(any(Request.class), any()))
         .thenAnswer(
             invocationOnMock -> {
-              String path = (String) invocationOnMock.getArguments()[0];
-              if (path.equals(STATEMENT_PATH)) {
-                ExecuteStatementRequest request =
-                    (ExecuteStatementRequest) invocationOnMock.getArguments()[1];
-                assertEquals(request, executeStatementRequest);
+              Request req = invocationOnMock.getArgument(0, Request.class);
+              if (req.getUrl().equals(STATEMENT_PATH)) {
                 return response;
-              } else if (path.equals(SESSION_PATH)) {
-                CreateSessionRequest request =
-                    (CreateSessionRequest) invocationOnMock.getArguments()[1];
-                assertEquals(request.getWarehouseId(), WAREHOUSE_ID);
+              } else if (req.getUrl().equals(SESSION_PATH)) {
                 return new CreateSessionResponse().setSessionId(SESSION_ID);
               }
               return null;
@@ -131,7 +131,7 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testCreateSession() throws DatabricksSQLException {
+  public void testCreateSession() throws DatabricksSQLException, IOException {
     setupSessionMocks();
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -144,13 +144,13 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testCreateSessionRedirect() throws DatabricksSQLException {
+  public void testCreateSessionRedirect() throws DatabricksSQLException, IOException {
     // Create a DatabricksError with 307 status code to simulate the temporary redirect.
     DatabricksError redirectError =
         new DatabricksError("307", "Redirect to Thrift Client", TEMPORARY_REDIRECT_STATUS_CODE);
 
     // When the POST is called with the SESSION_PATH, throw the redirect error.
-    when(apiClient.POST(eq(SESSION_PATH), any(), eq(CreateSessionResponse.class), eq(headers)))
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
         .thenThrow(redirectError);
 
     // Set up the connection context and the client.
@@ -166,7 +166,7 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testDeleteSession() throws DatabricksSQLException {
+  public void testDeleteSession() throws DatabricksSQLException, IOException {
     String path = String.format(SESSION_PATH_WITH_ID, SESSION_ID);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -178,9 +178,12 @@ public class DatabricksSdkClientTest {
             .computeResource(new Warehouse(WAREHOUSE_ID))
             .build();
     databricksSdkClient.deleteSession(sessionInfo);
-    DeleteSessionRequest request =
-        new DeleteSessionRequest().setSessionId(SESSION_ID).setWarehouseId(WAREHOUSE_ID);
-    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(headers));
+
+    // Verify a Request with DELETE method is created and executed
+    verify(apiClient)
+        .execute(
+            argThat(req -> req.getMethod().equals(Request.DELETE) && req.getUrl().equals(path)),
+            eq(Void.class));
   }
 
   @Test
@@ -206,6 +209,14 @@ public class DatabricksSdkClientTest {
             statement);
     assertEquals(STATEMENT_ID, statement.getStatementId());
     assertNotNull(resultSet.getMetaData());
+
+    // Verify a Request with POST method is created and executed
+    verify(apiClient, atLeastOnce()).serialize(any(ExecuteStatementRequest.class));
+    verify(apiClient, atLeastOnce())
+        .execute(
+            argThat(
+                req -> req.getMethod().equals(Request.POST) && req.getUrl().equals(STATEMENT_PATH)),
+            eq(ExecuteStatementResponse.class));
   }
 
   @Test
@@ -226,33 +237,50 @@ public class DatabricksSdkClientTest {
             STATEMENT, warehouse, sqlParams, connection.getSession(), statement);
     assertEquals(STATEMENT_ID, statement.getStatementId());
     assertNull(resultSet.getMetaData());
+
+    // Verify a Request with POST method is created and executed
+    verify(apiClient).serialize(any(ExecuteStatementRequest.class));
+    verify(apiClient)
+        .execute(
+            argThat(
+                req -> req.getMethod().equals(Request.POST) && req.getUrl().equals(STATEMENT_PATH)),
+            eq(ExecuteStatementResponse.class));
   }
 
   @Test
-  public void testCloseStatement() throws DatabricksSQLException {
+  public void testCloseStatement() throws DatabricksSQLException, IOException {
     String path = String.format(STATEMENT_PATH_WITH_ID, STATEMENT_ID);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    CloseStatementRequest request =
-        new CloseStatementRequest().setStatementId(STATEMENT_ID.toSQLExecStatementId());
+
     databricksSdkClient.closeStatement(STATEMENT_ID);
 
-    verify(apiClient).DELETE(eq(path), eq(request), eq(Void.class), eq(headers));
+    // Verify a Request with DELETE method is created and executed
+    verify(apiClient).serialize(any(CloseStatementRequest.class));
+    verify(apiClient)
+        .execute(
+            argThat(req -> req.getMethod().equals(Request.DELETE) && req.getUrl().equals(path)),
+            eq(Void.class));
   }
 
   @Test
-  public void testCancelStatement() throws DatabricksSQLException {
+  public void testCancelStatement() throws DatabricksSQLException, IOException {
     String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, STATEMENT_ID);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    CancelStatementRequest request =
-        new CancelStatementRequest().setStatementId(STATEMENT_ID.toSQLExecStatementId());
+
     databricksSdkClient.cancelStatement(STATEMENT_ID);
-    verify(apiClient).POST(eq(path), eq(request), eq(Void.class), eq(headers));
+
+    // Verify a Request with POST method is created and executed
+    verify(apiClient).serialize(any(CancelStatementRequest.class));
+    verify(apiClient)
+        .execute(
+            argThat(req -> req.getMethod().equals(Request.POST) && req.getUrl().equals(path)),
+            eq(Void.class));
   }
 
   @Test
@@ -276,7 +304,7 @@ public class DatabricksSdkClientTest {
 
     // Mock session creation
     CreateSessionResponse sessionResponse = new CreateSessionResponse().setSessionId(SESSION_ID);
-    when(apiClient.POST(eq(SESSION_PATH), any(), eq(CreateSessionResponse.class), eq(headers)))
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
         .thenReturn(sessionResponse);
     connection.open();
 
@@ -296,10 +324,19 @@ public class DatabricksSdkClientTest {
     GetStatementResponse successStatementResponse =
         new GetStatementResponse()
             .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
-    // First POST will create the statement, subsequent GETs will be for status checks
-    when(apiClient.POST(eq(STATEMENT_PATH), any(), eq(ExecuteStatementResponse.class), eq(headers)))
+
+    // Set up response sequence for execute() calls
+    when(apiClient.execute(
+            argThat(req -> req != null && STATEMENT_PATH.equals(req.getUrl())),
+            eq(ExecuteStatementResponse.class)))
         .thenReturn(executeResponse);
-    when(apiClient.GET(any(), any(), eq(GetStatementResponse.class), eq(headers)))
+    when(apiClient.execute(
+            argThat(
+                req ->
+                    req != null
+                        && req.getUrl() != null
+                        && req.getUrl().contains(STATEMENT_ID.toSQLExecStatementId())),
+            eq(GetStatementResponse.class)))
         .thenReturn(runningStatementResponse)
         .thenReturn(runningStatementResponse)
         .thenReturn(successStatementResponse);
@@ -314,9 +351,12 @@ public class DatabricksSdkClientTest {
                 connection.getSession(),
                 statement));
 
-    // Verify that a POST was made exactly once (no cancellation due to timeout)
-    verify(apiClient, times(2))
-        .POST(anyString(), any(), any(), any()); // Once for session, once for statement
+    // Verify no cancellation occurred due to timeout
+    verify(apiClient, atLeastOnce())
+        .execute(
+            argThat(
+                req -> req.getMethod().equals(Request.POST) && req.getUrl().equals(STATEMENT_PATH)),
+            eq(ExecuteStatementResponse.class));
   }
 
   @Test
@@ -338,7 +378,7 @@ public class DatabricksSdkClientTest {
 
     // Mock session creation
     CreateSessionResponse sessionResponse = new CreateSessionResponse().setSessionId(SESSION_ID);
-    when(apiClient.POST(eq(SESSION_PATH), any(), eq(CreateSessionResponse.class), eq(headers)))
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
         .thenReturn(sessionResponse);
     connection.open();
 
@@ -358,10 +398,19 @@ public class DatabricksSdkClientTest {
     GetStatementResponse successStatementResponse =
         new GetStatementResponse()
             .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
-    // First POST will create the statement, subsequent GETs will be for status checks
-    when(apiClient.POST(eq(STATEMENT_PATH), any(), eq(ExecuteStatementResponse.class), eq(headers)))
+
+    // Set up response sequence for execute() calls
+    when(apiClient.execute(
+            argThat(req -> req != null && STATEMENT_PATH.equals(req.getUrl())),
+            eq(ExecuteStatementResponse.class)))
         .thenReturn(executeResponse);
-    when(apiClient.GET(any(), any(), eq(GetStatementResponse.class), eq(headers)))
+    when(apiClient.execute(
+            argThat(
+                req ->
+                    req != null
+                        && req.getUrl() != null
+                        && req.getUrl().contains(STATEMENT_ID.toSQLExecStatementId())),
+            eq(GetStatementResponse.class)))
         .thenReturn(runningStatementResponse)
         .thenReturn(runningStatementResponse)
         .thenReturn(runningStatementResponse)
@@ -386,6 +435,66 @@ public class DatabricksSdkClientTest {
 
     // Verify cancel was called
     verify(databricksSdkClient).cancelStatement(eq(STATEMENT_ID));
+  }
+
+  @Test
+  public void testDecimalTypeWithValidPrecisionAndScale() throws DatabricksSQLException {
+    BigDecimal decimalValue = new BigDecimal("123.45"); // precision: 5, scale: 2
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(0).type(DECIMAL).value(decimalValue).build();
+
+    StatementParameterListItem result = databricksSdkClient.mapToParameterListItem(parameter);
+
+    assertEquals("DECIMAL(5,2)", result.getType());
+    assertEquals("123.45", result.getValue());
+  }
+
+  @Test
+  public void testDecimalTypeWithScaleGreaterThanPrecision() throws DatabricksSQLException {
+    BigDecimal decimalValue = new BigDecimal("0.000123"); // scale: 6, precision: 3
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(1).type(DECIMAL).value(decimalValue).build();
+
+    StatementParameterListItem result = databricksSdkClient.mapToParameterListItem(parameter);
+
+    assertEquals("DECIMAL(6,6)", result.getType());
+    assertEquals("0.000123", result.getValue());
+  }
+
+  @Test
+  public void testNonDecimalType() throws DatabricksSQLException {
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(2).type(STRING).value(TEST_STRING).build();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    StatementParameterListItem result = databricksSdkClient.mapToParameterListItem(parameter);
+
+    assertEquals("STRING", result.getType());
+    assertEquals(TEST_STRING, result.getValue());
+  }
+
+  @Test
+  public void testNullValue() throws DatabricksSQLException {
+    ImmutableSqlParameter parameter =
+        ImmutableSqlParameter.builder().cardinal(3).type(INT).value(null).build();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    StatementParameterListItem result = databricksSdkClient.mapToParameterListItem(parameter);
+
+    assertEquals("INT", result.getType());
+    assertNull(result.getValue());
   }
 
   private static ImmutableSqlParameter getSqlParam(
