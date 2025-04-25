@@ -33,10 +33,11 @@ jobs:
         id: verify-changelog
         run: |
           PR_BODY="${{ github.event.pull_request.body }}"
-          echo "PR body: $PR_BODY"
+          echo 'PR body:' "$PR_BODY"
           
           if ! echo "$MODIFIED_FILES" | grep -q "NEXT_CHANGELOG.md"; then
-            if echo "$PR_BODY" | grep -q "NO_CHANGELOG=true"; then
+            NO_CHANGELOG_FLAG=$(echo "$PR_BODY" | grep -c "NO_CHANGELOG=true" || true)
+            if [ "$NO_CHANGELOG_FLAG" -gt 0 ]; then
               echo "NO_CHANGELOG=true found in PR body."
               echo "CHANGELOG_NEEDED=false" >> $GITHUB_ENV
               exit 0
