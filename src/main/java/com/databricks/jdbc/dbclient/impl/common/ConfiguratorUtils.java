@@ -49,6 +49,12 @@ public class ConfiguratorUtils {
   public static PoolingHttpClientConnectionManager getBaseConnectionManager(
       IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
 
+    if (connectionContext.getSSLTrustStore() == null
+            && connectionContext.checkCertificateRevocation()
+            && !connectionContext.acceptUndeterminedCertificateRevocation()) {
+      return new PoolingHttpClientConnectionManager();
+    }
+
     // For test environments, use a trust-all socket factory
     if (isJDBCTestEnv()) {
       LOGGER.info("Using trust-all socket factory for JDBC test environment");
