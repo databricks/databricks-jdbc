@@ -117,21 +117,22 @@ public class TelemetryHelper {
     // we are adding this check for extra sanity
     if (connectionContext != null) {
       TelemetryEvent telemetryEvent =
-              new TelemetryEvent()
-                      .setLatency(latencyMilliseconds)
-                      .setSqlOperation(executionEvent)
-                      .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext));
+          new TelemetryEvent()
+              .setLatency(latencyMilliseconds)
+              .setSqlOperation(executionEvent)
+              .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext));
       if (statementId != null) {
         telemetryEvent.setSqlStatementId(statementId.toString());
       }
       TelemetryFrontendLog telemetryFrontendLog =
-              new TelemetryFrontendLog()
-                      .setFrontendLogEventId(getEventUUID())
-                      .setContext(getLogContext())
-                      .setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
+          new TelemetryFrontendLog()
+              .setFrontendLogEventId(getEventUUID())
+              .setContext(getLogContext())
+              .setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
       TelemetryClientFactory.getInstance()
-              .getTelemetryClient(connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
-              .exportEvent(telemetryFrontendLog);
+          .getTelemetryClient(
+              connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
+          .exportEvent(telemetryFrontendLog);
     }
   }
 
@@ -143,21 +144,22 @@ public class TelemetryHelper {
     // we are adding this check for extra sanity
     if (connectionContext != null) {
       TelemetryFrontendLog telemetryFrontendLog =
-              new TelemetryFrontendLog()
-                      .setFrontendLogEventId(getEventUUID())
-                      .setContext(getLogContext())
-                      .setEntry(
-                              new FrontendLogEntry()
-                                      .setSqlDriverLog(
-                                              new TelemetryEvent()
-                                                      .setLatency(latencyMilliseconds)
-                                                      .setVolumeOperation(volumeOperationEvent)
-                                                      .setDriverConnectionParameters(
-                                                              getDriverConnectionParameter(connectionContext))));
+          new TelemetryFrontendLog()
+              .setFrontendLogEventId(getEventUUID())
+              .setContext(getLogContext())
+              .setEntry(
+                  new FrontendLogEntry()
+                      .setSqlDriverLog(
+                          new TelemetryEvent()
+                              .setLatency(latencyMilliseconds)
+                              .setVolumeOperation(volumeOperationEvent)
+                              .setDriverConnectionParameters(
+                                  getDriverConnectionParameter(connectionContext))));
 
       TelemetryClientFactory.getInstance()
-              .getTelemetryClient(connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
-              .exportEvent(telemetryFrontendLog);
+          .getTelemetryClient(
+              connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
+          .exportEvent(telemetryFrontendLog);
     }
   }
 
