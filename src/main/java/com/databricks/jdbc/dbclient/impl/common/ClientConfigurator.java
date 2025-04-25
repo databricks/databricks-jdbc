@@ -4,9 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.auth.AzureMSICredentialProvider;
-import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
-import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
+import com.databricks.jdbc.auth.*;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -21,9 +19,13 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
+import com.databricks.sdk.core.oauth.TokenCache;
 import com.databricks.sdk.core.utils.Cloud;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -52,6 +54,53 @@ public class ClientConfigurator {
     setupDiscoveryEndpoint();
     setupAuthConfig();
     this.databricksConfig.resolve();
+  }
+
+  /**
+   * Returns the path for the token cache file based on host, client ID, and scopes. This creates a
+   * unique cache path using a hash of these parameters.
+   *
+   * @param host The host URL
+   * @param clientId The OAuth client ID
+   * @param scopes The OAuth scopes
+   * @return The path for the token cache file
+   */
+  public static Path getTokenCachePath(String host, String clientId, List<String> scopes) {
+    String userHome = System.getProperty("user.home");
+    Path homeDir = Paths.get(userHome);
+    Path databricksDir = homeDir.resolve(".config/databricks-jdbc/oauth");
+
+    // Create a unique string identifier from the combination of parameters
+    String uniqueIdentifier = createUniqueIdentifier(host, clientId, scopes);
+
+    String filename = "token-cache-" + uniqueIdentifier;
+
+    return databricksDir.resolve(filename);
+  }
+
+  /**
+   * Creates a unique identifier string from the given parameters. Uses a hash function to create a
+   * compact representation.
+   *
+   * @param host The host URL
+   * @param clientId The OAuth client ID
+   * @param scopes The OAuth scopes
+   * @return A unique identifier string
+   */
+  private static String createUniqueIdentifier(String host, String clientId, List<String> scopes) {
+    // Normalize inputs to handle null values
+    host = (host != null) ? host : EMPTY_STRING;
+    clientId = (clientId != null) ? clientId : EMPTY_STRING;
+    scopes = (scopes != null) ? scopes : List.of();
+
+    // Combine all parameters
+    String combined = host + URL_DELIMITER + clientId + URL_DELIMITER + String.join(COMMA, scopes);
+
+    // Create a hash from the combined string
+    int hash = combined.hashCode();
+
+    // Convert to a positive hexadecimal string
+    return Integer.toHexString(hash & 0x7FFFFFFF);
   }
 
   /**
@@ -139,10 +188,13 @@ public class ClientConfigurator {
     int redirectPort = findAvailablePort(connectionContext.getOAuth2RedirectUrlPorts());
     String redirectUrl = String.format("http://localhost:%d", redirectPort);
 
+    String host = connectionContext.getHostForOAuth();
+    String clientId = connectionContext.getClientId();
+
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.U2M_AUTH_TYPE)
-        .setHost(connectionContext.getHostForOAuth())
-        .setClientId(connectionContext.getClientId())
+        .setHost(host)
+        .setClientId(clientId)
         .setClientSecret(connectionContext.getClientSecret())
         .setOAuthRedirectUrl(redirectUrl);
 
@@ -151,6 +203,21 @@ public class ClientConfigurator {
     if (!databricksConfig.isAzure()) {
       databricksConfig.setScopes(connectionContext.getOAuthScopesForU2M());
     }
+
+    TokenCache tokenCache;
+    if (connectionContext.isTokenCacheEnabled()) {
+      if (connectionContext.getTokenCachePassPhrase() == null) {
+        LOGGER.error("No token cache passphrase configured");
+        throw new DatabricksException("No token cache passphrase configured");
+      }
+      Path tokenCachePath = getTokenCachePath(host, clientId, databricksConfig.getScopes());
+      tokenCache =
+          new EncryptedFileTokenCache(tokenCachePath, connectionContext.getTokenCachePassPhrase());
+    } else {
+      tokenCache = new NoOpTokenCache();
+    }
+    CredentialsProvider provider = new ExternalBrowserCredentialsProvider(tokenCache);
+    databricksConfig.setCredentialsProvider(provider).setAuthType(provider.authType());
   }
 
   /**
@@ -232,14 +299,13 @@ public class ClientConfigurator {
 
   /** Setup the OAuth U2M refresh token authentication settings in the databricks config. */
   public void setupU2MRefreshConfig() throws DatabricksParsingException {
-    CredentialsProvider provider =
-        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     databricksConfig
         .setHost(connectionContext.getHostForOAuth())
-        .setAuthType(provider.authType()) // oauth-refresh
-        .setCredentialsProvider(provider)
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret());
+    CredentialsProvider provider =
+        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
+    databricksConfig.setAuthType(provider.authType()).setCredentialsProvider(provider);
   }
 
   /** Setup the OAuth M2M authentication settings in the databricks config. */

@@ -293,4 +293,10 @@ public interface IDatabricksConnectionContext {
    * @return true if the system property trust store should be used, false otherwise
    */
   boolean useSystemTrustStore();
+
+  /** Returns the passphrase used for encrypting/decrypting token cache */
+  String getTokenCachePassPhrase();
+
+  /** Returns whether token caching is enabled for OAuth authentication */
+  boolean isTokenCacheEnabled();
 }

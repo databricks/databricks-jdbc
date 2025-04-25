@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.DEFAULT_TABLE_TYPES;
+import static com.databricks.jdbc.common.MetadataResultConstants.PARSE_SYNTAX_ERROR_SQL_STATE;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
@@ -130,17 +131,33 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   public DatabricksResultSet listImportedKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
     LOGGER.debug("public ResultSet listImportedKeys() using SDK");
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-        MetadataResultConstants.IMPORTED_KEYS_COLUMNS,
-        new ArrayList<>(),
-        METADATA_STATEMENT_ID,
-        com.databricks.jdbc.common.CommandName.GET_IMPORTED_KEYS);
+    CommandBuilder commandBuilder =
+        new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
+    String SQL = commandBuilder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
+    try {
+      return MetadataResultSetBuilder.getImportedKeysResult(getResultSet(SQL, session));
+    } catch (SQLException e) {
+      if (e.getSQLState().equals(PARSE_SYNTAX_ERROR_SQL_STATE)) {
+        // This is a workaround for the issue where the SQL command fails with "syntax error at or
+        // near "foreign""
+        // This is a known issue in Databricks for older DBSQL versions
+        LOGGER.debug("SQL command failed with syntax error. Returning empty result set.");
+        return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+            MetadataResultConstants.IMPORTED_KEYS_COLUMNS,
+            new ArrayList<>(),
+            METADATA_STATEMENT_ID,
+            com.databricks.jdbc.common.CommandName.GET_IMPORTED_KEYS);
+      } else {
+        throw e;
+      }
+    }
   }
 
   @Override
   public DatabricksResultSet listExportedKeys(
-      IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
+      IDatabricksSession session, String catalog, String schema, String table) {
     LOGGER.debug("public ResultSet listExportedKeys() using SDK");
+    // Exported keys not tracked in DBSQL. Returning empty result set
     return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         MetadataResultConstants.EXPORTED_KEYS_COLUMNS,
         new ArrayList<>(),
@@ -151,18 +168,40 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   @Override
   public DatabricksResultSet listCrossReferences(
       IDatabricksSession session,
-      String catalog,
-      String schema,
-      String table,
+      String parentCatalog,
+      String parentSchema,
+      String parentTable,
       String foreignCatalog,
       String foreignSchema,
-      String foreignTable) {
+      String foreignTable)
+      throws SQLException {
     LOGGER.debug("public ResultSet listCrossReferences() using SDK");
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-        MetadataResultConstants.CROSS_REFERENCE_COLUMNS,
-        new ArrayList<>(),
-        METADATA_STATEMENT_ID,
-        com.databricks.jdbc.common.CommandName.GET_CROSS_REFERENCE);
+    CommandBuilder commandBuilder =
+        new CommandBuilder(foreignCatalog, session).setSchema(foreignSchema).setTable(foreignTable);
+    String SQL = commandBuilder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
+    try {
+      return MetadataResultSetBuilder.getCrossReferenceKeysResult(
+          getResultSet(SQL, session), parentCatalog, parentSchema, parentTable);
+    } catch (SQLException e) {
+      if (e.getSQLState().equals(PARSE_SYNTAX_ERROR_SQL_STATE)) {
+        // This is a workaround for the issue where the SQL command fails with "syntax error at or
+        // near "foreign""
+        // This is a known issue in Databricks for older DBSQL versions
+        LOGGER.debug("SQL command failed with syntax error. Returning empty result set.");
+        return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+            MetadataResultConstants.CROSS_REFERENCE_COLUMNS,
+            new ArrayList<>(),
+            METADATA_STATEMENT_ID,
+            com.databricks.jdbc.common.CommandName.GET_CROSS_REFERENCE);
+      } else {
+        LOGGER.error(
+            e,
+            "Error while executing SQL command: %s, SQL state: %s",
+            e.getMessage(),
+            e.getSQLState());
+        throw e;
+      }
+    }
   }
 
   private ResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {
