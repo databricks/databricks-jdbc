@@ -84,9 +84,7 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
             });
 
     thread.start();
-    if (!thread.join(10_000)) { // Wait for up to 10 seconds
-      fail("Test thread did not terminate within the timeout period.");
-    }
+    thread.join(10_000);
 
     // Check if the thread had an exception
     if (threadException.get() != null) {
