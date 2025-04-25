@@ -133,7 +133,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       return connectionManager;
     } catch (DatabricksHttpException e) {
       LOGGER.error("Failed to initialize HTTP connection manager", e);
-      throw new RuntimeException("Failed to initialize HTTP connection manager", e);
+      // Currently only SSL Handshake failure causes this exception.
+      throw new DatabricksDriverException("Failed to initialize HTTP connection manager", DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
     }
   }
 
