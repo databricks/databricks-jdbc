@@ -175,8 +175,6 @@ public class ConfiguratorUtilsTest {
     when(mockContext.getSSLTrustStore()).thenReturn(null);
     when(mockContext.checkCertificateRevocation()).thenReturn(true);
     when(mockContext.acceptUndeterminedCertificateRevocation()).thenReturn(false);
-    when(mockContext.useSystemTrustStore()).thenReturn(false);
-    when(mockContext.allowSelfSignedCerts()).thenReturn(false);
 
     try (MockedStatic<ConfiguratorUtils> configuratorUtils =
         mockStatic(ConfiguratorUtils.class, withSettings().defaultAnswer(CALLS_REAL_METHODS))) {
@@ -184,9 +182,6 @@ public class ConfiguratorUtilsTest {
       // Call getBaseConnectionManager with the mock context
       PoolingHttpClientConnectionManager connManager =
           ConfiguratorUtils.getBaseConnectionManager(mockContext);
-
-      configuratorUtils.verify(
-          () -> ConfiguratorUtils.createConnectionSocketFactoryRegistry(any()), times(1));
 
       // Ensure the returned connection manager is not null
       assertNotNull(connManager);
@@ -266,41 +261,6 @@ public class ConfiguratorUtilsTest {
     assertNotNull(registry);
     assertInstanceOf(
         SSLConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTPS));
-  }
-
-  @Test
-  void testLoadTruststoreWithAutoDetection()
-      throws DatabricksHttpException,
-          IOException,
-          KeyStoreException,
-          CertificateException,
-          NoSuchAlgorithmException {
-    // Scenario: Trust store type auto-detection
-    // Create a trust store with default type but try to load with different types
-
-    String tempTrustStorePath = BASE_TRUST_STORE_PATH + "auto-detect-truststore.jks";
-
-    try {
-      // Create a trust store with password but without specifying type
-      KeyStore keyStore = KeyStore.getInstance("JKS");
-      keyStore.load(null, TRUST_STORE_PASSWORD.toCharArray());
-      try (FileOutputStream fos = new FileOutputStream(tempTrustStorePath)) {
-        keyStore.store(fos, TRUST_STORE_PASSWORD.toCharArray());
-      }
-
-      when(mockContext.getSSLTrustStore()).thenReturn(tempTrustStorePath);
-      when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
-      when(mockContext.getSSLTrustStoreType()).thenReturn(null); // No type specified
-
-      KeyStore loadedStore = ConfiguratorUtils.loadTruststoreOrNull(mockContext);
-      assertNotNull(loadedStore, "Trust store should be auto-detected and loaded");
-    } finally {
-      try {
-        Files.delete(Path.of(tempTrustStorePath));
-      } catch (IOException e) {
-        LOGGER.info("Failed to delete temp trust store file: " + e.getMessage());
-      }
-    }
   }
 
   @Test

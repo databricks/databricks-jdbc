@@ -49,6 +49,12 @@ public class ConfiguratorUtils {
   public static PoolingHttpClientConnectionManager getBaseConnectionManager(
       IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
 
+    if (connectionContext.getSSLTrustStore() == null
+        && connectionContext.checkCertificateRevocation()
+        && !connectionContext.acceptUndeterminedCertificateRevocation()) {
+      return new PoolingHttpClientConnectionManager();
+    }
+
     // For test environments, use a trust-all socket factory
     if (isJDBCTestEnv()) {
       LOGGER.info("Using trust-all socket factory for JDBC test environment");
@@ -358,11 +364,7 @@ public class ConfiguratorUtils {
       password = connectionContext.getSSLTrustStorePassword().toCharArray();
     }
 
-    // Get the specified type, defaulting to JKS if not specified
     String trustStoreType = connectionContext.getSSLTrustStoreType();
-    if (trustStoreType == null || trustStoreType.isEmpty()) {
-      trustStoreType = "JKS"; // Default to JKS if not specified
-    }
 
     try (FileInputStream trustStoreStream = new FileInputStream(trustStorePath)) {
       LOGGER.info("Loading trust store as type: " + trustStoreType);
