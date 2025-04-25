@@ -125,7 +125,10 @@ public class TelemetryHelper {
         new TelemetryFrontendLog()
             .setFrontendLogEventId(getEventUUID())
             .setContext(getLogContext())
-            .setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
+            .setEntry(
+                new FrontendLogEntry()
+                    .setSqlDriverLog(
+                        telemetryEvent)); // todo : add logEntry connection details here
     TelemetryClientFactory.getInstance()
         .getTelemetryClient(connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
         .exportEvent(telemetryFrontendLog);

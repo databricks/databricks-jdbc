@@ -89,7 +89,7 @@ final class DatabricksThriftAccessor {
 
   @SuppressWarnings("rawtypes")
   TBase getThriftResponse(TBase request) throws DatabricksSQLException {
-    LOGGER.debug(String.format("Fetching thrift response for request {%s}", request.toString()));
+    LOGGER.debug("Fetching thrift response for request {}", request.toString());
     try {
       if (request instanceof TOpenSessionReq) {
         return getThriftClient().OpenSession((TOpenSessionReq) request);
@@ -301,8 +301,9 @@ final class DatabricksThriftAccessor {
       if (Arrays.asList(TStatusCode.ERROR_STATUS, TStatusCode.INVALID_HANDLE_STATUS)
           .contains(response.status.statusCode)) {
         LOGGER.error(
-            "Received error response {%s} from Thrift Server for request {%s}",
-            response, request.toString());
+            "Received error response {} from Thrift Server for request {}",
+            response,
+            request.toString());
         throw new DatabricksSQLException(response.status.errorMessage, response.status.sqlState);
       }
     } catch (DatabricksSQLException | TException e) {
@@ -331,7 +332,7 @@ final class DatabricksThriftAccessor {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-    LOGGER.debug("Operation handle {%s}", operationHandle);
+    LOGGER.debug("Operation handle {}", operationHandle);
     TGetOperationStatusReq request =
         new TGetOperationStatusReq()
             .setOperationHandle(operationHandle)
@@ -571,7 +572,7 @@ final class DatabricksThriftAccessor {
 
     if (!response.isSet(operationHandleField) || isErrorStatusCode(status)) {
       // if the operationHandle has not been set, it is an error from the server.
-      LOGGER.error("Error thrift response {%s}", response);
+      LOGGER.error("Error thrift response {}", response);
       throw new DatabricksSQLException(status.getErrorMessage(), status.getSqlState());
     }
   }

@@ -205,7 +205,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public void setTransactionIsolation(int level) throws SQLException {
-    LOGGER.debug("public void setTransactionIsolation(int level = {})");
+    LOGGER.debug("public void setTransactionIsolation(int level = {})", level);
     throwExceptionIfConnectionIsClosed();
     if (level != Connection.TRANSACTION_READ_UNCOMMITTED) {
       throw new DatabricksSQLFeatureNotSupportedException(
@@ -671,7 +671,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
         session.setSchema(rs.getString(2));
       }
     } catch (SQLException e) {
-      LOGGER.error("Error fetching current schema and catalog", e);
+      LOGGER.error(e, "Error fetching current schema and catalog");
       throw new DatabricksSQLException(
           "Error fetching current schema and catalog",
           DatabricksDriverErrorCode.CATALOG_OR_SCHEMA_FETCH_ERROR);

@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.exception.DatabricksDriverException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -51,7 +53,7 @@ public class MetadataParser {
    *
    * @param metadata the metadata string representing a MAP type
    * @return a string formatted as "keyType, valueType"
-   * @throws IllegalArgumentException if the MAP metadata format is invalid
+   * @throws DatabricksDriverException if the MAP metadata format is invalid
    */
   public static String parseMapMetadata(String metadata) {
     metadata = metadata.substring("MAP<".length(), metadata.length() - 1).trim();
@@ -74,7 +76,9 @@ public class MetadataParser {
     }
 
     if (splitIndex == -1) {
-      throw new IllegalArgumentException("Invalid MAP metadata: " + metadata);
+      throw new DatabricksDriverException(
+          "Invalid MAP metadata: " + metadata,
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
     }
 
     String keyType = cleanTypeName(metadata.substring(0, splitIndex).trim());

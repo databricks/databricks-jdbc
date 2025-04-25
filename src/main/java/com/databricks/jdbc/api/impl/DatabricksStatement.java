@@ -12,6 +12,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
@@ -526,7 +527,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @VisibleForTesting
   static boolean shouldReturnResultSet(String query) {
     if (query == null || query.trim().isEmpty()) {
-      throw new IllegalArgumentException("Query cannot be null or empty");
+      throw new DatabricksDriverException(
+          "Query cannot be null or empty", DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
 
     // Trim and remove comments and whitespaces.

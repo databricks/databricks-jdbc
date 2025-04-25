@@ -185,7 +185,7 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public void setCatalog(String catalog) {
-    LOGGER.debug(String.format("public void setCatalog(String catalog = {%s})", catalog));
+    LOGGER.debug("public void setCatalog(String catalog = {})", catalog);
     this.catalog = catalog;
   }
 
@@ -197,7 +197,7 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public void setSchema(String schema) {
-    LOGGER.debug(String.format("public void setSchema(String schema = {%s})", schema));
+    LOGGER.debug("public void setSchema(String schema = {})", schema);
     this.schema = schema;
   }
 
@@ -219,9 +219,7 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public void setSessionConfig(String name, String value) {
-    LOGGER.debug(
-        String.format(
-            "public void setSessionConfig(String name = {%s}, String value = {%s})", name, value));
+    LOGGER.debug("public void setSessionConfig(String name = {}, String value = {})", name, value);
     sessionConfigs.put(name, value);
   }
 
@@ -233,7 +231,7 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public String getConfigValue(String name) {
-    LOGGER.debug(String.format("public String getConfigValue(String name = {%s})", name));
+    LOGGER.debug("public String getConfigValue(String name = {})", name);
     return sessionConfigs.getOrDefault(
         name.toLowerCase(), clientInfoProperties.getOrDefault(name.toLowerCase(), null));
   }

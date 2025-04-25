@@ -71,7 +71,7 @@ public class TelemetryClientFactory {
       try {
         client.close();
       } catch (Exception e) {
-        logger.debug(String.format("Caught error while closing %s. Error: %s", clientType, e));
+        logger.debug("Caught error while closing {}. Error: {}", clientType, e);
       }
     }
   }

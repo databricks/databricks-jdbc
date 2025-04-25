@@ -70,10 +70,12 @@ public class DriverUtil {
     } catch (IOException e) {
       String errMsg =
           String.format(
-              "Error initializing the Java Util Logger (JUL) with error: {%s}", e.getMessage());
+              "Error initializing the Java Util Logger (JUL) with error: {}", e.getMessage());
       LOGGER.error(e, errMsg);
       throw new DatabricksSQLException(
-          errMsg, e, DatabricksDriverErrorCode.LOGGING_INITIALISATION_ERROR);
+          "Error initializing the Java Util Logger (JUL) with error: " + e.getMessage(),
+          e,
+          DatabricksDriverErrorCode.LOGGING_INITIALISATION_ERROR);
     }
   }
 

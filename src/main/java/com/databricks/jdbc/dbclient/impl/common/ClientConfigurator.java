@@ -143,7 +143,7 @@ public class ClientConfigurator {
         .setClientSecret(connectionContext.getClientSecret())
         .setOAuthRedirectUrl(redirectUrl);
 
-    LOGGER.info("Using OAuth redirect URL: %s", redirectUrl);
+    LOGGER.info("Using OAuth redirect URL: {}", redirectUrl);
 
     if (!databricksConfig.isAzure()) {
       databricksConfig.setScopes(connectionContext.getOAuthScopesForU2M());
@@ -171,11 +171,13 @@ public class ClientConfigurator {
         portsToTry.add(startPort + i);
       }
       LOGGER.debug(
-          "Single port provided (%s), will try ports %s through %s",
-          startPort, startPort, startPort + maxAttempts - 1);
+          "Single port provided {}, will try ports {} through {}",
+          startPort,
+          startPort,
+          startPort + maxAttempts - 1);
     } else {
       portsToTry = initialPorts;
-      LOGGER.debug("Multiple ports provided, will try: %s", portsToTry);
+      LOGGER.debug("Multiple ports provided, will try: {}", portsToTry);
     }
 
     // Try each port in the list
@@ -183,11 +185,11 @@ public class ClientConfigurator {
       if (isPortAvailable(port)) {
         return port;
       }
-      LOGGER.debug("Port %s is not available, trying next port", port);
+      LOGGER.debug("Port {} is not available, trying next port", port);
     }
 
     // No available ports found
-    LOGGER.error("No available ports found among: %s", portsToTry);
+    LOGGER.error("No available ports found among: {}", portsToTry);
     throw new DatabricksException(
         "No available port found for OAuth redirect URL. Tried ports: " + portsToTry);
   }

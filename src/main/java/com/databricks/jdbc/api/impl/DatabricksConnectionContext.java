@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -694,8 +695,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     } catch (NumberFormatException e) {
       String errorMessage =
           String.format("Invalid port format in OAuth2RedirectUrlPort: %s.", portsStr);
-      LOGGER.error(errorMessage, e);
-      throw new IllegalArgumentException(errorMessage);
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksDriverException(
+          errorMessage, DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
   }
 

@@ -49,7 +49,7 @@ public class DatabricksHttpClientFactory {
       try {
         instance.close();
       } catch (IOException e) {
-        LOGGER.debug(String.format("Caught error while closing http client. Error %s", e));
+        LOGGER.debug("Caught error while closing http client. Error {}", e);
       }
     }
   }
