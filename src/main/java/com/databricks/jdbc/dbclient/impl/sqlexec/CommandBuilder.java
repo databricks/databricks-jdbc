@@ -12,6 +12,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 public class CommandBuilder {
 
@@ -164,6 +165,20 @@ public class CommandBuilder {
     return String.format(SHOW_PRIMARY_KEYS_SQL, catalogName, schemaName, tableName);
   }
 
+  private String fetchForeignKeysSQL() throws SQLException {
+    String contextString =
+        String.format(
+            "Building command for fetching foreign keys. Catalog %s, Schema %s, Table %s. With session context: %s",
+            catalogName, schemaName, tableName, sessionContext);
+    LOGGER.debug(contextString);
+    Map<String, String> hashMap = new HashMap<>();
+    hashMap.put(CATALOG, catalogName);
+    hashMap.put(SCHEMA, schemaName);
+    hashMap.put(TABLE, tableName);
+    throwErrorIfNull(hashMap, contextString);
+    return String.format(SHOW_FOREIGN_KEYS_SQL, catalogName, schemaName, tableName);
+  }
+
   public String getSQLString(CommandName command) throws SQLException {
     switch (command) {
       case LIST_CATALOGS:
@@ -180,6 +195,8 @@ public class CommandBuilder {
         return fetchFunctionsSQL();
       case LIST_COLUMNS:
         return fetchColumnsSQL();
+      case LIST_FOREIGN_KEYS:
+        return fetchForeignKeysSQL();
     }
     throw new DatabricksSQLFeatureNotSupportedException(
         String.format("Invalid command issued %s. Context: %s", command, sessionContext));

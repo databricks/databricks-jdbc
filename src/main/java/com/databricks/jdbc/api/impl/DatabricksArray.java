@@ -1,8 +1,11 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.exception.DatabricksDriverException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.sql.Array;
 import java.sql.Date;
@@ -77,8 +80,13 @@ public class DatabricksArray implements Array {
           convertedElements[i] = convertValue(element, elementType);
         }
       } catch (Exception e) {
-        LOGGER.error("Error converting element at index {}: {}", i, e.getMessage(), e);
-        throw new IllegalArgumentException("Error converting elements", e);
+        String errorMessage =
+            String.format("Error converting element at index %s: %s", i, e.getMessage());
+        LOGGER.error(errorMessage, e);
+        throw new DatabricksDriverException(
+            "Error converting elements",
+            e,
+            DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
       }
     }
     return convertedElements;
@@ -126,9 +134,11 @@ public class DatabricksArray implements Array {
           return value.toString();
       }
     } catch (Exception e) {
-      LOGGER.error("Error converting simple value of type {}: {}", type, e.getMessage(), e);
-      throw new IllegalArgumentException(
-          "Failed to convert value " + value + " to type " + type, e);
+      String errorMessage =
+          String.format("Error converting simple value of type %s: %s", type, e.getMessage());
+      LOGGER.error(String.format("%s, value : %s", errorMessage, value), e);
+      throw new DatabricksDriverException(
+          errorMessage, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
     }
   }
 
@@ -176,27 +186,28 @@ public class DatabricksArray implements Array {
   @Override
   public java.sql.ResultSet getResultSet() throws SQLException {
     LOGGER.error("getResultSet() not implemented");
-    throw new UnsupportedOperationException("getResultSet() not implemented");
+    throw new DatabricksSQLFeatureNotSupportedException("getResultSet() not implemented");
   }
 
   @Override
   public java.sql.ResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
     LOGGER.error("getResultSet(Map<String, Class<?>> map) not implemented");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "getResultSet(Map<String, Class<?>> map) not implemented");
   }
 
   @Override
   public java.sql.ResultSet getResultSet(long index, int count) throws SQLException {
     LOGGER.error("getResultSet(long index, int count) not implemented");
-    throw new UnsupportedOperationException("getResultSet(long index, int count) not implemented");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "getResultSet(long index, int count) not implemented");
   }
 
   @Override
   public java.sql.ResultSet getResultSet(long index, int count, Map<String, Class<?>> map)
       throws SQLException {
     LOGGER.error("getResultSet(long index, int count, Map<String, Class<?>> map) not implemented");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "getResultSet(long index, int count, Map<String, Class<?>> map) not implemented");
   }
 

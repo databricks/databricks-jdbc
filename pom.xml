@@ -54,7 +54,7 @@
     <httpclient.version>4.5.14</httpclient.version>
     <commons-configuration.version>2.10.1</commons-configuration.version>
     <commons-io.version>2.14.0</commons-io.version>
-    <databricks-sdk.version>0.44.0</databricks-sdk.version>
+    <databricks-sdk.version>0.46.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
     <lz4-compression.version>1.8.0</lz4-compression.version>

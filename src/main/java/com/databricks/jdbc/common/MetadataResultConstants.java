@@ -9,6 +9,7 @@ import java.util.Map;
 
 public class MetadataResultConstants {
   public static String NULL_STRING = "NULL";
+  public static final String PARSE_SYNTAX_ERROR_SQL_STATE = "42601";
   public static final String[] DEFAULT_TABLE_TYPES = {"TABLE", "VIEW", "SYSTEM TABLE"};
   public static final ResultColumn CATALOG_COLUMN =
       new ResultColumn("TABLE_CAT", "catalogName", Types.VARCHAR);
@@ -115,29 +116,29 @@ public class MetadataResultConstants {
       new ResultColumn("DECIMAL_DIGITS", "decimalDigits", Types.SMALLINT);
   private static final ResultColumn PSEUDO_COLUMN =
       new ResultColumn("PSEUDO_COLUMN", "pseudoColumn", Types.SMALLINT);
-  private static final ResultColumn PKTABLE_CAT =
+  public static final ResultColumn PKTABLE_CAT =
       new ResultColumn("PKTABLE_CAT", "pktableCat", Types.VARCHAR);
-  private static final ResultColumn PKTABLE_SCHEM =
+  public static final ResultColumn PKTABLE_SCHEM =
       new ResultColumn("PKTABLE_SCHEM", "pktableSchem", Types.VARCHAR);
-  private static final ResultColumn PKTABLE_NAME =
+  public static final ResultColumn PKTABLE_NAME =
       new ResultColumn("PKTABLE_NAME", "pktableName", Types.VARCHAR);
-  private static final ResultColumn PKCOLUMN_NAME =
+  public static final ResultColumn PKCOLUMN_NAME =
       new ResultColumn("PKCOLUMN_NAME", "pkcolumnName", Types.VARCHAR);
-  private static final ResultColumn FKTABLE_CAT =
+  public static final ResultColumn FKTABLE_CAT =
       new ResultColumn("FKTABLE_CAT", "fktableCat", Types.VARCHAR);
-  private static final ResultColumn FKTABLE_SCHEM =
+  public static final ResultColumn FKTABLE_SCHEM =
       new ResultColumn("FKTABLE_SCHEM", "fktableSchem", Types.VARCHAR);
-  private static final ResultColumn FKTABLE_NAME =
+  public static final ResultColumn FKTABLE_NAME =
       new ResultColumn("FKTABLE_NAME", "fktableName", Types.VARCHAR);
-  private static final ResultColumn FKCOLUMN_NAME =
+  public static final ResultColumn FKCOLUMN_NAME =
       new ResultColumn("FKCOLUMN_NAME", "fkcolumnName", Types.VARCHAR);
-  private static final ResultColumn UPDATE_RULE =
+  public static final ResultColumn UPDATE_RULE =
       new ResultColumn("UPDATE_RULE", "updateRule", Types.SMALLINT);
-  private static final ResultColumn DELETE_RULE =
+  public static final ResultColumn DELETE_RULE =
       new ResultColumn("DELETE_RULE", "deleteRule", Types.SMALLINT);
-  private static final ResultColumn FK_NAME = new ResultColumn("FK_NAME", "fkName", Types.VARCHAR);
-  private static final ResultColumn PK_NAME = new ResultColumn("PK_NAME", "pkName", Types.VARCHAR);
-  private static final ResultColumn DEFERRABILITY =
+  public static final ResultColumn FK_NAME = new ResultColumn("FK_NAME", "fkName", Types.VARCHAR);
+  public static final ResultColumn PK_NAME = new ResultColumn("PK_NAME", "pkName", Types.VARCHAR);
+  public static final ResultColumn DEFERRABILITY =
       new ResultColumn("DEFERRABILITY", "deferrability", Types.SMALLINT);
   private static final ResultColumn SUPERTYPE_CAT =
       new ResultColumn("SUPERTYPE_CAT", "supertypeCat", Types.VARCHAR);
@@ -239,7 +240,7 @@ public class MetadataResultConstants {
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
-          COLUMN_NAME_COLUMN,
+          COL_NAME_COLUMN,
           KEY_SEQUENCE_COLUMN,
           PRIMARY_KEY_NAME_COLUMN);
 
@@ -500,7 +501,7 @@ public class MetadataResultConstants {
               CommandName.LIST_PRIMARY_KEYS,
               List.of(
                   MetadataResultConstants.TABLE_NAME_COLUMN,
-                  MetadataResultConstants.COLUMN_NAME_COLUMN,
+                  MetadataResultConstants.COL_NAME_COLUMN,
                   MetadataResultConstants.KEY_SEQUENCE_COLUMN));
           put(
               CommandName.LIST_SCHEMAS,

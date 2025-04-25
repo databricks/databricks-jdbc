@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Time;
@@ -201,7 +202,7 @@ public class DatabricksMapTest {
 
   /**
    * Test the constructor with invalid key type (providing a non-convertible key). Expects
-   * IllegalArgumentException.
+   * DatabricksDriverException.
    */
   @Test
   public void testConstructor_WithInvalidKeyType_ShouldThrowException() throws SQLException {
@@ -213,10 +214,10 @@ public class DatabricksMapTest {
     // Mock MetadataParser.parseMapMetadata to return "INT,STRING"
     mockParseMapMetadata(metadata, "INT", "STRING");
 
-    // Expecting IllegalArgumentException due to key conversion failure
-    IllegalArgumentException exception =
+    // Expecting DatabricksDriverException due to key conversion failure
+    DatabricksDriverException exception =
         assertThrows(
-            IllegalArgumentException.class,
+            DatabricksDriverException.class,
             () -> {
               // Cast to Map<Integer, String> using raw types and suppression
               @SuppressWarnings("unchecked")
@@ -224,7 +225,7 @@ public class DatabricksMapTest {
               DatabricksMap<Integer, String> databricksMap =
                   new DatabricksMap<>(castedMap, metadata);
             },
-            "Constructor should throw IllegalArgumentException when key conversion fails");
+            "Constructor should throw DatabricksDriverException when key conversion fails");
 
     assertTrue(
         exception.getMessage().contains("Invalid metadata or map structure"),
