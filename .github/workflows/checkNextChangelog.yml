@@ -34,7 +34,7 @@ jobs:
           
           # Store the sanitized list of files in a temporary file to avoid env variable issues
           echo "$sanitized_files" > modified_files.txt
-          echo "#sanitized_files"
+          echo "$sanitized_files"
 
       - name: Fetch PR message
         id: pr-message
