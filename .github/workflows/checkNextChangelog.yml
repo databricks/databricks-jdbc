@@ -2,7 +2,7 @@ name: Check for NEXT_CHANGELOG.md Changes
 
 on:
   pull_request_target:
-    branches: [ main ]
+    # branches: [ main ]
 
 permissions:
   contents: read
