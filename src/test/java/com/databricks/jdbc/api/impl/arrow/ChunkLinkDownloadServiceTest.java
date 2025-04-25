@@ -206,6 +206,9 @@ class ChunkLinkDownloadServiceTest {
         createExternalLink("test-url", 5L, Collections.emptyMap(), "2025-02-16T00:00:00Z");
     ExternalLink linkForChunkIndex_6 =
         createExternalLink("test-url", 6L, Collections.emptyMap(), "2025-02-16T00:00:00Z");
+
+    ArrowResultChunk mockChunk = mock(ArrowResultChunk.class);
+    when(mockChunkMap.get(anyLong())).thenReturn(mockChunk);
     when(mockSession.getDatabricksClient()).thenReturn(mockClient);
     // Mock the links for the first batch. The link futures for both chunks will be completed at the
     // same time
