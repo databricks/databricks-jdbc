@@ -31,25 +31,37 @@ jobs:
 
       - name: Verify NEXT_CHANGELOG.md was modified or PR message contains NO_CHANGELOG=true
         id: verify-changelog
-        run: |
-          PR_BODY="${{ github.event.pull_request.body }}"
-          echo 'PR body:' "$PR_BODY"
-          
-          if ! echo "$MODIFIED_FILES" | grep -q "NEXT_CHANGELOG.md"; then
-            NO_CHANGELOG_FLAG=$(echo "$PR_BODY" | grep -c "NO_CHANGELOG=true" || true)
-            if [ "$NO_CHANGELOG_FLAG" -gt 0 ]; then
-              echo "NO_CHANGELOG=true found in PR body."
-              echo "CHANGELOG_NEEDED=false" >> $GITHUB_ENV
-              exit 0
-            else
-              echo "ERROR: NEXT_CHANGELOG.md not modified and NO_CHANGELOG=true not present."
-              echo "CHANGELOG_NEEDED=true" >> $GITHUB_ENV
-              exit 1
-            fi
-          else
-            echo "✅ NEXT_CHANGELOG.md was updated."
-            echo "CHANGELOG_NEEDED=false" >> $GITHUB_ENV
-          fi
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Get the latest PR data, including the body
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            
+            const PR_BODY = pullRequest.body || '';
+            console.log('Latest PR body:', PR_BODY);
+            
+            // Check if NEXT_CHANGELOG.md is modified
+            const modifiedFiles = process.env.MODIFIED_FILES || '';
+            const changelogModified = modifiedFiles.includes('NEXT_CHANGELOG.md');
+            
+            if (!changelogModified) {
+              if (PR_BODY.includes('NO_CHANGELOG=true')) {
+                console.log("NO_CHANGELOG=true found in PR body.");
+                core.exportVariable('CHANGELOG_NEEDED', 'false');
+              } else {
+                console.log("ERROR: NEXT_CHANGELOG.md not modified and NO_CHANGELOG=true not present.");
+                core.exportVariable('CHANGELOG_NEEDED', 'true');
+                core.setFailed("NEXT_CHANGELOG.md not modified and NO_CHANGELOG=true not present in PR body.");
+              }
+            } else {
+              console.log("✅ NEXT_CHANGELOG.md was updated.");
+              core.exportVariable('CHANGELOG_NEEDED', 'false');
+            }
 
       - name: Comment on PR with instructions if needed
         if: failure() && env.CHANGELOG_NEEDED == 'true'
