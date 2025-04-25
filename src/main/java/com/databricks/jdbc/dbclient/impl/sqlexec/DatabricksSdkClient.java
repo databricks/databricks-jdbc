@@ -93,9 +93,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
       throws DatabricksSQLException {
     // TODO (PECO-1460): Handle sessionConf in public session API
     LOGGER.debug(
-        String.format(
-            "public Session createSession(String warehouseId = {%s}, String catalog = {%s}, String schema = {%s}, Map<String, String> sessionConf = {%s})",
-            ((Warehouse) warehouse).getWarehouseId(), catalog, schema, sessionConf));
+        "public Session createSession(String warehouseId = {}, String catalog = {}, String schema = {}, Map<String, String> sessionConf = {})",
+        ((Warehouse) warehouse).getWarehouseId(),
+        catalog,
+        schema,
+        sessionConf);
     CreateSessionRequest request =
         new CreateSessionRequest().setWarehouseId(((Warehouse) warehouse).getWarehouseId());
     if (catalog != null) {
@@ -131,9 +133,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   @Override
   public void deleteSession(ImmutableSessionInfo sessionInfo) throws DatabricksSQLException {
-    LOGGER.debug(
-        String.format(
-            "public void deleteSession(String sessionId = {%s})", sessionInfo.sessionId()));
+    LOGGER.debug("public void deleteSession(String sessionId = {})", sessionInfo.sessionId());
     DeleteSessionRequest request =
         new DeleteSessionRequest()
             .setSessionId(sessionInfo.sessionId())
@@ -244,16 +244,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
       }
       responseState = response.getStatus().getState();
       LOGGER.debug(
-          String.format(
-              "Executed sql [%s] with status [%s] with retry count [%d]",
-              sql, responseState, pollCount));
+          "Executed sql {} with status {} with retry count {}", sql, responseState, pollCount);
       pollCount++;
     }
     long executionEndTime = Instant.now().toEpochMilli();
     LOGGER.debug(
-        String.format(
-            "Executed sql [%s] with status [%s], total time taken [%s] and pollCount [%s]",
-            sql, responseState, (executionEndTime - executionStartTime), pollCount));
+        "Executed sql {} with status {}, total time taken {} and pollCount {}",
+        sql,
+        responseState,
+        (executionEndTime - executionStartTime),
+        pollCount);
     if (responseState != StatementState.SUCCEEDED) {
       handleFailedExecution(response, statementId, sql);
     }

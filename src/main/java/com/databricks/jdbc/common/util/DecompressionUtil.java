@@ -25,7 +25,7 @@ public class DecompressionUtil {
     } catch (IOException e) {
       String errorMessage =
           String.format("Unable to de-compress LZ4 Frame compressed result %s", context);
-      LOGGER.error(e, "Unable to de-compress LZ4 Frame compressed result {}", context);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksParsingException(
           errorMessage, e, DatabricksDriverErrorCode.DECOMPRESSION_ERROR);
     }

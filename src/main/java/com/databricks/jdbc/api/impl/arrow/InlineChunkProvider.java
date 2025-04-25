@@ -44,7 +44,11 @@ public class InlineChunkProvider implements ChunkProvider {
     this.currentChunkIndex = -1;
     this.totalRows = 0;
     ByteArrayInputStream byteStream = initializeByteStream(resultsResp, session, parentStatement);
-    arrowResultChunk = ArrowResultChunk.builder().withInputStream(byteStream, totalRows).build();
+    arrowResultChunk =
+        ArrowResultChunk.builder()
+            .withInputStream(byteStream, totalRows)
+            .withStatementId(parentStatement.getStatementId())
+            .build();
   }
 
   /**
