@@ -59,9 +59,9 @@ public class ConfiguratorUtils {
     // If self-signed certificates are allowed, use a trust-all socket factory
     if (connectionContext.allowSelfSignedCerts()) {
       LOGGER.warn(
-              "Self-signed certificates are allowed. Please only use this parameter (AllowSelfSignedCerts) when you're sure of what you're doing. This is not recommended for production use.");
+          "Self-signed certificates are allowed. Please only use this parameter (AllowSelfSignedCerts) when you're sure of what you're doing. This is not recommended for production use.");
       return new PoolingHttpClientConnectionManager(
-              SocketFactoryUtil.getTrustAllSocketFactoryRegistry());
+          SocketFactoryUtil.getTrustAllSocketFactoryRegistry());
     }
 
     // For standard SSL configuration, create a custom socket factory registry
@@ -78,7 +78,7 @@ public class ConfiguratorUtils {
    * @throws DatabricksHttpException If there is an error during configuration.
    */
   public static Registry<ConnectionSocketFactory> createConnectionSocketFactoryRegistry(
-          IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
+      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
 
     // First check if a custom trust store is specified
     if (connectionContext.getSSLTrustStore() != null) {
@@ -96,13 +96,13 @@ public class ConfiguratorUtils {
    * @throws DatabricksHttpException If there is an error setting up the trust store.
    */
   private static Registry<ConnectionSocketFactory> createRegistryWithCustomTrustStore(
-          IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
+      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
 
     try {
       KeyStore trustStore = loadTruststoreOrNull(connectionContext);
       if (trustStore == null) {
         String errorMessage =
-                "Specified trust store could not be loaded: " + connectionContext.getSSLTrustStore();
+            "Specified trust store could not be loaded: " + connectionContext.getSSLTrustStore();
         handleError(errorMessage, new IOException(errorMessage));
       }
 
@@ -110,19 +110,19 @@ public class ConfiguratorUtils {
       Set<TrustAnchor> trustAnchors = getTrustAnchorsFromTrustStore(trustStore);
       if (trustAnchors.isEmpty()) {
         String errorMessage =
-                "Custom trust store contains no trust anchors. Certificate validation will fail.";
+            "Custom trust store contains no trust anchors. Certificate validation will fail.";
         handleError(errorMessage, new CertificateException(errorMessage));
       }
 
       LOGGER.info("Using custom trust store: " + connectionContext.getSSLTrustStore());
 
       return createRegistryFromTrustAnchors(
-              trustAnchors,
-              connectionContext,
-              "custom trust store: " + connectionContext.getSSLTrustStore());
+          trustAnchors,
+          connectionContext,
+          "custom trust store: " + connectionContext.getSSLTrustStore());
     } catch (Exception e) {
       handleError(
-              "Error while setting up custom trust store: " + connectionContext.getSSLTrustStore(), e);
+          "Error while setting up custom trust store: " + connectionContext.getSSLTrustStore(), e);
     }
     return null;
   }
@@ -338,7 +338,7 @@ public class ConfiguratorUtils {
    * @throws DatabricksHttpException If there is an error during loading.
    */
   public static KeyStore loadTruststoreOrNull(IDatabricksConnectionContext connectionContext)
-          throws DatabricksHttpException {
+      throws DatabricksHttpException {
     String trustStorePath = connectionContext.getSSLTrustStore();
     if (trustStorePath == null) {
       return null;
@@ -350,7 +350,7 @@ public class ConfiguratorUtils {
       String errorMessage = "Specified trust store file does not exist: " + trustStorePath;
       LOGGER.error(errorMessage);
       throw new DatabricksHttpException(
-              errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+          errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
     }
 
     char[] password = null;
@@ -372,15 +372,15 @@ public class ConfiguratorUtils {
       return trustStore;
     } catch (Exception e) {
       String errorMessage =
-              "Failed to load trust store: "
-                      + trustStorePath
-                      + " with type "
-                      + trustStoreType
-                      + ": "
-                      + e.getMessage();
+          "Failed to load trust store: "
+              + trustStorePath
+              + " with type "
+              + trustStoreType
+              + ": "
+              + e.getMessage();
       LOGGER.error(errorMessage);
       throw new DatabricksHttpException(
-              errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
     }
   }
 
