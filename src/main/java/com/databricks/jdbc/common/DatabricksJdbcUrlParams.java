@@ -12,7 +12,7 @@ public enum DatabricksJdbcUrlParams {
   PASSWORD("password", "Password for authentication"),
   CLIENT_ID("OAuth2ClientId", "OAuth2 Client ID"),
   CLIENT_SECRET("OAuth2Secret", "OAuth2 Client Secret"),
-  AUTH_MECH("authmech", "Authentication mechanism", true),
+  AUTH_MECH("authmech", "Authentication mechanism", "3", true),
   AUTH_ACCESS_TOKEN("Auth_AccessToken", "OAuth2 Access Token"),
   CONN_CATALOG("conncatalog", "Connection catalog"),
   CONN_SCHEMA("connschema", "Connection schema"),
@@ -85,9 +85,17 @@ public enum DatabricksJdbcUrlParams {
   ALLOWED_VOLUME_INGESTION_PATHS("VolumeOperationAllowedLocalPaths", ""),
   ALLOWED_STAGING_INGESTION_PATHS("StagingAllowedLocalPaths", ""),
   UC_INGESTION_RETRIABLE_HTTP_CODE(
-      "UCIngestionRetriableHttpCode", "Retriable HTTP codes for UC Ingestion", "408,502,503,504"),
+      "UCIngestionRetriableHttpCode", "Retryable HTTP codes for UC Ingestion", "408,502,503,504"),
+  VOLUME_OPERATION_RETRYABLE_HTTP_CODE(
+      "VolumeOperationRetryableHttpCode",
+      "Retryable HTTP codes for UC Ingestion",
+      "408,502,503,504"),
   UC_INGESTION_RETRY_TIMEOUT(
       "UCIngestionRetryTimeout",
+      "The retry timeout in minutes for UC Ingestion HTTP requests.",
+      "15"),
+  VOLUME_OPERATION_RETRY_TIMEOUT(
+      "VolumeOperationRetryTimeout",
       "The retry timeout in minutes for UC Ingestion HTTP requests.",
       "15"),
   ENABLE_REQUEST_TRACING("EnableRequestTracing", "flag to enable request tracing", "0"),
@@ -98,6 +106,9 @@ public enum DatabricksJdbcUrlParams {
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",
       "0"),
+  ALLOW_SELF_SIGNED_CERTS("AllowSelfSignedCerts", "Allow self signed certificates", "0"),
+
+  USE_SYSTEM_TRUST_STORE("UseSystemTrustStore", "Use system trust store for SSL", "0"),
   ROWS_FETCHED_PER_BLOCK(
       "RowsFetchedPerBlock",
       "The maximum number of rows that a query returns at a time.",
@@ -109,7 +120,9 @@ public enum DatabricksJdbcUrlParams {
       "DefaultStringColumnLength",
       "Maximum number of characters that can be contained in STRING columns",
       "255"),
-  SOCKET_TIMEOUT("socketTimeout", "Socket timeout in seconds", "900");
+  SOCKET_TIMEOUT("socketTimeout", "Socket timeout in seconds", "900"),
+  TOKEN_CACHE_PASS_PHRASE("TokenCachePassPhrase", "Pass phrase to use for OAuth U2M Token Cache"),
+  ENABLE_TOKEN_CACHE("EnableTokenCache", "Enable caching OAuth tokens", "1");
 
   private final String paramName;
   private final String defaultValue;

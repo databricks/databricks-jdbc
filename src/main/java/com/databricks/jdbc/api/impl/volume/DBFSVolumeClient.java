@@ -16,6 +16,7 @@ import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -23,8 +24,10 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.filesystem.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
+import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.error.platform.NotFound;
+import com.databricks.sdk.core.http.Request;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.IOException;
@@ -44,19 +47,23 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   private VolumeInputStream volumeInputStream = null;
   private long volumeStreamContentLength = -1L;
   final WorkspaceClient workspaceClient;
+  final ApiClient apiClient;
   private final String allowedVolumeIngestionPaths;
 
   @VisibleForTesting
   public DBFSVolumeClient(WorkspaceClient workspaceClient) {
     this.connectionContext = null;
     this.workspaceClient = workspaceClient;
+    this.apiClient = workspaceClient.apiClient();
     this.databricksHttpClient = null;
     this.allowedVolumeIngestionPaths = "";
   }
 
-  public DBFSVolumeClient(IDatabricksConnectionContext connectionContext) {
+  public DBFSVolumeClient(IDatabricksConnectionContext connectionContext)
+      throws DatabricksHttpException {
     this.connectionContext = connectionContext;
     this.workspaceClient = getWorkspaceClientFromConnectionContext(connectionContext);
+    this.apiClient = workspaceClient.apiClient();
     this.databricksHttpClient =
         DatabricksHttpClientFactory.getInstance()
             .getClient(connectionContext, HttpClientType.VOLUME);
@@ -387,7 +394,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   }
 
   WorkspaceClient getWorkspaceClientFromConnectionContext(
-      IDatabricksConnectionContext connectionContext) {
+      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
     ClientConfigurator clientConfigurator = new ClientConfigurator(connectionContext);
     DatabricksThreadContextHolder.setDatabricksConfig(clientConfigurator.getDatabricksConfig());
     return clientConfigurator.getWorkspaceClient();
@@ -403,10 +410,10 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
     CreateUploadUrlRequest request = new CreateUploadUrlRequest(objectPath);
     try {
-      return workspaceClient
-          .apiClient()
-          .POST(CREATE_UPLOAD_URL_PATH, request, CreateUploadUrlResponse.class, JSON_HTTP_HEADERS);
-    } catch (DatabricksException e) {
+      Request req = new Request(Request.POST, CREATE_UPLOAD_URL_PATH, apiClient.serialize(request));
+      req.withHeaders(JSON_HTTP_HEADERS);
+      return apiClient.execute(req, CreateUploadUrlResponse.class);
+    } catch (IOException | DatabricksException e) {
       String errorMessage =
           String.format("Failed to get create upload url response - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
@@ -426,14 +433,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     CreateDownloadUrlRequest request = new CreateDownloadUrlRequest(objectPath);
 
     try {
-      return workspaceClient
-          .apiClient()
-          .POST(
-              CREATE_DOWNLOAD_URL_PATH,
-              request,
-              CreateDownloadUrlResponse.class,
-              JSON_HTTP_HEADERS);
-    } catch (DatabricksException e) {
+      Request req =
+          new Request(Request.POST, CREATE_DOWNLOAD_URL_PATH, apiClient.serialize(request));
+      req.withHeaders(JSON_HTTP_HEADERS);
+      return apiClient.execute(req, CreateDownloadUrlResponse.class);
+    } catch (IOException | DatabricksException e) {
       String errorMessage =
           String.format("Failed to get create download url response - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
@@ -452,10 +456,10 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     CreateDeleteUrlRequest request = new CreateDeleteUrlRequest(objectPath);
 
     try {
-      return workspaceClient
-          .apiClient()
-          .POST(CREATE_DELETE_URL_PATH, request, CreateDeleteUrlResponse.class, JSON_HTTP_HEADERS);
-    } catch (DatabricksException e) {
+      Request req = new Request(Request.POST, CREATE_DELETE_URL_PATH, apiClient.serialize(request));
+      req.withHeaders(JSON_HTTP_HEADERS);
+      return apiClient.execute(req, CreateDeleteUrlResponse.class);
+    } catch (IOException | DatabricksException e) {
       String errorMessage =
           String.format("Failed to get create delete url response - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
@@ -470,10 +474,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         String.format("Entering getListResponse method with parameters : listPath={%s}", listPath));
     ListRequest request = new ListRequest(listPath);
     try {
-      return workspaceClient
-          .apiClient()
-          .GET(LIST_PATH, request, ListResponse.class, JSON_HTTP_HEADERS);
-    } catch (DatabricksException e) {
+      Request req = new Request(Request.GET, LIST_PATH);
+      req.withHeaders(JSON_HTTP_HEADERS);
+      ApiClient.setQuery(req, request);
+      return apiClient.execute(req, ListResponse.class);
+    } catch (IOException | DatabricksException e) {
       String errorMessage = String.format("Failed to get list response - {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksVolumeOperationException(

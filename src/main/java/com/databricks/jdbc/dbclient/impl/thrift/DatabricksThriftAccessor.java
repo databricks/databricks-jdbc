@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
@@ -53,9 +54,10 @@ final class DatabricksThriftAccessor {
   private final boolean enableDirectResults;
   private final int asyncPollIntervalMillis;
   private final int maxRowsPerBlock;
+  private TProtocolVersion serverProtocolVersion = JDBC_THRIFT_VERSION;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
-      throws DatabricksParsingException {
+      throws DatabricksParsingException, DatabricksHttpException {
     this.enableDirectResults = connectionContext.getDirectResultMode();
     this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
     String endPointUrl = connectionContext.getEndpointURL();
@@ -206,7 +208,6 @@ final class DatabricksThriftAccessor {
           new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRowsPerBlock);
       request.setGetDirectResults(directResults);
     }
-
     TExecuteStatementResp response;
     TFetchResultsResp resultSet;
     int timeoutInSeconds =
@@ -373,7 +374,7 @@ final class DatabricksThriftAccessor {
     return databricksConfig;
   }
 
-  private TFetchResultsResp getResultSetResp(
+  TFetchResultsResp getResultSetResp(
       TStatus responseStatus,
       TOperationHandle operationHandle,
       String context,
@@ -388,8 +389,9 @@ final class DatabricksThriftAccessor {
             .setMaxRows(
                 maxRowsPerBlock) // Max number of rows that should be returned in the rowset.
             .setMaxBytes(DEFAULT_BYTE_LIMIT);
-    if (fetchMetadata) {
-      request.setIncludeResultSetMetadata(true);
+    if (fetchMetadata
+        && ProtocolFeatureUtil.supportsResultSetMetadataFromFetch(serverProtocolVersion)) {
+      request.setIncludeResultSetMetadata(true); // fetch metadata if supported
     }
     TFetchResultsResp response;
     try {
@@ -564,13 +566,12 @@ final class DatabricksThriftAccessor {
   private <T extends TBase<T, F>, F extends TFieldIdEnum> void checkResponseForErrors(
       TBase<T, F> response) throws DatabricksSQLException {
     F operationHandleField = response.fieldForId(operationHandleFieldId);
-    if (!response.isSet(operationHandleField)) {
-      throw new DatabricksSQLException(
-          "Operation handle not set", DatabricksDriverErrorCode.INVALID_STATE);
-    }
     F statusField = response.fieldForId(statusFieldId);
     TStatus status = (TStatus) response.getFieldValue(statusField);
-    if (isErrorStatusCode(status.getStatusCode())) {
+
+    if (!response.isSet(operationHandleField) || isErrorStatusCode(status)) {
+      // if the operationHandle has not been set, it is an error from the server.
+      LOGGER.error("Error thrift response {%s}", response);
       throw new DatabricksSQLException(status.getErrorMessage(), status.getSqlState());
     }
   }
@@ -604,7 +605,12 @@ final class DatabricksThriftAccessor {
     return directResults.isSetResultSet() && directResults.isSetResultSetMetadata();
   }
 
-  private boolean isErrorStatusCode(TStatusCode statusCode) {
+  private boolean isErrorStatusCode(TStatus status) {
+    if (status == null || !status.isSetStatusCode()) {
+      LOGGER.error("Status code is not set, marking the response as failed");
+      return true;
+    }
+    TStatusCode statusCode = status.getStatusCode();
     return statusCode == TStatusCode.ERROR_STATUS
         || statusCode == TStatusCode.INVALID_HANDLE_STATUS;
   }
@@ -615,6 +621,10 @@ final class DatabricksThriftAccessor {
 
   private boolean isPendingOperationState(TOperationState state) {
     return state == TOperationState.RUNNING_STATE || state == TOperationState.PENDING_STATE;
+  }
+
+  void setServerProtocolVersion(TProtocolVersion protocolVersion) {
+    serverProtocolVersion = protocolVersion;
   }
 
   private TimeoutHandler getTimeoutHandler(TExecuteStatementResp response, int timeoutInSeconds) {

@@ -4,12 +4,11 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.auth.AzureMSICredentialProvider;
-import com.databricks.jdbc.auth.OAuthRefreshCredentialsProvider;
-import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
+import com.databricks.jdbc.auth.*;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -20,9 +19,13 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
+import com.databricks.sdk.core.oauth.TokenCache;
 import com.databricks.sdk.core.utils.Cloud;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -39,7 +42,8 @@ public class ClientConfigurator {
   private final IDatabricksConnectionContext connectionContext;
   private DatabricksConfig databricksConfig;
 
-  public ClientConfigurator(IDatabricksConnectionContext connectionContext) {
+  public ClientConfigurator(IDatabricksConnectionContext connectionContext)
+      throws DatabricksHttpException {
     this.connectionContext = connectionContext;
     this.databricksConfig = new DatabricksConfig();
     CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
@@ -53,11 +57,59 @@ public class ClientConfigurator {
   }
 
   /**
+   * Returns the path for the token cache file based on host, client ID, and scopes. This creates a
+   * unique cache path using a hash of these parameters.
+   *
+   * @param host The host URL
+   * @param clientId The OAuth client ID
+   * @param scopes The OAuth scopes
+   * @return The path for the token cache file
+   */
+  public static Path getTokenCachePath(String host, String clientId, List<String> scopes) {
+    String userHome = System.getProperty("user.home");
+    Path homeDir = Paths.get(userHome);
+    Path databricksDir = homeDir.resolve(".config/databricks-jdbc/oauth");
+
+    // Create a unique string identifier from the combination of parameters
+    String uniqueIdentifier = createUniqueIdentifier(host, clientId, scopes);
+
+    String filename = "token-cache-" + uniqueIdentifier;
+
+    return databricksDir.resolve(filename);
+  }
+
+  /**
+   * Creates a unique identifier string from the given parameters. Uses a hash function to create a
+   * compact representation.
+   *
+   * @param host The host URL
+   * @param clientId The OAuth client ID
+   * @param scopes The OAuth scopes
+   * @return A unique identifier string
+   */
+  private static String createUniqueIdentifier(String host, String clientId, List<String> scopes) {
+    // Normalize inputs to handle null values
+    host = (host != null) ? host : EMPTY_STRING;
+    clientId = (clientId != null) ? clientId : EMPTY_STRING;
+    scopes = (scopes != null) ? scopes : List.of();
+
+    // Combine all parameters
+    String combined = host + URL_DELIMITER + clientId + URL_DELIMITER + String.join(COMMA, scopes);
+
+    // Create a hash from the combined string
+    int hash = combined.hashCode();
+
+    // Convert to a positive hexadecimal string
+    return Integer.toHexString(hash & 0x7FFFFFFF);
+  }
+
+  /**
    * Setup the SSL configuration in the httpClientBuilder.
    *
    * @param httpClientBuilder The builder to which the SSL configuration should be added.
    */
-  void setupConnectionManager(CommonsHttpClient.Builder httpClientBuilder) {
+  void setupConnectionManager(CommonsHttpClient.Builder httpClientBuilder)
+      throws DatabricksHttpException {
     PoolingHttpClientConnectionManager connManager =
         ConfiguratorUtils.getBaseConnectionManager(connectionContext);
     // Default value is 100 which is consistent with the value in the SDK
@@ -136,18 +188,36 @@ public class ClientConfigurator {
     int redirectPort = findAvailablePort(connectionContext.getOAuth2RedirectUrlPorts());
     String redirectUrl = String.format("http://localhost:%d", redirectPort);
 
+    String host = connectionContext.getHostForOAuth();
+    String clientId = connectionContext.getClientId();
+
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.U2M_AUTH_TYPE)
-        .setHost(connectionContext.getHostForOAuth())
-        .setClientId(connectionContext.getClientId())
+        .setHost(host)
+        .setClientId(clientId)
         .setClientSecret(connectionContext.getClientSecret())
         .setOAuthRedirectUrl(redirectUrl);
 
-    LOGGER.info("Using OAuth redirect URL: {}", redirectUrl);
+    LOGGER.info("Using OAuth redirect URL: %s", redirectUrl);
 
     if (!databricksConfig.isAzure()) {
       databricksConfig.setScopes(connectionContext.getOAuthScopesForU2M());
     }
+
+    TokenCache tokenCache;
+    if (connectionContext.isTokenCacheEnabled()) {
+      if (connectionContext.getTokenCachePassPhrase() == null) {
+        LOGGER.error("No token cache passphrase configured");
+        throw new DatabricksException("No token cache passphrase configured");
+      }
+      Path tokenCachePath = getTokenCachePath(host, clientId, databricksConfig.getScopes());
+      tokenCache =
+          new EncryptedFileTokenCache(tokenCachePath, connectionContext.getTokenCachePassPhrase());
+    } else {
+      tokenCache = new NoOpTokenCache();
+    }
+    CredentialsProvider provider = new ExternalBrowserCredentialsProvider(tokenCache);
+    databricksConfig.setCredentialsProvider(provider).setAuthType(provider.authType());
   }
 
   /**
@@ -171,13 +241,11 @@ public class ClientConfigurator {
         portsToTry.add(startPort + i);
       }
       LOGGER.debug(
-          "Single port provided ({}), will try ports {} through {}",
-          startPort,
-          startPort,
-          startPort + maxAttempts - 1);
+          "Single port provided (%s), will try ports %s through %s",
+          startPort, startPort, startPort + maxAttempts - 1);
     } else {
       portsToTry = initialPorts;
-      LOGGER.debug("Multiple ports provided, will try: {}", portsToTry);
+      LOGGER.debug("Multiple ports provided, will try: %s", portsToTry);
     }
 
     // Try each port in the list
@@ -185,11 +253,11 @@ public class ClientConfigurator {
       if (isPortAvailable(port)) {
         return port;
       }
-      LOGGER.debug("Port {} is not available, trying next port", port);
+      LOGGER.debug("Port %s is not available, trying next port", port);
     }
 
     // No available ports found
-    LOGGER.error("No available ports found among: {}", portsToTry);
+    LOGGER.error("No available ports found among: %s", portsToTry);
     throw new DatabricksException(
         "No available port found for OAuth redirect URL. Tried ports: " + portsToTry);
   }
@@ -231,14 +299,13 @@ public class ClientConfigurator {
 
   /** Setup the OAuth U2M refresh token authentication settings in the databricks config. */
   public void setupU2MRefreshConfig() throws DatabricksParsingException {
-    CredentialsProvider provider =
-        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     databricksConfig
         .setHost(connectionContext.getHostForOAuth())
-        .setAuthType(provider.authType()) // oauth-refresh
-        .setCredentialsProvider(provider)
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret());
+    CredentialsProvider provider =
+        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
+    databricksConfig.setAuthType(provider.authType()).setCredentialsProvider(provider);
   }
 
   /** Setup the OAuth M2M authentication settings in the databricks config. */
