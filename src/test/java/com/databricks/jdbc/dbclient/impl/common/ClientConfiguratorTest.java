@@ -484,7 +484,8 @@ public class ClientConfiguratorTest {
   }
 
   @Test
-  void testSetupU2MConfig_WithoutTokenCache() throws DatabricksParsingException, DatabricksHttpException {
+  void testSetupU2MConfig_WithoutTokenCache()
+      throws DatabricksParsingException, DatabricksHttpException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
