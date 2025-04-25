@@ -61,7 +61,7 @@ Databricks JDBC Driver development, set up a GitHub account. Then:
   ```bash
   git add -A
 
-  git commit -m "Commit Message"
+  git commit -s -m "Commit Message"
   ```
 
 - Push your changes to your GitHub repo.
@@ -120,12 +120,21 @@ Note that when running the repository tests using maven or editor, logs will be 
 
 - We generally follow this [Java Style Guide](https://google.github.io/styleguide/javaguide.html).
 
-## Sign Your Work
+## Developer Certificate of Origin
 
-The sign-off is a simple line at the end of the explanation for the patch. Your signature certifies that you wrote the
-patch or otherwise have the right to pass it on as an open-source patch.
+To contribute to this repository, you must sign off your commits to certify that you have the right to contribute the
+code and that it complies with the open source license.
+
+You can easily do this by adding a "Signed-off-by" line to your commit message to certify your compliance. Please use
+your real name as pseudonymous/anonymous contributions are not accepted.
 
 ```
 Signed-off-by: Holly Smith <holly.smith@email.com>
 Use your real name (sorry, no pseudonyms or anonymous contributions.)
+```
+
+If you set your `user.name` and `user.email` git configs, you can sign your commit automatically with git commit -s:
+
+```
+git commit -s -m "Your commit message"
 ```

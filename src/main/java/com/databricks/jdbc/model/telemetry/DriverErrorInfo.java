@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.telemetry;
 
+import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class DriverErrorInfo {
@@ -17,5 +18,13 @@ public class DriverErrorInfo {
   public DriverErrorInfo setStackTrace(String stackTrace) {
     this.stackTrace = stackTrace;
     return this;
+  }
+
+  @Override
+  public String toString() {
+    return new ToStringer(DriverErrorInfo.class)
+        .add("error_name", errorName)
+        .add("stack_trace", stackTrace)
+        .toString();
   }
 }

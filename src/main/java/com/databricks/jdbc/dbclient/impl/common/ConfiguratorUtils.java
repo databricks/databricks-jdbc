@@ -48,7 +48,6 @@ public class ConfiguratorUtils {
    */
   public static PoolingHttpClientConnectionManager getBaseConnectionManager(
       IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
-
     // For test environments, use a trust-all socket factory
     if (isJDBCTestEnv()) {
       LOGGER.info("Using trust-all socket factory for JDBC test environment");
