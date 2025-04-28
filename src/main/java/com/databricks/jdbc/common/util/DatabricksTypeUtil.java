@@ -198,9 +198,8 @@ public class DatabricksTypeUtil {
   /*
    * Returns default precision and scale based on column type. For string columns, returns the default string col length in precision.
    */
-  public static int[] getBasePrecisionAndScale(int columnType) {
+  public static int[] getBasePrecisionAndScale(int columnType, IDatabricksConnectionContext ctx) {
     if (columnType == Types.VARCHAR || columnType == Types.CHAR) {
-      IDatabricksConnectionContext ctx = DatabricksThreadContextHolder.getConnectionContext();
       return new int[] {ctx.getDefaultStringColumnLength(), 0};
     }
     return new int[] {
