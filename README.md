@@ -1,6 +1,8 @@
 # Databricks JDBC Driver
 
 The Databricks JDBC driver implements the JDBC interface providing connectivity to a Databricks SQL warehouse.
+Please refer to [Databricks documentation](https://docs.databricks.com/aws/en/integrations/jdbc-oss/) for more
+information.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
@@ -72,50 +74,23 @@ Configure standard OAuth client credentials flow:
 AuthMech=11;Auth_Flow=1;OAuth2ClientId=<client_id>;OAuth2Secret=<client_secret>
 ```
 
-##### OAuth with JWT Assertion (Private Key Authentication)
-
-For JWT-based authentication using a private key:
-
-```
-AuthMech=11;Auth_Flow=1;UseJWTAssertion=1;OAuth2ClientId=<client_id>;Auth_JWT_Key_File=<path_to_key>;Auth_KID=<key_id>;Auth_JWT_Alg=RS256
-```
-
 Optional parameters:
-- `Auth_JWT_Key_Passphrase` - If your key file is password-protected
-- `Auth_JWT_Alg` - Supported algorithms: RS256 (default), RS384, RS512, PS256, PS384, PS512, ES256, ES384, ES512
-
-##### OAuth with Refresh Token
-
-For OAuth using a refresh token to obtain new access tokens:
-
-```
-AuthMech=11;Auth_Flow=1;OAuth2ClientId=<client_id>;OAuth2Secret=<client_secret>;OAuthRefreshToken=<refresh_token>
-```
+- `AzureTenantId`: Azure tenant ID for Azure Databricks (default: null). If enabled, the driver will include refreshed
+Azure Active Directory (AAD) Service Principal OAuth tokens with every request.
 
 ##### Browser-Based OAuth
 
-Interactive browser-based OAuth flow:
+Interactive browser-based OAuth flow with PKCE:
 
 ```
-AuthMech=11;Auth_Flow=2;OAuth2ClientId=<client_id>;OAuthDiscoveryURL=<discovery_url>
+AuthMech=11;Auth_Flow=2
 ```
 
 Optional parameters:
-- `OAuth2RedirectUrlPort` - Port for redirect URL (default: 8020)
+- `OAuth2ClientId` - Client ID for OAuth2 (default: databricks-cli)
+- `OAuth2RedirectUrlPort` - Ports for redirect URL (default: 8020)
 - `EnableOIDCDiscovery` - Enable OIDC discovery (default: 1)
-- `Auth_Scope` - OAuth scope (default: all-apis)
-
-#### Azure Managed Service Identity (MSI)
-
-For Azure environments, use Azure Managed Service Identity:
-
-```
-AuthMech=11;Auth_Flow=3
-```
-
-Optional parameters:
-- `azure_workspace_resource_id` - Resource ID of the Azure Databricks workspace
-- `GoogleServiceAccount` - For GCP service account authentication
+- `OAuthDiscoveryURL` - OIDC discovery endpoint (default: /oidc/.well-known/oauth-authorization-server)
 
 ### Logging
 
@@ -132,6 +107,14 @@ Basic test execution:
 
 ```bash
 mvn test
+```
+
+**Note**: Due to a change in JDK 16 that introduced a compatibility issue with the Apache Arrow library used by the JDBC
+driver, runtime errors may occur when using the JDBC driver with JDK 16 or later. To avoid these errors, restart your
+application or driver with the following JVM command option:
+
+```
+--add-opens=java.base/java.nio=org.apache.arrow.memory.core ALL-UNNAMED
 ```
 
 For more detailed information about integration tests and fake services, see [Testing Documentation](./docs/testing.md).
