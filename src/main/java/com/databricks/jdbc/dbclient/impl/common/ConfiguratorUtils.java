@@ -51,7 +51,9 @@ public class ConfiguratorUtils {
 
     if (connectionContext.getSSLTrustStore() == null
         && connectionContext.checkCertificateRevocation()
-        && !connectionContext.acceptUndeterminedCertificateRevocation()) {
+        && !connectionContext.acceptUndeterminedCertificateRevocation()
+        && !connectionContext.useSystemTrustStore()
+        && !connectionContext.allowSelfSignedCerts()) {
       return new PoolingHttpClientConnectionManager();
     }
 
