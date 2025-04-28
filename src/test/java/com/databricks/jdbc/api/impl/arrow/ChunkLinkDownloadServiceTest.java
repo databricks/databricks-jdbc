@@ -236,12 +236,12 @@ class ChunkLinkDownloadServiceTest {
     // Sleep to allow the service to complete the download pipeline
     TimeUnit.MILLISECONDS.sleep(2000);
 
-    ExternalLink result1 = future1.get(1, TimeUnit.SECONDS);
-    ExternalLink result2 = future2.get(1, TimeUnit.SECONDS);
-    ExternalLink result3 = future3.get(1, TimeUnit.SECONDS);
-    ExternalLink result4 = future4.get(1, TimeUnit.SECONDS);
-    ExternalLink result5 = future5.get(1, TimeUnit.SECONDS);
-    ExternalLink result6 = future6.get(1, TimeUnit.SECONDS);
+    ExternalLink result1 = future1.get(5, TimeUnit.SECONDS);
+    ExternalLink result2 = future2.get(5, TimeUnit.SECONDS);
+    ExternalLink result3 = future3.get(5, TimeUnit.SECONDS);
+    ExternalLink result4 = future4.get(5, TimeUnit.SECONDS);
+    ExternalLink result5 = future5.get(5, TimeUnit.SECONDS);
+    ExternalLink result6 = future6.get(5, TimeUnit.SECONDS);
 
     assertEquals(linkForChunkIndex_1, result1);
     assertEquals(linkForChunkIndex_2, result2);

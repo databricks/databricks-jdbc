@@ -99,7 +99,7 @@ The driver supports both SLF4J and Java Util Logging (JUL) frameworks:
 - **SLF4J**: Enable with `-Dcom.databricks.jdbc.loggerImpl=SLF4JLOGGER`
 - **JUL**: Enable with `-Dcom.databricks.jdbc.loggerImpl=JDKLOGGER` (default)
 
-For detailed logging configuration options, see [Logging Documentation](./docs/logging.md).
+For detailed logging configuration options, see [Logging Documentation](./docs/LOGGING.md).
 
 ## Running Tests
 
@@ -117,10 +117,10 @@ application or driver with the following JVM command option:
 --add-opens=java.base/java.nio=org.apache.arrow.memory.core ALL-UNNAMED
 ```
 
-For more detailed information about integration tests and fake services, see [Testing Documentation](./docs/testing.md).
+For more detailed information about integration tests and fake services, see [Testing Documentation](./docs/TESTING.md).
 
 ## Documentation
 
 For more information, see the following resources:
-- [Integration Tests Guide](./docs/testing.md)
-- [Logging Configuration](./docs/logging.md)
+- [Integration Tests Guide](./docs/TESTING.md)
+- [Logging Configuration](./docs/LOGGING.md)
