@@ -5,7 +5,7 @@
 ### Added
 - Support for token cache in OAuth U2M Flow using the configuration parameters: `EnableTokenCache` and `TokenCachePassPhrase`.
 - Support for additional SSL functionality including use of System trust stores (`UseSystemTruststore`) and allowing self signed certificates (via `AllowSelfSignedCerts`)
-- Added support for fetching foreign key metadata (Imported Keys and Cross References) via `SHOW FOREIGN KEYS` command.
+- Added support for `getImportedKeys` and `getCrossReferences` in SQL Exec API mode
 
 ### Updated
 - Modified E2E tests to validate driver behavior under multi-threaded access patterns.
