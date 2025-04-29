@@ -48,9 +48,26 @@ public class ConfiguratorUtils {
    */
   public static PoolingHttpClientConnectionManager getBaseConnectionManager(
       IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
+
+    if (connectionContext.getSSLTrustStore() == null
+        && connectionContext.checkCertificateRevocation()
+        && !connectionContext.acceptUndeterminedCertificateRevocation()
+        && !connectionContext.useSystemTrustStore()
+        && !connectionContext.allowSelfSignedCerts()) {
+      return new PoolingHttpClientConnectionManager();
+    }
+
     // For test environments, use a trust-all socket factory
     if (isJDBCTestEnv()) {
       LOGGER.info("Using trust-all socket factory for JDBC test environment");
+      return new PoolingHttpClientConnectionManager(
+          SocketFactoryUtil.getTrustAllSocketFactoryRegistry());
+    }
+
+    // If self-signed certificates are allowed, use a trust-all socket factory
+    if (connectionContext.allowSelfSignedCerts()) {
+      LOGGER.warn(
+          "Self-signed certificates are allowed. Please only use this parameter (AllowSelfSignedCerts) when you're sure of what you're doing. This is not recommended for production use.");
       return new PoolingHttpClientConnectionManager(
           SocketFactoryUtil.getTrustAllSocketFactoryRegistry());
     }
@@ -71,7 +88,51 @@ public class ConfiguratorUtils {
   public static Registry<ConnectionSocketFactory> createConnectionSocketFactoryRegistry(
       IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
 
-    return createRegistryWithSystemOrDefaultTrustStore(connectionContext);
+    // First check if a custom trust store is specified
+    if (connectionContext.getSSLTrustStore() != null) {
+      return createRegistryWithCustomTrustStore(connectionContext);
+    } else {
+      return createRegistryWithSystemOrDefaultTrustStore(connectionContext);
+    }
+  }
+
+  /**
+   * Creates a socket factory registry using a custom trust store.
+   *
+   * @param connectionContext The connection context containing the trust store information.
+   * @return A registry of connection socket factories.
+   * @throws DatabricksHttpException If there is an error setting up the trust store.
+   */
+  private static Registry<ConnectionSocketFactory> createRegistryWithCustomTrustStore(
+      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
+
+    try {
+      KeyStore trustStore = loadTruststoreOrNull(connectionContext);
+      if (trustStore == null) {
+        String errorMessage =
+            "Specified trust store could not be loaded: " + connectionContext.getSSLTrustStore();
+        handleError(errorMessage, new IOException(errorMessage));
+      }
+
+      // Get trust anchors from custom store
+      Set<TrustAnchor> trustAnchors = getTrustAnchorsFromTrustStore(trustStore);
+      if (trustAnchors.isEmpty()) {
+        String errorMessage =
+            "Custom trust store contains no trust anchors. Certificate validation will fail.";
+        handleError(errorMessage, new CertificateException(errorMessage));
+      }
+
+      LOGGER.info("Using custom trust store: " + connectionContext.getSSLTrustStore());
+
+      return createRegistryFromTrustAnchors(
+          trustAnchors,
+          connectionContext,
+          "custom trust store: " + connectionContext.getSSLTrustStore());
+    } catch (Exception e) {
+      handleError(
+          "Error while setting up custom trust store: " + connectionContext.getSSLTrustStore(), e);
+    }
+    return null;
   }
 
   /**
@@ -84,6 +145,7 @@ public class ConfiguratorUtils {
   private static Registry<ConnectionSocketFactory> createRegistryWithSystemOrDefaultTrustStore(
       IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
 
+    // Check if we should use the system property trust store based on useSystemTrustStore
     String sysTrustStore = null;
     if (connectionContext.useSystemTrustStore()) {
       // When useSystemTrustStore=true, check for javax.net.ssl.trustStore system property
@@ -277,6 +339,56 @@ public class ConfiguratorUtils {
   }
 
   /**
+   * Loads a trust store from the path specified in the connection context.
+   *
+   * @param connectionContext The connection context containing trust store configuration.
+   * @return The loaded KeyStore or null if it could not be loaded.
+   * @throws DatabricksHttpException If there is an error during loading.
+   */
+  public static KeyStore loadTruststoreOrNull(IDatabricksConnectionContext connectionContext)
+      throws DatabricksHttpException {
+    String trustStorePath = connectionContext.getSSLTrustStore();
+    if (trustStorePath == null) {
+      return null;
+    }
+
+    // If the specified file doesn't exist, throw a specific error
+    File trustStoreFile = new File(trustStorePath);
+    if (!trustStoreFile.exists()) {
+      String errorMessage = "Specified trust store file does not exist: " + trustStorePath;
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(
+          errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+    }
+
+    char[] password = null;
+    if (connectionContext.getSSLTrustStorePassword() != null) {
+      password = connectionContext.getSSLTrustStorePassword().toCharArray();
+    }
+
+    String trustStoreType = connectionContext.getSSLTrustStoreType();
+
+    try (FileInputStream trustStoreStream = new FileInputStream(trustStorePath)) {
+      LOGGER.info("Loading trust store as type: " + trustStoreType);
+      KeyStore trustStore = KeyStore.getInstance(trustStoreType);
+      trustStore.load(trustStoreStream, password);
+      LOGGER.info("Successfully loaded trust store: " + trustStorePath);
+      return trustStore;
+    } catch (Exception e) {
+      String errorMessage =
+          "Failed to load trust store: "
+              + trustStorePath
+              + " with type "
+              + trustStoreType
+              + ": "
+              + e.getMessage();
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(
+          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+    }
+  }
+
+  /**
    * Extracts trust anchors from a KeyStore.
    *
    * @param trustStore The KeyStore from which to extract trust anchors.
@@ -308,6 +420,17 @@ public class ConfiguratorUtils {
     return Collections.emptySet();
   }
 
+  /**
+   * Builds trust manager parameters for certificate path validation including certificate
+   * revocation checking.
+   *
+   * @param trustAnchors The trust anchors to use in the trust manager.
+   * @param checkCertificateRevocation Whether to check certificate revocation.
+   * @param acceptUndeterminedCertificateRevocation Whether to accept undetermined certificate
+   *     revocation status.
+   * @return The trust manager parameters based on the input parameters.
+   * @throws DatabricksHttpException If there is an error during configuration.
+   */
   public static CertPathTrustManagerParameters buildTrustManagerParameters(
       Set<TrustAnchor> trustAnchors,
       boolean checkCertificateRevocation,

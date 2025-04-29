@@ -2,7 +2,6 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
-import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.getFunctionsResult;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.CLIENT_INFO_PROPERTIES_RESULT;
 
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
@@ -40,10 +39,12 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       "CURDATE,CURRENT_DATE,CURRENT_TIME,CURRENT_TIMESTAMP,CURTIME,DAYNAME,DAYOFMONTH,DAYOFWEEK,DAYOFYEAR,HOUR,MINUTE,MONTH,MONTHNAME,NOW,QUARTER,SECOND,TIMESTAMPADD,TIMESTAMPDIFF,WEEK,YEAR";
   private final IDatabricksConnectionInternal connection;
   private final IDatabricksSession session;
+  private final MetadataResultSetBuilder metadataResultSetBuilder;
 
   public DatabricksDatabaseMetaData(IDatabricksConnectionInternal connection) {
     this.connection = connection;
     this.session = connection.getSession();
+    this.metadataResultSetBuilder = new MetadataResultSetBuilder(session.getConnectionContext());
   }
 
   @Override
@@ -946,7 +947,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         columnNamePattern);
     throwExceptionIfConnectionIsClosed();
 
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         PROCEDURE_COLUMNS_COLUMNS,
         new ArrayList<>(),
         METADATA_STATEMENT_ID,
@@ -973,7 +974,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getSchemas() throws SQLException {
     LOGGER.debug("public ResultSet getSchemas()");
     if (session.getConnectionContext().getClientType() == DatabricksClientType.SEA) {
-      return MetadataResultSetBuilder.getSchemasResult(null);
+      return metadataResultSetBuilder.getSchemasResult(null);
     }
     return getSchemas(null /* catalog */, null /* schema pattern */);
   }
@@ -1021,7 +1022,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             table,
             columnNamePattern));
     throwExceptionIfConnectionIsClosed();
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         COLUMN_PRIVILEGES_COLUMNS,
         new ArrayList<>(),
         METADATA_STATEMENT_ID,
@@ -1038,7 +1039,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             schemaPattern,
             tableNamePattern));
     throwExceptionIfConnectionIsClosed();
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         TABLE_PRIVILEGES_COLUMNS,
         new ArrayList<>(),
         METADATA_STATEMENT_ID,
@@ -1060,7 +1061,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       case 0:
       case 1:
       case 2:
-        return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
             BEST_ROW_IDENTIFIER_COLUMNS,
             new ArrayList<>(),
             METADATA_STATEMENT_ID,
@@ -1081,7 +1082,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             schema,
             table));
     throwExceptionIfConnectionIsClosed();
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         VERSION_COLUMNS_COLUMNS,
         new ArrayList<>(),
         METADATA_STATEMENT_ID,
@@ -1187,7 +1188,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             approximate));
     throwExceptionIfConnectionIsClosed();
 
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         INDEX_INFO_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_INDEX_INFO);
   }
 
@@ -1371,7 +1372,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             schemaPattern,
             typeNamePattern));
     throwExceptionIfConnectionIsClosed();
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         SUPER_TYPES_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_SUPER_TYPES);
   }
 
@@ -1386,7 +1387,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             tableNamePattern));
     throwExceptionIfConnectionIsClosed();
 
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         SUPER_TABLES_COLUMNS,
         new ArrayList<>(),
         METADATA_STATEMENT_ID,
@@ -1398,13 +1399,11 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       String catalog, String schemaPattern, String typeNamePattern, String attributeNamePattern)
       throws SQLException {
     LOGGER.debug(
-        String.format(
             "public ResultSet getAttributes(String catalog = {}, String schemaPattern = {}, String typeNamePattern = {}, String attributeNamePattern = {})",
             catalog,
             schemaPattern,
             typeNamePattern,
             attributeNamePattern));
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         ATTRIBUTES_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_ATTRIBUTES);
   }
 
@@ -1524,7 +1523,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
           .listFunctions(session, catalog, schemaPattern, functionNamePattern);
     } catch (Exception e) {
       LOGGER.error(e, "Unable to fetch functions, returning empty result set");
-      return getFunctionsResult(catalog, List.of());
+      return metadataResultSetBuilder.getFunctionsResult(catalog, List.of());
     }
   }
 
@@ -1541,7 +1540,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             columnNamePattern));
     throwExceptionIfConnectionIsClosed();
 
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         FUNCTION_COLUMNS_COLUMNS,
         new ArrayList<>(),
         METADATA_STATEMENT_ID,
@@ -1561,7 +1560,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             columnNamePattern));
     throwExceptionIfConnectionIsClosed();
 
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         PSEUDO_COLUMNS_COLUMNS,
         new ArrayList<>(),
         METADATA_STATEMENT_ID,

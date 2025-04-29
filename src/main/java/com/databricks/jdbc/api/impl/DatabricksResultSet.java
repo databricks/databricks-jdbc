@@ -89,7 +89,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               resultData, resultManifest, statementId, session, parentStatement);
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
-              statementId, resultManifest, resultData.getExternalLinks() != null);
+              statementId,
+              resultManifest,
+              resultData.getExternalLinks() != null,
+              session.getConnectionContext());
       switch (resultManifest.getFormat()) {
         case ARROW_STREAM:
           this.resultSetType = ResultSetType.SEA_ARROW_ENABLED;
@@ -156,7 +159,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               resultsResp.getResultSetMetadata(),
               rowSize,
               executionResult.getChunkCount(),
-              arrowMetadata);
+              arrowMetadata,
+              session.getConnectionContext());
       switch (resultsResp.getResultSetMetadata().getResultFormat()) {
         case COLUMN_BASED_SET:
           this.resultSetType = ResultSetType.THRIFT_INLINE;
