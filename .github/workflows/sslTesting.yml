@@ -39,6 +39,24 @@ jobs:
           java-version: "21"
           distribution: "adopt"
 
+      - name: Set Environment Variables
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          HTTP_PROXY_URL: "http://localhost:3128"
+          HTTPS_PROXY_URL: "https://localhost:3129"
+          TRUSTSTORE_PATH: "/tmp/ssl-certs/test-truststore.jks"
+          TRUSTSTORE_PASSWORD: "changeit"
+        run: |
+          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
+          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
+          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
+          echo "HTTP_PROXY_URL=${HTTP_PROXY_URL}" >> $GITHUB_ENV
+          echo "HTTPS_PROXY_URL=${HTTPS_PROXY_URL}" >> $GITHUB_ENV
+          echo "TRUSTSTORE_PATH=${TRUSTSTORE_PATH}" >> $GITHUB_ENV
+          echo "TRUSTSTORE_PASSWORD=${TRUSTSTORE_PASSWORD}" >> $GITHUB_ENV
+
       - name: Install Squid and SSL Tools
         run: |
           sudo apt-get update
@@ -104,6 +122,10 @@ jobs:
           sudo cp squid.pem /etc/squid/
           sudo chown proxy:proxy /etc/squid/squid.pem
           
+          # Extract the Databricks workspace certificate
+          echo -n | openssl s_client -connect ${DATABRICKS_HOST}:443 -showcerts 2>/dev/null | \
+          sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > databricks_workspace.crt
+          
           # Create Java Keystore from Root CA - with proper trust anchors
           rm -f test-truststore.jks
           
@@ -114,6 +136,10 @@ jobs:
           # Also add the intermediate CA to the trust store
           keytool -importcert -noprompt -trustcacerts -alias intermediateca -file intermediateCA.crt \
             -keystore test-truststore.jks -storepass changeit
+          
+          # Add the Databricks workspace certificate to the trust store
+          keytool -importcert -noprompt -trustcacerts -alias databricksworkspace -file databricks_workspace.crt \
+          -keystore test-truststore.jks -storepass changeit
           
           chmod 644 test-truststore.jks
 
@@ -188,24 +214,6 @@ jobs:
       - name: Maven Build
         run: |
           mvn clean package -DskipTests
-
-      - name: Set Environment Variables
-        env:
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
-          HTTP_PROXY_URL: "http://localhost:3128"
-          HTTPS_PROXY_URL: "https://localhost:3129"
-          TRUSTSTORE_PATH: "/tmp/ssl-certs/test-truststore.jks"
-          TRUSTSTORE_PASSWORD: "changeit"
-        run: |
-          echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
-          echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
-          echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
-          echo "HTTP_PROXY_URL=${HTTP_PROXY_URL}" >> $GITHUB_ENV
-          echo "HTTPS_PROXY_URL=${HTTPS_PROXY_URL}" >> $GITHUB_ENV
-          echo "TRUSTSTORE_PATH=${TRUSTSTORE_PATH}" >> $GITHUB_ENV
-          echo "TRUSTSTORE_PASSWORD=${TRUSTSTORE_PASSWORD}" >> $GITHUB_ENV
 
       - name: Run SSL Tests
         run: |

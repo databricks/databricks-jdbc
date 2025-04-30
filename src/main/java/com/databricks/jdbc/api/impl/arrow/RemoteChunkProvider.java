@@ -256,7 +256,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       chunkIndexMap.put(
           chunkCount,
           ArrowResultChunk.builder()
-              .statementId(statementId.toString())
+              .withStatementId(statementId)
               .withThriftChunkInfo(chunkCount, resultLink)
               .build());
       this.chunkCount++;
@@ -289,10 +289,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       LOGGER.debug("Manifest chunk information: " + chunkInfo.toString());
       chunkIndexMap.put(
           chunkInfo.getChunkIndex(),
-          ArrowResultChunk.builder()
-              .statementId(statementId.toString())
-              .withChunkInfo(chunkInfo)
-              .build());
+          ArrowResultChunk.builder().withStatementId(statementId).withChunkInfo(chunkInfo).build());
     }
 
     for (ExternalLink externalLink : resultData.getExternalLinks()) {

@@ -4,8 +4,7 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.RESULT_CHU
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getValidJDBCConnection;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
@@ -15,13 +14,14 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 /** Test SQL execution with results spanning multiple chunks. */
 public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
   @Test
-  void testMultiChunkSelect() throws SQLException {
+  void testMultiChunkSelect() throws SQLException, InterruptedException {
     final String table = "samples.tpch.lineitem";
 
     // To save on the size of stub mappings, the test uses just enough rows to span multiple chunks.
@@ -36,38 +36,62 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
     final Statement statement = connection.createStatement();
     statement.setMaxRows(maxRows);
 
-    try (ResultSet rs = statement.executeQuery(sql)) {
-      DatabricksResultSetMetaData metaData = (DatabricksResultSetMetaData) rs.getMetaData();
+    final AtomicReference<Throwable> threadException = new AtomicReference<>();
 
-      int rowCount = 0;
-      while (rs.next()) {
-        rowCount++;
-      }
+    // Iterate through the result set in a different thread to surface any 1st-level thread-safety
+    // issues
+    Thread thread =
+        new Thread(
+            () -> {
+              try (ResultSet rs = statement.executeQuery(sql)) {
+                DatabricksResultSetMetaData metaData =
+                    (DatabricksResultSetMetaData) rs.getMetaData();
 
-      // The result should have the same number of rows as the limit
-      assertEquals(maxRows, rowCount);
-      assertEquals(maxRows, metaData.getTotalRows());
+                int rowCount = 0;
+                while (rs.next()) {
+                  rowCount++;
+                }
 
-      // The result should be split into multiple chunks
-      assertTrue(metaData.getChunkCount() > 1, "Chunk count should be greater than 1");
+                // The result should have the same number of rows as the limit
+                assertEquals(maxRows, rowCount);
+                assertEquals(maxRows, metaData.getTotalRows());
 
-      // The number of cloud fetch calls should be equal to the number of chunks
-      final int cloudFetchCalls =
-          getCloudFetchApiExtension()
-              .countRequestsMatching(getRequestedFor(urlPathMatching(".*")).build())
-              .getCount();
-      // cloud fetch calls can be retried
-      assertTrue(cloudFetchCalls >= metaData.getChunkCount());
+                // The result should be split into multiple chunks
+                assertTrue(metaData.getChunkCount() > 1, "Chunk count should be greater than 1");
 
-      if (isSqlExecSdkClient()) {
-        // Number of requests to fetch external links should be one less than the total number of
-        // chunks as first chunk link is already fetched
-        final String statementId = ((DatabricksResultSet) rs).getStatementId();
-        final String resultChunkPathRegex = String.format(RESULT_CHUNK_PATH, statementId, ".*");
-        getDatabricksApiExtension()
-            .verify(
-                (int) (metaData.getChunkCount() - 1),
-                getRequestedFor(urlPathMatching(resultChunkPathRegex)));
+                // The number of cloud fetch calls should be equal to the number of chunks
+                final int cloudFetchCalls =
+                    getCloudFetchApiExtension()
+                        .countRequestsMatching(getRequestedFor(urlPathMatching(".*")).build())
+                        .getCount();
+                // cloud fetch calls can be retried
+                assertTrue(cloudFetchCalls >= metaData.getChunkCount());
+
+                if (isSqlExecSdkClient()) {
+                  // Number of requests to fetch external links should be one less than the total
+                  // number of chunks as first chunk link is already fetched
+                  final String statementId = ((DatabricksResultSet) rs).getStatementId();
+                  final String resultChunkPathRegex =
+                      String.format(RESULT_CHUNK_PATH, statementId, ".*");
+                  getDatabricksApiExtension()
+                      .verify(
+                          (int) (metaData.getChunkCount() - 1),
+                          getRequestedFor(urlPathMatching(resultChunkPathRegex)));
+                }
+              } catch (Throwable e) {
+                threadException.set(e);
+              }
+            });
+
+    thread.start();
+    thread.join(10_000);
+
+    // Check if the thread had an exception
+    if (threadException.get() != null) {
+      if (threadException.get() instanceof AssertionError) {
+        throw (AssertionError) threadException.get();
+      } else {
+        fail("Test thread failed with exception: " + threadException.get());
       }
     }
 

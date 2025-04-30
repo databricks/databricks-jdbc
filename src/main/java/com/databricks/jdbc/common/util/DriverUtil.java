@@ -20,7 +20,7 @@ import java.io.IOException;
 public class DriverUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DriverUtil.class);
-  private static final String DRIVER_VERSION = "1.0.4-oss";
+  private static final String DRIVER_VERSION = "1.0.5-oss";
   private static final String DRIVER_NAME = "oss-jdbc";
   private static final String JDBC_VERSION = "4.3";
 
@@ -70,7 +70,7 @@ public class DriverUtil {
     } catch (IOException e) {
       String errMsg =
           String.format(
-              "Error initializing the Java Util Logger (JUL) with error: {%s}", e.getMessage());
+              "Error initializing the Java Util Logger (JUL) with error: %s", e.getMessage());
       LOGGER.error(e, errMsg);
       throw new DatabricksSQLException(
           errMsg, e, DatabricksDriverErrorCode.LOGGING_INITIALISATION_ERROR);

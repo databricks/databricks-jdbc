@@ -26,9 +26,11 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksMetadataSdkClient.class);
   private final IDatabricksClient sdkClient;
+  private final MetadataResultSetBuilder metadataResultSetBuilder;
 
   public DatabricksMetadataSdkClient(IDatabricksClient sdkClient) {
     this.sdkClient = sdkClient;
+    this.metadataResultSetBuilder = new MetadataResultSetBuilder(sdkClient.getConnectionContext());
   }
 
   @Override
@@ -41,8 +43,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   public DatabricksResultSet listCatalogs(IDatabricksSession session) throws SQLException {
     CommandBuilder commandBuilder = new CommandBuilder(session);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_CATALOGS);
-    LOGGER.debug(String.format("SQL command to fetch catalogs: {%s}", SQL));
-    return MetadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session));
+    LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
+    return metadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session));
   }
 
   @Override
@@ -51,8 +53,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchemaPattern(schemaNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);
-    LOGGER.debug(String.format("SQL command to fetch schemas: {%s}", SQL));
-    return MetadataResultSetBuilder.getSchemasResult(getResultSet(SQL, session), catalog);
+    LOGGER.debug("SQL command to fetch schemas: {}", SQL);
+    return metadataResultSetBuilder.getSchemasResult(getResultSet(SQL, session), catalog);
   }
 
   @Override
@@ -72,15 +74,16 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             .setSchemaPattern(schemaNamePattern)
             .setTablePattern(tableNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_TABLES);
+    LOGGER.debug("SQL command to fetch tables: {}", SQL);
     LOGGER.debug(String.format("SQL command to fetch tables: {%s}", SQL));
-    return MetadataResultSetBuilder.getTablesResult(
+    return metadataResultSetBuilder.getTablesResult(
         getResultSet(SQL, session), validatedTableTypes);
   }
 
   @Override
   public DatabricksResultSet listTableTypes(IDatabricksSession session) throws SQLException {
     LOGGER.debug("Returning list of table types.");
-    return MetadataResultSetBuilder.getTableTypesResult();
+    return metadataResultSetBuilder.getTableTypesResult();
   }
 
   @Override
@@ -97,8 +100,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             .setTablePattern(tableNamePattern)
             .setColumnPattern(columnNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_COLUMNS);
-    LOGGER.debug(String.format("SQL command to fetch columns: {%s}", SQL));
-    return MetadataResultSetBuilder.getColumnsResult(getResultSet(SQL, session));
+    LOGGER.debug("SQL command to fetch columns: {}", SQL);
+    return metadataResultSetBuilder.getColumnsResult(getResultSet(SQL, session));
   }
 
   @Override
@@ -113,8 +116,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             .setSchemaPattern(schemaNamePattern)
             .setFunctionPattern(functionNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FUNCTIONS);
-    LOGGER.debug(String.format("SQL command to fetch functions: {%s}", SQL));
-    return MetadataResultSetBuilder.getFunctionsResult(getResultSet(SQL, session), catalog);
+    LOGGER.debug("SQL command to fetch functions: {}", SQL);
+    return metadataResultSetBuilder.getFunctionsResult(getResultSet(SQL, session), catalog);
   }
 
   @Override
@@ -123,8 +126,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
-    LOGGER.debug(String.format("SQL command to fetch primary keys: {%s}", SQL));
-    return MetadataResultSetBuilder.getPrimaryKeysResult(getResultSet(SQL, session));
+    LOGGER.debug("SQL command to fetch primary keys: {}", SQL);
+    return metadataResultSetBuilder.getPrimaryKeysResult(getResultSet(SQL, session));
   }
 
   @Override
@@ -135,14 +138,14 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
     try {
-      return MetadataResultSetBuilder.getImportedKeysResult(getResultSet(SQL, session));
+      return metadataResultSetBuilder.getImportedKeysResult(getResultSet(SQL, session));
     } catch (SQLException e) {
       if (e.getSQLState().equals(PARSE_SYNTAX_ERROR_SQL_STATE)) {
         // This is a workaround for the issue where the SQL command fails with "syntax error at or
         // near "foreign""
         // This is a known issue in Databricks for older DBSQL versions
         LOGGER.debug("SQL command failed with syntax error. Returning empty result set.");
-        return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
             MetadataResultConstants.IMPORTED_KEYS_COLUMNS,
             new ArrayList<>(),
             METADATA_STATEMENT_ID,
@@ -158,7 +161,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       IDatabricksSession session, String catalog, String schema, String table) {
     LOGGER.debug("public ResultSet listExportedKeys() using SDK");
     // Exported keys not tracked in DBSQL. Returning empty result set
-    return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         MetadataResultConstants.EXPORTED_KEYS_COLUMNS,
         new ArrayList<>(),
         METADATA_STATEMENT_ID,
@@ -180,7 +183,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         new CommandBuilder(foreignCatalog, session).setSchema(foreignSchema).setTable(foreignTable);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
     try {
-      return MetadataResultSetBuilder.getCrossReferenceKeysResult(
+      return metadataResultSetBuilder.getCrossReferenceKeysResult(
           getResultSet(SQL, session), parentCatalog, parentSchema, parentTable);
     } catch (SQLException e) {
       if (e.getSQLState().equals(PARSE_SYNTAX_ERROR_SQL_STATE)) {
@@ -188,7 +191,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         // near "foreign""
         // This is a known issue in Databricks for older DBSQL versions
         LOGGER.debug("SQL command failed with syntax error. Returning empty result set.");
-        return MetadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
             MetadataResultConstants.CROSS_REFERENCE_COLUMNS,
             new ArrayList<>(),
             METADATA_STATEMENT_ID,

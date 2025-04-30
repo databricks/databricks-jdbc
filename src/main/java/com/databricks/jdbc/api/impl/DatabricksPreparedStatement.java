@@ -663,7 +663,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   /** {@inheritDoc} */
   @Override
   public void addBatch(String sql) throws SQLException {
-    LOGGER.debug(String.format("public void addBatch(String sql = {%s})", sql));
+    LOGGER.debug("public void addBatch(String sql = {})", sql);
     checkIfClosed();
     throw new DatabricksSQLFeatureNotImplementedException(
         "Method not supported: addBatch(String sql)");

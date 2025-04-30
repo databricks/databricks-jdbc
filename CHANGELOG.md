@@ -1,5 +1,23 @@
 # Version Changelog
 
+## [v1.0.5-oss] - 2025-04-28
+
+### Added
+- Support for token cache in OAuth U2M Flow using the configuration parameters: `EnableTokenCache` and `TokenCachePassPhrase`.
+- Support for additional SSL functionality including use of System trust stores (`UseSystemTruststore`) and allowing self signed certificates (via `AllowSelfSignedCerts`)
+- Added support for `getImportedKeys` and `getCrossReferences` in SQL Exec API mode
+
+### Updated
+- Modified E2E tests to validate driver behavior under multi-threaded access patterns.
+- Improved error handling through telemetry by throwing custom exceptions across the repository.
+
+### Fixed
+- Fixed bug where batch prepared statements could lead to backward-incompatible error scenarios.
+- Corrected setting of decimal types in prepared statement executions.
+- Resolved NullPointerException (NPE) that occurred during ResultSet and Connection operations in multithreaded environment.
+
+---
+
 ## [v1.0.4-oss] - 2025-04-14
 
 ### Added

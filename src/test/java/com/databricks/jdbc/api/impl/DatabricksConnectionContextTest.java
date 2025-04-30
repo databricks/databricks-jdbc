@@ -527,7 +527,7 @@ class DatabricksConnectionContextTest {
     context =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
-    assertThrows(IllegalArgumentException.class, context::getOAuth2RedirectUrlPorts);
+    assertThrows(DatabricksDriverException.class, context::getOAuth2RedirectUrlPorts);
   }
 
   @Test

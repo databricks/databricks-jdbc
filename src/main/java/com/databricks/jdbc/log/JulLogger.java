@@ -54,7 +54,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void trace(String format, Object... arguments) {
-    trace(String.format(format, arguments));
+    trace(String.format(slf4jToJavaFormat(format), arguments));
   }
 
   /** {@inheritDoc} */
@@ -65,7 +65,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void debug(String format, Object... arguments) {
-    debug(String.format(format, arguments));
+    debug(String.format(slf4jToJavaFormat(format), arguments));
   }
 
   /** {@inheritDoc} */
@@ -76,7 +76,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void info(String format, Object... arguments) {
-    info(String.format(format, arguments));
+    info(String.format(slf4jToJavaFormat(format), arguments));
   }
 
   /** {@inheritDoc} */
@@ -87,7 +87,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void warn(String format, Object... arguments) {
-    warn(String.format(format, arguments));
+    warn(String.format(slf4jToJavaFormat(format), arguments));
   }
 
   /** {@inheritDoc} */
@@ -98,7 +98,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void error(String format, Object... arguments) {
-    error(String.format(format, arguments));
+    error(String.format(slf4jToJavaFormat(format), arguments));
   }
 
   /** {@inheritDoc} */
@@ -109,7 +109,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void error(Throwable throwable, String format, Object... arguments) {
-    error(String.format(format, arguments), throwable);
+    error(String.format(slf4jToJavaFormat(format), arguments), throwable);
   }
 
   /**
@@ -223,5 +223,12 @@ public class JulLogger implements JdbcLogger {
       return prefix;
     }
     return DEFAULT_PACKAGE_PREFIX;
+  }
+
+  private String slf4jToJavaFormat(String format) {
+    if (format == null) {
+      return null;
+    }
+    return format.replace("{}", "%s");
   }
 }

@@ -5,7 +5,6 @@ import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSIO
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDecimalTypeString;
-import static com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder.*;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
 import com.databricks.jdbc.api.impl.*;
@@ -44,11 +43,13 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   private final DatabricksThriftAccessor thriftAccessor;
   private final IDatabricksConnectionContext connectionContext;
   private TProtocolVersion serverProtocolVersion = JDBC_THRIFT_VERSION;
+  private final MetadataResultSetBuilder metadataResultSetBuilder;
 
   public DatabricksThriftServiceClient(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException, DatabricksHttpException {
     this.connectionContext = connectionContext;
     this.thriftAccessor = new DatabricksThriftAccessor(connectionContext);
+    this.metadataResultSetBuilder = new MetadataResultSetBuilder(connectionContext);
   }
 
   @VisibleForTesting
@@ -56,6 +57,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       DatabricksThriftAccessor thriftAccessor, IDatabricksConnectionContext connectionContext) {
     this.thriftAccessor = thriftAccessor;
     this.connectionContext = connectionContext;
+    this.metadataResultSetBuilder = new MetadataResultSetBuilder(connectionContext);
   }
 
   @VisibleForTesting
@@ -108,7 +110,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     }
 
     String sessionId = byteBufferToString(response.sessionHandle.getSessionId().guid);
-    LOGGER.debug(String.format("Session created with ID {%s}", sessionId));
+    LOGGER.debug("Session created with ID {}", sessionId);
     return ImmutableSessionInfo.builder()
         .sessionId(sessionId)
         .sessionHandle(response.sessionHandle)
@@ -248,7 +250,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TCloseOperationReq request =
         new TCloseOperationReq().setOperationHandle(getOperationHandle(statementId));
     TCloseOperationResp resp = thriftAccessor.closeOperation(request);
-    LOGGER.debug("Statement {%s} closed with status {%s}", statementId, resp.getStatus());
+    LOGGER.debug("Statement {} closed with status {}", statementId, resp.getStatus());
   }
 
   @Override
@@ -260,7 +262,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TCancelOperationReq request =
         new TCancelOperationReq().setOperationHandle(getOperationHandle(statementId));
     TCancelOperationResp resp = thriftAccessor.cancelOperation(request);
-    LOGGER.debug("Statement {%s} cancelled with status {%s}", statementId, resp.getStatus());
+    LOGGER.debug("Statement {} cancelled with status {}", statementId, resp.getStatus());
   }
 
   @Override
@@ -323,7 +325,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setRunAsync(true); // support async metadata execution if supported
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getCatalogsResult(extractRowsFromColumnar(response.getResults()));
+    return metadataResultSetBuilder.getCatalogsResult(
+        extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -345,7 +348,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setRunAsync(true);
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getSchemasResult(extractRowsFromColumnar(response.getResults()));
+    return metadataResultSetBuilder.getSchemasResult(
+        extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -374,7 +378,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setRunAsync(true);
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getTablesResult(catalog, tableTypes, extractRowsFromColumnar(response.getResults()));
+    return metadataResultSetBuilder.getTablesResult(
+        catalog, tableTypes, extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -382,7 +387,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     LOGGER.debug(
         String.format(
             "Fetching table types using Thrift client. Session {%s}", session.toString()));
-    return MetadataResultSetBuilder.getTableTypesResult();
+    return metadataResultSetBuilder.getTableTypesResult();
   }
 
   @Override
@@ -409,7 +414,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setRunAsync(true);
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getColumnsResult(extractRowsFromColumnar(response.getResults()));
+    return metadataResultSetBuilder.getColumnsResult(
+        extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -434,7 +440,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setRunAsync(true);
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getFunctionsResult(catalog, extractRowsFromColumnar(response.getResults()));
+    return metadataResultSetBuilder.getFunctionsResult(
+        catalog, extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -455,7 +462,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setRunAsync(true);
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getPrimaryKeysResult(extractRowsFromColumnar(response.getResults()));
+    return metadataResultSetBuilder.getPrimaryKeysResult(
+        extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -478,7 +486,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setRunAsync(true);
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getImportedKeys(extractRowsFromColumnar(response.getResults()));
+    return metadataResultSetBuilder.getImportedKeys(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -501,7 +509,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setRunAsync(true);
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getExportedKeys(extractRowsFromColumnar(response.getResults()));
+    return metadataResultSetBuilder.getExportedKeys(extractRowsFromColumnar(response.getResults()));
   }
 
   @Override
@@ -538,7 +546,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setRunAsync(true);
     }
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return getCrossRefsResult(extractRowsFromColumnar(response.getResults()));
+    return metadataResultSetBuilder.getCrossRefsResult(
+        extractRowsFromColumnar(response.getResults()));
   }
 
   public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)

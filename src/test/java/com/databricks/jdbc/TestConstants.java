@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
@@ -33,7 +34,7 @@ public class TestConstants {
   public static final String TEST_STRING = "test";
   public static final String TEST_USER = "testUser";
   public static final String TEST_PASSWORD = "testPassword";
-  public static final String TEST_STATEMENT_ID = "testStatementId";
+  public static final StatementId TEST_STATEMENT_ID = new StatementId("statement_id");
   public static final String UC_VOLUME_CATALOG = "uc_volume_test_catalog";
   public static final String UC_VOLUME_SCHEMA = "uc_volume_test_schema";
 

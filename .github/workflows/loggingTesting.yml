@@ -70,7 +70,7 @@ jobs:
           mkdir -p target/test-classes
           
           javac \
-            -cp "target/databricks-jdbc-1.0.4-oss.jar" \
+            -cp "target/databricks-jdbc-1.0.5-oss.jar" \
             -d target/test-classes \
             src/test/java/com/databricks/client/jdbc/LoggingTest.java
           
@@ -84,7 +84,7 @@ jobs:
           OS_TYPE=$(uname | tr '[:upper:]' '[:lower:]')
           if [[ "$OS_TYPE" == "linux" ]]; then SEP=":"; else SEP=";"; fi
           echo "Using classpath separator: '$SEP'"
-          CP="target/test-classes${SEP}target/databricks-jdbc-1.0.4-oss.jar"
+          CP="target/test-classes${SEP}target/databricks-jdbc-1.0.5-oss.jar"
           
           java \
             --add-opens=java.base/java.nio=ALL-UNNAMED \
@@ -101,7 +101,7 @@ jobs:
           if [ -f "$LOG_FILE" ]; then
             echo "Log file found. Checking contents..."
           
-            REQUIRED_STRINGS=("sql = {SELECT 1}",
+            REQUIRED_STRINGS=("sql = SELECT 1",
                               "Result retrieved successfully"
                               "Closing global async HTTP client"
                               "Global async HTTP client has been shut down")

@@ -214,7 +214,7 @@ public class DatabricksMetadataSdkClientTest {
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
 
     // Mock the metadata to return for each column
-    // mockedMetaData represents resultManifest recieved from the server
+    // mockedMetaData represents resultManifest received from the server
     doReturn(7).when(mockedMetaData).getColumnCount();
 
     doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);

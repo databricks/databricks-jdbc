@@ -55,8 +55,9 @@ public class DatabricksArray implements Array {
           } else if (element instanceof DatabricksStruct) {
             convertedElements[i] = element;
           } else {
-            throw new IllegalArgumentException(
-                "Expected a Map for STRUCT but found: " + element.getClass().getSimpleName());
+            throw new DatabricksDriverException(
+                "Expected a Map for STRUCT but found: " + element.getClass().getSimpleName(),
+                DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
           }
         } else if (elementType.startsWith(DatabricksTypeUtil.ARRAY)) {
           if (element instanceof List) {
@@ -64,8 +65,9 @@ public class DatabricksArray implements Array {
           } else if (element instanceof DatabricksArray) {
             convertedElements[i] = element;
           } else {
-            throw new IllegalArgumentException(
-                "Expected a List for ARRAY but found: " + element.getClass().getSimpleName());
+            throw new DatabricksDriverException(
+                "Expected a List for ARRAY but found: " + element.getClass().getSimpleName(),
+                DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
           }
         } else if (elementType.startsWith(DatabricksTypeUtil.MAP)) {
           if (element instanceof Map) {
@@ -73,8 +75,9 @@ public class DatabricksArray implements Array {
           } else if (element instanceof DatabricksMap) {
             convertedElements[i] = element;
           } else {
-            throw new IllegalArgumentException(
-                "Expected a Map for MAP but found: " + element.getClass().getSimpleName());
+            throw new DatabricksDriverException(
+                "Expected a Map for MAP but found: " + element.getClass().getSimpleName(),
+                DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
           }
         } else {
           convertedElements[i] = convertValue(element, elementType);
@@ -82,7 +85,7 @@ public class DatabricksArray implements Array {
       } catch (Exception e) {
         String errorMessage =
             String.format("Error converting element at index %s: %s", i, e.getMessage());
-        LOGGER.error(errorMessage, e);
+        LOGGER.error(e, errorMessage);
         throw new DatabricksDriverException(
             "Error converting elements",
             e,
@@ -136,7 +139,7 @@ public class DatabricksArray implements Array {
     } catch (Exception e) {
       String errorMessage =
           String.format("Error converting simple value of type %s: %s", type, e.getMessage());
-      LOGGER.error(String.format("%s, value : %s", errorMessage, value), e);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksDriverException(
           errorMessage, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
     }

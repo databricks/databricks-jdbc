@@ -33,7 +33,7 @@ import org.apache.http.util.EntityUtils;
 
 class TelemetryPushTask implements Runnable {
 
-  private static final JdbcLogger logger = JdbcLoggerFactory.getLogger(TelemetryPushTask.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TelemetryPushTask.class);
 
   private static final String REQUEST_ID_HEADER = "x-request-id";
   private final List<TelemetryFrontendLog> queueToBePushed;
@@ -56,7 +56,7 @@ class TelemetryPushTask implements Runnable {
 
   @Override
   public void run() {
-    logger.debug("Pushing Telemetry logs of size " + queueToBePushed.size());
+    LOGGER.debug("Pushing Telemetry logs of size {}", queueToBePushed.size());
     TelemetryRequest request = new TelemetryRequest();
     if (queueToBePushed.isEmpty()) {
       return;
@@ -71,7 +71,7 @@ class TelemetryPushTask implements Runnable {
                         try {
                           return objectMapper.writeValueAsString(event);
                         } catch (JsonProcessingException e) {
-                          logger.error(
+                          LOGGER.error(
                               "Failed to serialize Telemetry event {} with error: {}", event, e);
                           return null; // Return null for failed serialization
                         }
@@ -96,35 +96,37 @@ class TelemetryPushTask implements Runnable {
       try (CloseableHttpResponse response = httpClient.execute(post)) {
         // TODO: check response and add retry for partial failures
         if (!HttpUtil.isSuccessfulHttpResponse(response)) {
-          logger.trace(
-              "Failed to push telemetry logs with error response: [%s]", response.getStatusLine());
+          LOGGER.trace(
+              "Failed to push telemetry logs with error response: {}", response.getStatusLine());
           return;
         }
         TelemetryResponse telResponse =
             objectMapper.readValue(
                 EntityUtils.toString(response.getEntity()), TelemetryResponse.class);
-        logger.debug(
-            "Pushed Telemetry logs with request-Id {%s} with events [%d] with error count [%d]",
+        LOGGER.debug(
+            "Pushed Telemetry logs with request-Id {} with events {} with error count {}",
             response.getFirstHeader(REQUEST_ID_HEADER),
             telResponse.getNumProtoSuccess(),
             telResponse.getErrors().size());
         if (!telResponse.getErrors().isEmpty()) {
-          logger.debug("Failed to push telemetry logs with error: {%s}", telResponse.getErrors());
+          LOGGER.debug("Failed to push telemetry logs with error: {}", telResponse.getErrors());
         }
         if (queueToBePushed.size() != telResponse.getNumProtoSuccess()) {
-          logger.debug(
-              "Partial failure while pushing telemetry logs with error response: [%s], request count: [%d], upload count: [%d]",
-              telResponse.getErrors(), queueToBePushed.size(), telResponse.getNumProtoSuccess());
+          LOGGER.debug(
+              "Partial failure while pushing telemetry logs with error response: {}, request count: {}, upload count: {}",
+              telResponse.getErrors(),
+              queueToBePushed.size(),
+              telResponse.getNumProtoSuccess());
           return;
         }
       }
 
     } catch (URISyntaxException | DatabricksParsingException e) {
-      logger.error(e, "Failed to get Host Url from connection with error: {}", e.getMessage());
+      LOGGER.error(e, "Failed to get Host Url from connection with error: {}", e.getMessage());
       return;
     } catch (DatabricksHttpException | IOException e) {
       // Retry is already handled in HTTP client, we can return from here
-      logger.error(e, "Failed to push Telemetry logs: {}", e.getMessage());
+      LOGGER.error(e, "Failed to push Telemetry logs: {}", e.getMessage());
       return;
     }
   }

@@ -12,12 +12,14 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.*;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.sql.*;
@@ -526,7 +528,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @VisibleForTesting
   static boolean shouldReturnResultSet(String query) {
     if (query == null || query.trim().isEmpty()) {
-      throw new IllegalArgumentException("Query cannot be null or empty");
+      throw new DatabricksDriverException(
+          "Query cannot be null or empty", DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
 
     // Trim and remove comments and whitespaces.
@@ -564,7 +567,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       throws SQLException {
     String stackTraceMessage =
         format(
-            "DatabricksResultSet executeInternal(String sql = %s,Map<Integer, ImmutableSqlParameter> params = {%s}, StatementType statementType = {%s})",
+            "DatabricksResultSet executeInternal(String sql = %s, Map<Integer, ImmutableSqlParameter> params = {%s}, StatementType statementType = {%s})",
             sql, params, statementType);
     LOGGER.debug(stackTraceMessage);
     CompletableFuture<DatabricksResultSet> futureResultSet =
@@ -602,7 +605,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       throw new DatabricksSQLException(
           errMsg, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
-    LOGGER.debug("Result retrieved successfully" + resultSet.toString());
+    LOGGER.debug("Result retrieved successfully {}", resultSet.toString());
     return resultSet;
   }
 
@@ -664,5 +667,12 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       executor.shutdownNow();
       Thread.currentThread().interrupt();
     }
+  }
+
+  @Override
+  public String toString() {
+    return (new ToStringer(DatabricksStatement.class))
+        .add("statementId", this.statementId)
+        .toString();
   }
 }
