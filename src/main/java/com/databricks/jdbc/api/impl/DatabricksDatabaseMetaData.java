@@ -1399,19 +1399,18 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       String catalog, String schemaPattern, String typeNamePattern, String attributeNamePattern)
       throws SQLException {
     LOGGER.debug(
-            "public ResultSet getAttributes(String catalog = {}, String schemaPattern = {}, String typeNamePattern = {}, String attributeNamePattern = {})",
-            catalog,
-            schemaPattern,
-            typeNamePattern,
-            attributeNamePattern));
+        "public ResultSet getAttributes(String catalog = {}, String schemaPattern = {}, String typeNamePattern = {}, String attributeNamePattern = {})",
+        catalog,
+        schemaPattern,
+        typeNamePattern,
+        attributeNamePattern);
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         ATTRIBUTES_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_ATTRIBUTES);
   }
 
   @Override
   public boolean supportsResultSetHoldability(int holdability) throws SQLException {
-    LOGGER.debug(
-        String.format(
-            "public boolean supportsResultSetHoldability(int holdability = {})", holdability));
+    LOGGER.debug("public boolean supportsResultSetHoldability(int holdability = {})", holdability);
     throwExceptionIfConnectionIsClosed();
     return holdability == ResultSet.CLOSE_CURSORS_AT_COMMIT;
   }
