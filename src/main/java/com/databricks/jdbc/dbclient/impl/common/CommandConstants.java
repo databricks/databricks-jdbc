@@ -17,6 +17,7 @@ public class CommandConstants {
   public static final String SCHEMA_LIKE_SQL = " SCHEMA" + LIKE_SQL;
   public static final String TABLE_LIKE_SQL = " TABLE" + LIKE_SQL;
   public static final String SHOW_TABLES_SQL = "SHOW TABLES" + IN_CATALOG_SQL;
+  public static final String SHOW_TABLES_IN_ALL_CATALOGS_SQL = "SHOW TABLES IN ALL CATALOGS";
   public static final String SHOW_COLUMNS_SQL = "SHOW COLUMNS" + IN_CATALOG_SQL;
   public static final String SHOW_FUNCTIONS_SQL = "SHOW FUNCTIONS" + IN_CATALOG_SQL;
   public static final String SHOW_PRIMARY_KEYS_SQL =
