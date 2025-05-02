@@ -209,12 +209,8 @@ public class TelemetryHelper {
             .setAcceptUndeterminedCertificateRevocation(
                 connectionContext.acceptUndeterminedCertificateRevocation())
             .setDriverMode(connectionContext.getClientType())
+            .setEnableTokenCache(connectionContext.isTokenCacheEnabled())
             .setHttpPath(connectionContext.getHttpPath());
-    if (connectionContext.isTokenCacheEnabled()) {
-      connectionParameters
-          .setEnableTokenCache(true)
-          .setTokenCachePassphrase(connectionContext.getTokenCachePassPhrase());
-    }
     if (connectionContext.useJWTAssertion()) {
       connectionParameters
           .setEnableJwtAssertion(true)

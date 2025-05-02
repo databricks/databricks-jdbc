@@ -103,9 +103,6 @@ public class DriverConnectionParameters {
   @JsonProperty("enable_token_cache")
   boolean enableTokenCache;
 
-  @JsonProperty("token_cache_passphrase")
-  String tokenCachePassphrase;
-
   public DriverConnectionParameters setHttpPath(String httpPath) {
     this.httpPath = httpPath;
     return this;
@@ -270,11 +267,6 @@ public class DriverConnectionParameters {
     return this;
   }
 
-  public DriverConnectionParameters setTokenCachePassphrase(String tokenCachePassphrase) {
-    this.tokenCachePassphrase = tokenCachePassphrase;
-    return this;
-  }
-
   @Override
   public String toString() {
     return new ToStringer(DriverConnectionParameters.class)
@@ -309,7 +301,6 @@ public class DriverConnectionParameters {
         .add("stringColumnLength", stringColumnLength)
         .add("socketTimeout", socketTimeout)
         .add("enableTokenCache", enableTokenCache)
-        .add("tokenCachePassphrase", tokenCachePassphrase)
         .toString();
   }
 }
