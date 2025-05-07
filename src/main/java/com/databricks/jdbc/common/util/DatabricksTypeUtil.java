@@ -53,6 +53,7 @@ public class DatabricksTypeUtil {
   public static final String ARRAY = "ARRAY";
   public static final String STRUCT = "STRUCT";
   public static final String VARIANT = "VARIANT";
+  public static final String CHAR = "CHAR";
   private static final ArrayList<ColumnInfoTypeName> SIGNED_TYPES =
       new ArrayList<>(
           Arrays.asList(
@@ -65,6 +66,7 @@ public class DatabricksTypeUtil {
 
   public static ColumnInfoTypeName getColumnInfoType(String typeName) {
     switch (typeName) {
+      case DatabricksTypeUtil.CHAR:
       case DatabricksTypeUtil.STRING:
         return ColumnInfoTypeName.STRING;
       case DatabricksTypeUtil.DATE:
@@ -79,6 +81,7 @@ public class DatabricksTypeUtil {
       case DatabricksTypeUtil.INT:
         return ColumnInfoTypeName.INT;
       case DatabricksTypeUtil.BIGINT:
+      case DatabricksTypeUtil.LONG:
         return ColumnInfoTypeName.LONG;
       case DatabricksTypeUtil.FLOAT:
         return ColumnInfoTypeName.FLOAT;
@@ -359,6 +362,8 @@ public class DatabricksTypeUtil {
    */
   public static String getDatabricksTypeFromSQLType(int sqlType) {
     switch (sqlType) {
+      case Types.CHAR:
+        return DatabricksTypeUtil.CHAR;
       case Types.ARRAY:
         return ARRAY;
       case Types.BIGINT:
@@ -370,6 +375,7 @@ public class DatabricksTypeUtil {
       case Types.DATE:
         return DATE;
       case Types.DECIMAL:
+      case Types.NUMERIC:
         return DECIMAL;
       case Types.BIT:
       case Types.BOOLEAN:
@@ -377,6 +383,7 @@ public class DatabricksTypeUtil {
       case Types.DOUBLE:
         return DOUBLE;
       case Types.FLOAT:
+      case Types.REAL:
         return FLOAT;
       case Types.INTEGER:
         return INT;
