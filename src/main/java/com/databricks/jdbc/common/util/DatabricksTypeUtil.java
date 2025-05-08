@@ -64,11 +64,12 @@ public class DatabricksTypeUtil {
               ColumnInfoTypeName.LONG,
               ColumnInfoTypeName.SHORT));
 
+  // only used for PreparedStatement
   public static ColumnInfoTypeName getColumnInfoType(String typeName) {
     switch (typeName) {
       case DatabricksTypeUtil.CHAR:
       case DatabricksTypeUtil.STRING:
-        return ColumnInfoTypeName.STRING;
+        return ColumnInfoTypeName.STRING; // both char, string passed as STRING param
       case DatabricksTypeUtil.DATE:
       case DatabricksTypeUtil.TIMESTAMP:
       case DatabricksTypeUtil.TIMESTAMP_NTZ:
@@ -376,14 +377,14 @@ public class DatabricksTypeUtil {
         return DATE;
       case Types.DECIMAL:
       case Types.NUMERIC:
-        return DECIMAL;
+        return DECIMAL; // Databricks treats NUMERIC as DECIMAL
       case Types.BIT:
       case Types.BOOLEAN:
         return BOOLEAN;
       case Types.DOUBLE:
         return DOUBLE;
       case Types.FLOAT:
-      case Types.REAL:
+      case Types.REAL: // REAL is float(24)
         return FLOAT;
       case Types.INTEGER:
         return INT;
