@@ -278,7 +278,6 @@ struct TRowSet {
   0x501: optional list<TSparkArrowBatch> arrowBatches;
   0x502: optional list<TSparkArrowResultLink> resultLinks;
 }
-
 enum TStatusCode {
   SUCCESS_STATUS,
   SUCCESS_WITH_INFO_STATUS,
@@ -445,7 +444,6 @@ struct TSparkArrowTypes {
  4: optional bool intervalTypesAsArrow
  5: optional bool nullTypeAsArrow
 }
-
 struct TExecuteStatementReq {
   1: required TSessionHandle sessionHandle
   2: required string statement
@@ -463,7 +461,6 @@ struct TExecuteStatementReq {
   0x509: optional i64 maxBytesPerBatch
   0x510: optional TStatementConf statementConf
 }
-
 union TSparkParameterValue {
   1: string stringValue
   2: double doubleValue
@@ -658,8 +655,6 @@ enum TCacheLookupResult {
     REMOTE_CACHE_HIT,
     CACHE_MISS
 }
-
-
 enum TFetchOrientation {
   FETCH_NEXT,
   FETCH_PRIOR,
@@ -668,7 +663,6 @@ enum TFetchOrientation {
   FETCH_FIRST,
   FETCH_LAST
 }
-
 struct TFetchResultsReq {
   1: required TOperationHandle operationHandle
   2: required TFetchOrientation orientation = TFetchOrientation.FETCH_NEXT
