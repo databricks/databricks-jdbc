@@ -33,7 +33,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
+import org.apache.hc.client5.http.async.methods.*;
+import org.apache.hc.core5.concurrent.FutureCallback;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.nio.AsyncRequestProducer;
+import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
@@ -510,5 +516,131 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   @Override
   public void close() throws IOException {
     DatabricksThreadContextHolder.clearConnectionContext();
+  }
+
+  /**
+   * Upload multiple files to DBFS volume in parallel using the async HTTP client. Each upload
+   * consists of two dependent stages (fetch presigned URL then PUT upload). The stages are chained
+   * with {@code CompletableFuture#thenCompose} so that the PUT executes only after the presigned
+   * URL arrives, while all files progress concurrently.
+   *
+   * @return list of {@link VolumePutResult} in the same order as the input lists.
+   */
+  public List<VolumePutResult> putFiles(
+      String catalog,
+      String schema,
+      String volume,
+      List<String> objectPaths,
+      List<InputStream> inputStreams,
+      List<Long> contentLengths,
+      boolean overwrite)
+      throws DatabricksVolumeOperationException {
+
+    if (objectPaths.size() != inputStreams.size() || inputStreams.size() != contentLengths.size()) {
+      throw new IllegalArgumentException(
+          "objectPaths, inputStreams, contentLengths – sizes differ");
+    }
+
+    ExecutorService pool = Executors.newFixedThreadPool(Math.min(16, objectPaths.size()));
+    List<CompletableFuture<VolumePutResult>> chains = new ArrayList<>(objectPaths.size());
+
+    for (int i = 0; i < objectPaths.size(); i++) {
+      final String objPath = objectPaths.get(i);
+      final String fullPath = getObjectFullPath(catalog, schema, volume, objPath);
+      final InputStream in = inputStreams.get(i);
+      final long len = contentLengths.get(i);
+
+      CompletableFuture<VolumePutResult> chain =
+          requestUploadUrlAsync(fullPath, pool)
+              .thenCompose(resp -> uploadAsync(resp.getUrl(), in, len))
+              .exceptionally(ex -> failureResult(objPath, ex));
+      chains.add(chain);
+    }
+
+    CompletableFuture.allOf(chains.toArray(new CompletableFuture[0])).join();
+    return chains.stream().map(CompletableFuture::join).collect(Collectors.toList());
+  }
+
+  // ----------------------------------------------------------------------------------
+  // Internal helpers – async presigned URL fetch (still synchronous under the hood but
+  // confined to a worker thread) and fully‑async PUT upload using executeAsync.
+  // ----------------------------------------------------------------------------------
+
+  private CompletableFuture<CreateUploadUrlResponse> requestUploadUrlAsync(
+      String fullPath, Executor exec) {
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            return getCreateUploadUrlResponse(fullPath);
+          } catch (DatabricksVolumeOperationException e) {
+            throw new CompletionException(e);
+          }
+        },
+        exec);
+  }
+
+  /**
+   * Fire the PUT using the shared {@link CloseableHttpAsyncClient}. The call is submitted via
+   * {@link DatabricksHttpClient#executeAsync}. We still convert the returned {@code Future} to a
+   * {@code CompletableFuture} so the caller can compose further stages.
+   */
+  /**
+   * Stage‑2: PUT the file contents to the presigned URL using the shared async HTTP client. Builds
+   * the request with the high‑level <code>Simple*</code> helpers so it stays compatible with all
+   * HttpComponents 5.x versions bundled in the driver.
+   */
+  private CompletableFuture<VolumePutResult> uploadAsync(
+      String presignedUrl, InputStream in, long len) {
+    CompletableFuture<VolumePutResult> cf = new CompletableFuture<>();
+    try {
+      // Build PUT request (Simple API → fewer missing‑class surprises)
+      SimpleHttpRequest request =
+          SimpleRequestBuilder.put(presignedUrl)
+              .setBody(in.toString(), ContentType.APPLICATION_OCTET_STREAM)
+              .build();
+
+      AsyncRequestProducer producer = SimpleRequestProducer.create(request);
+      AsyncResponseConsumer<SimpleHttpResponse> consumer = SimpleResponseConsumer.create();
+
+      databricksHttpClient.executeAsync(
+          producer,
+          consumer,
+          new FutureCallback<>() {
+            @Override
+            public void completed(SimpleHttpResponse result) {
+              VolumeOperationStatus st =
+                  (result.getCode() >= 200 && result.getCode() < 300)
+                      ? VolumeOperationStatus.SUCCEEDED
+                      : VolumeOperationStatus.FAILED;
+              cf.complete(
+                  new VolumePutResult(
+                      presignedUrl,
+                      result.getCode(),
+                      st,
+                      st == VolumeOperationStatus.SUCCEEDED ? null : result.getReasonPhrase()));
+            }
+
+            @Override
+            public void failed(Exception ex) {
+              cf.complete(
+                  new VolumePutResult(
+                      presignedUrl, 500, VolumeOperationStatus.FAILED, ex.getMessage()));
+            }
+
+            @Override
+            public void cancelled() {
+              cf.complete(
+                  new VolumePutResult(
+                      presignedUrl, 499, VolumeOperationStatus.ABORTED, "cancelled"));
+            }
+          });
+    } catch (Exception e) {
+      cf.completeExceptionally(e);
+    }
+    return cf;
+  }
+
+  private VolumePutResult failureResult(String objectPath, Throwable ex) {
+    return new VolumePutResult(objectPath, 500, VolumeOperationStatus.FAILED, ex.getMessage());
   }
 }
