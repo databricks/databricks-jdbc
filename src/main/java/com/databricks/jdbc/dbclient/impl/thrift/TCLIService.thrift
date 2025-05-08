@@ -332,15 +332,7 @@ struct TDBSqlSessionConf {
   7: optional map<string, TDBSqlConfValue> internalConfs
   8: optional list<TSQLVariable> tempVariables
 }
-enum TOperationIdempotencyType {
-  UNKNOWN,
-  NON_IDEMPOTENT,
-  IDEMPOTENT
-}
-enum TOperationTimeoutLevel {
-  CLUSTER,
-  SESSION
-}
+
 enum TStatusCode {
   SUCCESS_STATUS,
   SUCCESS_WITH_INFO_STATUS,
@@ -507,11 +499,7 @@ struct TSparkArrowTypes {
  4: optional bool intervalTypesAsArrow
  5: optional bool nullTypeAsArrow
 }
-enum TResultPersistenceMode {
-  ONLY_LARGE_RESULTS,
-  ALL_QUERY_RESULTS,
-  ALL_RESULTS
-}
+
 struct TExecuteStatementReq {
   1: required TSessionHandle sessionHandle
   2: required string statement
@@ -529,9 +517,7 @@ struct TExecuteStatementReq {
   0x509: optional i64 maxBytesPerBatch
   0x510: optional TStatementConf statementConf
 }
-struct TDBSqlStatement {
-  1: optional string statement
-}
+
 union TSparkParameterValue {
   1: string stringValue
   2: double doubleValue
@@ -731,20 +717,8 @@ enum TCacheLookupResult {
     REMOTE_CACHE_HIT,
     CACHE_MISS
 }
-enum TCloudFetchDisabledReason {
-    ARROW_SUPPORT,
-    CLOUD_FETCH_SUPPORT,
-    PROTOCOL_VERSION,
-    REGION_SUPPORT,
-    BLOCKLISTED_OPERATION,
-    SMALL_RESULT_SIZE,
-    CUSTOMER_STORAGE_SUPPORT,
-    UNKNOWN,
-    METADATA_OPERATION
-}
-enum TDBSqlManifestFileFormat {
-    THRIFT_GET_RESULT_SET_METADATA_RESP
-}
+
+
 enum TFetchOrientation {
   FETCH_NEXT,
   FETCH_PRIOR,
@@ -753,12 +727,7 @@ enum TFetchOrientation {
   FETCH_FIRST,
   FETCH_LAST
 }
-enum TDBSqlFetchDisposition {
-  DISPOSITION_UNSPECIFIED,
-  DISPOSITION_INLINE,
-  DISPOSITION_EXTERNAL_LINKS,
-  DISPOSITION_INTERNAL_DBFS
-}
+
 struct TFetchResultsReq {
   1: required TOperationHandle operationHandle
   2: required TFetchOrientation orientation = TFetchOrientation.FETCH_NEXT

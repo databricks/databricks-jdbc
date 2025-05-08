@@ -340,7 +340,7 @@ class VolumeOperationProcessor {
     }
 
     // Execute the request
-    try (CloseableHttpResponse response = databricksHttpClient.execute(httpPut)) {
+    try (CloseableHttpResponse response = databricksHttpClient.executeAsync(httpPut)) {
       // Process the response
       if (HttpUtil.isSuccessfulHttpResponse(response)) {
         status = VolumeOperationStatus.SUCCEEDED;
