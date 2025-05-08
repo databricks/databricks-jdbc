@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api;
 
+import com.databricks.jdbc.api.impl.volume.VolumePutResult;
+import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.List;
@@ -162,4 +164,14 @@ public interface IDatabricksVolumeClient {
    */
   boolean deleteObject(String catalog, String schema, String volume, String objectPath)
       throws SQLException;
+
+  List<VolumePutResult> putFiles(
+      String catalog,
+      String schema,
+      String volume,
+      List<String> objectPaths,
+      List<InputStream> inputStreams,
+      List<Long> contentLengths,
+      boolean toOverwrite)
+      throws DatabricksVolumeOperationException;
 }
