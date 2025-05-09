@@ -594,10 +594,25 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     CompletableFuture<VolumePutResult> cf = new CompletableFuture<>();
     try {
       // Build PUT request (Simple API → fewer missing‑class surprises)
+      byte[] byteArray = new byte[(int) len];
+      int bytesRead = in.read(byteArray);
+      if (bytesRead == -1) {
+        throw new IOException("Failed to read from input stream");
+      }
       SimpleHttpRequest request =
           SimpleRequestBuilder.put(presignedUrl)
               .setBody(in.toString(), ContentType.APPLICATION_OCTET_STREAM)
               .build();
+
+      //      AsyncRequestBuilder.put()
+      //          .setUri(URI.create(presignedUrl))
+      //          .setEntity(AsyncEntityProducers.create(byteArray,
+      // ContentType.APPLICATION_OCTET_STREAM))
+      //          .build();
+
+      //      HttpPut httpPut = new HttpPut();
+      //      httpPut.setURI(URI.create(presignedUrl));
+      //      httpPut.setEntity(new InputStreamEntity(in, len));
 
       AsyncRequestProducer producer = SimpleRequestProducer.create(request);
       AsyncResponseConsumer<SimpleHttpResponse> consumer = SimpleResponseConsumer.create();
