@@ -524,7 +524,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     checkIfClosed();
     int columnIndex = getColumnNameIndex(columnLabel);
     if (columnIndex == -1) {
-      LOGGER.error("Column not found: " + columnLabel);
+      LOGGER.error("Column not found: {}", columnLabel);
       throw new DatabricksSQLException(
           "Column not found: " + columnLabel, DatabricksDriverErrorCode.RESULT_SET_ERROR);
     }
@@ -666,7 +666,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     /* As we fetch chunks of data together,
     setting fetchSize is an overkill.
     Hence, we don't support it.*/
-    LOGGER.debug(String.format("public void setFetchSize(int rows = {%s})", rows));
+    LOGGER.debug("public void setFetchSize(int rows = {})", rows);
     checkIfClosed();
     addWarningAndLog("As FetchSize is not supported in the Databricks JDBC, ignoring it");
   }

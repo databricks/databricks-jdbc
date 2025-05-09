@@ -101,7 +101,7 @@ jobs:
           if [ -f "$LOG_FILE" ]; then
             echo "Log file found. Checking contents..."
           
-            REQUIRED_STRINGS=("sql = {SELECT 1}",
+            REQUIRED_STRINGS=("sql = SELECT 1",
                               "Result retrieved successfully"
                               "Closing global async HTTP client"
                               "Global async HTTP client has been shut down")

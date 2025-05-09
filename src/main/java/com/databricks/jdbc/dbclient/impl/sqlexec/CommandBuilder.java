@@ -48,26 +48,25 @@ public class CommandBuilder {
 
   public CommandBuilder setSchemaPattern(String pattern) {
     this.schemaPattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug(String.format("Schema pattern conversion {%s} -> {%s}", pattern, schemaPattern));
+    LOGGER.debug("Schema pattern conversion {} -> {}", pattern, schemaPattern);
     return this;
   }
 
   public CommandBuilder setTablePattern(String pattern) {
     this.tablePattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug(String.format("Table pattern conversion {%s} -> {%s}", pattern, tablePattern));
+    LOGGER.debug("Table pattern conversion {} -> {}", pattern, tablePattern);
     return this;
   }
 
   public CommandBuilder setColumnPattern(String pattern) {
     this.columnPattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug(String.format("Column pattern conversion {%s} -> {%s}", pattern, columnPattern));
+    LOGGER.debug("Column pattern conversion {} -> {}", pattern, columnPattern);
     return this;
   }
 
   public CommandBuilder setFunctionPattern(String pattern) {
     this.functionPattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug(
-        String.format("Function pattern conversion {%s} -> {%s}", pattern, functionPattern));
+    LOGGER.debug("Function pattern conversion {} -> {}", pattern, functionPattern);
     return this;
   }
 

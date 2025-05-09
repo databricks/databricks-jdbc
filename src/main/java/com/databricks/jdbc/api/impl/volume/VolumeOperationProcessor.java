@@ -197,7 +197,7 @@ class VolumeOperationProcessor {
     if (localFilePath == null
         || localFilePath.isEmpty()
         || localFilePath.contains(PARENT_DIRECTORY_REF)) {
-      LOGGER.error("Local file path is invalid {%s}", localFilePath);
+      LOGGER.error("Local file path is invalid {}", localFilePath);
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file path is invalid";
       return;
@@ -208,7 +208,7 @@ class VolumeOperationProcessor {
             .filter(x -> x)
             .findFirst();
     if (pathMatched.isEmpty() || !pathMatched.get()) {
-      LOGGER.error("Local file path is not allowed {%s}", localFilePath);
+      LOGGER.error("Local file path is not allowed {}", localFilePath);
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file path is not allowed";
     }
@@ -264,7 +264,7 @@ class VolumeOperationProcessor {
     // Copy the data in local file as requested by user
     File localFile = new File(localFilePath);
     if (localFile.exists()) {
-      LOGGER.error("Local file already exists for GET operation {%s}", localFilePath);
+      LOGGER.error("Local file already exists for GET operation {}", localFilePath);
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file already exists";
       return;
@@ -293,7 +293,7 @@ class VolumeOperationProcessor {
           }
           status = VolumeOperationStatus.SUCCEEDED;
         } catch (FileNotFoundException e) {
-          LOGGER.error("Local file path is invalid or a directory {%s}", localFilePath);
+          LOGGER.error("Local file path is invalid or a directory {}", localFilePath);
           status = VolumeOperationStatus.FAILED;
           errorMessage = "Local file path is invalid or a directory";
         } catch (IOException e) {
@@ -354,7 +354,7 @@ class VolumeOperationProcessor {
             "Failed to upload file with error code: " + response.getStatusLine().getStatusCode();
       }
     } catch (IOException | DatabricksHttpException e) {
-      LOGGER.error("Failed to upload file {%s} with error {%s}", localFilePath, e.getMessage());
+      LOGGER.error("Failed to upload file {} with error {}", localFilePath, e.getMessage());
       status = VolumeOperationStatus.FAILED;
       errorMessage = "Failed to upload file: " + e.getMessage();
     }
@@ -362,20 +362,20 @@ class VolumeOperationProcessor {
 
   private boolean localFileHasErrorForPutOperation(File file) {
     if (!file.exists() || file.isDirectory()) {
-      LOGGER.error("Local file does not exist or is a directory {%s}", localFilePath);
+      LOGGER.error("Local file does not exist or is a directory {}", localFilePath);
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file does not exist or is a directory";
       return true;
     }
     if (file.length() == 0) {
-      LOGGER.error("Local file is empty {%s}", localFilePath);
+      LOGGER.error("Local file is empty {}", localFilePath);
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file is empty";
       return true;
     }
 
     if (file.length() > PUT_SIZE_LIMITS) {
-      LOGGER.error("Local file too large {%s}", localFilePath);
+      LOGGER.error("Local file too large {}", localFilePath);
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file too large";
       return true;
@@ -398,7 +398,7 @@ class VolumeOperationProcessor {
         errorMessage = "Failed to delete volume";
       }
     } catch (DatabricksHttpException | IOException e) {
-      LOGGER.error(e, "Failed to delete volume with error {%s}", e.getMessage());
+      LOGGER.error(e, "Failed to delete volume with error {}", e.getMessage());
       status = VolumeOperationStatus.FAILED;
       errorMessage = "Failed to delete volume: " + e.getMessage();
     }

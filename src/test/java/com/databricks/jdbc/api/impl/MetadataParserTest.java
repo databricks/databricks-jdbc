@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -197,7 +198,7 @@ public class MetadataParserTest {
 
     Exception exception =
         assertThrows(
-            IllegalArgumentException.class,
+            DatabricksDriverException.class,
             () -> {
               MetadataParser.parseMapMetadata(metadata);
             },
@@ -281,7 +282,7 @@ public class MetadataParserTest {
 
     Exception exception =
         assertThrows(
-            IllegalArgumentException.class,
+            DatabricksDriverException.class,
             () -> {
               MetadataParser.parseMapMetadata(metadata);
             },

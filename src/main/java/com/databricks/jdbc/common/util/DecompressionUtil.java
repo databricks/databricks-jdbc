@@ -18,14 +18,14 @@ public class DecompressionUtil {
 
   private static byte[] decompressLZ4Frame(byte[] compressedInput, String context)
       throws DatabricksSQLException {
-    LOGGER.debug("Decompressing using LZ4 Frame algorithm. Context: " + context);
+    LOGGER.debug("Decompressing using LZ4 Frame algorithm. Context: {}", context);
     try {
       return IOUtils.toByteArray(
           new LZ4FrameInputStream(new ByteArrayInputStream(compressedInput)));
     } catch (IOException e) {
       String errorMessage =
           String.format("Unable to de-compress LZ4 Frame compressed result %s", context);
-      LOGGER.error(e, errorMessage + e.getMessage());
+      LOGGER.error(e, errorMessage);
       throw new DatabricksParsingException(
           errorMessage, e, DatabricksDriverErrorCode.DECOMPRESSION_ERROR);
     }

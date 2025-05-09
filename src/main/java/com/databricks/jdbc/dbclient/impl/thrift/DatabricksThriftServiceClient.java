@@ -110,7 +110,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     }
 
     String sessionId = byteBufferToString(response.sessionHandle.getSessionId().guid);
-    LOGGER.debug(String.format("Session created with ID {%s}", sessionId));
+    LOGGER.debug("Session created with ID {}", sessionId);
     return ImmutableSessionInfo.builder()
         .sessionId(sessionId)
         .sessionHandle(response.sessionHandle)
@@ -250,7 +250,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TCloseOperationReq request =
         new TCloseOperationReq().setOperationHandle(getOperationHandle(statementId));
     TCloseOperationResp resp = thriftAccessor.closeOperation(request);
-    LOGGER.debug("Statement {%s} closed with status {%s}", statementId, resp.getStatus());
+    LOGGER.debug("Statement {} closed with status {}", statementId, resp.getStatus());
   }
 
   @Override
@@ -262,7 +262,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TCancelOperationReq request =
         new TCancelOperationReq().setOperationHandle(getOperationHandle(statementId));
     TCancelOperationResp resp = thriftAccessor.cancelOperation(request);
-    LOGGER.debug("Statement {%s} cancelled with status {%s}", statementId, resp.getStatus());
+    LOGGER.debug("Statement {} cancelled with status {}", statementId, resp.getStatus());
   }
 
   @Override

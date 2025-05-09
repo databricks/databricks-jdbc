@@ -194,12 +194,29 @@ public class TelemetryHelper {
             .setDiscoveryUrl(connectionContext.getOAuthDiscoveryURL())
             .setUseEmptyMetadata(connectionContext.getUseEmptyMetadata())
             .setSupportManyParameters(connectionContext.supportManyParameters())
+            .setGoogleCredentialFilePath(connectionContext.getGoogleCredentials())
+            .setGoogleServiceAccount(connectionContext.getGoogleServiceAccount())
+            .setAllowedVolumeIngestionPaths(connectionContext.getVolumeOperationAllowedPaths())
+            .setSocketTimeout(connectionContext.getSocketTimeout())
+            .setStringColumnLength(connectionContext.getDefaultStringColumnLength())
+            .setEnableComplexDatatypeSupport(connectionContext.isComplexDatatypeSupportEnabled())
+            .setAzureWorkspaceResourceId(connectionContext.getAzureWorkspaceResourceId())
+            .setAzureTenantId(connectionContext.getAzureTenantId())
             .setSslTrustStoreType(connectionContext.getSSLTrustStoreType())
+            .setEnableArrow(connectionContext.shouldEnableArrow())
+            .setEnableDirectResults(connectionContext.getDirectResultMode())
             .setCheckCertificateRevocation(connectionContext.checkCertificateRevocation())
             .setAcceptUndeterminedCertificateRevocation(
                 connectionContext.acceptUndeterminedCertificateRevocation())
             .setDriverMode(connectionContext.getClientType())
+            .setEnableTokenCache(connectionContext.isTokenCacheEnabled())
             .setHttpPath(connectionContext.getHttpPath());
+    if (connectionContext.useJWTAssertion()) {
+      connectionParameters
+          .setEnableJwtAssertion(true)
+          .setJwtAlgorithm(connectionContext.getJWTAlgorithm())
+          .setJwtKeyFile(connectionContext.getJWTKeyFile());
+    }
     if (connectionContext.getUseCloudFetchProxy()) {
       connectionParameters.setCfProxyHostDetails(
           getHostDetails(
@@ -208,11 +225,13 @@ public class TelemetryHelper {
               connectionContext.getCloudFetchProxyAuthType()));
     }
     if (connectionContext.getUseProxy()) {
-      connectionParameters.setProxyHostDetails(
+      HostDetails hostDetails =
           getHostDetails(
               connectionContext.getProxyHost(),
               connectionContext.getProxyPort(),
-              connectionContext.getProxyAuthType()));
+              connectionContext.getProxyAuthType());
+      hostDetails.setNonProxyHosts(connectionContext.getNonProxyHosts());
+      connectionParameters.setProxyHostDetails(hostDetails);
     } else if (connectionContext.getUseSystemProxy()) {
       String protocol = System.getProperty("https.proxyHost") != null ? "https" : "http";
       connectionParameters.setProxyHostDetails(

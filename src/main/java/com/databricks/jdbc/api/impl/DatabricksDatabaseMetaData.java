@@ -838,8 +838,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public boolean supportsTransactionIsolationLevel(int level) throws SQLException {
-    LOGGER.debug(
-        String.format("public boolean supportsTransactionIsolationLevel(int level = {%s})", level));
+    LOGGER.debug("public boolean supportsTransactionIsolationLevel(int level = {})", level);
     throwExceptionIfConnectionIsClosed();
     return level == Connection.TRANSACTION_READ_UNCOMMITTED;
   }
@@ -891,9 +890,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getProcedures(String catalog, String schemaPattern, String procedureNamePattern)
       throws SQLException {
     LOGGER.debug(
-        String.format(
-            "public ResultSet getProcedures(String catalog = {%s}, String schemaPattern = {%s}, String procedureNamePattern = {%s})",
-            catalog, schemaPattern, procedureNamePattern));
+        "public ResultSet getProcedures(String catalog = {}, String schemaPattern = {}, String procedureNamePattern = {})",
+        catalog,
+        schemaPattern,
+        procedureNamePattern);
     throwExceptionIfConnectionIsClosed();
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
@@ -940,9 +940,11 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       String catalog, String schemaPattern, String procedureNamePattern, String columnNamePattern)
       throws SQLException {
     LOGGER.debug(
-        String.format(
-            "public ResultSet getProcedureColumns(String catalog = {%s}, String schemaPattern = {%s}, String procedureNamePattern = {%s}, String columnNamePattern = {%s})",
-            catalog, schemaPattern, procedureNamePattern, columnNamePattern));
+        "public ResultSet getProcedureColumns(String catalog = {}, String schemaPattern = {}, String procedureNamePattern = {}, String columnNamePattern = {})",
+        catalog,
+        schemaPattern,
+        procedureNamePattern,
+        columnNamePattern);
     throwExceptionIfConnectionIsClosed();
 
     return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
@@ -957,9 +959,11 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       String catalog, String schemaPattern, String tableNamePattern, String[] types)
       throws SQLException {
     LOGGER.debug(
-        String.format(
-            "public ResultSet getTables(String catalog = {%s}, String schemaPattern = {%s}, String tableNamePattern = {%s}, String[] types = {%s})",
-            catalog, schemaPattern, tableNamePattern, types));
+        "public ResultSet getTables(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {}, String[] types = {})",
+        catalog,
+        schemaPattern,
+        tableNamePattern,
+        types);
     throwExceptionIfConnectionIsClosed();
     return session
         .getDatabricksMetadataClient()
@@ -995,8 +999,11 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getColumns(String catalog = {%s}, String schemaPattern = {%s}, String tableNamePattern = {%s}, String columnNamePattern = {%s})",
-            catalog, schemaPattern, tableNamePattern, columnNamePattern));
+            "public ResultSet getColumns(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {}, String columnNamePattern = {})",
+            catalog,
+            schemaPattern,
+            tableNamePattern,
+            columnNamePattern));
     throwExceptionIfConnectionIsClosed();
 
     return session
@@ -1009,8 +1016,11 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       String catalog, String schema, String table, String columnNamePattern) throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getColumnPrivileges(String catalog = {%s}, String schema = {%s}, String table = {%s}, String columnNamePattern = {%s})",
-            catalog, schema, table, columnNamePattern));
+            "public ResultSet getColumnPrivileges(String catalog = {}, String schema = {}, String table = {}, String columnNamePattern = {})",
+            catalog,
+            schema,
+            table,
+            columnNamePattern));
     throwExceptionIfConnectionIsClosed();
     return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         COLUMN_PRIVILEGES_COLUMNS,
@@ -1024,8 +1034,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getTablePrivileges(String catalog = {%s}, String schemaPattern = {%s}, String tableNamePattern = {%s})",
-            catalog, schemaPattern, tableNamePattern));
+            "public ResultSet getTablePrivileges(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {})",
+            catalog,
+            schemaPattern,
+            tableNamePattern));
     throwExceptionIfConnectionIsClosed();
     return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         TABLE_PRIVILEGES_COLUMNS,
@@ -1039,9 +1051,12 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       String catalog, String schema, String table, int scope, boolean nullable)
       throws SQLException {
     LOGGER.debug(
-        String.format(
-            "public ResultSet getBestRowIdentifier(String catalog = {%s}, String schema = {%s}, String table = {%s}, int scope = {%s}, boolean nullable = {%s})",
-            catalog, schema, table, scope, nullable));
+        "public ResultSet getBestRowIdentifier(String catalog = {}, String schema = {}, String table = {}, int scope = {}, boolean nullable = {})",
+        catalog,
+        schema,
+        table,
+        scope,
+        nullable);
     switch (scope) {
       case 0:
       case 1:
@@ -1062,8 +1077,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getVersionColumns(String catalog = {%s}, String schema = {%s}, String table = {%s})",
-            catalog, schema, table));
+            "public ResultSet getVersionColumns(String catalog = {}, String schema = {}, String table = {})",
+            catalog,
+            schema,
+            table));
     throwExceptionIfConnectionIsClosed();
     return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         VERSION_COLUMNS_COLUMNS,
@@ -1076,8 +1093,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getPrimaryKeys(String catalog, String schema, String table) throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getPrimaryKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
-            catalog, schema, table));
+            "public ResultSet getPrimaryKeys(String catalog = {}, String schema = {}, String table = {})",
+            catalog,
+            schema,
+            table));
     throwExceptionIfConnectionIsClosed();
     return session.getDatabricksMetadataClient().listPrimaryKeys(session, catalog, schema, table);
   }
@@ -1087,8 +1106,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getImportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
-            catalog, schema, table));
+            "public ResultSet getImportedKeys(String catalog = {}, String schema = {}, String table = {})",
+            catalog,
+            schema,
+            table));
     throwExceptionIfConnectionIsClosed();
 
     return session.getDatabricksMetadataClient().listImportedKeys(session, catalog, schema, table);
@@ -1099,8 +1120,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getExportedKeys(String catalog = {%s}, String schema = {%s}, String table = {%s})",
-            catalog, schema, table));
+            "public ResultSet getExportedKeys(String catalog = {}, String schema = {}, String table = {})",
+            catalog,
+            schema,
+            table));
     throwExceptionIfConnectionIsClosed();
 
     return session.getDatabricksMetadataClient().listExportedKeys(session, catalog, schema, table);
@@ -1117,8 +1140,13 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getCrossReference(String parentCatalog = {%s}, String parentSchema = {%s}, String parentTable = {%s}, String foreignCatalog = {%s}, String foreignSchema = {%s}, String foreignTable = {%s})",
-            parentCatalog, parentSchema, parentTable, foreignCatalog, foreignSchema, foreignTable));
+            "public ResultSet getCrossReference(String parentCatalog = {}, String parentSchema = {}, String parentTable = {}, String foreignCatalog = {}, String foreignSchema = {}, String foreignTable = {})",
+            parentCatalog,
+            parentSchema,
+            parentTable,
+            foreignCatalog,
+            foreignSchema,
+            foreignTable));
 
     throwExceptionIfConnectionIsClosed();
     if (parentTable == null && foreignTable == null) {
@@ -1152,8 +1180,12 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getIndexInfo(String catalog = {%s}, String schema = {%s}, String table = {%s}, boolean unique = {%s}, boolean approximate = {%s})",
-            catalog, schema, table, unique, approximate));
+            "public ResultSet getIndexInfo(String catalog = {}, String schema = {}, String table = {}, boolean unique = {}, boolean approximate = {})",
+            catalog,
+            schema,
+            table,
+            unique,
+            approximate));
     throwExceptionIfConnectionIsClosed();
 
     return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
@@ -1162,7 +1194,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public boolean supportsResultSetType(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean supportsResultSetType(int type = {%s})", type));
+    LOGGER.debug("public boolean supportsResultSetType(int type = {})", type);
     throwExceptionIfConnectionIsClosed();
     return type == ResultSet.TYPE_FORWARD_ONLY;
   }
@@ -1171,43 +1203,44 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public boolean supportsResultSetConcurrency(int type, int concurrency) throws SQLException {
     LOGGER.debug(
         String.format(
-            "public boolean supportsResultSetConcurrency(int type = {%s}, int concurrency = {%s})",
-            type, concurrency));
+            "public boolean supportsResultSetConcurrency(int type = {}, int concurrency = {})",
+            type,
+            concurrency));
     throwExceptionIfConnectionIsClosed();
     return type == ResultSet.TYPE_FORWARD_ONLY && concurrency == ResultSet.CONCUR_READ_ONLY;
   }
 
   @Override
   public boolean ownUpdatesAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean ownUpdatesAreVisible(int type = {%s})", type));
+    LOGGER.debug("public boolean ownUpdatesAreVisible(int type = {})", type);
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean ownDeletesAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean ownDeletesAreVisible(int type = {%s})", type));
+    LOGGER.debug("public boolean ownDeletesAreVisible(int type = {})", type);
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean ownInsertsAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean ownInsertsAreVisible(int type = {%s})", type));
+    LOGGER.debug("public boolean ownInsertsAreVisible(int type = {})", type);
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean othersUpdatesAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean othersUpdatesAreVisible(int type = {%s})", type));
+    LOGGER.debug("public boolean othersUpdatesAreVisible(int type = {})", type);
     throwExceptionIfConnectionIsClosed();
     return false;
   }
 
   @Override
   public boolean othersDeletesAreVisible(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean othersDeletesAreVisible(int type = {%s})", type));
+    LOGGER.debug("public boolean othersDeletesAreVisible(int type = {})", type);
     throwExceptionIfConnectionIsClosed();
     return false;
   }
@@ -1220,7 +1253,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
   @Override
   public boolean updatesAreDetected(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean updatesAreDetected(int type = {%s})", type));
+    LOGGER.debug("public boolean updatesAreDetected(int type = {})", type);
     throwExceptionIfConnectionIsClosed();
     return false;
   }
@@ -1238,13 +1271,13 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
    */
   @Override
   public boolean deletesAreDetected(int type) {
-    LOGGER.debug(String.format("public boolean deletesAreDetected(int type = {%s})", type));
+    LOGGER.debug("public boolean deletesAreDetected(int type = {})", type);
     return false;
   }
 
   @Override
   public boolean insertsAreDetected(int type) throws SQLException {
-    LOGGER.debug(String.format("public boolean insertsAreDetected(int type = {%s})", type));
+    LOGGER.debug("public boolean insertsAreDetected(int type = {})", type);
     throwExceptionIfConnectionIsClosed();
     return false;
   }
@@ -1262,8 +1295,11 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getUDTs(String catalog = {%s}, String schemaPattern = {%s}, String typeNamePattern = {%s}, int[] types = {%s})",
-            catalog, schemaPattern, typeNamePattern, Arrays.toString(types)));
+            "public ResultSet getUDTs(String catalog = {}, String schemaPattern = {}, String typeNamePattern = {}, int[] types = {})",
+            catalog,
+            schemaPattern,
+            typeNamePattern,
+            Arrays.toString(types)));
     throwExceptionIfConnectionIsClosed();
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
@@ -1331,8 +1367,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getSuperTypes(String catalog = {%s}, String schemaPattern = {%s}, String typeNamePattern = {%s})",
-            catalog, schemaPattern, typeNamePattern));
+            "public ResultSet getSuperTypes(String catalog = {}, String schemaPattern = {}, String typeNamePattern = {})",
+            catalog,
+            schemaPattern,
+            typeNamePattern));
     throwExceptionIfConnectionIsClosed();
     return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         SUPER_TYPES_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_SUPER_TYPES);
@@ -1343,8 +1381,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getSuperTables(String catalog = {%s}, String schemaPattern = {%s}, String tableNamePattern = {%s})",
-            catalog, schemaPattern, tableNamePattern));
+            "public ResultSet getSuperTables(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {})",
+            catalog,
+            schemaPattern,
+            tableNamePattern));
     throwExceptionIfConnectionIsClosed();
 
     return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
@@ -1359,18 +1399,18 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       String catalog, String schemaPattern, String typeNamePattern, String attributeNamePattern)
       throws SQLException {
     LOGGER.debug(
-        String.format(
-            "public ResultSet getAttributes(String catalog = {%s}, String schemaPattern = {%s}, String typeNamePattern = {%s}, String attributeNamePattern = {%s})",
-            catalog, schemaPattern, typeNamePattern, attributeNamePattern));
+        "public ResultSet getAttributes(String catalog = {}, String schemaPattern = {}, String typeNamePattern = {}, String attributeNamePattern = {})",
+        catalog,
+        schemaPattern,
+        typeNamePattern,
+        attributeNamePattern);
     return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
         ATTRIBUTES_COLUMNS, new ArrayList<>(), METADATA_STATEMENT_ID, CommandName.GET_ATTRIBUTES);
   }
 
   @Override
   public boolean supportsResultSetHoldability(int holdability) throws SQLException {
-    LOGGER.debug(
-        String.format(
-            "public boolean supportsResultSetHoldability(int holdability = {%s})", holdability));
+    LOGGER.debug("public boolean supportsResultSetHoldability(int holdability = {})", holdability);
     throwExceptionIfConnectionIsClosed();
     return holdability == ResultSet.CLOSE_CURSORS_AT_COMMIT;
   }
@@ -1438,8 +1478,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getSchemas(String catalog, String schemaPattern) throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getSchemas(String catalog = {%s}, String schemaPattern = {%s})",
-            catalog, schemaPattern));
+            "public ResultSet getSchemas(String catalog = {}, String schemaPattern = {})",
+            catalog,
+            schemaPattern));
     throwExceptionIfConnectionIsClosed();
     return session.getDatabricksMetadataClient().listSchemas(session, catalog, schemaPattern);
   }
@@ -1470,15 +1511,17 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getFunctions(String catalog = {%s}, String schemaPattern = {%s}, String functionNamePattern = {%s})",
-            catalog, schemaPattern, functionNamePattern));
+            "public ResultSet getFunctions(String catalog = {}, String schemaPattern = {}, String functionNamePattern = {})",
+            catalog,
+            schemaPattern,
+            functionNamePattern));
     throwExceptionIfConnectionIsClosed();
     try {
       return session
           .getDatabricksMetadataClient()
           .listFunctions(session, catalog, schemaPattern, functionNamePattern);
     } catch (Exception e) {
-      LOGGER.error("Unable to fetch functions, returning empty result set", e);
+      LOGGER.error(e, "Unable to fetch functions, returning empty result set");
       return metadataResultSetBuilder.getFunctionsResult(catalog, List.of());
     }
   }
@@ -1489,8 +1532,11 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getFunctionColumns(String catalog = {%s}, String schemaPattern = {%s}, String functionNamePattern = {%s}, String columnNamePattern = {%s})",
-            catalog, schemaPattern, functionNamePattern, columnNamePattern));
+            "public ResultSet getFunctionColumns(String catalog = {}, String schemaPattern = {}, String functionNamePattern = {}, String columnNamePattern = {})",
+            catalog,
+            schemaPattern,
+            functionNamePattern,
+            columnNamePattern));
     throwExceptionIfConnectionIsClosed();
 
     return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
@@ -1506,8 +1552,11 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
     LOGGER.debug(
         String.format(
-            "public ResultSet getPseudoColumns(String catalog = {%s}, String schemaPattern = {%s}, String tableNamePattern = {%s}, String columnNamePattern = {%s})",
-            catalog, schemaPattern, tableNamePattern, columnNamePattern));
+            "public ResultSet getPseudoColumns(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {}, String columnNamePattern = {})",
+            catalog,
+            schemaPattern,
+            tableNamePattern,
+            columnNamePattern));
     throwExceptionIfConnectionIsClosed();
 
     return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
@@ -1527,7 +1576,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   /** {@inheritDoc} */
   @Override
   public <T> T unwrap(Class<T> iface) throws SQLException {
-    LOGGER.debug(String.format("public <T> T unwrap(Class<T> iface = {%s})", iface));
+    LOGGER.debug("public <T> T unwrap(Class<T> iface = {})", iface);
 
     if (isWrapperFor(iface)) {
       return iface.cast(this);
@@ -1540,7 +1589,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   /** {@inheritDoc} */
   @Override
   public boolean isWrapperFor(Class<?> iface) throws SQLException {
-    LOGGER.debug(String.format("public boolean isWrapperFor(Class<?> iface = {%s})", iface));
+    LOGGER.debug("public boolean isWrapperFor(Class<?> iface = {})", iface);
 
     return iface != null && iface.isAssignableFrom(this.getClass());
   }

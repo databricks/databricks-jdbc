@@ -12,7 +12,7 @@ import java.util.concurrent.Executors;
 
 public class TelemetryClientFactory {
 
-  private static final JdbcLogger logger = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
 
   private static final TelemetryClientFactory INSTANCE = new TelemetryClientFactory();
 
@@ -73,7 +73,7 @@ public class TelemetryClientFactory {
       try {
         client.close();
       } catch (Exception e) {
-        logger.debug(String.format("Caught error while closing %s. Error: %s", clientType, e));
+        LOGGER.debug("Caught error while closing {}. Error: {}", clientType, e);
       }
     }
   }

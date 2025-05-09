@@ -161,9 +161,9 @@ public class DatabricksPooledConnection implements PooledConnection {
     @Override
     public Object invoke(Object proxy, Method method, @Nullable Object[] args) throws Throwable {
       LOGGER.debug(
-          String.format(
-              "public Object invoke(Object proxy, Method method = {%s}, Object[] args = {%s})",
-              method, Arrays.toString(args)));
+          "public Object invoke(Object proxy, Method method = {}, Object[] args = {})",
+          method,
+          Arrays.toString(args));
       final String methodName = method.getName();
       if (method.getDeclaringClass() == Object.class) {
         if (methodName.equals("toString")) {
@@ -274,9 +274,9 @@ public class DatabricksPooledConnection implements PooledConnection {
     @Override
     public Object invoke(Object proxy, Method method, @Nullable Object[] args) throws Throwable {
       LOGGER.debug(
-          String.format(
-              "public Object invoke(Object proxy, Method method = {%s}, Object[] args = {%s})",
-              method, Arrays.toString(args)));
+          "public Object invoke(Object proxy, Method method = {}, Object[] args = {})",
+          method,
+          Arrays.toString(args));
       final String methodName = method.getName();
       if (method.getDeclaringClass() == Object.class) {
         if (methodName.equals("toString")) {

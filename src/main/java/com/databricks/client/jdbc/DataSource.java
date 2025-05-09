@@ -79,7 +79,7 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
 
   @Override
   public void setLoginTimeout(int seconds) {
-    LOGGER.debug(String.format("public void setLoginTimeout(int seconds = {%s})", seconds));
+    LOGGER.debug("public void setLoginTimeout(int seconds = {})", seconds);
     this.properties.put(DatabricksJdbcConstants.LOGIN_TIMEOUT, seconds);
   }
 

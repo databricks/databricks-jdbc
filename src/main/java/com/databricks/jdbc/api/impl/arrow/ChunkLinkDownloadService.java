@@ -91,8 +91,10 @@ public class ChunkLinkDownloadService {
       Map<Long, ArrowResultChunk> chunkIndexToChunksMap,
       long nextBatchStartIndex) {
     LOGGER.info(
-        "Initializing ChunkLinkDownloadService for statement %s with total chunks: %d, starting at index: %d",
-        statementId, totalChunks, nextBatchStartIndex);
+        "Initializing ChunkLinkDownloadService for statement {} with total chunks: {}, starting at index: {}",
+        statementId,
+        totalChunks,
+        nextBatchStartIndex);
 
     this.session = session;
     this.statementId = statementId;
@@ -138,23 +140,23 @@ public class ChunkLinkDownloadService {
       throws ExecutionException, InterruptedException {
     if (isShutdown) {
       LOGGER.warn(
-          "Attempt to get link for chunk %d while chunk download service is shutdown", chunkIndex);
+          "Attempt to get link for chunk {} while chunk download service is shutdown", chunkIndex);
       return createExceptionalFuture(
           new DatabricksValidationException("Chunk Link Download Service is shutdown"));
     }
 
     if (chunkIndex >= totalChunks) {
-      LOGGER.error("Requested chunk index %d exceeds total chunks %d", chunkIndex, totalChunks);
+      LOGGER.error("Requested chunk index {} exceeds total chunks {}", chunkIndex, totalChunks);
       return createExceptionalFuture(
           new DatabricksValidationException("Chunk index exceeds total chunks"));
     }
 
-    LOGGER.debug("Getting link for chunk %d", chunkIndex);
+    LOGGER.debug("Getting link for chunk {}", chunkIndex);
     handleExpiredLinksAndReset(chunkIndex);
 
     // Trigger first download if not already done
     if (isDownloadChainStarted.compareAndSet(false, true)) {
-      LOGGER.info("Initiating first download chain for chunk %d", chunkIndex);
+      LOGGER.info("Initiating first download chain for chunk {}", chunkIndex);
       triggerNextBatchDownload();
     }
 
@@ -163,12 +165,12 @@ public class ChunkLinkDownloadService {
 
   /** Shuts down the service and cancels all pending operations. */
   public void shutdown() {
-    LOGGER.info("Shutting down ChunkLinkDownloadService for statement %s", statementId);
+    LOGGER.info("Shutting down ChunkLinkDownloadService for statement {}", statementId);
     isShutdown = true;
     chunkIndexToLinkFuture.forEach(
         (index, future) -> {
           if (!future.isDone()) {
-            LOGGER.debug("Completing future for chunk %d exceptionally due to shutdown", index);
+            LOGGER.debug("Completing future for chunk {} exceptionally due to shutdown", index);
             future.completeExceptionally(
                 new DatabricksValidationException("Service was shut down"));
           }
@@ -193,21 +195,23 @@ public class ChunkLinkDownloadService {
   private void triggerNextBatchDownload() {
     if (isShutdown || !isDownloadInProgress.compareAndSet(false, true)) {
       LOGGER.debug(
-          "Skipping batch download - Service shutdown: %s, Download in progress: %s",
-          isShutdown, isDownloadInProgress.get());
+          "Skipping batch download - Service shutdown: {}, Download in progress: {}",
+          isShutdown,
+          isDownloadInProgress.get());
       return;
     }
 
     final long batchStartIndex = nextBatchStartIndex.get();
     if (batchStartIndex >= totalChunks) {
       LOGGER.info(
-          "No more chunks to download. Current index: %d, Total chunks: %d",
-          batchStartIndex, totalChunks);
+          "No more chunks to download. Current index: {}, Total chunks: {}",
+          batchStartIndex,
+          totalChunks);
       isDownloadInProgress.set(false);
       return;
     }
 
-    LOGGER.info("Starting batch download from index %d", batchStartIndex);
+    LOGGER.info("Starting batch download from index {}", batchStartIndex);
     currentDownloadTask =
         CompletableFuture.runAsync(
             () -> {
@@ -215,8 +219,10 @@ public class ChunkLinkDownloadService {
                 Collection<ExternalLink> links =
                     session.getDatabricksClient().getResultChunks(statementId, batchStartIndex);
                 LOGGER.info(
-                    "Retrieved %d links for batch starting at %d for statement id %s",
-                    links.size(), batchStartIndex, statementId);
+                    "Retrieved {} links for batch starting at {} for statement id {}",
+                    links.size(),
+                    batchStartIndex,
+                    statementId);
 
                 // Complete futures for all chunks in this batch
                 for (ExternalLink link : links) {
@@ -224,8 +230,9 @@ public class ChunkLinkDownloadService {
                       chunkIndexToLinkFuture.get(link.getChunkIndex());
                   if (future != null) {
                     LOGGER.debug(
-                        "Completing future for chunk %d for statement id %s",
-                        link.getChunkIndex(), statementId);
+                        "Completing future for chunk {} for statement id {}",
+                        link.getChunkIndex(),
+                        statementId);
                     future.complete(link);
                   }
                 }
@@ -235,7 +242,7 @@ public class ChunkLinkDownloadService {
                   long maxChunkIndex =
                       links.stream().mapToLong(ExternalLink::getChunkIndex).max().getAsLong();
                   nextBatchStartIndex.set(maxChunkIndex + 1);
-                  LOGGER.debug("Updated next batch start index to %d", maxChunkIndex + 1);
+                  LOGGER.debug("Updated next batch start index to {}", maxChunkIndex + 1);
 
                   // Mark current download as complete and trigger next batch
                   isDownloadInProgress.set(false);
@@ -260,7 +267,7 @@ public class ChunkLinkDownloadService {
   private void handleBatchDownloadError(long batchStartIndex, DatabricksSQLException e) {
     LOGGER.error(
         e,
-        "Failed to download links for batch starting at %d: %s",
+        "Failed to download links for batch starting at {} : {}",
         batchStartIndex,
         e.getMessage());
 
@@ -269,7 +276,7 @@ public class ChunkLinkDownloadService {
         (index, future) -> {
           if (!future.isDone()) {
             LOGGER.debug(
-                "Completing future for chunk %d exceptionally due to batch download error", index);
+                "Completing future for chunk {} exceptionally due to batch download error", index);
             future.completeExceptionally(e);
           }
         });
@@ -318,11 +325,11 @@ public class ChunkLinkDownloadService {
     synchronized (resetLock) {
       if (isChunkLinkExpiredForPendingDownload(chunkIndex)) {
         LOGGER.info(
-            "Detected expired link for chunk %d, re-triggering batch download from the smallest index with the expired link",
+            "Detected expired link for chunk {}, re-triggering batch download from the smallest index with the expired link",
             chunkIndex);
         for (long i = 1; i < totalChunks; i++) {
           if (isChunkLinkExpiredForPendingDownload(i)) {
-            LOGGER.info("Found the smallest index %d with the expired link, initiating reset", i);
+            LOGGER.info("Found the smallest index {} with the expired link, initiating reset", i);
             cancelCurrentDownloadTask();
             resetFuturesFromIndex(i);
             prepareNewBatchDownload(i);
@@ -368,7 +375,7 @@ public class ChunkLinkDownloadService {
         currentDownloadTask.get(100, java.util.concurrent.TimeUnit.MILLISECONDS);
       } catch (Exception e) {
         // Expected - task was cancelled
-        LOGGER.trace("Expected exception while cancelling download task: %s", e.getMessage());
+        LOGGER.trace("Expected exception while cancelling download task: {}", e.getMessage());
       }
       currentDownloadTask = null;
     }
@@ -380,11 +387,11 @@ public class ChunkLinkDownloadService {
    * @param startIndex the index from which to start resetting futures
    */
   private void resetFuturesFromIndex(long startIndex) {
-    LOGGER.info("Resetting futures from index %d", startIndex);
+    LOGGER.info("Resetting futures from index {}", startIndex);
     for (long j = startIndex; j < totalChunks; j++) {
       CompletableFuture<ExternalLink> future = chunkIndexToLinkFuture.get(j);
       if (future != null && !future.isDone()) {
-        LOGGER.debug("Cancelling future for chunk %d", j);
+        LOGGER.debug("Cancelling future for chunk {}", j);
         future.cancel(true);
       }
       chunkIndexToLinkFuture.put(j, new CompletableFuture<>());
@@ -397,7 +404,7 @@ public class ChunkLinkDownloadService {
    * @param startIndex the index from which to start the new batch
    */
   private void prepareNewBatchDownload(long startIndex) {
-    LOGGER.info("Preparing new batch download from index %d", startIndex);
+    LOGGER.info("Preparing new batch download from index {}", startIndex);
     nextBatchStartIndex.set(startIndex);
     isDownloadInProgress.set(false);
     isDownloadChainStarted.set(false);
