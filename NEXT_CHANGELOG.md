@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
-- 
+- Support for fetching tables and views across all catalogs using SHOW TABLES FROM/IN ALL CATALOGS in the SQL Exec API.
 
 ### Updated
 - 
