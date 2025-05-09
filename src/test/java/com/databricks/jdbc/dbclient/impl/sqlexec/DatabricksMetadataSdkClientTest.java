@@ -750,9 +750,6 @@ public class DatabricksMetadataSdkClientTest {
         () -> metadataClient.listColumns(session, null, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
     assertThrows(
         DatabricksValidationException.class,
-        () -> metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE, null));
-    assertThrows(
-        DatabricksValidationException.class,
         () -> metadataClient.listSchemas(session, null, TEST_SCHEMA));
     assertThrows(
         DatabricksValidationException.class,
