@@ -32,6 +32,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.*;
@@ -41,6 +42,8 @@ import org.apache.hc.core5.concurrent.FutureCallback;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.nio.AsyncRequestProducer;
 import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
+import org.apache.hc.core5.http.nio.entity.AsyncEntityProducers;
+import org.apache.hc.core5.http.nio.support.AsyncRequestBuilder;
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
@@ -601,10 +604,10 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       if (bytesRead == -1) {
         throw new IOException("Failed to read from input stream");
       }
-      SimpleHttpRequest request =
-          SimpleRequestBuilder.put(presignedUrl)
-              .setBody(in.toString(), ContentType.APPLICATION_OCTET_STREAM)
-              .build();
+      //      SimpleHttpRequest request =
+      //          SimpleRequestBuilder.put(presignedUrl)
+      //              .setBody(in.toString(), ContentType.APPLICATION_OCTET_STREAM)
+      //              .build();
 
       //      AsyncRequestBuilder.put()
       //          .setUri(URI.create(presignedUrl))
@@ -616,7 +619,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       //      httpPut.setURI(URI.create(presignedUrl));
       //      httpPut.setEntity(new InputStreamEntity(in, len));
 
-      AsyncRequestProducer producer = SimpleRequestProducer.create(request);
+      //      AsyncRequestProducer producer = SimpleRequestProducer.create(request);
+      AsyncRequestProducer producer =
+          AsyncRequestBuilder.put()
+              .setUri(URI.create(presignedUrl))
+              .setEntity(
+                  AsyncEntityProducers.create(byteArray, ContentType.APPLICATION_OCTET_STREAM))
+              .build();
       AsyncResponseConsumer<SimpleHttpResponse> consumer = SimpleResponseConsumer.create();
 
       databricksHttpClient.executeAsync(
