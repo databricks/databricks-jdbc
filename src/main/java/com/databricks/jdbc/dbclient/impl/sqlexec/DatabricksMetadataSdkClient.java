@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.DEFAULT_TABLE_TYPES;
 import static com.databricks.jdbc.common.MetadataResultConstants.PARSE_SYNTAX_ERROR_SQL_STATE;
+import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.GET_TABLES_STATEMENT_ID;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
@@ -76,8 +77,24 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     String SQL = commandBuilder.getSQLString(CommandName.LIST_TABLES);
     LOGGER.debug("SQL command to fetch tables: {}", SQL);
     LOGGER.debug(String.format("SQL command to fetch tables: {%s}", SQL));
-    return metadataResultSetBuilder.getTablesResult(
-        getResultSet(SQL, session), validatedTableTypes);
+    try {
+      return metadataResultSetBuilder.getTablesResult(
+          getResultSet(SQL, session), validatedTableTypes);
+    } catch (SQLException e) {
+      if (e.getSQLState().equals(PARSE_SYNTAX_ERROR_SQL_STATE)
+          && (catalog == null || catalog.equals("*") || catalog.equals("%"))) {
+        // Gracefully handles the case where an older DBSQL version doesn't support all catalogs in
+        // the SHOW TABLES command.
+        LOGGER.debug("SQL command failed with syntax error. Returning empty result set.");
+        return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+            MetadataResultConstants.TABLE_COLUMNS,
+            new ArrayList<>(),
+            GET_TABLES_STATEMENT_ID,
+            com.databricks.jdbc.common.CommandName.LIST_TABLES);
+      } else {
+        throw e;
+      }
+    }
   }
 
   @Override
