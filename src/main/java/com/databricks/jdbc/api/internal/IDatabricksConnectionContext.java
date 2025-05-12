@@ -176,6 +176,12 @@ public interface IDatabricksConnectionContext {
   /** Returns whether OAuth2 discovery mode is enabled, which fetches endpoints dynamically. */
   boolean isOAuthDiscoveryModeEnabled();
 
+  /**
+   * OAuth Client Id for identity federation which is used in exchanging the access token with
+   * Databricks in-house token
+   */
+  String getIdentityFederationClientId();
+
   /** Returns the discovery URL used to obtain the OAuth2 token and authorization endpoints. */
   String getOAuthDiscoveryURL();
 

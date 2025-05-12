@@ -51,6 +51,8 @@ public enum DatabricksJdbcUrlParams {
   AUTH_SCOPE("Auth_Scope", "Authentication scope", "all-apis"),
   OIDC_DISCOVERY_ENDPOINT("OIDCDiscoveryEndpoint", "OIDC Discovery Endpoint"),
   DISCOVERY_URL("OAuthDiscoveryURL", "OAuth discovery URL"), // Same as OIDC_DISCOVERY_ENDPOINT
+  IDENTITY_FEDERATION_CLIENT_ID(
+      "Identity_Federation_Client_Id", "OAuth Client ID for Token Federation"),
   ENABLE_ARROW("EnableArrow", "Enable Arrow", "1"),
   DIRECT_RESULT("EnableDirectResults", "Enable direct results", "1"),
   LZ4_COMPRESSION_FLAG(
