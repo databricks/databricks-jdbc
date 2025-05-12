@@ -31,7 +31,18 @@ public class DatabricksDriverPropertyUtil {
           DatabricksJdbcUrlParams.DIRECT_RESULT,
           DatabricksJdbcUrlParams.COMPRESSION_FLAG,
           DatabricksJdbcUrlParams.LZ4_COMPRESSION_FLAG,
-          DatabricksJdbcUrlParams.USER_AGENT_ENTRY);
+          DatabricksJdbcUrlParams.USER_AGENT_ENTRY,
+          DatabricksJdbcUrlParams.ENABLE_TOKEN_CACHE,
+          DatabricksJdbcUrlParams.SOCKET_TIMEOUT,
+          DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH,
+          DatabricksJdbcUrlParams.AZURE_WORKSPACE_RESOURCE_ID,
+          DatabricksJdbcUrlParams.AZURE_TENANT_ID,
+          DatabricksJdbcUrlParams.ENABLE_COMPLEX_DATATYPE_SUPPORT,
+          DatabricksJdbcUrlParams.ALLOWED_VOLUME_INGESTION_PATHS,
+          DatabricksJdbcUrlParams.GOOGLE_CREDENTIALS_FILE,
+          DatabricksJdbcUrlParams.GOOGLE_SERVICE_ACCOUNT,
+          DatabricksJdbcUrlParams.JWT_ALGORITHM,
+          DatabricksJdbcUrlParams.JWT_KEY_FILE);
 
   public static List<DriverPropertyInfo> getMissingProperties(String url, Properties info)
       throws DatabricksParsingException {
