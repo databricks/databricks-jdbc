@@ -41,7 +41,12 @@ public class JdbcThreadUtilsTest {
   public void testParallelExecuteWithEmptyCollection() throws SQLException {
     List<String> result =
         JdbcThreadUtils.parallelMap(
-            Collections.<String>emptyList(), mockConnectionContext, 5, 10, String::toUpperCase);
+            Collections.<String>emptyList(),
+            mockConnectionContext,
+            5,
+            10,
+            String::toUpperCase,
+            null);
 
     assertTrue(result.isEmpty());
 
@@ -56,7 +61,7 @@ public class JdbcThreadUtilsTest {
     List<String> items = Collections.singletonList("test");
 
     List<String> result =
-        JdbcThreadUtils.parallelMap(items, mockConnectionContext, 5, 10, String::toUpperCase);
+        JdbcThreadUtils.parallelMap(items, mockConnectionContext, 5, 10, String::toUpperCase, null);
 
     assertEquals(1, result.size());
     assertEquals("TEST", result.get(0));
@@ -67,7 +72,7 @@ public class JdbcThreadUtilsTest {
     List<String> items = Arrays.asList("test1", "test2", "test3");
 
     List<String> result =
-        JdbcThreadUtils.parallelMap(items, mockConnectionContext, 5, 10, String::toUpperCase);
+        JdbcThreadUtils.parallelMap(items, mockConnectionContext, 5, 10, String::toUpperCase, null);
 
     assertEquals(3, result.size());
     assertTrue(result.contains("TEST1"));
@@ -95,7 +100,8 @@ public class JdbcThreadUtilsTest {
                         throw new RuntimeException(sqlException);
                       }
                       return item.toUpperCase();
-                    }));
+                    },
+                    null));
 
     // Check if the cause is our original SQLException
     assertNotNull(exception);
@@ -127,7 +133,8 @@ public class JdbcThreadUtilsTest {
                         // Expected
                       }
                       return item.toUpperCase();
-                    }));
+                    },
+                    null));
 
     assertTrue(exception.getMessage().contains("timed out"));
   }
@@ -142,7 +149,8 @@ public class JdbcThreadUtilsTest {
             mockConnectionContext,
             5,
             10,
-            item -> Arrays.asList(item.toUpperCase(), item.toLowerCase()));
+            item -> Arrays.asList(item.toUpperCase(), item.toLowerCase()),
+            null);
 
     assertEquals(6, result.size());
     assertTrue(result.contains("TEST1"));
@@ -168,7 +176,8 @@ public class JdbcThreadUtilsTest {
                 return null;
               }
               return Collections.singletonList(item.toUpperCase());
-            });
+            },
+            null);
 
     assertEquals(2, result.size());
     assertTrue(result.contains("TEST1"));
@@ -195,7 +204,8 @@ public class JdbcThreadUtilsTest {
                         Thread.currentThread().interrupt();
                       }
                       return item;
-                    });
+                    },
+                    null);
               } catch (SQLException e) {
                 // Expected
               }

@@ -15,13 +15,15 @@ import java.util.function.Function;
 public class JdbcThreadUtils {
 
   /**
-   * Executes tasks in parallel with proper context handling.
+   * Executes tasks concurrently with appropriate context management, utilizing a provided executor
+   * service (which can be null, in which case a new one will be created).
    *
    * @param items The items to process
    * @param connectionContext The connection context to propagate to worker threads
-   * @param maxThreads Maximum number of threads to use
+   * @param maxThreads Maximum number of threads to use (when creating internal executor)
    * @param timeoutSeconds Timeout in seconds
    * @param task The task to execute for each item
+   * @param executor Optional executor service to use; if null, an internal one will be created
    * @param <T> Type of input items
    * @param <R> Type of result
    * @return List of results from all tasks
@@ -32,16 +34,23 @@ public class JdbcThreadUtils {
       IDatabricksConnectionContext connectionContext,
       int maxThreads,
       int timeoutSeconds,
-      Function<T, R> task)
+      Function<T, R> task,
+      ExecutorService executor)
       throws SQLException {
 
     if (items.isEmpty()) {
       return Collections.emptyList();
     }
 
-    // Use a reasonable thread pool size
-    int threadCount = Math.min(items.size(), maxThreads);
-    ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+    boolean createdExecutor = false;
+    ExecutorService executorToUse = executor;
+
+    // Create an executor if one wasn't provided
+    if (executorToUse == null) {
+      int threadCount = Math.min(items.size(), maxThreads);
+      executorToUse = Executors.newFixedThreadPool(threadCount);
+      createdExecutor = true;
+    }
 
     try {
       List<Future<R>> futures = new ArrayList<>();
@@ -49,7 +58,7 @@ public class JdbcThreadUtils {
       // Submit tasks to the executor
       for (T item : items) {
         futures.add(
-            executor.submit(
+            executorToUse.submit(
                 () -> {
                   // Set connection context for this thread
                   DatabricksThreadContextHolder.setConnectionContext(connectionContext);
@@ -92,19 +101,23 @@ public class JdbcThreadUtils {
 
       return results;
     } finally {
-      executor.shutdownNow();
+      // Only shut down the executor if we created it
+      if (createdExecutor && executorToUse != null) {
+        executorToUse.shutdownNow();
+      }
     }
   }
 
   /**
-   * Executes tasks in parallel, collecting and flattening all results. Useful when each task
-   * produces multiple results.
+   * Executes tasks in parallel, collecting and flattening all results, utilizing a provided
+   * executor service (which can be null, in which case a new one will be created).
    *
    * @param items The items to process
    * @param connectionContext The connection context to propagate to worker threads
    * @param maxThreads Maximum number of threads to use
    * @param timeoutSeconds Timeout in seconds
    * @param task The task to execute for each item, producing a collection of results
+   * @param executor Optional executor service to use; if null, an internal one will be created
    * @param <T> Type of input items
    * @param <R> Type of result
    * @return Flattened list of all results
@@ -115,11 +128,12 @@ public class JdbcThreadUtils {
       IDatabricksConnectionContext connectionContext,
       int maxThreads,
       int timeoutSeconds,
-      Function<T, Collection<R>> task)
+      Function<T, Collection<R>> task,
+      ExecutorService executor)
       throws SQLException {
 
     List<Collection<R>> collections =
-        parallelMap(items, connectionContext, maxThreads, timeoutSeconds, task);
+        parallelMap(items, connectionContext, maxThreads, timeoutSeconds, task, executor);
 
     // Flatten the results
     List<R> allResults = new ArrayList<>();
