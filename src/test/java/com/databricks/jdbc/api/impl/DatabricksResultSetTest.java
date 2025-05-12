@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
+import com.databricks.jdbc.api.IStatementStatus;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
@@ -20,6 +21,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.StatementStatus;
+import com.databricks.sdk.service.sql.ServiceError;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.*;
 import java.math.BigDecimal;
@@ -55,6 +57,18 @@ public class DatabricksResultSetTest {
       StatementState statementState, IDatabricksStatementInternal statement) {
     return new DatabricksResultSet(
         new StatementStatus().setState(statementState),
+        STATEMENT_ID,
+        StatementType.METADATA,
+        statement,
+        mockedExecutionResult,
+        mockedResultSetMetadata,
+        false);
+  }
+
+  private DatabricksResultSet getResultSet(
+      StatementStatus statementState, IDatabricksStatementInternal statement) {
+    return new DatabricksResultSet(
+        statementState,
         STATEMENT_ID,
         StatementType.METADATA,
         statement,
@@ -118,8 +132,20 @@ public class DatabricksResultSetTest {
 
   @Test
   void testGetStatementStatus() {
-    DatabricksResultSet resultSet = getResultSet(StatementState.PENDING, null);
-    assertEquals(StatementState.PENDING, resultSet.getStatementStatus().getState());
+    StatementStatus statementStatus =
+        new StatementStatus()
+            .setState(StatementState.FAILED)
+            .setError(new ServiceError().setMessage("error"))
+            .setSqlState("sqlState");
+    DatabricksResultSet resultSet = getResultSet(statementStatus, null);
+    assertEquals(STATEMENT_ID.toString(), resultSet.getStatementId());
+    assertEquals(StatementState.FAILED, resultSet.getStatementStatus().getState());
+    assertEquals(statementStatus, resultSet.getStatementStatus());
+
+    IStatementStatus executionStatus = resultSet.getExecutionStatus();
+    assertEquals(com.databricks.jdbc.api.StatementState.FAILED, executionStatus.getState());
+    assertEquals("error", executionStatus.getErrorMessage());
+    assertEquals("sqlState", executionStatus.getSqlState());
   }
 
   @Test
