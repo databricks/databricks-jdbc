@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api;
 
 import com.databricks.jdbc.api.impl.volume.VolumePutResult;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import java.io.InputStream;
 import java.sql.SQLException;
@@ -173,5 +174,14 @@ public interface IDatabricksVolumeClient {
       List<InputStream> inputStreams,
       List<Long> contentLengths,
       boolean toOverwrite)
-      throws DatabricksVolumeOperationException;
+      throws DatabricksVolumeOperationException, DatabricksSQLFeatureNotSupportedException;
+
+  List<VolumePutResult> putFiles(
+      String catalog,
+      String schema,
+      String volume,
+      List<String> objectPaths,
+      List<String> localPaths,
+      boolean overwrite)
+      throws DatabricksVolumeOperationException, DatabricksSQLFeatureNotSupportedException;
 }

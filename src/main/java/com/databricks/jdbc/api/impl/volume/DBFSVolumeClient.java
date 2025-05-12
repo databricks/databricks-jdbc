@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 import org.apache.hc.client5.http.async.methods.*;
 import org.apache.hc.core5.concurrent.FutureCallback;
 import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.nio.AsyncEntityProducer;
 import org.apache.hc.core5.http.nio.AsyncRequestProducer;
 import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
 import org.apache.hc.core5.http.nio.entity.AsyncEntityProducers;
@@ -158,7 +159,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     }
     try {
       String volumePath = StringUtil.getVolumePath(catalog, schema, volumeName);
-      // If getListResponse does not throw, then the volume exists (even if it’s empty).
+      // If getListResponse does not throw, then the volume exists (even if it's empty).
       getListResponse(volumePath);
       return true;
     } catch (DatabricksVolumeOperationException e) {
@@ -541,9 +542,21 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       boolean overwrite)
       throws DatabricksVolumeOperationException {
 
+    LOGGER.debug(
+        String.format(
+            "Entering putFiles method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPaths.size={%d}, inputStreams.size={%d}, contentLengths.size={%d}, overwrite={%s}",
+            catalog,
+            schema,
+            volume,
+            objectPaths.size(),
+            inputStreams.size(),
+            contentLengths.size(),
+            overwrite));
+
     if (objectPaths.size() != inputStreams.size() || inputStreams.size() != contentLengths.size()) {
-      throw new IllegalArgumentException(
-          "objectPaths, inputStreams, contentLengths – sizes differ");
+      String errorMessage = "objectPaths, inputStreams, contentLengths – sizes differ";
+      LOGGER.error(errorMessage);
+      throw new IllegalArgumentException(errorMessage);
     }
 
     ExecutorService pool = Executors.newFixedThreadPool(Math.min(16, objectPaths.size()));
@@ -555,112 +568,90 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       final InputStream in = inputStreams.get(i);
       final long len = contentLengths.get(i);
 
+      LOGGER.debug(
+          String.format(
+              "Processing stream %d/%d: objPath={%s}, size={%d} bytes",
+              i + 1, objectPaths.size(), objPath, len));
+
       CompletableFuture<VolumePutResult> chain =
           requestUploadUrlAsync(fullPath, pool)
-              .thenCompose(resp -> uploadAsync(resp.getUrl(), in, len))
-              .exceptionally(ex -> failureResult(objPath, ex));
+              .thenCompose(
+                  resp -> {
+                    LOGGER.debug(String.format("Got presigned URL for %s", objPath));
+                    return uploadAsync(resp.getUrl(), in, len);
+                  })
+              .exceptionally(
+                  ex -> {
+                    LOGGER.error(
+                        String.format("Failed to upload %s: %s", objPath, ex.getMessage()), ex);
+                    return failureResult(objPath, ex);
+                  });
       chains.add(chain);
     }
 
     CompletableFuture.allOf(chains.toArray(new CompletableFuture[0])).join();
-    return chains.stream().map(CompletableFuture::join).collect(Collectors.toList());
+    List<VolumePutResult> streamResults =
+        chains.stream().map(CompletableFuture::join).collect(Collectors.toList());
+
+    long streamSuccessCount =
+        streamResults.stream()
+            .filter(r -> r.getStatus() == VolumeOperationStatus.SUCCEEDED)
+            .count();
+
+    LOGGER.debug(
+        String.format(
+            "Completed putFiles: %d/%d streams successfully uploaded",
+            streamSuccessCount, objectPaths.size()));
+
+    return streamResults;
   }
 
-  // ----------------------------------------------------------------------------------
-  // Internal helpers – async presigned URL fetch (still synchronous under the hood but
-  // confined to a worker thread) and fully‑async PUT upload using executeAsync.
-  // ----------------------------------------------------------------------------------
+  /** Upload a file to a presigned URL using the shared async HTTP client. */
+  private CompletableFuture<VolumePutResult> uploadFileAsync(
+      String presignedUrl, java.io.File file) {
+    LOGGER.debug(
+        String.format(
+            "Starting uploadFileAsync to URL: %s, file: %s (size: %d bytes)",
+            presignedUrl, file.getPath(), file.length()));
 
-  private CompletableFuture<CreateUploadUrlResponse> requestUploadUrlAsync(
-      String fullPath, Executor exec) {
-    return CompletableFuture.supplyAsync(
-        () -> {
-          try {
-            return getCreateUploadUrlResponse(fullPath);
-          } catch (DatabricksVolumeOperationException e) {
-            throw new CompletionException(e);
-          }
-        },
-        exec);
-  }
-
-  /**
-   * Fire the PUT using the shared {@link CloseableHttpAsyncClient}. The call is submitted via
-   * {@link DatabricksHttpClient#executeAsync}. We still convert the returned {@code Future} to a
-   * {@code CompletableFuture} so the caller can compose further stages.
-   */
-  /**
-   * Stage‑2: PUT the file contents to the presigned URL using the shared async HTTP client. Builds
-   * the request with the high‑level <code>Simple*</code> helpers so it stays compatible with all
-   * HttpComponents 5.x versions bundled in the driver.
-   */
-  private CompletableFuture<VolumePutResult> uploadAsync(
-      String presignedUrl, InputStream in, long len) {
     CompletableFuture<VolumePutResult> cf = new CompletableFuture<>();
     try {
-      // Build PUT request (Simple API → fewer missing‑class surprises)
-      byte[] byteArray = new byte[(int) len];
-      int bytesRead = in.read(byteArray);
-      if (bytesRead == -1) {
-        throw new IOException("Failed to read from input stream");
-      }
-      //      SimpleHttpRequest request =
-      //          SimpleRequestBuilder.put(presignedUrl)
-      //              .setBody(in.toString(), ContentType.APPLICATION_OCTET_STREAM)
-      //              .build();
-
-      //      AsyncRequestBuilder.put()
-      //          .setUri(URI.create(presignedUrl))
-      //          .setEntity(AsyncEntityProducers.create(byteArray,
-      // ContentType.APPLICATION_OCTET_STREAM))
-      //          .build();
-
-      //      HttpPut httpPut = new HttpPut();
-      //      httpPut.setURI(URI.create(presignedUrl));
-      //      httpPut.setEntity(new InputStreamEntity(in, len));
-
-      //      AsyncRequestProducer producer = SimpleRequestProducer.create(request);
+      // Build PUT request with file entity
       AsyncRequestProducer producer =
           AsyncRequestBuilder.put()
               .setUri(URI.create(presignedUrl))
-              .setEntity(
-                  AsyncEntityProducers.create(byteArray, ContentType.APPLICATION_OCTET_STREAM))
+              .setEntity(AsyncEntityProducers.create(file, ContentType.DEFAULT_BINARY))
               .build();
       AsyncResponseConsumer<SimpleHttpResponse> consumer = SimpleResponseConsumer.create();
 
-      databricksHttpClient.executeAsync(
-          producer,
-          consumer,
-          new FutureCallback<>() {
-            @Override
-            public void completed(SimpleHttpResponse result) {
-              VolumeOperationStatus st =
-                  (result.getCode() >= 200 && result.getCode() < 300)
-                      ? VolumeOperationStatus.SUCCEEDED
-                      : VolumeOperationStatus.FAILED;
-              cf.complete(
-                  new VolumePutResult(
-                      presignedUrl,
-                      result.getCode(),
-                      st,
-                      st == VolumeOperationStatus.SUCCEEDED ? null : result.getReasonPhrase()));
-            }
-
-            @Override
-            public void failed(Exception ex) {
-              cf.complete(
-                  new VolumePutResult(
-                      presignedUrl, 500, VolumeOperationStatus.FAILED, ex.getMessage()));
-            }
-
-            @Override
-            public void cancelled() {
-              cf.complete(
-                  new VolumePutResult(
-                      presignedUrl, 499, VolumeOperationStatus.ABORTED, "cancelled"));
-            }
-          });
+      // Execute and handle the response
+      executeUploadRequest(presignedUrl, producer, consumer, cf);
     } catch (Exception e) {
+      LOGGER.error(String.format("Failed in uploadFileAsync: %s", e.getMessage()), e);
+      cf.completeExceptionally(e);
+    }
+    return cf;
+  }
+
+  /** Upload from an input stream to a presigned URL using the shared async HTTP client. */
+  private CompletableFuture<VolumePutResult> uploadAsync(
+      String presignedUrl, InputStream in, long len) {
+    LOGGER.debug(
+        String.format(
+            "Starting uploadAsync to URL: %s, input stream size: %d bytes", presignedUrl, len));
+
+    CompletableFuture<VolumePutResult> cf = new CompletableFuture<>();
+    try {
+      AsyncEntityProducer entity =
+          new InputStreamFixedLenProducer(in, len, ContentType.APPLICATION_OCTET_STREAM);
+      AsyncRequestProducer producer =
+          AsyncRequestBuilder.put().setUri(URI.create(presignedUrl)).setEntity(entity).build();
+      AsyncResponseConsumer<SimpleHttpResponse> consumer = SimpleResponseConsumer.create();
+
+      // Execute and handle the response
+      executeUploadRequest(presignedUrl, producer, consumer, cf);
+    } catch (Exception e) {
+      LOGGER.error(String.format("Failed in uploadAsync: %s", e.getMessage()), e);
       cf.completeExceptionally(e);
     }
     return cf;
@@ -668,5 +659,157 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
   private VolumePutResult failureResult(String objectPath, Throwable ex) {
     return new VolumePutResult(objectPath, 500, VolumeOperationStatus.FAILED, ex.getMessage());
+  }
+
+  /**
+   * Upload multiple files from local paths to DBFS volume in parallel.
+   *
+   * @param catalog The catalog name
+   * @param schema The schema name
+   * @param volume The volume name
+   * @param objectPaths List of object paths in the volume
+   * @param localPaths List of local file paths to upload
+   * @param overwrite Whether to overwrite existing files
+   * @return list of {@link VolumePutResult} in the same order as the input lists
+   * @throws DatabricksVolumeOperationException if the operation fails
+   */
+  @Override
+  public List<VolumePutResult> putFiles(
+      String catalog,
+      String schema,
+      String volume,
+      List<String> objectPaths,
+      List<String> localPaths,
+      boolean overwrite)
+      throws DatabricksVolumeOperationException {
+
+    LOGGER.debug(
+        String.format(
+            "Entering putFiles method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPaths.size={%d}, localPaths.size={%d}, overwrite={%s}",
+            catalog, schema, volume, objectPaths.size(), localPaths.size(), overwrite));
+
+    if (objectPaths.size() != localPaths.size()) {
+      String errorMessage = "objectPaths and localPaths – sizes differ";
+      LOGGER.error(errorMessage);
+      throw new IllegalArgumentException(errorMessage);
+    }
+
+    ExecutorService pool = Executors.newFixedThreadPool(Math.min(16, objectPaths.size()));
+    List<CompletableFuture<VolumePutResult>> chains = new ArrayList<>(objectPaths.size());
+
+    for (int i = 0; i < objectPaths.size(); i++) {
+      final String objPath = objectPaths.get(i);
+      final String fullPath = getObjectFullPath(catalog, schema, volume, objPath);
+      final String localPath = localPaths.get(i);
+      final java.io.File file = new java.io.File(localPath);
+
+      LOGGER.debug(
+          String.format(
+              "Processing file %d/%d: objPath={%s}, localPath={%s}",
+              i + 1, objectPaths.size(), objPath, localPath));
+
+      if (!file.exists() || !file.isFile()) {
+        String errorMessage = "File not found or not a file: " + localPath;
+        LOGGER.error(errorMessage);
+        chains.add(
+            CompletableFuture.completedFuture(
+                new VolumePutResult(objPath, 404, VolumeOperationStatus.FAILED, errorMessage)));
+        continue;
+      }
+
+      LOGGER.debug(String.format("Uploading file: %s (size: %d bytes)", localPath, file.length()));
+      CompletableFuture<VolumePutResult> chain =
+          requestUploadUrlAsync(fullPath, pool)
+              .thenCompose(
+                  resp -> {
+                    LOGGER.debug(String.format("Got presigned URL for %s", objPath));
+                    return uploadFileAsync(resp.getUrl(), file);
+                  })
+              .exceptionally(
+                  ex -> {
+                    LOGGER.error(
+                        String.format("Failed to upload %s: %s", objPath, ex.getMessage()), ex);
+                    return failureResult(objPath, ex);
+                  });
+      chains.add(chain);
+    }
+
+    CompletableFuture.allOf(chains.toArray(new CompletableFuture[0])).join();
+    List<VolumePutResult> results =
+        chains.stream().map(CompletableFuture::join).collect(Collectors.toList());
+
+    long successCount =
+        results.stream().filter(r -> r.getStatus() == VolumeOperationStatus.SUCCEEDED).count();
+
+    LOGGER.debug(
+        String.format(
+            "Completed putFiles: %d/%d files successfully uploaded",
+            successCount, objectPaths.size()));
+
+    return results;
+  }
+
+  /** Asynchronously request a presigned upload URL. */
+  private CompletableFuture<CreateUploadUrlResponse> requestUploadUrlAsync(
+      String fullPath, Executor exec) {
+    LOGGER.debug(String.format("Requesting upload URL for path: %s", fullPath));
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            CreateUploadUrlResponse response = getCreateUploadUrlResponse(fullPath);
+            LOGGER.debug(String.format("Received upload URL for path: %s", fullPath));
+            return response;
+          } catch (DatabricksVolumeOperationException e) {
+            LOGGER.error(
+                String.format(
+                    "Failed to get upload URL for path: %s - %s", fullPath, e.getMessage()),
+                e);
+            throw new CompletionException(e);
+          }
+        },
+        exec);
+  }
+
+  /** Common helper method to handle upload requests using the shared async HTTP client. */
+  private void executeUploadRequest(
+      String presignedUrl,
+      AsyncRequestProducer producer,
+      AsyncResponseConsumer<SimpleHttpResponse> consumer,
+      CompletableFuture<VolumePutResult> cf) {
+    LOGGER.debug(String.format("Executing upload request to URL: %s", presignedUrl));
+    databricksHttpClient.executeAsync(
+        producer,
+        consumer,
+        new FutureCallback<>() {
+          @Override
+          public void completed(SimpleHttpResponse result) {
+            VolumeOperationStatus st =
+                (result.getCode() >= 200 && result.getCode() < 300)
+                    ? VolumeOperationStatus.SUCCEEDED
+                    : VolumeOperationStatus.FAILED;
+            String message =
+                st == VolumeOperationStatus.SUCCEEDED ? null : result.getReasonPhrase();
+            LOGGER.debug(
+                String.format(
+                    "Upload request completed with status: %s, code: %d, message: %s",
+                    st, result.getCode(), message != null ? message : "success"));
+            cf.complete(new VolumePutResult(presignedUrl, result.getCode(), st, message));
+          }
+
+          @Override
+          public void failed(Exception ex) {
+            LOGGER.error(String.format("Upload request failed: %s", ex.getMessage()), ex);
+            cf.complete(
+                new VolumePutResult(
+                    presignedUrl, 500, VolumeOperationStatus.FAILED, ex.getMessage()));
+          }
+
+          @Override
+          public void cancelled() {
+            LOGGER.warn(String.format("Upload request cancelled for URL: %s", presignedUrl));
+            cf.complete(
+                new VolumePutResult(presignedUrl, 499, VolumeOperationStatus.ABORTED, "cancelled"));
+          }
+        });
   }
 }
