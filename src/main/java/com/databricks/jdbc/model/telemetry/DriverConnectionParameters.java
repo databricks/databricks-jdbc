@@ -46,6 +46,9 @@ public class DriverConnectionParameters {
   @JsonProperty("discovery_url")
   String discoveryUrl;
 
+  @JsonProperty("identity_federation_client_id")
+  String identityFederationClientId;
+
   @JsonProperty("use_empty_metadata")
   boolean useEmptyMetadata;
 
@@ -168,6 +171,12 @@ public class DriverConnectionParameters {
     return this;
   }
 
+  public DriverConnectionParameters setIdentityFederationClientId(
+      String identityFederationClientId) {
+    this.identityFederationClientId = identityFederationClientId;
+    return this;
+  }
+
   public DriverConnectionParameters setUseEmptyMetadata(boolean useEmptyMetadata) {
     this.useEmptyMetadata = useEmptyMetadata;
     return this;
@@ -283,6 +292,7 @@ public class DriverConnectionParameters {
         .add("cfProxyHostDetails", cfProxyHostDetails)
         .add("discoveryModeEnabled", discoveryModeEnabled)
         .add("discoveryUrl", discoveryUrl)
+        .add("identityFederationClientId", identityFederationClientId)
         .add("useEmptyMetadata", useEmptyMetadata)
         .add("supportManyParameters", supportManyParameters)
         .add("sslTrustStoreType", sslTrustStoreType)

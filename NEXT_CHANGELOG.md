@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
-- 
+- Support for Token Exchange in OAuth flows where in third party tokens are exchanged for InHouse tokens.
 
 ### Updated
 - 

@@ -90,12 +90,20 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_JDBC_M2M_HOST");
   }
 
+  public static String getSPTokenFedHost() {
+    return System.getenv("DATABRICKS_JDBC_SP_TOKEN_FED_HOST");
+  }
+
   public static String getM2MPrivateKeyCredentialsHost() {
     return System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HOST");
   }
 
   public static String getM2MHTTPPath() {
     return System.getenv("DATABRICKS_JDBC_M2M_HTTP_PATH");
+  }
+
+  public static String getSPTokenFedHTTPPath() {
+    return System.getenv("DATABRICKS_JDBC_SP_TOKEN_FED_HTTP_PATH");
   }
 
   public static String getM2MPrivateKeyCredentialsHTTPPath() {
@@ -108,14 +116,34 @@ public class IntegrationTestUtil {
     return String.format(template, getM2MHost(), getM2MHTTPPath());
   }
 
+  public static String getSPTokenFedUrl() {
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=1;authmech=11;auth_flow=1;httpPath=%s";
+    return String.format(template, getSPTokenFedHost(), getSPTokenFedHTTPPath());
+  }
+
   public static Connection getValidM2MConnection() throws SQLException {
     return DriverManager.getConnection(getJdbcM2MUrl(), createM2MConnectionProperties());
+  }
+
+  public static Connection getValidSPTokenFedConnection() throws SQLException {
+    return DriverManager.getConnection(getSPTokenFedUrl(), createSPTokenFedConnectionProperties());
   }
 
   public static Properties createM2MConnectionProperties() {
     Properties connProps = new Properties();
     connProps.put("OAuth2ClientId", System.getenv("DATABRICKS_JDBC_M2M_CLIENT_ID"));
     connProps.put("OAuth2Secret", System.getenv("DATABRICKS_JDBC_M2M_CLIENT_SECRET"));
+    return connProps;
+  }
+
+  public static Properties createSPTokenFedConnectionProperties() {
+    Properties connProps = new Properties();
+    connProps.put("OAuth2ClientId", System.getenv("DATABRICKS_JDBC_SP_TOKEN_FED_CLIENT_ID"));
+    connProps.put("OAuth2Secret", System.getenv("DATABRICKS_JDBC_SP_TOKEN_FED_CLIENT_SECRET"));
+    connProps.put(
+        "Identity_Federation_Client_Id", System.getenv("DATABRICKS_SP_TOKEN_FED_FEDERATION_ID"));
+    connProps.put("AzureTenantId", System.getenv("DATABRICKS_SP_TOKEN_FED_AZURE_TENANT_ID"));
     return connProps;
   }
 

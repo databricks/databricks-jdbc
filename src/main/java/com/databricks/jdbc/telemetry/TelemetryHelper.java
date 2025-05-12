@@ -192,6 +192,7 @@ public class TelemetryHelper {
             .setDriverAuthFlow(connectionContext.getAuthFlow())
             .setDiscoveryModeEnabled(connectionContext.isOAuthDiscoveryModeEnabled())
             .setDiscoveryUrl(connectionContext.getOAuthDiscoveryURL())
+            .setIdentityFederationClientId(connectionContext.getIdentityFederationClientId())
             .setUseEmptyMetadata(connectionContext.getUseEmptyMetadata())
             .setSupportManyParameters(connectionContext.supportManyParameters())
             .setGoogleCredentialFilePath(connectionContext.getGoogleCredentials())
