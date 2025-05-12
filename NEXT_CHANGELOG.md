@@ -4,7 +4,7 @@
 
 ### Added
 - Support for Token Exchange in OAuth flows where in third party tokens are exchanged for InHouse tokens.
-- Support ALL CATALOGS in GetSchemas for SQL Execution API.
+- Support for fetching schemas across all catalogs in the SQL Exec API client.
 
 ### Updated
 - 
