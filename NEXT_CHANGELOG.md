@@ -4,6 +4,7 @@
 
 ### Added
 - Support for Token Exchange in OAuth flows where in third party tokens are exchanged for InHouse tokens.
+- Support ALL CATALOGS in GetTables for SQL Execution API.
 
 ### Updated
 - 
