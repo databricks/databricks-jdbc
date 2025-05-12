@@ -9,6 +9,7 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -89,7 +90,7 @@ public class ArrowResultChunk {
   List<List<ValueVector>> recordBatchList;
   private final long chunkIndex;
   private ExternalLink chunkLink;
-  private final String statementId;
+  private final StatementId statementId;
   private Instant expiryTime;
   private ChunkStatus status;
   private final BufferAllocator rootAllocator;
@@ -241,9 +242,9 @@ public class ArrowResultChunk {
       headers.forEach(getRequest::addHeader);
     } else {
       LOGGER.debug(
-          String.format(
-              "No encryption headers present for chunk index [%s] and statement [%s]",
-              chunkIndex, statementId));
+          "No encryption headers present for chunk index {} and statement {}",
+          chunkIndex,
+          statementId);
     }
   }
 
@@ -297,17 +298,13 @@ public class ArrowResultChunk {
    */
   void initializeData(InputStream inputStream) throws DatabricksSQLException, IOException {
     LOGGER.debug(
-        String.format(
-            "Parsing data for chunk index [%s] and statement [%s]",
-            this.chunkIndex, this.statementId));
+        "Parsing data for chunk index {} and statement {}", this.chunkIndex, this.statementId);
     ArrowData arrowData =
         getRecordBatchList(inputStream, this.rootAllocator, this.statementId, this.chunkIndex);
     this.recordBatchList = arrowData.getValueVectors();
     this.arrowMetadata = arrowData.getMetadata();
     LOGGER.debug(
-        String.format(
-            "Data parsed for chunk index [%s] and statement [%s]",
-            this.chunkIndex, this.statementId));
+        "Data parsed for chunk index {} and statement {}", this.chunkIndex, this.statementId);
     this.isDataInitialized = true;
   }
 
@@ -382,7 +379,10 @@ public class ArrowResultChunk {
   }
 
   private static ArrowData getRecordBatchList(
-      InputStream inputStream, BufferAllocator rootAllocator, String statementId, long chunkIndex)
+      InputStream inputStream,
+      BufferAllocator rootAllocator,
+      StatementId statementId,
+      long chunkIndex)
       throws IOException {
     List<List<ValueVector>> recordBatchList = new ArrayList<>();
     List<String> metadata = new ArrayList<>();
@@ -401,7 +401,7 @@ public class ArrowResultChunk {
       // release resources if thread is interrupted when reading arrow data
       LOGGER.error(
           e,
-          "Data parsing interrupted for chunk index [%s] and statement [%s]. Error [%s]",
+          "Data parsing interrupted for chunk index {} and statement {}. Error {}",
           chunkIndex,
           statementId,
           e.getMessage());
@@ -444,12 +444,14 @@ public class ArrowResultChunk {
     long peakMemory = rootAllocator.getPeakMemoryAllocation();
     long headRoom = rootAllocator.getHeadroom();
     long initReservation = rootAllocator.getInitReservation();
-
-    String allocatorStatsLog =
-        String.format(
-            "Chunk allocator stats Log - Event: %s, Chunk Index: %s, Allocated Memory: %s, Peak Memory: %s, Headroom: %s, Init Reservation: %s",
-            event, chunkIndex, allocatedMemory, peakMemory, headRoom, initReservation);
-    LOGGER.debug(allocatorStatsLog);
+    LOGGER.debug(
+        "Chunk allocator stats Log - Event: {}, Chunk Index: {}, Allocated Memory: {}, Peak Memory: {}, Headroom: {}, Init Reservation: {}",
+        event,
+        chunkIndex,
+        allocatedMemory,
+        peakMemory,
+        headRoom,
+        initReservation);
   }
 
   public static class Builder {
@@ -457,12 +459,12 @@ public class ArrowResultChunk {
     private long numRows;
     private long rowOffset;
     private ExternalLink chunkLink;
-    private String statementId;
+    private StatementId statementId;
     private Instant expiryTime;
     private ChunkStatus status;
     private InputStream inputStream;
 
-    public Builder statementId(String statementId) {
+    public Builder withStatementId(StatementId statementId) {
       this.statementId = statementId;
       return this;
     }

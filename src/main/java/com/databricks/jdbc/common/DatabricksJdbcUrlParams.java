@@ -120,7 +120,9 @@ public enum DatabricksJdbcUrlParams {
       "DefaultStringColumnLength",
       "Maximum number of characters that can be contained in STRING columns",
       "255"),
-  SOCKET_TIMEOUT("socketTimeout", "Socket timeout in seconds", "900");
+  SOCKET_TIMEOUT("socketTimeout", "Socket timeout in seconds", "900"),
+  TOKEN_CACHE_PASS_PHRASE("TokenCachePassPhrase", "Pass phrase to use for OAuth U2M Token Cache"),
+  ENABLE_TOKEN_CACHE("EnableTokenCache", "Enable caching OAuth tokens", "1");
 
   private final String paramName;
   private final String defaultValue;

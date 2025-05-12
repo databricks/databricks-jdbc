@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -10,8 +11,9 @@ import org.mockito.Mock;
 
 public class DatabricksEmptyMetadataClientTest {
 
-  private final DatabricksEmptyMetadataClient mockClient = new DatabricksEmptyMetadataClient();
-  @Mock private static IDatabricksSession session;
+  @Mock private IDatabricksSession session;
+  @Mock private IDatabricksConnectionContext ctx;
+  private final DatabricksEmptyMetadataClient mockClient = new DatabricksEmptyMetadataClient(ctx);
 
   @Test
   void testListTypeInfo() throws SQLException {

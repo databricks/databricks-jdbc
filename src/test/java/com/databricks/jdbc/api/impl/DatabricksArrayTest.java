@@ -1,9 +1,10 @@
 package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.exception.DatabricksDriverException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
@@ -193,7 +194,7 @@ public class DatabricksArrayTest {
 
   /**
    * Test the constructor with invalid STRUCT elements (expecting STRUCT but provided non-STRUCT).
-   * Expects IllegalArgumentException.
+   * Expects DatabricksDriverException.
    */
   @Test
   public void constructor_ShouldThrowException_WhenStructElementIsNotStruct() throws SQLException {
@@ -212,14 +213,14 @@ public class DatabricksArrayTest {
     parsedStructType.put("name", "STRING");
     mockParseStructMetadata("STRUCT<id:INT,name:STRING>", parsedStructType);
 
-    // Expecting IllegalArgumentException due to first element being a String instead of a Map
-    IllegalArgumentException exception =
+    // Expecting DatabricksDriverException due to first element being a String instead of a Map
+    DatabricksDriverException exception =
         assertThrows(
-            IllegalArgumentException.class,
+            DatabricksDriverException.class,
             () -> {
               new DatabricksArray(originalList, metadata);
             },
-            "Constructor should throw IllegalArgumentException for invalid STRUCT elements");
+            "Constructor should throw DatabricksDriverException for invalid STRUCT elements");
 
     assertTrue(
         exception.getMessage().contains("Error converting elements"),
@@ -232,7 +233,7 @@ public class DatabricksArrayTest {
 
   /**
    * Test the constructor with invalid ARRAY elements (expecting ARRAY but provided non-ARRAY).
-   * Expects IllegalArgumentException.
+   * Expects DatabricksDriverException.
    */
   @Test
   public void constructor_ShouldThrowException_WhenArrayElementIsNotArray() throws SQLException {
@@ -250,14 +251,14 @@ public class DatabricksArrayTest {
         .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
         .thenReturn("STRING");
 
-    // Expecting IllegalArgumentException due to first element being a String instead of a List
-    IllegalArgumentException exception =
+    // Expecting DatabricksDriverException due to first element being a String instead of a List
+    DatabricksDriverException exception =
         assertThrows(
-            IllegalArgumentException.class,
+            DatabricksDriverException.class,
             () -> {
               new DatabricksArray(originalList, metadata);
             },
-            "Constructor should throw IllegalArgumentException for invalid ARRAY elements");
+            "Constructor should throw DatabricksDriverException for invalid ARRAY elements");
 
     assertTrue(
         exception.getMessage().contains("Error converting elements"),
@@ -567,10 +568,11 @@ public class DatabricksArrayTest {
 
   /**
    * Test the getResultSet() methods. These methods are not implemented and should throw
-   * UnsupportedOperationException.
+   * DatabricksSQLFeatureNotSupportedException.
    */
   @Test
-  public void getResultSet_ShouldThrowUnsupportedOperationException() throws SQLException {
+  public void getResultSet_ShouldThrowDatabricksSQLFeatureNotSupportedException()
+      throws SQLException {
     String metadata = "ARRAY<STRING>";
     List<Object> originalList = Arrays.asList("apple", "banana");
 
@@ -582,52 +584,52 @@ public class DatabricksArrayTest {
     DatabricksArray databricksArray = new DatabricksArray(originalList, metadata);
 
     // Test getResultSet()
-    UnsupportedOperationException exception1 =
+    DatabricksSQLFeatureNotSupportedException exception1 =
         assertThrows(
-            UnsupportedOperationException.class,
+            DatabricksSQLFeatureNotSupportedException.class,
             () -> {
               databricksArray.getResultSet();
             },
-            "getResultSet() should throw UnsupportedOperationException");
+            "getResultSet() should throw DatabricksSQLFeatureNotSupportedException");
     assertEquals(
         "getResultSet() not implemented",
         exception1.getMessage(),
         "Exception message should match the implementation");
 
     // Test getResultSet(Map<String, Class<?>> map)
-    UnsupportedOperationException exception2 =
+    DatabricksSQLFeatureNotSupportedException exception2 =
         assertThrows(
-            UnsupportedOperationException.class,
+            DatabricksSQLFeatureNotSupportedException.class,
             () -> {
               databricksArray.getResultSet(new LinkedHashMap<>());
             },
-            "getResultSet(Map) should throw UnsupportedOperationException");
+            "getResultSet(Map) should throw DatabricksSQLFeatureNotSupportedException");
     assertEquals(
         "getResultSet(Map<String, Class<?>> map) not implemented",
         exception2.getMessage(),
         "Exception message should match the implementation");
 
     // Test getResultSet(long index, int count)
-    UnsupportedOperationException exception3 =
+    DatabricksSQLFeatureNotSupportedException exception3 =
         assertThrows(
-            UnsupportedOperationException.class,
+            DatabricksSQLFeatureNotSupportedException.class,
             () -> {
               databricksArray.getResultSet(1, 2);
             },
-            "getResultSet(long, int) should throw UnsupportedOperationException");
+            "getResultSet(long, int) should throw DatabricksSQLFeatureNotSupportedException");
     assertEquals(
         "getResultSet(long index, int count) not implemented",
         exception3.getMessage(),
         "Exception message should match the implementation");
 
     // Test getResultSet(long index, int count, Map<String, Class<?>> map)
-    UnsupportedOperationException exception4 =
+    DatabricksSQLFeatureNotSupportedException exception4 =
         assertThrows(
-            UnsupportedOperationException.class,
+            DatabricksSQLFeatureNotSupportedException.class,
             () -> {
               databricksArray.getResultSet(1, 2, new LinkedHashMap<>());
             },
-            "getResultSet(long, int, Map) should throw UnsupportedOperationException");
+            "getResultSet(long, int, Map) should throw DatabricksSQLFeatureNotSupportedException");
     assertEquals(
         "getResultSet(long index, int count, Map<String, Class<?>> map) not implemented",
         exception4.getMessage(),

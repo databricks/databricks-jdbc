@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
 import org.junit.jupiter.api.Test;
 
@@ -68,7 +69,7 @@ public class StatementIdTest {
   public void testDeserializeInvalid() {
     String invalidSerializedStatementId = "part1|part2|part3";
     assertThrows(
-        IllegalArgumentException.class,
+        DatabricksDriverException.class,
         () -> StatementId.deserialize(invalidSerializedStatementId));
   }
 

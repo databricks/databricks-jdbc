@@ -12,6 +12,7 @@ import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.WorkspaceClient;
@@ -20,6 +21,7 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.utils.Cloud;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -37,7 +39,8 @@ public class ClientConfiguratorTest {
   private ClientConfigurator configurator;
 
   @Test
-  void getWorkspaceClient_PAT_AuthenticatesWithAccessToken() throws DatabricksParsingException {
+  void getWorkspaceClient_PAT_AuthenticatesWithAccessToken()
+      throws DatabricksParsingException, DatabricksHttpException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
     when(mockContext.getHostUrl()).thenReturn("https://pat.databricks.com");
     when(mockContext.getToken()).thenReturn("pat-token");
@@ -55,7 +58,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithTokenPassthrough_AuthenticatesCorrectly()
-      throws DatabricksParsingException {
+      throws DatabricksParsingException, DatabricksHttpException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.TOKEN_PASSTHROUGH);
     when(mockContext.getHostUrl()).thenReturn("https://oauth-token.databricks.com");
@@ -74,7 +77,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectly()
-      throws DatabricksParsingException {
+      throws DatabricksParsingException, DatabricksHttpException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-client.databricks.com");
@@ -95,7 +98,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectlyGCP()
-      throws DatabricksParsingException {
+      throws DatabricksParsingException, DatabricksHttpException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-client.databricks.com");
@@ -115,7 +118,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectlyWithJWT()
-      throws DatabricksParsingException {
+      throws DatabricksParsingException, DatabricksHttpException {
     when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
@@ -162,13 +165,13 @@ public class ClientConfiguratorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithBrowserBasedAuthentication_AuthenticatesCorrectly()
-      throws DatabricksParsingException {
+      throws DatabricksParsingException, DatabricksHttpException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of(new String[] {"scope1", "scope2"}));
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of("scope1", "scope2"));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     configurator = new ClientConfigurator(mockContext);
@@ -179,7 +182,7 @@ public class ClientConfiguratorTest {
     assertEquals("https://oauth-browser.databricks.com", config.getHost());
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
-    assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
+    assertEquals(List.of("scope1", "scope2"), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
   }
@@ -187,13 +190,13 @@ public class ClientConfiguratorTest {
   @Test
   void
       getWorkspaceClient_OAuthWithBrowserBasedAuthentication_WithDiscoveryURL_AuthenticatesCorrectly()
-          throws DatabricksParsingException, IOException {
+          throws DatabricksParsingException, IOException, DatabricksHttpException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of(new String[] {"scope1", "scope2"}));
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of("scope1", "scope2"));
     when(mockContext.isOAuthDiscoveryModeEnabled()).thenReturn(true);
     when(mockContext.getOAuthDiscoveryURL()).thenReturn(TEST_DISCOVERY_URL);
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
@@ -207,13 +210,13 @@ public class ClientConfiguratorTest {
     assertEquals("https://oauth-browser.databricks.com", config.getHost());
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
-    assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
+    assertEquals(List.of("scope1", "scope2"), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
   }
 
   @Test
-  void testNonOauth() {
+  void testNonOauth() throws DatabricksHttpException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OTHER);
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
@@ -243,7 +246,7 @@ public class ClientConfiguratorTest {
   }
 
   @Test
-  void testSetupProxyConfig() {
+  void testSetupProxyConfig() throws DatabricksHttpException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
     when(mockContext.getUseProxy()).thenReturn(true);
     when(mockContext.getProxyHost()).thenReturn("proxy.host.com");
@@ -273,7 +276,8 @@ public class ClientConfiguratorTest {
   }
 
   @Test
-  void setupM2MConfig_WithAzureTenantId_ConfiguresCorrectly() throws DatabricksParsingException {
+  void setupM2MConfig_WithAzureTenantId_ConfiguresCorrectly()
+      throws DatabricksParsingException, DatabricksHttpException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
     when(mockContext.getHostForOAuth()).thenReturn("https://azure-oauth.databricks.com");
@@ -418,7 +422,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of(new String[] {"scope1", "scope2"}));
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of("scope1", "scope2"));
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(testPort));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
 
@@ -430,8 +434,79 @@ public class ClientConfiguratorTest {
     assertEquals("https://oauth-browser.databricks.com", config.getHost());
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
-    assertEquals(List.of(new String[] {"scope1", "scope2"}), config.getScopes());
+    assertEquals(List.of("scope1", "scope2"), config.getScopes());
     assertEquals("http://localhost:" + testPort, config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
+  }
+
+  @Test
+  void testSetupU2MConfig_WithTokenCache()
+      throws DatabricksParsingException, DatabricksHttpException {
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
+    when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
+    when(mockContext.getClientId()).thenReturn("browser-client-id");
+    when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of("scope1", "scope2"));
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
+    when(mockContext.isTokenCacheEnabled()).thenReturn(true);
+    when(mockContext.getTokenCachePassPhrase()).thenReturn("testPassphrase");
+
+    configurator = new ClientConfigurator(mockContext);
+    WorkspaceClient client = configurator.getWorkspaceClient();
+    assertNotNull(client);
+    DatabricksConfig config = client.config();
+
+    assertEquals("https://oauth-browser.databricks.com", config.getHost());
+    assertEquals("browser-client-id", config.getClientId());
+    assertEquals("browser-client-secret", config.getClientSecret());
+    assertEquals(List.of("scope1", "scope2"), config.getScopes());
+    assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
+    assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
+    assertInstanceOf(ExternalBrowserCredentialsProvider.class, config.getCredentialsProvider());
+  }
+
+  @Test
+  void testSetupU2MConfig_WithTokenCacheNoPassphrase() throws DatabricksParsingException {
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
+    when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
+    when(mockContext.getClientId()).thenReturn("browser-client-id");
+    when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of("scope1", "scope2"));
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
+    when(mockContext.isTokenCacheEnabled()).thenReturn(true);
+    when(mockContext.getTokenCachePassPhrase()).thenReturn(null);
+
+    assertThrows(DatabricksException.class, () -> new ClientConfigurator(mockContext));
+  }
+
+  @Test
+  void testSetupU2MConfig_WithoutTokenCache()
+      throws DatabricksParsingException, DatabricksHttpException {
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
+    when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
+    when(mockContext.getClientId()).thenReturn("browser-client-id");
+    when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of("scope1", "scope2"));
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
+    when(mockContext.isTokenCacheEnabled()).thenReturn(false);
+
+    configurator = new ClientConfigurator(mockContext);
+    WorkspaceClient client = configurator.getWorkspaceClient();
+    assertNotNull(client);
+    DatabricksConfig config = client.config();
+
+    assertEquals("https://oauth-browser.databricks.com", config.getHost());
+    assertEquals("browser-client-id", config.getClientId());
+    assertEquals("browser-client-secret", config.getClientSecret());
+    assertEquals(List.of("scope1", "scope2"), config.getScopes());
+    assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
+    assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
+    assertInstanceOf(ExternalBrowserCredentialsProvider.class, config.getCredentialsProvider());
   }
 }

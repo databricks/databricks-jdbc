@@ -113,44 +113,54 @@ public class TelemetryHelper {
       long latencyMilliseconds,
       SqlExecutionEvent executionEvent,
       StatementId statementId) {
-    TelemetryEvent telemetryEvent =
-        new TelemetryEvent()
-            .setLatency(latencyMilliseconds)
-            .setSqlOperation(executionEvent)
-            .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext));
-    if (statementId != null) {
-      telemetryEvent.setSqlStatementId(statementId.toString());
+    // Though we already handle null connectionContext in the downstream implementation,
+    // we are adding this check for extra sanity
+    if (connectionContext != null) {
+      TelemetryEvent telemetryEvent =
+          new TelemetryEvent()
+              .setLatency(latencyMilliseconds)
+              .setSqlOperation(executionEvent)
+              .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext));
+      if (statementId != null) {
+        telemetryEvent.setSqlStatementId(statementId.toString());
+      }
+      TelemetryFrontendLog telemetryFrontendLog =
+          new TelemetryFrontendLog()
+              .setFrontendLogEventId(getEventUUID())
+              .setContext(getLogContext())
+              .setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
+      TelemetryClientFactory.getInstance()
+          .getTelemetryClient(
+              connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
+          .exportEvent(telemetryFrontendLog);
     }
-    TelemetryFrontendLog telemetryFrontendLog =
-        new TelemetryFrontendLog()
-            .setFrontendLogEventId(getEventUUID())
-            .setContext(getLogContext())
-            .setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
-    TelemetryClientFactory.getInstance()
-        .getTelemetryClient(connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
-        .exportEvent(telemetryFrontendLog);
   }
 
   public static void exportLatencyLog(
       IDatabricksConnectionContext connectionContext,
       long latencyMilliseconds,
       DriverVolumeOperation volumeOperationEvent) {
-    TelemetryFrontendLog telemetryFrontendLog =
-        new TelemetryFrontendLog()
-            .setFrontendLogEventId(getEventUUID())
-            .setContext(getLogContext())
-            .setEntry(
-                new FrontendLogEntry()
-                    .setSqlDriverLog(
-                        new TelemetryEvent()
-                            .setLatency(latencyMilliseconds)
-                            .setVolumeOperation(volumeOperationEvent)
-                            .setDriverConnectionParameters(
-                                getDriverConnectionParameter(connectionContext))));
+    // Though we already handle null connectionContext in the downstream implementation,
+    // we are adding this check for extra sanity
+    if (connectionContext != null) {
+      TelemetryFrontendLog telemetryFrontendLog =
+          new TelemetryFrontendLog()
+              .setFrontendLogEventId(getEventUUID())
+              .setContext(getLogContext())
+              .setEntry(
+                  new FrontendLogEntry()
+                      .setSqlDriverLog(
+                          new TelemetryEvent()
+                              .setLatency(latencyMilliseconds)
+                              .setVolumeOperation(volumeOperationEvent)
+                              .setDriverConnectionParameters(
+                                  getDriverConnectionParameter(connectionContext))));
 
-    TelemetryClientFactory.getInstance()
-        .getTelemetryClient(connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
-        .exportEvent(telemetryFrontendLog);
+      TelemetryClientFactory.getInstance()
+          .getTelemetryClient(
+              connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
+          .exportEvent(telemetryFrontendLog);
+    }
   }
 
   private static DriverConnectionParameters getDriverConnectionParameter(
@@ -184,12 +194,29 @@ public class TelemetryHelper {
             .setDiscoveryUrl(connectionContext.getOAuthDiscoveryURL())
             .setUseEmptyMetadata(connectionContext.getUseEmptyMetadata())
             .setSupportManyParameters(connectionContext.supportManyParameters())
+            .setGoogleCredentialFilePath(connectionContext.getGoogleCredentials())
+            .setGoogleServiceAccount(connectionContext.getGoogleServiceAccount())
+            .setAllowedVolumeIngestionPaths(connectionContext.getVolumeOperationAllowedPaths())
+            .setSocketTimeout(connectionContext.getSocketTimeout())
+            .setStringColumnLength(connectionContext.getDefaultStringColumnLength())
+            .setEnableComplexDatatypeSupport(connectionContext.isComplexDatatypeSupportEnabled())
+            .setAzureWorkspaceResourceId(connectionContext.getAzureWorkspaceResourceId())
+            .setAzureTenantId(connectionContext.getAzureTenantId())
             .setSslTrustStoreType(connectionContext.getSSLTrustStoreType())
+            .setEnableArrow(connectionContext.shouldEnableArrow())
+            .setEnableDirectResults(connectionContext.getDirectResultMode())
             .setCheckCertificateRevocation(connectionContext.checkCertificateRevocation())
             .setAcceptUndeterminedCertificateRevocation(
                 connectionContext.acceptUndeterminedCertificateRevocation())
             .setDriverMode(connectionContext.getClientType())
+            .setEnableTokenCache(connectionContext.isTokenCacheEnabled())
             .setHttpPath(connectionContext.getHttpPath());
+    if (connectionContext.useJWTAssertion()) {
+      connectionParameters
+          .setEnableJwtAssertion(true)
+          .setJwtAlgorithm(connectionContext.getJWTAlgorithm())
+          .setJwtKeyFile(connectionContext.getJWTKeyFile());
+    }
     if (connectionContext.getUseCloudFetchProxy()) {
       connectionParameters.setCfProxyHostDetails(
           getHostDetails(
@@ -198,11 +225,13 @@ public class TelemetryHelper {
               connectionContext.getCloudFetchProxyAuthType()));
     }
     if (connectionContext.getUseProxy()) {
-      connectionParameters.setProxyHostDetails(
+      HostDetails hostDetails =
           getHostDetails(
               connectionContext.getProxyHost(),
               connectionContext.getProxyPort(),
-              connectionContext.getProxyAuthType()));
+              connectionContext.getProxyAuthType());
+      hostDetails.setNonProxyHosts(connectionContext.getNonProxyHosts());
+      connectionParameters.setProxyHostDetails(hostDetails);
     } else if (connectionContext.getUseSystemProxy()) {
       String protocol = System.getProperty("https.proxyHost") != null ? "https" : "http";
       connectionParameters.setProxyHostDetails(

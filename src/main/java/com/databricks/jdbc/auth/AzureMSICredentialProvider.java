@@ -80,7 +80,7 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
    * <ul>
    *   <li>An Authorization header with the Azure MSI access token
    *   <li>If resourceId is available, an X-Databricks-Azure-Workspace-Resource-Id header
-   *   <li>If resourceId is available, an X-Databricks-Azure-SP-Management-Token header with a
+   *   <li>If resourceId is not available, an X-Databricks-Azure-SP-Management-Token header with a
    *       management endpoint token
    * </ul>
    *

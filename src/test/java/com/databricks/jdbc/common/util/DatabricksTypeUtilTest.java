@@ -277,24 +277,25 @@ class DatabricksTypeUtilTest {
 
     try {
       // Test string types (should return default string length)
-      int[] varcharResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.VARCHAR);
+      int[] varcharResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.VARCHAR, mockContext);
       assertEquals(defaultStringLength, varcharResult[0]);
       assertEquals(0, varcharResult[1]);
 
-      int[] charResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.CHAR);
+      int[] charResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.CHAR, mockContext);
       assertEquals(defaultStringLength, charResult[0]);
       assertEquals(0, charResult[1]);
 
       // Test numeric types
-      int[] decimalResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.DECIMAL);
+      int[] decimalResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.DECIMAL, mockContext);
       assertEquals(10, decimalResult[0]); // Precision for DECIMAL
       assertEquals(0, decimalResult[1]); // Scale for DECIMAL
 
-      int[] integerResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.INTEGER);
+      int[] integerResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.INTEGER, mockContext);
       assertEquals(10, integerResult[0]); // Precision for INTEGER
       assertEquals(0, integerResult[1]); // Scale for INTEGER
 
-      int[] timestampResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.TIMESTAMP);
+      int[] timestampResult =
+          DatabricksTypeUtil.getBasePrecisionAndScale(Types.TIMESTAMP, mockContext);
       assertEquals(29, timestampResult[0]); // Precision for TIMESTAMP
       assertEquals(9, timestampResult[1]); // Scale for TIMESTAMP
     } finally {

@@ -5,7 +5,6 @@ import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.List;
 
 public class DriverConnectionParameters {
   @JsonProperty("http_path")
@@ -28,9 +27,6 @@ public class DriverConnectionParameters {
 
   @JsonProperty("use_proxy")
   boolean useProxy;
-
-  @JsonProperty("non_proxy_hosts")
-  List<String> non_proxy_hosts;
 
   @JsonProperty("use_system_proxy")
   boolean useSystemProxy;
@@ -65,6 +61,48 @@ public class DriverConnectionParameters {
   @JsonProperty("accept_undetermined_certificate_revocation")
   boolean acceptUndeterminedCertificateRevocation;
 
+  @JsonProperty("enable_arrow")
+  boolean enableArrow;
+
+  @JsonProperty("enable_direct_results")
+  boolean enableDirectResults;
+
+  @JsonProperty("enable_jwt_assertion")
+  boolean enableJwtAssertion;
+
+  @JsonProperty("jwt_key_file")
+  String jwtKeyFile;
+
+  @JsonProperty("jwt_algorithm")
+  String jwtAlgorithm;
+
+  @JsonProperty("google_service_account")
+  String googleServiceAccount;
+
+  @JsonProperty("google_credential_file_path")
+  String googleCredentialFilePath;
+
+  @JsonProperty("allowed_volume_ingestion_paths")
+  String allowedVolumeIngestionPaths;
+
+  @JsonProperty("enable_complex_datatype_support")
+  boolean enableComplexDatatypeSupport;
+
+  @JsonProperty("azure_workspace_resource_id")
+  String azureWorkspaceResourceId;
+
+  @JsonProperty("azure_tenant_id")
+  String azureTenantId;
+
+  @JsonProperty("string_column_length")
+  int stringColumnLength;
+
+  @JsonProperty("socket_timeout")
+  int socketTimeout;
+
+  @JsonProperty("enable_token_cache")
+  boolean enableTokenCache;
+
   public DriverConnectionParameters setHttpPath(String httpPath) {
     this.httpPath = httpPath;
     return this;
@@ -82,11 +120,6 @@ public class DriverConnectionParameters {
 
   public DriverConnectionParameters setAuthMech(AuthMech authMech) {
     this.authMech = authMech;
-    return this;
-  }
-
-  public DriverConnectionParameters setNonProxyHosts(List<String> non_proxy_hosts) {
-    this.non_proxy_hosts = non_proxy_hosts;
     return this;
   }
 
@@ -162,6 +195,78 @@ public class DriverConnectionParameters {
     return this;
   }
 
+  public DriverConnectionParameters setEnableArrow(boolean enableArrow) {
+    this.enableArrow = enableArrow;
+    return this;
+  }
+
+  public DriverConnectionParameters setEnableDirectResults(boolean enableDirectResults) {
+    this.enableDirectResults = enableDirectResults;
+    return this;
+  }
+
+  public DriverConnectionParameters setEnableJwtAssertion(boolean enableJwtAssertion) {
+    this.enableJwtAssertion = enableJwtAssertion;
+    return this;
+  }
+
+  public DriverConnectionParameters setJwtKeyFile(String jwtKeyFile) {
+    this.jwtKeyFile = jwtKeyFile;
+    return this;
+  }
+
+  public DriverConnectionParameters setJwtAlgorithm(String jwtAlgorithm) {
+    this.jwtAlgorithm = jwtAlgorithm;
+    return this;
+  }
+
+  public DriverConnectionParameters setGoogleServiceAccount(String googleServiceAccount) {
+    this.googleServiceAccount = googleServiceAccount;
+    return this;
+  }
+
+  public DriverConnectionParameters setGoogleCredentialFilePath(String googleCredentialFilePath) {
+    this.googleCredentialFilePath = googleCredentialFilePath;
+    return this;
+  }
+
+  public DriverConnectionParameters setAllowedVolumeIngestionPaths(
+      String allowedVolumeIngestionPaths) {
+    this.allowedVolumeIngestionPaths = allowedVolumeIngestionPaths;
+    return this;
+  }
+
+  public DriverConnectionParameters setEnableComplexDatatypeSupport(
+      boolean enableComplexDatatypeSupport) {
+    this.enableComplexDatatypeSupport = enableComplexDatatypeSupport;
+    return this;
+  }
+
+  public DriverConnectionParameters setAzureWorkspaceResourceId(String azureWorkspaceResourceId) {
+    this.azureWorkspaceResourceId = azureWorkspaceResourceId;
+    return this;
+  }
+
+  public DriverConnectionParameters setAzureTenantId(String azureTenantId) {
+    this.azureTenantId = azureTenantId;
+    return this;
+  }
+
+  public DriverConnectionParameters setStringColumnLength(int stringColumnLength) {
+    this.stringColumnLength = stringColumnLength;
+    return this;
+  }
+
+  public DriverConnectionParameters setSocketTimeout(int socketTimeout) {
+    this.socketTimeout = socketTimeout;
+    return this;
+  }
+
+  public DriverConnectionParameters setEnableTokenCache(boolean enableTokenCache) {
+    this.enableTokenCache = enableTokenCache;
+    return this;
+  }
+
   @Override
   public String toString() {
     return new ToStringer(DriverConnectionParameters.class)
@@ -172,7 +277,6 @@ public class DriverConnectionParameters {
         .add("driverAuthFlow", driverAuthFlow)
         .add("authScope", authScope)
         .add("useProxy", useProxy)
-        .add("nonProxyHosts", non_proxy_hosts)
         .add("useSystemProxy", useSystemProxy)
         .add("useCfProxy", useCfProxy)
         .add("proxyHostDetails", proxyHostDetails)
@@ -184,6 +288,19 @@ public class DriverConnectionParameters {
         .add("sslTrustStoreType", sslTrustStoreType)
         .add("checkCertificateRevocation", checkCertificateRevocation)
         .add("acceptUndeterminedCertificateRevocation", acceptUndeterminedCertificateRevocation)
+        .add("enableArrow", enableArrow)
+        .add("enableDirectResults", enableDirectResults)
+        .add("jwtKeyFile", jwtKeyFile)
+        .add("jwtAlgorithm", jwtAlgorithm)
+        .add("googleServiceAccount", googleServiceAccount)
+        .add("googleCredentialFilePath", googleCredentialFilePath)
+        .add("allowedVolumeIngestionPaths", allowedVolumeIngestionPaths)
+        .add("enableComplexDatatypeSupport", enableComplexDatatypeSupport)
+        .add("azureWorkspaceResourceId", azureWorkspaceResourceId)
+        .add("azureTenantId", azureTenantId)
+        .add("stringColumnLength", stringColumnLength)
+        .add("socketTimeout", socketTimeout)
+        .add("enableTokenCache", enableTokenCache)
         .toString();
   }
 }

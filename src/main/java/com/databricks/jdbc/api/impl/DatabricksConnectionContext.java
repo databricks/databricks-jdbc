@@ -10,8 +10,10 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -153,7 +155,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return new DatabricksConnectionContext(url, hostValue, portValue, schema, propertiesMap);
     } else {
       // Should never reach here, since we have already checked for url validity
-      throw new IllegalArgumentException("Invalid url " + "incorrect");
+      throw new DatabricksValidationException("Connection Context invalid state error");
     }
   }
 
@@ -693,8 +695,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     } catch (NumberFormatException e) {
       String errorMessage =
           String.format("Invalid port format in OAuth2RedirectUrlPort: %s.", portsStr);
-      LOGGER.error(errorMessage, e);
-      throw new IllegalArgumentException(errorMessage);
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksDriverException(
+          errorMessage, DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
   }
 
@@ -847,6 +850,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getSocketTimeout() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.SOCKET_TIMEOUT));
+  }
+
+  @Override
+  public String getTokenCachePassPhrase() {
+    return getParameter(DatabricksJdbcUrlParams.TOKEN_CACHE_PASS_PHRASE);
+  }
+
+  @Override
+  public boolean isTokenCacheEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_TOKEN_CACHE).equals("1");
   }
 
   private static boolean nullOrEmptyString(String s) {

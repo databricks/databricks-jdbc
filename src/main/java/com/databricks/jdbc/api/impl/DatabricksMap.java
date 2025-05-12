@@ -1,8 +1,10 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
@@ -50,8 +52,11 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         LOGGER.trace("Converted entry - Key: {}, Converted Value: {}", key, value);
       }
     } catch (Exception e) {
-      LOGGER.error("Error during map conversion: {}", e.getMessage(), e);
-      throw new IllegalArgumentException("Invalid metadata or map structure", e);
+      LOGGER.error(e, "Error during map conversion: {}", e.getMessage());
+      throw new DatabricksDriverException(
+          "Invalid metadata or map structure",
+          e,
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
     }
     return convertedMap;
   }
@@ -73,8 +78,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         } else if (value instanceof DatabricksStruct) {
           return (V) value;
         } else {
-          throw new IllegalArgumentException(
-              "Expected a Map for STRUCT but found: " + value.getClass().getSimpleName());
+          throw new DatabricksDriverException(
+              "Expected a Map for STRUCT but found: " + value.getClass().getSimpleName(),
+              DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
         }
       } else if (valueType.startsWith(DatabricksTypeUtil.ARRAY)) {
         if (value instanceof List) {
@@ -83,8 +89,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         } else if (value instanceof DatabricksArray) {
           return (V) value;
         } else {
-          throw new IllegalArgumentException(
-              "Expected a List for ARRAY but found: " + value.getClass().getSimpleName());
+          throw new DatabricksDriverException(
+              "Expected a List for ARRAY but found: " + value.getClass().getSimpleName(),
+              DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
         }
       } else if (valueType.startsWith(DatabricksTypeUtil.MAP)) {
         if (value instanceof Map) {
@@ -93,15 +100,19 @@ public class DatabricksMap<K, V> implements Map<K, V> {
         } else if (value instanceof DatabricksMap) {
           return (V) value;
         } else {
-          throw new IllegalArgumentException(
-              "Expected a Map for MAP but found: " + value.getClass().getSimpleName());
+          throw new DatabricksDriverException(
+              "Expected a Map for MAP but found: " + value.getClass().getSimpleName(),
+              DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
         }
       } else {
         return convertSimpleValue(value, valueType);
       }
     } catch (Exception e) {
-      LOGGER.error("Error converting value of type {}: {}", valueType, e.getMessage(), e);
-      throw e;
+      String errorMessage =
+          String.format("Error converting value of type %s: %s", valueType, e.getMessage());
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksDriverException(
+          errorMessage, e, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
     }
   }
 
@@ -147,9 +158,12 @@ public class DatabricksMap<K, V> implements Map<K, V> {
           return (T) value.toString();
       }
     } catch (Exception e) {
-      LOGGER.error("Error converting simple value of type {}: {}", valueType, e.getMessage(), e);
-      throw new IllegalArgumentException(
-          "Failed to convert value " + value + " to type " + valueType, e);
+      String errorMessage =
+          String.format(
+              "Error converting simple value %s of type %s: %s", value, valueType, e.getMessage());
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksDriverException(
+          errorMessage, e, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
     }
   }
 

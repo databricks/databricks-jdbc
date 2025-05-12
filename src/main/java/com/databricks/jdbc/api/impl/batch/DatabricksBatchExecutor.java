@@ -98,7 +98,7 @@ public class DatabricksBatchExecutor {
         Instant commandStartTime = Instant.now();
 
         try {
-          LOGGER.debug(String.format("Executing batch command %d: %s", i, command.getSql()));
+          LOGGER.debug("Executing batch command {}: {}", i, command.getSql());
 
           boolean hasResultSet = parentStatement.execute(command.getSql());
           int updateCount = parentStatement.getUpdateCount();
@@ -120,7 +120,7 @@ public class DatabricksBatchExecutor {
 
           logCommandExecutionTime(i, commandStartTime, false);
 
-          LOGGER.error(e, "Error executing batch command at index %d: %s", i, e.getMessage());
+          LOGGER.error(e, "Error executing batch command at index {}: {}", i, e.getMessage());
 
           String message =
               String.format("Batch execution failed at command %d: %s", i, e.getMessage());
@@ -131,11 +131,11 @@ public class DatabricksBatchExecutor {
       clearCommands();
 
       Duration batchDuration = Duration.between(batchStartTime, Instant.now());
-      LOGGER.debug(String.format("Total batch execution time: %d ms", batchDuration.toMillis()));
+      LOGGER.debug("Total batch execution time: {} ms", batchDuration.toMillis());
 
       return updateCounts;
     } catch (DatabricksBatchUpdateException e) {
-      LOGGER.error(e, "BatchUpdateException occurred: %s", e.getMessage());
+      LOGGER.error(e, "BatchUpdateException occurred: {}", e.getMessage());
       throw e;
     }
   }
@@ -151,8 +151,7 @@ public class DatabricksBatchExecutor {
     Instant commandEndTime = Instant.now();
     Duration commandDuration = Duration.between(commandStartTime, commandEndTime);
     String status = success ? "executed" : "failed after";
-    LOGGER.debug(
-        String.format("Command %d %s %d ms", commandIndex, status, commandDuration.toMillis()));
+    LOGGER.debug("Command {} {} {} ms", commandIndex, status, commandDuration.toMillis());
   }
 
   /**
@@ -178,8 +177,7 @@ public class DatabricksBatchExecutor {
     clearCommands();
 
     Duration batchDuration = Duration.between(batchStartTime, Instant.now());
-    LOGGER.debug(
-        String.format("Total batch execution time until failure: %d ms", batchDuration.toMillis()));
+    LOGGER.debug("Total batch execution time until failure: {} ms", batchDuration.toMillis());
 
     DatabricksBatchUpdateException exception;
     if (cause != null) {

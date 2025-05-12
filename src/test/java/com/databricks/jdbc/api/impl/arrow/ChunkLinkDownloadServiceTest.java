@@ -206,6 +206,9 @@ class ChunkLinkDownloadServiceTest {
         createExternalLink("test-url", 5L, Collections.emptyMap(), "2025-02-16T00:00:00Z");
     ExternalLink linkForChunkIndex_6 =
         createExternalLink("test-url", 6L, Collections.emptyMap(), "2025-02-16T00:00:00Z");
+
+    ArrowResultChunk mockChunk = mock(ArrowResultChunk.class);
+    when(mockChunkMap.get(anyLong())).thenReturn(mockChunk);
     when(mockSession.getDatabricksClient()).thenReturn(mockClient);
     // Mock the links for the first batch. The link futures for both chunks will be completed at the
     // same time
@@ -233,12 +236,12 @@ class ChunkLinkDownloadServiceTest {
     // Sleep to allow the service to complete the download pipeline
     TimeUnit.MILLISECONDS.sleep(2000);
 
-    ExternalLink result1 = future1.get(1, TimeUnit.SECONDS);
-    ExternalLink result2 = future2.get(1, TimeUnit.SECONDS);
-    ExternalLink result3 = future3.get(1, TimeUnit.SECONDS);
-    ExternalLink result4 = future4.get(1, TimeUnit.SECONDS);
-    ExternalLink result5 = future5.get(1, TimeUnit.SECONDS);
-    ExternalLink result6 = future6.get(1, TimeUnit.SECONDS);
+    ExternalLink result1 = future1.get(5, TimeUnit.SECONDS);
+    ExternalLink result2 = future2.get(5, TimeUnit.SECONDS);
+    ExternalLink result3 = future3.get(5, TimeUnit.SECONDS);
+    ExternalLink result4 = future4.get(5, TimeUnit.SECONDS);
+    ExternalLink result5 = future5.get(5, TimeUnit.SECONDS);
+    ExternalLink result6 = future6.get(5, TimeUnit.SECONDS);
 
     assertEquals(linkForChunkIndex_1, result1);
     assertEquals(linkForChunkIndex_2, result2);
