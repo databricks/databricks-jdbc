@@ -24,4 +24,10 @@ public class OAuthTests {
     Connection connection = DriverManager.getConnection(getJDBCUrl(), connectionProperties);
     assertDoesNotThrow(() -> connection.createStatement().execute("select 1"));
   }
+
+  @Test
+  void testSPTokenFederation() throws SQLException {
+    Connection connection = getValidSPTokenFedConnection();
+    assertDoesNotThrow(() -> connection.createStatement().execute("select 1"));
+  }
 }

@@ -91,6 +91,8 @@ public class DatabricksDriverPropertyUtil {
       addMissingProperty(missingPropertyInfos, connectionContext, PWD, true);
     } else if (authMech == OAUTH) {
       AuthFlow authFlow = connectionContext.getAuthFlow();
+      addMissingProperty(
+          missingPropertyInfos, connectionContext, IDENTITY_FEDERATION_CLIENT_ID, false);
 
       if (connectionContext.isPropertyPresent(AUTH_FLOW)) {
         switch (authFlow) {

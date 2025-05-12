@@ -663,6 +663,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public String getIdentityFederationClientId() {
+    return getParameter(DatabricksJdbcUrlParams.IDENTITY_FEDERATION_CLIENT_ID);
+  }
+
+  @Override
   public String getOAuthDiscoveryURL() {
     return getParameter(
         DatabricksJdbcUrlParams.OIDC_DISCOVERY_ENDPOINT,
