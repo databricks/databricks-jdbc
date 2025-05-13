@@ -67,8 +67,7 @@ class DBFSVolumeClientTest {
             isNull()))
         .thenAnswer(
             invocation -> {
-              VolumePutResult r =
-                  new VolumePutResult("/path", 200, VolumeOperationStatus.SUCCEEDED, null);
+              VolumePutResult r = new VolumePutResult(200, VolumeOperationStatus.SUCCEEDED, null);
               return CompletableFuture.completedFuture(r);
             });
 
