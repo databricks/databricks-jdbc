@@ -6,6 +6,8 @@ import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.util.ArrowAllocatorFactory;
+import com.databricks.jdbc.common.util.ArrowMemoryInitializer;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -30,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
@@ -103,6 +104,9 @@ public class ArrowResultChunk {
   private List<String> arrowMetadata;
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
+    // Initialize Arrow memory access utilities first
+    ArrowMemoryInitializer.initialize();
+
     this.chunkIndex = builder.chunkIndex;
     this.numRows = builder.numRows;
     this.rowOffset = builder.rowOffset;
@@ -110,7 +114,7 @@ public class ArrowResultChunk {
     this.statementId = builder.statementId;
     this.expiryTime = builder.expiryTime;
     this.status = builder.status;
-    this.rootAllocator = new RootAllocator(/* limit= */ Integer.MAX_VALUE);
+    this.rootAllocator = ArrowAllocatorFactory.createAllocator(Integer.MAX_VALUE);
     if (builder.inputStream != null) {
       // Data is already available
       try {

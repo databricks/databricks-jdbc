@@ -7,6 +7,7 @@ import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.util.*;
+import com.databricks.jdbc.common.util.ArrowMemoryInitializer;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.SessionId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
@@ -31,6 +32,9 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
 
   static {
     try {
+      // Initialize Arrow memory access utilities as early as possible
+      ArrowMemoryInitializer.initialize();
+
       DriverManager.registerDriver(INSTANCE = new Driver());
     } catch (SQLException e) {
       throw new IllegalStateException("Unable to register " + Driver.class, e);

@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import com.databricks.jdbc.common.util.ArrowMemoryInitializer;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.IOException;
@@ -29,6 +30,9 @@ public class DatabricksArrowStreamReader implements AutoCloseable {
    * @param allocator The allocator to use for Arrow buffers
    */
   public DatabricksArrowStreamReader(InputStream inputStream, BufferAllocator allocator) {
+    // Initialize Arrow memory access utilities first
+    ArrowMemoryInitializer.initialize();
+
     this.inputStream = inputStream;
     this.allocator = allocator;
     this.arrowStreamReader = new ArrowStreamReader(inputStream, allocator);
