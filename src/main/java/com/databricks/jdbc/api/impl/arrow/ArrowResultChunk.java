@@ -8,6 +8,7 @@ import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.UnsafeAccessUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -386,7 +387,10 @@ public class ArrowResultChunk {
       throws IOException {
     List<List<ValueVector>> recordBatchList = new ArrayList<>();
     List<String> metadata = new ArrayList<>();
-    try (ArrowStreamReader arrowStreamReader = new ArrowStreamReader(inputStream, rootAllocator)) {
+
+    // Use our ArrowReaderProxy to handle Buffer.address access
+    try (ArrowStreamReader arrowStreamReader = 
+             com.databricks.jdbc.common.util.ArrowReaderProxy.createReader(inputStream, rootAllocator)) {
       VectorSchemaRoot vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();
       boolean fetchedMetadata = false;
       while (arrowStreamReader.loadNextBatch()) {
@@ -408,7 +412,8 @@ public class ArrowResultChunk {
       purgeArrowData(recordBatchList);
     } catch (IOException e) {
       LOGGER.error(
-          "Error while reading arrow data, purging the local list and rethrowing the exception.");
+          "Error while reading arrow data, purging the local list and rethrowing the exception: {}",
+          e.getMessage());
       purgeArrowData(recordBatchList);
       throw e;
     }

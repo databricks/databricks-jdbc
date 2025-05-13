@@ -1,15 +1,15 @@
-name: Test JDBC Logging
+name: Test JDBC Without Add-Opens
 
 on:
   workflow_dispatch:
   pull_request:
 
 jobs:
-  test-logging:
+  test-without-add-opens:
     strategy:
       fail-fast: false
       matrix:
-        github-runner: [linux-ubuntu-latest, windows-server-latest]
+        github-runner: [linux-ubuntu-latest]
         thrift-client: [0, 1]
 
     runs-on:
@@ -17,10 +17,6 @@ jobs:
       labels: ${{ matrix.github-runner }}
 
     steps:
-      - name: Enable long paths
-        if: runner.os == 'Windows'
-        run: git config --system core.longpaths true
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -36,7 +32,6 @@ jobs:
         run: mvn clean package -DskipTests
 
       - name: Set Environment Variables
-        if: runner.os != 'Windows'
         shell: bash
         env:
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
@@ -49,21 +44,7 @@ jobs:
           echo "DATABRICKS_HTTP_PATH=${DATABRICKS_HTTP_PATH}" >> $GITHUB_ENV
           echo "USE_THRIFT_CLIENT=${USE_THRIFT_CLIENT}" >> $GITHUB_ENV
 
-      - name: Set Environment Variables (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
-        env:
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
-          USE_THRIFT_CLIENT: ${{ matrix.thrift-client }}
-        run: |
-          "DATABRICKS_TOKEN=$env:DATABRICKS_TOKEN" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "DATABRICKS_HOST=$env:DATABRICKS_HOST" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "DATABRICKS_HTTP_PATH=$env:DATABRICKS_HTTP_PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "USE_THRIFT_CLIENT=$env:USE_THRIFT_CLIENT" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Clean & Compile LoggingTest
+      - name: Clean & Compile LoggingTestNoJVMFlag
         shell: bash
         run: |
           rm -rf target/test-classes
@@ -72,30 +53,15 @@ jobs:
           javac \
             -cp "target/databricks-jdbc-1.0.5-oss.jar" \
             -d target/test-classes \
-            src/test/java/com/databricks/client/jdbc/LoggingTest.java \
             src/test/java/com/databricks/client/jdbc/LoggingTestNoJVMFlag.java
           
           echo "==== Checking compiled classes ===="
           find target/test-classes -type f
 
-      - name: Run LoggingTest with JVM flag (original)
+      - name: Run LoggingTestNoJVMFlag WITHOUT the --add-opens flag
         shell: bash
         run: |
-          echo "==== Running LoggingTest WITH JVM flag, usethriftclient=${{ matrix.thrift-client }} ===="
-          OS_TYPE=$(uname | tr '[:upper:]' '[:lower:]')
-          if [[ "$OS_TYPE" == "linux" ]]; then SEP=":"; else SEP=";"; fi
-          echo "Using classpath separator: '$SEP'"
-          CP="target/test-classes${SEP}target/databricks-jdbc-1.0.5-oss.jar"
-          
-          java \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            -cp "$CP" \
-            com.databricks.client.jdbc.LoggingTest
-
-      - name: Run LoggingTest without JVM flag (new approach)
-        shell: bash
-        run: |
-          echo "==== Running LoggingTest WITHOUT JVM flag, usethriftclient=${{ matrix.thrift-client }} ===="
+          echo "==== Running LoggingTestNoJVMFlag WITHOUT JVM flag, usethriftclient=${{ matrix.thrift-client }} ===="
           OS_TYPE=$(uname | tr '[:upper:]' '[:lower:]')
           if [[ "$OS_TYPE" == "linux" ]]; then SEP=":"; else SEP=";"; fi
           echo "Using classpath separator: '$SEP'"
@@ -135,4 +101,4 @@ jobs:
             ls -la "${LOG_DIR}" || echo "Directory does not exist"
             echo "Log file ${LOG_FILE} does not exist. Failing the build."
             exit 1
-          fi
+          fi 
