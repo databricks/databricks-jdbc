@@ -22,11 +22,7 @@ public class ArrowAllocatorFactory {
   public static BufferAllocator createAllocator(long limit) {
     try {
       // Make sure our utilities are initialized first
-      UnsafeAccessUtil.hasDirectAddressAccess();
-      UnsafeDirectBufferUtility.isInitialized();
-
-      // Use ArrowReaderProxy to ensure it's initialized
-      ArrowReaderProxy.isDirectAccessAvailable();
+      ArrowMemoryHandler.initialize();
 
       // Now create the allocator which should use our workarounds if needed
       return new RootAllocator(limit);

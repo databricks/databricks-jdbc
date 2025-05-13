@@ -34,10 +34,13 @@ public class ArrowMemoryInitializer {
       try {
         LOGGER.debug("Initializing safe Arrow memory access utilities");
 
-        // Initialize our utilities first
+        // Initialize our access utilities first
         UnsafeAccessUtil.hasDirectAddressAccess();
         UnsafeDirectBufferUtility.isInitialized();
         ArrowReaderProxy.isDirectAccessAvailable();
+
+        // Initialize the internal fixer to handle shaded Arrow classes
+        InternalArrowMemoryUtilFixer.apply();
 
         // Mark as initialized
         initialized = true;

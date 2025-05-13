@@ -7,7 +7,7 @@ import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.ArrowAllocatorFactory;
-import com.databricks.jdbc.common.util.ArrowMemoryInitializer;
+import com.databricks.jdbc.common.util.ArrowMemoryHandler;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -105,7 +105,7 @@ public class ArrowResultChunk {
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
     // Initialize Arrow memory access utilities first
-    ArrowMemoryInitializer.initialize();
+    ArrowMemoryHandler.initialize();
 
     this.chunkIndex = builder.chunkIndex;
     this.numRows = builder.numRows;
