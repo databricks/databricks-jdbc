@@ -21,11 +21,34 @@ public class ArrowMemoryHandler {
 
   /** Initializes all the memory utilities needed for Arrow to work without JVM flags. */
   public static void initialize() {
-    // Initialize our utilities
+    try {
+      // Initialize our core memory utilities first
+      initializeAllMemoryUtilities();
+
+      // Initialize class redefiner for dynamic patching
+      ArrowClassRedefiner.initialize();
+
+      // Initialize the internal fixer
+      InternalArrowMemoryUtilFixer.apply();
+
+      LOGGER.debug("Arrow memory handler successfully initialized");
+    } catch (Exception e) {
+      LOGGER.warn("Error initializing Arrow memory handler: {}", e.getMessage());
+    }
+  }
+
+  /** Initialize all memory utilities. */
+  private static void initializeAllMemoryUtilities() {
+    // Initialize all of our utilities
     ArrowMemoryInitializer.initialize();
 
-    // Fix the internal Arrow memory utilities
-    InternalArrowMemoryUtilFixer.apply();
+    // Explicitly initialize the MemoryUtilAccess class
+    try {
+      boolean canAccess = MemoryUtilAccess.canAccessDirectBuffer();
+      LOGGER.debug("MemoryUtilAccess initialized, direct buffer access available: {}", canAccess);
+    } catch (Throwable t) {
+      LOGGER.debug("Error initializing MemoryUtilAccess: {}", t.getMessage());
+    }
   }
 
   /**
@@ -43,17 +66,22 @@ public class ArrowMemoryHandler {
     }
 
     try {
-      return InternalArrowMemoryUtilFixer.getDirectBufferAddress(buffer);
+      // Use our comprehensive MemoryUtilAccess class
+      return MemoryUtilAccess.getDirectBufferAddress(buffer);
     } catch (Exception e) {
-      // Fall back to our other utilities
+      // Fall back to other methods if that fails
       try {
-        return UnsafeAccessUtil.getBufferAddress(buffer);
+        return InternalArrowMemoryUtilFixer.getDirectBufferAddress(buffer);
       } catch (Exception e2) {
-        if (UnsafeDirectBufferUtility.isInitialized()) {
-          return UnsafeDirectBufferUtility.getDirectBufferAddress(buffer);
+        try {
+          return UnsafeAccessUtil.getBufferAddress(buffer);
+        } catch (Exception e3) {
+          if (UnsafeDirectBufferUtility.isInitialized()) {
+            return UnsafeDirectBufferUtility.getDirectBufferAddress(buffer);
+          }
+          throw new IllegalArgumentException(
+              "Could not access direct buffer address using any method", e3);
         }
-        throw new IllegalArgumentException(
-            "Could not access direct buffer address using any method", e2);
       }
     }
   }
