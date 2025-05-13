@@ -57,7 +57,11 @@ public class DatabricksArrowStreamReader implements AutoCloseable {
                 throw new IOException("Arrow requires the --add-opens=java.base/java.nio=ALL-UNNAMED flag. " +
                         "Please upgrade to the latest version of the Databricks JDBC driver that includes a fix for this issue.", e);
             }
-            throw e;
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            } else {
+                throw new IOException("Error loading next batch", e);
+            }
         }
     }
     
