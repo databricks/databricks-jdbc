@@ -8,7 +8,6 @@ import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
-import com.databricks.jdbc.common.util.UnsafeAccessUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -389,8 +388,8 @@ public class ArrowResultChunk {
     List<String> metadata = new ArrayList<>();
 
     // Use our ArrowReaderProxy to handle Buffer.address access
-    try (ArrowStreamReader arrowStreamReader = 
-             com.databricks.jdbc.common.util.ArrowReaderProxy.createReader(inputStream, rootAllocator)) {
+    try (ArrowStreamReader arrowStreamReader =
+        com.databricks.jdbc.common.util.ArrowReaderProxy.createReader(inputStream, rootAllocator)) {
       VectorSchemaRoot vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();
       boolean fetchedMetadata = false;
       while (arrowStreamReader.loadNextBatch()) {

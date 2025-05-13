@@ -109,4 +109,4 @@ public class LoggingTestNoJVMFlag {
       System.exit(1);
     }
   }
-} 
+}
