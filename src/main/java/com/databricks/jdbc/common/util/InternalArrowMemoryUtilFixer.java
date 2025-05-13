@@ -43,35 +43,77 @@ public class InternalArrowMemoryUtilFixer {
       try {
         LOGGER.debug("Attempting to fix internal Arrow memory utilities");
 
-        // First check if our UnsafeAccessUtil is initialized
-        if (!UnsafeAccessUtil.hasDirectAddressAccess()
-            && !UnsafeDirectBufferUtility.isInitialized()) {
-          LOGGER.debug(
-              "Safe access utilities are not working, cannot fix internal Arrow memory utilities");
-          return;
-        }
+        // First ensure ArrowMemoryHook is initialized for a more aggressive approach
+        ArrowMemoryHook.initialize();
 
-        // Find and patch the internal MemoryUtil class
-        Class<?> memoryUtilClass = null;
-        try {
-          memoryUtilClass =
-              Class.forName("com.databricks.internal.apache.arrow.memory.util.MemoryUtil");
-          LOGGER.debug("Found internal Arrow MemoryUtil class to patch");
-        } catch (ClassNotFoundException e) {
-          // The class hasn't been loaded yet, which is good - we'll attach a class loader to handle
-          // it
-          LOGGER.debug(
-              "Internal Arrow MemoryUtil class not yet loaded, will try to patch dynamically");
-        }
-
-        // Register our class initialization hook if possible
-        installAddressMethodHook();
+        // Now apply our more targeted fixes if needed
+        fixArrowMemoryUtil();
 
         initialized = true;
         LOGGER.debug("Successfully applied fix for internal Arrow memory utilities");
       } catch (Throwable t) {
         LOGGER.error("Failed to apply fix for internal Arrow memory utilities", t);
       }
+    }
+  }
+
+  /** Fix Arrow's memory utilities by patching classes and fields. */
+  private static void fixArrowMemoryUtil() {
+    // Attempt to patch both versions of the class
+    final String[] classNames = {
+      "com.databricks.internal.apache.arrow.memory.util.MemoryUtil",
+      "org.apache.arrow.memory.util.MemoryUtil"
+    };
+
+    for (String className : classNames) {
+      try {
+        Class<?> memoryUtilClass = loadMemoryUtilClass(className);
+        if (memoryUtilClass != null) {
+          patchMemoryUtilFields(memoryUtilClass);
+        }
+      } catch (Throwable t) {
+        LOGGER.debug("Could not patch memory util class {}: {}", className, t.getMessage());
+      }
+    }
+  }
+
+  /** Load the MemoryUtil class without triggering static initialization. */
+  private static Class<?> loadMemoryUtilClass(String className) {
+    try {
+      // Try to load the class without initializing it
+      return Class.forName(className, false, InternalArrowMemoryUtilFixer.class.getClassLoader());
+    } catch (ClassNotFoundException e) {
+      LOGGER.debug("MemoryUtil class not found: {}", className);
+      return null;
+    }
+  }
+
+  /** Patch the static fields in the MemoryUtil class. */
+  private static void patchMemoryUtilFields(Class<?> memoryUtilClass) {
+    try {
+      LOGGER.debug("Patching fields in {}", memoryUtilClass.getName());
+
+      // Get all the critical fields we need to patch
+      Field memoryAccessErrorField = memoryUtilClass.getDeclaredField("MEMORY_ACCESS_ERROR");
+      Field canAccessDirectBufferField =
+          memoryUtilClass.getDeclaredField("CAN_ACCESS_DIRECT_BUFFER");
+
+      // Make the fields accessible
+      AccessController.doPrivileged(
+          (PrivilegedAction<Void>)
+              () -> {
+                memoryAccessErrorField.setAccessible(true);
+                canAccessDirectBufferField.setAccessible(true);
+                return null;
+              });
+
+      // Set the fields to values that will make Arrow work
+      memoryAccessErrorField.set(null, null); // Clear the error
+      canAccessDirectBufferField.set(null, Boolean.TRUE); // Mark as working
+
+      LOGGER.debug("Successfully patched MemoryUtil fields in {}", memoryUtilClass.getName());
+    } catch (Throwable t) {
+      LOGGER.debug("Error patching MemoryUtil fields: {}", t.getMessage());
     }
   }
 
@@ -96,52 +138,6 @@ public class InternalArrowMemoryUtilFixer {
     }
   }
 
-  /** Install a hook to intercept calls to get buffer addresses. */
-  private static void installAddressMethodHook() {
-    // Add a hook to the classloader system property
-    String existingProp = System.getProperty("java.system.class.loader");
-
-    try {
-      // Try to load the class to see if it's already loaded
-      Class.forName("com.databricks.internal.apache.arrow.memory.util.MemoryUtil");
-      // If we get here, the class is already loaded, so we need to use bytecode tricks
-      fixLoadedMemoryUtilClass();
-    } catch (ClassNotFoundException e) {
-      // This is expected if the class hasn't been loaded yet, which is good
-      LOGGER.debug("Internal Arrow MemoryUtil not yet loaded - will fix at load time");
-    } catch (Exception e) {
-      LOGGER.error("Error while checking for MemoryUtil class: {}", e.getMessage());
-    }
-  }
-
-  /**
-   * Fix the already loaded MemoryUtil class if it exists by replacing the memory address methods.
-   */
-  private static void fixLoadedMemoryUtilClass() {
-    try {
-      ClassLoader cl = InternalArrowMemoryUtilFixer.class.getClassLoader();
-      Class<?> memoryUtilClass =
-          cl.loadClass("com.databricks.internal.apache.arrow.memory.util.MemoryUtil");
-
-      // Get the field where the exception holder is stored
-      Field exceptionField = memoryUtilClass.getDeclaredField("MEMORY_ACCESS_ERROR");
-      makeFieldAccessible(exceptionField);
-
-      // Clear the exception so it doesn't think there's an error
-      exceptionField.set(null, null);
-
-      // Set static fields indicating that we can access memories
-      Field canAccessDirectBufferField =
-          memoryUtilClass.getDeclaredField("CAN_ACCESS_DIRECT_BUFFER");
-      makeFieldAccessible(canAccessDirectBufferField);
-      canAccessDirectBufferField.setBoolean(null, true);
-
-      LOGGER.debug("Successfully patched loaded MemoryUtil class");
-    } catch (Exception e) {
-      LOGGER.error("Failed to fix loaded MemoryUtil class: {}", e.getMessage());
-    }
-  }
-
   /**
    * Get the memory address of a direct ByteBuffer using the safe method.
    *
@@ -159,6 +155,13 @@ public class InternalArrowMemoryUtilFixer {
       if (cachedAddress != null) {
         return cachedAddress;
       }
+    }
+
+    // Use ArrowMemoryHook's method first
+    try {
+      return ArrowMemoryHook.getDirectBufferAddress(buffer);
+    } catch (Exception e) {
+      // Fall back to other methods
     }
 
     // Try using UnsafeAccessUtil first

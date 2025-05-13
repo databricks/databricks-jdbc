@@ -17,7 +17,10 @@ public class ArrowBootstrapHook {
     try {
       LOGGER.debug("Initializing Arrow bootstrap hook");
 
-      // Initialize our memory handler first
+      // Initialize our specialized memory hook first (most aggressive option)
+      ArrowMemoryHook.initialize();
+
+      // Initialize our standard memory handler
       ArrowMemoryHandler.initialize();
 
       // Now initialize the redefiner that will attempt to patch loaded Arrow classes

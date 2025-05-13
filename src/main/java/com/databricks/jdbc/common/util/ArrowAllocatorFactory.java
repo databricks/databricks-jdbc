@@ -21,15 +21,26 @@ public class ArrowAllocatorFactory {
    */
   public static BufferAllocator createAllocator(long limit) {
     try {
-      // Make sure our utilities are initialized first
+      // Make sure our utilities are initialized first, starting with the most aggressive option
+      ArrowMemoryHook.initialize();
       ArrowMemoryHandler.initialize();
 
       // Now create the allocator which should use our workarounds if needed
       return new RootAllocator(limit);
     } catch (Exception e) {
       LOGGER.warn("Error initializing utilities before allocator creation: {}", e.getMessage());
-      // Still try to create the allocator, it will work if the JVM flag is set
-      return new RootAllocator(limit);
+
+      // Still try to create the allocator with our custom memory hook
+      try {
+        // Try again with our most aggressive solution
+        ArrowMemoryHook.initialize();
+        return new RootAllocator(limit);
+      } catch (Exception e2) {
+        LOGGER.warn("Second attempt to create allocator failed: {}", e2.getMessage());
+
+        // Last resort - just create it directly
+        return new RootAllocator(limit);
+      }
     }
   }
 }
