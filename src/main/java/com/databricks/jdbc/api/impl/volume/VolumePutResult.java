@@ -5,21 +5,14 @@ import java.util.Objects;
 
 /** Immutable result of a single PUT upload executed by {@link DBFSVolumeClient#putFiles}. */
 public final class VolumePutResult {
-  private final String objectPath;
   private final int httpStatus;
   private final VolumeOperationStatus status;
   private final String errorMessage; // null when succeeded
 
-  public VolumePutResult(
-      String objectPath, int httpStatus, VolumeOperationStatus status, String errorMessage) {
-    this.objectPath = objectPath;
+  public VolumePutResult(int httpStatus, VolumeOperationStatus status, String errorMessage) {
     this.httpStatus = httpStatus;
     this.status = status;
     this.errorMessage = errorMessage;
-  }
-
-  public String getObjectPath() {
-    return objectPath;
   }
 
   public int getHttpStatus() {
@@ -41,10 +34,7 @@ public final class VolumePutResult {
   @Override
   public String toString() {
     return "VolumePutResult{"
-        + "objectPath='"
-        + objectPath
-        + '\''
-        + ", httpStatus="
+        + "httpStatus="
         + httpStatus
         + ", status="
         + status
@@ -58,13 +48,12 @@ public final class VolumePutResult {
     if (o == null || getClass() != o.getClass()) return false;
     VolumePutResult that = (VolumePutResult) o;
     return httpStatus == that.httpStatus
-        && Objects.equals(objectPath, that.objectPath)
         && status == that.status
         && Objects.equals(errorMessage, that.errorMessage);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(objectPath, httpStatus, status, errorMessage);
+    return Objects.hash(httpStatus, status, errorMessage);
   }
 }

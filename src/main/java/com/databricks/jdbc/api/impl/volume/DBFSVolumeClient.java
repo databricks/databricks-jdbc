@@ -4,6 +4,7 @@ import static com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient.getOb
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
 import static com.databricks.jdbc.common.util.VolumeUtil.VolumeOperationType.constructListPath;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
+import static com.databricks.jdbc.telemetry.TelemetryHelper.exportFailureLog;
 
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
@@ -537,8 +538,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       List<String> objectPaths,
       List<InputStream> inputStreams,
       List<Long> contentLengths,
-      boolean overwrite)
-      throws DatabricksVolumeOperationException {
+      boolean overwrite) {
 
     LOGGER.debug(
         String.format(
@@ -582,7 +582,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                   ex -> {
                     LOGGER.error(
                         String.format("Failed to upload %s: %s", objPath, ex.getMessage()), ex);
-                    return failureResult(objPath, ex);
+
+                    return failureResult(ex);
                   });
       chains.add(chain);
     }
@@ -655,8 +656,50 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     return cf;
   }
 
-  private VolumePutResult failureResult(String objectPath, Throwable ex) {
-    return new VolumePutResult(objectPath, 500, VolumeOperationStatus.FAILED, ex.getMessage());
+  private String getErrorCodeFromException(Throwable ex) {
+    try {
+      if (ex instanceof CompletionException && ex.getCause() != null) {
+        return getErrorCodeFromException(ex.getCause());
+      }
+
+      if (ex instanceof DatabricksVolumeOperationException) {
+        // Try to extract error code from message
+        String message = ex.toString();
+        if (message.contains("ErrorCode=")) {
+          int startIndex = message.indexOf("ErrorCode=") + 10;
+          int endIndex = message.indexOf(']', startIndex);
+          if (endIndex > startIndex) {
+            return message.substring(startIndex, endIndex);
+          }
+        }
+        // If can't extract, use default for volume operations
+        return DatabricksDriverErrorCode.VOLUME_OPERATION_EXCEPTION.name();
+      }
+    } catch (Exception e) {
+      // If any error in parsing, fall back to a safe default
+      LOGGER.warn("Error extracting error code from exception", e);
+    }
+
+    // Default error code based on operation type
+    return DatabricksDriverErrorCode.VOLUME_OPERATION_PUT_OPERATION_EXCEPTION.name();
+  }
+
+  private VolumePutResult failureResult(Throwable ex) {
+    String errorCodeName;
+
+    if (ex instanceof CompletionException
+        && ex.getCause() instanceof DatabricksVolumeOperationException) {
+      // This is a URL generation error
+      errorCodeName = DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR.name();
+    } else {
+      errorCodeName = getErrorCodeFromException(ex);
+    }
+
+    if (connectionContext != null) {
+      exportFailureLog(connectionContext, errorCodeName, ex.getMessage());
+    }
+
+    return new VolumePutResult(500, VolumeOperationStatus.FAILED, ex.getMessage());
   }
 
   /**
@@ -678,8 +721,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String volume,
       List<String> objectPaths,
       List<String> localPaths,
-      boolean overwrite)
-      throws DatabricksVolumeOperationException {
+      boolean overwrite) {
 
     LOGGER.debug(
         String.format(
@@ -709,9 +751,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       if (!file.exists() || !file.isFile()) {
         String errorMessage = "File not found or not a file: " + localPath;
         LOGGER.error(errorMessage);
+        exportFailureLog(
+            connectionContext,
+            DatabricksDriverErrorCode.VOLUME_OPERATION_LOCAL_FILE_EXISTS_ERROR.name(),
+            errorMessage);
         chains.add(
             CompletableFuture.completedFuture(
-                new VolumePutResult(objPath, 404, VolumeOperationStatus.FAILED, errorMessage)));
+                new VolumePutResult(404, VolumeOperationStatus.FAILED, errorMessage)));
         continue;
       }
 
@@ -727,7 +773,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                   ex -> {
                     LOGGER.error(
                         String.format("Failed to upload %s: %s", objPath, ex.getMessage()), ex);
-                    return failureResult(objPath, ex);
+                    return failureResult(ex);
                   });
       chains.add(chain);
     }
@@ -762,6 +808,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                 String.format(
                     "Failed to get upload URL for path: %s - %s", fullPath, e.getMessage()),
                 e);
+            if (connectionContext != null) {
+              exportFailureLog(
+                  connectionContext,
+                  DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR.name(),
+                  "Failed to get upload URL: " + e.getMessage());
+            }
             throw new CompletionException(e);
           }
         },
@@ -791,22 +843,36 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                 String.format(
                     "Upload request completed with status: %s, code: %d, message: %s",
                     st, result.getCode(), message != null ? message : "success"));
-            cf.complete(new VolumePutResult(presignedUrl, result.getCode(), st, message));
+
+            // Only log failures to telemetry
+            if (st == VolumeOperationStatus.FAILED) {
+              exportFailureLog(
+                  connectionContext,
+                  DatabricksDriverErrorCode.VOLUME_OPERATION_PUT_OPERATION_EXCEPTION.name(),
+                  "Upload failed with HTTP status " + result.getCode() + ": " + message);
+            }
+
+            cf.complete(new VolumePutResult(result.getCode(), st, message));
           }
 
           @Override
           public void failed(Exception ex) {
             LOGGER.error(String.format("Upload request failed: %s", ex.getMessage()), ex);
-            cf.complete(
-                new VolumePutResult(
-                    presignedUrl, 500, VolumeOperationStatus.FAILED, ex.getMessage()));
+            exportFailureLog(
+                connectionContext,
+                DatabricksDriverErrorCode.VOLUME_OPERATION_PUT_OPERATION_EXCEPTION.name(),
+                "Upload request failed: " + ex.getMessage());
+            cf.complete(new VolumePutResult(500, VolumeOperationStatus.FAILED, ex.getMessage()));
           }
 
           @Override
           public void cancelled() {
             LOGGER.warn(String.format("Upload request cancelled for URL: %s", presignedUrl));
-            cf.complete(
-                new VolumePutResult(presignedUrl, 499, VolumeOperationStatus.ABORTED, "cancelled"));
+            exportFailureLog(
+                connectionContext,
+                DatabricksDriverErrorCode.VOLUME_OPERATION_EXCEPTION.name(),
+                "Upload request cancelled");
+            cf.complete(new VolumePutResult(499, VolumeOperationStatus.ABORTED, "cancelled"));
           }
         });
   }
