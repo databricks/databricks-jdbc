@@ -3,42 +3,60 @@ package com.databricks.jdbc.api.impl.volume;
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import java.util.Objects;
 
-/** Immutable result of a single PUT upload executed by {@link DBFSVolumeClient#putFiles}. */
-public final class VolumePutResult {
-  private final int httpStatus;
+/** Contains the result of a volume put operation. */
+public class VolumePutResult {
+  private final int statusCode;
   private final VolumeOperationStatus status;
-  private final String errorMessage; // null when succeeded
+  private final String message;
 
-  public VolumePutResult(int httpStatus, VolumeOperationStatus status, String errorMessage) {
-    this.httpStatus = httpStatus;
+  /**
+   * Constructs a new VolumePutResult.
+   *
+   * @param statusCode The HTTP status code
+   * @param status The operation status
+   * @param message Optional error message
+   */
+  public VolumePutResult(int statusCode, VolumeOperationStatus status, String message) {
+    this.statusCode = statusCode;
     this.status = status;
-    this.errorMessage = errorMessage;
+    this.message = message;
   }
 
-  public int getHttpStatus() {
-    return httpStatus;
+  /**
+   * Get the HTTP status code.
+   *
+   * @return the status code
+   */
+  public int getStatusCode() {
+    return statusCode;
   }
 
+  /**
+   * Get the operation status.
+   *
+   * @return the operation status
+   */
   public VolumeOperationStatus getStatus() {
     return status;
   }
 
-  public String getErrorMessage() {
-    return errorMessage;
-  }
-
-  public boolean isSuccess() {
-    return status == VolumeOperationStatus.SUCCEEDED;
+  /**
+   * Get the error message if any.
+   *
+   * @return the error message or null if successful
+   */
+  public String getMessage() {
+    return message;
   }
 
   @Override
   public String toString() {
     return "VolumePutResult{"
-        + "httpStatus="
-        + httpStatus
+        + "statusCode="
+        + statusCode
         + ", status="
         + status
-        + (errorMessage != null ? ", errorMessage='" + errorMessage + '\'' : "")
+        + (message != null ? ", message='" + message + '\'' : "")
         + '}';
   }
 
@@ -47,13 +65,13 @@ public final class VolumePutResult {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     VolumePutResult that = (VolumePutResult) o;
-    return httpStatus == that.httpStatus
+    return statusCode == that.statusCode
         && status == that.status
-        && Objects.equals(errorMessage, that.errorMessage);
+        && Objects.equals(message, that.message);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(httpStatus, status, errorMessage);
+    return Objects.hash(statusCode, status, message);
   }
 }
