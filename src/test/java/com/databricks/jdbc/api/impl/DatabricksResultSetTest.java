@@ -144,7 +144,7 @@ public class DatabricksResultSetTest {
     assertEquals(statementStatus, resultSet.getStatementStatus());
 
     IExecutionStatus executionStatus = resultSet.getExecutionStatus();
-    assertEquals(ExecutionState.FAILED, executionStatus.getState());
+    assertEquals(ExecutionState.FAILED, executionStatus.getExecutionState());
     assertEquals("error", executionStatus.getErrorMessage());
     assertEquals("sqlState", executionStatus.getSqlState());
   }

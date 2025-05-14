@@ -20,5 +20,5 @@ public interface IExecutionStatus {
    *
    * @return the current state of the statement execution
    */
-  ExecutionState getState();
+  ExecutionState getExecutionState();
 }

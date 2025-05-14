@@ -42,9 +42,11 @@ public interface IDatabricksResultSet extends ResultSet {
    * Retrieves the current status of the statement associated with this result set. This can be used
    * to monitor the execution progress and state of the statement.
    *
-   * @return The current {@link StatementStatus} of the statement @Deprecated Use {@link
+   * @return The current {@link StatementStatus} of the statement
+   * @deprecated  Use {@link
    *     #getExecutionStatus()} instead.
    */
+  @Deprecated
   StatementStatus getStatementStatus();
 
   /**

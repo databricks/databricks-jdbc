@@ -34,7 +34,7 @@ class ExecutionStatus implements IExecutionStatus {
   }
 
   @Override
-  public ExecutionState getState() {
+  public ExecutionState getExecutionState() {
     return state;
   }
 
