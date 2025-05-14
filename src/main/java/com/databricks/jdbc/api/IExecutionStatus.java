@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api;
 
-public interface IStatementStatus {
+public interface IExecutionStatus {
   /**
    * Returns the error message if the statement execution failed.
    *
@@ -20,5 +20,5 @@ public interface IStatementStatus {
    *
    * @return the current state of the statement execution
    */
-  StatementState getState();
+  ExecutionState getState();
 }

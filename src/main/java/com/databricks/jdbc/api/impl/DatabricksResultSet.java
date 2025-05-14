@@ -6,7 +6,7 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
-import com.databricks.jdbc.api.IStatementStatus;
+import com.databricks.jdbc.api.IExecutionStatus;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
@@ -28,6 +28,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
@@ -56,7 +57,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
-  private final StatementStatus statementStatus;
+  private final ExecutionStatus executionStatus;
   private final StatementId statementId;
   private final IExecutionResult executionResult;
   private final DatabricksResultSetMetaData resultSetMetaData;
@@ -73,7 +74,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   // Constructor for SEA result set
   public DatabricksResultSet(
-      com.databricks.jdbc.model.core.StatementStatus statementStatus,
+      StatementStatus executionStatus,
       StatementId statementId,
       ResultData resultData,
       ResultManifest resultManifest,
@@ -81,7 +82,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException {
-    this.statementStatus = new StatementStatus(statementStatus);
+    this.executionStatus = new ExecutionStatus(executionStatus);
     this.statementId = statementId;
     if (resultData != null) {
       this.executionResult =
@@ -115,14 +116,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @VisibleForTesting
   public DatabricksResultSet(
-      com.databricks.jdbc.model.core.StatementStatus statementStatus,
+      StatementStatus executionStatus,
       StatementId statementId,
       StatementType statementType,
       IDatabricksStatementInternal parentStatement,
       IExecutionResult executionResult,
       DatabricksResultSetMetaData resultSetMetaData,
       boolean complexDatatypeSupport) {
-    this.statementStatus = new StatementStatus(statementStatus);
+    this.executionStatus = new ExecutionStatus(executionStatus);
     this.statementId = statementId;
     this.executionResult = executionResult;
     this.resultSetMetaData = resultSetMetaData;
@@ -136,14 +137,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   // Constructor for thrift result set
   public DatabricksResultSet(
-      com.databricks.jdbc.model.core.StatementStatus statementStatus,
+      StatementStatus executionStatus,
       StatementId statementId,
       TFetchResultsResp resultsResp,
       StatementType statementType,
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-    this.statementStatus = new StatementStatus(statementStatus);
+    this.executionStatus = new ExecutionStatus(executionStatus);
     this.statementId = statementId;
     if (resultsResp != null) {
       this.executionResult =
@@ -184,7 +185,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   /* Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls */
   public DatabricksResultSet(
-      com.databricks.jdbc.model.core.StatementStatus statementStatus,
+      StatementStatus executionStatus,
       StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
@@ -193,7 +194,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       int[] isNullables,
       Object[][] rows,
       StatementType statementType) {
-    this.statementStatus = new StatementStatus(statementStatus);
+    this.executionStatus = new ExecutionStatus(executionStatus);
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
     this.resultSetMetaData =
@@ -214,7 +215,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   // Constructing metadata result set in thrift flow
   public DatabricksResultSet(
-      com.databricks.jdbc.model.core.StatementStatus statementStatus,
+      StatementStatus executionStatus,
       StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
@@ -223,7 +224,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<Nullable> columnNullables,
       List<List<Object>> rows,
       StatementType statementType) {
-    this.statementStatus = new StatementStatus(statementStatus);
+    this.executionStatus = new ExecutionStatus(executionStatus);
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
     this.resultSetMetaData =
@@ -244,12 +245,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   // Constructing metadata result set in SEA flow
   public DatabricksResultSet(
-      com.databricks.jdbc.model.core.StatementStatus statementStatus,
+      StatementStatus executionStatus,
       StatementId statementId,
       List<ColumnMetadata> columnMetadataList,
       List<List<Object>> rows,
       StatementType statementType) {
-    this.statementStatus = new StatementStatus(statementStatus);
+    this.executionStatus = new ExecutionStatus(executionStatus);
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
     this.resultSetMetaData =
@@ -1734,12 +1735,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public com.databricks.jdbc.model.core.StatementStatus getStatementStatus() {
-    return statementStatus.getSdkStatus();
+    return executionStatus.getSdkStatus();
   }
 
   @Override
-  public IStatementStatus getExecutionStatus() {
-    return statementStatus;
+  public IExecutionStatus getExecutionStatus() {
+    return executionStatus;
   }
 
   @Override
@@ -1842,7 +1843,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public String toString() {
     return (new ToStringer(DatabricksResultSet.class))
-        .add("statementStatus", this.statementStatus)
+        .add("statementStatus", this.executionStatus)
         .add("statementId", this.statementId)
         .add("statementType", this.statementType)
         .add("updateCount", this.updateCount)

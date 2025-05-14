@@ -8,8 +8,9 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.ExecutionState;
 import com.databricks.jdbc.api.IDatabricksResultSet;
-import com.databricks.jdbc.api.IStatementStatus;
+import com.databricks.jdbc.api.IExecutionStatus;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
@@ -142,8 +143,8 @@ public class DatabricksResultSetTest {
     assertEquals(StatementState.FAILED, resultSet.getStatementStatus().getState());
     assertEquals(statementStatus, resultSet.getStatementStatus());
 
-    IStatementStatus executionStatus = resultSet.getExecutionStatus();
-    assertEquals(com.databricks.jdbc.api.StatementState.FAILED, executionStatus.getState());
+    IExecutionStatus executionStatus = resultSet.getExecutionStatus();
+    assertEquals(ExecutionState.FAILED, executionStatus.getState());
     assertEquals("error", executionStatus.getErrorMessage());
     assertEquals("sqlState", executionStatus.getSqlState());
   }

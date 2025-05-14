@@ -4,7 +4,7 @@ package com.databricks.jdbc.api;
  * Represents the possible states of a SQL statement execution in Databricks. This enum is used to
  * track the progress and status of SQL statements executed through the Databricks JDBC API.
  */
-public enum StatementState {
+public enum ExecutionState {
   // The statement is in a pending state and has not yet started executing.
   PENDING,
   // The statement is currently executing.

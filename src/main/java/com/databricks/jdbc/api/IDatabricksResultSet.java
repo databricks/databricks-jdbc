@@ -53,7 +53,7 @@ public interface IDatabricksResultSet extends ResultSet {
    *
    * @return The current {@link StatementStatus} of the statement
    */
-  IStatementStatus getExecutionStatus();
+  IExecutionStatus getExecutionStatus();
 
   /**
    * Retrieves the number of rows affected by the SQL statement. For SELECT statements or statements

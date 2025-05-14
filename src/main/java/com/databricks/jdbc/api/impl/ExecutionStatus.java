@@ -1,20 +1,22 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.IStatementStatus;
-import com.databricks.jdbc.api.StatementState;
+import com.databricks.jdbc.api.ExecutionState;
+import com.databricks.jdbc.api.IExecutionStatus;
+import com.databricks.jdbc.model.core.StatementStatus;
+import com.databricks.sdk.service.sql.StatementState;
 
 /**
  * This class implements the IStatementStatus interface and provides a default implementation for
  * the methods defined in the interface. It is used to represent the status of a SQL statement
  * execution in Databricks.
  */
-class StatementStatus implements IStatementStatus {
-  private final StatementState state;
+class ExecutionStatus implements IExecutionStatus {
+  private final ExecutionState state;
   private final String errorMessage;
   private final String sqlState;
-  private final com.databricks.jdbc.model.core.StatementStatus sdkStatus;
+  private final StatementStatus sdkStatus;
 
-  public StatementStatus(com.databricks.jdbc.model.core.StatementStatus status) {
+  public ExecutionStatus(StatementStatus status) {
     this.state = getStateFromSdkState(status.getState());
     this.errorMessage = status.getError() != null ? status.getError().getMessage() : null;
     this.sqlState = status.getSqlState();
@@ -32,7 +34,7 @@ class StatementStatus implements IStatementStatus {
   }
 
   @Override
-  public StatementState getState() {
+  public ExecutionState getState() {
     return state;
   }
 
@@ -40,24 +42,24 @@ class StatementStatus implements IStatementStatus {
     return sdkStatus;
   }
 
-  private StatementState getStateFromSdkState(com.databricks.sdk.service.sql.StatementState state) {
+  private ExecutionState getStateFromSdkState(StatementState state) {
     if (state == null) {
-      return StatementState.PENDING;
+      return ExecutionState.PENDING;
     }
     // Map the SDK statement state to the JDBC statement state
     switch (state) {
       case PENDING:
-        return StatementState.PENDING;
+        return ExecutionState.PENDING;
       case RUNNING:
-        return StatementState.RUNNING;
+        return ExecutionState.RUNNING;
       case SUCCEEDED:
-        return StatementState.SUCCEEDED;
+        return ExecutionState.SUCCEEDED;
       case FAILED:
-        return StatementState.FAILED;
+        return ExecutionState.FAILED;
       case CANCELED:
-        return StatementState.ABORTED;
+        return ExecutionState.ABORTED;
       case CLOSED:
-        return StatementState.CLOSED;
+        return ExecutionState.CLOSED;
         // should never reach here
       default:
         throw new IllegalArgumentException("Unknown statement execution state: " + state);
