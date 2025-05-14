@@ -1,0 +1,19 @@
+{
+  "id" : "e401432f-9b44-4761-a50d-a3edc1292ab2",
+  "name" : "19a85dee-54bc-43a2-87ab-023d0ec16013_volumes_23258ec3-1166-4302-bbc5-456377aa44fb_multi_upload_5.txt",
+  "request" : {
+    "url" : "/19a85dee-54bc-43a2-87ab-023d0ec16013/volumes/23258ec3-1166-4302-bbc5-456377aa44fb/multi_upload_5.txt?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250514T214255Z&X-Amz-SignedHeaders=host&X-Amz-Expires=1799&[REDACTED]X-Amz-Signature=7575f5211d5ebab2296448125066f0dec84712993b64e083708747423bd52ec4",
+    "method" : "DELETE"
+  },
+  "response" : {
+    "status" : 204,
+    "headers" : {
+      "Server" : "AmazonS3",
+      "x-amz-request-id" : "4ETH5F4M1EF37QK9",
+      "x-amz-id-2" : "MO+DMyi2ET3/iwD/e4TYPelf+RPgFnk+EaMhKOmg3KUD28QgcddsMGLYHlhMx+81XTS2/bVPrbk=",
+      "Date" : "Wed, 14 May 2025 21:42:57 GMT"
+    }
+  },
+  "uuid" : "e401432f-9b44-4761-a50d-a3edc1292ab2",
+  "insertionIndex" : 5
+}

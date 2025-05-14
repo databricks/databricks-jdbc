@@ -1,0 +1,33 @@
+{
+  "id" : "30c0fda6-c347-4dfb-aee8-5d0df1046883",
+  "name" : "api_2.0_fs_create-delete-url",
+  "request" : {
+    "url" : "/api/2.0/fs/create-delete-url",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/stream_upload_2.txt\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"url\":\"https://us-west-2-extstaging-managed-catalog-test-bucket-1.s3-fips.us-west-2.amazonaws.com/19a85dee-54bc-43a2-87ab-023d0ec16013/volumes/23258ec3-1166-4302-bbc5-456377aa44fb/stream_upload_2.txt?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250514T214612Z&X-Amz-SignedHeaders=host&X-Amz-Expires=1799&[REDACTED]X-Amz-Signature=cfcadc14eb85e90b1205630a497b358cca316ff41cd49968a98b2e6aae639a1f\"}",
+    "headers" : {
+      "x-request-id" : "ea624fa0-789c-4369-81dc-77d102b2d9c8",
+      "date" : "Wed, 14 May 2025 21:46:12 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "accept-encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "30c0fda6-c347-4dfb-aee8-5d0df1046883",
+  "insertionIndex" : 2
+}
