@@ -33,7 +33,6 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
   private final IDatabricksHttpClient httpClient;
   private final CompletableFuture<VolumePutResult> uploadFuture;
   private final UploadRequest request;
-  private final long startTime;
   private final Semaphore semaphore;
   private final int attempt;
   private final UrlGenerator urlGenerator;
@@ -52,7 +51,6 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
    * @param httpClient The HTTP client for making requests
    * @param uploadFuture Future to complete when upload is done
    * @param request The upload request with file or stream details
-   * @param startTime Start time of the upload operation
    * @param semaphore Semaphore for controlling concurrency
    * @param urlGenerator Function to generate presigned URLs
    * @param retryDelayCalculator Function to calculate retry delays
@@ -61,19 +59,10 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
       IDatabricksHttpClient httpClient,
       CompletableFuture<VolumePutResult> uploadFuture,
       UploadRequest request,
-      long startTime,
       Semaphore semaphore,
       UrlGenerator urlGenerator,
       Function<Integer, Long> retryDelayCalculator) {
-    this(
-        httpClient,
-        uploadFuture,
-        request,
-        startTime,
-        semaphore,
-        urlGenerator,
-        retryDelayCalculator,
-        1);
+    this(httpClient, uploadFuture, request, semaphore, urlGenerator, retryDelayCalculator, 1);
   }
 
   /** Constructor with attempt number for retries. */
@@ -81,7 +70,6 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
       IDatabricksHttpClient httpClient,
       CompletableFuture<VolumePutResult> uploadFuture,
       UploadRequest request,
-      long startTime,
       Semaphore semaphore,
       UrlGenerator urlGenerator,
       Function<Integer, Long> retryDelayCalculator,
@@ -89,7 +77,6 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
     this.httpClient = httpClient;
     this.uploadFuture = uploadFuture;
     this.request = request;
-    this.startTime = startTime;
     this.semaphore = semaphore;
     this.urlGenerator = urlGenerator;
     this.retryDelayCalculator = retryDelayCalculator;
@@ -225,7 +212,6 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
                                   httpClient,
                                   uploadFuture,
                                   request,
-                                  startTime,
                                   semaphore,
                                   urlGenerator,
                                   retryDelayCalculator,

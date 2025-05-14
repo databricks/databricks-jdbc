@@ -4,7 +4,6 @@ import static com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient.getOb
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
 import static com.databricks.jdbc.common.util.VolumeUtil.VolumeOperationType.constructListPath;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
-import static com.databricks.jdbc.telemetry.TelemetryHelper.exportFailureLog;
 
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
@@ -560,6 +559,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     List<UploadRequest> uploadRequests = new ArrayList<>(objectPaths.size());
     List<CompletableFuture<VolumePutResult>> futures = new ArrayList<>(objectPaths.size());
 
+    // Initialize lists with proper size to maintain order
+    for (int i = 0; i < objectPaths.size(); i++) {
+      uploadRequests.add(null);
+      futures.add(null);
+    }
+
     for (int i = 0; i < objectPaths.size(); i++) {
       final String objPath = objectPaths.get(i);
       final String fullPath = getObjectFullPath(catalog, schema, volume, objPath);
@@ -569,11 +574,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       if (!file.exists() || !file.isFile()) {
         String errorMessage = "File not found or not a file: " + localPath;
         LOGGER.error(errorMessage);
-        exportFailureLog(
-            connectionContext,
-            DatabricksDriverErrorCode.VOLUME_OPERATION_LOCAL_FILE_EXISTS_ERROR.name(),
-            errorMessage);
-        futures.add(
+        // Set a completed future at the same index to maintain order
+        futures.set(
+            i,
             CompletableFuture.completedFuture(
                 new VolumePutResult(404, VolumeOperationStatus.FAILED, errorMessage)));
         continue;
@@ -585,8 +588,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       request.fullPath = fullPath;
       request.file = file;
       request.fileIndex = i + 1;
-      uploadRequests.add(request);
+      // Set request at proper index to maintain order
+      uploadRequests.set(i, request);
     }
+
+    // Remove null entries from uploadRequests
+    uploadRequests.removeIf(Objects::isNull);
 
     // Execute uploads in parallel
     return executeUploads(uploadRequests, futures);
@@ -617,6 +624,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     List<UploadRequest> uploadRequests = new ArrayList<>(objectPaths.size());
     List<CompletableFuture<VolumePutResult>> futures = new ArrayList<>(objectPaths.size());
 
+    // Initialize lists with proper size to maintain order
+    for (int i = 0; i < objectPaths.size(); i++) {
+      uploadRequests.add(null);
+      futures.add(null);
+    }
+
     for (int i = 0; i < objectPaths.size(); i++) {
       final String objPath = objectPaths.get(i);
       final String fullPath = getObjectFullPath(catalog, schema, volume, objPath);
@@ -639,8 +652,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       request.inputStream = inputStream;
       request.contentLength = contentLength;
       request.fileIndex = i + 1;
-      uploadRequests.add(request);
+      // Set request at proper index to maintain order
+      uploadRequests.set(i, request);
     }
+
+    // Remove null entries from uploadRequests
+    uploadRequests.removeIf(Objects::isNull);
 
     // Execute uploads in parallel
     return executeUploads(uploadRequests, futures);
@@ -663,22 +680,29 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   /** Common method to execute uploads in parallel. */
   private List<VolumePutResult> executeUploads(
       List<UploadRequest> uploadRequests, List<CompletableFuture<VolumePutResult>> futures) {
-    // Record start time for logging
-    long startTime = System.nanoTime();
-
     for (UploadRequest request : uploadRequests) {
+      // Get the original index for this request
+      int index = request.fileIndex - 1;
+
+      // Skip if the future at this index is already completed (e.g., for missing files)
+      if (futures.get(index) != null && futures.get(index).isDone()) {
+        continue;
+      }
+
       LOGGER.debug(
           String.format(
               "Uploading %s %d/%d: %s (%d bytes)",
               request.isFile() ? "file" : "stream",
               request.fileIndex,
-              uploadRequests.size(),
+              uploadRequests.size()
+                  + futures.size()
+                  - uploadRequests.size(), // Add count of pre-completed futures
               request.objectPath,
               request.isFile() ? request.file.length() : request.contentLength));
 
       // Create a CompletableFuture for this upload
       CompletableFuture<VolumePutResult> uploadFuture = new CompletableFuture<>();
-      futures.add(uploadFuture);
+      futures.set(index, uploadFuture);
 
       // Use retry logic with rate limiting for presigned URL requests
       requestPresignedUrlWithRetry(request.fullPath, request.objectPath, 1)
@@ -727,7 +751,6 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                           databricksHttpClient,
                           uploadFuture,
                           request,
-                          startTime,
                           presignedUrlSemaphore,
                           this::requestPresignedUrlWithRetry,
                           this::calculateRetryDelay);
@@ -757,7 +780,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     // Wait for all operations to complete
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-    // Convert futures to results
+    // Convert futures to results - maintaining the original order of input files
     List<VolumePutResult> results = new ArrayList<>(futures.size());
     for (CompletableFuture<VolumePutResult> future : futures) {
       results.add(future.join());
@@ -771,20 +794,18 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       }
     }
 
-    double totalTimeSeconds = (System.nanoTime() - startTime) / 1_000_000_000.0;
-
+    // Simple log message with success count
     LOGGER.info(
         String.format(
-            "Completed uploads: %d/%d %s successful in %.2f seconds",
+            "Completed uploads: %d/%d %s successful",
             successCount,
-            uploadRequests.size(),
-            uploadRequests.isEmpty() || uploadRequests.get(0).isFile() ? "files" : "streams",
-            totalTimeSeconds));
+            futures.size(),
+            uploadRequests.isEmpty() || uploadRequests.get(0).isFile() ? "files" : "streams"));
 
     return results;
   }
 
-  private CompletableFuture<CreateUploadUrlResponse> requestPresignedUrlWithRetry(
+  CompletableFuture<CreateUploadUrlResponse> requestPresignedUrlWithRetry(
       String fullPath, String objectPath, int attempt) {
     CompletableFuture<CreateUploadUrlResponse> future = new CompletableFuture<>();
 
