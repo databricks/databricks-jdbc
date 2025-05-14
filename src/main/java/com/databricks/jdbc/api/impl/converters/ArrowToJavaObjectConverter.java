@@ -63,6 +63,10 @@ public class ArrowToJavaObjectConverter {
       ColumnInfoTypeName requiredType,
       String arrowMetadata)
       throws DatabricksSQLException {
+    // check isNull before getting the object from the vector
+    if (columnVector.isNull(vectorIndex)) {
+      return null;
+    }
     Object object = columnVector.getObject(vectorIndex);
     if (arrowMetadata != null) {
       if (arrowMetadata.startsWith(ARRAY)) {
