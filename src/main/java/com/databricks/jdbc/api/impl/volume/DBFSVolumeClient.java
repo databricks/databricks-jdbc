@@ -658,48 +658,48 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     return cf;
   }
 
-  private String getErrorCodeFromException(Throwable ex) {
-    try {
-      if (ex instanceof CompletionException && ex.getCause() != null) {
-        return getErrorCodeFromException(ex.getCause());
-      }
-
-      if (ex instanceof DatabricksVolumeOperationException) {
-        // Try to extract error code from message
-        String message = ex.toString();
-        if (message.contains("ErrorCode=")) {
-          int startIndex = message.indexOf("ErrorCode=") + 10;
-          int endIndex = message.indexOf(']', startIndex);
-          if (endIndex > startIndex) {
-            return message.substring(startIndex, endIndex);
-          }
-        }
-        // If can't extract, use default for volume operations
-        return DatabricksDriverErrorCode.VOLUME_OPERATION_EXCEPTION.name();
-      }
-    } catch (Exception e) {
-      // If any error in parsing, fall back to a safe default
-      LOGGER.warn("Error extracting error code from exception", e);
-    }
-
-    // Default error code based on operation type
-    return DatabricksDriverErrorCode.VOLUME_OPERATION_PUT_OPERATION_EXCEPTION.name();
-  }
+  //  private String getErrorCodeFromException(Throwable ex) {
+  //    try {
+  //      if (ex instanceof CompletionException && ex.getCause() != null) {
+  //        return getErrorCodeFromException(ex.getCause());
+  //      }
+  //
+  //      if (ex instanceof DatabricksVolumeOperationException) {
+  //        // Try to extract error code from message
+  //        String message = ex.toString();
+  //        if (message.contains("ErrorCode=")) {
+  //          int startIndex = message.indexOf("ErrorCode=") + 10;
+  //          int endIndex = message.indexOf(']', startIndex);
+  //          if (endIndex > startIndex) {
+  //            return message.substring(startIndex, endIndex);
+  //          }
+  //        }
+  //        // If can't extract, use default for volume operations
+  //        return DatabricksDriverErrorCode.VOLUME_OPERATION_EXCEPTION.name();
+  //      }
+  //    } catch (Exception e) {
+  //      // If any error in parsing, fall back to a safe default
+  //      LOGGER.warn("Error extracting error code from exception", e);
+  //    }
+  //
+  //    // Default error code based on operation type
+  //    return DatabricksDriverErrorCode.VOLUME_OPERATION_PUT_OPERATION_EXCEPTION.name();
+  //  }
 
   private VolumePutResult failureResult(Throwable ex) {
-    String errorCodeName;
-
-    if (ex instanceof CompletionException
-        && ex.getCause() instanceof DatabricksVolumeOperationException) {
-      // This is a URL generation error
-      errorCodeName = DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR.name();
-    } else {
-      errorCodeName = getErrorCodeFromException(ex);
-    }
-
-    if (connectionContext != null) {
-      exportFailureLog(connectionContext, errorCodeName, ex.getMessage());
-    }
+    //    String errorCodeName;
+    //
+    //    if (ex instanceof CompletionException
+    //        && ex.getCause() instanceof DatabricksVolumeOperationException) {
+    //      // This is a URL generation error
+    //      errorCodeName = DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR.name();
+    //    } else {
+    //      errorCodeName = getErrorCodeFromException(ex);
+    //    }
+    //
+    //    if (connectionContext != null) {
+    //      exportFailureLog(connectionContext, errorCodeName, ex.getMessage());
+    //    }
 
     return new VolumePutResult(500, VolumeOperationStatus.FAILED, ex.getMessage());
   }
@@ -736,7 +736,17 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throw new IllegalArgumentException(errorMessage);
     }
 
-    ExecutorService pool = Executors.newFixedThreadPool(Math.min(16, objectPaths.size()));
+    //    ExecutorService pool = Executors.newFixedThreadPool(Math.min(16, objectPaths.size()));
+    int PARALLELISM = Math.max(4, Runtime.getRuntime().availableProcessors() * 2);
+    //    ExecutorService IO_POOL = Executors.newFixedThreadPool(PARALLELISM);
+    // one pool for presign (cheap I/O)
+    ExecutorService PRESIGN_POOL =
+        Executors.newFixedThreadPool(Math.max(32, Runtime.getRuntime().availableProcessors()));
+
+    // one pool for uploads (more threads – blocking I/O)
+    ExecutorService UPLOAD_POOL =
+        Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 4);
+
     List<CompletableFuture<VolumePutResult>> chains = new ArrayList<>(objectPaths.size());
 
     for (int i = 0; i < objectPaths.size(); i++) {
@@ -765,12 +775,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
       LOGGER.debug(String.format("Uploading file: %s (size: %d bytes)", localPath, file.length()));
       CompletableFuture<VolumePutResult> chain =
-          requestUploadUrlAsync(fullPath, pool)
-              .thenCompose(
-                  resp -> {
-                    LOGGER.debug(String.format("Got presigned URL for %s", objPath));
-                    return uploadFileAsync(resp.getUrl(), file);
-                  })
+          requestUploadUrlAsync(fullPath, PRESIGN_POOL)
+              .thenComposeAsync( // hop to *same* pool
+                  //                      LOGGER.info("Got presigned URL for " + objPath);
+                  resp -> uploadFileAsync(resp.getUrl(), file),
+                  UPLOAD_POOL)
               .exceptionally(
                   ex -> {
                     LOGGER.error(
@@ -783,6 +792,10 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     CompletableFuture.allOf(chains.toArray(new CompletableFuture[0])).join();
     List<VolumePutResult> results =
         chains.stream().map(CompletableFuture::join).collect(Collectors.toList());
+    //    pool.shutdown();
+    //    IO_POOL.shutdown();
+    PRESIGN_POOL.shutdown();
+    UPLOAD_POOL.shutdown();
 
     long successCount =
         results.stream().filter(r -> r.getStatus() == VolumeOperationStatus.SUCCEEDED).count();
