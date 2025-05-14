@@ -74,7 +74,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   // Constructor for SEA result set
   public DatabricksResultSet(
-      StatementStatus executionStatus,
+      StatementStatus statementStatus,
       StatementId statementId,
       ResultData resultData,
       ResultManifest resultManifest,
@@ -82,7 +82,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException {
-    this.executionStatus = new ExecutionStatus(executionStatus);
+    this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     if (resultData != null) {
       this.executionResult =
@@ -116,14 +116,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @VisibleForTesting
   public DatabricksResultSet(
-      StatementStatus executionStatus,
+      StatementStatus statementStatus,
       StatementId statementId,
       StatementType statementType,
       IDatabricksStatementInternal parentStatement,
       IExecutionResult executionResult,
       DatabricksResultSetMetaData resultSetMetaData,
       boolean complexDatatypeSupport) {
-    this.executionStatus = new ExecutionStatus(executionStatus);
+    this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     this.executionResult = executionResult;
     this.resultSetMetaData = resultSetMetaData;
@@ -137,14 +137,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   // Constructor for thrift result set
   public DatabricksResultSet(
-      StatementStatus executionStatus,
+      StatementStatus statementStatus,
       StatementId statementId,
       TFetchResultsResp resultsResp,
       StatementType statementType,
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-    this.executionStatus = new ExecutionStatus(executionStatus);
+    this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     if (resultsResp != null) {
       this.executionResult =
@@ -185,7 +185,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   /* Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls */
   public DatabricksResultSet(
-      StatementStatus executionStatus,
+      StatementStatus statementStatus,
       StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
@@ -194,7 +194,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       int[] isNullables,
       Object[][] rows,
       StatementType statementType) {
-    this.executionStatus = new ExecutionStatus(executionStatus);
+    this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
     this.resultSetMetaData =
@@ -215,7 +215,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   // Constructing metadata result set in thrift flow
   public DatabricksResultSet(
-      StatementStatus executionStatus,
+      StatementStatus statementStatus,
       StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
@@ -224,7 +224,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<Nullable> columnNullables,
       List<List<Object>> rows,
       StatementType statementType) {
-    this.executionStatus = new ExecutionStatus(executionStatus);
+    this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
     this.resultSetMetaData =
@@ -245,12 +245,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   // Constructing metadata result set in SEA flow
   public DatabricksResultSet(
-      StatementStatus executionStatus,
+      StatementStatus statementStatus,
       StatementId statementId,
       List<ColumnMetadata> columnMetadataList,
       List<List<Object>> rows,
       StatementType statementType) {
-    this.executionStatus = new ExecutionStatus(executionStatus);
+    this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
     this.resultSetMetaData =
