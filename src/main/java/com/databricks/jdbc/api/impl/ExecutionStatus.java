@@ -38,7 +38,7 @@ class ExecutionStatus implements IExecutionStatus {
     return state;
   }
 
-  com.databricks.jdbc.model.core.StatementStatus getSdkStatus() {
+  StatementStatus getSdkStatus() {
     return sdkStatus;
   }
 

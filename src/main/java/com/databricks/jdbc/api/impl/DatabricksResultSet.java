@@ -1734,7 +1734,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   @Override
-  public com.databricks.jdbc.model.core.StatementStatus getStatementStatus() {
+  public StatementStatus getStatementStatus() {
     return executionStatus.getSdkStatus();
   }
 
