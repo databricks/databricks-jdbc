@@ -60,7 +60,7 @@ public class ArrowToJavaObjectConverterTest {
 
     // Set vector value count
     vector.setValueCount(3);
-    
+
     // Case 1: Non-null value
     assertFalse(vector.isNull(0));
     assertEquals("hello", convert(vector, 0, ColumnInfoTypeName.STRING, "STRING"));
