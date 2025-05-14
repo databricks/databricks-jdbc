@@ -20,11 +20,15 @@ import org.apache.hc.core5.http.nio.DataStreamChannel;
 public final class InputStreamFixedLenProducer implements AsyncEntityProducer, Closeable {
 
   private static final int DEFAULT_BUF = 16 * 1024;
+  private static final int BUFFER_SIZE = 8192;
 
   private final InputStream source;
   private final long contentLength;
   private final ContentType contentType;
   private final byte[] buf;
+  private final boolean chunked;
+  private boolean endOfStream;
+  private boolean closed;
 
   private long totalSent = 0;
   private final AtomicReference<Exception> failure = new AtomicReference<>();
@@ -33,17 +37,21 @@ public final class InputStreamFixedLenProducer implements AsyncEntityProducer, C
       final InputStream source,
       final long contentLength,
       final ContentType contentType,
-      final int bufferSize) {
+      final int bufferSize,
+      final boolean chunked) {
 
     this.source = source;
     this.contentLength = contentLength;
     this.contentType = Objects.requireNonNull(contentType, "contentType");
     this.buf = new byte[Math.max(bufferSize, DEFAULT_BUF)];
+    this.chunked = chunked;
+    this.endOfStream = false;
+    this.closed = false;
   }
 
   public InputStreamFixedLenProducer(
       final InputStream source, final long contentLength, final ContentType contentType) {
-    this(source, contentLength, contentType, DEFAULT_BUF);
+    this(source, contentLength, contentType, DEFAULT_BUF, false);
   }
 
   /* -------------------------------------------------------------------- */
@@ -57,7 +65,7 @@ public final class InputStreamFixedLenProducer implements AsyncEntityProducer, C
 
   @Override
   public boolean isChunked() {
-    return false;
+    return chunked;
   }
 
   @Override
@@ -94,6 +102,14 @@ public final class InputStreamFixedLenProducer implements AsyncEntityProducer, C
    */
   @Override
   public void produce(final DataStreamChannel channel) throws IOException {
+    if (closed) {
+      return;
+    }
+    if (endOfStream) {
+      channel.endStream();
+      return;
+    }
+
     try {
       if (totalSent >= contentLength) {
         channel.endStream();
@@ -101,12 +117,14 @@ public final class InputStreamFixedLenProducer implements AsyncEntityProducer, C
       }
       int read = source.read(buf, 0, (int) Math.min(buf.length, contentLength - totalSent));
       if (read == -1) { // premature EOF
-        throw new IOException("Stream ended before expected length");
-      }
-      totalSent += read;
-      channel.write(ByteBuffer.wrap(buf, 0, read));
-      if (totalSent == contentLength) {
+        endOfStream = true;
         channel.endStream();
+      } else {
+        totalSent += read;
+        channel.write(ByteBuffer.wrap(buf, 0, read));
+        if (totalSent == contentLength) {
+          channel.endStream();
+        }
       }
     } catch (Exception ex) {
       failure.compareAndSet(null, ex);
@@ -124,9 +142,14 @@ public final class InputStreamFixedLenProducer implements AsyncEntityProducer, C
 
   @Override
   public void releaseResources() {
+    if (closed) {
+      return;
+    }
     try {
       source.close();
     } catch (IOException ignore) {
+    } finally {
+      closed = true;
     }
   }
 
