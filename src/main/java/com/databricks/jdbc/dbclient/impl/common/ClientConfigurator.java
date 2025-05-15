@@ -14,12 +14,11 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
-import com.databricks.sdk.core.CredentialsProvider;
-import com.databricks.sdk.core.DatabricksConfig;
-import com.databricks.sdk.core.DatabricksException;
-import com.databricks.sdk.core.ProxyConfig;
+import com.databricks.sdk.core.*;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.oauth.AzureServicePrincipalCredentialsProvider;
 import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
+import com.databricks.sdk.core.oauth.OAuthM2MServicePrincipalCredentialsProvider;
 import com.databricks.sdk.core.oauth.TokenCache;
 import com.databricks.sdk.core.utils.Cloud;
 import java.io.IOException;
@@ -216,8 +215,10 @@ public class ClientConfigurator {
     } else {
       tokenCache = new NoOpTokenCache();
     }
-    CredentialsProvider provider = new ExternalBrowserCredentialsProvider(tokenCache);
-    databricksConfig.setCredentialsProvider(provider).setAuthType(provider.authType());
+
+    databricksConfig.setCredentialsProvider(
+        new DatabricksTokenFederationProvider(
+            connectionContext, new ExternalBrowserCredentialsProvider(tokenCache)));
   }
 
   /**
@@ -281,6 +282,7 @@ public class ClientConfigurator {
 
   /** Setup the PAT authentication settings in the databricks config. */
   public void setupAccessTokenConfig() throws DatabricksParsingException {
+
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
         .setHost(connectionContext.getHostUrl())
@@ -288,10 +290,13 @@ public class ClientConfigurator {
   }
 
   public void setupOAuthAccessTokenConfig() throws DatabricksParsingException {
+    DatabricksTokenFederationProvider databricksTokenFederationProvider =
+        new DatabricksTokenFederationProvider(connectionContext, new PatCredentialsProvider());
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
         .setHost(connectionContext.getHostUrl())
-        .setToken(connectionContext.getPassThroughAccessToken());
+        .setToken(connectionContext.getPassThroughAccessToken())
+        .setCredentialsProvider(databricksTokenFederationProvider);
   }
 
   public void resetAccessTokenInConfig(String newAccessToken) {
@@ -307,7 +312,12 @@ public class ClientConfigurator {
         .setClientSecret(connectionContext.getClientSecret());
     CredentialsProvider provider =
         new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
-    databricksConfig.setAuthType(provider.authType()).setCredentialsProvider(provider);
+    CredentialsProvider databricksTokenFederationProvider =
+        new DatabricksTokenFederationProvider(connectionContext, provider);
+
+    databricksConfig
+        .setAuthType(databricksTokenFederationProvider.authType()) // oauth-refresh
+        .setCredentialsProvider(databricksTokenFederationProvider);
   }
 
   /** Setup the OAuth M2M authentication settings in the databricks config. */
@@ -318,15 +328,23 @@ public class ClientConfigurator {
     } else {
       databricksConfig.setHost(connectionContext.getHostForOAuth());
     }
+
     if (connectionContext.getCloud() == Cloud.GCP
         && !connectionContext.getGcpAuthType().equals(M2M_AUTH_TYPE)) {
       String authType = connectionContext.getGcpAuthType();
       databricksConfig.setAuthType(authType);
       if (authType.equals(GCP_GOOGLE_CREDENTIALS_AUTH_TYPE)) {
         databricksConfig.setGoogleCredentials(connectionContext.getGoogleCredentials());
+        databricksConfig.setCredentialsProvider(
+            new DatabricksTokenFederationProvider(
+                connectionContext, new GoogleCredentialsCredentialsProvider()));
       } else {
         databricksConfig.setGoogleServiceAccount(connectionContext.getGoogleServiceAccount());
+        databricksConfig.setCredentialsProvider(
+            new DatabricksTokenFederationProvider(
+                connectionContext, new GoogleIdCredentialsProvider()));
       }
+
     } else if (connectionContext.getAzureTenantId() != null) {
       // If azure tenant id is specified, use Azure Active Directory (AAD) Service Principal OAuth
       LOGGER.debug("Using Azure Active Directory (AAD) Service Principal OAuth");
@@ -339,7 +357,10 @@ public class ClientConfigurator {
           .setAuthType(M2M_AZURE_CLIENT_SECRET_AUTH_TYPE)
           .setAzureClientId(connectionContext.getClientId())
           .setAzureClientSecret(connectionContext.getClientSecret())
-          .setAzureTenantId(connectionContext.getAzureTenantId());
+          .setAzureTenantId(connectionContext.getAzureTenantId())
+          .setCredentialsProvider(
+              new DatabricksTokenFederationProvider(
+                  connectionContext, new AzureServicePrincipalCredentialsProvider()));
     } else {
       databricksConfig
           .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)
@@ -347,7 +368,13 @@ public class ClientConfigurator {
           .setClientSecret(connectionContext.getClientSecret());
       if (connectionContext.useJWTAssertion()) {
         databricksConfig.setCredentialsProvider(
-            new PrivateKeyClientCredentialProvider(connectionContext, databricksConfig));
+            new DatabricksTokenFederationProvider(
+                connectionContext,
+                new PrivateKeyClientCredentialProvider(connectionContext, databricksConfig)));
+      } else {
+        databricksConfig.setCredentialsProvider(
+            new DatabricksTokenFederationProvider(
+                connectionContext, new OAuthM2MServicePrincipalCredentialsProvider()));
       }
     }
   }
@@ -355,7 +382,9 @@ public class ClientConfigurator {
   private void setupAzureMI() {
     databricksConfig.setHost(connectionContext.getHostForOAuth());
     databricksConfig.setAuthType(DatabricksJdbcConstants.AZURE_MSI_AUTH_TYPE);
-    databricksConfig.setCredentialsProvider(new AzureMSICredentialProvider(connectionContext));
+    databricksConfig.setCredentialsProvider(
+        new DatabricksTokenFederationProvider(
+            connectionContext, new AzureMSICredentialProvider(connectionContext)));
   }
 
   /**

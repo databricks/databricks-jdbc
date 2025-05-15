@@ -8,6 +8,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.auth.DatabricksTokenFederationProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
@@ -16,7 +17,6 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.WorkspaceClient;
-import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
@@ -138,9 +138,11 @@ public class ClientConfiguratorTest {
     assertEquals("client-id", config.getClientId());
     assertEquals("client-secret", config.getClientSecret());
     assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
-    CredentialsProvider provider = config.getCredentialsProvider();
+    DatabricksTokenFederationProvider provider =
+        (DatabricksTokenFederationProvider) config.getCredentialsProvider();
     assertNotNull(provider);
-    assertEquals(PrivateKeyClientCredentialProvider.class, provider.getClass());
+    assertEquals(
+        PrivateKeyClientCredentialProvider.class, provider.getCredentialsProvider().getClass());
     assertEquals("custom-oauth-m2m", provider.authType());
   }
 
@@ -155,12 +157,14 @@ public class ClientConfiguratorTest {
         DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
     configurator = new ClientConfigurator(connectionContext);
     DatabricksConfig config = configurator.getDatabricksConfig();
-    CredentialsProvider provider = config.getCredentialsProvider();
+    DatabricksTokenFederationProvider provider =
+        (DatabricksTokenFederationProvider) config.getCredentialsProvider();
     assertEquals("https://sample-host.18.azuredatabricks.net", config.getHost());
     assertEquals("test-client", config.getClientId());
     assertEquals("custom-oauth-m2m", provider.authType());
     assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
-    assertEquals(PrivateKeyClientCredentialProvider.class, provider.getClass());
+    assertEquals(
+        PrivateKeyClientCredentialProvider.class, provider.getCredentialsProvider().getClass());
   }
 
   @Test
@@ -464,7 +468,11 @@ public class ClientConfiguratorTest {
     assertEquals(List.of("scope1", "scope2"), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
-    assertInstanceOf(ExternalBrowserCredentialsProvider.class, config.getCredentialsProvider());
+    DatabricksTokenFederationProvider databricksTokenFederationProvider =
+        (DatabricksTokenFederationProvider) config.getCredentialsProvider();
+    assertInstanceOf(
+        ExternalBrowserCredentialsProvider.class,
+        databricksTokenFederationProvider.getCredentialsProvider());
   }
 
   @Test
@@ -507,6 +515,10 @@ public class ClientConfiguratorTest {
     assertEquals(List.of("scope1", "scope2"), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
-    assertInstanceOf(ExternalBrowserCredentialsProvider.class, config.getCredentialsProvider());
+    DatabricksTokenFederationProvider databricksTokenFederationProvider =
+        (DatabricksTokenFederationProvider) config.getCredentialsProvider();
+    assertInstanceOf(
+        ExternalBrowserCredentialsProvider.class,
+        databricksTokenFederationProvider.getCredentialsProvider());
   }
 }

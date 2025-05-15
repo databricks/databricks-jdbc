@@ -37,4 +37,5 @@ public enum DatabricksDriverErrorCode {
   INTEGRATION_TEST_ERROR,
   SDK_CLIENT_ERROR,
   SSL_HANDSHAKE_ERROR,
+  AUTH_ERROR
 }
