@@ -12,6 +12,7 @@
 
 ### Fixed
 - Fix: unsupported data types in `setObject(int,Object,int targetSqlType)` method in PreparedStatement
+- Fix: Added explicit null check for Arrow value vector when the value is empty, and Arrow null checking is disabled.
 
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 
