@@ -81,6 +81,33 @@ public class ArrowToJavaObjectConverterTest {
   }
 
   @Test
+  public void testByteVectorWithNullChecks() throws Exception {
+    TinyIntVector vector = new TinyIntVector("tinyIntVector", this.bufferAllocator);
+    vector.allocateNew(3);
+
+    // First value: explicitly set to null
+    vector.setNull(0);
+
+    // Second value: skip setting it, which makes it null by default
+
+    // Third value: set to 0
+    vector.set(2, 0);
+
+    vector.setValueCount(3);
+
+    // Test our converter with proper null handling
+    assertTrue(vector.isNull(0));
+    assertNull(convert(vector, 0, ColumnInfoTypeName.BYTE, "BYTE"));
+
+    assertTrue(vector.isNull(1));
+    assertNull(convert(vector, 1, ColumnInfoTypeName.BYTE, "BYTE"));
+
+    // The zero value should still be correctly identified as 0, not null
+    assertFalse(vector.isNull(2));
+    assertEquals((byte) 0, convert(vector, 2, ColumnInfoTypeName.BYTE, "BYTE"));
+  }
+
+  @Test
   public void testByteConversion() throws SQLException {
     TinyIntVector tinyIntVector = new TinyIntVector("tinyIntVector", this.bufferAllocator);
     tinyIntVector.allocateNew(1);
