@@ -47,8 +47,9 @@ public class ArrowToJavaObjectConverterTest {
   @Test
   public void testNullHandlingInVarCharVector() throws Exception {
     // Create a VarCharVector with 3 values: non-null, null, and empty string
+    disableArrowNullChecking();
     VarCharVector vector = new VarCharVector("varCharVector", this.bufferAllocator);
-    vector.allocateNew(3);
+    vector.allocateNew(4);
 
     // Set first value: "hello"
     vector.set(0, "hello".getBytes());
@@ -58,8 +59,11 @@ public class ArrowToJavaObjectConverterTest {
     // Third value: empty string (explicitly set as "")
     vector.set(2, "".getBytes());
 
+    // Fourth value: set to null
+    vector.setNull(3);
+
     // Set vector value count
-    vector.setValueCount(3);
+    vector.setValueCount(4);
 
     // Case 1: Non-null value
     assertFalse(vector.isNull(0));
@@ -78,6 +82,22 @@ public class ArrowToJavaObjectConverterTest {
             2,
             ColumnInfoTypeName.STRING,
             "STRING")); // Empty string should be empty, not null
+
+    // Case 4: Explicitly set to null
+    assertTrue(vector.isNull(3));
+    String valueWithoutCheck = (String) convert(vector, 3, ColumnInfoTypeName.STRING, "STRING");
+    // This assertion is expected to fail - it shows the problem when isNull check is removed
+    assertNull(valueWithoutCheck);
+
+    enableArrowNullChecking();
+  }
+
+  private void disableArrowNullChecking() {
+    System.setProperty("arrow.enable_null_check_for_get", "false");
+  }
+
+  private void enableArrowNullChecking() {
+    System.setProperty("arrow.enable_null_check_for_get", "true");
   }
 
   @Test
