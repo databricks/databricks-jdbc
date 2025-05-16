@@ -299,4 +299,7 @@ public interface IDatabricksConnectionContext {
 
   /** Returns whether token caching is enabled for OAuth authentication */
   boolean isTokenCacheEnabled();
+
+  /** */
+  int getMaxConcurrentPresignedRequests();
 }

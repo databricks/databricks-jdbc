@@ -783,6 +783,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public int getMaxConcurrentPresignedRequests() {
+    try {
+      return Integer.parseInt(
+          getParameter(DatabricksJdbcUrlParams.MAX_CONCURRENT_PRESIGNED_REQUESTS));
+    } catch (NumberFormatException e) {
+      LOGGER.warn(
+          "Invalid number format for MaxConcurrentPresignedRequests. Falling back to default value 50.");
+      return DEFAULT_MAX_CONCURRENT_PRESIGNED_REQUESTS;
+    }
+  }
+
+  @Override
   public boolean isComplexDatatypeSupportEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_COMPLEX_DATATYPE_SUPPORT).equals("1");
   }

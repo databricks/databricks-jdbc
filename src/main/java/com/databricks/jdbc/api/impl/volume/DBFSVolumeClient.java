@@ -63,7 +63,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   final WorkspaceClient workspaceClient;
   final ApiClient apiClient;
   private final String allowedVolumeIngestionPaths;
-  private static final int MAX_CONCURRENT_PRESIGNED_REQUESTS = 50;
+  private static int MAX_CONCURRENT_PRESIGNED_REQUESTS = 50;
   private static final int MAX_RETRIES = 5;
   private static final long INITIAL_RETRY_DELAY_MS = 200;
   private static final long MAX_RETRY_DELAY_MS = 10000; // 10 seconds max delay
@@ -88,6 +88,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         DatabricksHttpClientFactory.getInstance()
             .getClient(connectionContext, HttpClientType.VOLUME);
     this.allowedVolumeIngestionPaths = connectionContext.getVolumeOperationAllowedPaths();
+    MAX_CONCURRENT_PRESIGNED_REQUESTS = connectionContext.getMaxConcurrentPresignedRequests();
   }
 
   /** {@inheritDoc} */
@@ -534,7 +535,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     DatabricksThreadContextHolder.clearConnectionContext();
   }
 
-  /** Upload multiple files from local paths to DBFS volume in parallel. */
+  /** {@inheritDoc} */
   @Override
   public List<VolumePutResult> putFiles(
       String catalog,
@@ -559,7 +560,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     List<UploadRequest> uploadRequests = new ArrayList<>(objectPaths.size());
     List<CompletableFuture<VolumePutResult>> futures = new ArrayList<>(objectPaths.size());
 
-    // Initialize lists with proper size to maintain order
+    // Initialize lists with null. Later, set values at the correct index
     for (int i = 0; i < objectPaths.size(); i++) {
       uploadRequests.add(null);
       futures.add(null);
@@ -592,14 +593,14 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       uploadRequests.set(i, request);
     }
 
-    // Remove null entries from uploadRequests
+    // Remove null entries from uploadRequests. Files that don't exist will be null
     uploadRequests.removeIf(Objects::isNull);
 
     // Execute uploads in parallel
     return executeUploads(uploadRequests, futures);
   }
 
-  /** Upload multiple files from input streams to DBFS volume in parallel. */
+  /** {@inheritDoc} */
   public List<VolumePutResult> putFiles(
       String catalog,
       String schema,
@@ -786,15 +787,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       results.add(future.join());
     }
 
-    // Log final results
+    // Log results
     long successCount = 0;
     for (VolumePutResult result : results) {
       if (result.getStatus() == VolumeOperationStatus.SUCCEEDED) {
         successCount++;
       }
     }
-
-    // Simple log message with success count
     LOGGER.info(
         String.format(
             "Completed uploads: %d/%d %s successful",
@@ -810,7 +809,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     CompletableFuture<CreateUploadUrlResponse> future = new CompletableFuture<>();
 
     try {
-      // Acquire semaphore permit for rate limiting
+      // Acquire semaphore for rate limiting. will be released in the callback
       presignedUrlSemaphore.acquire();
       LOGGER.debug(
           String.format("Requesting presigned URL for %s (attempt %d)", objectPath, attempt));
@@ -821,6 +820,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       try {
         requestBody = apiClient.serialize(request);
       } catch (IOException e) {
+        // Release semaphore before returning
         presignedUrlSemaphore.release();
         future.completeExceptionally(e);
         return future;
@@ -856,7 +856,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
           new FutureCallback<SimpleHttpResponse>() {
             @Override
             public void completed(SimpleHttpResponse result) {
-              // Always release the semaphore when done
+              // release semaphore
               presignedUrlSemaphore.release();
 
               if (result.getCode() >= 200 && result.getCode() < 300) {
@@ -906,6 +906,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
             @Override
             public void failed(Exception ex) {
+              // called ONLY for exceptions during the HTTP request.Connection refused, IO
+              // exceptions.
+              // release semaphore
               presignedUrlSemaphore.release();
               if (attempt < MAX_RETRIES) {
                 // Apply exponential backoff for network failures too
