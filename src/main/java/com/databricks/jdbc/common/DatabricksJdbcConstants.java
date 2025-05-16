@@ -100,6 +100,7 @@ public final class DatabricksJdbcConstants {
   public static final String REDACTED_TOKEN = "****";
   public static final int MAX_DEFAULT_STRING_COLUMN_LENGTH = 32767;
   public static final int DEFUALT_STRING_COLUMN_LENGTH = 255;
+  public static final int DEFAULT_MAX_CONCURRENT_PRESIGNED_REQUESTS = 50;
 
   /** Enum for the services that can be replaced with a fake service in integration tests. */
   @VisibleForTesting
