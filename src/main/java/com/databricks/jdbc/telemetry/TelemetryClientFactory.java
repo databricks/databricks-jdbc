@@ -1,6 +1,5 @@
 package com.databricks.jdbc.telemetry;
 
-import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -12,7 +11,8 @@ import java.util.concurrent.Executors;
 
 public class TelemetryClientFactory {
 
-  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(TelemetryClientFactory.class);
 
   private static final TelemetryClientFactory INSTANCE = new TelemetryClientFactory();
 
@@ -43,10 +43,11 @@ public class TelemetryClientFactory {
               new TelemetryClient(
                   connectionContext, getTelemetryExecutorService(), databricksConfig));
     }
-    return NoopTelemetryClient.getInstance();
+    return getUnauthenticatedTelemetryClient(connectionContext);
   }
 
-  public ITelemetryClient getUnauthenticatedTelemetryClient(
+  @VisibleForTesting
+  ITelemetryClient getUnauthenticatedTelemetryClient(
       IDatabricksConnectionContext connectionContext) {
     if (connectionContext != null && connectionContext.isTelemetryEnabled()) {
       return noauthTelemetryClients.computeIfAbsent(

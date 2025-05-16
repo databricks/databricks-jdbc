@@ -1,6 +1,7 @@
 package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.auth.DatabricksAuthClientFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -56,9 +57,9 @@ public class TelemetryHelper {
                             .setDriverConnectionParameters(
                                 getDriverConnectionParameter(connectionContext))
                             .setDriverSystemConfiguration(getDriverSystemConfiguration())));
-    DatabricksConfig config = DatabricksThreadContextHolder.getDatabricksConfig();
+    DatabricksConfig databricksConfig = getDatabricksConfigSafely(connectionContext);
     TelemetryClientFactory.getInstance()
-        .getTelemetryClient(connectionContext, config)
+        .getTelemetryClient(connectionContext, databricksConfig)
         .exportEvent(telemetryFrontendLog);
   }
 
@@ -84,12 +85,10 @@ public class TelemetryHelper {
                                   getDriverConnectionParameter(connectionContext))
                               .setDriverErrorInfo(errorInfo)
                               .setDriverSystemConfiguration(getDriverSystemConfiguration())));
-      DatabricksConfig config = DatabricksThreadContextHolder.getDatabricksConfig();
+      DatabricksConfig databricksConfig = getDatabricksConfigSafely(connectionContext);
       ITelemetryClient client =
-          config == null
-              ? TelemetryClientFactory.getInstance()
-                  .getUnauthenticatedTelemetryClient(connectionContext)
-              : TelemetryClientFactory.getInstance().getTelemetryClient(connectionContext, config);
+          TelemetryClientFactory.getInstance()
+              .getTelemetryClient(connectionContext, databricksConfig);
       client.exportEvent(telemetryFrontendLog);
     }
   }
@@ -130,8 +129,7 @@ public class TelemetryHelper {
               .setContext(getLogContext())
               .setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
       TelemetryClientFactory.getInstance()
-          .getTelemetryClient(
-              connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
+          .getTelemetryClient(connectionContext, getDatabricksConfigSafely(connectionContext))
           .exportEvent(telemetryFrontendLog);
     }
   }
@@ -157,8 +155,7 @@ public class TelemetryHelper {
                                   getDriverConnectionParameter(connectionContext))));
 
       TelemetryClientFactory.getInstance()
-          .getTelemetryClient(
-              connectionContext, DatabricksThreadContextHolder.getDatabricksConfig())
+          .getTelemetryClient(connectionContext, getDatabricksConfigSafely(connectionContext))
           .exportEvent(telemetryFrontendLog);
     }
   }
@@ -263,5 +260,15 @@ public class TelemetryHelper {
 
   private static HostDetails getHostDetails(String host) {
     return new HostDetails().setHostUrl(host);
+  }
+
+  private static DatabricksConfig getDatabricksConfigSafely(IDatabricksConnectionContext context) {
+    try {
+      return DatabricksAuthClientFactory.getInstance()
+          .getConfigurator(context)
+          .getDatabricksConfig();
+    } catch (Exception e) {
+      return null;
+    }
   }
 }

@@ -124,7 +124,8 @@ public enum DatabricksJdbcUrlParams {
       "255"),
   SOCKET_TIMEOUT("socketTimeout", "Socket timeout in seconds", "900"),
   TOKEN_CACHE_PASS_PHRASE("TokenCachePassPhrase", "Pass phrase to use for OAuth U2M Token Cache"),
-  ENABLE_TOKEN_CACHE("EnableTokenCache", "Enable caching OAuth tokens", "1");
+  ENABLE_TOKEN_CACHE("EnableTokenCache", "Enable caching OAuth tokens", "1"),
+  DRIVER_VERSION("DriverVersion", "Version of the JDBC driver", "1.0.0");
 
   private final String paramName;
   private final String defaultValue;

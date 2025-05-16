@@ -396,7 +396,6 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   WorkspaceClient getWorkspaceClientFromConnectionContext(
       IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
     ClientConfigurator clientConfigurator = new ClientConfigurator(connectionContext);
-    DatabricksThreadContextHolder.setDatabricksConfig(clientConfigurator.getDatabricksConfig());
     return clientConfigurator.getWorkspaceClient();
   }
 
