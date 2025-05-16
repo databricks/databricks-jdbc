@@ -532,39 +532,51 @@ class DatabricksConnectionContextTest {
 
   @Test
   public void testTokenCacheSettings() throws DatabricksSQLException {
-    // Test with token cache disabled (default)
-    String jdbcUrl =
-        "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;EnableTokenCache=0";
+    // Test case 1: Default settings
+    String validJdbcUrl = TestConstants.VALID_URL_1;
     Properties properties = new Properties();
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(jdbcUrl, properties);
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
+    assertTrue(connectionContext.isTokenCacheEnabled());
+    assertNull(connectionContext.getTokenCachePassPhrase());
+
+    // Test case 2: Disabled token cache
+    properties.put("EnableTokenCache", "0");
+    connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
     assertFalse(connectionContext.isTokenCacheEnabled());
-    assertNull(connectionContext.getTokenCachePassPhrase());
 
-    // Test with token cache enabled but no passphrase
-    jdbcUrl =
-        "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;EnableTokenCache=1";
+    // Test case 3: With custom passphrase
+    properties.put("EnableTokenCache", "1");
+    properties.put("TokenCachePassPhrase", "mySecretPhrase");
     connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(jdbcUrl, properties);
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
     assertTrue(connectionContext.isTokenCacheEnabled());
-    assertNull(connectionContext.getTokenCachePassPhrase());
+    assertEquals("mySecretPhrase", connectionContext.getTokenCachePassPhrase());
+  }
 
-    // Test with token cache enabled and passphrase specified
-    jdbcUrl =
-        "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;EnableTokenCache=1;TokenCachePassPhrase=testpass";
-    connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(jdbcUrl, properties);
-    assertTrue(connectionContext.isTokenCacheEnabled());
-    assertEquals("testpass", connectionContext.getTokenCachePassPhrase());
+  @Test
+  public void testSSLKeystoreParameters() throws DatabricksSQLException {
+    // Test case 1: Default settings (all null)
+    String validJdbcUrl = TestConstants.VALID_URL_1;
+    Properties properties = new Properties();
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
+    assertNull(connectionContext.getSSLKeyStore());
+    assertNull(connectionContext.getSSLKeyStorePassword());
+    assertEquals("JKS", connectionContext.getSSLKeyStoreType());
+    assertNull(connectionContext.getSSLKeyStoreProvider());
 
-    // Test with token cache enabled via properties
-    jdbcUrl =
-        "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg";
-    properties.setProperty("EnableTokenCache", "1");
-    properties.setProperty("TokenCachePassPhrase", "proppass");
+    // Test case 2: With keystore parameters
+    properties.put("SSLKeyStore", "/path/to/keystore.jks");
+    properties.put("SSLKeyStorePwd", "keystorepassword");
+    properties.put("SSLKeyStoreType", "PKCS12");
+    properties.put("SSLKeyStoreProvider", "SunJSSE");
     connectionContext =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(jdbcUrl, properties);
-    assertTrue(connectionContext.isTokenCacheEnabled());
-    assertEquals("proppass", connectionContext.getTokenCachePassPhrase());
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
+    assertEquals("/path/to/keystore.jks", connectionContext.getSSLKeyStore());
+    assertEquals("keystorepassword", connectionContext.getSSLKeyStorePassword());
+    assertEquals("PKCS12", connectionContext.getSSLKeyStoreType());
+    assertEquals("SunJSSE", connectionContext.getSSLKeyStoreProvider());
   }
 }

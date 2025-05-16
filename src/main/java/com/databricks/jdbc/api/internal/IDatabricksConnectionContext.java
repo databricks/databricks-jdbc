@@ -215,6 +215,18 @@ public interface IDatabricksConnectionContext {
   /** Returns the SSL trust store type of the trust store file. */
   String getSSLTrustStoreType();
 
+  /** Returns the SSL key store file path used for SSL connections. */
+  String getSSLKeyStore();
+
+  /** Returns the SSL key store password of the key store file. */
+  String getSSLKeyStorePassword();
+
+  /** Returns the SSL key store type of the key store file. */
+  String getSSLKeyStoreType();
+
+  /** Returns the SSL key store provider for the key store. */
+  String getSSLKeyStoreProvider();
+
   /** Returns the maximum number of commands that can be executed in a single batch. */
   int getMaxBatchSize();
 
