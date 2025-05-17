@@ -16,6 +16,7 @@ import java.security.*;
 import java.security.cert.*;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.net.ssl.*;
@@ -242,6 +243,15 @@ public class ConfiguratorUtils {
     return null;
   }
 
+  /**
+   * Creates a socket factory registry from trust anchors and client keystore if available.
+   *
+   * @param trustAnchors The trust anchors for server certificate validation.
+   * @param connectionContext The connection context for configuration.
+   * @param sourceDescription A description of the trust store source for logging.
+   * @return A registry of connection socket factories.
+   * @throws DatabricksHttpException If there is an error during setup.
+   */
   private static Registry<ConnectionSocketFactory> createRegistryFromTrustAnchors(
       Set<TrustAnchor> trustAnchors,
       IDatabricksConnectionContext connectionContext,
@@ -254,15 +264,35 @@ public class ConfiguratorUtils {
     }
 
     try {
+      // Create trust managers for server certificate validation
       TrustManager[] trustManagers =
           createTrustManagers(
               trustAnchors,
               connectionContext.checkCertificateRevocation(),
               connectionContext.acceptUndeterminedCertificateRevocation());
 
-      return createSocketFactoryRegistry(trustManagers);
+      // Load client certificate keystore if available
+      KeyStore keyStore = loadKeystoreOrNull(connectionContext);
+
+      if (keyStore != null) {
+        LOGGER.info("Client certificate authentication enabled");
+
+        // Get password for the keystore
+        char[] keyStorePassword = null;
+        if (connectionContext.getSSLKeyStorePassword() != null) {
+          keyStorePassword = connectionContext.getSSLKeyStorePassword().toCharArray();
+        }
+
+        // Create key managers for client certificate authentication
+        javax.net.ssl.KeyManager[] keyManagers = createKeyManagers(keyStore, keyStorePassword);
+
+        return createSocketFactoryRegistry(trustManagers, keyManagers);
+      } else {
+        LOGGER.info("No client keystore configured, server certificate validation only");
+        return createSocketFactoryRegistry(trustManagers);
+      }
     } catch (Exception e) {
-      handleError("Error setting up trust managers for " + sourceDescription, e);
+      handleError("Error setting up SSL socket factory for " + sourceDescription, e);
     }
     return null;
   }
@@ -277,9 +307,55 @@ public class ConfiguratorUtils {
    */
   private static Registry<ConnectionSocketFactory> createSocketFactoryRegistry(
       TrustManager[] trustManagers) throws NoSuchAlgorithmException, KeyManagementException {
+    return createSocketFactoryRegistry(trustManagers, null);
+  }
+
+  /**
+   * Creates key managers from the provided key store.
+   *
+   * @param keyStore The KeyStore containing client certificates and private keys.
+   * @param keyStorePassword The password for the key store.
+   * @return An array of key managers, or null if the key store is null.
+   * @throws NoSuchAlgorithmException If the algorithm for the key manager factory is not available.
+   * @throws KeyStoreException If there is an error accessing the key store.
+   * @throws DatabricksHttpException If there is an error creating the key managers.
+   */
+  private static javax.net.ssl.KeyManager[] createKeyManagers(
+      KeyStore keyStore, char[] keyStorePassword)
+      throws NoSuchAlgorithmException, KeyStoreException, DatabricksHttpException {
+    if (keyStore == null) {
+      return null;
+    }
+
+    try {
+      KeyManagerFactory kmf =
+          KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+      kmf.init(keyStore, keyStorePassword);
+      LOGGER.info("Successfully initialized key managers for client certificate authentication");
+      return kmf.getKeyManagers();
+    } catch (UnrecoverableKeyException e) {
+      String errorMessage = "Failed to initialize key managers: " + e.getMessage();
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(
+          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+    }
+  }
+
+  /**
+   * Creates a socket factory registry with the provided trust managers and key managers.
+   *
+   * @param trustManagers The trust managers to use.
+   * @param keyManagers The key managers to use for client authentication.
+   * @return A registry of connection socket factories.
+   * @throws NoSuchAlgorithmException If there is an error during SSL context creation.
+   * @throws KeyManagementException If there is an error during SSL context creation.
+   */
+  private static Registry<ConnectionSocketFactory> createSocketFactoryRegistry(
+      TrustManager[] trustManagers, javax.net.ssl.KeyManager[] keyManagers)
+      throws NoSuchAlgorithmException, KeyManagementException {
 
     SSLContext sslContext = SSLContext.getInstance(DatabricksJdbcConstants.TLS);
-    sslContext.init(null, trustManagers, null);
+    sslContext.init(keyManagers, trustManagers, new SecureRandom());
     SSLConnectionSocketFactory sslSocketFactory = new SSLConnectionSocketFactory(sslContext);
 
     return RegistryBuilder.<ConnectionSocketFactory>create()
@@ -380,6 +456,99 @@ public class ConfiguratorUtils {
               + trustStorePath
               + " with type "
               + trustStoreType
+              + ": "
+              + e.getMessage();
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(
+          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+    }
+  }
+
+  /**
+   * Loads a key store from the path specified in the connection context. The key store contains the
+   * client's private key and certificate for client authentication.
+   *
+   * @param connectionContext The connection context containing key store configuration.
+   * @return The loaded KeyStore or null if no key store was specified or it could not be loaded.
+   * @throws DatabricksHttpException If there is an error during loading.
+   */
+  public static KeyStore loadKeystoreOrNull(IDatabricksConnectionContext connectionContext)
+      throws DatabricksHttpException {
+    String keyStorePath = connectionContext.getSSLKeyStore();
+    if (keyStorePath == null) {
+      return null;
+    }
+
+    // If the specified file doesn't exist, throw a specific error
+    File keyStoreFile = new File(keyStorePath);
+    if (!keyStoreFile.exists()) {
+      String errorMessage = "Specified key store file does not exist: " + keyStorePath;
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(
+          errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+    }
+
+    // Check if keystore password is provided, which is required for accessing private keys
+    String keyStorePassword = connectionContext.getSSLKeyStorePassword();
+    if (keyStorePassword == null) {
+      String errorMessage =
+          "Key store password is required when a key store is specified: " + keyStorePath;
+      LOGGER.error(errorMessage);
+      throw new DatabricksHttpException(
+          errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+    }
+    char[] password = keyStorePassword.toCharArray();
+
+    String keyStoreType = connectionContext.getSSLKeyStoreType();
+    String keyStoreProvider = connectionContext.getSSLKeyStoreProvider();
+
+    try {
+      LOGGER.info("Loading key store as type: " + keyStoreType);
+
+      // Create KeyStore instance, with provider if specified
+      KeyStore keyStore;
+      if (keyStoreProvider != null && !keyStoreProvider.isEmpty()) {
+        LOGGER.info("Using key store provider: " + keyStoreProvider);
+        keyStore = KeyStore.getInstance(keyStoreType, keyStoreProvider);
+      } else {
+        keyStore = KeyStore.getInstance(keyStoreType);
+      }
+
+      // Load the KeyStore with password
+      try (FileInputStream keyStoreStream = new FileInputStream(keyStorePath)) {
+        keyStore.load(keyStoreStream, password);
+      }
+
+      // Verify that the keystore contains at least one private key entry
+      boolean hasKeyEntry = false;
+      try {
+        for (Enumeration<String> aliases = keyStore.aliases(); aliases.hasMoreElements(); ) {
+          String alias = aliases.nextElement();
+          if (keyStore.isKeyEntry(alias)) {
+            hasKeyEntry = true;
+            LOGGER.debug("Found key entry with alias: " + alias);
+            break;
+          }
+        }
+      } catch (KeyStoreException e) {
+        // Log but don't fail - we'll still return the keystore
+        LOGGER.warn("Unable to verify key entries in keystore: " + e.getMessage());
+      }
+
+      if (!hasKeyEntry) {
+        LOGGER.warn(
+            "Key store does not contain any private key entries. "
+                + "Client authentication may fail.");
+      }
+
+      LOGGER.info("Successfully loaded key store: " + keyStorePath);
+      return keyStore;
+    } catch (Exception e) {
+      String errorMessage =
+          "Failed to load key store: "
+              + keyStorePath
+              + " with type "
+              + keyStoreType
               + ": "
               + e.getMessage();
       LOGGER.error(errorMessage);
