@@ -8,13 +8,13 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.auth.DatabricksAuthClientFactory;
 import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -395,8 +395,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
   WorkspaceClient getWorkspaceClientFromConnectionContext(
       IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
-    ClientConfigurator clientConfigurator = new ClientConfigurator(connectionContext);
-    return clientConfigurator.getWorkspaceClient();
+    return DatabricksAuthClientFactory.getInstance()
+        .getConfigurator(connectionContext)
+        .getWorkspaceClient();
   }
 
   /** Fetches the pre signed url for uploading to the volume using the SQL Exec API */

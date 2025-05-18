@@ -12,6 +12,7 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.auth.DatabricksAuthClientFactory;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
@@ -60,7 +61,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException, DatabricksHttpException {
     this.connectionContext = connectionContext;
-    this.clientConfigurator = new ClientConfigurator(connectionContext);
+    this.clientConfigurator =
+        DatabricksAuthClientFactory.getInstance().getConfigurator(connectionContext);
     this.workspaceClient = clientConfigurator.getWorkspaceClient();
     this.apiClient = workspaceClient.apiClient();
   }
@@ -72,7 +74,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       ApiClient apiClient)
       throws DatabricksParsingException, DatabricksHttpException {
     this.connectionContext = connectionContext;
-    this.clientConfigurator = new ClientConfigurator(connectionContext);
+    this.clientConfigurator =
+        DatabricksAuthClientFactory.getInstance().getConfigurator(connectionContext);
     this.workspaceClient =
         new WorkspaceClient(true /* mock */, apiClient)
             .withStatementExecutionImpl(statementExecutionService);
