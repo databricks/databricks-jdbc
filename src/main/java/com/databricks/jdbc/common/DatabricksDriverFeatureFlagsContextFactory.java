@@ -28,10 +28,10 @@ public class DatabricksDriverFeatureFlagsContextFactory {
         k ->
             new DatabricksDriverFeatureFlagsContext(
                 context,
-                DatabricksAuthClientFactory.getInstance()
-                    .getConfigurator(context)
-                    .getDatabricksConfig()
-                    .authenticate()));
+                    DatabricksAuthClientFactory.getInstance()
+                            .getConfigurator(context)
+                            .getDatabricksConfig()
+                            .authenticate()));
   }
 
   /**

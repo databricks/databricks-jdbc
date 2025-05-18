@@ -1,11 +1,13 @@
 package com.databricks.jdbc.telemetry;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.sdk.core.DatabricksConfig;
+import java.util.Collections;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +44,7 @@ public class TelemetryClientFactoryTest {
     Properties properties = new Properties();
     properties.setProperty(DatabricksJdbcUrlParams.ENABLE_TELEMETRY.getParamName(), "1");
     context1 = DatabricksConnectionContext.parse(JDBC_URL_1, properties);
+    when(databricksConfig.authenticate()).thenReturn(Collections.emptyMap());
     client1 = TelemetryClientFactory.getInstance().getTelemetryClient(context1, databricksConfig);
     unauthClient1 =
         TelemetryClientFactory.getInstance().getUnauthenticatedTelemetryClient(context1);

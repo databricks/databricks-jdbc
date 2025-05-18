@@ -2,6 +2,7 @@ package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.DatabricksAuthClientFactory;
+import com.databricks.jdbc.common.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -20,7 +21,8 @@ public class TelemetryHelper {
   // Cache to store unique DriverConnectionParameters for each connectionUuid
   private static final ConcurrentHashMap<String, DriverConnectionParameters>
       connectionParameterCache = new ConcurrentHashMap<>();
-
+  private static final String TELEMETRY_FEATURE_FLAG_NAME =
+      "databricks.partnerplatform.clientConfigsFeatureFlags.enableTelemetry";
   private static final DriverSystemConfiguration DRIVER_SYSTEM_CONFIGURATION =
       new DriverSystemConfiguration()
           .setClientAppName(null)
@@ -39,6 +41,13 @@ public class TelemetryHelper {
 
   public static DriverSystemConfiguration getDriverSystemConfiguration() {
     return DRIVER_SYSTEM_CONFIGURATION;
+  }
+
+  public static boolean isTelemetryEnabled(IDatabricksConnectionContext context) {
+    return context != null
+        && context.isTelemetryEnabled()
+        && DatabricksDriverFeatureFlagsContextFactory.getInstance(context)
+            .isFeatureEnabled(TELEMETRY_FEATURE_FLAG_NAME);
   }
 
   // TODO : add an export even before connection context is built
