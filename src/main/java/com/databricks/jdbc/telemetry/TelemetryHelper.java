@@ -7,6 +7,8 @@ import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.*;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
@@ -18,6 +20,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class TelemetryHelper {
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TelemetryHelper.class);
   // Cache to store unique DriverConnectionParameters for each connectionUuid
   private static final ConcurrentHashMap<String, DriverConnectionParameters>
       connectionParameterCache = new ConcurrentHashMap<>();
@@ -277,6 +280,11 @@ public class TelemetryHelper {
           .getConfigurator(context)
           .getDatabricksConfig();
     } catch (Exception e) {
+      String errorMessage =
+          String.format(
+              "Unable to get databricks config for telemetry helper; falling back to no-auth. Error: %s; Context: %s",
+              e.getMessage(), context);
+      LOGGER.debug(errorMessage);
       return null;
     }
   }

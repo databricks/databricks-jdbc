@@ -1,17 +1,12 @@
 package com.databricks.jdbc.auth;
 
-import static org.mockito.Mockito.when;
-
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
-import com.databricks.sdk.core.DatabricksConfig;
 
+// Created the test helper to be in the auth package path
 public class AuthTestHelper {
   public static void setupAuthMocks(
-      IDatabricksConnectionContext context,
-      ClientConfigurator clientConfigurator,
-      DatabricksConfig databricksConfig) {
-    when(clientConfigurator.getDatabricksConfig()).thenReturn(databricksConfig);
+      IDatabricksConnectionContext context, ClientConfigurator clientConfigurator) {
     DatabricksAuthClientFactory.getInstance().setConfigurator(context, clientConfigurator);
   }
 }
