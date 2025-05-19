@@ -16,18 +16,18 @@ public class DatabricksAuthClientFactory {
   }
 
   public ClientConfigurator getConfigurator(IDatabricksConnectionContext context) {
-    if (!instances.contains(context.getConnectionUuid())) {
-      try {
+    try {
+      if (!instances.contains(context.getConnectionUuid())) {
         instances.put(context.getConnectionUuid(), new ClientConfigurator(context));
-      } catch (Exception e) {
-        String message =
-            String.format(
-                "Failed to configure databricks auth client: %s, with connection context %s",
-                e, context);
-        throw new DatabricksDriverException(message, DatabricksDriverErrorCode.AUTH_ERROR);
       }
+      return instances.get(context.getConnectionUuid());
+    } catch (Exception e) {
+      String message =
+          String.format(
+              "Failed to configure databricks auth client: %s, with connection context %s",
+              e.getMessage(), context);
+      throw new DatabricksDriverException(message, DatabricksDriverErrorCode.AUTH_ERROR);
     }
-    return instances.get(context.getConnectionUuid());
   }
 
   @VisibleForTesting
