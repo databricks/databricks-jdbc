@@ -16,7 +16,6 @@ import java.security.*;
 import java.security.cert.*;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.net.ssl.*;
@@ -323,10 +322,6 @@ public class ConfiguratorUtils {
   private static javax.net.ssl.KeyManager[] createKeyManagers(
       KeyStore keyStore, char[] keyStorePassword)
       throws NoSuchAlgorithmException, KeyStoreException, DatabricksHttpException {
-    if (keyStore == null) {
-      return null;
-    }
-
     try {
       KeyManagerFactory kmf =
           KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
@@ -522,16 +517,21 @@ public class ConfiguratorUtils {
       // Verify that the keystore contains at least one private key entry
       boolean hasKeyEntry = false;
       try {
-        for (Enumeration<String> aliases = keyStore.aliases(); aliases.hasMoreElements(); ) {
-          String alias = aliases.nextElement();
-          if (keyStore.isKeyEntry(alias)) {
-            hasKeyEntry = true;
-            LOGGER.debug("Found key entry with alias: " + alias);
-            break;
-          }
-        }
+        hasKeyEntry =
+            Collections.list(keyStore.aliases()).stream()
+                .anyMatch(
+                    alias -> {
+                      try {
+                        boolean isKey = keyStore.isKeyEntry(alias);
+                        if (isKey) {
+                          LOGGER.debug("Found key entry with alias: " + alias);
+                        }
+                        return isKey;
+                      } catch (KeyStoreException e) {
+                        return false;
+                      }
+                    });
       } catch (KeyStoreException e) {
-        // Log but don't fail - we'll still return the keystore
         LOGGER.warn("Unable to verify key entries in keystore: " + e.getMessage());
       }
 
