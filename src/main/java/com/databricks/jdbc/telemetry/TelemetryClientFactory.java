@@ -1,6 +1,6 @@
 package com.databricks.jdbc.telemetry;
 
-import static com.databricks.jdbc.telemetry.TelemetryHelper.isTelemetryEnabled;
+import static com.databricks.jdbc.telemetry.TelemetryHelper.isTelemetryAllowedForConnection;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -34,11 +34,12 @@ public class TelemetryClientFactory {
     return INSTANCE;
   }
 
-  public ITelemetryClient getTelemetryClient(
-      IDatabricksConnectionContext connectionContext, DatabricksConfig databricksConfig) {
-    if (!isTelemetryEnabled(connectionContext)) {
+  public ITelemetryClient getTelemetryClient(IDatabricksConnectionContext connectionContext) {
+    if (!isTelemetryAllowedForConnection(connectionContext)) {
       return NoopTelemetryClient.getInstance();
     }
+    DatabricksConfig databricksConfig =
+        TelemetryHelper.getDatabricksConfigSafely(connectionContext);
     if (databricksConfig != null) {
       return telemetryClients.computeIfAbsent(
           connectionContext.getConnectionUuid(),
@@ -49,7 +50,6 @@ public class TelemetryClientFactory {
     return getUnauthenticatedTelemetryClient(connectionContext);
   }
 
-  @VisibleForTesting
   ITelemetryClient getUnauthenticatedTelemetryClient(
       IDatabricksConnectionContext connectionContext) {
     if (connectionContext != null && connectionContext.isTelemetryEnabled()) {

@@ -9,7 +9,6 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.auth.DatabricksAuthClientFactory;
-import com.databricks.jdbc.common.DatabricksDriverFeatureFlagsContext;
 import com.databricks.jdbc.common.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;

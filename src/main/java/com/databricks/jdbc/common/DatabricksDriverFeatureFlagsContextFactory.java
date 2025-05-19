@@ -1,7 +1,7 @@
 package com.databricks.jdbc.common;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.auth.DatabricksAuthClientFactory;
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,14 +24,7 @@ public class DatabricksDriverFeatureFlagsContextFactory {
   public static DatabricksDriverFeatureFlagsContext getInstance(
       IDatabricksConnectionContext context) {
     return contextMap.computeIfAbsent(
-        context.getConnectionUuid(),
-        k ->
-            new DatabricksDriverFeatureFlagsContext(
-                context,
-                    DatabricksAuthClientFactory.getInstance()
-                            .getConfigurator(context)
-                            .getDatabricksConfig()
-                            .authenticate()));
+        context.getConnectionUuid(), k -> new DatabricksDriverFeatureFlagsContext(context));
   }
 
   /**
@@ -43,5 +36,13 @@ public class DatabricksDriverFeatureFlagsContextFactory {
     if (connectionContext != null) {
       contextMap.remove(connectionContext.getConnectionUuid());
     }
+  }
+
+  @VisibleForTesting
+  static void setFeatureFlagsContext(
+      IDatabricksConnectionContext connectionContext, Map<String, String> featureFlags) {
+    contextMap.put(
+        connectionContext.getConnectionUuid(),
+        new DatabricksDriverFeatureFlagsContext(connectionContext, featureFlags));
   }
 }

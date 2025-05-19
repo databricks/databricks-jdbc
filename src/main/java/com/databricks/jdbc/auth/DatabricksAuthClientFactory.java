@@ -3,8 +3,8 @@ package com.databricks.jdbc.auth;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksDriverException;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class DatabricksAuthClientFactory {
@@ -19,7 +19,7 @@ public class DatabricksAuthClientFactory {
     if (!instances.contains(context.getConnectionUuid())) {
       try {
         instances.put(context.getConnectionUuid(), new ClientConfigurator(context));
-      } catch (DatabricksHttpException e) {
+      } catch (Exception e) {
         String message =
             String.format(
                 "Failed to configure databricks auth client: %s, with connection context %s",
@@ -28,6 +28,12 @@ public class DatabricksAuthClientFactory {
       }
     }
     return instances.get(context.getConnectionUuid());
+  }
+
+  @VisibleForTesting
+  void setConfigurator(
+      IDatabricksConnectionContext context, ClientConfigurator clientConfigurator) {
+    instances.put(context.getConnectionUuid(), clientConfigurator);
   }
 
   public static DatabricksAuthClientFactory getInstance() {

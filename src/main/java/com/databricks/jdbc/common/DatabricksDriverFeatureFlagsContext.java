@@ -1,17 +1,17 @@
 package com.databricks.jdbc.common;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.auth.DatabricksAuthClientFactory;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.util.EntityUtils;
 
@@ -24,14 +24,18 @@ public class DatabricksDriverFeatureFlagsContext {
 
   private final IDatabricksConnectionContext connectionContext;
   private final Map<String, String> featureFlags;
-  private final Map<String, String> authHeaders;
 
-  DatabricksDriverFeatureFlagsContext(
-      IDatabricksConnectionContext connectionContext, Map<String, String> authHeaders) {
+  DatabricksDriverFeatureFlagsContext(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
     this.featureFlags = new HashMap<>();
-    this.authHeaders = authHeaders;
     fetchFeatureFlags();
+  }
+
+  // This constructor is only for testing
+  DatabricksDriverFeatureFlagsContext(
+      IDatabricksConnectionContext connectionContext, Map<String, String> featureFlags) {
+    this.connectionContext = connectionContext;
+    this.featureFlags = featureFlags;
   }
 
   private void fetchFeatureFlags() {
@@ -39,10 +43,13 @@ public class DatabricksDriverFeatureFlagsContext {
       IDatabricksHttpClient httpClient =
           DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
-      for (Map.Entry<String, String> entry : authHeaders.entrySet()) {
-        request.addHeader(entry.getKey(), entry.getValue());
-      }
-      try (var response = httpClient.execute(request)) {
+      DatabricksAuthClientFactory.getInstance()
+          .getConfigurator(connectionContext)
+          .getDatabricksConfig()
+          .authenticate()
+          .forEach(request::addHeader);
+
+      try (CloseableHttpResponse response = httpClient.execute(request)) {
         if (response.getStatusLine().getStatusCode() == 200) {
           String responseBody = EntityUtils.toString(response.getEntity());
           JsonNode root = JsonUtil.getMapper().readTree(responseBody);
@@ -57,17 +64,20 @@ public class DatabricksDriverFeatureFlagsContext {
           }
         } else {
           LOGGER.warn(
-              "Failed to fetch feature flags. Status code: {}",
+              "Failed to fetch feature flags for connectionContext: {}. Status code: {}",
+              connectionContext,
               response.getStatusLine().getStatusCode());
         }
       }
-    } catch (DatabricksHttpException | IOException e) {
-      LOGGER.warn("Error fetching feature flags: {}", e.getMessage());
+    } catch (Exception e) {
+      LOGGER.warn(
+          "Error fetching feature flags for connectionContext: {}. Error: {}",
+          connectionContext,
+          e.getMessage());
     }
   }
 
   public boolean isFeatureEnabled(String name) {
-    String value = featureFlags.get(name);
-    return value != null && value.equalsIgnoreCase("true");
+    return Boolean.parseBoolean(featureFlags.get(name));
   }
 }
