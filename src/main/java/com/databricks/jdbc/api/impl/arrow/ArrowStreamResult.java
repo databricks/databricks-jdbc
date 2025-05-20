@@ -28,6 +28,11 @@ public class ArrowStreamResult implements IExecutionResult {
   private boolean isClosed;
   private ArrowResultChunk.ArrowResultChunkIterator chunkIterator;
   private List<ColumnInfo> columnInfos;
+  private final IDatabricksSession session;
+
+  private static final String DEFAULT_ARRAY_TYPE_STRING = "ARRAY<STRING>";
+  private static final String DEFAULT_MAP_TYPE_STRING = "MAP<STRING,STRING>";
+  private static final String DEFAULT_STRUCT_TYPE_STRING = "STRUCT<data:STRING>";
 
   public ArrowStreamResult(
       ResultManifest resultManifest,
@@ -51,6 +56,7 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksSQLException {
+    this.session = session;
     // Check if the result data contains the arrow data inline
     boolean isInlineArrow = resultData.getAttachment() != null;
 
@@ -94,6 +100,7 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksSQLException {
+    this.session = session;
     setColumnInfo(resultsResp.getResultSetMetadata());
     if (isInlineArrow) {
       this.chunkProvider = new InlineChunkProvider(resultsResp, parentStatement, session);
@@ -126,7 +133,29 @@ public class ArrowStreamResult implements IExecutionResult {
     if (arrowMetadata == null) {
       arrowMetadata = columnInfos.get(columnIndex).getTypeText();
     }
+    arrowMetadata = getArrowMetadataWithComplexTypeFallback(requiredType, arrowMetadata);
     return chunkIterator.getColumnObjectAtCurrentRow(columnIndex, requiredType, arrowMetadata);
+  }
+
+  /**
+   * Returns the correct arrow metadata string, falling back to default type strings if complex
+   * datatype support is disabled.
+   */
+  private String getArrowMetadataWithComplexTypeFallback(
+      ColumnInfoTypeName requiredType, String arrowMetadata) {
+    if (!this.session.getConnectionContext().isComplexDatatypeSupportEnabled()) {
+      switch (requiredType) {
+        case ARRAY:
+          return DEFAULT_ARRAY_TYPE_STRING;
+        case MAP:
+          return DEFAULT_MAP_TYPE_STRING;
+        case STRUCT:
+          return DEFAULT_STRUCT_TYPE_STRING;
+        default:
+          break;
+      }
+    }
+    return arrowMetadata;
   }
 
   /** {@inheritDoc} */
