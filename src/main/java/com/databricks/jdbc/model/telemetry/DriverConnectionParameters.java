@@ -2,16 +2,16 @@ package com.databricks.jdbc.model.telemetry;
 
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
-import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 
 public class DriverConnectionParameters {
   @JsonProperty("http_path")
   String httpPath;
 
   @JsonProperty("mode")
-  DatabricksClientType driverMode;
+  String driverMode;
 
   @JsonProperty("host_info")
   HostDetails hostDetails;
@@ -106,13 +106,43 @@ public class DriverConnectionParameters {
   @JsonProperty("enable_token_cache")
   boolean enableTokenCache;
 
+  @JsonProperty("auth_endpoint")
+  String authEndpoint;
+
+  @JsonProperty("token_endpoint")
+  String tokenEndpoint;
+
+  @JsonProperty("non_proxy_hosts")
+  List<String> nonProxyHosts;
+
+  @JsonProperty("http_connection_pool_size")
+  int httpConnectionPoolSize;
+
+  @JsonProperty("enable_sea_hybrid_results")
+  boolean enableSeaHybridResults;
+
+  @JsonProperty("enable_complex_datatype_support")
+  boolean enableComplexSupport;
+
+  @JsonProperty("allow_self_signed_support")
+  boolean allowSelfSignedSupport;
+
+  @JsonProperty("use_system_trust_store")
+  boolean useSystemTrustStore;
+
+  @JsonProperty("rows_fetched_per_block")
+  int rowsFetchedPerBlock;
+
+  @JsonProperty("async_poll_interval_millis")
+  int asyncPollIntervalMillis;
+
   public DriverConnectionParameters setHttpPath(String httpPath) {
     this.httpPath = httpPath;
     return this;
   }
 
-  public DriverConnectionParameters setDriverMode(DatabricksClientType clientType) {
-    this.driverMode = clientType;
+  public DriverConnectionParameters setDriverMode(String clientType) {
+    this.driverMode = clientType.toString();
     return this;
   }
 
@@ -276,6 +306,56 @@ public class DriverConnectionParameters {
     return this;
   }
 
+  public DriverConnectionParameters setAuthEndpoint(String authEndpoint) {
+    this.authEndpoint = authEndpoint;
+    return this;
+  }
+
+  public DriverConnectionParameters setTokenEndpoint(String tokenEndpoint) {
+    this.tokenEndpoint = tokenEndpoint;
+    return this;
+  }
+
+  public DriverConnectionParameters setNonProxyHosts(List<String> nonProxyHosts) {
+    this.nonProxyHosts = nonProxyHosts;
+    return this;
+  }
+
+  public DriverConnectionParameters setHttpConnectionPoolSize(int httpConnectionPoolSize) {
+    this.httpConnectionPoolSize = httpConnectionPoolSize;
+    return this;
+  }
+
+  public DriverConnectionParameters setEnableSeaHybridResults(boolean enableSeaHybridResults) {
+    this.enableSeaHybridResults = enableSeaHybridResults;
+    return this;
+  }
+
+  public DriverConnectionParameters setEnableComplexSupport(boolean enableComplexSupport) {
+    this.enableComplexSupport = enableComplexSupport;
+    return this;
+  }
+
+  public DriverConnectionParameters setAllowSelfSignedSupport(boolean allowSelfSignedSupport) {
+    this.allowSelfSignedSupport = allowSelfSignedSupport;
+    return this;
+  }
+
+  public DriverConnectionParameters setUseSystemTrustStore(boolean useSystemTrustStore) {
+    this.useSystemTrustStore = useSystemTrustStore;
+    return this;
+  }
+
+  public DriverConnectionParameters setRowsFetchedPerBlock(int rowsFetchedPerBlock) {
+    this.rowsFetchedPerBlock = rowsFetchedPerBlock;
+    return this;
+  }
+
+  public DriverConnectionParameters setAsyncPollIntervalMillis(int asyncPollIntervalMillis) {
+    this.asyncPollIntervalMillis = asyncPollIntervalMillis;
+    return this;
+  }
+
   @Override
   public String toString() {
     return new ToStringer(DriverConnectionParameters.class)
@@ -300,6 +380,7 @@ public class DriverConnectionParameters {
         .add("acceptUndeterminedCertificateRevocation", acceptUndeterminedCertificateRevocation)
         .add("enableArrow", enableArrow)
         .add("enableDirectResults", enableDirectResults)
+        .add("enableJwtAssertion", enableJwtAssertion)
         .add("jwtKeyFile", jwtKeyFile)
         .add("jwtAlgorithm", jwtAlgorithm)
         .add("googleServiceAccount", googleServiceAccount)
@@ -311,6 +392,16 @@ public class DriverConnectionParameters {
         .add("stringColumnLength", stringColumnLength)
         .add("socketTimeout", socketTimeout)
         .add("enableTokenCache", enableTokenCache)
+        .add("authEndpoint", authEndpoint)
+        .add("tokenEndpoint", tokenEndpoint)
+        .add("nonProxyHosts", nonProxyHosts)
+        .add("httpConnectionPoolSize", httpConnectionPoolSize)
+        .add("enableSeaHybridResults", enableSeaHybridResults)
+        .add("enableComplexSupport", enableComplexSupport)
+        .add("allowSelfSignedSupport", allowSelfSignedSupport)
+        .add("useSystemTrustStore", useSystemTrustStore)
+        .add("rowsFetchedPerBlock", rowsFetchedPerBlock)
+        .add("asyncPollIntervalMillis", asyncPollIntervalMillis)
         .toString();
   }
 }
