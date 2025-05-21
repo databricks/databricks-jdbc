@@ -64,14 +64,6 @@ public class IntervalConverter {
       }
       body = formatDayTime((Duration) obj);
     }
-    // Databricks always prints the qualifier in lowercase internally,
-    // but your converter returns the literal.  If you need the exact
-    // SQL keyword (e.g. "interval hour to second"), you can lowercase:
-    //    String qualifier =
-    //        start == end
-    //            ? start.name().toLowerCase()
-    //            : (start.name() + " TO " + end.name()).toLowerCase();
-    //    return String.format("INTERVAL '%s' %s", body, qualifier);
     return body;
   }
 
