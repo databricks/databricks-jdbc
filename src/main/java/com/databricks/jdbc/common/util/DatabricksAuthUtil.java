@@ -47,7 +47,7 @@ public class DatabricksAuthUtil {
       // If token is parsable, it is a JWT
       SignedJWT signedJWT = SignedJWT.parse(accessToken);
       return true;
-    } catch (ParseException e) {
+    } catch (ParseException | NullPointerException e) {
       return false;
     }
   }
