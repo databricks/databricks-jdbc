@@ -2,7 +2,7 @@ package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
-import com.databricks.jdbc.common.DatabricksDriverFeatureFlagsContextFactory;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.StringUtil;

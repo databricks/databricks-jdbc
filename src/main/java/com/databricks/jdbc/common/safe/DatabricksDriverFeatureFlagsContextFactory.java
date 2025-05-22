@@ -1,4 +1,4 @@
-package com.databricks.jdbc.common;
+package com.databricks.jdbc.common.safe;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.google.common.annotations.VisibleForTesting;

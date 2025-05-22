@@ -1,6 +1,6 @@
 package com.databricks.jdbc.telemetry;
 
-import static com.databricks.jdbc.common.FeatureFlagTestUtil.enableFeatureFlagForTesting;
+import static com.databricks.jdbc.common.safe.FeatureFlagTestUtil.enableFeatureFlagForTesting;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.TELEMETRY_FEATURE_FLAG_NAME;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;

@@ -1,13 +1,13 @@
-package com.databricks.jdbc.common;
+package com.databricks.jdbc.common.safe;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.fasterxml.jackson.databind.JsonNode;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -20,13 +20,16 @@ public class DatabricksDriverFeatureFlagsContext {
       JdbcLoggerFactory.getLogger(DatabricksDriverFeatureFlagsContext.class);
   private static final String FEATURE_FLAGS_ENDPOINT =
       String.format("/2.0/connector-service/feature-flags/JDBC/%s", DriverUtil.getDriverVersion());
+  private static final int DEFAULT_TTL_SECONDS = 900; // 15 minutes default TTL
 
   private final IDatabricksConnectionContext connectionContext;
-  private final Map<String, String> featureFlags;
+  private Map<String, String> featureFlags;
+  private long expiryTimestamp;
 
   DatabricksDriverFeatureFlagsContext(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
     this.featureFlags = new HashMap<>();
+    this.expiryTimestamp = System.currentTimeMillis() + (DEFAULT_TTL_SECONDS * 1000L);
     fetchFeatureFlags();
   }
 
@@ -35,6 +38,8 @@ public class DatabricksDriverFeatureFlagsContext {
       IDatabricksConnectionContext connectionContext, Map<String, String> featureFlags) {
     this.connectionContext = connectionContext;
     this.featureFlags = featureFlags;
+    // For testing, set expiry to a far future time
+    this.expiryTimestamp = Long.MAX_VALUE;
   }
 
   private void fetchFeatureFlags() {
@@ -51,15 +56,19 @@ public class DatabricksDriverFeatureFlagsContext {
       try (CloseableHttpResponse response = httpClient.execute(request)) {
         if (response.getStatusLine().getStatusCode() == 200) {
           String responseBody = EntityUtils.toString(response.getEntity());
-          JsonNode root = JsonUtil.getMapper().readTree(responseBody);
-          JsonNode flags = root.get("flags");
+          FeatureFlagsResponse featureFlagsResponse =
+              JsonUtil.getMapper().readValue(responseBody, FeatureFlagsResponse.class);
 
-          if (flags != null && flags.isArray()) {
-            for (JsonNode flag : flags) {
-              String name = flag.get("name").asText();
-              String value = flag.get("value").asText();
-              featureFlags.put(name, value);
+          if (featureFlagsResponse.getFlags() != null) {
+            for (FeatureFlagsResponse.FeatureFlagEntry flag : featureFlagsResponse.getFlags()) {
+              featureFlags.put(flag.getName(), flag.getValue());
             }
+          }
+
+          // Update expiry timestamp based on TTL from response
+          Integer ttlSeconds = featureFlagsResponse.getTtlSeconds();
+          if (ttlSeconds != null) {
+            this.expiryTimestamp = System.currentTimeMillis() + (ttlSeconds * 1000L);
           }
         } else {
           LOGGER.warn(
@@ -77,6 +86,9 @@ public class DatabricksDriverFeatureFlagsContext {
   }
 
   public boolean isFeatureEnabled(String name) {
+    if (System.currentTimeMillis() > expiryTimestamp) {
+      fetchFeatureFlags(); // Refresh flags if expired
+    }
     return Boolean.parseBoolean(featureFlags.get(name));
   }
 }
