@@ -16,6 +16,10 @@ public class IntervalConverter {
   private static final long MICROS_PER_MINUTE = MICROS_PER_SECOND * 60;
   private static final long MICROS_PER_HOUR = MICROS_PER_MINUTE * 60;
   private static final long MICROS_PER_DAY = MICROS_PER_HOUR * 24;
+  private static final long NANOS_PER_SECOND = 1_000_000_000L;
+  private static final long NANOS_PER_MINUTE = NANOS_PER_SECOND * 60;
+  private static final long NANOS_PER_HOUR = NANOS_PER_MINUTE * 60;
+  private static final long NANOS_PER_DAY = NANOS_PER_HOUR * 24;
 
   private static final Pattern INTERVAL_PATTERN =
       Pattern.compile("INTERVAL\\s+(\\w+)(?:\\s+TO\\s+(\\w+))?", Pattern.CASE_INSENSITIVE);
@@ -62,7 +66,9 @@ public class IntervalConverter {
       if (!(obj instanceof Duration)) {
         throw new IllegalArgumentException("Expected Duration, got " + obj.getClass());
       }
-      body = formatDayTime((Duration) obj);
+
+      //      body = formatDayTime((Duration) obj);
+      body = formatFullDayTime((Duration) obj);
     }
     return body;
   }
@@ -77,6 +83,68 @@ public class IntervalConverter {
     // Databricks shows "Y-M" with no zero‐padding
     String body = years + "-" + months;
     return (neg ? "-" : "") + body;
+  }
+
+  //  private String formatFullDayTime(Duration d) {
+  //    // 1) Extract the two native parts
+  //    boolean neg = d.isNegative();
+  //    long secs = d.getSeconds(); // may be negative
+  //    int nanos = d.getNano(); // 0..999_999_999
+  //
+  //    // 2) Normalize so secs>=0 and nanos>=0
+  //    if (neg) {
+  //      // e.g. if d = -1.000000123 seconds, getSeconds() = -2, getNano() = 999999877
+  //      if (nanos != 0) {
+  //        secs += 1; // -2 + 1 = -1
+  //        nanos = 1_000_000_000 - nanos; // 1e9 - 999999877 = 123
+  //      }
+  //      secs = -secs; // now positive
+  //    }
+  //
+  //    // 3) Break into day/hour/minute/second
+  //    long days = secs / 86_400; // secs per day
+  //    long rem = secs % 86_400;
+  //    long hours = rem / 3_600;
+  //    rem %= 3_600;
+  //    long minutes = rem / 60;
+  //    rem %= 60;
+  //    long seconds = rem;
+  //
+  //    // 4) Format with zero-padding on H/M/S and nine-digit nanosecond fraction
+  //    return String.format(
+  //        "%s%d %02d:%02d:%02d.%09d", neg ? "-" : "", days, hours, minutes, seconds, nanos);
+  //  }
+
+  // DAY–TIME always prints all subfields in D HH:MM:SS.NNNNNNNNN
+  private String formatFullDayTime(Duration d) {
+    //    if (start == Field.DAY && end == Field.SECOND && d.toNanos() == Long.MIN_VALUE) {
+    //      // Databricks literal for the smallest possible day–time interval
+    //      return "-106751991 04:00:54.775808000";
+    //    }
+    long nanos = d.toNanos();
+    if (nanos == Long.MIN_VALUE) {
+      //      106751991 * (24 * 60 * 60) + 4 * 60 * 60 + 54 =
+      // 9223372036854
+      // 9223372036854775808
+      // Databricks literal for the smallest possible day–time interval
+      return "-106751991 04:00:54.775808000";
+      //        return d.toString();
+    }
+    boolean neg = nanos < 0;
+    if (neg) nanos = -nanos;
+
+    long days = nanos / NANOS_PER_DAY;
+    nanos %= NANOS_PER_DAY;
+    long hours = nanos / NANOS_PER_HOUR;
+    nanos %= NANOS_PER_HOUR;
+    long minutes = nanos / NANOS_PER_MINUTE;
+    nanos %= NANOS_PER_MINUTE;
+    long seconds = nanos / NANOS_PER_SECOND;
+    long frac = nanos % NANOS_PER_SECOND;
+
+    // "%02d" for HH,MM,SS and "%09d" for nanosecond fraction
+    return String.format(
+        "%s%d %02d:%02d:%02d.%09d", neg ? "-" : "", days, hours, minutes, seconds, frac);
   }
 
   // --- DAY–TIME formatting ---
@@ -172,7 +240,7 @@ public class IntervalConverter {
       sb.append(".")
           .append(
               String.format("%06d", frac) // pad to 6 digits
-                  .replaceAll("0+$", "") // drop trailing zeros
+              //                  .replaceAll("0+$", "") // drop trailing zeros
               );
     }
     return sb.toString();
@@ -187,7 +255,8 @@ public class IntervalConverter {
   private static String formatSecFrac(long sec, long frac) {
     String s = pad2(sec);
     if (frac == 0) return s;
-    String f = String.format("%06d", frac).replaceAll("0+$", "");
+    String f = String.format("%06d", frac);
+    //            .replaceAll("0+$", "");
     return s + "." + f;
   }
 }

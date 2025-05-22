@@ -61,7 +61,7 @@ public class ArrowToJavaObjectConverterTest {
     out =
         ArrowToJavaObjectConverter.convert(
             dv, 0, ColumnInfoTypeName.INTERVAL, "INTERVAL HOUR TO SECOND");
-    assertEquals("200:13:50.3", out);
+    assertEquals("8 08:13:50.300000000", out);
 
     // null metadata throws DatabricksValidation Exception
     assertThrows(
