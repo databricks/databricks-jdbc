@@ -448,6 +448,29 @@ public class EmptyResultSet
   }
 
   @Override
+  public void updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    checkIfClosed();
+  }
+
+  @Override
+  public void updateObject(String columnLabel, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    checkIfClosed();
+  }
+
+  @Override
+  public void updateObject(int columnIndex, Object x, SQLType targetSqlType) throws SQLException {
+    checkIfClosed();
+  }
+
+  @Override
+  public void updateObject(String columnLabel, Object x, SQLType targetSqlType)
+      throws SQLException {
+    checkIfClosed();
+  }
+
+  @Override
   public void updateNull(String columnLabel) throws SQLException {
     checkIfClosed();
   }

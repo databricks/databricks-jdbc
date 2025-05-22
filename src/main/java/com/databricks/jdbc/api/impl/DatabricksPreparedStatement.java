@@ -62,7 +62,20 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public int[] executeBatch() throws DatabricksBatchUpdateException {
     LOGGER.debug("public int executeBatch()");
-    int[] updateCount = new int[databricksBatchParameterMetaData.size()];
+    long[] largeUpdateCount = executeLargeBatch();
+    int[] updateCount = new int[largeUpdateCount.length];
+
+    for (int i = 0; i < largeUpdateCount.length; i++) {
+      updateCount[i] = (int) largeUpdateCount[i];
+    }
+
+    return updateCount;
+  }
+
+  @Override
+  public long[] executeLargeBatch() throws DatabricksBatchUpdateException {
+    LOGGER.debug("public long executeLargeBatch()");
+    long[] largeUpdateCount = new long[databricksBatchParameterMetaData.size()];
 
     for (int sqlQueryIndex = 0;
         sqlQueryIndex < databricksBatchParameterMetaData.size();
@@ -72,21 +85,21 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       try {
         executeInternal(
             sql, databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE, false);
-        updateCount[sqlQueryIndex] = (int) resultSet.getUpdateCount();
+        largeUpdateCount[sqlQueryIndex] = resultSet.getUpdateCount();
       } catch (Exception e) {
         LOGGER.error(
             "Error executing batch update for index {}: {}", sqlQueryIndex, e.getMessage(), e);
         // Set the current failed statement's count
-        updateCount[sqlQueryIndex] = Statement.EXECUTE_FAILED;
+        largeUpdateCount[sqlQueryIndex] = Statement.EXECUTE_FAILED;
         // Set all remaining statements as failed
-        for (int i = sqlQueryIndex + 1; i < updateCount.length; i++) {
-          updateCount[i] = Statement.EXECUTE_FAILED;
+        for (int i = sqlQueryIndex + 1; i < largeUpdateCount.length; i++) {
+          largeUpdateCount[i] = Statement.EXECUTE_FAILED;
         }
         throw new DatabricksBatchUpdateException(
-            e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, updateCount);
+            e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, largeUpdateCount);
       }
     }
-    return updateCount;
+    return largeUpdateCount;
   }
 
   @Override
@@ -273,8 +286,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
   @Override
   public long executeLargeUpdate() throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "executeLargeUpdate in preparedStatement is not implemented in OSS JDBC");
+    LOGGER.debug("public long executeLargeUpdate()");
+    checkIfBatchOperation();
+    interpolateIfRequiredAndExecute(StatementType.UPDATE);
+    return resultSet.getUpdateCount();
   }
 
   @Override

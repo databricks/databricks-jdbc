@@ -9,6 +9,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.SqlExecutionEvent;
@@ -36,6 +37,7 @@ public class TelemetryHelperTest {
     when(connectionContext.getProxyAuthType()).thenReturn(ProxyConfig.ProxyAuthType.BASIC);
     when(connectionContext.getProxyPort()).thenReturn(443);
     when(connectionContext.getProxyHost()).thenReturn(TEST_STRING);
+    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
     when(connectionContext.getUseCloudFetchProxy()).thenReturn(true);
     when(connectionContext.getCloudFetchProxyAuthType())
         .thenReturn(ProxyConfig.ProxyAuthType.BASIC);
@@ -52,6 +54,7 @@ public class TelemetryHelperTest {
   @Test
   void testHostFetchThrowsErrorInTelemetryLog() throws DatabricksParsingException {
     when(connectionContext.getConnectionUuid()).thenReturn(UUID.randomUUID().toString());
+    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
     when(connectionContext.getHostUrl())
         .thenThrow(
             new DatabricksParsingException(TEST_STRING, DatabricksDriverErrorCode.INVALID_STATE));
@@ -62,6 +65,7 @@ public class TelemetryHelperTest {
   void testLatencyTelemetryLogDoesNotThrowError() {
     TelemetryHelper telemetryHelper = new TelemetryHelper(); // Increasing coverage for class
     when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
+    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
     SqlExecutionEvent event = new SqlExecutionEvent().setDriverStatementType(StatementType.QUERY);
     assertDoesNotThrow(() -> telemetryHelper.exportLatencyLog(connectionContext, 150, event, null));
   }
@@ -69,7 +73,6 @@ public class TelemetryHelperTest {
   @Test
   void testErrorTelemetryLogDoesNotThrowError() {
     when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
-    SqlExecutionEvent event = new SqlExecutionEvent().setDriverStatementType(StatementType.QUERY);
     assertDoesNotThrow(
         () -> TelemetryHelper.exportFailureLog(connectionContext, TEST_STRING, TEST_STRING));
   }

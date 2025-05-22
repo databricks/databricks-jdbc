@@ -847,6 +847,57 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   @Override
+  public void updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    LOGGER.debug(
+        "public void updateObject(int columnIndex = {}, Object x = {}, SQLType targetSqlType = {}, int scaleOrLength = {})",
+        columnIndex,
+        x,
+        targetSqlType,
+        scaleOrLength);
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength)");
+  }
+
+  @Override
+  public void updateObject(String columnLabel, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    LOGGER.debug(
+        "public void updateObject(String columnLabel = {}, Object x = {}, SQLType targetSqlType = {}, int scaleOrLength = {})",
+        columnLabel,
+        x,
+        targetSqlType,
+        scaleOrLength);
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject(String columnLabel, Object x, SQLType targetSqlType, int scaleOrLength)");
+  }
+
+  public void updateObject(int columnIndex, Object x, SQLType targetSqlType) throws SQLException {
+    LOGGER.debug(
+        "public void updateObject(int columnIndex = {}, Object x = {}, SQLType targetSqlType = {})",
+        columnIndex,
+        x,
+        targetSqlType);
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject(int columnIndex, Object x, SQLType targetSqlType)");
+  }
+
+  public void updateObject(String columnLabel, Object x, SQLType targetSqlType)
+      throws SQLException {
+    LOGGER.debug(
+        "public void updateObject(String columnLabel = {}, Object x = {}, SQLType targetSqlType = {})",
+        columnLabel,
+        x,
+        targetSqlType);
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject(String columnLabel, Object x, SQLType targetSqlType)");
+  }
+
+  @Override
   public void updateNull(String columnLabel) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(

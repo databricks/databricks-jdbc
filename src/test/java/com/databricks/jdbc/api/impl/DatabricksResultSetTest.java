@@ -905,6 +905,18 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateObject(1, new Object(), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateObject(1, new Object(), JDBCType.INTEGER, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateObject("column", new Object(), JDBCType.INTEGER, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateObject(1, new Object(), JDBCType.INTEGER));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateObject("column", new Object(), JDBCType.INTEGER));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateAsciiStream(1, null, 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
