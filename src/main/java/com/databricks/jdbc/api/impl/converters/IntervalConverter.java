@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.time.Duration;
 import java.time.Period;
 import java.util.regex.Matcher;
@@ -10,6 +12,8 @@ import java.util.regex.Pattern;
  * that Databricks prints.
  */
 public class IntervalConverter {
+
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(IntervalConverter.class);
 
   // Arrow stores day‐time intervals in microseconds
   private static final long MICROS_PER_SECOND = 1_000_000L;
@@ -34,7 +38,6 @@ public class IntervalConverter {
     SECOND
   }
 
-  private final Field start, end;
   private final boolean isYearMonth;
 
   /**
@@ -45,8 +48,7 @@ public class IntervalConverter {
     if (!m.matches()) {
       throw new IllegalArgumentException("Invalid interval metadata: " + arrowMetadata);
     }
-    this.start = Field.valueOf(m.group(1).toUpperCase());
-    this.end = (m.group(2) != null) ? Field.valueOf(m.group(2).toUpperCase()) : this.start;
+    Field start = Field.valueOf(m.group(1).toUpperCase());
     // YEAR or MONTH qualifiers → Period; otherwise → Duration
     this.isYearMonth = (start == Field.YEAR || start == Field.MONTH);
   }
@@ -93,6 +95,11 @@ public class IntervalConverter {
     }
     boolean neg = nanos < 0;
     if (neg) nanos = -nanos;
+
+    if (nanos == Long.MAX_VALUE) {
+      LOGGER.warn(
+          "Duration value at Long.MAX_VALUE detected - interval representation may be incorrect due to overflow");
+    }
 
     long days = nanos / NANOS_PER_DAY;
     nanos %= NANOS_PER_DAY;
