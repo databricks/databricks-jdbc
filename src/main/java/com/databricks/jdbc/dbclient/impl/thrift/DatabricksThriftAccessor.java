@@ -7,7 +7,7 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
-import com.databricks.jdbc.auth.DatabricksAuthClientFactory;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
@@ -60,7 +60,7 @@ final class DatabricksThriftAccessor {
       throws DatabricksParsingException {
     this.enableDirectResults = connectionContext.getDirectResultMode();
     this.databricksConfig =
-        DatabricksAuthClientFactory.getInstance()
+        DatabricksClientConfiguratorManager.getInstance()
             .getConfigurator(connectionContext)
             .getDatabricksConfig();
     String endPointUrl = connectionContext.getEndpointURL();

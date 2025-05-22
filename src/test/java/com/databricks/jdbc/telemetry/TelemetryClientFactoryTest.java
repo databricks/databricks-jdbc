@@ -7,7 +7,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.auth.AuthTestHelper;
+import com.databricks.jdbc.common.TelemetryAuthHelper;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.util.HashMap;
@@ -48,6 +48,7 @@ public class TelemetryClientFactoryTest {
     Properties properties = new Properties();
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL_2, properties);
+    when(clientConfigurator.getDatabricksConfig()).thenReturn(databricksConfig);
     setupMocksForTelemetryClient(context);
     ITelemetryClient telemetryClient =
         TelemetryClientFactory.getInstance().getTelemetryClient(context);
@@ -79,9 +80,9 @@ public class TelemetryClientFactoryTest {
   }
 
   private void setupMocksForTelemetryClient(IDatabricksConnectionContext context) {
+    TelemetryAuthHelper.setupAuthMocks(context, clientConfigurator);
     Map<String, String> featureFlagMap = new HashMap<>();
     featureFlagMap.put(TELEMETRY_FEATURE_FLAG_NAME, "true");
     enableFeatureFlagForTesting(context, featureFlagMap);
-    AuthTestHelper.setupAuthMocks(context, clientConfigurator);
   }
 }

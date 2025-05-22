@@ -15,8 +15,7 @@ public class DatabricksDriverFeatureFlagsContextFactory {
   }
 
   /**
-   * Gets or creates a DatabricksDriverFeatureFlagsContext instance for the given connection
-   * context.
+   * Gets or creates a DatabricksDriverFeatureFlagsContext instance for the given compute
    *
    * @param context the connection context
    * @return the DatabricksDriverFeatureFlagsContext instance
@@ -24,17 +23,18 @@ public class DatabricksDriverFeatureFlagsContextFactory {
   public static DatabricksDriverFeatureFlagsContext getInstance(
       IDatabricksConnectionContext context) {
     return contextMap.computeIfAbsent(
-        context.getConnectionUuid(), k -> new DatabricksDriverFeatureFlagsContext(context));
+        context.getComputeResource().getUniqueIdentifier(),
+        k -> new DatabricksDriverFeatureFlagsContext(context));
   }
 
   /**
-   * Removes the DatabricksDriverFeatureFlagsContext instance for the given connection context.
+   * Removes the DatabricksDriverFeatureFlagsContext instance for the given compute.
    *
    * @param connectionContext the connection context
    */
   public static void removeInstance(IDatabricksConnectionContext connectionContext) {
     if (connectionContext != null) {
-      contextMap.remove(connectionContext.getConnectionUuid());
+      contextMap.remove(connectionContext.getComputeResource().getUniqueIdentifier());
     }
   }
 
@@ -42,7 +42,7 @@ public class DatabricksDriverFeatureFlagsContextFactory {
   static void setFeatureFlagsContext(
       IDatabricksConnectionContext connectionContext, Map<String, String> featureFlags) {
     contextMap.put(
-        connectionContext.getConnectionUuid(),
+        connectionContext.getComputeResource().getUniqueIdentifier(),
         new DatabricksDriverFeatureFlagsContext(connectionContext, featureFlags));
   }
 }

@@ -1,13 +1,14 @@
 package com.databricks.jdbc.telemetry;
 
 import static com.databricks.jdbc.TestConstants.TEST_STRING;
+import static com.databricks.jdbc.TestConstants.WAREHOUSE_COMPUTE;
 import static com.databricks.jdbc.common.FeatureFlagTestUtil.enableFeatureFlagForTesting;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.isTelemetryAllowedForConnection;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.auth.DatabricksAuthClientFactory;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.SqlExecutionEvent;
@@ -26,7 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class TelemetryHelperTest {
   @Mock IDatabricksConnectionContext connectionContext;
 
-  @Mock DatabricksAuthClientFactory mockFactory;
+  @Mock DatabricksClientConfiguratorManager mockFactory;
 
   @Test
   void testInitialTelemetryLogDoesNotThrowError() {
@@ -80,9 +81,9 @@ public class TelemetryHelperTest {
 
   @Test
   public void testGetDatabricksConfigSafely_ReturnsNullOnError() {
-    try (MockedStatic<DatabricksAuthClientFactory> mockedFactory =
-        mockStatic(DatabricksAuthClientFactory.class)) {
-      mockedFactory.when(DatabricksAuthClientFactory::getInstance).thenReturn(mockFactory);
+    try (MockedStatic<DatabricksClientConfiguratorManager> mockedFactory =
+        mockStatic(DatabricksClientConfiguratorManager.class)) {
+      mockedFactory.when(DatabricksClientConfiguratorManager::getInstance).thenReturn(mockFactory);
       when(mockFactory.getConfigurator(connectionContext))
           .thenThrow(new RuntimeException("Test error"));
       DatabricksConfig result = TelemetryHelper.getDatabricksConfigSafely(connectionContext);
@@ -99,7 +100,7 @@ public class TelemetryHelperTest {
   @Test
   public void testTelemetryNotAllowedUsecase() {
     assertFalse(() -> isTelemetryAllowedForConnection(null));
-    when(connectionContext.getConnectionUuid()).thenReturn(UUID.randomUUID().toString());
+    when(connectionContext.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
     enableFeatureFlagForTesting(connectionContext, Collections.emptyMap());
     assertFalse(() -> isTelemetryAllowedForConnection(connectionContext));
   }

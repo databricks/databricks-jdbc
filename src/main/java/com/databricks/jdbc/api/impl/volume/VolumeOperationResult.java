@@ -103,7 +103,7 @@ public class VolumeOperationResult implements IExecutionResult {
                         String.format(
                             "Failed to set result set volumeOperationEntityStream %s",
                             e.getMessage());
-                    LOGGER.error(message, e);
+                    LOGGER.error(e, message);
                     throw new DatabricksDriverException(
                         message, DatabricksDriverErrorCode.VOLUME_OPERATION_EXCEPTION);
                   }

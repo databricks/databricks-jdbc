@@ -1,7 +1,6 @@
 package com.databricks.jdbc.common;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.auth.DatabricksAuthClientFactory;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -43,7 +42,7 @@ public class DatabricksDriverFeatureFlagsContext {
       IDatabricksHttpClient httpClient =
           DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
-      DatabricksAuthClientFactory.getInstance()
+      DatabricksClientConfiguratorManager.getInstance()
           .getConfigurator(connectionContext)
           .getDatabricksConfig()
           .authenticate()

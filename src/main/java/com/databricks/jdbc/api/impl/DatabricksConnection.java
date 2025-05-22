@@ -8,7 +8,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
-import com.databricks.jdbc.auth.DatabricksAuthClientFactory;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
@@ -155,7 +155,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     this.session.close();
     TelemetryClientFactory.getInstance().closeTelemetryClient(connectionContext);
     DatabricksHttpClientFactory.getInstance().removeClient(connectionContext);
-    DatabricksAuthClientFactory.getInstance().removeInstance(connectionContext);
+    DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext);
     DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
     DatabricksThreadContextHolder.clearAllContext();
   }

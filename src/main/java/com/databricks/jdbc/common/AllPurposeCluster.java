@@ -37,4 +37,9 @@ public class AllPurposeCluster implements IDatabricksComputeResource {
   public String getWorkspaceId() {
     return this.orgId;
   }
+
+  @Override
+  public String getUniqueIdentifier() {
+    return String.format("%s/%s", this.orgId, this.clusterId);
+  }
 }

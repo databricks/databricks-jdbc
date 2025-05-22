@@ -1,7 +1,7 @@
 package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.auth.DatabricksAuthClientFactory;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -276,7 +276,7 @@ public class TelemetryHelper {
 
   public static DatabricksConfig getDatabricksConfigSafely(IDatabricksConnectionContext context) {
     try {
-      return DatabricksAuthClientFactory.getInstance()
+      return DatabricksClientConfiguratorManager.getInstance()
           .getConfigurator(context)
           .getDatabricksConfig();
     } catch (Exception e) {
