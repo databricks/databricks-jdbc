@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.INTERVAL;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.TypeValConstants.*;
 
@@ -322,7 +323,7 @@ public class MetadataResultSetBuilder {
   }
 
   int getColumnSize(String typeVal) {
-    if (typeVal == null || typeVal.isEmpty()) {
+    if (typeVal == null || typeVal.isEmpty() || typeVal.contains(INTERVAL)) {
       return 0;
     }
     int sizeFromTypeVal = getSizeFromTypeVal(typeVal);
@@ -499,6 +500,9 @@ public class MetadataResultSetBuilder {
         return 1;
       case "VARIANT":
         return 1111;
+    }
+    if (s.startsWith(INTERVAL)) {
+      return 12;
     }
     return 0;
   }
