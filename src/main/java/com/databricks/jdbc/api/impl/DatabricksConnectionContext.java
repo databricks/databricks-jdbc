@@ -887,6 +887,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcUrlParams.ENABLE_TOKEN_CACHE).equals("1");
   }
 
+  @Override
+  public String getApplicationName() {
+    return getParameter(DatabricksJdbcUrlParams.APPLICATION_NAME);
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }

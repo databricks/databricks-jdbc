@@ -58,6 +58,7 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
         DatabricksConnectionContextFactory.create(url, info);
     DriverUtil.setUpLogging(connectionContext);
     UserAgentManager.setUserAgent(connectionContext);
+    updateClientAppName(connectionContext.getApplicationName());
     LOGGER.info(getDriverSystemConfiguration().toString());
     DatabricksConnection connection = new DatabricksConnection(connectionContext);
     boolean isConnectionOpen = false;

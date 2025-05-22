@@ -1,5 +1,7 @@
 package com.databricks.jdbc.telemetry;
 
+import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
+
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -22,7 +24,6 @@ public class TelemetryHelper {
 
   private static final DriverSystemConfiguration DRIVER_SYSTEM_CONFIGURATION =
       new DriverSystemConfiguration()
-          .setClientAppName(null)
           .setCharSetEncoding(Charset.defaultCharset().displayName())
           .setDriverName(DriverUtil.getDriverName())
           .setDriverVersion(DriverUtil.getDriverVersion())
@@ -38,6 +39,12 @@ public class TelemetryHelper {
 
   public static DriverSystemConfiguration getDriverSystemConfiguration() {
     return DRIVER_SYSTEM_CONFIGURATION;
+  }
+
+  public static void updateClientAppName(String clientAppName) {
+    if (!isNullOrEmpty(clientAppName)) {
+      DRIVER_SYSTEM_CONFIGURATION.setClientAppName(clientAppName);
+    }
   }
 
   // TODO : add an export even before connection context is built

@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.REDACTED_TOKEN;
+import static com.databricks.jdbc.telemetry.TelemetryHelper.updateClientAppName;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
@@ -246,6 +247,9 @@ public class DatabricksSession implements IDatabricksSession {
       // refresh the access token if provided a new value in client info
       this.databricksClient.resetAccessToken(value);
       value = REDACTED_TOKEN; // mask access token
+    }
+    if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName())) {
+      updateClientAppName(value);
     }
     clientInfoProperties.put(name, value);
   }
