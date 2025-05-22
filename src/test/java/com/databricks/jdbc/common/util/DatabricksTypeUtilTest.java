@@ -159,6 +159,8 @@ class DatabricksTypeUtilTest {
     assertEquals(
         DatabricksTypeUtil.STRING, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.VARCHAR));
     assertEquals(
+        DatabricksTypeUtil.CHAR, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.CHAR));
+    assertEquals(
         DatabricksTypeUtil.STRING,
         DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.LONGVARCHAR));
     assertEquals(
@@ -179,6 +181,8 @@ class DatabricksTypeUtilTest {
         DatabricksTypeUtil.BINARY,
         DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.LONGVARBINARY));
     assertEquals(
+        DatabricksTypeUtil.DECIMAL, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.NUMERIC));
+    assertEquals(
         DatabricksTypeUtil.DATE, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.DATE));
     assertEquals(
         DatabricksTypeUtil.DECIMAL, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.DECIMAL));
@@ -188,6 +192,8 @@ class DatabricksTypeUtilTest {
         DatabricksTypeUtil.DOUBLE, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.DOUBLE));
     assertEquals(
         DatabricksTypeUtil.FLOAT, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.FLOAT));
+    assertEquals(
+        DatabricksTypeUtil.FLOAT, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.REAL));
     assertEquals(
         DatabricksTypeUtil.TIMESTAMP_NTZ,
         DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.TIMESTAMP));
@@ -234,6 +240,7 @@ class DatabricksTypeUtilTest {
     "BYTE, BYTE",
     "INT, INT",
     "BIGINT, LONG",
+    "LONG, LONG",
     "FLOAT, FLOAT",
     "DOUBLE, DOUBLE",
     "BINARY, BINARY",
@@ -244,6 +251,7 @@ class DatabricksTypeUtilTest {
     "VOID, NULL",
     "NULL, NULL",
     "MAP, MAP",
+    "CHAR, STRING",
     "UNKNOWN, USER_DEFINED_TYPE"
   })
   public void testGetColumnInfoType(String inputTypeName, String expectedTypeName) {

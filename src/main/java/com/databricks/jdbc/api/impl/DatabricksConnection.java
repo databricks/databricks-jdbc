@@ -594,6 +594,61 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   }
 
   @Override
+  public void beginRequest() {
+    LOGGER.debug("public void beginRequest()");
+    LOGGER.warn("public void beginRequest() is a no-op method");
+  }
+
+  @Override
+  public void endRequest() {
+    LOGGER.debug("public void endRequest()");
+    LOGGER.warn("public void endRequest() is a no-op method");
+  }
+
+  @Override
+  public boolean setShardingKeyIfValid(
+      ShardingKey shardingKey, ShardingKey superShardingKey, int timeout)
+      throws DatabricksSQLFeatureNotImplementedException {
+    LOGGER.debug(
+        "public boolean setShardingKeyIfValid(ShardingKey shardingKey = {},ShardingKey superShardingKey = {}, int timeout = {})",
+        shardingKey,
+        superShardingKey,
+        timeout);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Not implemented in DatabricksConnection - setShardingKeyIfValid(ShardingKey shardingKey, ShardingKey superShardingKey, int timeout)");
+  }
+
+  @Override
+  public boolean setShardingKeyIfValid(ShardingKey shardingKey, int timeout)
+      throws DatabricksSQLFeatureNotImplementedException {
+    LOGGER.debug(
+        "public boolean setShardingKeyIfValid(ShardingKey shardingKey = {}, int timeout = {})",
+        shardingKey,
+        timeout);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Not implemented in DatabricksConnection - setShardingKeyIfValid(ShardingKey shardingKey, int timeout)");
+  }
+
+  @Override
+  public void setShardingKey(ShardingKey shardingKey, ShardingKey superShardingKey)
+      throws DatabricksSQLFeatureNotImplementedException {
+    LOGGER.debug(
+        "public void setShardingKey(ShardingKey shardingKey = {}, ShardingKey superShardingKey = {})",
+        shardingKey,
+        superShardingKey);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Not implemented in DatabricksConnection - setShardingKey(ShardingKey shardingKey, ShardingKey superShardingKey)");
+  }
+
+  @Override
+  public void setShardingKey(ShardingKey shardingKey)
+      throws DatabricksSQLFeatureNotImplementedException {
+    LOGGER.debug("public void setShardingKey(ShardingKey shardingKey = {})", shardingKey);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Not implemented in DatabricksConnection - setShardingKey(ShardingKey shardingKey)");
+  }
+
+  @Override
   public Connection getConnection() {
     return this;
   }

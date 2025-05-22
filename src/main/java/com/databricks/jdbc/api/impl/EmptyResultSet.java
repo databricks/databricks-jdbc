@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
+import com.databricks.jdbc.api.IExecutionStatus;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.StatementStatus;
@@ -443,6 +444,29 @@ public class EmptyResultSet
 
   @Override
   public void updateObject(int columnIndex, Object x) throws SQLException {
+    checkIfClosed();
+  }
+
+  @Override
+  public void updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    checkIfClosed();
+  }
+
+  @Override
+  public void updateObject(String columnLabel, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    checkIfClosed();
+  }
+
+  @Override
+  public void updateObject(int columnIndex, Object x, SQLType targetSqlType) throws SQLException {
+    checkIfClosed();
+  }
+
+  @Override
+  public void updateObject(String columnLabel, Object x, SQLType targetSqlType)
+      throws SQLException {
     checkIfClosed();
   }
 
@@ -1125,6 +1149,11 @@ public class EmptyResultSet
   @Override
   public StatementStatus getStatementStatus() {
     return new StatementStatus().setState(StatementState.SUCCEEDED);
+  }
+
+  @Override
+  public IExecutionStatus getExecutionStatus() {
+    return new ExecutionStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
   }
 
   @Override

@@ -750,9 +750,6 @@ public class DatabricksMetadataSdkClientTest {
         () -> metadataClient.listColumns(session, null, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
     assertThrows(
         DatabricksValidationException.class,
-        () -> metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE, null));
-    assertThrows(
-        DatabricksValidationException.class,
         () -> metadataClient.listSchemas(session, null, TEST_SCHEMA));
     assertThrows(
         DatabricksValidationException.class,
@@ -766,5 +763,68 @@ public class DatabricksMetadataSdkClientTest {
   void testListTypeInfo() {
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     assertNotNull(metadataClient.listTypeInfo(session));
+  }
+
+  @Test
+  void testListTablesAllCatalogs() throws SQLException {
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW TABLES IN ALL CATALOGS SCHEMA LIKE 'testSchema' LIKE 'testTable'",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.next()).thenReturn(true, false);
+    for (ResultColumn resultColumn : TABLE_COLUMNS) {
+      when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
+          .thenReturn(TEST_COLUMN);
+    }
+    when(mockedResultSet.getObject("tableType")).thenReturn("TABLE");
+    doReturn(10).when(mockedMetaData).getColumnCount();
+    doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
+    doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
+    doReturn(TABLE_NAME_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(3);
+    doReturn(TABLE_TYPE_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(4);
+    doReturn(REMARKS_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(5);
+    doReturn(TYPE_CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(6);
+    doReturn(TYPE_SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(7);
+    doReturn(TYPE_NAME_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(8);
+    doReturn(SELF_REFERENCING_COLUMN_NAME.getResultSetColumnName())
+        .when(mockedMetaData)
+        .getColumnName(9);
+    doReturn(REF_GENERATION_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(10);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    DatabricksResultSet actualResult =
+        metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE, null);
+    assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    assertEquals(actualResult.getStatementId(), GET_TABLES_STATEMENT_ID);
+    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1);
+  }
+
+  @Test
+  void testGetTablesAllCatalogs_throwsParseSyntaxError() throws Exception {
+    DatabricksSQLException exception =
+        new DatabricksSQLException("syntax error at or near \"IN\"", PARSE_SYNTAX_ERROR_SQL_STATE);
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW TABLES IN ALL CATALOGS SCHEMA LIKE 'testSchema' LIKE 'testTable'",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenThrow(exception);
+    try (DatabricksResultSet actualResult =
+        metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE, null)) {
+      assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+      assertEquals(GET_TABLES_STATEMENT_ID, actualResult.getStatementId());
+      assertEquals(10, actualResult.getMetaData().getColumnCount());
+      // Parse syntax error is handled gracefully to return empty result set
+      assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    }
   }
 }

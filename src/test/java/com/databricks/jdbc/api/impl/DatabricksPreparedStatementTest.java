@@ -190,6 +190,29 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testExecuteLargeUpdateStatement() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
+    when(resultSet.getUpdateCount()).thenReturn(2L);
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<Integer, ImmutableSqlParameter>()),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    long updateCount = statement.executeLargeUpdate();
+    assertEquals(2L, updateCount);
+    assertFalse(statement.isClosed());
+    statement.close();
+    assertTrue(statement.isClosed());
+  }
+
+  @Test
   public void testExecuteBatchStatement() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -253,6 +276,79 @@ public class DatabricksPreparedStatementTest {
     DatabricksBatchUpdateException exception =
         assertThrows(DatabricksBatchUpdateException.class, statement::executeBatch);
     int[] updateCounts = exception.getUpdateCounts();
+    assertEquals(4, updateCounts.length);
+    // First statement should succeed
+    assertEquals(1, updateCounts[0]);
+    // Remaining statements should fail
+    for (int i = 1; i < 4; i++) {
+      assertEquals(Statement.EXECUTE_FAILED, updateCounts[i]);
+    }
+  }
+
+  @Test
+  public void testExecuteLargeBatchStatement() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+    // Setting to execute a batch of 4 statements
+    for (int i = 1; i <= 4; i++) {
+      statement.setLong(1, 100);
+      statement.setShort(2, (short) 10);
+      statement.setByte(3, (byte) 15);
+      statement.setString(4, "value");
+      statement.addBatch();
+    }
+    when(client.executeStatement(
+            eq(BATCH_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    when(resultSet.getUpdateCount()).thenReturn(1L);
+
+    long[] expectedCountsResult = {1, 1, 1, 1};
+    long[] updateCounts = statement.executeLargeBatch();
+    assertArrayEquals(expectedCountsResult, updateCounts);
+    assertFalse(statement.isClosed());
+    statement.close();
+    assertTrue(statement.isClosed());
+  }
+
+  @Test
+  public void testExecuteLargeBatchStatementThrowsError() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+    // Setting to execute a batch of 4 statements
+    for (int i = 1; i <= 4; i++) {
+      statement.setLong(1, 100);
+      statement.setShort(2, (short) 10);
+      statement.setByte(3, (byte) 15);
+      statement.setString(4, "value");
+      statement.addBatch();
+    }
+
+    // First call succeeds, subsequent calls fail
+    when(client.executeStatement(
+            eq(BATCH_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet)
+        .thenThrow(new SQLException());
+    when(resultSet.getUpdateCount()).thenReturn(1L);
+
+    DatabricksBatchUpdateException exception =
+        assertThrows(DatabricksBatchUpdateException.class, statement::executeLargeBatch);
+    long[] updateCounts = exception.getLargeUpdateCounts();
     assertEquals(4, updateCounts.length);
     // First statement should succeed
     assertEquals(1, updateCounts[0]);
@@ -618,7 +714,6 @@ public class DatabricksPreparedStatementTest {
         () ->
             preparedStatement.executeUpdate(
                 "UPDATE table SET column = 1", new String[] {"column"}));
-    assertThrows(DatabricksSQLException.class, preparedStatement::executeLargeUpdate);
     assertThrows(
         DatabricksSQLException.class,
         () -> preparedStatement.execute("SELECT * FROM table", new int[] {1}));

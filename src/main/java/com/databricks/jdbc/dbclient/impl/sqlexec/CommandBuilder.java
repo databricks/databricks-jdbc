@@ -94,8 +94,13 @@ public class CommandBuilder {
             "Building command for fetching tables. Catalog %s, SchemaPattern %s, TablePattern %s and session context %s",
             catalogName, schemaPattern, tablePattern, sessionContext);
     LOGGER.debug(contextString);
-    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
-    String showTablesSQL = String.format(SHOW_TABLES_SQL, catalogName);
+    String showTablesSQL;
+    if (catalogName == null || catalogName.equals("*") || catalogName.equals("%")) {
+      // SHOW TABLES IN ALL CATALOGS
+      showTablesSQL = SHOW_TABLES_IN_ALL_CATALOGS_SQL;
+    } else {
+      showTablesSQL = String.format(SHOW_TABLES_SQL, catalogName);
+    }
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
       showTablesSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
     }

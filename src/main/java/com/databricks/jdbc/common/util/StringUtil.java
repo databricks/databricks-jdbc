@@ -1,5 +1,8 @@
 package com.databricks.jdbc.common.util;
 
+import java.util.Collections;
+import java.util.List;
+
 public class StringUtil {
   public static String convertJdbcEscapeSequences(String sql) {
     // Replace JDBC escape sequences;
@@ -38,6 +41,13 @@ public class StringUtil {
             /* StringToCheck= */ prefix,
             /* sourceOffset= */ 0,
             /* lengthToMatch= */ prefix.length());
+  }
+
+  public static List<String> split(String value) {
+    if (value == null) {
+      return Collections.emptyList();
+    }
+    return List.of(value.split(","));
   }
 
   /** Function to return the folder name from the path */

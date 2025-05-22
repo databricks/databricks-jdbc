@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import static com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter.convert;
 import static com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter.getZoneIdFromTimeZoneOpt;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
@@ -41,6 +42,89 @@ public class ArrowToJavaObjectConverterTest {
     Object convertedObject =
         ArrowToJavaObjectConverter.convert(tinyIntVector, 0, ColumnInfoTypeName.BYTE, "BYTE");
     assertNull(convertedObject);
+  }
+
+  @Test
+  public void testNullHandlingInVarCharVector() throws Exception {
+    // Create a VarCharVector with 3 values: non-null, null, and empty string
+    disableArrowNullChecking();
+    VarCharVector vector = new VarCharVector("varCharVector", this.bufferAllocator);
+    vector.allocateNew(4);
+
+    // Set first value: "hello"
+    vector.set(0, "hello".getBytes());
+
+    // Second value: null (don't set it, which makes it null by default)
+
+    // Third value: empty string (explicitly set as "")
+    vector.set(2, "".getBytes());
+
+    // Fourth value: set to null
+    vector.setNull(3);
+
+    // Set vector value count
+    vector.setValueCount(4);
+
+    // Case 1: Non-null value
+    assertFalse(vector.isNull(0));
+    assertEquals("hello", convert(vector, 0, ColumnInfoTypeName.STRING, "STRING"));
+
+    // Case 2: Null value
+    assertTrue(vector.isNull(1));
+    assertNull(convert(vector, 1, ColumnInfoTypeName.STRING, "STRING"));
+
+    // Case 3: Empty string (should not be treated as null)
+    assertFalse(vector.isNull(2));
+    assertEquals(
+        "",
+        convert(
+            vector,
+            2,
+            ColumnInfoTypeName.STRING,
+            "STRING")); // Empty string should be empty, not null
+
+    // Case 4: Explicitly set to null
+    assertTrue(vector.isNull(3));
+    String valueWithoutCheck = (String) convert(vector, 3, ColumnInfoTypeName.STRING, "STRING");
+    // This assertion is expected to fail - it shows the problem when isNull check is removed
+    assertNull(valueWithoutCheck);
+
+    enableArrowNullChecking();
+  }
+
+  private void disableArrowNullChecking() {
+    System.setProperty("arrow.enable_null_check_for_get", "false");
+  }
+
+  private void enableArrowNullChecking() {
+    System.setProperty("arrow.enable_null_check_for_get", "true");
+  }
+
+  @Test
+  public void testByteVectorWithNullChecks() throws Exception {
+    TinyIntVector vector = new TinyIntVector("tinyIntVector", this.bufferAllocator);
+    vector.allocateNew(3);
+
+    // First value: explicitly set to null
+    vector.setNull(0);
+
+    // Second value: skip setting it, which makes it null by default
+
+    // Third value: set to 0
+    vector.set(2, 0);
+
+    vector.setValueCount(3);
+
+    // Test our converter with proper null handling
+    assertTrue(vector.isNull(0));
+    assertNull(convert(vector, 0, ColumnInfoTypeName.BYTE, "BYTE"));
+
+    assertTrue(vector.isNull(1));
+    assertNull(convert(vector, 1, ColumnInfoTypeName.BYTE, "BYTE"));
+
+    // The zero value should still be correctly identified as 0, not null
+    assertFalse(vector.isNull(2));
+    assertEquals((byte) 0, convert(vector, 2, ColumnInfoTypeName.BYTE, "BYTE"));
   }
 
   @Test

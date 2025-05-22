@@ -16,10 +16,11 @@ public class ValidationUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ValidationUtil.class);
 
-  public static void checkIfNonNegative(int number, String fieldName)
+  public static <T extends Number> void checkIfNonNegative(T number, String fieldName)
       throws DatabricksSQLException {
-    if (number < 0) {
-      String errorMessage = String.format("Invalid input for %s, : %d", fieldName, number);
+    if (number.longValue() < 0) {
+      String errorMessage =
+          String.format("Invalid input for %s, : %d", fieldName, number.longValue());
       LOGGER.error(errorMessage);
       throw new DatabricksValidationException(errorMessage);
     }

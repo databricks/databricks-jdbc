@@ -53,6 +53,7 @@ public class DatabricksTypeUtil {
   public static final String ARRAY = "ARRAY";
   public static final String STRUCT = "STRUCT";
   public static final String VARIANT = "VARIANT";
+  public static final String CHAR = "CHAR";
   private static final ArrayList<ColumnInfoTypeName> SIGNED_TYPES =
       new ArrayList<>(
           Arrays.asList(
@@ -63,10 +64,12 @@ public class DatabricksTypeUtil {
               ColumnInfoTypeName.LONG,
               ColumnInfoTypeName.SHORT));
 
+  // only used for PreparedStatement
   public static ColumnInfoTypeName getColumnInfoType(String typeName) {
     switch (typeName) {
+      case DatabricksTypeUtil.CHAR:
       case DatabricksTypeUtil.STRING:
-        return ColumnInfoTypeName.STRING;
+        return ColumnInfoTypeName.STRING; // both char, string passed as STRING param
       case DatabricksTypeUtil.DATE:
       case DatabricksTypeUtil.TIMESTAMP:
       case DatabricksTypeUtil.TIMESTAMP_NTZ:
@@ -79,6 +82,7 @@ public class DatabricksTypeUtil {
       case DatabricksTypeUtil.INT:
         return ColumnInfoTypeName.INT;
       case DatabricksTypeUtil.BIGINT:
+      case DatabricksTypeUtil.LONG:
         return ColumnInfoTypeName.LONG;
       case DatabricksTypeUtil.FLOAT:
         return ColumnInfoTypeName.FLOAT;
@@ -359,6 +363,8 @@ public class DatabricksTypeUtil {
    */
   public static String getDatabricksTypeFromSQLType(int sqlType) {
     switch (sqlType) {
+      case Types.CHAR:
+        return DatabricksTypeUtil.CHAR;
       case Types.ARRAY:
         return ARRAY;
       case Types.BIGINT:
@@ -370,13 +376,15 @@ public class DatabricksTypeUtil {
       case Types.DATE:
         return DATE;
       case Types.DECIMAL:
-        return DECIMAL;
+      case Types.NUMERIC:
+        return DECIMAL; // Databricks treats NUMERIC as DECIMAL
       case Types.BIT:
       case Types.BOOLEAN:
         return BOOLEAN;
       case Types.DOUBLE:
         return DOUBLE;
       case Types.FLOAT:
+      case Types.REAL: // REAL is float(24)
         return FLOAT;
       case Types.INTEGER:
         return INT;

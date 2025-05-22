@@ -388,6 +388,17 @@ public class DatabricksConnectionTest {
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.createStruct(null, null));
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> connection.setShardingKeyIfValid(null, null, 0));
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> connection.setShardingKeyIfValid(null, 0));
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> connection.setShardingKey(null, null));
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setShardingKey(null));
   }
 
   @Test

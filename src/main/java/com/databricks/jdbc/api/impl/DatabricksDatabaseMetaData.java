@@ -877,6 +877,27 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     return false;
   }
 
+  @Override
+  public long getMaxLogicalLobSize() throws SQLException {
+    LOGGER.debug("public long getMaxLogicalLobSize()");
+    throwExceptionIfConnectionIsClosed();
+    return 0;
+  }
+
+  @Override
+  public boolean supportsRefCursors() throws SQLException {
+    LOGGER.debug("public boolean supportsRefCursors()");
+    throwExceptionIfConnectionIsClosed();
+    return false;
+  }
+
+  @Override
+  public boolean supportsSharding() throws SQLException {
+    LOGGER.debug("public boolean supportsSharding()");
+    throwExceptionIfConnectionIsClosed();
+    return false;
+  }
+
   /**
    * Builds the result set for stored procedures metadata.
    *
