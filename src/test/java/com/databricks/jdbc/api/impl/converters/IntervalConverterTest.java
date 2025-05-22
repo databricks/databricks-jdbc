@@ -111,6 +111,20 @@ class IntervalConverterTest {
     }
 
     @Test
+    @DisplayName("LONG_MIN duration handling")
+    void testLongExtremesDuration() {
+      // LONG_MIN is -abs(LONG_MAX) + 1
+      Duration d = Duration.ofNanos(Long.MIN_VALUE);
+      IntervalConverter ic = new IntervalConverter("INTERVAL DAY TO SECOND");
+      assertEquals("-106751 23:47:16.854775807", ic.toLiteral(d));
+
+      // LONG_MAX
+      d = Duration.ofNanos(Long.MAX_VALUE);
+      ic = new IntervalConverter("INTERVAL DAY TO SECOND");
+      assertEquals("106751 23:47:16.854775807", ic.toLiteral(d));
+    }
+
+    @Test
     @DisplayName("Passing Period to DAY qualifier throws")
     void testDayMismatch() {
       IntervalConverter ic = new IntervalConverter("INTERVAL HOUR TO MINUTE");

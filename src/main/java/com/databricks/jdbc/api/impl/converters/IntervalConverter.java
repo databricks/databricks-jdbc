@@ -66,8 +66,6 @@ public class IntervalConverter {
       if (!(obj instanceof Duration)) {
         throw new IllegalArgumentException("Expected Duration, got " + obj.getClass());
       }
-
-      //      body = formatDayTime((Duration) obj);
       body = formatFullDayTime((Duration) obj);
     }
     return body;
@@ -85,50 +83,13 @@ public class IntervalConverter {
     return (neg ? "-" : "") + body;
   }
 
-  //  private String formatFullDayTime(Duration d) {
-  //    // 1) Extract the two native parts
-  //    boolean neg = d.isNegative();
-  //    long secs = d.getSeconds(); // may be negative
-  //    int nanos = d.getNano(); // 0..999_999_999
-  //
-  //    // 2) Normalize so secs>=0 and nanos>=0
-  //    if (neg) {
-  //      // e.g. if d = -1.000000123 seconds, getSeconds() = -2, getNano() = 999999877
-  //      if (nanos != 0) {
-  //        secs += 1; // -2 + 1 = -1
-  //        nanos = 1_000_000_000 - nanos; // 1e9 - 999999877 = 123
-  //      }
-  //      secs = -secs; // now positive
-  //    }
-  //
-  //    // 3) Break into day/hour/minute/second
-  //    long days = secs / 86_400; // secs per day
-  //    long rem = secs % 86_400;
-  //    long hours = rem / 3_600;
-  //    rem %= 3_600;
-  //    long minutes = rem / 60;
-  //    rem %= 60;
-  //    long seconds = rem;
-  //
-  //    // 4) Format with zero-padding on H/M/S and nine-digit nanosecond fraction
-  //    return String.format(
-  //        "%s%d %02d:%02d:%02d.%09d", neg ? "-" : "", days, hours, minutes, seconds, nanos);
-  //  }
-
   // DAY–TIME always prints all subfields in D HH:MM:SS.NNNNNNNNN
+  // max day to second supported is 106751 23:47:16.854775. Beyond that Duration Object rolls over
+  // to LONG_MIN and loses info.
   private String formatFullDayTime(Duration d) {
-    //    if (start == Field.DAY && end == Field.SECOND && d.toNanos() == Long.MIN_VALUE) {
-    //      // Databricks literal for the smallest possible day–time interval
-    //      return "-106751991 04:00:54.775808000";
-    //    }
     long nanos = d.toNanos();
     if (nanos == Long.MIN_VALUE) {
-      //      106751991 * (24 * 60 * 60) + 4 * 60 * 60 + 54 =
-      // 9223372036854
-      // 9223372036854775808
-      // Databricks literal for the smallest possible day–time interval
-      return "-106751991 04:00:54.775808000";
-      //        return d.toString();
+      nanos += 1; // -abs(LONG.MAX_VALUE)
     }
     boolean neg = nanos < 0;
     if (neg) nanos = -nanos;
@@ -145,118 +106,5 @@ public class IntervalConverter {
     // "%02d" for HH,MM,SS and "%09d" for nanosecond fraction
     return String.format(
         "%s%d %02d:%02d:%02d.%09d", neg ? "-" : "", days, hours, minutes, seconds, frac);
-  }
-
-  // --- DAY–TIME formatting ---
-  private String formatDayTime(Duration d) {
-    long micros = d.toNanos() / 1_000; // to μs
-    boolean neg = micros < 0;
-    if (neg) micros = -micros;
-
-    switch (start) {
-      case DAY:
-        return formatDay(micros, neg);
-      case HOUR:
-        return formatHour(micros, neg);
-      case MINUTE:
-        return formatMinute(micros, neg);
-      case SECOND:
-        return formatSecond(micros, neg);
-      default:
-        throw new IllegalStateException("Unexpected start field: " + start);
-    }
-  }
-
-  private String formatDay(long micros, boolean neg) {
-    long days = micros / MICROS_PER_DAY;
-    micros %= MICROS_PER_DAY;
-    long hours = micros / MICROS_PER_HOUR;
-    micros %= MICROS_PER_HOUR;
-    long minutes = micros / MICROS_PER_MINUTE;
-    micros %= MICROS_PER_MINUTE;
-    long seconds = micros / MICROS_PER_SECOND;
-    long frac = micros % MICROS_PER_SECOND;
-
-    StringBuilder sb = new StringBuilder();
-    sb.append(neg ? "-" : "").append(days);
-
-    if (start != end) {
-      if (end.ordinal() >= Field.HOUR.ordinal()) {
-        sb.append(" ").append(pad2(hours));
-      }
-      if (end.ordinal() >= Field.MINUTE.ordinal()) {
-        sb.append(":").append(pad2(minutes));
-      }
-      if (end.ordinal() >= Field.SECOND.ordinal()) {
-        sb.append(":").append(formatSecFrac(seconds, frac));
-      }
-    }
-    return sb.toString();
-  }
-
-  private String formatHour(long micros, boolean neg) {
-    long hours = micros / MICROS_PER_HOUR;
-    micros %= MICROS_PER_HOUR;
-    long minutes = micros / MICROS_PER_MINUTE;
-    micros %= MICROS_PER_MINUTE;
-    long seconds = micros / MICROS_PER_SECOND;
-    long frac = micros % MICROS_PER_SECOND;
-
-    StringBuilder sb = new StringBuilder();
-    sb.append(neg ? "-" : "").append(hours);
-
-    if (start != end) {
-      if (end.ordinal() >= Field.MINUTE.ordinal()) {
-        sb.append(":").append(pad2(minutes));
-      }
-      if (end.ordinal() >= Field.SECOND.ordinal()) {
-        sb.append(":").append(formatSecFrac(seconds, frac));
-      }
-    }
-    return sb.toString();
-  }
-
-  private String formatMinute(long micros, boolean neg) {
-    long minutes = micros / MICROS_PER_MINUTE;
-    micros %= MICROS_PER_MINUTE;
-    long seconds = micros / MICROS_PER_SECOND;
-    long frac = micros % MICROS_PER_SECOND;
-
-    StringBuilder sb = new StringBuilder();
-    sb.append(neg ? "-" : "").append(minutes);
-
-    if (start != end && end == Field.SECOND) {
-      sb.append(":").append(formatSecFrac(seconds, frac));
-    }
-    return sb.toString();
-  }
-
-  private String formatSecond(long micros, boolean neg) {
-    long seconds = micros / MICROS_PER_SECOND;
-    long frac = micros % MICROS_PER_SECOND;
-    StringBuilder sb = new StringBuilder();
-    sb.append(neg ? "-" : "").append(seconds);
-    if (frac > 0) {
-      sb.append(".")
-          .append(
-              String.format("%06d", frac) // pad to 6 digits
-              //                  .replaceAll("0+$", "") // drop trailing zeros
-              );
-    }
-    return sb.toString();
-  }
-
-  /** two-digit zero-pad for subfields */
-  private static String pad2(long v) {
-    return String.format("%02d", v);
-  }
-
-  /** seconds + optional fraction, with sub-second trimmed */
-  private static String formatSecFrac(long sec, long frac) {
-    String s = pad2(sec);
-    if (frac == 0) return s;
-    String f = String.format("%06d", frac);
-    //            .replaceAll("0+$", "");
-    return s + "." + f;
   }
 }
