@@ -2,6 +2,7 @@ package com.databricks.jdbc.model.telemetry;
 
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 
 public class DriverSystemConfiguration {
   // TODO : add json properties when proto is implemented completely
@@ -37,6 +38,11 @@ public class DriverSystemConfiguration {
 
   @JsonProperty("char_set_encoding")
   private String charSetEncoding;
+
+  @VisibleForTesting
+  public String getClientAppName() {
+    return clientAppName;
+  }
 
   public DriverSystemConfiguration setDriverName(String driverName) {
     this.driverName = driverName;
