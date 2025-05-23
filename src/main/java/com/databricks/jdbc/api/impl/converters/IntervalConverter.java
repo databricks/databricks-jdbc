@@ -15,11 +15,7 @@ public class IntervalConverter {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(IntervalConverter.class);
 
-  // Arrow stores day‐time intervals in microseconds
-  private static final long MICROS_PER_SECOND = 1_000_000L;
-  private static final long MICROS_PER_MINUTE = MICROS_PER_SECOND * 60;
-  private static final long MICROS_PER_HOUR = MICROS_PER_MINUTE * 60;
-  private static final long MICROS_PER_DAY = MICROS_PER_HOUR * 24;
+  // Arrow stores day‐time intervals in microseconds. Converting to nanoseconds to align with Thrift
   private static final long NANOS_PER_SECOND = 1_000_000_000L;
   private static final long NANOS_PER_MINUTE = NANOS_PER_SECOND * 60;
   private static final long NANOS_PER_HOUR = NANOS_PER_MINUTE * 60;
