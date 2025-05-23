@@ -487,6 +487,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         || columnTypeName.startsWith(STRUCT)) {
       return handleComplexDataTypes(obj, columnTypeName);
     }
+    // TODO: Add separate handling for INTERVAL JSON_ARRAY result format.
     return ConverterHelper.convertSqlTypeToJavaType(columnType, obj);
   }
 
