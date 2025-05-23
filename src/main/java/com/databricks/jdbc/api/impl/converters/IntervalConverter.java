@@ -50,7 +50,7 @@ public class IntervalConverter {
     }
     Field start = Field.valueOf(m.group(1).toUpperCase());
     // YEAR or MONTH qualifiers → Period; otherwise → Duration
-    this.isYearMonth = (start == Field.YEAR || start == Field.MONTH);
+    this.isYearMonth = (start.equals(Field.YEAR) || start.equals(Field.MONTH));
   }
 
   /**
