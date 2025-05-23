@@ -1,14 +1,11 @@
 package com.databricks.jdbc.common.util;
 
-import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
-
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.sdk.core.UserAgent;
 
 public class UserAgentManager {
   private static final String SDK_USER_AGENT = "databricks-sdk-java";
   private static final String JDBC_HTTP_USER_AGENT = "databricks-jdbc-http";
-  private static final String VERSION_FILLER_FOR_CUSTOMER_USER_AGENT = "version";
   private static final String DEFAULT_USER_AGENT = "DatabricksJDBCDriverOSS";
   private static final String CLIENT_USER_AGENT_PREFIX = "Java";
   public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient";
@@ -20,16 +17,12 @@ public class UserAgentManager {
    * @param connectionContext The connection context.
    */
   public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
+    // Set the base product and client info
     UserAgent.withProduct(DEFAULT_USER_AGENT, DriverUtil.getDriverVersion());
     UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
-    String customerUA = connectionContext.getCustomerUserAgent();
-    if (!isNullOrEmpty(customerUA)) {
-      int i = customerUA.indexOf('/');
-      String customerName = (i < 0) ? customerUA : customerUA.substring(0, i);
-      String customerVersion =
-          (i < 0) ? VERSION_FILLER_FOR_CUSTOMER_USER_AGENT : customerUA.substring(i + 1);
-      UserAgent.withOtherInfo(customerName, UserAgent.sanitize(customerVersion));
-    }
+
+    // Let UserAgentHelper handle the application name for both telemetry and user agent
+    UserAgentHelper.updateUserAgentAndTelemetry(connectionContext, null);
   }
 
   /** Gets the user agent string for Databricks Driver HTTP Client. */

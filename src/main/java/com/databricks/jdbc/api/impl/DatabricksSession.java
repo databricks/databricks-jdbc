@@ -1,7 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.REDACTED_TOKEN;
-import static com.databricks.jdbc.telemetry.TelemetryHelper.updateClientAppName;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
@@ -9,6 +8,7 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.util.UserAgentHelper;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksEmptyMetadataClient;
@@ -248,9 +248,12 @@ public class DatabricksSession implements IDatabricksSession {
       this.databricksClient.resetAccessToken(value);
       value = REDACTED_TOKEN; // mask access token
     }
+
+    // If application name is being set, update both telemetry and user agent
     if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName())) {
-      updateClientAppName(value);
+      UserAgentHelper.updateUserAgentAndTelemetry(connectionContext, value);
     }
+
     clientInfoProperties.put(name, value);
   }
 

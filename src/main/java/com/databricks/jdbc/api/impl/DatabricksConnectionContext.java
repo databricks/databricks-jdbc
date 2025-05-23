@@ -379,12 +379,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         : USER_AGENT_THRIFT_CLIENT;
   }
 
+  @Override
   public String getCustomerUserAgent() {
-    String customerUA = getParameter(DatabricksJdbcUrlParams.USER_AGENT_ENTRY);
-    if (isNullOrEmpty(customerUA)) {
-      customerUA = getParameter(DatabricksJdbcUrlParams.APPLICATION_NAME);
-    }
-    return customerUA;
+    return getParameter(DatabricksJdbcUrlParams.USER_AGENT_ENTRY);
   }
 
   @Override
