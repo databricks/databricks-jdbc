@@ -143,6 +143,7 @@ public class ArrowStreamResult implements IExecutionResult {
    */
   private String getArrowMetadataWithComplexTypeFallback(
       ColumnInfoTypeName requiredType, String arrowMetadata) {
+    if (requiredType == null) return arrowMetadata;
     if (!this.session.getConnectionContext().isComplexDatatypeSupportEnabled()) {
       switch (requiredType) {
         case ARRAY:
