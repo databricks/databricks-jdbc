@@ -23,98 +23,21 @@ public class DatabricksDriverPropertyUtil {
 
   private static final List<DatabricksJdbcUrlParams> OPTIONAL_PROPERTIES =
       Arrays.asList(
-          DatabricksJdbcUrlParams.LOG_LEVEL,
-          DatabricksJdbcUrlParams.LOG_PATH,
-          DatabricksJdbcUrlParams.LOG_FILE_SIZE,
-          DatabricksJdbcUrlParams.LOG_FILE_COUNT,
-          DatabricksJdbcUrlParams.USER,
-          DatabricksJdbcUrlParams.PASSWORD,
-          DatabricksJdbcUrlParams.CLIENT_ID,
-          DatabricksJdbcUrlParams.CLIENT_SECRET,
-          DatabricksJdbcUrlParams.AUTH_MECH,
-          DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN,
-          DatabricksJdbcUrlParams.CONN_CATALOG,
-          DatabricksJdbcUrlParams.CONN_SCHEMA,
-          DatabricksJdbcUrlParams.PROXY_HOST,
-          DatabricksJdbcUrlParams.PROXY_PORT,
-          DatabricksJdbcUrlParams.PROXY_USER,
-          DatabricksJdbcUrlParams.PROXY_PWD,
-          DatabricksJdbcUrlParams.USE_PROXY,
-          DatabricksJdbcUrlParams.PROXY_AUTH,
-          DatabricksJdbcUrlParams.NON_PROXY_HOSTS,
-          DatabricksJdbcUrlParams.USE_SYSTEM_PROXY,
-          DatabricksJdbcUrlParams.USE_CF_PROXY,
-          DatabricksJdbcUrlParams.CF_PROXY_HOST,
-          DatabricksJdbcUrlParams.CF_PROXY_PORT,
-          DatabricksJdbcUrlParams.CF_PROXY_AUTH,
-          DatabricksJdbcUrlParams.CF_PROXY_USER,
-          DatabricksJdbcUrlParams.CF_PROXY_PWD,
-          DatabricksJdbcUrlParams.AUTH_FLOW,
-          DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN,
-          DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN_2,
-          DatabricksJdbcUrlParams.OAUTH_REDIRECT_URL_PORT,
-          DatabricksJdbcUrlParams.PWD,
-          DatabricksJdbcUrlParams.POLL_INTERVAL,
-          DatabricksJdbcUrlParams.HTTP_PATH,
-          DatabricksJdbcUrlParams.HTTP_HEADERS,
           DatabricksJdbcUrlParams.SSL,
+          DatabricksJdbcUrlParams.LOG_LEVEL,
+          DatabricksJdbcUrlParams.USE_PROXY,
           DatabricksJdbcUrlParams.USE_THRIFT_CLIENT,
-          DatabricksJdbcUrlParams.RATE_LIMIT_RETRY_TIMEOUT,
-          DatabricksJdbcUrlParams.JWT_KEY_FILE,
-          DatabricksJdbcUrlParams.JWT_ALGORITHM,
-          DatabricksJdbcUrlParams.JWT_PASS_PHRASE,
-          DatabricksJdbcUrlParams.JWT_KID,
-          DatabricksJdbcUrlParams.USE_JWT_ASSERTION,
-          DatabricksJdbcUrlParams.OIDC_DISCOVERY_MODE,
-          DatabricksJdbcUrlParams.DISCOVERY_MODE,
-          DatabricksJdbcUrlParams.AUTH_SCOPE,
-          DatabricksJdbcUrlParams.OIDC_DISCOVERY_ENDPOINT,
-          DatabricksJdbcUrlParams.DISCOVERY_URL,
-          DatabricksJdbcUrlParams.IDENTITY_FEDERATION_CLIENT_ID,
           DatabricksJdbcUrlParams.ENABLE_ARROW,
           DatabricksJdbcUrlParams.DIRECT_RESULT,
-          DatabricksJdbcUrlParams.LZ4_COMPRESSION_FLAG,
           DatabricksJdbcUrlParams.COMPRESSION_FLAG,
+          DatabricksJdbcUrlParams.LZ4_COMPRESSION_FLAG,
           DatabricksJdbcUrlParams.USER_AGENT_ENTRY,
-          DatabricksJdbcUrlParams.USE_EMPTY_METADATA,
-          DatabricksJdbcUrlParams.TEMPORARILY_UNAVAILABLE_RETRY,
-          DatabricksJdbcUrlParams.TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT,
-          DatabricksJdbcUrlParams.RATE_LIMIT_RETRY,
-          DatabricksJdbcUrlParams.IDLE_HTTP_CONNECTION_EXPIRY,
-          DatabricksJdbcUrlParams.SUPPORT_MANY_PARAMETERS,
-          DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE,
-          DatabricksJdbcUrlParams.OAUTH_ENDPOINT,
-          DatabricksJdbcUrlParams.AUTH_ENDPOINT,
-          DatabricksJdbcUrlParams.OAUTH_TOKEN_ENDPOINT,
-          DatabricksJdbcUrlParams.TOKEN_ENDPOINT,
-          DatabricksJdbcUrlParams.SSL_TRUST_STORE,
-          DatabricksJdbcUrlParams.SSL_TRUST_STORE_PASSWORD,
-          DatabricksJdbcUrlParams.SSL_TRUST_STORE_TYPE,
-          DatabricksJdbcUrlParams.CHECK_CERTIFICATE_REVOCATION,
-          DatabricksJdbcUrlParams.ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION,
-          DatabricksJdbcUrlParams.GOOGLE_SERVICE_ACCOUNT,
-          DatabricksJdbcUrlParams.ENABLE_TELEMETRY,
-          DatabricksJdbcUrlParams.TELEMETRY_BATCH_SIZE,
-          DatabricksJdbcUrlParams.MAX_BATCH_SIZE,
-          DatabricksJdbcUrlParams.ALLOWED_VOLUME_INGESTION_PATHS,
-          DatabricksJdbcUrlParams.ALLOWED_STAGING_INGESTION_PATHS,
-          DatabricksJdbcUrlParams.UC_INGESTION_RETRIABLE_HTTP_CODE,
-          DatabricksJdbcUrlParams.VOLUME_OPERATION_RETRYABLE_HTTP_CODE,
-          DatabricksJdbcUrlParams.UC_INGESTION_RETRY_TIMEOUT,
-          DatabricksJdbcUrlParams.VOLUME_OPERATION_RETRY_TIMEOUT,
-          DatabricksJdbcUrlParams.ENABLE_REQUEST_TRACING,
-          DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE,
           DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS,
           DatabricksJdbcUrlParams.ENABLE_COMPLEX_DATATYPE_SUPPORT,
-          DatabricksJdbcUrlParams.ALLOW_SELF_SIGNED_CERTS,
-          DatabricksJdbcUrlParams.USE_SYSTEM_TRUST_STORE,
           DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK,
-          DatabricksJdbcUrlParams.AZURE_WORKSPACE_RESOURCE_ID,
-          DatabricksJdbcUrlParams.AZURE_TENANT_ID,
           DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH,
           DatabricksJdbcUrlParams.SOCKET_TIMEOUT,
-          DatabricksJdbcUrlParams.TOKEN_CACHE_PASS_PHRASE,
-          DatabricksJdbcUrlParams.ENABLE_TOKEN_CACHE);
+          DatabricksJdbcUrlParams.TOKEN_CACHE_PASS_PHRASE);
 
   public static List<DriverPropertyInfo> getMissingProperties(String url, Properties info)
       throws DatabricksParsingException {
@@ -196,6 +119,8 @@ public class DatabricksDriverPropertyUtil {
                   missingPropertyInfos, connectionContext, GOOGLE_SERVICE_ACCOUNT, true);
               addMissingProperty(
                   missingPropertyInfos, connectionContext, GOOGLE_CREDENTIALS_FILE, true);
+            } else if (connectionContext.getCloud() == Cloud.AZURE) {
+              addMissingProperty(missingPropertyInfos, connectionContext, AZURE_TENANT_ID, false);
             }
             addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_SECRET, true);
             addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_ID, true);
@@ -217,6 +142,14 @@ public class DatabricksDriverPropertyUtil {
             addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_ID, false);
             addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_SECRET, false);
             addMissingProperty(missingPropertyInfos, connectionContext, AUTH_SCOPE, false);
+            addMissingProperty(
+                missingPropertyInfos, connectionContext, OAUTH_REDIRECT_URL_PORT, false);
+            addMissingProperty(missingPropertyInfos, connectionContext, ENABLE_TOKEN_CACHE, false);
+            if (connectionContext.isPropertyPresent(ENABLE_TOKEN_CACHE)
+                && connectionContext.isTokenCacheEnabled()) {
+              addMissingProperty(
+                  missingPropertyInfos, connectionContext, TOKEN_CACHE_PASS_PHRASE, true);
+            }
             break;
 
           case AZURE_MANAGED_IDENTITIES:
