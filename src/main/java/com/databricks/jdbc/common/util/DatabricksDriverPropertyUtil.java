@@ -37,7 +37,7 @@ public class DatabricksDriverPropertyUtil {
           DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK,
           DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH,
           DatabricksJdbcUrlParams.SOCKET_TIMEOUT,
-          DatabricksJdbcUrlParams.TOKEN_CACHE_PASS_PHRASE);
+          DatabricksJdbcUrlParams.ENABLE_TOKEN_CACHE);
 
   public static List<DriverPropertyInfo> getMissingProperties(String url, Properties info)
       throws DatabricksParsingException {
@@ -89,6 +89,31 @@ public class DatabricksDriverPropertyUtil {
       addMissingProperty(missingPropertyInfos, connectionContext, LOG_PATH, false);
       addMissingProperty(missingPropertyInfos, connectionContext, LOG_FILE_SIZE, false);
       addMissingProperty(missingPropertyInfos, connectionContext, LOG_FILE_COUNT, false);
+    }
+
+    if (connectionContext.isPropertyPresent(SSL)) {
+      addMissingProperty(missingPropertyInfos, connectionContext, SSL_TRUST_STORE, false);
+      if (connectionContext.getSSLTrustStore() != null
+          && !connectionContext.getSSLTrustStore().isEmpty()) {
+        addMissingProperty(missingPropertyInfos, connectionContext, SSL_TRUST_STORE_TYPE, false);
+      }
+      addMissingProperty(missingPropertyInfos, connectionContext, USE_SYSTEM_TRUST_STORE, false);
+      addMissingProperty(missingPropertyInfos, connectionContext, ALLOW_SELF_SIGNED_CERTS, false);
+      addMissingProperty(
+          missingPropertyInfos, connectionContext, CHECK_CERTIFICATE_REVOCATION, false);
+      if (connectionContext.checkCertificateRevocation()) {
+        addMissingProperty(
+            missingPropertyInfos,
+            connectionContext,
+            ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION,
+            false);
+      } else if (!connectionContext.isPropertyPresent(CHECK_CERTIFICATE_REVOCATION)) {
+        addMissingProperty(
+            missingPropertyInfos,
+            connectionContext,
+            ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION,
+            false);
+      }
     }
 
     // auth-related properties
