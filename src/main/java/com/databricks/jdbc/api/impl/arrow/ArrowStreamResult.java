@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
 
+/** Result container for Arrow-based query results. */
 public class ArrowStreamResult implements IExecutionResult {
 
   private final ChunkProvider chunkProvider;
@@ -130,18 +131,28 @@ public class ArrowStreamResult implements IExecutionResult {
       arrowMetadata = columnInfos.get(columnIndex).getTypeText();
     }
 
-    // When complex datatype support is disabled, treat complex types as strings
-    if (!this.session.getConnectionContext().isComplexDatatypeSupportEnabled()) {
-      if (requiredType == ColumnInfoTypeName.ARRAY
-          || requiredType == ColumnInfoTypeName.MAP
-          || requiredType == ColumnInfoTypeName.STRUCT) {
-        requiredType = ColumnInfoTypeName.STRING;
-        // Also ensure the metadata is set to STRING to prevent any parsing attempts
-        arrowMetadata = "STRING";
-      }
+    // Handle complex type conversion when complex datatype support is disabled
+    boolean isComplexDatatypeSupportEnabled =
+        this.session.getConnectionContext().isComplexDatatypeSupportEnabled();
+    if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
+      requiredType = ColumnInfoTypeName.STRING;
+      arrowMetadata = "STRING";
     }
 
     return chunkIterator.getColumnObjectAtCurrentRow(columnIndex, requiredType, arrowMetadata);
+  }
+
+  /**
+   * Checks if the given type is a complex type (ARRAY, MAP, or STRUCT).
+   *
+   * @param type The type to check
+   * @return true if the type is a complex type, false otherwise
+   */
+  @VisibleForTesting
+  public static boolean isComplexType(ColumnInfoTypeName type) {
+    return type == ColumnInfoTypeName.ARRAY
+        || type == ColumnInfoTypeName.MAP
+        || type == ColumnInfoTypeName.STRUCT;
   }
 
   /** {@inheritDoc} */
