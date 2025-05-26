@@ -28,6 +28,7 @@ public class ArrowStreamResult implements IExecutionResult {
   private boolean isClosed;
   private ArrowResultChunk.ArrowResultChunkIterator chunkIterator;
   private List<ColumnInfo> columnInfos;
+  private final IDatabricksSession session;
 
   public ArrowStreamResult(
       ResultManifest resultManifest,
@@ -51,6 +52,7 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksSQLException {
+    this.session = session;
     // Check if the result data contains the arrow data inline
     boolean isInlineArrow = resultData.getAttachment() != null;
 
@@ -94,6 +96,7 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksSQLException {
+    this.session = session;
     setColumnInfo(resultsResp.getResultSetMetadata());
     if (isInlineArrow) {
       this.chunkProvider = new InlineChunkProvider(resultsResp, parentStatement, session);
@@ -126,6 +129,18 @@ public class ArrowStreamResult implements IExecutionResult {
     if (arrowMetadata == null) {
       arrowMetadata = columnInfos.get(columnIndex).getTypeText();
     }
+
+    // When complex datatype support is disabled, treat complex types as strings
+    if (!this.session.getConnectionContext().isComplexDatatypeSupportEnabled()) {
+      if (requiredType == ColumnInfoTypeName.ARRAY
+          || requiredType == ColumnInfoTypeName.MAP
+          || requiredType == ColumnInfoTypeName.STRUCT) {
+        requiredType = ColumnInfoTypeName.STRING;
+        // Also ensure the metadata is set to STRING to prevent any parsing attempts
+        arrowMetadata = "STRING";
+      }
+    }
+
     return chunkIterator.getColumnObjectAtCurrentRow(columnIndex, requiredType, arrowMetadata);
   }
 
