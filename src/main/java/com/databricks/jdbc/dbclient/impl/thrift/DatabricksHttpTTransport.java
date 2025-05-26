@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
@@ -145,13 +146,26 @@ public class DatabricksHttpTTransport extends TTransport {
   /** Refreshes the custom headers by re-authenticating if necessary. */
   private void refreshHeadersIfRequired() {
     Map<String, String> refreshedHeaders = databricksConfig.authenticate();
-    customHeaders =
-        refreshedHeaders != null ? new HashMap<>(refreshedHeaders) : Collections.emptyMap();
+    // Preserve existing custom headers (like User-Agent) and add/update auth headers
+    Map<String, String> newHeaders = new HashMap<>(customHeaders);
+    if (refreshedHeaders != null) {
+      newHeaders.putAll(refreshedHeaders);
+    }
+    customHeaders = newHeaders;
   }
 
   void resetAccessToken(String newAccessToken) {
     this.databricksConfig = initializeConfigWithToken(newAccessToken, databricksConfig);
     this.databricksConfig.resolve();
+  }
+
+  /** Updates the user agent for thrift requests by adding it as a header */
+  void updateUserAgent() {
+    // Add user agent as a header since the HTTP client's user agent is set during construction
+    // and cannot be changed. This ensures the updated user agent is sent with thrift requests.
+    Map<String, String> headers = new HashMap<>(customHeaders);
+    headers.put("User-Agent", UserAgentManager.getUserAgentString());
+    customHeaders = headers;
   }
 
   @VisibleForTesting

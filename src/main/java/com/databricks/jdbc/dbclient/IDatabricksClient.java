@@ -126,6 +126,9 @@ public interface IDatabricksClient {
    */
   void resetAccessToken(String newAccessToken);
 
+  /** Update the user agent headers when application name changes */
+  void updateUserAgent();
+
   TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException;
 

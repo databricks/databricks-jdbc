@@ -413,6 +413,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   @Override
+  public void updateUserAgent() {
+    // For SDK client, the user agent is handled by the global UserAgent state
+    // which is automatically picked up by the SDK apiClient for new requests
+  }
+
+  @Override
   public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException {
     throw new DatabricksValidationException("Get more results cannot be called for SEA flow");

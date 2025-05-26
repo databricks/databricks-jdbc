@@ -231,4 +231,26 @@ public class DatabricksSessionTest {
         DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName(), "token");
     verify(thriftClient).resetAccessToken("token");
   }
+
+  @Test
+  public void testSetClientInfoProperty_ApplicationNameUpdatesUserAgent()
+      throws DatabricksSQLException {
+    DatabricksSession session =
+        new DatabricksSession(
+            DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), sdkClient);
+    session.setClientInfoProperty(
+        DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName(), "testApp");
+    verify(sdkClient).updateUserAgent();
+  }
+
+  @Test
+  public void testSetClientInfoProperty_ApplicationNameUpdatesUserAgentThrift()
+      throws DatabricksSQLException {
+    DatabricksSession session =
+        new DatabricksSession(
+            DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), thriftClient);
+    session.setClientInfoProperty(
+        DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName(), "testApp");
+    verify(thriftClient).updateUserAgent();
+  }
 }

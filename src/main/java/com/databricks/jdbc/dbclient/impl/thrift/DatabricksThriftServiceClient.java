@@ -77,6 +77,12 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   @Override
+  public void updateUserAgent() {
+    ((DatabricksHttpTTransport) thriftAccessor.getThriftClient().getInputProtocol().getTransport())
+        .updateUserAgent();
+  }
+
+  @Override
   public ImmutableSessionInfo createSession(
       IDatabricksComputeResource cluster,
       String catalog,

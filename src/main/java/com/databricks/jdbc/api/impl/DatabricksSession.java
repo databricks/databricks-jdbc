@@ -252,6 +252,8 @@ public class DatabricksSession implements IDatabricksSession {
     // If application name is being set, update both telemetry and user agent
     if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName())) {
       UserAgentHelper.updateUserAgentAndTelemetry(connectionContext, value);
+      // Update the client's user agent headers for existing ThriftClient
+      databricksClient.updateUserAgent();
     }
 
     clientInfoProperties.put(name, value);
