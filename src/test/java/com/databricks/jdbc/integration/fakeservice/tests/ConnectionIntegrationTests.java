@@ -26,11 +26,14 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
 
   @Test
   void testIncorrectCredentialsForPAT() {
+    Properties extraProps = new Properties();
+    extraProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
+    extraProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), "bad_token_1");
     String url = getFakeServiceJDBCUrl();
     DatabricksSQLException e =
         assertThrows(
             DatabricksSQLException.class,
-            () -> DriverManager.getConnection(url, createConnectionProperties("bad_token_1")));
+            () -> DriverManager.getConnection(url, createConnectionProperties(extraProps)));
 
     assert e.getMessage()
         .contains("Connection failure while using the OSS Databricks JDBC driver.");
@@ -47,19 +50,41 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
             template,
             getFakeServiceHost(),
             FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
+
+    Properties extraProps = new Properties();
+    extraProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
+    extraProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), "bad_token_2");
     DatabricksSQLException e =
         assertThrows(
             DatabricksSQLException.class,
-            () -> DriverManager.getConnection(url, createConnectionProperties("bad_token_2")));
+            () -> DriverManager.getConnection(url, createConnectionProperties(extraProps)));
 
     assert e.getMessage()
         .contains("Connection failure while using the OSS Databricks JDBC driver.");
   }
 
-  private Properties createConnectionProperties(String password) {
+  @Test
+  void testPATinOAuthTokenPassThrough() throws Exception {
+    // SSL is disabled as embedded web server of fake service uses HTTP protocol.
+    // Note that in RECORD mode, the web server interacts with production services over HTTPS.
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=11;AuthFlow=0;httpPath=%s;";
+    String url =
+        String.format(
+            template,
+            getFakeServiceHost(),
+            FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
+    Properties extraProps = new Properties();
+    extraProps.put(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName(), getDatabricksToken());
+    Connection conn = DriverManager.getConnection(url, createConnectionProperties(extraProps));
+    assert ((conn != null) && !conn.isClosed());
+
+    conn.close();
+  }
+
+  private Properties createConnectionProperties(Properties extraProps) {
     Properties connProps = new Properties();
-    connProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
-    connProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), password);
+    connProps.putAll(extraProps);
     connProps.put(
         DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
         FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));

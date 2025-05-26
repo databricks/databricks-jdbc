@@ -3,6 +3,7 @@ package com.databricks.jdbc.telemetry;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.*;
@@ -209,7 +210,17 @@ public class TelemetryHelper {
             .setCheckCertificateRevocation(connectionContext.checkCertificateRevocation())
             .setAcceptUndeterminedCertificateRevocation(
                 connectionContext.acceptUndeterminedCertificateRevocation())
-            .setDriverMode(connectionContext.getClientType())
+            .setDriverMode(connectionContext.getClientType().toString())
+            .setAuthEndpoint(connectionContext.getAuthEndpoint())
+            .setTokenEndpoint(connectionContext.getTokenEndpoint())
+            .setNonProxyHosts(StringUtil.split(connectionContext.getNonProxyHosts()))
+            .setHttpConnectionPoolSize(connectionContext.getHttpConnectionPoolSize())
+            .setEnableSeaHybridResults(connectionContext.isSqlExecHybridResultsEnabled())
+            .setEnableComplexSupport(connectionContext.isComplexDatatypeSupportEnabled())
+            .setAllowSelfSignedSupport(connectionContext.allowSelfSignedCerts())
+            .setUseSystemTrustStore(connectionContext.useSystemTrustStore())
+            .setRowsFetchedPerBlock(connectionContext.getRowsFetchedPerBlock())
+            .setAsyncPollIntervalMillis(connectionContext.getAsyncExecPollInterval())
             .setEnableTokenCache(connectionContext.isTokenCacheEnabled())
             .setHttpPath(connectionContext.getHttpPath());
     if (connectionContext.useJWTAssertion()) {

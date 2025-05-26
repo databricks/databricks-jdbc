@@ -7,7 +7,9 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.http.HttpClient;
+import com.nimbusds.jwt.SignedJWT;
 import java.io.IOException;
+import java.text.ParseException;
 
 public class DatabricksAuthUtil {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksAuthUtil.class);
@@ -38,5 +40,15 @@ public class DatabricksAuthUtil {
         .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
         .setToken(newAccessToken);
     return newConfig;
+  }
+
+  public static Boolean isTokenJWT(String accessToken) {
+    try {
+      // If token is parsable, it is a JWT
+      SignedJWT signedJWT = SignedJWT.parse(accessToken);
+      return true;
+    } catch (ParseException | NullPointerException e) {
+      return false;
+    }
   }
 }
