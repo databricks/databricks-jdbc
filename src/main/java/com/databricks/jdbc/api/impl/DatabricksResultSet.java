@@ -1158,12 +1158,18 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Array getArray(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Array from column index: {}", columnIndex);
     if (!complexDatatypeSupport) {
-      throw new SQLException(
+      LOGGER.error(
           "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
+      throw new DatabricksSQLException(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
-      throw new SQLException("Complex data types are not supported in inline mode");
+      LOGGER.error("Complex data types are not supported in inline mode");
+      throw new DatabricksSQLException(
+          "Complex data types are not supported in inline mode",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
     }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
@@ -1182,12 +1188,18 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Struct getStruct(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Struct from column index: {}", columnIndex);
     if (!complexDatatypeSupport) {
-      throw new SQLException(
+      LOGGER.error(
           "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
+      throw new DatabricksSQLException(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR);
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
-      throw new SQLException("Complex data types are not supported in inline mode");
+      LOGGER.error("Complex data types are not supported in inline mode");
+      throw new DatabricksSQLException(
+          "Complex data types are not supported in inline mode",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR);
     }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
@@ -1206,12 +1218,18 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Map getMap(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Map from column index: {}", columnIndex);
     if (!complexDatatypeSupport) {
-      throw new SQLException(
+      LOGGER.error(
           "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
+      throw new DatabricksSQLException(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
-      throw new SQLException("Complex data types are not supported in inline mode");
+      LOGGER.error("Complex data types are not supported in inline mode");
+      throw new DatabricksSQLException(
+          "Complex data types are not supported in inline mode",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
     }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
