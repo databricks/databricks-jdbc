@@ -34,7 +34,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private final ExecutorService executor = MoreExecutors.newDirectExecutorService();
 
   private int timeoutInSeconds;
-  private final DatabricksConnection connection;
+  protected final DatabricksConnection connection;
   DatabricksResultSet resultSet;
   private StatementId statementId;
   private boolean isClosed;

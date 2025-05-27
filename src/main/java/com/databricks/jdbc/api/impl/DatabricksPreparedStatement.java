@@ -395,7 +395,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public ResultSetMetaData getMetaData()");
     checkIfClosed();
     if (resultSet == null) {
-      return null;
+      return getMetaDataFromDescribeQuery();
     }
     return resultSet.getMetaData();
   }
@@ -814,5 +814,42 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             ? new HashMap<>()
             : this.databricksParameterMetaData.getParameterBindings();
     return executeInternal(interpolatedSql, paramMap, statementType);
+  }
+
+  private ResultSetMetaData getMetaDataFromDescribeQuery() throws SQLException {
+
+    try (DatabricksResultSet metadataResultSet = executeDescribeQueryCommand()) {
+      ArrayList<String> columnNames = new ArrayList<>();
+      ArrayList<String> columnDataTypes = new ArrayList<>();
+
+      while (metadataResultSet.next()) {
+        columnNames.add(metadataResultSet.getString(1));
+        columnDataTypes.add(metadataResultSet.getString(2));
+      }
+
+      return new DatabricksResultSetMetaData(
+          metadataResultSet.getStatementId(),
+          columnNames,
+          columnDataTypes,
+          this.connection.getConnectionContext());
+    } catch (SQLException e) {
+      String errorMessage = "Failed to execute DESCRIBE QUERY command";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(
+          errorMessage, e, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+    }
+  }
+
+  private DatabricksResultSet executeDescribeQueryCommand() throws SQLException {
+    String interpolatedSql =
+        this.interpolateParameters
+            ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
+            : sql;
+    interpolatedSql = "DESCRIBE QUERY " + interpolatedSql;
+    Map<Integer, ImmutableSqlParameter> paramMap =
+        this.interpolateParameters
+            ? new HashMap<>()
+            : this.databricksParameterMetaData.getParameterBindings();
+    return executeInternal(interpolatedSql, paramMap, StatementType.QUERY);
   }
 }
