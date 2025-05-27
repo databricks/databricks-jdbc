@@ -7,6 +7,7 @@
 - Support for Token Exchange in OAuth flows where in third party tokens are exchanged for InHouse tokens.
 - Support for fetching schemas across all catalogs in the SQL Exec API client.
 - Added support for polling of statementStatus and sqlState for async SQL execution.
+- Support to fetch metadata in PreparedStatement before executing the query.
 
 ### Updated
 - 
