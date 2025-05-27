@@ -843,7 +843,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
           columnDataTypes,
           this.connection.getConnectionContext());
     } catch (SQLException e) {
-      String errorMessage = "Failed to execute DESCRIBE QUERY command";
+      String errorMessage = "Failed to get query metadata using DESCRIBE QUERY command";
       LOGGER.error(e, errorMessage);
       throw new DatabricksSQLException(
           errorMessage, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
