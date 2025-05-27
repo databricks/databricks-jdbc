@@ -638,15 +638,6 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       final InputStream inputStream = inputStreams.get(i);
       final long contentLength = contentLengths.get(i);
 
-      // Try to mark the stream for possible retries if supported
-      if (inputStream.markSupported()) {
-        try {
-          inputStream.mark((int) contentLength);
-        } catch (Exception e) {
-          LOGGER.warn("Could not mark input stream for potential retries: " + e.getMessage());
-        }
-      }
-
       // Create stream upload request
       UploadRequest request = new UploadRequest();
       request.objectPath = objPath;
@@ -733,10 +724,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                   } else {
                     // Stream upload
                     AsyncEntityProducer entity =
-                        new InputStreamFixedLenProducer(
-                            request.inputStream,
-                            request.contentLength,
-                            ContentType.APPLICATION_OCTET_STREAM);
+                        new InputStreamFixedLenProducer(request.inputStream, request.contentLength);
                     uploadProducer =
                         AsyncRequestBuilder.put()
                             .setUri(URI.create(presignedUrl))
