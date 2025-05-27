@@ -472,6 +472,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     return resultSetMetaData;
   }
 
+  /**
+   * Checks if the given type name represents a complex type (ARRAY, MAP, or STRUCT).
+   *
+   * @param typeName The type name to check
+   * @return true if the type name starts with ARRAY, MAP, or STRUCT, false otherwise
+   */
+  private static boolean isComplexType(String typeName) {
+    return typeName.startsWith(ARRAY) || typeName.startsWith(MAP) || typeName.startsWith(STRUCT);
+  }
+
   @Override
   public Object getObject(int columnIndex) throws SQLException {
     checkIfClosed();
@@ -482,9 +492,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     // separate handling for complex data types
-    if (columnTypeName.startsWith(ARRAY)
-        || columnTypeName.startsWith(MAP)
-        || columnTypeName.startsWith(STRUCT)) {
+    if (isComplexType(columnTypeName)) {
       return handleComplexDataTypes(obj, columnTypeName);
     }
     return ConverterHelper.convertSqlTypeToJavaType(columnType, obj);
@@ -1150,7 +1158,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Array getArray(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Array from column index: {}", columnIndex);
     if (!complexDatatypeSupport) {
-      throw new SQLException("Complex datatype support support is disabled");
+      throw new SQLException(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
@@ -1173,7 +1182,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Struct getStruct(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Struct from column index: {}", columnIndex);
     if (!complexDatatypeSupport) {
-      throw new SQLException("Complex datatype support support is disabled");
+      throw new SQLException(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
@@ -1196,7 +1206,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Map getMap(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Map from column index: {}", columnIndex);
     if (!complexDatatypeSupport) {
-      throw new SQLException("Complex datatype support support is disabled");
+      throw new SQLException(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {

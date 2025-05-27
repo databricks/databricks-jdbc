@@ -1205,4 +1205,34 @@ public class DatabricksResultSetTest {
     resultSet.getString(1);
     assertTrue(resultSet.wasNull());
   }
+
+  @Test
+  void testIsComplexTypeThrowsExceptionWhenComplexDatatypeSupportIsDisabled() throws SQLException {
+    // Create a ResultSet with complex datatype support disabled
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+
+    // Test that getArray throws an exception when complex datatype support is disabled
+    SQLException arrayException = assertThrows(SQLException.class, () -> resultSet.getArray(1));
+    assertTrue(
+        arrayException
+            .getMessage()
+            .contains(
+                "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it."));
+
+    // Test that getMap throws an exception when complex datatype support is disabled
+    SQLException mapException = assertThrows(SQLException.class, () -> resultSet.getMap(1));
+    assertTrue(
+        mapException
+            .getMessage()
+            .contains(
+                "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it."));
+
+    // Test that getStruct throws an exception when complex datatype support is disabled
+    SQLException structException = assertThrows(SQLException.class, () -> resultSet.getStruct(1));
+    assertTrue(
+        structException
+            .getMessage()
+            .contains(
+                "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it."));
+  }
 }
