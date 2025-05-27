@@ -380,10 +380,19 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.isCloudFetchUsed = false;
   }
 
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for metadata result set obtained from
+   * DESCRIBE QUERY
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param columnNames names of each column
+   * @param columnDataTypes types of each column
+   * @param ctx connection context
+   */
   public DatabricksResultSetMetaData(
-      String statementId,
-      ArrayList<String> columnNames,
-      ArrayList<String> columnDataTypes,
+      StatementId statementId,
+      List<String> columnNames,
+      List<String> columnDataTypes,
       IDatabricksConnectionContext ctx) {
     this.ctx = ctx;
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
@@ -399,11 +408,14 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     for (int i = 0; i < columnNames.size(); i++) {
       String columnName = columnNames.get(i);
       String columnTypeText = columnDataTypes.get(i);
-      ColumnInfoTypeName columnTypeName =
-          ColumnInfoTypeName.valueOf(metadataResultSetBuilder.stripTypeName(columnTypeText));
+
+      ColumnInfoTypeName columnTypeName;
       if (columnTypeText.equalsIgnoreCase(TIMESTAMP_NTZ)) {
         columnTypeName = ColumnInfoTypeName.TIMESTAMP;
         columnTypeText = TIMESTAMP;
+      } else {
+        columnTypeName =
+            ColumnInfoTypeName.valueOf(metadataResultSetBuilder.stripBaseTypeName(columnTypeText));
       }
 
       int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
@@ -432,7 +444,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       // Keep index starting from 1, to be consistent with JDBC convention
       columnNameToIndexMap.putIfAbsent(columnName, i + 1);
     }
-    this.statementId = StatementId.deserialize(statementId);
+    this.statementId = statementId;
     this.isCloudFetchUsed = false;
     this.totalRows = -1;
     this.columns = columnsBuilder.build();

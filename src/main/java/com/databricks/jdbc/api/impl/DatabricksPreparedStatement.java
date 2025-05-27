@@ -8,6 +8,7 @@ import static com.databricks.jdbc.common.util.ValidationUtil.throwErrorIfNull;
 
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -395,6 +396,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public ResultSetMetaData getMetaData()");
     checkIfClosed();
     if (resultSet == null) {
+      LOGGER.info("Fetching metadata before executing the query, some values may not be available");
       return getMetaDataFromDescribeQuery();
     }
     return resultSet.getMetaData();
@@ -816,6 +818,14 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     return executeInternal(interpolatedSql, paramMap, statementType);
   }
 
+  /**
+   * Executes a DESCRIBE QUERY command to retrieve metadata about the SQL query.
+   *
+   * <p>This method is used when the result set is null
+   *
+   * @return a {@link ResultSetMetaData} object containing the metadata of the query.
+   * @throws SQLException if an error occurs while executing the DESCRIBE QUERY command.
+   */
   private ResultSetMetaData getMetaDataFromDescribeQuery() throws SQLException {
 
     try (DatabricksResultSet metadataResultSet = executeDescribeQueryCommand()) {
@@ -828,15 +838,15 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       }
 
       return new DatabricksResultSetMetaData(
-          metadataResultSet.getStatementId(),
+          StatementId.deserialize(metadataResultSet.getStatementId()),
           columnNames,
           columnDataTypes,
           this.connection.getConnectionContext());
     } catch (SQLException e) {
       String errorMessage = "Failed to execute DESCRIBE QUERY command";
-      LOGGER.error(errorMessage, e);
+      LOGGER.error(e, errorMessage);
       throw new DatabricksSQLException(
-          errorMessage, e, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+          errorMessage, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
   }
 

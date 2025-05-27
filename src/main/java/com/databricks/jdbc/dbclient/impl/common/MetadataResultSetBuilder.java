@@ -456,15 +456,16 @@ public class MetadataResultSetBuilder {
     if (typeName == null) {
       return null;
     }
+    // Checking '<' first and then '(' to handle cases like MAP<STRING,INT>(50)
 
-    // Checks for DECIMAL(10,2) -> DECIMAL
-    int typeArgumentIndex = typeName.indexOf('(');
+    // Checks for ARRAY<STRING> -> ARRAY
+    int typeArgumentIndex = typeName.indexOf('<');
     if (typeArgumentIndex != -1) {
       return typeName.substring(0, typeArgumentIndex);
     }
 
-    // Checks for ARRAY<STRING> -> ARRAY
-    typeArgumentIndex = typeName.indexOf('<');
+    // Checks for DECIMAL(10,2) -> DECIMAL
+    typeArgumentIndex = typeName.indexOf('(');
     if (typeArgumentIndex != -1) {
       return typeName.substring(0, typeArgumentIndex);
     }
