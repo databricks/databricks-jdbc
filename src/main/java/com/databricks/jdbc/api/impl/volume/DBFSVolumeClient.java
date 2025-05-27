@@ -33,6 +33,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.*;
@@ -568,9 +571,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       final String objPath = objectPaths.get(i);
       final String fullPath = getObjectFullPath(catalog, schema, volume, objPath);
       final String localPath = localPaths.get(i);
-      final java.io.File file = new java.io.File(localPath);
+      final Path file = Paths.get(localPath);
 
-      if (!file.exists() || !file.isFile()) {
+      if (!Files.exists(file) || !Files.isRegularFile(file)) {
         String errorMessage = "File not found or not a file: " + localPath;
         LOGGER.error(errorMessage);
         // Set a completed future at the same index to maintain order
@@ -666,7 +669,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   public static class UploadRequest {
     public String objectPath;
     public String fullPath;
-    public java.io.File file;
+    public Path file;
     public InputStream inputStream;
     public long contentLength;
     public int fileIndex;
@@ -697,7 +700,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                   + futures.size()
                   - uploadRequests.size(), // Add count of pre-completed futures
               request.objectPath,
-              request.isFile() ? request.file.length() : request.contentLength));
+              request.isFile() ? request.file.toFile().length() : request.contentLength));
 
       // Create a CompletableFuture for this upload
       CompletableFuture<VolumePutResult> uploadFuture = new CompletableFuture<>();
@@ -725,7 +728,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                             .setUri(URI.create(presignedUrl))
                             .setEntity(
                                 AsyncEntityProducers.create(
-                                    request.file, ContentType.DEFAULT_BINARY))
+                                    request.file.toFile(), ContentType.DEFAULT_BINARY))
                             .build();
                   } else {
                     // Stream upload

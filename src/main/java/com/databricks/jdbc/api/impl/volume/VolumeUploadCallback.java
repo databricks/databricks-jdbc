@@ -187,7 +187,7 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
                                     .setUri(URI.create(presignedUrl))
                                     .setEntity(
                                         AsyncEntityProducers.create(
-                                            request.file, ContentType.DEFAULT_BINARY))
+                                            request.file.toFile(), ContentType.DEFAULT_BINARY))
                                     .build();
                           } else {
                             // Stream upload
