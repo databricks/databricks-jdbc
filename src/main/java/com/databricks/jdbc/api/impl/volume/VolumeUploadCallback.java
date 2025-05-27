@@ -193,9 +193,7 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
                             // Stream upload
                             AsyncEntityProducer entity =
                                 new InputStreamFixedLenProducer(
-                                    request.inputStream,
-                                    request.contentLength,
-                                    ContentType.APPLICATION_OCTET_STREAM);
+                                    request.inputStream, request.contentLength);
                             uploadProducer =
                                 AsyncRequestBuilder.put()
                                     .setUri(URI.create(presignedUrl))
