@@ -10,6 +10,8 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
@@ -23,7 +25,7 @@ import java.util.List;
 
 /** Result container for Arrow-based query results. */
 public class ArrowStreamResult implements IExecutionResult {
-
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowStreamResult.class);
   private final ChunkProvider chunkProvider;
   private long currentRowIndex = -1;
   private boolean isClosed;
@@ -135,6 +137,7 @@ public class ArrowStreamResult implements IExecutionResult {
     boolean isComplexDatatypeSupportEnabled =
         this.session.getConnectionContext().isComplexDatatypeSupportEnabled();
     if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
+      LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
       requiredType = ColumnInfoTypeName.STRING;
       arrowMetadata = "STRING";
     }
