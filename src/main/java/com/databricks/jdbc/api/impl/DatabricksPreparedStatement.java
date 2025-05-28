@@ -857,7 +857,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
             : sql;
 
-    if (DatabricksStatement.isSelectQuery(interpolatedSql)) {
+    if (!DatabricksStatement.isSelectQuery(interpolatedSql)) {
       throw new DatabricksSQLException(
           "DESCRIBE QUERY is only supported with SELECT queries",
           DatabricksDriverErrorCode.INVALID_STATE);
