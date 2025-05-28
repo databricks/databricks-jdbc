@@ -196,7 +196,8 @@ public class DatabricksResultSetMetaDataTest {
       {"col_binary", "binary", "BINARY", Types.BINARY, 1, 0},
       {"col_struct", "struct<col_int:int,col_string:string>", "STRUCT", Types.STRUCT, 255, 0},
       {"col_array", "array<int>", "ARRAY", Types.ARRAY, 255, 0},
-      {"col_map", "map<string,string>", "MAP", Types.VARCHAR, 255, 0}
+      {"col_map", "map<string,string>", "MAP", Types.VARCHAR, 255, 0},
+      {"col_variant", "variant", "VARIANT", Types.VARCHAR, 255, 0}
     };
 
     List<String> columnNames =

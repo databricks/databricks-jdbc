@@ -382,7 +382,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   /**
    * Constructs a {@code DatabricksResultSetMetaData} object for metadata result set obtained from
-   * DESCRIBE QUERY
+   * DESCRIBE QUERY Works for both SEA and Thrift flows as result set obtained from DESCRIBE QUERY
+   * is already parsed.
    *
    * @param statementId the unique identifier of the SQL statement execution
    * @param columnNames names of each column
@@ -413,6 +414,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       if (columnTypeText.equalsIgnoreCase(TIMESTAMP_NTZ)) {
         columnTypeName = ColumnInfoTypeName.TIMESTAMP;
         columnTypeText = TIMESTAMP;
+      } else if (columnTypeText.equalsIgnoreCase(VARIANT)) {
+        columnTypeName = ColumnInfoTypeName.STRING;
+        columnTypeText = VARIANT;
       } else {
         columnTypeName =
             ColumnInfoTypeName.valueOf(metadataResultSetBuilder.stripBaseTypeName(columnTypeText));
