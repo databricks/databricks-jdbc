@@ -235,10 +235,8 @@ public class ComplexDataTypeParser {
   public String formatMapString(String jsonString, String mapMetadata) {
     try {
       JsonNode node = JsonUtil.getMapper().readTree(jsonString);
-      // [{\"key\":1,\"value\":2},{\"key\":3,\"value\":4}]
       if (node.isArray() && node.size() > 0 && node.get(0).has("key")) {
-        // Parse the map type information
-        String[] kv = new String[] {"STRING", "STRING"};
+        String[] kv = new String[2];
         if (mapMetadata != null && mapMetadata.startsWith(DatabricksTypeUtil.MAP)) {
           kv = MetadataParser.parseMapMetadata(mapMetadata).split(",", 2);
         }
