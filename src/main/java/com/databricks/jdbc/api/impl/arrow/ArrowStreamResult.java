@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 
+import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -138,8 +139,15 @@ public class ArrowStreamResult implements IExecutionResult {
         this.session.getConnectionContext().isComplexDatatypeSupportEnabled();
     if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
       LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
-      requiredType = ColumnInfoTypeName.STRING;
-      arrowMetadata = "STRING";
+
+      Object result =
+          chunkIterator.getColumnObjectAtCurrentRow(
+              columnIndex, ColumnInfoTypeName.STRING, "STRING");
+      if (result != null) {
+        ComplexDataTypeParser parser = new ComplexDataTypeParser();
+        return parser.formatComplexTypeString(
+            result.toString(), requiredType.name(), arrowMetadata);
+      }
     }
 
     return chunkIterator.getColumnObjectAtCurrentRow(columnIndex, requiredType, arrowMetadata);
