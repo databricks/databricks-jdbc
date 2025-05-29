@@ -825,9 +825,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
    * <p>This method is used when the result set is null
    *
    * @return a {@link ResultSetMetaData} object containing the metadata of the query.
-   * @throws SQLException if an error occurs while executing the DESCRIBE QUERY command.
    */
-  private ResultSetMetaData getMetaDataFromDescribeQuery() throws SQLException {
+  private ResultSetMetaData getMetaDataFromDescribeQuery() {
 
     try (DatabricksResultSet metadataResultSet = executeDescribeQueryCommand()) {
       ArrayList<String> columnNames = new ArrayList<>();
@@ -844,10 +843,9 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
           columnDataTypes,
           this.connection.getConnectionContext());
     } catch (SQLException e) {
-      String errorMessage = "Failed to get query metadata using DESCRIBE QUERY command";
+      String errorMessage = "Failed to get query metadata";
       LOGGER.error(e, errorMessage);
-      throw new DatabricksSQLException(
-          errorMessage, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
+      return null;
     }
   }
 
@@ -859,7 +857,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
     if (!DatabricksStatement.isSelectQuery(interpolatedSql)) {
       throw new DatabricksSQLException(
-          "DESCRIBE QUERY is only supported with SELECT queries",
+          "Fetching metadata before query execution is only supported for SELECT queries",
           DatabricksDriverErrorCode.INVALID_STATE);
     }
 

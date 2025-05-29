@@ -246,7 +246,7 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
-  public void testGetMetaData_NoResultSet_NonSelectQueryError() throws Exception {
+  public void testGetMetaData_NoResultSet_NonSelectQuery_ReturnNull() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
@@ -261,7 +261,7 @@ public class DatabricksPreparedStatementTest {
       statement.addBatch();
     }
 
-    assertThrows(SQLException.class, statement::getMetaData);
+    assertNull(statement.getMetaData());
   }
 
   @Test
