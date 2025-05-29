@@ -36,6 +36,42 @@ public class ArrowToJavaObjectConverterTest {
   }
 
   @Test
+  public void testConvert_Interval() throws SQLException {
+    // 1200 months → "100-0"
+    IntervalYearVector yv = new IntervalYearVector("iv", bufferAllocator);
+    yv.allocateNewSafe();
+    yv.setSafe(0, 1200);
+    yv.setValueCount(1);
+
+    Object out =
+        ArrowToJavaObjectConverter.convert(
+            yv, 0, ColumnInfoTypeName.INTERVAL, "INTERVAL YEAR TO MONTH");
+    assertEquals("100-0", out);
+
+    // build a Duration of 200h13m50.3s → -200:13:50.3
+    IntervalDayVector dv = new IntervalDayVector("dv", bufferAllocator);
+    dv.allocateNewSafe();
+    // Arrow’s IntervalDayVector takes (days, milliseconds)
+    Duration d = Duration.ofHours(200).plusMinutes(13).plusSeconds(50).plusMillis(300);
+    long days = d.toDays();
+    int millis = (int) (d.minusDays(days).toMillis());
+    dv.setSafe(0, (int) days, millis);
+    dv.setValueCount(1);
+
+    out =
+        ArrowToJavaObjectConverter.convert(
+            dv, 0, ColumnInfoTypeName.INTERVAL, "INTERVAL HOUR TO SECOND");
+    assertEquals("8 08:13:50.300000000", out);
+
+    // null metadata throws DatabricksValidation Exception
+    assertThrows(
+        DatabricksValidationException.class,
+        () -> {
+          ArrowToJavaObjectConverter.convert(dv, 0, ColumnInfoTypeName.INTERVAL, null);
+        });
+  }
+
+  @Test
   public void testNullObjectConversion() throws SQLException {
     TinyIntVector tinyIntVector = new TinyIntVector("tinyIntVector", this.bufferAllocator);
     tinyIntVector.allocateNew(1);

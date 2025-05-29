@@ -129,4 +129,48 @@ public class ComplexDataTypeParserTest {
       fail("Should not throw: " + e.getMessage());
     }
   }
+
+  @Test
+  void testFormatComplexTypeString_withMapType() {
+    String jsonString = "[{\"key\":1,\"value\":2},{\"key\":3,\"value\":4}]";
+    String expected = "{1:2,3:4}";
+
+    String result = parser.formatComplexTypeString(jsonString, "MAP", "MAP<INT,INT>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatComplexTypeString_withNonMapType() {
+    String jsonString = "[1,2,3]";
+
+    String result = parser.formatComplexTypeString(jsonString, "ARRAY", "ARRAY<INT>");
+    assertEquals(jsonString, result);
+  }
+
+  @Test
+  void testFormatMapString_withIntKeyAndValue() throws DatabricksParsingException {
+    String jsonString = "[{\"key\":1,\"value\":2},{\"key\":3,\"value\":4}]";
+    String expected = "{1:2,3:4}";
+
+    String result = parser.formatMapString(jsonString, "MAP<INT,INT>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapString_withStringKeyAndValue() throws DatabricksParsingException {
+    String jsonString = "[{\"key\":\"a\",\"value\":\"b\"},{\"key\":\"c\",\"value\":\"d\"}]";
+    String expected = "{\"a\":\"b\",\"c\":\"d\"}";
+
+    String result = parser.formatMapString(jsonString, "MAP<STRING,STRING>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapString_withMixedTypes() throws DatabricksParsingException {
+    String jsonString = "[{\"key\":\"a\",\"value\":100},{\"key\":\"b\",\"value\":200}]";
+    String expected = "{\"a\":100,\"b\":200}";
+
+    String result = parser.formatMapString(jsonString, "MAP<STRING,INT>");
+    assertEquals(expected, result);
+  }
 }
