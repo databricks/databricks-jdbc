@@ -180,4 +180,25 @@ class DatabricksDriverFeatureFlagsContextTest {
       verify(httpClientMock).execute(request);
     }
   }
+
+  @Test
+  void testIsFeatureEnabled() {
+    // Test with valid boolean values
+    Map<String, String> flags = new HashMap<>();
+    flags.put("flag1", "true");
+    flags.put("flag2", "false");
+    context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, flags);
+    assertTrue(context.isFeatureEnabled("flag1"));
+    assertFalse(context.isFeatureEnabled("flag2"));
+
+    // Test with invalid values
+    flags.put("flag3", "invalid");
+    flags.put("flag4", "yes");
+    context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, flags);
+    assertFalse(context.isFeatureEnabled("flag3"));
+    assertFalse(context.isFeatureEnabled("flag4"));
+
+    // Test with non-existent flag
+    assertFalse(context.isFeatureEnabled("nonexistent"));
+  }
 }
