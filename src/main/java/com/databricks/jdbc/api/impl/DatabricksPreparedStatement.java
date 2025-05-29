@@ -396,8 +396,14 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public ResultSetMetaData getMetaData()");
     checkIfClosed();
     if (resultSet == null) {
-      LOGGER.info("Fetching metadata before executing the query, some values may not be available");
-      return getMetaDataFromDescribeQuery();
+
+      if (DatabricksStatement.isSelectQuery(sql)) {
+        LOGGER.info(
+            "Fetching metadata before executing the query, some values may not be available");
+        return getMetaDataFromDescribeQuery();
+      } else {
+        return null;
+      }
     }
     return resultSet.getMetaData();
   }
@@ -825,8 +831,9 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
    * <p>This method is used when the result set is null
    *
    * @return a {@link ResultSetMetaData} object containing the metadata of the query.
+   * @throws DatabricksSQLException if there is an error executing the DESCRIBE QUERY command
    */
-  private ResultSetMetaData getMetaDataFromDescribeQuery() {
+  private ResultSetMetaData getMetaDataFromDescribeQuery() throws DatabricksSQLException {
 
     try (DatabricksResultSet metadataResultSet = executeDescribeQueryCommand()) {
       ArrayList<String> columnNames = new ArrayList<>();
@@ -845,7 +852,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     } catch (SQLException e) {
       String errorMessage = "Failed to get query metadata";
       LOGGER.error(e, errorMessage);
-      return null;
+      throw new DatabricksSQLException(
+          errorMessage, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
   }
 
@@ -854,12 +862,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         this.interpolateParameters
             ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
             : sql;
-
-    if (!DatabricksStatement.isSelectQuery(interpolatedSql)) {
-      throw new DatabricksSQLException(
-          "Fetching metadata before query execution is only supported for SELECT queries",
-          DatabricksDriverErrorCode.INVALID_STATE);
-    }
 
     interpolatedSql = "DESCRIBE QUERY " + interpolatedSql;
     Map<Integer, ImmutableSqlParameter> paramMap =
