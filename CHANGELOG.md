@@ -1,6 +1,6 @@
 # Version Changelog
 
-## [v1.0.6-oss] - 2025-05-20
+## [v1.0.6-oss] - 2025-05-29
 
 ### Added
 - Support for fetching tables and views across all catalogs using SHOW TABLES FROM/IN ALL CATALOGS in the SQL Exec API.
