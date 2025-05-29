@@ -148,7 +148,7 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
-  void testFormatMapString_withIntKeyAndValue() {
+  void testFormatMapString_withIntKeyAndValue() throws DatabricksParsingException {
     String jsonString = "[{\"key\":1,\"value\":2},{\"key\":3,\"value\":4}]";
     String expected = "{1:2,3:4}";
 
@@ -157,7 +157,7 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
-  void testFormatMapString_withStringKeyAndValue() {
+  void testFormatMapString_withStringKeyAndValue() throws DatabricksParsingException {
     String jsonString = "[{\"key\":\"a\",\"value\":\"b\"},{\"key\":\"c\",\"value\":\"d\"}]";
     String expected = "{\"a\":\"b\",\"c\":\"d\"}";
 
@@ -166,7 +166,7 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
-  void testFormatMapString_withMixedTypes() {
+  void testFormatMapString_withMixedTypes() throws DatabricksParsingException {
     String jsonString = "[{\"key\":\"a\",\"value\":100},{\"key\":\"b\",\"value\":200}]";
     String expected = "{\"a\":100,\"b\":200}";
 

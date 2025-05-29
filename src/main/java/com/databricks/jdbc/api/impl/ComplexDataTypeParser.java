@@ -236,7 +236,7 @@ public class ComplexDataTypeParser {
     try {
       JsonNode node = JsonUtil.getMapper().readTree(jsonString);
       if (node.isArray() && node.size() > 0 && node.get(0).has("key")) {
-        String[] kv = new String[2];
+        String[] kv = new String[] {"STRING", "STRING"};
         if (mapMetadata != null && mapMetadata.startsWith(DatabricksTypeUtil.MAP)) {
           kv = MetadataParser.parseMapMetadata(mapMetadata).split(",", 2);
         }
@@ -253,6 +253,13 @@ public class ComplexDataTypeParser {
           JsonNode keyNode = entry.get("key");
           JsonNode valueNode = entry.get("value");
 
+          // Throw error if keyNode is null
+          if (keyNode == null || keyNode.isNull()) {
+            throw new DatabricksParsingException(
+                "Map entry found with null key in JSON: " + entry.toString(),
+                DatabricksDriverErrorCode.JSON_PARSING_ERROR);
+          }
+
           if (i > 0) {
             result.append(",");
           }
@@ -265,7 +272,10 @@ public class ComplexDataTypeParser {
 
           result.append(":");
 
-          if (isStringValue) {
+          // Handle null valueNode
+          if (valueNode == null || valueNode.isNull()) {
+            result.append("null");
+          } else if (isStringValue) {
             result.append("\"").append(valueNode.asText()).append("\"");
           } else {
             result.append(valueNode.asText());
