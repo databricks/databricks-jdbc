@@ -26,7 +26,39 @@ import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
-/** This class contains the utility functions for configuring a client. */
+/**
+ * Utility class for configuring SSL/TLS for Databricks JDBC connections.
+ *
+ * <p>SSL/TLS Configuration Flow:
+ *
+ * <p>1. getBaseConnectionManager(IDatabricksConnectionContext connectionContext): - Entry point for
+ * HTTP client SSL configuration. - Determines if a custom trust store (SSLTrustStore), system trust
+ * store, or default JDK trust store should be used based on connectionContext parameters. - Handles
+ * test and self-signed certificate scenarios via allowSelfSignedCerts() and isJDBCTestEnv().
+ *
+ * <p>2. createConnectionSocketFactoryRegistry(IDatabricksConnectionContext connectionContext): -
+ * Chooses between createRegistryWithCustomTrustStore and
+ * createRegistryWithSystemOrDefaultTrustStore based on the presence of SSLTrustStore in the
+ * connection context.
+ *
+ * <p>3. Trust Store Handling: - loadTruststoreOrNull(): Loads the trust store from the path
+ * specified by connectionContext.getSSLTrustStore(). If the path is null, a debug log is emitted
+ * and null is returned. - If the trust store cannot be loaded or contains no trust anchors, an
+ * error is logged and a DatabricksHttpException is thrown.
+ *
+ * <p>4. Key Store Handling: - loadKeystoreOrNull(): Loads the client keystore from the path
+ * specified by connectionContext.getSSLKeyStore(). If the path is null, a debug log is emitted and
+ * null is returned. - If the keystore is present, it is used for client certificate authentication
+ * (mutual TLS). If not, a debug log is emitted and only server certificate validation is performed.
+ *
+ * <p>5. Socket Factory Registry Construction: - createRegistryFromTrustAnchors(): Builds the
+ * registry using trust anchors and, if available, key managers from the keystore. - Handles both
+ * one-way (server) and two-way (mutual) TLS authentication.
+ *
+ * <p>Key Parameters: - SSLTrustStore, SSLTrustStorePwd, SSLTrustStoreType: Custom trust store
+ * configuration - SSLKeyStore, SSLKeyStorePwd, SSLKeyStoreType: Client keystore for mutual TLS -
+ * AllowSelfSignedCerts, UseSystemTrustStore: Control trust strategy
+ */
 public class ConfiguratorUtils {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ConfiguratorUtils.class);
 
@@ -111,6 +143,7 @@ public class ConfiguratorUtils {
       if (trustStore == null) {
         String errorMessage =
             "Specified trust store could not be loaded: " + connectionContext.getSSLTrustStore();
+        LOGGER.debug("Trust store load failed: " + connectionContext.getSSLTrustStore());
         handleError(errorMessage, new IOException(errorMessage));
       }
 
@@ -287,7 +320,7 @@ public class ConfiguratorUtils {
 
         return createSocketFactoryRegistry(trustManagers, keyManagers);
       } else {
-        LOGGER.info("No client keystore configured, server certificate validation only");
+        LOGGER.debug("No keystore path specified in connection url");
         return createSocketFactoryRegistry(trustManagers);
       }
     } catch (Exception e) {
@@ -364,8 +397,8 @@ public class ConfiguratorUtils {
    *
    * @param trustAnchors The trust anchors to use.
    * @param checkCertificateRevocation Whether to check certificate revocation.
-   * @param acceptUndeterminedCertificateRevocation Whether to accept undetermined revocation
-   *     status.
+   * @param acceptUndeterminedCertificateRevocation Whether to accept undetermined certificate
+   *     revocation status.
    * @return An array of trust managers.
    * @throws NoSuchAlgorithmException If there is an error during trust manager creation.
    * @throws InvalidAlgorithmParameterException If there is an error during trust manager creation.
@@ -420,6 +453,7 @@ public class ConfiguratorUtils {
       throws DatabricksHttpException {
     String trustStorePath = connectionContext.getSSLTrustStore();
     if (trustStorePath == null) {
+      LOGGER.debug("No truststore path specified in connection url");
       return null;
     }
 
@@ -471,6 +505,7 @@ public class ConfiguratorUtils {
       throws DatabricksHttpException {
     String keyStorePath = connectionContext.getSSLKeyStore();
     if (keyStorePath == null) {
+      LOGGER.debug("No keystore path specified in connection context");
       return null;
     }
 
