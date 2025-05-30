@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
-- 
+- Added support for DoD (.mil) domains
 
 ### Updated
 - 
