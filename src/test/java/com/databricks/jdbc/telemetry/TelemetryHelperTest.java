@@ -1,7 +1,6 @@
 package com.databricks.jdbc.telemetry;
 
-import static com.databricks.jdbc.TestConstants.TEST_STRING;
-import static com.databricks.jdbc.TestConstants.WAREHOUSE_COMPUTE;
+import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.common.safe.FeatureFlagTestUtil.enableFeatureFlagForTesting;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.isTelemetryAllowedForConnection;
 import static org.junit.jupiter.api.Assertions.*;
@@ -67,7 +66,10 @@ public class TelemetryHelperTest {
     when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
     when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
     SqlExecutionEvent event = new SqlExecutionEvent().setDriverStatementType(StatementType.QUERY);
-    assertDoesNotThrow(() -> telemetryHelper.exportLatencyLog(connectionContext, 150, event, null));
+    assertDoesNotThrow(
+        () ->
+            telemetryHelper.exportLatencyLog(
+                connectionContext, 150, event, TEST_STATEMENT_ID, TEST_STATEMENT_ID.toString()));
   }
 
   @Test

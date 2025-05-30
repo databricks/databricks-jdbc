@@ -57,7 +57,6 @@ public class TelemetryHelper {
             .isFeatureEnabled(TELEMETRY_FEATURE_FLAG_NAME);
   }
 
-  // TODO : add an export even before connection context is built
   public static void exportInitialTelemetryLog(IDatabricksConnectionContext connectionContext) {
     if (connectionContext == null) {
       return;
@@ -116,7 +115,8 @@ public class TelemetryHelper {
         DatabricksThreadContextHolder.getConnectionContext(),
         executionTime,
         executionEvent,
-        DatabricksThreadContextHolder.getStatementId());
+        DatabricksThreadContextHolder.getStatementId(),
+        DatabricksThreadContextHolder.getSessionId());
   }
 
   @VisibleForTesting
@@ -124,7 +124,8 @@ public class TelemetryHelper {
       IDatabricksConnectionContext connectionContext,
       long latencyMilliseconds,
       SqlExecutionEvent executionEvent,
-      StatementId statementId) {
+      StatementId statementId,
+      String sessionId) {
     // Though we already handle null connectionContext in the downstream implementation,
     // we are adding this check for extra sanity
     if (connectionContext != null) {
@@ -132,10 +133,11 @@ public class TelemetryHelper {
           new TelemetryEvent()
               .setLatency(latencyMilliseconds)
               .setSqlOperation(executionEvent)
-              .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext));
-      if (statementId != null) {
-        telemetryEvent.setSqlStatementId(statementId.toString());
-      }
+              .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext))
+              .setSqlStatementId(
+                  statementId
+                      .toSQLExecStatementId()) // This is because only GUID is relevant for tracking
+              .setSessionId(sessionId);
       TelemetryFrontendLog telemetryFrontendLog =
           new TelemetryFrontendLog()
               .setFrontendLogEventId(getEventUUID())

@@ -128,6 +128,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     }
+    DatabricksThreadContextHolder.setSessionId(createSessionResponse.getSessionId());
     return ImmutableSessionInfo.builder()
         .computeResource(warehouse)
         .sessionId(createSessionResponse.getSessionId())
@@ -137,6 +138,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   @Override
   public void deleteSession(ImmutableSessionInfo sessionInfo) throws DatabricksSQLException {
     LOGGER.debug("public void deleteSession(String sessionId = {})", sessionInfo.sessionId());
+    DatabricksThreadContextHolder.setSessionId(sessionInfo.sessionId());
     DeleteSessionRequest request =
         new DeleteSessionRequest()
             .setSessionId(sessionInfo.sessionId())
@@ -164,11 +166,14 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
     LOGGER.debug(
-        "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session)",
+        "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session = {}, parentStatement = {})",
         sql,
         computeResource.toString(),
         parameters,
-        statementType);
+        statementType,
+        session,
+        parentStatement);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
     DatabricksThreadContextHolder.setStatementType(statementType);
@@ -207,6 +212,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         computeResource,
         statementId);
     StatementId typedStatementId = new StatementId(statementId);
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
     if (parentStatement != null) {
       parentStatement.setStatementId(typedStatementId);
     }
@@ -279,9 +285,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
     LOGGER.debug(
-        "public DatabricksResultSet executeStatementAsync(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session)",
+        "public DatabricksResultSet executeStatementAsync(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session = {}, IDatabricksStatementInternal parentStatement = {})",
         sql,
-        computeResource.toString());
+        computeResource.toString(),
+        session,
+        parentStatement);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     ExecuteStatementRequest request =
         getRequest(
             StatementType.SQL,
@@ -307,6 +316,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       handleFailedExecution(response, "", sql);
     }
     StatementId typedStatementId = new StatementId(statementId);
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
     if (parentStatement != null) {
       parentStatement.setStatementId(typedStatementId);
     }
@@ -328,6 +338,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException {
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     String statementId = typedStatementId.toSQLExecStatementId();
     GetStatementRequest request = new GetStatementRequest().setStatementId(statementId);
     String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);
@@ -354,6 +366,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   @Override
   public void closeStatement(StatementId typedStatementId) throws DatabricksSQLException {
     String statementId = typedStatementId.toSQLExecStatementId();
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
     LOGGER.debug(String.format("public void closeStatement(String statementId = {})", statementId));
     CloseStatementRequest request = new CloseStatementRequest().setStatementId(statementId);
     String path = String.format(STATEMENT_PATH_WITH_ID, request.getStatementId());
@@ -371,6 +384,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   @Override
   public void cancelStatement(StatementId typedStatementId) throws DatabricksSQLException {
     String statementId = typedStatementId.toSQLExecStatementId();
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
     LOGGER.debug("public void cancelStatement(String statementId = {})", statementId);
     CancelStatementRequest request = new CancelStatementRequest().setStatementId(statementId);
     String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, request.getStatementId());
@@ -388,6 +402,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   @Override
   public Collection<ExternalLink> getResultChunks(StatementId typedStatementId, long chunkIndex)
       throws DatabricksSQLException {
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
     String statementId = typedStatementId.toSQLExecStatementId();
     LOGGER.debug(
         "public Optional<ExternalLink> getResultChunk(String statementId = {}, long chunkIndex = {})",

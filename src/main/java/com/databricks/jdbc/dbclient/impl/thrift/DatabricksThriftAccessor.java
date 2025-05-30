@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -221,6 +222,7 @@ final class DatabricksThriftAccessor {
       checkResponseForErrors(response);
 
       StatementId statementId = new StatementId(response.getOperationHandle().operationId);
+      DatabricksThreadContextHolder.setStatementId(statementId);
       if (parentStatement != null) {
         parentStatement.setStatementId(statementId);
       }
@@ -322,6 +324,7 @@ final class DatabricksThriftAccessor {
       }
     }
     StatementId statementId = new StatementId(response.getOperationHandle().operationId);
+    DatabricksThreadContextHolder.setStatementId(statementId);
     if (parentStatement != null) {
       parentStatement.setStatementId(statementId);
     }
