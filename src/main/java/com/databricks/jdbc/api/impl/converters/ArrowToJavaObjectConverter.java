@@ -125,6 +125,15 @@ public class ArrowToJavaObjectConverter {
           timeZone = Optional.of(((TimeStampMicroTZVector) columnVector).getTimeZone());
         }
         return convertToTimestamp(object, timeZone);
+      case INTERVAL:
+        if (arrowMetadata == null) {
+          String errorMessage =
+              String.format("Failed to read INTERVAL %s with null metadata.", object);
+          LOGGER.error(errorMessage);
+          throw new DatabricksValidationException(errorMessage);
+        }
+        IntervalConverter ic = new IntervalConverter(arrowMetadata);
+        return ic.toLiteral(object);
       case NULL:
         return null;
       default:

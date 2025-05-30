@@ -1,5 +1,18 @@
 # Version Changelog
 
+## [v1.0.6-oss] - 2025-05-29
+
+### Added
+- Support for fetching tables and views across all catalogs using SHOW TABLES FROM/IN ALL CATALOGS in the SQL Exec API.
+- Support for Token Exchange in OAuth flows where in third party tokens are exchanged for InHouse tokens.
+- Support for polling of statementStatus and sqlState for async SQL execution.
+- Support for REAL, NUMERIC, CHAR, and BIGINT JDBC types in `PreparedStatement.setObject` method
+
+### Fixed
+- Added explicit null check for Arrow value vector when the value is not set and Arrow null checking is disabled.
+
+---
+
 ## [v1.0.5-oss] - 2025-04-28
 
 ### Added

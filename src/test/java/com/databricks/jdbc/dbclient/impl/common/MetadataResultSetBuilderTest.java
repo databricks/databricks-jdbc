@@ -70,6 +70,8 @@ public class MetadataResultSetBuilderTest {
     assert metadataResultSetBuilder.getCode("SMALLINT") == 5;
     assert metadataResultSetBuilder.getCode("INTEGER") == 4;
     assert metadataResultSetBuilder.getCode("VARIANT") == 1111;
+    assert metadataResultSetBuilder.getCode("INTERVAL") == 12;
+    assert metadataResultSetBuilder.getCode("INTERVAL YEAR") == 12;
   }
 
   private static Stream<Arguments> provideSqlTypesAndExpectedSizes() {
@@ -103,7 +105,8 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("VARCHAR(50,30)", 50),
         Arguments.of("INT", 0),
         Arguments.of("VARCHAR()", 0),
-        Arguments.of("VARCHAR(abc)", 0));
+        Arguments.of("VARCHAR(abc)", 0),
+        Arguments.of("INTERVAL YEAR", 0));
   }
 
   private static Stream<Arguments> charOctetArgumentsVarchar() {

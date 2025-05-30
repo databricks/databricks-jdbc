@@ -31,7 +31,13 @@ public class DatabricksDriverPropertyUtil {
           DatabricksJdbcUrlParams.DIRECT_RESULT,
           DatabricksJdbcUrlParams.COMPRESSION_FLAG,
           DatabricksJdbcUrlParams.LZ4_COMPRESSION_FLAG,
-          DatabricksJdbcUrlParams.USER_AGENT_ENTRY);
+          DatabricksJdbcUrlParams.USER_AGENT_ENTRY,
+          DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS,
+          DatabricksJdbcUrlParams.ENABLE_COMPLEX_DATATYPE_SUPPORT,
+          DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK,
+          DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH,
+          DatabricksJdbcUrlParams.SOCKET_TIMEOUT,
+          DatabricksJdbcUrlParams.ENABLE_TOKEN_CACHE);
 
   public static List<DriverPropertyInfo> getMissingProperties(String url, Properties info)
       throws DatabricksParsingException {
@@ -85,6 +91,31 @@ public class DatabricksDriverPropertyUtil {
       addMissingProperty(missingPropertyInfos, connectionContext, LOG_FILE_COUNT, false);
     }
 
+    if (connectionContext.isPropertyPresent(SSL)) {
+      addMissingProperty(missingPropertyInfos, connectionContext, SSL_TRUST_STORE, false);
+      if (connectionContext.getSSLTrustStore() != null
+          && !connectionContext.getSSLTrustStore().isEmpty()) {
+        addMissingProperty(missingPropertyInfos, connectionContext, SSL_TRUST_STORE_TYPE, false);
+      }
+      addMissingProperty(missingPropertyInfos, connectionContext, USE_SYSTEM_TRUST_STORE, false);
+      addMissingProperty(missingPropertyInfos, connectionContext, ALLOW_SELF_SIGNED_CERTS, false);
+      addMissingProperty(
+          missingPropertyInfos, connectionContext, CHECK_CERTIFICATE_REVOCATION, false);
+      if (connectionContext.checkCertificateRevocation()) {
+        addMissingProperty(
+            missingPropertyInfos,
+            connectionContext,
+            ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION,
+            false);
+      } else if (!connectionContext.isPropertyPresent(CHECK_CERTIFICATE_REVOCATION)) {
+        addMissingProperty(
+            missingPropertyInfos,
+            connectionContext,
+            ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION,
+            false);
+      }
+    }
+
     // auth-related properties
     AuthMech authMech = connectionContext.getAuthMech();
     if (authMech == PAT) {
@@ -113,6 +144,8 @@ public class DatabricksDriverPropertyUtil {
                   missingPropertyInfos, connectionContext, GOOGLE_SERVICE_ACCOUNT, true);
               addMissingProperty(
                   missingPropertyInfos, connectionContext, GOOGLE_CREDENTIALS_FILE, true);
+            } else if (connectionContext.getCloud() == Cloud.AZURE) {
+              addMissingProperty(missingPropertyInfos, connectionContext, AZURE_TENANT_ID, false);
             }
             addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_SECRET, true);
             addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_ID, true);
@@ -134,6 +167,14 @@ public class DatabricksDriverPropertyUtil {
             addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_ID, false);
             addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_SECRET, false);
             addMissingProperty(missingPropertyInfos, connectionContext, AUTH_SCOPE, false);
+            addMissingProperty(
+                missingPropertyInfos, connectionContext, OAUTH_REDIRECT_URL_PORT, false);
+            addMissingProperty(missingPropertyInfos, connectionContext, ENABLE_TOKEN_CACHE, false);
+            if (connectionContext.isPropertyPresent(ENABLE_TOKEN_CACHE)
+                && connectionContext.isTokenCacheEnabled()) {
+              addMissingProperty(
+                  missingPropertyInfos, connectionContext, TOKEN_CACHE_PASS_PHRASE, true);
+            }
             break;
 
           case AZURE_MANAGED_IDENTITIES:

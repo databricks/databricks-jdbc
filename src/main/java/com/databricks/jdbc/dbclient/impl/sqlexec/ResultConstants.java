@@ -455,6 +455,26 @@ public class ResultConstants {
               Types.TIMESTAMP,
               3,
               null
+            },
+            {
+              "INTERVAL",
+              Types.VARCHAR,
+              40,
+              "'",
+              "'",
+              "Qualifier",
+              typeNullable,
+              false,
+              typeSearchable,
+              null,
+              false,
+              null,
+              "INTERVAL",
+              0,
+              6,
+              Types.VARCHAR,
+              null,
+              null
             }
           },
           StatementType.METADATA);
