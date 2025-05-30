@@ -472,6 +472,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     return resultSetMetaData;
   }
 
+  /**
+   * Checks if the given type name represents a complex type (ARRAY, MAP, or STRUCT).
+   *
+   * @param typeName The type name to check
+   * @return true if the type name starts with ARRAY, MAP, or STRUCT, false otherwise
+   */
+  private static boolean isComplexType(String typeName) {
+    return typeName.startsWith(ARRAY) || typeName.startsWith(MAP) || typeName.startsWith(STRUCT);
+  }
+
   @Override
   public Object getObject(int columnIndex) throws SQLException {
     checkIfClosed();
@@ -482,11 +492,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
     // separate handling for complex data types
-    if (columnTypeName.startsWith(ARRAY)
-        || columnTypeName.startsWith(MAP)
-        || columnTypeName.startsWith(STRUCT)) {
+    if (isComplexType(columnTypeName)) {
       return handleComplexDataTypes(obj, columnTypeName);
     }
+    // TODO: Add separate handling for INTERVAL JSON_ARRAY result format.
     return ConverterHelper.convertSqlTypeToJavaType(columnType, obj);
   }
 
@@ -847,6 +856,57 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   @Override
+  public void updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    LOGGER.debug(
+        "public void updateObject(int columnIndex = {}, Object x = {}, SQLType targetSqlType = {}, int scaleOrLength = {})",
+        columnIndex,
+        x,
+        targetSqlType,
+        scaleOrLength);
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength)");
+  }
+
+  @Override
+  public void updateObject(String columnLabel, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    LOGGER.debug(
+        "public void updateObject(String columnLabel = {}, Object x = {}, SQLType targetSqlType = {}, int scaleOrLength = {})",
+        columnLabel,
+        x,
+        targetSqlType,
+        scaleOrLength);
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject(String columnLabel, Object x, SQLType targetSqlType, int scaleOrLength)");
+  }
+
+  public void updateObject(int columnIndex, Object x, SQLType targetSqlType) throws SQLException {
+    LOGGER.debug(
+        "public void updateObject(int columnIndex = {}, Object x = {}, SQLType targetSqlType = {})",
+        columnIndex,
+        x,
+        targetSqlType);
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject(int columnIndex, Object x, SQLType targetSqlType)");
+  }
+
+  public void updateObject(String columnLabel, Object x, SQLType targetSqlType)
+      throws SQLException {
+    LOGGER.debug(
+        "public void updateObject(String columnLabel = {}, Object x = {}, SQLType targetSqlType = {})",
+        columnLabel,
+        x,
+        targetSqlType);
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject(String columnLabel, Object x, SQLType targetSqlType)");
+  }
+
+  @Override
   public void updateNull(String columnLabel) throws SQLException {
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
@@ -1099,11 +1159,18 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Array getArray(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Array from column index: {}", columnIndex);
     if (!complexDatatypeSupport) {
-      throw new SQLException("Complex datatype support support is disabled");
+      LOGGER.error(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
+      throw new DatabricksSQLException(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
-      throw new SQLException("Complex data types are not supported in inline mode");
+      LOGGER.error("Complex data types are not supported in inline mode");
+      throw new DatabricksSQLException(
+          "Complex data types are not supported in inline mode",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
     }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
@@ -1122,11 +1189,18 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Struct getStruct(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Struct from column index: {}", columnIndex);
     if (!complexDatatypeSupport) {
-      throw new SQLException("Complex datatype support support is disabled");
+      LOGGER.error(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
+      throw new DatabricksSQLException(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR);
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
-      throw new SQLException("Complex data types are not supported in inline mode");
+      LOGGER.error("Complex data types are not supported in inline mode");
+      throw new DatabricksSQLException(
+          "Complex data types are not supported in inline mode",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR);
     }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
@@ -1145,11 +1219,18 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public Map getMap(int columnIndex) throws SQLException {
     LOGGER.debug("Getting Map from column index: {}", columnIndex);
     if (!complexDatatypeSupport) {
-      throw new SQLException("Complex datatype support support is disabled");
+      LOGGER.error(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
+      throw new DatabricksSQLException(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
-      throw new SQLException("Complex data types are not supported in inline mode");
+      LOGGER.error("Complex data types are not supported in inline mode");
+      throw new DatabricksSQLException(
+          "Complex data types are not supported in inline mode",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
     }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);

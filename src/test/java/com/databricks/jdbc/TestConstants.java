@@ -226,7 +226,7 @@ public class TestConstants {
           + "OAuth2AuthorizationEndPoint=authEndpoint;OAuth2TokenEndpoint=tokenEndpoint;"
           + "OAuthDiscoveryURL=testDiscovery;discovery_mode=1;UseJWTAssertion=1;auth_scope=test_scope;"
           + "auth_kid=test_kid;Auth_JWT_Key_Passphrase=test_phrase;Auth_JWT_Key_File=test_key_file;"
-          + "Auth_JWT_Alg=test_algo";
+          + "Auth_JWT_Alg=test_algo;enableTelemetry=1";
 
   public static final String VALID_URL_WITH_INVALID_COMPRESSION_TYPE =
       "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;ssl=1;AuthMech=3;"
@@ -272,7 +272,7 @@ public class TestConstants {
           + "httpPath=/sql/1.0/warehouses/9999999999999999;UseSystemProxy=1;UseProxy=1;ProxyHost=127.0.0.1;"
           + "ProxyPort=8080;ProxyAuth=1;ProxyUID=proxyUser;ProxyPwd=proxyPassword;UseCFProxy=1;"
           + "CFProxyHost=127.0.1.2;CFProxyPort=8081;CFProxyAuth=2;CFProxyUID=cfProxyUser;"
-          + "CFProxyPwd=cfProxyPassword;";
+          + "CFProxyPwd=cfProxyPassword;enableTelemetry=1";
 
   public static final String VALID_URL_POLLING =
       "jdbc:databricks://sample-host.cloud.databricks.com:9999;ssl=1;asyncexecpollinterval=500;"

@@ -732,6 +732,26 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public String getSSLKeyStore() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_KEY_STORE);
+  }
+
+  @Override
+  public String getSSLKeyStorePassword() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_KEY_STORE_PASSWORD);
+  }
+
+  @Override
+  public String getSSLKeyStoreType() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_KEY_STORE_TYPE);
+  }
+
+  @Override
+  public String getSSLKeyStoreProvider() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_KEY_STORE_PROVIDER);
+  }
+
+  @Override
   public int getMaxBatchSize() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.MAX_BATCH_SIZE));
   }

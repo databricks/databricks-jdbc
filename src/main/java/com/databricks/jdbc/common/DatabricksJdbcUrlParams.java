@@ -38,7 +38,6 @@ public enum DatabricksJdbcUrlParams {
   POLL_INTERVAL("asyncexecpollinterval", "Async execution poll interval", "200"),
   HTTP_PATH("httppath", "HTTP path", true),
   HTTP_HEADERS("http.header.", "Custom HTTP headers"),
-  SSL("ssl", "Use SSL"),
   USE_THRIFT_CLIENT("usethriftclient", "Use Thrift client", "1"),
   RATE_LIMIT_RETRY_TIMEOUT("RateLimitRetryTimeout", "Rate limit retry timeout", "120"),
   JWT_KEY_FILE("Auth_JWT_Key_File", "JWT key file"),
@@ -73,9 +72,16 @@ public enum DatabricksJdbcUrlParams {
       "OAuth2AuthorizationEndPoint", "OAuth2 authorization endpoint"), // Same as OAUTH_ENDPOINT
   OAUTH_TOKEN_ENDPOINT("OAuth2ConnAuthTokenEndpoint", "OAuth2 token endpoint"),
   TOKEN_ENDPOINT("OAuth2TokenEndpoint", "OAuth2 token endpoint"), // Same as OAUTH_TOKEN_ENDPOINT
+  SSL("ssl", "Use SSL"),
+  ALLOW_SELF_SIGNED_CERTS("AllowSelfSignedCerts", "Allow self signed certificates", "0"),
   SSL_TRUST_STORE("SSLTrustStore", "SSL trust store"),
   SSL_TRUST_STORE_PASSWORD("SSLTrustStorePwd", "SSL trust store password"),
   SSL_TRUST_STORE_TYPE("SSLTrustStoreType", "SSL trust store type", "JKS"),
+  SSL_KEY_STORE("SSLKeyStore", "SSL key store"),
+  SSL_KEY_STORE_PASSWORD("SSLKeyStorePwd", "SSL key store password"),
+  SSL_KEY_STORE_TYPE("SSLKeyStoreType", "SSL key store type", "JKS"),
+  SSL_KEY_STORE_PROVIDER("SSLKeyStoreProvider", "SSL key store provider"),
+  USE_SYSTEM_TRUST_STORE("UseSystemTrustStore", "Use system trust store for SSL", "0"),
   CHECK_CERTIFICATE_REVOCATION("CheckCertRevocation", "Check certificate revocation", "1"),
   ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION(
       "AcceptUndeterminedRevocation", "Accept undetermined revocation", "0"),
@@ -108,9 +114,6 @@ public enum DatabricksJdbcUrlParams {
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",
       "0"),
-  ALLOW_SELF_SIGNED_CERTS("AllowSelfSignedCerts", "Allow self signed certificates", "0"),
-
-  USE_SYSTEM_TRUST_STORE("UseSystemTrustStore", "Use system trust store for SSL", "0"),
   ROWS_FETCHED_PER_BLOCK(
       "RowsFetchedPerBlock",
       "The maximum number of rows that a query returns at a time.",

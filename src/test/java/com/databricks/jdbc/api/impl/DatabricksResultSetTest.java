@@ -22,6 +22,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.StatementStatus;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.ServiceError;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.*;
@@ -905,6 +906,18 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateObject(1, new Object(), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateObject(1, new Object(), JDBCType.INTEGER, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateObject("column", new Object(), JDBCType.INTEGER, 1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateObject(1, new Object(), JDBCType.INTEGER));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> resultSet.updateObject("column", new Object(), JDBCType.INTEGER));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateAsciiStream(1, null, 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
@@ -1192,5 +1205,47 @@ public class DatabricksResultSetTest {
     // Make sure wasNull returns true after getting a null value
     resultSet.getString(1);
     assertTrue(resultSet.wasNull());
+  }
+
+  @Test
+  void testIsComplexTypeThrowsExceptionWhenComplexDatatypeSupportIsDisabled() throws SQLException {
+    // Create a ResultSet with complex datatype support disabled
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+
+    // Test that getArray throws an exception when complex datatype support is disabled
+    DatabricksSQLException arrayException =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getArray(1));
+    assertTrue(
+        arrayException
+            .getMessage()
+            .contains(
+                "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it."));
+    assertEquals(
+        DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR.name(),
+        arrayException.getSQLState());
+
+    // Test that getMap throws an exception when complex datatype support is disabled
+    DatabricksSQLException mapException =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getMap(1));
+    assertTrue(
+        mapException
+            .getMessage()
+            .contains(
+                "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it."));
+    assertEquals(
+        DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR.name(),
+        mapException.getSQLState());
+
+    // Test that getStruct throws an exception when complex datatype support is disabled
+    DatabricksSQLException structException =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getStruct(1));
+    assertTrue(
+        structException
+            .getMessage()
+            .contains(
+                "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it."));
+    assertEquals(
+        DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR.name(),
+        structException.getSQLState());
   }
 }

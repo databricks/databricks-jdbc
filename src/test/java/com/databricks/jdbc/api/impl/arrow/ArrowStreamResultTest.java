@@ -209,6 +209,20 @@ public class ArrowStreamResultTest {
     assertInstanceOf(Double.class, objectInSecondColumn);
   }
 
+  @Test
+  public void testComplexTypeHandling() {
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.ARRAY));
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.MAP));
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.STRUCT));
+
+    // Non-complex types should return false
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.INT));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.STRING));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.DOUBLE));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.BOOLEAN));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.TIMESTAMP));
+  }
+
   private List<ExternalLink> getChunkLinks(long chunkIndex, boolean isLast) {
     List<ExternalLink> chunkLinks = new ArrayList<>();
     ExternalLink chunkLink =

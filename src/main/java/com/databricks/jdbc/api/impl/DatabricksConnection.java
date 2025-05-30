@@ -8,7 +8,9 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.common.util.ValidationUtil;
@@ -61,8 +63,6 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void open() throws DatabricksSQLException {
     this.session.open();
-    DatabricksThreadContextHolder.setDatabricksConfig(
-        this.session.getDatabricksClient().getDatabricksConfig());
   }
 
   @Override
@@ -153,8 +153,10 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       statementSet.remove(statement);
     }
     this.session.close();
-    TelemetryClientFactory.getInstance().closeTelemetryClient(this.session.getConnectionContext());
-    DatabricksHttpClientFactory.getInstance().removeClient(this.session.getConnectionContext());
+    TelemetryClientFactory.getInstance().closeTelemetryClient(connectionContext);
+    DatabricksHttpClientFactory.getInstance().removeClient(connectionContext);
+    DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext);
+    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
     DatabricksThreadContextHolder.clearAllContext();
   }
 
@@ -591,6 +593,61 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   public void closeStatement(IDatabricksStatement statement) {
     LOGGER.debug("public void closeStatement(IDatabricksStatement statement)");
     this.statementSet.remove(statement);
+  }
+
+  @Override
+  public void beginRequest() {
+    LOGGER.debug("public void beginRequest()");
+    LOGGER.warn("public void beginRequest() is a no-op method");
+  }
+
+  @Override
+  public void endRequest() {
+    LOGGER.debug("public void endRequest()");
+    LOGGER.warn("public void endRequest() is a no-op method");
+  }
+
+  @Override
+  public boolean setShardingKeyIfValid(
+      ShardingKey shardingKey, ShardingKey superShardingKey, int timeout)
+      throws DatabricksSQLFeatureNotImplementedException {
+    LOGGER.debug(
+        "public boolean setShardingKeyIfValid(ShardingKey shardingKey = {},ShardingKey superShardingKey = {}, int timeout = {})",
+        shardingKey,
+        superShardingKey,
+        timeout);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Not implemented in DatabricksConnection - setShardingKeyIfValid(ShardingKey shardingKey, ShardingKey superShardingKey, int timeout)");
+  }
+
+  @Override
+  public boolean setShardingKeyIfValid(ShardingKey shardingKey, int timeout)
+      throws DatabricksSQLFeatureNotImplementedException {
+    LOGGER.debug(
+        "public boolean setShardingKeyIfValid(ShardingKey shardingKey = {}, int timeout = {})",
+        shardingKey,
+        timeout);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Not implemented in DatabricksConnection - setShardingKeyIfValid(ShardingKey shardingKey, int timeout)");
+  }
+
+  @Override
+  public void setShardingKey(ShardingKey shardingKey, ShardingKey superShardingKey)
+      throws DatabricksSQLFeatureNotImplementedException {
+    LOGGER.debug(
+        "public void setShardingKey(ShardingKey shardingKey = {}, ShardingKey superShardingKey = {})",
+        shardingKey,
+        superShardingKey);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Not implemented in DatabricksConnection - setShardingKey(ShardingKey shardingKey, ShardingKey superShardingKey)");
+  }
+
+  @Override
+  public void setShardingKey(ShardingKey shardingKey)
+      throws DatabricksSQLFeatureNotImplementedException {
+    LOGGER.debug("public void setShardingKey(ShardingKey shardingKey = {})", shardingKey);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Not implemented in DatabricksConnection - setShardingKey(ShardingKey shardingKey)");
   }
 
   @Override

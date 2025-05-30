@@ -8,15 +8,14 @@ import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -59,8 +58,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     this.allowedVolumeIngestionPaths = "";
   }
 
-  public DBFSVolumeClient(IDatabricksConnectionContext connectionContext)
-      throws DatabricksHttpException {
+  public DBFSVolumeClient(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
     this.workspaceClient = getWorkspaceClientFromConnectionContext(connectionContext);
     this.apiClient = workspaceClient.apiClient();
@@ -394,10 +392,10 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   }
 
   WorkspaceClient getWorkspaceClientFromConnectionContext(
-      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
-    ClientConfigurator clientConfigurator = new ClientConfigurator(connectionContext);
-    DatabricksThreadContextHolder.setDatabricksConfig(clientConfigurator.getDatabricksConfig());
-    return clientConfigurator.getWorkspaceClient();
+      IDatabricksConnectionContext connectionContext) {
+    return DatabricksClientConfiguratorManager.getInstance()
+        .getConfigurator(connectionContext)
+        .getWorkspaceClient();
   }
 
   /** Fetches the pre signed url for uploading to the volume using the SQL Exec API */

@@ -567,4 +567,29 @@ class DatabricksConnectionContextTest {
     assertTrue(connectionContext.isTokenCacheEnabled());
     assertEquals("proppass", connectionContext.getTokenCachePassPhrase());
   }
+
+  @Test
+  public void testSSLKeystoreParameters() throws DatabricksSQLException {
+    // Test case 1: Default settings (all null)
+    String validJdbcUrl = TestConstants.VALID_URL_1;
+    Properties properties = new Properties();
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
+    assertNull(connectionContext.getSSLKeyStore());
+    assertNull(connectionContext.getSSLKeyStorePassword());
+    assertEquals("JKS", connectionContext.getSSLKeyStoreType());
+    assertNull(connectionContext.getSSLKeyStoreProvider());
+
+    // Test case 2: With keystore parameters
+    properties.put("SSLKeyStore", "/path/to/keystore.jks");
+    properties.put("SSLKeyStorePwd", "keystorepassword");
+    properties.put("SSLKeyStoreType", "PKCS12");
+    properties.put("SSLKeyStoreProvider", "SunJSSE");
+    connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
+    assertEquals("/path/to/keystore.jks", connectionContext.getSSLKeyStore());
+    assertEquals("keystorepassword", connectionContext.getSSLKeyStorePassword());
+    assertEquals("PKCS12", connectionContext.getSSLKeyStoreType());
+    assertEquals("SunJSSE", connectionContext.getSSLKeyStoreProvider());
+  }
 }
