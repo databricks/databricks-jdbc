@@ -246,6 +246,25 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testGetMetaData_NoResultSet_NonSelectQuery_ReturnNull() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+    // Setting to execute a batch of 4 statements
+    for (int i = 1; i <= 4; i++) {
+      statement.setLong(1, 100);
+      statement.setShort(2, (short) 10);
+      statement.setByte(3, (byte) 15);
+      statement.setString(4, "value");
+      statement.addBatch();
+    }
+
+    assertNull(statement.getMetaData());
+  }
+
+  @Test
   public void testExecuteBatchStatementThrowsError() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());

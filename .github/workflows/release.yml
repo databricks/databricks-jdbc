@@ -30,7 +30,7 @@ jobs:
           gpg-passphrase: GPG_PASSPHRASE
 
       - name: Publish to the Maven Central Repository
-        run: mvn -Prelease --batch-mode deploy
+        run: mvn -Prelease --batch-mode deploy -Dnvd.api.key=${{ secrets.NVD_API_KEY }}
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}

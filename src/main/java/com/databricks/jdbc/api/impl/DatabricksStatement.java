@@ -34,7 +34,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private final ExecutorService executor = MoreExecutors.newDirectExecutorService();
 
   private int timeoutInSeconds;
-  private final DatabricksConnection connection;
+  protected final DatabricksConnection connection;
   DatabricksResultSet resultSet;
   private StatementId statementId;
   private boolean isClosed;
@@ -641,8 +641,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     return IDatabricksStatement.super.isSimpleIdentifier(identifier);
   }
 
-  @VisibleForTesting
-  static boolean shouldReturnResultSet(String query) {
+  static String trimCommentsAndWhitespaces(String query) {
     if (query == null || query.trim().isEmpty()) {
       throw new DatabricksDriverException(
           "Query cannot be null or empty", DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
@@ -652,6 +651,13 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     String trimmedQuery = query.trim().replaceAll("(?m)--.*$", "");
     trimmedQuery = trimmedQuery.replaceAll("/\\*.*?\\*/", "");
     trimmedQuery = trimmedQuery.replaceAll("\\s+", " ").trim();
+
+    return trimmedQuery;
+  }
+
+  @VisibleForTesting
+  static boolean shouldReturnResultSet(String query) {
+    String trimmedQuery = trimCommentsAndWhitespaces(query);
 
     // Check if the query matches any of the patterns that return a ResultSet
     return SELECT_PATTERN.matcher(trimmedQuery).find()
@@ -673,6 +679,11 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         || LIST_PATTERN.matcher(trimmedQuery).find();
 
     // Otherwise, it should not return a ResultSet
+  }
+
+  static boolean isSelectQuery(String query) {
+    String trimmedQuery = trimCommentsAndWhitespaces(query);
+    return SELECT_PATTERN.matcher(trimmedQuery).find();
   }
 
   DatabricksResultSet executeInternal(

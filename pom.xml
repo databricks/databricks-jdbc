@@ -372,6 +372,9 @@
               This helps us identify and address significant security risks early in the development process.
            -->
           <failBuildOnCVSS>7</failBuildOnCVSS>
+          <nvdApiKey>${nvd.api.key}</nvdApiKey>
+          <nvdMaxRetryCount>10</nvdMaxRetryCount>
+          <nvdApiDelay>4000</nvdApiDelay>
         </configuration>
         <executions>
           <execution>
