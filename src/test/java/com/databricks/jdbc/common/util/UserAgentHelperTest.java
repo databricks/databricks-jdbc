@@ -6,10 +6,14 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.UserAgent;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -35,37 +39,48 @@ public class UserAgentHelperTest {
     userAgentMock.close();
   }
 
-  @Test
-  public void testDetermineApplicationName_WithUserAgentEntry() {
-    // When useragententry is set
-    when(connectionContext.getCustomerUserAgent()).thenReturn("MyUserAgent");
-
-    String result =
-        UserAgentHelper.determineApplicationName(connectionContext, "AlsoShouldNotUseThis");
-
-    assertEquals("MyUserAgent", result);
+  private static Stream<Arguments> provideApplicationNameTestCases() {
+    return Stream.of(
+        // Test case 1: UserAgentEntry takes precedence
+        Arguments.of(
+            "MyUserAgent",
+            "AppNameValue",
+            "ClientInfoApp",
+            "MyUserAgent",
+            "When useragententry is set"),
+        // Test case 2: ApplicationName is used when UserAgentEntry is null
+        Arguments.of(
+            null,
+            "AppNameValue",
+            "ClientInfoApp",
+            "AppNameValue",
+            "When useragententry is not set but applicationname is"),
+        // Test case 3: ClientInfo is used when both UserAgentEntry and ApplicationName are null
+        Arguments.of(
+            null,
+            null, // applicationName
+            "ClientInfoApp",
+            "ClientInfoApp",
+            "When URL params are not set but client info is provided"));
   }
 
-  @Test
-  public void testDetermineApplicationName_WithApplicationName() {
-    // When useragententry is not set but applicationname is
-    when(connectionContext.getCustomerUserAgent()).thenReturn(null);
-    when(connectionContext.getApplicationName()).thenReturn("AppNameValue");
+  @ParameterizedTest(name = "{4}")
+  @MethodSource("provideApplicationNameTestCases")
+  public void testDetermineApplicationName(
+      String customerUserAgent,
+      String applicationName,
+      String clientInfoApp,
+      String expectedResult,
+      String testDescription) {
+    // Setup only necessary stubs
+    Mockito.lenient().when(connectionContext.getCustomerUserAgent()).thenReturn(customerUserAgent);
+    Mockito.lenient().when(connectionContext.getApplicationName()).thenReturn(applicationName);
 
-    String result = UserAgentHelper.determineApplicationName(connectionContext, "ShouldNotUseThis");
+    // Execute
+    String result = UserAgentHelper.determineApplicationName(connectionContext, clientInfoApp);
 
-    assertEquals("AppNameValue", result);
-  }
-
-  @Test
-  public void testDetermineApplicationName_WithClientInfo() {
-    // When URL params are not set but client info is provided
-    when(connectionContext.getCustomerUserAgent()).thenReturn(null);
-    when(connectionContext.getApplicationName()).thenReturn(null);
-
-    String result = UserAgentHelper.determineApplicationName(connectionContext, "ClientInfoApp");
-
-    assertEquals("ClientInfoApp", result);
+    // Verify
+    assertEquals(expectedResult, result);
   }
 
   @Test
