@@ -7,6 +7,7 @@
 - Support for Token Exchange in OAuth flows where in third party tokens are exchanged for InHouse tokens.
 - Support for polling of statementStatus and sqlState for async SQL execution.
 - Support for REAL, NUMERIC, CHAR, and BIGINT JDBC types in `PreparedStatement.setObject` method
+- Support for INTERVAL data type.
 
 ### Fixed
 - Added explicit null check for Arrow value vector when the value is not set and Arrow null checking is disabled.

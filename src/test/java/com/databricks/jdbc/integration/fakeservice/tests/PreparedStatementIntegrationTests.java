@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
 import java.math.BigDecimal;
@@ -128,6 +129,65 @@ public class PreparedStatementIntegrationTests extends AbstractFakeServiceIntegr
     }
 
     verifyInsertedData(tableName, 6, null, "value1");
+    deleteTable(connection, tableName);
+  }
+
+  @Test
+  public void testGetMetaData_NoResultSet() throws Exception {
+    String tableName = "prepared_statement_all_data_types_test_table";
+
+    String dropSQL = "DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName);
+    executeSQL(connection, dropSQL);
+
+    String createSQL =
+        "CREATE TABLE "
+            + getFullyQualifiedTableName(tableName)
+            + " (id INT,\n"
+            + "    name STRING,\n"
+            + "    age INT,\n"
+            + "    salary DECIMAL(10, 2),\n"
+            + "    birth_date DATE,\n"
+            + "    registration_timestamp TIMESTAMP,\n"
+            + "    registration_timestamp_ntz TIMESTAMP_NTZ,\n"
+            + "    is_active BOOLEAN,\n"
+            + "    data BINARY,\n"
+            + "    scores ARRAY<INT>,\n"
+            + "    properties MAP<STRING, STRING>,\n"
+            + "    address STRUCT<street: STRING, city: STRING, zip: INT>,\n"
+            + "    variant_col variant)";
+    setupDatabaseTable(connection, tableName, createSQL);
+
+    String selectSQL = "SELECT * FROM " + getFullyQualifiedTableName(tableName);
+
+    PreparedStatement preparedStatement = connection.prepareStatement(selectSQL);
+
+    MetadataResultSetBuilder metadataResultSetBuilder = new MetadataResultSetBuilder(null);
+
+    // MetaData without executing the query
+    ResultSetMetaData resultSetMetaData = preparedStatement.getMetaData();
+
+    // Metadata after executing the query
+    preparedStatement.executeQuery();
+    ResultSetMetaData expectedMetaData = preparedStatement.getMetaData();
+
+    assertEquals(expectedMetaData.getColumnCount(), resultSetMetaData.getColumnCount());
+    for (int i = 1; i <= resultSetMetaData.getColumnCount(); i++) {
+      assertEquals(expectedMetaData.getColumnName(i), resultSetMetaData.getColumnName(i));
+
+      if (expectedMetaData.getColumnName(i).equals("variant_col")) {
+        // Skip type comparison for variant_col as it differs between SEA and Thrift
+        // SEA treats VARIANT as TypeName  - VARIANT and Type as Types.OTHER (1111)
+        // Thrift treats VARIANT as TypeName - STRING and Type as Types.VARCHAR (12)
+      } else {
+        assertEquals(expectedMetaData.getColumnType(i), resultSetMetaData.getColumnType(i));
+        // Striping base type name as SEA returns ARRAY<INT> and Thrift returns ARRAY
+        assertEquals(
+            metadataResultSetBuilder.stripBaseTypeName(expectedMetaData.getColumnTypeName(i)),
+            resultSetMetaData.getColumnTypeName(i));
+      }
+      assertEquals(expectedMetaData.getPrecision(i), resultSetMetaData.getPrecision(i));
+      assertEquals(expectedMetaData.getScale(i), resultSetMetaData.getScale(i));
+    }
     deleteTable(connection, tableName);
   }
 

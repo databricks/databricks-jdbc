@@ -133,6 +133,25 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("INTEGER(10,5)", "INTEGER"));
   }
 
+  private static Stream<Arguments> stripBaseTypeNameArguments() {
+    return Stream.of(
+        Arguments.of("VARCHAR(100)", "VARCHAR"),
+        Arguments.of("VARCHAR", "VARCHAR"),
+        Arguments.of("CHAR(255)", "CHAR"),
+        Arguments.of("TEXT", "TEXT"),
+        Arguments.of("VARCHAR(", "VARCHAR"),
+        Arguments.of("VARCHAR(100,200)", "VARCHAR"),
+        Arguments.of("CHAR(123)", "CHAR"),
+        Arguments.of("ARRAY<DOUBLE>", "ARRAY"),
+        Arguments.of("MAP<STRING,ARRAY<INT>>", "MAP"),
+        Arguments.of("STRUCT<A:INT,B:STRING>", "STRUCT"),
+        Arguments.of("ARRAY<DOUBLE>(100)", "ARRAY"),
+        Arguments.of("MAP<STRING,INT>(50)", "MAP"),
+        Arguments.of(null, null),
+        Arguments.of("", ""),
+        Arguments.of("INTEGER(10,5)", "INTEGER"));
+  }
+
   private static Stream<Arguments> getBufferLengthArguments() {
     return Stream.of(
         // Null or empty typeVal
@@ -379,6 +398,13 @@ public class MetadataResultSetBuilderTest {
   @MethodSource("stripTypeNameArguments")
   public void testStripTypeName(String input, String expected) {
     String actual = metadataResultSetBuilder.stripTypeName(input);
+    assertEquals(expected, actual);
+  }
+
+  @ParameterizedTest
+  @MethodSource("stripBaseTypeNameArguments")
+  public void testStripBaseTypeName(String input, String expected) {
+    String actual = metadataResultSetBuilder.stripBaseTypeName(input);
     assertEquals(expected, actual);
   }
 

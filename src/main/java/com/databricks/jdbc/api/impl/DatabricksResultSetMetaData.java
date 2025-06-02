@@ -30,9 +30,13 @@ import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
@@ -376,6 +380,82 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.isCloudFetchUsed = false;
   }
 
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for metadata result set obtained from
+   * DESCRIBE QUERY Works for both SEA and Thrift flows as result set obtained from DESCRIBE QUERY
+   * is already parsed.
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param columnNames names of each column
+   * @param columnDataTypes types of each column
+   * @param ctx connection context
+   */
+  public DatabricksResultSetMetaData(
+      StatementId statementId,
+      List<String> columnNames,
+      List<String> columnDataTypes,
+      IDatabricksConnectionContext ctx) {
+    this.ctx = ctx;
+    ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
+    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
+    MetadataResultSetBuilder metadataResultSetBuilder = new MetadataResultSetBuilder(ctx);
+
+    // Capitalize all the columnDataTypes
+    columnDataTypes =
+        columnDataTypes.stream()
+            .map(String::toUpperCase)
+            .collect(Collectors.toCollection(ArrayList::new));
+
+    for (int i = 0; i < columnNames.size(); i++) {
+      String columnName = columnNames.get(i);
+      String columnTypeText = columnDataTypes.get(i);
+
+      ColumnInfoTypeName columnTypeName;
+      if (columnTypeText.equalsIgnoreCase(TIMESTAMP_NTZ)) {
+        columnTypeName = ColumnInfoTypeName.TIMESTAMP;
+        columnTypeText = TIMESTAMP;
+      } else if (columnTypeText.equalsIgnoreCase(VARIANT)) {
+        columnTypeName = ColumnInfoTypeName.STRING;
+        columnTypeText = VARIANT;
+      } else {
+        columnTypeName =
+            ColumnInfoTypeName.valueOf(metadataResultSetBuilder.stripBaseTypeName(columnTypeText));
+      }
+
+      int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
+      int[] precisionAndScale = getPrecisionAndScale(columnTypeText, columnType);
+      int precision = precisionAndScale[0];
+      int scale = precisionAndScale[1];
+
+      ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+      columnBuilder
+          .columnName(columnName)
+          .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
+          .columnType(columnType)
+          .columnTypeText(
+              metadataResultSetBuilder.stripBaseTypeName(
+                  columnTypeText)) // store base type eg. DECIMAL instead of DECIMAL(7,2), ARRAY
+          // instead of ARRAY<STRING>
+          .typePrecision(precision)
+          .typeScale(scale)
+          .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
+          .isSearchable(true) // set all columns to be searchable in execute query result set
+          .schemaName(
+              null) // set schema and table name to null, as server do not return these fields.
+          .tableName(null)
+          .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+      columnsBuilder.add(columnBuilder.build());
+      // Keep index starting from 1, to be consistent with JDBC convention
+      columnNameToIndexMap.putIfAbsent(columnName, i + 1);
+    }
+    this.statementId = statementId;
+    this.isCloudFetchUsed = false;
+    this.totalRows = -1;
+    this.columns = columnsBuilder.build();
+    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
+    ;
+  }
+
   @Override
   public int getColumnCount() throws SQLException {
     return columns.size();
@@ -525,6 +605,18 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   public Long getChunkCount() {
     return chunkCount;
+  }
+
+  public int[] getPrecisionAndScale(String columnTypeText, int columnType) {
+    int[] result = getBasePrecisionAndScale(columnType, ctx);
+    Pattern pattern = Pattern.compile("decimal\\((\\d+),\\s*(\\d+)\\)", Pattern.CASE_INSENSITIVE);
+    Matcher matcher = pattern.matcher(columnTypeText);
+
+    if (matcher.matches()) {
+      result[0] = Integer.parseInt(matcher.group(1));
+      result[1] = Integer.parseInt(matcher.group(2));
+    }
+    return result;
   }
 
   public int[] getPrecisionAndScale(ColumnInfo columnInfo, int columnType) {

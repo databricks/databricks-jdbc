@@ -608,6 +608,16 @@ public class DatabricksStatementTest {
     assertTrue(DatabricksStatement.shouldReturnResultSet(query));
   }
 
+  @Test
+  public void testIsSelectQuery() {
+    String query =
+        "-- Single-line comment\n/* Multi-line comment */ SELECT * FROM table; /* Another comment */ -- End comment";
+    assertTrue(DatabricksStatement.isSelectQuery(query));
+
+    query = "REMOVE some_data FROM table;";
+    assertFalse(DatabricksStatement.isSelectQuery(query));
+  }
+
   private DatabricksConnection getTestConnection() throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
