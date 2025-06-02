@@ -147,11 +147,10 @@ public class DatabricksHttpTTransport extends TTransport {
   private void refreshHeadersIfRequired() {
     Map<String, String> refreshedHeaders = databricksConfig.authenticate();
     // Preserve existing custom headers (like User-Agent) and add/update auth headers
-    Map<String, String> newHeaders = new HashMap<>(customHeaders);
     if (refreshedHeaders != null) {
-      newHeaders.putAll(refreshedHeaders);
+      customHeaders = new HashMap<>(customHeaders);
+      customHeaders.putAll(refreshedHeaders);
     }
-    customHeaders = newHeaders;
   }
 
   void resetAccessToken(String newAccessToken) {
@@ -163,9 +162,8 @@ public class DatabricksHttpTTransport extends TTransport {
   void updateUserAgent() {
     // Add user agent as a header since the HTTP client's user agent is set during construction
     // and cannot be changed. This ensures the updated user agent is sent with thrift requests.
-    Map<String, String> headers = new HashMap<>(customHeaders);
-    headers.put("User-Agent", UserAgentManager.getUserAgentString());
-    customHeaders = headers;
+    customHeaders = new HashMap<>(customHeaders);
+    customHeaders.put("User-Agent", UserAgentManager.getUserAgentString());
   }
 
   @VisibleForTesting
