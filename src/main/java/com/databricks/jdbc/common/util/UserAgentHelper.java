@@ -19,7 +19,7 @@ public class UserAgentHelper {
    * @param clientInfoAppName The application name from client info properties, can be null
    * @return The determined application name or null if none is found
    */
-  public static String determineApplicationName(
+  static String determineApplicationName(
       IDatabricksConnectionContext connectionContext, String clientInfoAppName) {
     // First check URL params
     String appName = connectionContext.getCustomerUserAgent();
