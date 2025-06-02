@@ -267,6 +267,77 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
     assertEquals(3, rowCount);
   }
 
+  @Test
+  void testIntervalTypes() throws SQLException {
+    String tableName = "intervals_demo";
+    String createTableSQL =
+        "CREATE TABLE IF NOT EXISTS "
+            + getFullyQualifiedTableName(tableName)
+            + " (iv_year INTERVAL YEAR,"
+            + " iv_month INTERVAL MONTH,"
+            + " iv_year_to_mon INTERVAL YEAR TO MONTH,"
+            + " iv_day INTERVAL DAY,"
+            + " iv_day_to_hour INTERVAL DAY TO HOUR,"
+            + " iv_day_to_min INTERVAL DAY TO MINUTE,"
+            + " iv_day_to_sec INTERVAL DAY TO SECOND,"
+            + " iv_hour INTERVAL HOUR,"
+            + " iv_hour_to_min INTERVAL HOUR TO MINUTE,"
+            + " iv_hour_to_sec INTERVAL HOUR TO SECOND,"
+            + " iv_min_to_sec INTERVAL MINUTE TO SECOND,"
+            + " iv_second INTERVAL SECOND)";
+    setupDatabaseTable(connection, tableName, createTableSQL);
+
+    String insertSQL =
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " VALUES ("
+            + " INTERVAL '100' YEAR,"
+            + " INTERVAL '1200' MONTH,"
+            + " INTERVAL '100-0' YEAR TO MONTH,"
+            + " INTERVAL '3' DAY,"
+            + " INTERVAL '3 4' DAY TO HOUR,"
+            + " INTERVAL '3 04:30' DAY TO MINUTE,"
+            + " INTERVAL '3 04:30:20.123' DAY TO SECOND,"
+            + " INTERVAL '27' HOUR,"
+            + " INTERVAL '27:15' HOUR TO MINUTE,"
+            + " INTERVAL '27:15:20.456' HOUR TO SECOND,"
+            + " INTERVAL '90:30.5' MINUTE TO SECOND,"
+            + " INTERVAL '45.789' SECOND)";
+    executeSQL(connection, insertSQL);
+
+    String query = "SELECT * FROM " + getFullyQualifiedTableName(tableName);
+    ResultSet resultSet = executeQuery(connection, query);
+
+    validateIntervalResults(resultSet);
+
+    deleteTable(connection, tableName);
+    resultSet.close();
+  }
+
+  private void validateIntervalResults(ResultSet resultSet) throws SQLException {
+    assertTrue(resultSet.next());
+
+    // Year-Month intervals
+    assertEquals("100-0", resultSet.getString("iv_year"));
+    assertEquals("100-0", resultSet.getString("iv_month"));
+    assertEquals("100-0", resultSet.getString("iv_year_to_mon"));
+
+    // Day-Time intervals
+    assertEquals("3 00:00:00.000000000", resultSet.getString("iv_day"));
+    assertEquals("3 04:00:00.000000000", resultSet.getString("iv_day_to_hour"));
+    assertEquals("3 04:30:00.000000000", resultSet.getString("iv_day_to_min"));
+    assertEquals("3 04:30:20.123000000", resultSet.getString("iv_day_to_sec"));
+
+    assertEquals("1 03:00:00.000000000", resultSet.getString("iv_hour"));
+    assertEquals("1 03:15:00.000000000", resultSet.getString("iv_hour_to_min"));
+    assertEquals("1 03:15:20.456000000", resultSet.getString("iv_hour_to_sec"));
+
+    assertEquals("0 01:30:30.500000000", resultSet.getString("iv_min_to_sec"));
+    assertEquals("0 00:00:45.789000000", resultSet.getString("iv_second"));
+
+    assertFalse(resultSet.next());
+  }
+
   private void closeConnection(Connection connection) throws SQLException {
     if (connection != null) {
       if (((DatabricksConnection) connection).getConnectionContext().getClientType()

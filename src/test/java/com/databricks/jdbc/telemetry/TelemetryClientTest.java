@@ -56,7 +56,7 @@ public class TelemetryClientTest {
       IDatabricksConnectionContext context =
           DatabricksConnectionContext.parse(JDBC_URL, new Properties());
       TelemetryClient client =
-          new TelemetryClient(context, false, MoreExecutors.newDirectExecutorService());
+          new TelemetryClient(context, MoreExecutors.newDirectExecutorService());
 
       client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event1"));
       Mockito.verifyNoInteractions(mockHttpClient);
@@ -132,7 +132,7 @@ public class TelemetryClientTest {
       IDatabricksConnectionContext context =
           DatabricksConnectionContext.parse(JDBC_URL, new Properties());
       TelemetryClient client =
-          new TelemetryClient(context, false, MoreExecutors.newDirectExecutorService());
+          new TelemetryClient(context, MoreExecutors.newDirectExecutorService());
 
       client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event1"));
       assertDoesNotThrow(

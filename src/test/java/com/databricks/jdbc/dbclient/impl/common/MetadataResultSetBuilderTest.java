@@ -70,6 +70,8 @@ public class MetadataResultSetBuilderTest {
     assert metadataResultSetBuilder.getCode("SMALLINT") == 5;
     assert metadataResultSetBuilder.getCode("INTEGER") == 4;
     assert metadataResultSetBuilder.getCode("VARIANT") == 1111;
+    assert metadataResultSetBuilder.getCode("INTERVAL") == 12;
+    assert metadataResultSetBuilder.getCode("INTERVAL YEAR") == 12;
   }
 
   private static Stream<Arguments> provideSqlTypesAndExpectedSizes() {
@@ -103,7 +105,8 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("VARCHAR(50,30)", 50),
         Arguments.of("INT", 0),
         Arguments.of("VARCHAR()", 0),
-        Arguments.of("VARCHAR(abc)", 0));
+        Arguments.of("VARCHAR(abc)", 0),
+        Arguments.of("INTERVAL YEAR", 0));
   }
 
   private static Stream<Arguments> charOctetArgumentsVarchar() {
@@ -125,6 +128,25 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("STRUCT<A:INT,B:STRING>", "STRUCT<A:INT,B:STRING>"),
         Arguments.of("ARRAY<DOUBLE>(100)", "ARRAY<DOUBLE>"),
         Arguments.of("MAP<STRING,INT>(50)", "MAP<STRING,INT>"),
+        Arguments.of(null, null),
+        Arguments.of("", ""),
+        Arguments.of("INTEGER(10,5)", "INTEGER"));
+  }
+
+  private static Stream<Arguments> stripBaseTypeNameArguments() {
+    return Stream.of(
+        Arguments.of("VARCHAR(100)", "VARCHAR"),
+        Arguments.of("VARCHAR", "VARCHAR"),
+        Arguments.of("CHAR(255)", "CHAR"),
+        Arguments.of("TEXT", "TEXT"),
+        Arguments.of("VARCHAR(", "VARCHAR"),
+        Arguments.of("VARCHAR(100,200)", "VARCHAR"),
+        Arguments.of("CHAR(123)", "CHAR"),
+        Arguments.of("ARRAY<DOUBLE>", "ARRAY"),
+        Arguments.of("MAP<STRING,ARRAY<INT>>", "MAP"),
+        Arguments.of("STRUCT<A:INT,B:STRING>", "STRUCT"),
+        Arguments.of("ARRAY<DOUBLE>(100)", "ARRAY"),
+        Arguments.of("MAP<STRING,INT>(50)", "MAP"),
         Arguments.of(null, null),
         Arguments.of("", ""),
         Arguments.of("INTEGER(10,5)", "INTEGER"));
@@ -376,6 +398,13 @@ public class MetadataResultSetBuilderTest {
   @MethodSource("stripTypeNameArguments")
   public void testStripTypeName(String input, String expected) {
     String actual = metadataResultSetBuilder.stripTypeName(input);
+    assertEquals(expected, actual);
+  }
+
+  @ParameterizedTest
+  @MethodSource("stripBaseTypeNameArguments")
+  public void testStripBaseTypeName(String input, String expected) {
+    String actual = metadataResultSetBuilder.stripBaseTypeName(input);
     assertEquals(expected, actual);
   }
 

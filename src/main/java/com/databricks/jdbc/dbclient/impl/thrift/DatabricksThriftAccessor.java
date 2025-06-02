@@ -7,10 +7,10 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
-import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -57,9 +57,12 @@ final class DatabricksThriftAccessor {
   private TProtocolVersion serverProtocolVersion = JDBC_THRIFT_VERSION;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
-      throws DatabricksParsingException, DatabricksHttpException {
+      throws DatabricksParsingException {
     this.enableDirectResults = connectionContext.getDirectResultMode();
-    this.databricksConfig = new ClientConfigurator(connectionContext).getDatabricksConfig();
+    this.databricksConfig =
+        DatabricksClientConfiguratorManager.getInstance()
+            .getConfigurator(connectionContext)
+            .getDatabricksConfig();
     String endPointUrl = connectionContext.getEndpointURL();
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
     this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();

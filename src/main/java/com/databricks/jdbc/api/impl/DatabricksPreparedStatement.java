@@ -8,6 +8,7 @@ import static com.databricks.jdbc.common.util.ValidationUtil.throwErrorIfNull;
 
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -395,7 +396,14 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public ResultSetMetaData getMetaData()");
     checkIfClosed();
     if (resultSet == null) {
-      return null;
+
+      if (DatabricksStatement.isSelectQuery(sql)) {
+        LOGGER.info(
+            "Fetching metadata before executing the query, some values may not be available");
+        return getMetaDataFromDescribeQuery();
+      } else {
+        return null;
+      }
     }
     return resultSet.getMetaData();
   }
@@ -809,10 +817,57 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         this.interpolateParameters
             ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
             : sql;
+
     Map<Integer, ImmutableSqlParameter> paramMap =
         this.interpolateParameters
             ? new HashMap<>()
             : this.databricksParameterMetaData.getParameterBindings();
     return executeInternal(interpolatedSql, paramMap, statementType);
+  }
+
+  /**
+   * Executes a DESCRIBE QUERY command to retrieve metadata about the SQL query.
+   *
+   * <p>This method is used when the result set is null
+   *
+   * @return a {@link ResultSetMetaData} object containing the metadata of the query.
+   * @throws DatabricksSQLException if there is an error executing the DESCRIBE QUERY command
+   */
+  private ResultSetMetaData getMetaDataFromDescribeQuery() throws DatabricksSQLException {
+
+    try (DatabricksResultSet metadataResultSet = executeDescribeQueryCommand()) {
+      ArrayList<String> columnNames = new ArrayList<>();
+      ArrayList<String> columnDataTypes = new ArrayList<>();
+
+      while (metadataResultSet.next()) {
+        columnNames.add(metadataResultSet.getString(1));
+        columnDataTypes.add(metadataResultSet.getString(2));
+      }
+
+      return new DatabricksResultSetMetaData(
+          StatementId.deserialize(metadataResultSet.getStatementId()),
+          columnNames,
+          columnDataTypes,
+          this.connection.getConnectionContext());
+    } catch (SQLException e) {
+      String errorMessage = "Failed to get query metadata";
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksSQLException(
+          errorMessage, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
+    }
+  }
+
+  private DatabricksResultSet executeDescribeQueryCommand() throws SQLException {
+    String interpolatedSql =
+        this.interpolateParameters
+            ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
+            : sql;
+
+    interpolatedSql = "DESCRIBE QUERY " + interpolatedSql;
+    Map<Integer, ImmutableSqlParameter> paramMap =
+        this.interpolateParameters
+            ? new HashMap<>()
+            : this.databricksParameterMetaData.getParameterBindings();
+    return executeInternal(interpolatedSql, paramMap, StatementType.QUERY);
   }
 }

@@ -12,6 +12,7 @@ import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -98,8 +99,13 @@ public class VolumeOperationResult implements IExecutionResult {
                   try {
                     this.setVolumeOperationEntityStream(entity);
                   } catch (Exception e) {
-                    throw new RuntimeException(
-                        "Failed to set result set volumeOperationEntityStream", e);
+                    String message =
+                        String.format(
+                            "Failed to set result set volumeOperationEntityStream %s",
+                            e.getMessage());
+                    LOGGER.error(e, message);
+                    throw new DatabricksDriverException(
+                        message, DatabricksDriverErrorCode.VOLUME_OPERATION_EXCEPTION);
                   }
                 })
             .build();

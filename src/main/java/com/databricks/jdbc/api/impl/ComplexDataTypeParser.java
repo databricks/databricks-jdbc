@@ -198,4 +198,97 @@ public class ComplexDataTypeParser {
         return text;
     }
   }
+
+  /**
+   * Formats a complex type JSON string into a consistent string format. This is primarily used when
+   * complex datatype support is disabled.
+   *
+   * @param jsonString The JSON string representation of the complex type
+   * @param complexType The type of complex data (MAP, ARRAY, STRUCT)
+   * @param typeMetadata The metadata for the type (e.g., "MAP<INT,INT>")
+   * @return A consistently formatted string representation
+   */
+  public String formatComplexTypeString(
+      String jsonString, String complexType, String typeMetadata) {
+    if (jsonString == null || complexType == null) {
+      return jsonString;
+    }
+
+    try {
+      if (complexType.equals(DatabricksTypeUtil.MAP)) {
+        return formatMapString(jsonString, typeMetadata);
+      }
+    } catch (Exception e) {
+      LOGGER.warn("Failed to format complex type representation: {}", e.getMessage());
+    }
+
+    return jsonString;
+  }
+
+  /**
+   * Formats a map JSON string into the standard {key:value} format.
+   *
+   * @param jsonString The JSON string representation of the map
+   * @param mapMetadata The metadata for the map type (e.g., "MAP<INT,INT>")
+   * @return A map string in the format {key:value,key:value}
+   */
+  public String formatMapString(String jsonString, String mapMetadata) {
+    try {
+      JsonNode node = JsonUtil.getMapper().readTree(jsonString);
+      if (node.isArray() && node.size() > 0 && node.get(0).has("key")) {
+        String[] kv = new String[] {"STRING", "STRING"};
+        if (mapMetadata != null && mapMetadata.startsWith(DatabricksTypeUtil.MAP)) {
+          kv = MetadataParser.parseMapMetadata(mapMetadata).split(",", 2);
+        }
+
+        String keyType = kv[0].trim();
+        String valueType = kv[1].trim();
+        boolean isStringKey = keyType.equalsIgnoreCase(DatabricksTypeUtil.STRING);
+        boolean isStringValue = valueType.equalsIgnoreCase(DatabricksTypeUtil.STRING);
+
+        StringBuilder result = new StringBuilder("{");
+
+        for (int i = 0; i < node.size(); i++) {
+          JsonNode entry = node.get(i);
+          JsonNode keyNode = entry.get("key");
+          JsonNode valueNode = entry.get("value");
+
+          // Throw error if keyNode is null
+          if (keyNode == null || keyNode.isNull()) {
+            throw new DatabricksParsingException(
+                "Map entry found with null key in JSON: " + entry.toString(),
+                DatabricksDriverErrorCode.JSON_PARSING_ERROR);
+          }
+
+          if (i > 0) {
+            result.append(",");
+          }
+
+          if (isStringKey) {
+            result.append("\"").append(keyNode.asText()).append("\"");
+          } else {
+            result.append(keyNode.asText());
+          }
+
+          result.append(":");
+
+          // Handle null valueNode
+          if (valueNode == null || valueNode.isNull()) {
+            result.append("null");
+          } else if (isStringValue) {
+            result.append("\"").append(valueNode.asText()).append("\"");
+          } else {
+            result.append(valueNode.asText());
+          }
+        }
+
+        result.append("}");
+        return result.toString();
+      }
+    } catch (Exception e) {
+      LOGGER.warn("Failed to format map representation: {}", e.getMessage());
+    }
+
+    return jsonString;
+  }
 }
