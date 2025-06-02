@@ -33,7 +33,7 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Run Integration Tests
-        run: mvn -B test -Dtest=*e2e/OAuthTests*
+        run: mvn -B -X test -Dtest=*e2e/OAuthTests*
         env:
           DATABRICKS_HOST: ${{ secrets.JDBC_PAT_TEST_HOST_NAME }}
           DATABRICKS_HTTP_PATH: ${{ secrets.JDBC_PAT_TEST_HTTP_PATH }}
