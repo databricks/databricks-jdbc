@@ -20,6 +20,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -177,6 +178,48 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(1));
     assertEquals(ResultSetMetaData.columnNoNulls, metaData.isNullable(2));
     assertEquals(ResultSetMetaData.columnNullable, metaData.isNullable(3));
+  }
+
+  @Test
+  public void testDatabricksResultSetMetaDataInitialization_DescribeQuery() throws SQLException {
+
+    // [columnName, columnType, expectedTypeName, expectedIntegerType, expectedPrecision,
+    // expectedScale]
+    Object[][] columnData = {
+      {"col_int", "int", "INT", Types.INTEGER, 10, 0},
+      {"col_string", "string", "STRING", Types.VARCHAR, 255, 0},
+      {"col_decimal", "decimal(10,2)", "DECIMAL", Types.DECIMAL, 10, 2},
+      {"col_date", "date", "DATE", Types.DATE, 10, 0},
+      {"col_timestamp", "timestamp", "TIMESTAMP", Types.TIMESTAMP, 29, 9},
+      {"col_timestamp_ntz", "timestamp_ntz", "TIMESTAMP", Types.TIMESTAMP, 29, 9},
+      {"col_bool", "boolean", "BOOLEAN", Types.BOOLEAN, 1, 0},
+      {"col_binary", "binary", "BINARY", Types.BINARY, 1, 0},
+      {"col_struct", "struct<col_int:int,col_string:string>", "STRUCT", Types.STRUCT, 255, 0},
+      {"col_array", "array<int>", "ARRAY", Types.ARRAY, 255, 0},
+      {"col_map", "map<string,string>", "MAP", Types.VARCHAR, 255, 0},
+      {"col_variant", "variant", "VARIANT", Types.VARCHAR, 255, 0}
+    };
+
+    List<String> columnNames =
+        Arrays.stream(columnData).map(row -> (String) row[0]).collect(Collectors.toList());
+
+    List<String> columnTypes =
+        Arrays.stream(columnData).map(row -> (String) row[1]).collect(Collectors.toList());
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, columnNames, columnTypes, connectionContext);
+
+    assertEquals(columnNames.size(), metaData.getColumnCount());
+    // With Describe query we can't determine total rows
+    assertEquals(-1, metaData.getTotalRows());
+
+    for (int i = 0; i < columnData.length; i++) {
+      assertEquals(columnData[i][0], metaData.getColumnName(i + 1));
+      assertEquals(columnData[i][2], metaData.getColumnTypeName(i + 1));
+      assertEquals(columnData[i][3], metaData.getColumnType(i + 1));
+      assertEquals(columnData[i][4], metaData.getPrecision(i + 1));
+      assertEquals(columnData[i][5], metaData.getScale(i + 1));
+    }
   }
 
   @Test

@@ -449,6 +449,28 @@ public class MetadataResultSetBuilder {
     if (typeArgumentIndex != -1) {
       return typeName.substring(0, typeArgumentIndex);
     }
+
+    return typeName;
+  }
+
+  public String stripBaseTypeName(String typeName) {
+    if (typeName == null) {
+      return null;
+    }
+    // Checking '<' first and then '(' to handle cases like MAP<STRING,INT>(50)
+
+    // Checks for ARRAY<STRING> -> ARRAY
+    int typeArgumentIndex = typeName.indexOf('<');
+    if (typeArgumentIndex != -1) {
+      return typeName.substring(0, typeArgumentIndex);
+    }
+
+    // Checks for DECIMAL(10,2) -> DECIMAL
+    typeArgumentIndex = typeName.indexOf('(');
+    if (typeArgumentIndex != -1) {
+      return typeName.substring(0, typeArgumentIndex);
+    }
+
     return typeName;
   }
 
