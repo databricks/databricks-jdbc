@@ -8,7 +8,7 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
-import com.databricks.jdbc.common.util.UserAgentHelper;
+import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksEmptyMetadataClient;
@@ -251,7 +251,7 @@ public class DatabricksSession implements IDatabricksSession {
 
     // If application name is being set, update both telemetry and user agent
     if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName())) {
-      UserAgentHelper.updateUserAgentAndTelemetry(connectionContext, value);
+      UserAgentManager.updateUserAgentAndTelemetry(connectionContext, value);
       // Update the client's user agent headers for existing ThriftClient
       databricksClient.updateUserAgent();
     }

@@ -57,7 +57,6 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(url, info);
     DriverUtil.setUpLogging(connectionContext);
-    // This initializes both user agent headers and telemetry
     UserAgentManager.setUserAgent(connectionContext);
     LOGGER.info(getDriverSystemConfiguration().toString());
     DatabricksConnection connection = new DatabricksConnection(connectionContext);
