@@ -28,6 +28,13 @@ public class OAuthTests {
   @Test
   void testSPTokenFederation() throws SQLException {
     Connection connection = getValidSPTokenFedConnection();
+    System.out.println("TOKEN CREDS");
+    System.out.println(System.getenv("DATABRICKS_JDBC_SP_TOKEN_FED_HOST"));
+    System.out.println(System.getenv("DATABRICKS_JDBC_SP_TOKEN_FED_HTTP_PATH"));
+    System.out.println(System.getenv("DATABRICKS_JDBC_SP_TOKEN_FED_CLIENT_ID"));
+    System.out.println(System.getenv("DATABRICKS_JDBC_SP_TOKEN_FED_CLIENT_SECRET"));
+    System.out.println(System.getenv("DATABRICKS_SP_TOKEN_FED_FEDERATION_ID"));
+    System.out.println(System.getenv("DATABRICKS_SP_TOKEN_FED_AZURE_TENANT_ID"));
     assertDoesNotThrow(() -> connection.createStatement().execute("select 1"));
   }
 }
