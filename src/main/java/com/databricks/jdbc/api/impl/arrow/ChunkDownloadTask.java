@@ -5,7 +5,6 @@ import static com.databricks.jdbc.telemetry.TelemetryHelper.exportLatencyLog;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -26,7 +25,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
   private final IDatabricksHttpClient httpClient;
   private final ChunkDownloadCallback chunkDownloader;
   private final IDatabricksConnectionContext connectionContext;
-  private final StatementId statementId;
+  private final String statementId;
   private final ChunkLinkDownloadService linkDownloadService;
   Throwable uncaughtException = null;
 

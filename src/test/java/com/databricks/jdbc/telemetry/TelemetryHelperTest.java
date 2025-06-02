@@ -63,13 +63,23 @@ public class TelemetryHelperTest {
   @Test
   void testLatencyTelemetryLogDoesNotThrowError() {
     TelemetryHelper telemetryHelper = new TelemetryHelper(); // Increasing coverage for class
-    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
+    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING_2);
     when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
     SqlExecutionEvent event = new SqlExecutionEvent().setDriverStatementType(StatementType.QUERY);
     assertDoesNotThrow(
         () ->
             telemetryHelper.exportLatencyLog(
-                connectionContext, 150, event, TEST_STATEMENT_ID, TEST_STATEMENT_ID.toString()));
+                connectionContext, 150, event, TEST_STRING, SESSION_ID));
+  }
+
+  @Test
+  void testLatencyTelemetryLogDoesNotThrowErrorWithNullStatementId() {
+    TelemetryHelper telemetryHelper = new TelemetryHelper(); // Increasing coverage for class
+    when(connectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
+    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
+    SqlExecutionEvent event = new SqlExecutionEvent().setDriverStatementType(StatementType.QUERY);
+    assertDoesNotThrow(
+        () -> telemetryHelper.exportLatencyLog(connectionContext, 150, event, null, SESSION_ID));
   }
 
   @Test

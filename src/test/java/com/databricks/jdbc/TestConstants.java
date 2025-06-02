@@ -32,6 +32,7 @@ public class TestConstants {
   public static final String TEST_FOREIGN_TABLE = "foreignTable";
   public static final String TEST_FUNCTION_PATTERN = "functionPattern";
   public static final String TEST_STRING = "test";
+  public static final String TEST_STRING_2 = "test2";
   public static final String TEST_USER = "testUser";
   public static final String TEST_PASSWORD = "testPassword";
   public static final StatementId TEST_STATEMENT_ID = new StatementId("statement_id");

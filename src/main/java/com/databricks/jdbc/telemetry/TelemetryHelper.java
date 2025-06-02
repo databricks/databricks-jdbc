@@ -6,7 +6,6 @@ import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactor
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.StringUtil;
-import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -124,7 +123,7 @@ public class TelemetryHelper {
       IDatabricksConnectionContext connectionContext,
       long latencyMilliseconds,
       SqlExecutionEvent executionEvent,
-      StatementId statementId,
+      String statementId,
       String sessionId) {
     // Though we already handle null connectionContext in the downstream implementation,
     // we are adding this check for extra sanity
@@ -134,9 +133,7 @@ public class TelemetryHelper {
               .setLatency(latencyMilliseconds)
               .setSqlOperation(executionEvent)
               .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext))
-              .setSqlStatementId(
-                  statementId
-                      .toSQLExecStatementId()) // This is because only GUID is relevant for tracking
+              .setSqlStatementId(statementId)
               .setSessionId(sessionId);
       TelemetryFrontendLog telemetryFrontendLog =
           new TelemetryFrontendLog()
