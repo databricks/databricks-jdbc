@@ -67,4 +67,20 @@ public class SQLInterpolator {
     }
     return sb.toString();
   }
+
+  /**
+   * Surrounds unquoted placeholders (?) with single quotes, preserving already quoted ones. This is
+   * crucial for DESCRIBE QUERY commands as unquoted placeholders will cause a parse_syntax_error.
+   */
+  public static String surroundPlaceholdersWithQuotes(String sql) {
+    if (sql == null || sql.isEmpty()) {
+      return sql;
+    }
+    // First replace '?' with a temporary marker
+    String temp = sql.replace("'?'", "##QUOTED##");
+    // Then replace remaining ? with '?'
+    String result = temp.replace("?", "'?'");
+    // Finally restore the original quoted placeholders
+    return result.replace("##QUOTED##", "'?'");
+  }
 }
