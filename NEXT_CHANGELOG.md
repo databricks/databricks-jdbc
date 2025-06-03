@@ -4,7 +4,7 @@
 
 ### Added
 - Added support for DoD (.mil) domains
-- Support to fetch metadata in PreparedStatement for SELECT queries before executing the query.
+- Enables fetching of metadata for SELECT queries using PreparedStatement prior to setting parameters or executing the query.
 
 ### Updated
 - 
