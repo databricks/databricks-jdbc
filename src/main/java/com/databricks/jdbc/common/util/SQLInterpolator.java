@@ -6,6 +6,8 @@ import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class SQLInterpolator {
   private static String escapeApostrophes(String input) {
@@ -76,11 +78,13 @@ public class SQLInterpolator {
     if (sql == null || sql.isEmpty()) {
       return sql;
     }
-    // First replace '?' with a temporary marker
-    String temp = sql.replace("'?'", "##QUOTED##");
-    // Then replace remaining ? with '?'
-    String result = temp.replace("?", "'?'");
-    // Finally restore the original quoted placeholders
-    return result.replace("##QUOTED##", "'?'");
+    // This pattern matches any '?' that is NOT already inside single quotes
+    StringBuilder sb = new StringBuilder();
+    Matcher m = Pattern.compile("(?<!')\\?(?!')").matcher(sql);
+    while (m.find()) {
+      m.appendReplacement(sb, "'?'");
+    }
+    m.appendTail(sb);
+    return sb.toString();
   }
 }
