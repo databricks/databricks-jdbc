@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.common.CompressionCodec;
@@ -9,6 +9,8 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.net.SocketException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,12 +23,15 @@ public class ChunkDownloadTaskTest {
   @Mock ArrowResultChunk chunk;
   @Mock IDatabricksHttpClient httpClient;
   @Mock RemoteChunkProvider remoteChunkProvider;
-  @Mock ChunkLinkDownloadService chunkLinkDownloadService;
+  @Mock ChunkLinkDownloadService<ArrowResultChunk> chunkLinkDownloadService;
   private ChunkDownloadTask chunkDownloadTask;
+  private CompletableFuture<Void> downloadFuture;
 
   @BeforeEach
   void setUp() {
     MockitoAnnotations.openMocks(this);
+    downloadFuture = new CompletableFuture<>();
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
     chunkDownloadTask =
         new ChunkDownloadTask(chunk, httpClient, remoteChunkProvider, chunkLinkDownloadService);
   }
@@ -52,7 +57,8 @@ public class ChunkDownloadTaskTest {
     chunkDownloadTask.call();
 
     verify(chunk, times(3)).downloadData(httpClient, CompressionCodec.NONE);
-    verify(remoteChunkProvider, times(1)).downloadProcessed(7L);
+    assertTrue(downloadFuture.isDone());
+    assertDoesNotThrow(() -> downloadFuture.get());
   }
 
   @Test
@@ -73,6 +79,9 @@ public class ChunkDownloadTaskTest {
     assertThrows(DatabricksSQLException.class, () -> chunkDownloadTask.call());
     verify(chunk, times(ChunkDownloadTask.MAX_RETRIES))
         .downloadData(httpClient, CompressionCodec.NONE);
-    verify(remoteChunkProvider, times(1)).downloadProcessed(7L);
+    assertTrue(downloadFuture.isDone());
+    ExecutionException executionException =
+        assertThrows(ExecutionException.class, () -> downloadFuture.get());
+    assertInstanceOf(DatabricksSQLException.class, executionException.getCause());
   }
 }

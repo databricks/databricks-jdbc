@@ -66,6 +66,7 @@ public class ArrowResultChunkTest {
         ArrowResultChunk.builder()
             .withStatementId(TEST_STATEMENT_ID)
             .withChunkInfo(chunkInfo)
+            .withChunkStatus(ChunkStatus.PROCESSING_SUCCEEDED)
             .build();
     Schema schema = createTestSchema();
     Object[][] testData = createTestData(schema, (int) totalRows);
@@ -95,8 +96,8 @@ public class ArrowResultChunkTest {
             .withStatementId(TEST_STATEMENT_ID)
             .withThriftChunkInfo(0, chunkInfo)
             .build();
-    assertNull(arrowResultChunk.getErrorMessage());
-    assertEquals(arrowResultChunk.getChunkUrl(), TEST_STRING);
+    assertNull(arrowResultChunk.errorMessage);
+    assertEquals(arrowResultChunk.chunkLink.getExternalLink(), TEST_STRING);
     assertEquals(arrowResultChunk.getChunkIndex(), 0);
   }
 
@@ -174,8 +175,8 @@ public class ArrowResultChunkTest {
         ArrowResultChunk.builder()
             .withStatementId(TEST_STATEMENT_ID)
             .withChunkInfo(emptyChunkInfo)
+            .withChunkStatus(ChunkStatus.PROCESSING_SUCCEEDED)
             .build();
-    arrowResultChunk.setIsDataInitialized(true);
     arrowResultChunk.recordBatchList = Collections.nCopies(3, new ArrayList<>());
     assertFalse(arrowResultChunk.getChunkIterator().hasNextRow());
 
@@ -185,8 +186,8 @@ public class ArrowResultChunkTest {
         ArrowResultChunk.builder()
             .withStatementId(TEST_STATEMENT_ID)
             .withChunkInfo(chunkInfo)
+            .withChunkStatus(ChunkStatus.PROCESSING_SUCCEEDED)
             .build();
-    arrowResultChunk.setIsDataInitialized(true);
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
     dummyVector.allocateNew(size);
@@ -196,7 +197,7 @@ public class ArrowResultChunkTest {
     }
     arrowResultChunk.recordBatchList =
         List.of(List.of(dummyVector), List.of(dummyVector), new ArrayList<>());
-    ArrowResultChunk.ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
+    ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
     assertEquals(0, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
@@ -220,8 +221,8 @@ public class ArrowResultChunkTest {
         ArrowResultChunk.builder()
             .withStatementId(TEST_STATEMENT_ID)
             .withChunkInfo(chunkInfo)
+            .withChunkStatus(ChunkStatus.PROCESSING_SUCCEEDED)
             .build();
-    arrowResultChunk.setIsDataInitialized(true);
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
     dummyVector.allocateNew(size);
@@ -234,7 +235,7 @@ public class ArrowResultChunkTest {
     emptyVector.setValueCount(0);
     arrowResultChunk.recordBatchList =
         List.of(List.of(dummyVector), List.of(emptyVector), List.of(dummyVector));
-    ArrowResultChunk.ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
+    ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
     assertEquals(0, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));

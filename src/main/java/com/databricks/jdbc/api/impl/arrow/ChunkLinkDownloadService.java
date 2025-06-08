@@ -15,6 +15,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -58,8 +59,10 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p>This design ensures that no chunks are missed and links remain valid during the download
  * process.
+ *
+ * @param <T> The specific type of {@link AbstractArrowResultChunk} this service manages
  */
-public class ChunkLinkDownloadService {
+public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(ChunkLinkDownloadService.class);
 
@@ -82,13 +85,13 @@ public class ChunkLinkDownloadService {
    */
   private final Object resetLock = new Object();
 
-  private final Map<Long, ArrowResultChunk> chunkIndexToChunksMap;
+  private final ConcurrentMap<Long, T> chunkIndexToChunksMap;
 
   public ChunkLinkDownloadService(
       IDatabricksSession session,
       StatementId statementId,
       long totalChunks,
-      Map<Long, ArrowResultChunk> chunkIndexToChunksMap,
+      ConcurrentMap<Long, T> chunkIndexToChunksMap,
       long nextBatchStartIndex) {
     LOGGER.info(
         "Initializing ChunkLinkDownloadService for statement {} with total chunks: {}, starting at index: {}",
@@ -359,11 +362,11 @@ public class ChunkLinkDownloadService {
   private boolean isChunkLinkExpiredForPendingDownload(long chunkIndex)
       throws ExecutionException, InterruptedException {
     CompletableFuture<ExternalLink> chunkFuture = chunkIndexToLinkFuture.get(chunkIndex);
-    ArrowResultChunk chunk = chunkIndexToChunksMap.get(chunkIndex);
+    T chunk = chunkIndexToChunksMap.get(chunkIndex);
 
     return chunkFuture.isDone()
         && isChunkLinkExpired(chunkFuture.get())
-        && chunk.getStatus() != ArrowResultChunk.ChunkStatus.DOWNLOAD_SUCCEEDED;
+        && chunk.getStatus() != ChunkStatus.DOWNLOAD_SUCCEEDED;
   }
 
   /** Cancels the current download task if it exists and is not done. Waits briefly for cleanup. */
