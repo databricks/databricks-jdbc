@@ -30,7 +30,7 @@ public class DatabricksClientConfiguratorManager {
               return new ClientConfigurator(context);
             } catch (DatabricksSSLException e) {
               String message =
-                  String.format("client configurator failed due to HTTP error: %s", e.getMessage());
+                  String.format("client configurator failed due to SSL error: %s", e.getMessage());
               LOGGER.error(e, message);
               throw new DatabricksDriverException(message, DatabricksDriverErrorCode.AUTH_ERROR);
             }
