@@ -124,7 +124,9 @@ jobs:
           
           # Copy to appropriate locations
           sudo cp squid.pem /etc/squid/
+          sudo cp intermediateCA.crt /etc/squid/
           sudo chown proxy:proxy /etc/squid/squid.pem
+          sudo chown proxy:proxy /etc/squid/intermediateCA.crt
           
           # Extract the Databricks workspace certificate
           echo -n | openssl s_client -connect ${DATABRICKS_HOST}:443 -showcerts 2>/dev/null | \
@@ -193,14 +195,13 @@ jobs:
           https_port 3129 tls-cert=/etc/squid/squid.pem
           
           # HTTPS port with client certificate requirement (mutual TLS)
-          https_port 3130 tls-cert=/etc/squid/squid.pem tls-clientca=/tmp/ssl-certs/intermediateCA.crt
+          https_port 3130 tls-cert=/etc/squid/squid.pem tls-clientca=/etc/squid/intermediateCA.crt
           
           # Access Control - very permissive for testing
           http_access allow all
           always_direct allow all
           
-          # Avoid DNS issues in test environment
-          dns_v4_first on
+          # Skip DNS v4 first (obsolete directive removed)
           
           # Disable caching for testing
           cache deny all
