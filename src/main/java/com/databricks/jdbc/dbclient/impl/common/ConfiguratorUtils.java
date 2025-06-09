@@ -5,7 +5,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_JDBC_TEST_EN
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.SocketFactoryUtil;
-import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksSSLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -44,7 +44,7 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
  * <p>3. Trust Store Handling: - loadTruststoreOrNull(): Loads the trust store from the path
  * specified by connectionContext.getSSLTrustStore(). If the path is null, a debug log is emitted
  * and null is returned. - If the trust store cannot be loaded or contains no trust anchors, an
- * error is logged and a DatabricksHttpException is thrown.
+ * error is logged and a DatabricksSSLException is thrown.
  *
  * <p>4. Key Store Handling: - loadKeystoreOrNull(): Loads the client keystore from the path
  * specified by connectionContext.getSSLKeyStore(). If the path is null, a debug log is emitted and
@@ -76,10 +76,10 @@ public class ConfiguratorUtils {
    *
    * @param connectionContext The connection context to use for configuration.
    * @return A configured PoolingHttpClientConnectionManager.
-   * @throws DatabricksHttpException If there is an error during configuration.
+   * @throws DatabricksSSLException If there is an error during configuration.
    */
   public static PoolingHttpClientConnectionManager getBaseConnectionManager(
-      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
+      IDatabricksConnectionContext connectionContext) throws DatabricksSSLException {
 
     if (connectionContext.getSSLTrustStore() == null
         && connectionContext.checkCertificateRevocation()
@@ -115,10 +115,10 @@ public class ConfiguratorUtils {
    *
    * @param connectionContext The connection context to use for configuration.
    * @return A configured Registry of ConnectionSocketFactory.
-   * @throws DatabricksHttpException If there is an error during configuration.
+   * @throws DatabricksSSLException If there is an error during configuration.
    */
   public static Registry<ConnectionSocketFactory> createConnectionSocketFactoryRegistry(
-      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
+      IDatabricksConnectionContext connectionContext) throws DatabricksSSLException {
 
     // First check if a custom trust store is specified
     if (connectionContext.getSSLTrustStore() != null) {
@@ -133,10 +133,10 @@ public class ConfiguratorUtils {
    *
    * @param connectionContext The connection context containing the trust store information.
    * @return A registry of connection socket factories.
-   * @throws DatabricksHttpException If there is an error setting up the trust store.
+   * @throws DatabricksSSLException If there is an error setting up the trust store.
    */
   private static Registry<ConnectionSocketFactory> createRegistryWithCustomTrustStore(
-      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
+      IDatabricksConnectionContext connectionContext) throws DatabricksSSLException {
 
     try {
       KeyStore trustStore = loadTruststoreOrNull(connectionContext);
@@ -173,10 +173,10 @@ public class ConfiguratorUtils {
    *
    * @param connectionContext The connection context for configuration.
    * @return A registry of connection socket factories.
-   * @throws DatabricksHttpException If there is an error during setup.
+   * @throws DatabricksSSLException If there is an error during setup.
    */
   private static Registry<ConnectionSocketFactory> createRegistryWithSystemOrDefaultTrustStore(
-      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
+      IDatabricksConnectionContext connectionContext) throws DatabricksSSLException {
 
     // Check if we should use the system property trust store based on useSystemTrustStore
     String sysTrustStore = null;
@@ -201,11 +201,11 @@ public class ConfiguratorUtils {
    * @param connectionContext The connection context for configuration.
    * @param sysTrustStore The path to the system property trust store.
    * @return A registry of connection socket factories.
-   * @throws DatabricksHttpException If there is an error during setup.
+   * @throws DatabricksSSLException If there is an error during setup.
    */
   private static Registry<ConnectionSocketFactory> createRegistryWithSystemPropertyTrustStore(
       IDatabricksConnectionContext connectionContext, String sysTrustStore)
-      throws DatabricksHttpException {
+      throws DatabricksSSLException {
 
     try {
       LOGGER.info(
@@ -237,7 +237,7 @@ public class ConfiguratorUtils {
       Set<TrustAnchor> trustAnchors = getTrustAnchorsFromTrustStore(trustStore);
       return createRegistryFromTrustAnchors(
           trustAnchors, connectionContext, "system property trust store: " + sysTrustStore);
-    } catch (DatabricksHttpException
+    } catch (DatabricksSSLException
         | KeyStoreException
         | NoSuchAlgorithmException
         | CertificateException
@@ -252,10 +252,10 @@ public class ConfiguratorUtils {
    *
    * @param connectionContext The connection context for configuration.
    * @return A registry of connection socket factories.
-   * @throws DatabricksHttpException If there is an error during setup.
+   * @throws DatabricksSSLException If there is an error during setup.
    */
   private static Registry<ConnectionSocketFactory> createRegistryWithJdkDefaultTrustStore(
-      IDatabricksConnectionContext connectionContext) throws DatabricksHttpException {
+      IDatabricksConnectionContext connectionContext) throws DatabricksSSLException {
 
     try {
       if (connectionContext.useSystemTrustStore()) {
@@ -269,7 +269,7 @@ public class ConfiguratorUtils {
       Set<TrustAnchor> systemTrustAnchors = getTrustAnchorsFromTrustStore(null);
       return createRegistryFromTrustAnchors(
           systemTrustAnchors, connectionContext, "JDK default trust store (cacerts)");
-    } catch (DatabricksHttpException e) {
+    } catch (DatabricksSSLException e) {
       handleError("Error while setting up JDK default trust store", e);
     }
     return null;
@@ -282,15 +282,15 @@ public class ConfiguratorUtils {
    * @param connectionContext The connection context for configuration.
    * @param sourceDescription A description of the trust store source for logging.
    * @return A registry of connection socket factories.
-   * @throws DatabricksHttpException If there is an error during setup.
+   * @throws DatabricksSSLException If there is an error during setup.
    */
   private static Registry<ConnectionSocketFactory> createRegistryFromTrustAnchors(
       Set<TrustAnchor> trustAnchors,
       IDatabricksConnectionContext connectionContext,
       String sourceDescription)
-      throws DatabricksHttpException {
+      throws DatabricksSSLException {
     if (trustAnchors == null || trustAnchors.isEmpty()) {
-      throw new DatabricksHttpException(
+      throw new DatabricksSSLException(
           sourceDescription + " contains no trust anchors",
           DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
     }
@@ -350,10 +350,10 @@ public class ConfiguratorUtils {
    * @return An array of key managers, or null if the key store is null.
    * @throws NoSuchAlgorithmException If the algorithm for the key manager factory is not available.
    * @throws KeyStoreException If there is an error accessing the key store.
-   * @throws DatabricksHttpException If there is an error creating the key managers.
+   * @throws DatabricksSSLException If there is an error creating the key managers.
    */
   private static KeyManager[] createKeyManagers(KeyStore keyStore, char[] keyStorePassword)
-      throws NoSuchAlgorithmException, KeyStoreException, DatabricksHttpException {
+      throws NoSuchAlgorithmException, KeyStoreException, DatabricksSSLException {
     try {
       KeyManagerFactory kmf =
           KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
@@ -363,7 +363,7 @@ public class ConfiguratorUtils {
     } catch (UnrecoverableKeyException e) {
       String errorMessage = "Failed to initialize key managers: " + e.getMessage();
       LOGGER.error(errorMessage);
-      throw new DatabricksHttpException(
+      throw new DatabricksSSLException(
           errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
     }
   }
@@ -406,7 +406,7 @@ public class ConfiguratorUtils {
       Set<TrustAnchor> trustAnchors,
       boolean checkCertificateRevocation,
       boolean acceptUndeterminedCertificateRevocation)
-      throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, DatabricksHttpException {
+      throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, DatabricksSSLException {
 
     // Always use the custom trust manager with trust anchors
     CertPathTrustManagerParameters trustManagerParams =
@@ -446,10 +446,10 @@ public class ConfiguratorUtils {
    *
    * @param connectionContext The connection context containing trust store configuration.
    * @return The loaded KeyStore or null if it could not be loaded.
-   * @throws DatabricksHttpException If there is an error during loading.
+   * @throws DatabricksSSLException If there is an error during loading.
    */
   public static KeyStore loadTruststoreOrNull(IDatabricksConnectionContext connectionContext)
-      throws DatabricksHttpException {
+      throws DatabricksSSLException {
     String trustStorePath = connectionContext.getSSLTrustStore();
     if (trustStorePath == null) {
       LOGGER.debug("No truststore path specified in connection url");
@@ -461,8 +461,7 @@ public class ConfiguratorUtils {
     if (!trustStoreFile.exists()) {
       String errorMessage = "Specified trust store file does not exist: " + trustStorePath;
       LOGGER.error(errorMessage);
-      throw new DatabricksHttpException(
-          errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      throw new DatabricksSSLException(errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
     }
 
     char[] password = null;
@@ -487,7 +486,7 @@ public class ConfiguratorUtils {
               + ": "
               + e.getMessage();
       LOGGER.error(errorMessage);
-      throw new DatabricksHttpException(
+      throw new DatabricksSSLException(
           errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
     }
   }
@@ -498,10 +497,10 @@ public class ConfiguratorUtils {
    *
    * @param connectionContext The connection context containing key store configuration.
    * @return The loaded KeyStore or null if no key store was specified or it could not be loaded.
-   * @throws DatabricksHttpException If there is an error during loading.
+   * @throws DatabricksSSLException If there is an error during loading.
    */
   public static KeyStore loadKeystoreOrNull(IDatabricksConnectionContext connectionContext)
-      throws DatabricksHttpException {
+      throws DatabricksSSLException {
     String keyStorePath = connectionContext.getSSLKeyStore();
     if (keyStorePath == null) {
       LOGGER.debug("No keystore path specified in connection context");
@@ -513,8 +512,7 @@ public class ConfiguratorUtils {
     if (!keyStoreFile.exists()) {
       String errorMessage = "Specified key store file does not exist: " + keyStorePath;
       LOGGER.error(errorMessage);
-      throw new DatabricksHttpException(
-          errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      throw new DatabricksSSLException(errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
     }
 
     // Check if keystore password is provided, which is required for accessing private keys
@@ -523,8 +521,7 @@ public class ConfiguratorUtils {
       String errorMessage =
           "Key store password is required when a key store is specified: " + keyStorePath;
       LOGGER.error(errorMessage);
-      throw new DatabricksHttpException(
-          errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+      throw new DatabricksSSLException(errorMessage, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
     }
     char[] password = keyStorePassword.toCharArray();
 
@@ -560,7 +557,7 @@ public class ConfiguratorUtils {
               .append(": ")
               .append(e.getMessage());
       LOGGER.error(errorMessage.toString(), e);
-      throw new DatabricksHttpException(
+      throw new DatabricksSSLException(
           errorMessage.toString(), e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
     }
   }
@@ -570,10 +567,10 @@ public class ConfiguratorUtils {
    *
    * @param trustStore The KeyStore from which to extract trust anchors.
    * @return A Set of TrustAnchor objects extracted from the KeyStore.
-   * @throws DatabricksHttpException If there is an error during extraction.
+   * @throws DatabricksSSLException If there is an error during extraction.
    */
   public static Set<TrustAnchor> getTrustAnchorsFromTrustStore(KeyStore trustStore)
-      throws DatabricksHttpException {
+      throws DatabricksSSLException {
     try {
       TrustManagerFactory trustManagerFactory =
           TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
@@ -606,13 +603,13 @@ public class ConfiguratorUtils {
    * @param acceptUndeterminedCertificateRevocation Whether to accept undetermined certificate
    *     revocation status.
    * @return The trust manager parameters based on the input parameters.
-   * @throws DatabricksHttpException If there is an error during configuration.
+   * @throws DatabricksSSLException If there is an error during configuration.
    */
   public static CertPathTrustManagerParameters buildTrustManagerParameters(
       Set<TrustAnchor> trustAnchors,
       boolean checkCertificateRevocation,
       boolean acceptUndeterminedCertificateRevocation)
-      throws DatabricksHttpException {
+      throws DatabricksSSLException {
     try {
       PKIXBuilderParameters pkixBuilderParameters =
           new PKIXBuilderParameters(trustAnchors, new X509CertSelector());
@@ -650,11 +647,11 @@ public class ConfiguratorUtils {
    *
    * @param errorMessage The error message to log.
    * @param e The exception to log and throw.
-   * @throws DatabricksHttpException The wrapped exception.
+   * @throws DatabricksSSLException The wrapped exception.
    */
-  private static void handleError(String errorMessage, Exception e) throws DatabricksHttpException {
+  private static void handleError(String errorMessage, Exception e) throws DatabricksSSLException {
     LOGGER.error(errorMessage, e);
-    throw new DatabricksHttpException(
+    throw new DatabricksSSLException(
         errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
   }
 }

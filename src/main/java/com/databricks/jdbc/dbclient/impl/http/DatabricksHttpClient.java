@@ -14,6 +14,7 @@ import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtils;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
+import com.databricks.jdbc.exception.DatabricksSSLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -135,7 +136,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
       connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
       return connectionManager;
-    } catch (DatabricksHttpException e) {
+    } catch (DatabricksSSLException e) {
       LOGGER.error("Failed to initialize HTTP connection manager", e);
       // Currently only SSL Handshake failure causes this exception.
       throw new DatabricksDriverException(
