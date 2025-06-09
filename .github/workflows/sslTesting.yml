@@ -48,6 +48,8 @@ jobs:
           HTTPS_PROXY_URL: "https://localhost:3129"
           TRUSTSTORE_PATH: "/tmp/ssl-certs/test-truststore.jks"
           TRUSTSTORE_PASSWORD: "changeit"
+          KEYSTORE_PATH: "/tmp/ssl-certs/test-keystore.jks"
+          KEYSTORE_PASSWORD: "changeit"
         run: |
           echo "DATABRICKS_TOKEN=${DATABRICKS_TOKEN}" >> $GITHUB_ENV
           echo "DATABRICKS_HOST=${DATABRICKS_HOST}" >> $GITHUB_ENV
@@ -56,6 +58,8 @@ jobs:
           echo "HTTPS_PROXY_URL=${HTTPS_PROXY_URL}" >> $GITHUB_ENV
           echo "TRUSTSTORE_PATH=${TRUSTSTORE_PATH}" >> $GITHUB_ENV
           echo "TRUSTSTORE_PASSWORD=${TRUSTSTORE_PASSWORD}" >> $GITHUB_ENV
+          echo "KEYSTORE_PATH=${KEYSTORE_PATH}" >> $GITHUB_ENV
+          echo "KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}" >> $GITHUB_ENV
 
       - name: Install Squid and SSL Tools
         run: |
@@ -120,6 +124,7 @@ jobs:
           
           # Copy to appropriate locations
           sudo cp squid.pem /etc/squid/
+          sudo cp intermediateCA.crt /tmp/ssl-certs/
           sudo chown proxy:proxy /etc/squid/squid.pem
           
           # Extract the Databricks workspace certificate
@@ -142,6 +147,40 @@ jobs:
           -keystore test-truststore.jks -storepass changeit
           
           chmod 644 test-truststore.jks
+          
+          # Generate Client Certificate for mutual TLS testing
+          openssl genrsa -out client.key 2048
+          openssl req -new -key client.key -out client.csr \
+            -subj "/C=US/ST=California/L=San Francisco/O=Databricks Test/OU=Testing/CN=test-client"
+          
+          # Create extension file for client certificate
+          cat > client_ext.cnf << EOF
+          [ v3_req ]
+          basicConstraints = CA:FALSE
+          keyUsage = digitalSignature, keyEncipherment
+          extendedKeyUsage = clientAuth
+          EOF
+          
+          # Sign client certificate with Intermediate CA
+          openssl x509 -req -in client.csr -CA intermediateCA.crt -CAkey intermediateCA.key \
+            -CAcreateserial -out client.crt -days 365 -sha256 \
+            -extfile client_ext.cnf -extensions v3_req
+          
+          # Create PKCS12 keystore from client certificate and key
+          openssl pkcs12 -export -inkey client.key -in client.crt -certfile intermediateCA.crt \
+            -out client.p12 -passout pass:changeit
+          
+          # Convert PKCS12 to JKS keystore
+          keytool -importkeystore -noprompt \
+            -srckeystore client.p12 -srcstoretype PKCS12 -srcstorepass changeit \
+            -destkeystore test-keystore.jks -deststoretype JKS -deststorepass changeit
+          
+          chmod 644 test-keystore.jks
+          
+          # Verify keystore contents
+          echo "=== Keystore contents ==="
+          keytool -list -keystore test-keystore.jks -storepass changeit
+          echo "========================="
 
       - name: Configure Squid with Standard SSL
         run: |
@@ -153,6 +192,9 @@ jobs:
           
           # Plain HTTPS port with certificate
           https_port 3129 tls-cert=/etc/squid/squid.pem
+          
+          # HTTPS port with client certificate requirement (mutual TLS)
+          https_port 3130 tls-cert=/etc/squid/squid.pem clientca=/tmp/ssl-certs/intermediateCA.crt
           
           # Access Control - very permissive for testing
           http_access allow all

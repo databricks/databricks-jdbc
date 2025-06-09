@@ -316,7 +316,7 @@ public class ConfiguratorUtils {
         }
 
         // Create key managers for client certificate authentication
-        javax.net.ssl.KeyManager[] keyManagers = createKeyManagers(keyStore, keyStorePassword);
+        KeyManager[] keyManagers = createKeyManagers(keyStore, keyStorePassword);
 
         return createSocketFactoryRegistry(trustManagers, keyManagers);
       } else {
@@ -352,8 +352,7 @@ public class ConfiguratorUtils {
    * @throws KeyStoreException If there is an error accessing the key store.
    * @throws DatabricksHttpException If there is an error creating the key managers.
    */
-  private static javax.net.ssl.KeyManager[] createKeyManagers(
-      KeyStore keyStore, char[] keyStorePassword)
+  private static KeyManager[] createKeyManagers(KeyStore keyStore, char[] keyStorePassword)
       throws NoSuchAlgorithmException, KeyStoreException, DatabricksHttpException {
     try {
       KeyManagerFactory kmf =
@@ -379,7 +378,7 @@ public class ConfiguratorUtils {
    * @throws KeyManagementException If there is an error during SSL context creation.
    */
   private static Registry<ConnectionSocketFactory> createSocketFactoryRegistry(
-      TrustManager[] trustManagers, javax.net.ssl.KeyManager[] keyManagers)
+      TrustManager[] trustManagers, KeyManager[] keyManagers)
       throws NoSuchAlgorithmException, KeyManagementException {
 
     SSLContext sslContext = SSLContext.getInstance(DatabricksJdbcConstants.TLS);
@@ -549,46 +548,20 @@ public class ConfiguratorUtils {
         keyStore.load(keyStoreStream, password);
       }
 
-      // Verify that the keystore contains at least one private key entry
-      boolean hasKeyEntry = false;
-      try {
-        hasKeyEntry =
-            Collections.list(keyStore.aliases()).stream()
-                .anyMatch(
-                    alias -> {
-                      try {
-                        boolean isKey = keyStore.isKeyEntry(alias);
-                        if (isKey) {
-                          LOGGER.debug("Found key entry with alias: " + alias);
-                        }
-                        return isKey;
-                      } catch (KeyStoreException e) {
-                        return false;
-                      }
-                    });
-      } catch (KeyStoreException e) {
-        LOGGER.warn("Unable to verify key entries in keystore: " + e.getMessage());
-      }
-
-      if (!hasKeyEntry) {
-        LOGGER.warn(
-            "Key store does not contain any private key entries. "
-                + "Client authentication may fail.");
-      }
-
-      LOGGER.info("Successfully loaded key store: " + keyStorePath);
+      LOGGER.debug("Successfully loaded key store: " + keyStorePath);
       return keyStore;
     } catch (Exception e) {
-      String errorMessage =
-          "Failed to load key store: "
-              + keyStorePath
-              + " with type "
-              + keyStoreType
-              + ": "
-              + e.getMessage();
-      LOGGER.error(errorMessage);
+      StringBuilder errorMessage =
+          new StringBuilder()
+              .append("Failed to load key store: ")
+              .append(keyStorePath)
+              .append(" with type ")
+              .append(keyStoreType)
+              .append(": ")
+              .append(e.getMessage());
+      LOGGER.error(errorMessage.toString(), e);
       throw new DatabricksHttpException(
-          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+          errorMessage.toString(), e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
     }
   }
 
