@@ -124,7 +124,6 @@ jobs:
           
           # Copy to appropriate locations
           sudo cp squid.pem /etc/squid/
-          sudo cp intermediateCA.crt /tmp/ssl-certs/
           sudo chown proxy:proxy /etc/squid/squid.pem
           
           # Extract the Databricks workspace certificate
