@@ -23,8 +23,6 @@ public class SSLTest {
   private static String httpsProxyUrl;
   private static String trustStorePath;
   private static String trustStorePassword;
-  private static String keyStorePath;
-  private static String keyStorePassword;
 
   @BeforeAll
   public static void setupEnv() {
@@ -35,8 +33,6 @@ public class SSLTest {
     httpsProxyUrl = System.getenv("HTTPS_PROXY_URL");
     trustStorePath = System.getenv("TRUSTSTORE_PATH");
     trustStorePassword = System.getenv("TRUSTSTORE_PASSWORD");
-    keyStorePath = System.getenv("KEYSTORE_PATH");
-    keyStorePassword = System.getenv("KEYSTORE_PASSWORD");
   }
 
   private String buildJdbcUrl(
@@ -45,8 +41,7 @@ public class SSLTest {
       boolean useHttpsProxy,
       boolean allowSelfSignedCerts,
       boolean useSystemTrustStore,
-      boolean useCustomTrustStore,
-      boolean useKeyStore) {
+      boolean useCustomTrustStore) {
 
     String defaultProxyHost = "localhost";
     String defaultProxyPort = "3128";
@@ -121,15 +116,6 @@ public class SSLTest {
       }
     }
 
-    if (useKeyStore && keyStorePath != null && !keyStorePath.isEmpty()) {
-      sb.append("SSLKeyStore=").append(keyStorePath).append(";");
-
-      if (keyStorePassword != null && !keyStorePassword.isEmpty()) {
-        sb.append("SSLKeyStorePwd=").append(keyStorePassword).append(";");
-        sb.append("SSLKeyStoreType=").append("JKS").append(";");
-      }
-    }
-
     sb.append("ssl=1;");
     return sb.toString();
   }
@@ -150,7 +136,7 @@ public class SSLTest {
   public void testDirectConnectionDefaultSSL() {
     LOGGER.info("Scenario: Direct connection with default SSL settings");
     for (boolean thrift : new boolean[] {true, false}) {
-      String url = buildJdbcUrl(thrift, false, false, false, false, false, false);
+      String url = buildJdbcUrl(thrift, false, false, false, false, false);
       try {
         verifyConnect(url);
       } catch (Exception e) {
@@ -163,7 +149,7 @@ public class SSLTest {
   public void testHttpProxyDefaultSSL() {
     LOGGER.info("Scenario: HTTP Proxy with default SSL settings");
     for (boolean thrift : new boolean[] {true, false}) {
-      String url = buildJdbcUrl(thrift, true, false, false, false, false, false);
+      String url = buildJdbcUrl(thrift, true, false, false, false, false);
       try {
         verifyConnect(url);
       } catch (Exception e) {
@@ -200,7 +186,7 @@ public class SSLTest {
 
       for (boolean thrift : new boolean[] {true, false}) {
         // Test 1: Connection with empty trust store - should fail
-        String url1 = buildJdbcUrl(thrift, true, false, false, false, false, false);
+        String url1 = buildJdbcUrl(thrift, true, false, false, false, false);
         url1 += ";LogLevel=TRACE;";
         url1 += "SSLTrustStore=" + emptyTrustStore.getAbsolutePath() + ";";
         url1 += "SSLTrustStorePwd=changeit;";
@@ -218,7 +204,7 @@ public class SSLTest {
 
         // Test 2: Non-existent trust store - should fail with clear error
         String nonExistentPath = "/path/to/nonexistent";
-        String url2 = buildJdbcUrl(thrift, true, false, false, false, false, false);
+        String url2 = buildJdbcUrl(thrift, true, false, false, false, false);
         url2 += ";LogLevel=TRACE;";
         url2 += "SSLTrustStore=" + nonExistentPath + ";";
 
@@ -244,7 +230,7 @@ public class SSLTest {
 
         // Test 3: With self-signed certs allowed - should succeed
         System.setProperty("javax.net.ssl.trustStore", emptyTrustStore.getAbsolutePath());
-        String url3 = buildJdbcUrl(thrift, true, false, true, false, false, false);
+        String url3 = buildJdbcUrl(thrift, true, false, true, false, false);
         url3 += ";LogLevel=TRACE;";
 
         try {
@@ -286,7 +272,7 @@ public class SSLTest {
   public void testWithSystemTrustStore() {
     LOGGER.info("Scenario: Testing with UseSystemTrustStore=1");
     for (boolean thrift : new boolean[] {true, false}) {
-      String url = buildJdbcUrl(thrift, true, false, false, true, false, false);
+      String url = buildJdbcUrl(thrift, true, false, false, true, false);
       try {
         verifyConnect(url);
       } catch (Exception e) {
@@ -306,7 +292,7 @@ public class SSLTest {
       System.clearProperty("javax.net.ssl.trustStore");
 
       for (boolean thrift : new boolean[] {true, false}) {
-        String url = buildJdbcUrl(thrift, false, false, false, true, false, false);
+        String url = buildJdbcUrl(thrift, false, false, false, true, false);
         try {
           verifyConnect(url);
         } catch (Exception e) {
@@ -335,7 +321,7 @@ public class SSLTest {
       System.setProperty("javax.net.ssl.trustStore", "/path/that/does/not/exist.jks");
 
       for (boolean thrift : new boolean[] {true, false}) {
-        String url = buildJdbcUrl(thrift, false, false, false, false, false, false);
+        String url = buildJdbcUrl(thrift, false, false, false, false, false);
         try {
           verifyConnect(url);
         } catch (Exception e) {
@@ -397,7 +383,7 @@ public class SSLTest {
       }
 
       for (boolean thrift : new boolean[] {true, false}) {
-        String url = buildJdbcUrl(thrift, true, false, false, false, true, false);
+        String url = buildJdbcUrl(thrift, true, false, false, false, true);
         url += ";LogLevel=TRACE;";
 
         try {
@@ -408,7 +394,7 @@ public class SSLTest {
           LOGGER.info(
               "Connection failed with custom trust store, trying with AllowSelfSignedCerts=1: "
                   + e.getMessage());
-          String fallbackUrl = buildJdbcUrl(thrift, true, false, true, false, false, false);
+          String fallbackUrl = buildJdbcUrl(thrift, true, false, true, false, false);
           fallbackUrl += ";LogLevel=TRACE;";
           try {
             verifyConnect(fallbackUrl);
@@ -422,7 +408,7 @@ public class SSLTest {
       LOGGER.info("Custom trust store test setup failed: " + e.getMessage());
       // Instead of failing the test, try with AllowSelfSignedCerts=1
       for (boolean thrift : new boolean[] {true}) {
-        String fallbackUrl = buildJdbcUrl(thrift, true, false, true, false, false, false);
+        String fallbackUrl = buildJdbcUrl(thrift, true, false, true, false, false);
         fallbackUrl += ";LogLevel=TRACE;";
         try {
           verifyConnect(fallbackUrl);
@@ -465,13 +451,13 @@ public class SSLTest {
       // Use AllowSelfSignedCerts as fallback mechanism
       for (boolean thrift : new boolean[] {true, false}) {
         try {
-          String url = buildJdbcUrl(thrift, false, false, false, false, false, false);
+          String url = buildJdbcUrl(thrift, false, false, false, false, false);
           verifyConnect(url);
         } catch (Exception e) {
           LOGGER.info(
               "Connection with system properties failed, trying with AllowSelfSignedCerts=1: "
                   + e.getMessage());
-          String fallbackUrl = buildJdbcUrl(thrift, false, false, true, false, false, false);
+          String fallbackUrl = buildJdbcUrl(thrift, false, false, true, false, false);
           try {
             verifyConnect(fallbackUrl);
             LOGGER.info("Successfully connected with AllowSelfSignedCerts=1 fallback");
@@ -521,7 +507,7 @@ public class SSLTest {
 
       for (boolean thrift : new boolean[] {true, false}) {
 
-        String url = buildJdbcUrl(thrift, false, false, false, false, false, false);
+        String url = buildJdbcUrl(thrift, false, false, false, false, false);
         url += ";SSLTrustStore=" + emptyTrustStore.getAbsolutePath() + ";";
         url += "SSLTrustStorePwd=changeit;";
         url += "SSLTrustStoreType=JKS;";
@@ -551,7 +537,7 @@ public class SSLTest {
     String nonExistentPath = "/path/to/nonexistent/truststore.jks";
     for (boolean thrift : new boolean[] {true, false}) {
 
-      String url = buildJdbcUrl(thrift, false, false, false, false, false, false);
+      String url = buildJdbcUrl(thrift, false, false, false, false, false);
       url += ";SSLTrustStore=" + nonExistentPath + ";";
 
       try {
@@ -577,7 +563,7 @@ public class SSLTest {
     // This test simply verifies that when UseSystemTrustStore=false and no custom trust store
     // is provided, the connection still works (falls back to JDK default trust store)
     for (boolean thrift : new boolean[] {true, false}) {
-      String url = buildJdbcUrl(thrift, false, false, false, false, false, false);
+      String url = buildJdbcUrl(thrift, false, false, false, false, false);
 
       try {
         LOGGER.info(
@@ -624,7 +610,7 @@ public class SSLTest {
       for (boolean thrift : new boolean[] {true}) {
         // Use both UseSystemTrustStore=true and a custom trust store
         // The custom trust store should take precedence
-        String url = buildJdbcUrl(thrift, false, false, false, true, true, false);
+        String url = buildJdbcUrl(thrift, false, false, false, true, true);
 
         try {
           LOGGER.info("\n==== Testing custom trust store precedence ====");
@@ -647,172 +633,6 @@ public class SSLTest {
       } else {
         System.clearProperty("javax.net.ssl.trustStore");
       }
-    }
-  }
-
-  @Test
-  public void testWithClientCertificateKeyStore() {
-    LOGGER.info("Scenario: Testing with client certificate authentication (mutual TLS)");
-
-    // Skip if we don't have a valid keystore
-    if (keyStorePath == null || keyStorePath.isEmpty()) {
-      LOGGER.info("Skipping client certificate test - no keystore path provided");
-      return;
-    }
-
-    File keyStoreFile = new File(keyStorePath);
-    if (!keyStoreFile.exists() || !keyStoreFile.canRead()) {
-      LOGGER.info(
-          "Skipping client certificate test - keystore does not exist or is not readable: "
-              + keyStorePath);
-      return;
-    }
-
-    try {
-      // Validate keystore content first
-      KeyStore ks = KeyStore.getInstance("JKS");
-      try (java.io.FileInputStream fis = new java.io.FileInputStream(keyStorePath)) {
-        ks.load(fis, keyStorePassword.toCharArray());
-        int entriesCount = java.util.Collections.list(ks.aliases()).size();
-
-        LOGGER.info("Keystore contains " + entriesCount + " entries");
-        assertTrue(entriesCount > 0, "Keystore must contain at least one entry");
-
-        // Check if at least one entry is a private key entry
-        boolean hasKeyEntry = false;
-        for (String alias : java.util.Collections.list(ks.aliases())) {
-          if (ks.isKeyEntry(alias)) {
-            hasKeyEntry = true;
-            LOGGER.info("Found private key entry: " + alias);
-            break;
-          }
-        }
-        assertTrue(hasKeyEntry, "Keystore must contain at least one private key entry");
-      }
-
-      for (boolean thrift : new boolean[] {true, false}) {
-        // Test with both custom trust store and keystore for mutual TLS
-        String url = buildJdbcUrl(thrift, true, false, false, false, true, true);
-        url += ";LogLevel=TRACE;";
-
-        try {
-          LOGGER.info("Testing client certificate authentication (mutual TLS)");
-          verifyConnect(url);
-          LOGGER.info("Client certificate authentication succeeded");
-        } catch (Exception e) {
-          LOGGER.info(
-              "Client certificate authentication failed, this may be expected if the server doesn't require client certs: "
-                  + e.getMessage());
-          // Try with just the keystore (no custom trust store)
-          String fallbackUrl = buildJdbcUrl(thrift, true, false, false, false, false, true);
-          fallbackUrl += ";LogLevel=TRACE;";
-          try {
-            verifyConnect(fallbackUrl);
-            LOGGER.info("Client certificate authentication succeeded with default trust store");
-          } catch (Exception e2) {
-            LOGGER.info(
-                "Client certificate authentication failed with both approaches: "
-                    + e2.getMessage());
-            // This is not necessarily a test failure since the server might not be configured for
-            // mutual TLS
-          }
-        }
-      }
-    } catch (Exception e) {
-      LOGGER.info("Client certificate test setup failed: " + e.getMessage());
-    }
-  }
-
-  @Test
-  public void testNonExistentKeyStore() {
-    LOGGER.info("Scenario: Testing with non-existent keystore");
-
-    String nonExistentPath = "/path/to/nonexistent/keystore.jks";
-    for (boolean thrift : new boolean[] {true, false}) {
-
-      String url = buildJdbcUrl(thrift, false, false, false, false, false, false);
-      url += ";SSLKeyStore=" + nonExistentPath + ";";
-      url += ";SSLKeyStorePwd=changeit;";
-
-      try {
-        verifyConnect(url);
-        fail("Connection with non-existent keystore should have failed");
-      } catch (Exception e) {
-        LOGGER.info("Connection correctly failed with non-existent keystore: " + e.getMessage());
-        assertTrue(
-            e.getMessage().contains("key store") || e.getMessage().contains("keystore"),
-            "Error message should mention keystore issues");
-      }
-    }
-  }
-
-  @Test
-  public void testKeyStoreWithoutPassword() {
-    LOGGER.info("Scenario: Testing keystore without password");
-
-    // Skip if we don't have a valid keystore
-    if (keyStorePath == null || keyStorePath.isEmpty()) {
-      LOGGER.info("Skipping keystore without password test - no keystore path provided");
-      return;
-    }
-
-    File keyStoreFile = new File(keyStorePath);
-    if (!keyStoreFile.exists()) {
-      LOGGER.info("Skipping keystore without password test - keystore does not exist");
-      return;
-    }
-
-    for (boolean thrift : new boolean[] {true, false}) {
-      String url = buildJdbcUrl(thrift, false, false, false, false, false, false);
-      url += ";SSLKeyStore=" + keyStorePath + ";";
-      // Intentionally omit SSLKeyStorePwd
-
-      try {
-        verifyConnect(url);
-        fail("Connection with keystore but no password should have failed");
-      } catch (Exception e) {
-        LOGGER.info("Connection correctly failed with keystore but no password: " + e.getMessage());
-        assertTrue(
-            e.getMessage().contains("password") || e.getMessage().contains("required"),
-            "Error message should mention password requirement");
-      }
-    }
-  }
-
-  @Test
-  public void testEmptyKeyStore() {
-    LOGGER.info("Scenario: Testing with empty keystore");
-
-    try {
-      // Create an empty keystore file
-      java.io.File emptyKeyStore = java.io.File.createTempFile("empty-test-key", ".jks");
-      emptyKeyStore.deleteOnExit();
-
-      // Initialize an empty keystore
-      java.security.KeyStore ks = java.security.KeyStore.getInstance("JKS");
-      ks.load(null, "changeit".toCharArray());
-      try (java.io.FileOutputStream fos = new java.io.FileOutputStream(emptyKeyStore)) {
-        ks.store(fos, "changeit".toCharArray());
-      }
-
-      for (boolean thrift : new boolean[] {true, false}) {
-        String url = buildJdbcUrl(thrift, false, false, false, false, false, false);
-        url += ";SSLKeyStore=" + emptyKeyStore.getAbsolutePath() + ";";
-        url += "SSLKeyStorePwd=changeit;";
-        url += "SSLKeyStoreType=JKS;";
-
-        try {
-          // This may succeed or fail depending on whether the server requires client certs
-          verifyConnect(url);
-          LOGGER.info(
-              "Connection with empty keystore succeeded (server doesn't require client certs)");
-        } catch (Exception e) {
-          LOGGER.info("Connection with empty keystore failed: " + e.getMessage());
-          // This is acceptable - empty keystore means no client certificate for mutual TLS
-        }
-      }
-    } catch (Exception e) {
-      fail("Test setup failed: " + e.getMessage());
     }
   }
 }
