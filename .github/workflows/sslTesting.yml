@@ -193,7 +193,7 @@ jobs:
           https_port 3129 tls-cert=/etc/squid/squid.pem
           
           # HTTPS port with client certificate requirement (mutual TLS)
-          https_port 3130 tls-cert=/etc/squid/squid.pem clientca=/tmp/ssl-certs/intermediateCA.crt
+          https_port 3130 tls-cert=/etc/squid/squid.pem tls-clientca=/tmp/ssl-certs/intermediateCA.crt
           
           # Access Control - very permissive for testing
           http_access allow all
