@@ -137,7 +137,7 @@ public class ClientConfiguratorTest {
     assertEquals("https://jwt-auth.databricks.com", config.getHost());
     assertEquals("client-id", config.getClientId());
     assertEquals("client-secret", config.getClientSecret());
-    assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
+    assertEquals("custom-oauth-m2m", config.getAuthType());
     DatabricksTokenFederationProvider provider =
         (DatabricksTokenFederationProvider) config.getCredentialsProvider();
     assertNotNull(provider);

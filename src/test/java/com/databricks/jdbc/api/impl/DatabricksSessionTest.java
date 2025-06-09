@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
+import static com.databricks.jdbc.telemetry.TelemetryHelper.getDriverSystemConfiguration;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -199,6 +200,16 @@ public class DatabricksSessionTest {
             DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), sdkClient);
     session.setClientInfoProperty("key", "value");
     assertEquals("value", session.getClientInfoProperties().get("key"));
+  }
+
+  @Test
+  public void testGetClientInfoProperty_ApplicationName() throws DatabricksSQLException {
+    DatabricksSession session =
+        new DatabricksSession(
+            DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), sdkClient);
+    session.setClientInfoProperty("applicationName", "testApp");
+    assertEquals("testApp", session.getClientInfoProperties().get("applicationName"));
+    assertEquals("testApp", getDriverSystemConfiguration().getClientAppName());
   }
 
   @Test

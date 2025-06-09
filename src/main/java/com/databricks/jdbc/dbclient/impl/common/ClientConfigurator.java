@@ -7,6 +7,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.*;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.util.DatabricksAuthUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -290,13 +291,17 @@ public class ClientConfigurator {
   }
 
   public void setupOAuthAccessTokenConfig() throws DatabricksParsingException {
-    DatabricksTokenFederationProvider databricksTokenFederationProvider =
-        new DatabricksTokenFederationProvider(connectionContext, new PatCredentialsProvider());
+    // Token Federation is only supported for JWT tokens
+    if (DatabricksAuthUtil.isTokenJWT(connectionContext.getPassThroughAccessToken())) {
+      DatabricksTokenFederationProvider databricksTokenFederationProvider =
+          new DatabricksTokenFederationProvider(connectionContext, new PatCredentialsProvider());
+      databricksConfig.setCredentialsProvider(databricksTokenFederationProvider);
+    }
+
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
         .setHost(connectionContext.getHostUrl())
-        .setToken(connectionContext.getPassThroughAccessToken())
-        .setCredentialsProvider(databricksTokenFederationProvider);
+        .setToken(connectionContext.getPassThroughAccessToken());
   }
 
   public void resetAccessTokenInConfig(String newAccessToken) {

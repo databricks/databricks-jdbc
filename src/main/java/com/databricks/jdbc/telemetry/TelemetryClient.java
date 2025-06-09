@@ -16,32 +16,25 @@ public class TelemetryClient implements ITelemetryClient {
   private final ExecutorService executorService;
   private List<TelemetryFrontendLog> eventsBatch;
 
-  /** Returns an athenticated Telemetry Client */
   public TelemetryClient(
       IDatabricksConnectionContext connectionContext,
       ExecutorService executorService,
       DatabricksConfig config) {
-    this(connectionContext, true, config, executorService);
-  }
-
-  /** Returns an unathenticated Telemetry Client */
-  public TelemetryClient(
-      IDatabricksConnectionContext connectionContext,
-      boolean isAuthenticated,
-      ExecutorService executorService) {
-    this(connectionContext, false, null, executorService);
-  }
-
-  private TelemetryClient(
-      IDatabricksConnectionContext connectionContext,
-      boolean isAuthenticated,
-      DatabricksConfig databricksConfig,
-      ExecutorService executorService) {
     this.eventsBatch = new LinkedList<>();
     this.eventsBatchSize = connectionContext.getTelemetryBatchSize();
-    this.isAuthEnabled = isAuthenticated;
+    this.isAuthEnabled = true;
     this.context = connectionContext;
-    this.databricksConfig = databricksConfig;
+    this.databricksConfig = config;
+    this.executorService = executorService;
+  }
+
+  public TelemetryClient(
+      IDatabricksConnectionContext connectionContext, ExecutorService executorService) {
+    this.eventsBatch = new LinkedList<>();
+    this.eventsBatchSize = connectionContext.getTelemetryBatchSize();
+    this.isAuthEnabled = false;
+    this.context = connectionContext;
+    this.databricksConfig = null;
     this.executorService = executorService;
   }
 

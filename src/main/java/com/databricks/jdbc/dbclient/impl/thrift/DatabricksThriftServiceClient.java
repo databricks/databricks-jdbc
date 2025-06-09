@@ -110,6 +110,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     }
 
     String sessionId = byteBufferToString(response.sessionHandle.getSessionId().guid);
+    DatabricksThreadContextHolder.setSessionId(sessionId);
     LOGGER.debug("Session created with ID {}", sessionId);
     return ImmutableSessionInfo.builder()
         .sessionId(sessionId)
@@ -123,6 +124,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     LOGGER.debug(
         String.format(
             "public void deleteSession(Session session = {%s}))", sessionInfo.toString()));
+    DatabricksThreadContextHolder.setSessionId(sessionInfo.sessionId());
     TCloseSessionReq closeSessionReq =
         new TCloseSessionReq().setSessionHandle(sessionInfo.sessionHandle());
     TCloseSessionResp response =
@@ -191,7 +193,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       IDatabricksStatementInternal parentStatement,
       boolean runAsync)
       throws SQLException {
-
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     TSparkArrowTypes arrowNativeTypes = new TSparkArrowTypes().setTimestampAsArrow(true);
 
     // Convert the parameters to a list of TSparkParameter objects.
@@ -247,6 +249,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public void closeStatement(String statementId = {%s}) using Thrift client",
             statementId));
+    DatabricksThreadContextHolder.setStatementId(statementId);
     TCloseOperationReq request =
         new TCloseOperationReq().setOperationHandle(getOperationHandle(statementId));
     TCloseOperationResp resp = thriftAccessor.closeOperation(request);
@@ -259,6 +262,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public void cancelStatement(String statementId = {%s}) using Thrift client",
             statementId));
+    DatabricksThreadContextHolder.setStatementId(statementId);
     TCancelOperationReq request =
         new TCancelOperationReq().setOperationHandle(getOperationHandle(statementId));
     TCancelOperationResp resp = thriftAccessor.cancelOperation(request);
@@ -275,6 +279,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "public DatabricksResultSet getStatementResult(String statementId = {%s}) using Thrift client",
             statementId));
+    DatabricksThreadContextHolder.setStatementId(statementId);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     return thriftAccessor.getStatementResult(
         getOperationHandle(statementId), parentStatement, session);
   }
@@ -287,6 +293,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s}) using Thrift client",
             statementId, chunkIndex);
     LOGGER.debug(context);
+    DatabricksThreadContextHolder.setStatementId(statementId);
     TFetchResultsResp fetchResultsResp;
     List<ExternalLink> externalLinks = new ArrayList<>();
     AtomicInteger index = new AtomicInteger(0);
@@ -318,6 +325,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     String context =
         String.format("Fetching catalogs using Thrift client. Session {%s}", session.toString());
     LOGGER.debug(context);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     TGetCatalogsReq request =
         new TGetCatalogsReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle());
@@ -337,6 +345,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             "Fetching schemas using Thrift client. Session {%s}, catalog {%s}, schemaNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern);
     LOGGER.debug(context);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     TGetSchemasReq request =
         new TGetSchemasReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
@@ -365,6 +374,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             "Fetching tables using Thrift client. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern, tableNamePattern);
     LOGGER.debug(context);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     TGetTablesReq request =
         new TGetTablesReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
@@ -387,6 +397,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     LOGGER.debug(
         String.format(
             "Fetching table types using Thrift client. Session {%s}", session.toString()));
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     return metadataResultSetBuilder.getTableTypesResult();
   }
 
@@ -403,6 +414,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             "Fetching columns using Thrift client. Session {%s}, catalog {%s}, schemaNamePattern {%s}, tableNamePattern {%s}, columnNamePattern {%s}",
             session.toString(), catalog, schemaNamePattern, tableNamePattern, columnNamePattern);
     LOGGER.debug(context);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     TGetColumnsReq request =
         new TGetColumnsReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
@@ -429,6 +441,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format(
             "Fetching functions using Thrift client. Session {%s}, catalog {%s}, schemaNamePattern {%s}, functionNamePattern {%s}.",
             session.toString(), catalog, schemaNamePattern, functionNamePattern);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     LOGGER.debug(context);
     TGetFunctionsReq request =
         new TGetFunctionsReq()
@@ -452,6 +465,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             "Fetching primary keys using Thrift client. session {%s}, catalog {%s}, schema {%s}, table {%s}",
             session.toString(), catalog, schema, table);
     LOGGER.debug(context);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     TGetPrimaryKeysReq request =
         new TGetPrimaryKeysReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
@@ -474,6 +488,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             "Fetching imported keys using Thrift client for session {%s}, catalog {%s}, schema {%s}, table {%s}",
             session.toString(), catalog, schema, table);
     LOGGER.debug(context);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     // GetImportedKeys is implemented using GetCrossReferences
     // When only foreign table name is provided, we get imported keys
     TGetCrossReferenceReq request =

@@ -83,13 +83,13 @@ public class DatabricksBatchExecutor {
    * @throws DatabricksBatchUpdateException if a database access error occurs or batch execution
    *     fails
    */
-  public int[] executeBatch() throws DatabricksBatchUpdateException {
+  public long[] executeBatch() throws DatabricksBatchUpdateException {
     if (commands.isEmpty()) {
       LOGGER.warn("No commands to execute in the batch");
-      return new int[0];
+      return new long[0];
     }
 
-    int[] updateCounts = new int[commands.size()];
+    long[] updateCounts = new long[commands.size()];
     Instant batchStartTime = Instant.now();
 
     try {
@@ -101,7 +101,7 @@ public class DatabricksBatchExecutor {
           LOGGER.debug("Executing batch command {}: {}", i, command.getSql());
 
           boolean hasResultSet = parentStatement.execute(command.getSql());
-          int updateCount = parentStatement.getUpdateCount();
+          long updateCount = parentStatement.getLargeUpdateCount();
 
           logCommandExecutionTime(i, commandStartTime, true);
 
@@ -167,13 +167,13 @@ public class DatabricksBatchExecutor {
    * @throws DatabricksBatchUpdateException always thrown to indicate batch execution failure
    */
   void handleBatchFailure(
-      int[] updateCounts,
+      long[] updateCounts,
       int commandIndex,
       Instant batchStartTime,
       String message,
       SQLException cause)
       throws DatabricksBatchUpdateException {
-    int[] countsSoFar = Arrays.copyOf(updateCounts, commandIndex);
+    long[] countsSoFar = Arrays.copyOf(updateCounts, commandIndex);
     clearCommands();
 
     Duration batchDuration = Duration.between(batchStartTime, Instant.now());

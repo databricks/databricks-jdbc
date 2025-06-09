@@ -5,14 +5,12 @@ import static com.databricks.jdbc.telemetry.TelemetryHelper.exportLatencyLog;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.databricks.sdk.core.DatabricksConfig;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
@@ -27,9 +25,8 @@ class ChunkDownloadTask implements DatabricksCallableTask {
   private final IDatabricksHttpClient httpClient;
   private final ChunkDownloadCallback chunkDownloader;
   private final IDatabricksConnectionContext connectionContext;
-  private final StatementId statementId;
+  private final String statementId;
   private final ChunkLinkDownloadService linkDownloadService;
-  private final DatabricksConfig databricksConfig;
   Throwable uncaughtException = null;
 
   ChunkDownloadTask(
@@ -43,7 +40,6 @@ class ChunkDownloadTask implements DatabricksCallableTask {
     this.connectionContext = DatabricksThreadContextHolder.getConnectionContext();
     this.statementId = DatabricksThreadContextHolder.getStatementId();
     this.linkDownloadService = linkDownloadService;
-    this.databricksConfig = DatabricksThreadContextHolder.getDatabricksConfig();
   }
 
   @Override
@@ -56,7 +52,6 @@ class ChunkDownloadTask implements DatabricksCallableTask {
     DatabricksThreadContextHolder.setChunkId(chunk.getChunkIndex());
     DatabricksThreadContextHolder.setConnectionContext(this.connectionContext);
     DatabricksThreadContextHolder.setStatementId(this.statementId);
-    DatabricksThreadContextHolder.setDatabricksConfig(this.databricksConfig);
 
     try {
       DatabricksThreadContextHolder.setRetryCount(retries);

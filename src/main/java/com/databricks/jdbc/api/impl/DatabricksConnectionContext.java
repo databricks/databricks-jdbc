@@ -5,11 +5,11 @@ import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
+import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.ValidationUtil;
-import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -83,7 +83,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       String connectionParamString, Properties properties) {
     ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
     // check if connectionParamString is empty or null
-    if (!WildcardUtil.isNullOrEmpty(connectionParamString)) {
+    if (!isNullOrEmpty(connectionParamString)) {
       String[] urlParts = connectionParamString.split(DatabricksJdbcConstants.URL_DELIMITER);
       for (String urlPart : urlParts) {
         String[] pair = urlPart.split(DatabricksJdbcConstants.PAIR_DELIMITER);
@@ -379,6 +379,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         : USER_AGENT_THRIFT_CLIENT;
   }
 
+  @Override
   public String getCustomerUserAgent() {
     return getParameter(DatabricksJdbcUrlParams.USER_AGENT_ENTRY);
   }
@@ -885,6 +886,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isTokenCacheEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_TOKEN_CACHE).equals("1");
+  }
+
+  @Override
+  public String getApplicationName() {
+    return getParameter(DatabricksJdbcUrlParams.APPLICATION_NAME);
   }
 
   private static boolean nullOrEmptyString(String s) {

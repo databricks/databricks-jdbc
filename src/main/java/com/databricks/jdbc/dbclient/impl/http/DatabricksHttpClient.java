@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 import static com.databricks.jdbc.dbclient.impl.common.ClientConfigurator.convertNonProxyHostConfigToBeSystemPropertyCompliant;
 import static io.netty.util.NetUtil.LOCALHOST;
 
@@ -82,6 +83,10 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       request.setHeader("Content-Encoding", "gzip");
     }
     try {
+      String userAgentString = UserAgentManager.getUserAgentString();
+      if (!isNullOrEmpty(userAgentString) && !request.containsHeader("User-Agent")) {
+        request.setHeader("User-Agent", userAgentString);
+      }
       return httpClient.execute(request);
     } catch (IOException e) {
       throwHttpException(e, request);

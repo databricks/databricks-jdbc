@@ -1,6 +1,7 @@
 package com.databricks.jdbc.telemetry;
 
-import com.databricks.jdbc.api.impl.DatabricksConnection;
+import static com.databricks.jdbc.telemetry.TelemetryHelper.isTelemetryAllowedForConnection;
+
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -12,7 +13,8 @@ import java.util.concurrent.Executors;
 
 public class TelemetryClientFactory {
 
-  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(TelemetryClientFactory.class);
 
   private static final TelemetryClientFactory INSTANCE = new TelemetryClientFactory();
 
@@ -32,28 +34,22 @@ public class TelemetryClientFactory {
     return INSTANCE;
   }
 
-  public ITelemetryClient getTelemetryClient(
-      IDatabricksConnectionContext connectionContext, DatabricksConfig databricksConfig) {
-    if (connectionContext != null
-        && connectionContext.isTelemetryEnabled()
-        && databricksConfig != null) {
+  public ITelemetryClient getTelemetryClient(IDatabricksConnectionContext connectionContext) {
+    if (!isTelemetryAllowedForConnection(connectionContext)) {
+      return NoopTelemetryClient.getInstance();
+    }
+    DatabricksConfig databricksConfig =
+        TelemetryHelper.getDatabricksConfigSafely(connectionContext);
+    if (databricksConfig != null) {
       return telemetryClients.computeIfAbsent(
           connectionContext.getConnectionUuid(),
           k ->
               new TelemetryClient(
                   connectionContext, getTelemetryExecutorService(), databricksConfig));
     }
-    return NoopTelemetryClient.getInstance();
-  }
-
-  public ITelemetryClient getUnauthenticatedTelemetryClient(
-      IDatabricksConnectionContext connectionContext) {
-    if (connectionContext != null && connectionContext.isTelemetryEnabled()) {
-      return noauthTelemetryClients.computeIfAbsent(
-          connectionContext.getConnectionUuid(),
-          k -> new TelemetryClient(connectionContext, false, getTelemetryExecutorService()));
-    }
-    return NoopTelemetryClient.getInstance();
+    return NoopTelemetryClient
+        .getInstance(); // Currently, un-auth endpoints do not make sense as feature flag endpoint
+    // cannot be hit without auth
   }
 
   public void closeTelemetryClient(IDatabricksConnectionContext connectionContext) {
