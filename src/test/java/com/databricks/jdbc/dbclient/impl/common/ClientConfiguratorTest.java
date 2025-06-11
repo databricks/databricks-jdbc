@@ -13,9 +13,9 @@ import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSSLException;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
@@ -40,7 +40,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void getWorkspaceClient_PAT_AuthenticatesWithAccessToken()
-      throws DatabricksParsingException, DatabricksHttpException {
+      throws DatabricksParsingException, DatabricksSSLException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
     when(mockContext.getHostUrl()).thenReturn("https://pat.databricks.com");
     when(mockContext.getToken()).thenReturn("pat-token");
@@ -58,7 +58,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithTokenPassthrough_AuthenticatesCorrectly()
-      throws DatabricksParsingException, DatabricksHttpException {
+      throws DatabricksParsingException, DatabricksSSLException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.TOKEN_PASSTHROUGH);
     when(mockContext.getHostUrl()).thenReturn("https://oauth-token.databricks.com");
@@ -77,7 +77,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectly()
-      throws DatabricksParsingException, DatabricksHttpException {
+      throws DatabricksParsingException, DatabricksSSLException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-client.databricks.com");
@@ -98,7 +98,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectlyGCP()
-      throws DatabricksParsingException, DatabricksHttpException {
+      throws DatabricksParsingException, DatabricksSSLException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-client.databricks.com");
@@ -118,7 +118,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectlyWithJWT()
-      throws DatabricksParsingException, DatabricksHttpException {
+      throws DatabricksParsingException, DatabricksSSLException {
     when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
@@ -169,7 +169,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void getWorkspaceClient_OAuthWithBrowserBasedAuthentication_AuthenticatesCorrectly()
-      throws DatabricksParsingException, DatabricksHttpException {
+      throws DatabricksParsingException, DatabricksSSLException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
@@ -194,7 +194,7 @@ public class ClientConfiguratorTest {
   @Test
   void
       getWorkspaceClient_OAuthWithBrowserBasedAuthentication_WithDiscoveryURL_AuthenticatesCorrectly()
-          throws DatabricksParsingException, IOException, DatabricksHttpException {
+          throws DatabricksParsingException, IOException, DatabricksSSLException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
@@ -220,7 +220,7 @@ public class ClientConfiguratorTest {
   }
 
   @Test
-  void testNonOauth() throws DatabricksHttpException {
+  void testNonOauth() throws DatabricksSSLException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OTHER);
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
@@ -250,7 +250,7 @@ public class ClientConfiguratorTest {
   }
 
   @Test
-  void testSetupProxyConfig() throws DatabricksHttpException {
+  void testSetupProxyConfig() throws DatabricksSSLException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
     when(mockContext.getUseProxy()).thenReturn(true);
     when(mockContext.getProxyHost()).thenReturn("proxy.host.com");
@@ -281,7 +281,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void setupM2MConfig_WithAzureTenantId_ConfiguresCorrectly()
-      throws DatabricksParsingException, DatabricksHttpException {
+      throws DatabricksParsingException, DatabricksSSLException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
     when(mockContext.getHostForOAuth()).thenReturn("https://azure-oauth.databricks.com");
@@ -445,7 +445,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void testSetupU2MConfig_WithTokenCache()
-      throws DatabricksParsingException, DatabricksHttpException {
+      throws DatabricksParsingException, DatabricksSSLException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
@@ -493,7 +493,7 @@ public class ClientConfiguratorTest {
 
   @Test
   void testSetupU2MConfig_WithoutTokenCache()
-      throws DatabricksParsingException, DatabricksHttpException {
+      throws DatabricksParsingException, DatabricksSSLException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");

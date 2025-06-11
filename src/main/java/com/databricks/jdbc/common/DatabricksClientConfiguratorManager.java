@@ -3,7 +3,7 @@ package com.databricks.jdbc.common;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksDriverException;
-import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksSSLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -28,9 +28,9 @@ public class DatabricksClientConfiguratorManager {
           k -> {
             try {
               return new ClientConfigurator(context);
-            } catch (DatabricksHttpException e) {
+            } catch (DatabricksSSLException e) {
               String message =
-                  String.format("client configurator failed due to HTTP error: %s", e.getMessage());
+                  String.format("client configurator failed due to SSL error: %s", e.getMessage());
               LOGGER.error(e, message);
               throw new DatabricksDriverException(message, DatabricksDriverErrorCode.AUTH_ERROR);
             }

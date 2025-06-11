@@ -275,6 +275,8 @@ public class ArrowToJavaObjectConverter {
                   .substring(arrowMetadata.indexOf(',') + 1, arrowMetadata.indexOf(')'))
                   .trim());
     } catch (Exception e) {
+      LOGGER.error(
+          e, "Failed to parse scale from arrow metadata: {}. Defaulting to scale 0", arrowMetadata);
       scale = 0;
     }
     if (object instanceof Number) {
