@@ -215,6 +215,9 @@ public interface IDatabricksConnectionContext {
   /** Returns the SSL trust store type of the trust store file. */
   String getSSLTrustStoreType();
 
+  /** Returns the SSL trust store provider for the trust store. */
+  String getSSLTrustStoreProvider();
+
   /** Returns the SSL key store file path used for SSL connections. */
   String getSSLKeyStore();
 

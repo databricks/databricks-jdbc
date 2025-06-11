@@ -470,24 +470,34 @@ public class ConfiguratorUtils {
     }
 
     String trustStoreType = connectionContext.getSSLTrustStoreType();
+    String trustStoreProvider = connectionContext.getSSLTrustStoreProvider();
 
     try (FileInputStream trustStoreStream = new FileInputStream(trustStorePath)) {
       LOGGER.info("Loading trust store as type: " + trustStoreType);
-      KeyStore trustStore = KeyStore.getInstance(trustStoreType);
+      KeyStore trustStore;
+      if (trustStoreProvider != null && !trustStoreProvider.isEmpty()) {
+        LOGGER.info("Using trust store provider: " + trustStoreProvider);
+        trustStore = KeyStore.getInstance(trustStoreType, trustStoreProvider);
+      } else {
+        trustStore = KeyStore.getInstance(trustStoreType);
+      }
       trustStore.load(trustStoreStream, password);
       LOGGER.info("Successfully loaded trust store: " + trustStorePath);
       return trustStore;
     } catch (Exception e) {
-      String errorMessage =
-          "Failed to load trust store: "
-              + trustStorePath
-              + " with type "
-              + trustStoreType
-              + ": "
-              + e.getMessage();
-      LOGGER.error(errorMessage);
+      StringBuilder errorMessage =
+          new StringBuilder()
+              .append("Failed to load trust store: ")
+              .append(trustStorePath)
+              .append(" with type ")
+              .append(trustStoreType);
+      if (trustStoreProvider != null && !trustStoreProvider.isEmpty()) {
+        errorMessage.append(" and provider ").append(trustStoreProvider);
+      }
+      errorMessage.append(": ").append(e.getMessage());
+      LOGGER.error(errorMessage.toString());
       throw new DatabricksSSLException(
-          errorMessage, e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
+          errorMessage.toString(), e, DatabricksDriverErrorCode.SSL_HANDSHAKE_ERROR);
     }
   }
 

@@ -77,6 +77,7 @@ public enum DatabricksJdbcUrlParams {
   SSL_TRUST_STORE("SSLTrustStore", "SSL trust store"),
   SSL_TRUST_STORE_PASSWORD("SSLTrustStorePwd", "SSL trust store password"),
   SSL_TRUST_STORE_TYPE("SSLTrustStoreType", "SSL trust store type", "JKS"),
+  SSL_TRUST_STORE_PROVIDER("SSLTrustStoreProvider", "SSL trust store provider"),
   SSL_KEY_STORE("SSLKeyStore", "SSL key store"),
   SSL_KEY_STORE_PASSWORD("SSLKeyStorePwd", "SSL key store password"),
   SSL_KEY_STORE_TYPE("SSLKeyStoreType", "SSL key store type", "JKS"),
