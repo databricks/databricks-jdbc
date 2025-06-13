@@ -660,11 +660,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         .anyMatch(column -> column.getColumnName().equals(columnName));
   }
 
-  private boolean isVariantColumn(List<String> effectiveArrowMetadata, int columnIndex) {
-    return effectiveArrowMetadata != null
-        && columnIndex < effectiveArrowMetadata.size()
-        && effectiveArrowMetadata.get(columnIndex) != null
-        && effectiveArrowMetadata.get(columnIndex).equalsIgnoreCase(VARIANT);
+  private boolean isVariantColumn(List<String> arrowMetadata, int i) {
+    return arrowMetadata != null
+        && arrowMetadata.size() > i
+        && arrowMetadata.get(i) != null
+        && arrowMetadata.get(i).equalsIgnoreCase(VARIANT);
   }
 
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {

@@ -385,10 +385,9 @@ public class ArrowResultChunk {
       BufferAllocator rootAllocator,
       StatementId statementId,
       long chunkIndex,
-      List<String> knownMetadata)
+      List<String> metadata)
       throws IOException {
     List<List<ValueVector>> recordBatchList = new ArrayList<>();
-    List<String> metadata = knownMetadata;
     try (ArrowStreamReader arrowStreamReader = new ArrowStreamReader(inputStream, rootAllocator)) {
       VectorSchemaRoot vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();
       boolean fetchedMetadata = (metadata != null);
