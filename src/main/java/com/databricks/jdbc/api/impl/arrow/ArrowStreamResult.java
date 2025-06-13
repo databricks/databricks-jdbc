@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_KEY;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 
 import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
@@ -21,8 +22,14 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.google.common.annotations.VisibleForTesting;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.ArrowStreamReader;
 
 /** Result container for Arrow-based query results. */
 public class ArrowStreamResult implements IExecutionResult {
@@ -33,6 +40,7 @@ public class ArrowStreamResult implements IExecutionResult {
   private ArrowResultChunk.ArrowResultChunkIterator chunkIterator;
   private List<ColumnInfo> columnInfos;
   private final IDatabricksSession session;
+  private List<String> arrowMetadata;
 
   public ArrowStreamResult(
       ResultManifest resultManifest,
@@ -61,7 +69,7 @@ public class ArrowStreamResult implements IExecutionResult {
     boolean isInlineArrow = resultData.getAttachment() != null;
 
     if (isInlineArrow) {
-      this.chunkProvider = new InlineChunkProvider(resultData, resultManifest);
+      this.chunkProvider = new InlineChunkProvider(resultData, resultManifest, null);
     } else {
       this.chunkProvider =
           new RemoteChunkProvider(
@@ -70,7 +78,8 @@ public class ArrowStreamResult implements IExecutionResult {
               resultData,
               session,
               httpClient,
-              session.getConnectionContext().getCloudFetchThreadPoolSize());
+              session.getConnectionContext().getCloudFetchThreadPoolSize(),
+              arrowMetadata);
     }
     this.columnInfos =
         resultManifest.getSchema().getColumnCount() == 0
@@ -102,8 +111,19 @@ public class ArrowStreamResult implements IExecutionResult {
       throws DatabricksSQLException {
     this.session = session;
     setColumnInfo(resultsResp.getResultSetMetadata());
+    if (resultsResp.getResultSetMetadata().isSetArrowSchema()
+        && resultsResp.getResultSetMetadata().bufferForArrowSchema() != null) {
+      try {
+        this.arrowMetadata =
+            extractArrowMetadataFromSchema(
+                resultsResp.getResultSetMetadata().bufferForArrowSchema());
+      } catch (IOException e) {
+        LOGGER.warn("Could not extract arrow metadata from schema.", e);
+      }
+    }
     if (isInlineArrow) {
-      this.chunkProvider = new InlineChunkProvider(resultsResp, parentStatement, session);
+      this.chunkProvider =
+          new InlineChunkProvider(resultsResp, parentStatement, session, arrowMetadata);
     } else {
       CompressionCodec compressionCodec =
           CompressionCodec.getCompressionMapping(resultsResp.getResultSetMetadata());
@@ -114,15 +134,13 @@ public class ArrowStreamResult implements IExecutionResult {
               session,
               httpClient,
               session.getConnectionContext().getCloudFetchThreadPoolSize(),
-              compressionCodec);
+              compressionCodec,
+              arrowMetadata);
     }
   }
 
-  public List<String> getArrowMetadata() throws DatabricksSQLException {
-    if (chunkProvider == null || chunkProvider.getChunk() == null) {
-      return null;
-    }
-    return chunkProvider.getChunk().getArrowMetadata();
+  public List<String> getArrowMetadata() {
+    return arrowMetadata;
   }
 
   /** {@inheritDoc} */
@@ -227,5 +245,25 @@ public class ArrowStreamResult implements IExecutionResult {
     for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
       columnInfos.add(new ColumnInfo().setTypeName(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
     }
+  }
+
+  private List<String> extractArrowMetadataFromSchema(ByteBuffer arrowSchemaBytes)
+      throws IOException {
+    List<String> metadata = new ArrayList<>();
+    try (BufferAllocator allocator = new RootAllocator();
+        ArrowStreamReader reader =
+            new ArrowStreamReader(
+                new java.io.ByteArrayInputStream(arrowSchemaBytes.array()), allocator)) {
+      VectorSchemaRoot root = reader.getVectorSchemaRoot();
+      reader.loadNextBatch();
+      root.getSchema()
+          .getFields()
+          .forEach(
+              field -> {
+                String typeText = field.getMetadata().get(ARROW_METADATA_KEY);
+                metadata.add(typeText);
+              });
+    }
+    return metadata;
   }
 }

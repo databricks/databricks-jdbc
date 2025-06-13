@@ -39,7 +39,8 @@ public class InlineChunkProvider implements ChunkProvider {
   InlineChunkProvider(
       TFetchResultsResp resultsResp,
       IDatabricksStatementInternal parentStatement,
-      IDatabricksSession session)
+      IDatabricksSession session,
+      List<String> arrowMetadata)
       throws DatabricksParsingException {
     this.currentChunkIndex = -1;
     this.totalRows = 0;
@@ -48,6 +49,7 @@ public class InlineChunkProvider implements ChunkProvider {
         ArrowResultChunk.builder()
             .withInputStream(byteStream, totalRows)
             .withStatementId(parentStatement.getStatementId())
+            .withMetadata(arrowMetadata)
             .build();
   }
 
@@ -58,7 +60,8 @@ public class InlineChunkProvider implements ChunkProvider {
    * @param resultManifest Manifest object containing the result metadata
    * @throws DatabricksSQLException if there is an error in processing the inline arrow data
    */
-  InlineChunkProvider(ResultData resultData, ResultManifest resultManifest)
+  InlineChunkProvider(
+      ResultData resultData, ResultManifest resultManifest, List<String> arrowMetadata)
       throws DatabricksSQLException {
     this.currentChunkIndex = -1;
     this.totalRows = resultManifest.getTotalRowCount();
@@ -73,6 +76,7 @@ public class InlineChunkProvider implements ChunkProvider {
     this.arrowResultChunk =
         ArrowResultChunk.builder()
             .withInputStream(new ByteArrayInputStream(decompressedBytes), totalRows)
+            .withMetadata(arrowMetadata)
             .build();
   }
 

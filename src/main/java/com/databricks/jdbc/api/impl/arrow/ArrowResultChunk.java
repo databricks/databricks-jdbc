@@ -110,6 +110,7 @@ public class ArrowResultChunk {
     this.statementId = builder.statementId;
     this.expiryTime = builder.expiryTime;
     this.status = builder.status;
+    this.arrowMetadata = builder.metadata;
     this.rootAllocator = new RootAllocator(/* limit= */ Integer.MAX_VALUE);
     if (builder.inputStream != null) {
       // Data is already available
@@ -300,7 +301,8 @@ public class ArrowResultChunk {
     LOGGER.debug(
         "Parsing data for chunk index {} and statement {}", this.chunkIndex, this.statementId);
     ArrowData arrowData =
-        getRecordBatchList(inputStream, this.rootAllocator, this.statementId, this.chunkIndex);
+        getRecordBatchList(
+            inputStream, this.rootAllocator, this.statementId, this.chunkIndex, this.arrowMetadata);
     this.recordBatchList = arrowData.getValueVectors();
     this.arrowMetadata = arrowData.getMetadata();
     LOGGER.debug(
@@ -382,13 +384,14 @@ public class ArrowResultChunk {
       InputStream inputStream,
       BufferAllocator rootAllocator,
       StatementId statementId,
-      long chunkIndex)
+      long chunkIndex,
+      List<String> knownMetadata)
       throws IOException {
     List<List<ValueVector>> recordBatchList = new ArrayList<>();
-    List<String> metadata = new ArrayList<>();
+    List<String> metadata = knownMetadata;
     try (ArrowStreamReader arrowStreamReader = new ArrowStreamReader(inputStream, rootAllocator)) {
       VectorSchemaRoot vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();
-      boolean fetchedMetadata = false;
+      boolean fetchedMetadata = (metadata != null);
       while (arrowStreamReader.loadNextBatch()) {
         if (!fetchedMetadata) {
           metadata = getMetadataInformationFromSchemaRoot(vectorSchemaRoot);
@@ -463,6 +466,7 @@ public class ArrowResultChunk {
     private Instant expiryTime;
     private ChunkStatus status;
     private InputStream inputStream;
+    private List<String> metadata;
 
     public Builder withStatementId(StatementId statementId) {
       this.statementId = statementId;
@@ -481,6 +485,11 @@ public class ArrowResultChunk {
       this.numRows = rowCount;
       this.inputStream = stream;
       this.status = ChunkStatus.PENDING;
+      return this;
+    }
+
+    public Builder withMetadata(List<String> metadata) {
+      this.metadata = metadata;
       return this;
     }
 

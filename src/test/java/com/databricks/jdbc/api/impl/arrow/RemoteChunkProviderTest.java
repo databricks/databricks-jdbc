@@ -36,6 +36,6 @@ public class RemoteChunkProviderTest {
     assertDoesNotThrow(
         () ->
             new RemoteChunkProvider(
-                STATEMENT_ID, resultManifest, resultData, mockSession, null, 4));
+                STATEMENT_ID, resultManifest, resultData, mockSession, null, 4, null));
   }
 }

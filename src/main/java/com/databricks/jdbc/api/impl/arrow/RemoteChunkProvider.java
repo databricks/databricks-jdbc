@@ -20,6 +20,7 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.annotations.VisibleForTesting;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -46,6 +47,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
   private final CompressionCodec compressionCodec;
   private final ConcurrentHashMap<Long, ArrowResultChunk> chunkIndexToChunksMap;
   private final ChunkLinkDownloadService linkDownloadService;
+  private final List<String> arrowMetadata;
 
   RemoteChunkProvider(
       StatementId statementId,
@@ -53,12 +55,14 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       ResultData resultData,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient,
-      int chunksDownloaderThreadPoolSize)
+      int chunksDownloaderThreadPoolSize,
+      List<String> arrowMetadata)
       throws DatabricksParsingException {
     RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
     this.httpClient = httpClient;
     this.statementId = statementId;
+    this.arrowMetadata = arrowMetadata;
     this.chunkCount = resultManifest.getTotalChunkCount();
     this.rowCount = resultManifest.getTotalRowCount();
     this.chunkIndexToChunksMap = initializeChunksMap(resultManifest, resultData, statementId);
@@ -80,10 +84,12 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       IDatabricksSession session,
       IDatabricksHttpClient httpClient,
       int chunksDownloaderThreadPoolSize,
-      CompressionCodec compressionCodec)
+      CompressionCodec compressionCodec,
+      List<String> arrowMetadata)
       throws DatabricksSQLException {
     RemoteChunkProvider.chunksDownloaderThreadPoolSize = chunksDownloaderThreadPoolSize;
     this.chunkDownloaderExecutorService = createChunksDownloaderExecutorService();
+    this.arrowMetadata = arrowMetadata;
     this.httpClient = httpClient;
     this.compressionCodec = compressionCodec;
     this.rowCount = 0;
@@ -256,6 +262,7 @@ public class RemoteChunkProvider implements ChunkProvider, ChunkDownloadCallback
       chunkIndexMap.put(
           chunkCount,
           ArrowResultChunk.builder()
+              .withMetadata(this.arrowMetadata)
               .withStatementId(statementId)
               .withThriftChunkInfo(chunkCount, resultLink)
               .build());

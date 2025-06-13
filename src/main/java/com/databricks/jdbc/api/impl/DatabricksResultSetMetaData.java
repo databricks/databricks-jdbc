@@ -186,16 +186,27 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           int precision = precisionAndScale[0];
           int scale = precisionAndScale[1];
 
+          // Use Arrow metadata for type text if available, otherwise fall back to TTypeDesc
+          String columnTypeText;
+          if (arrowMetadata != null
+              && columnIndex < arrowMetadata.size()
+              && arrowMetadata.get(columnIndex) != null) {
+            columnTypeText = arrowMetadata.get(columnIndex);
+          } else {
+            columnTypeText = getTypeTextFromTypeDesc(columnInfo.getTypeDesc());
+          }
+          if (columnTypeName != ColumnInfoTypeName.ARRAY
+              && columnTypeName != ColumnInfoTypeName.MAP
+              && columnTypeName != ColumnInfoTypeName.STRUCT) {
+            columnTypeText = new MetadataResultSetBuilder(ctx).stripTypeName(columnTypeText);
+          }
+
           ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
           columnBuilder
               .columnName(columnInfo.getColumnName())
               .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
               .columnType(columnType)
-              .columnTypeText(
-                  getTypeTextFromTypeDesc(
-                      columnInfo
-                          .getTypeDesc())) // columnInfoTypeName does not have BIGINT, SMALLINT.
-              // Extracting from thriftType in typeDesc
+              .columnTypeText(columnTypeText)
               .typePrecision(precision)
               .typeScale(scale)
               .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
@@ -649,11 +660,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         .anyMatch(column -> column.getColumnName().equals(columnName));
   }
 
-  private boolean isVariantColumn(List<String> arrowMetadata, int i) {
-    return arrowMetadata != null
-        && arrowMetadata.size() > i
-        && arrowMetadata.get(i) != null
-        && arrowMetadata.get(i).equalsIgnoreCase(VARIANT);
+  private boolean isVariantColumn(List<String> effectiveArrowMetadata, int columnIndex) {
+    return effectiveArrowMetadata != null
+        && columnIndex < effectiveArrowMetadata.size()
+        && effectiveArrowMetadata.get(columnIndex) != null
+        && effectiveArrowMetadata.get(columnIndex).equalsIgnoreCase(VARIANT);
   }
 
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {

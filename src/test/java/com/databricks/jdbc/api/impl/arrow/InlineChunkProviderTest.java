@@ -51,7 +51,7 @@ public class InlineChunkProviderTest {
     when(fetchResultsResp.getResults()).thenReturn(new TRowSet().setArrowBatches(ARROW_BATCH_LIST));
     when(metadata.isSetLz4Compressed()).thenReturn(false);
     InlineChunkProvider inlineChunkProvider =
-        new InlineChunkProvider(fetchResultsResp, parentStatement, session);
+        new InlineChunkProvider(fetchResultsResp, parentStatement, session, null);
     assertTrue(inlineChunkProvider.hasNextChunk());
     assertTrue(inlineChunkProvider.next());
     assertFalse(inlineChunkProvider.next());
@@ -65,7 +65,7 @@ public class InlineChunkProviderTest {
     when(fetchResultsResp.getResults())
         .thenReturn(new TRowSet().setArrowBatches(Collections.singletonList(arrowBatch)));
     InlineChunkProvider inlineChunkProvider =
-        new InlineChunkProvider(fetchResultsResp, parentStatement, session);
+        new InlineChunkProvider(fetchResultsResp, parentStatement, session, null);
     assertThrows(
         DatabricksParsingException.class,
         () -> inlineChunkProvider.handleError(new RuntimeException()));
@@ -84,7 +84,8 @@ public class InlineChunkProviderTest {
     // Mock the attachment to be valid arrow data
     when(mockResultData.getAttachment()).thenReturn(arrowData);
 
-    InlineChunkProvider provider = new InlineChunkProvider(mockResultData, mockResultManifest);
+    InlineChunkProvider provider =
+        new InlineChunkProvider(mockResultData, mockResultManifest, null);
 
     assertTrue(provider.hasNextChunk());
     assertEquals(TOTAL_ROWS, provider.getRowCount());
@@ -123,7 +124,8 @@ public class InlineChunkProviderTest {
     // Mock the attachment to be valid LZ4 compressed arrow data
     when(mockResultData.getAttachment()).thenReturn(compressedData);
 
-    InlineChunkProvider provider = new InlineChunkProvider(mockResultData, mockResultManifest);
+    InlineChunkProvider provider =
+        new InlineChunkProvider(mockResultData, mockResultManifest, null);
 
     assertNotNull(provider.arrowResultChunk);
     assertEquals(TOTAL_ROWS, provider.getRowCount());
@@ -158,7 +160,7 @@ public class InlineChunkProviderTest {
     // Expect NullPointerException when initialising InlineChunkProvider with null attachment
     assertThrows(
         NullPointerException.class,
-        () -> new InlineChunkProvider(mockResultData, mockResultManifest));
+        () -> new InlineChunkProvider(mockResultData, mockResultManifest, null));
   }
 
   @Test
@@ -174,7 +176,8 @@ public class InlineChunkProviderTest {
     // Mock the attachment to be valid LZ4 compressed arrow data
     when(mockResultData.getAttachment()).thenReturn(compressedData);
 
-    InlineChunkProvider provider = new InlineChunkProvider(mockResultData, mockResultManifest);
+    InlineChunkProvider provider =
+        new InlineChunkProvider(mockResultData, mockResultManifest, null);
 
     assertTrue(provider.hasNextChunk(), "Should have next chunk initially");
     assertTrue(provider.next(), "First next() should return true");
