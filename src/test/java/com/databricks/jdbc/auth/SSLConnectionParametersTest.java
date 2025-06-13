@@ -7,8 +7,8 @@ import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.SocketFactoryUtil;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtils;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSSLException;
 import java.security.cert.X509Certificate;
 import java.util.Properties;
 import javax.net.ssl.X509TrustManager;
@@ -32,7 +32,7 @@ public class SSLConnectionParametersTest {
   }
 
   @Test
-  public void testGetBaseConnectionManagerWithDefaultSettings() throws DatabricksHttpException {
+  public void testGetBaseConnectionManagerWithDefaultSettings() throws DatabricksSSLException {
     when(mockContext.allowSelfSignedCerts()).thenReturn(false);
     when(mockContext.useSystemTrustStore()).thenReturn(false);
     when(mockContext.getSSLTrustStore()).thenReturn(null);
@@ -46,7 +46,7 @@ public class SSLConnectionParametersTest {
   }
 
   @Test
-  public void testGetBaseConnectionManagerWithSelfSignedCerts() throws DatabricksHttpException {
+  public void testGetBaseConnectionManagerWithSelfSignedCerts() throws DatabricksSSLException {
     when(mockContext.allowSelfSignedCerts()).thenReturn(true);
 
     PoolingHttpClientConnectionManager manager =
@@ -68,7 +68,7 @@ public class SSLConnectionParametersTest {
     try {
       ConfiguratorUtils.getBaseConnectionManager(mockContext);
       fail("Should throw exception for non-existent trust store");
-    } catch (DatabricksHttpException e) {
+    } catch (DatabricksSSLException e) {
       assertTrue(
           e.getMessage()
               .contains("Error while setting up custom trust store: /path/to/truststore.jks"),
@@ -88,8 +88,12 @@ public class SSLConnectionParametersTest {
 
   @Test
   public void testGetConnectionSocketFactoryRegistryWithSelfSignedCerts()
-      throws DatabricksHttpException {
-    when(mockContext.allowSelfSignedCerts()).thenReturn(true);
+      throws DatabricksSSLException {
+    when(mockContext.allowSelfSignedCerts()).thenReturn(false);
+    when(mockContext.useSystemTrustStore()).thenReturn(false);
+    when(mockContext.getSSLTrustStore()).thenReturn(null);
+    when(mockContext.checkCertificateRevocation()).thenReturn(false);
+    when(mockContext.acceptUndeterminedCertificateRevocation()).thenReturn(false);
 
     Registry<ConnectionSocketFactory> registry =
         ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext);

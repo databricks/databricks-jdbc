@@ -5,7 +5,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksSSLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.FileOutputStream;
@@ -52,36 +52,55 @@ public class ConfiguratorUtilsTest {
       BASE_TRUST_STORE_PATH + "empty-truststore.jks";
   private static final String DUMMY_TRUST_STORE_PATH =
       BASE_TRUST_STORE_PATH + "dummy-truststore.jks";
+  private static final String EMPTY_KEY_STORE_PATH = BASE_TRUST_STORE_PATH + "empty-keystore.jks";
+  private static final String DUMMY_KEY_STORE_PATH = BASE_TRUST_STORE_PATH + "dummy-keystore.jks";
   private static final String CERTIFICATE_CN = "MinimalCertificate";
   private static final String TRUST_STORE_TYPE = "PKCS12";
   private static final String TRUST_STORE_PASSWORD = "changeit";
+  private static final String KEY_STORE_TYPE = "PKCS12";
+  private static final String KEY_STORE_PASSWORD = "changeit";
 
   @BeforeAll
   static void setup() throws Exception {
-    createEmptyTrustStore();
-    createDummyTrustStore();
+    createEmptyStore(EMPTY_TRUST_STORE_PATH, TRUST_STORE_TYPE, TRUST_STORE_PASSWORD);
+    createEmptyStore(EMPTY_KEY_STORE_PATH, KEY_STORE_TYPE, KEY_STORE_PASSWORD);
+    createDummyStore(
+        DUMMY_TRUST_STORE_PATH, TRUST_STORE_TYPE, TRUST_STORE_PASSWORD, "dummy-cert", false);
+    createDummyStore(DUMMY_KEY_STORE_PATH, KEY_STORE_TYPE, KEY_STORE_PASSWORD, "client-cert", true);
   }
 
-  private static void createEmptyTrustStore()
+  /**
+   * Creates an empty keystore/truststore file.
+   *
+   * @param filePath The path where the store will be saved
+   * @param storeType The type of store (e.g., "PKCS12", "JKS")
+   * @param password The password for the store
+   */
+  private static void createEmptyStore(String filePath, String storeType, String password)
       throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
-    String password = TRUST_STORE_PASSWORD;
-    // Create an empty JKS keystore
-    KeyStore keyStore = KeyStore.getInstance(TRUST_STORE_TYPE);
+    KeyStore keyStore = KeyStore.getInstance(storeType);
     keyStore.load(null, password.toCharArray());
 
     // Save the empty keystore to a file
-    try (FileOutputStream fos = new FileOutputStream(EMPTY_TRUST_STORE_PATH)) {
+    try (FileOutputStream fos = new FileOutputStream(filePath)) {
       keyStore.store(fos, password.toCharArray());
     }
   }
 
-  private static void createDummyTrustStore() throws Exception {
-    String trustStorePassword = TRUST_STORE_PASSWORD; // Password for the trust store
-    String alias = "dummy-cert"; // Alias for the dummy certificate
-
-    // Create an empty JKS keystore
-    KeyStore keyStore = KeyStore.getInstance(TRUST_STORE_TYPE);
-    keyStore.load(null, trustStorePassword.toCharArray());
+  /**
+   * Creates a keystore/truststore with a test certificate.
+   *
+   * @param filePath The path where the store will be saved
+   * @param storeType The type of store (e.g., "PKCS12", "JKS")
+   * @param password The password for the store
+   * @param alias The alias for the certificate entry
+   * @param isKeyStore Whether this is a keystore (with private key) or truststore (cert only)
+   */
+  private static void createDummyStore(
+      String filePath, String storeType, String password, String alias, boolean isKeyStore)
+      throws Exception {
+    KeyStore keyStore = KeyStore.getInstance(storeType);
+    keyStore.load(null, password.toCharArray());
 
     // Generate a key pair (public and private keys)
     KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
@@ -91,12 +110,18 @@ public class ConfiguratorUtilsTest {
     // Create a self-signed certificate
     X509Certificate certificate = generateBarebonesCertificate(keyPair);
 
-    // Add the certificate to the keystore
-    keyStore.setCertificateEntry(alias, certificate);
+    // For keystore, add the private key with certificate chain
+    // For truststore, add just the certificate
+    if (isKeyStore) {
+      keyStore.setKeyEntry(
+          alias, keyPair.getPrivate(), password.toCharArray(), new X509Certificate[] {certificate});
+    } else {
+      keyStore.setCertificateEntry(alias, certificate);
+    }
 
     // Save the keystore to a file
-    try (FileOutputStream fos = new FileOutputStream(DUMMY_TRUST_STORE_PATH)) {
-      keyStore.store(fos, trustStorePassword.toCharArray());
+    try (FileOutputStream fos = new FileOutputStream(filePath)) {
+      keyStore.store(fos, password.toCharArray());
     }
   }
 
@@ -135,15 +160,25 @@ public class ConfiguratorUtilsTest {
     } catch (IOException e) {
       LOGGER.info("Failed to delete dummy trust store file: " + e.getMessage());
     }
+    try {
+      Files.delete(Path.of(EMPTY_KEY_STORE_PATH));
+    } catch (IOException e) {
+      LOGGER.info("Failed to delete empty key store file: " + e.getMessage());
+    }
+    try {
+      Files.delete(Path.of(DUMMY_KEY_STORE_PATH));
+    } catch (IOException e) {
+      LOGGER.info("Failed to delete dummy key store file: " + e.getMessage());
+    }
   }
 
   @Test
-  void testGetConnectionSocketFactoryRegistry() throws DatabricksHttpException {
+  void testGetConnectionSocketFactoryRegistry() throws DatabricksSSLException {
     when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
     when(mockContext.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE);
     when(mockContext.getSSLTrustStore()).thenReturn(EMPTY_TRUST_STORE_PATH);
     assertThrows(
-        DatabricksHttpException.class,
+        DatabricksSSLException.class,
         () -> ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext),
         "the trustAnchors parameter must be non-empty");
 
@@ -157,7 +192,7 @@ public class ConfiguratorUtilsTest {
   }
 
   @Test
-  void testGetTrustAnchorsFromTrustStore() throws DatabricksHttpException {
+  void testGetTrustAnchorsFromTrustStore() throws DatabricksSSLException {
     when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
     when(mockContext.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE);
     when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
@@ -170,7 +205,7 @@ public class ConfiguratorUtilsTest {
 
   @Test
   void testGetBaseConnectionManager_NoSSLTrustStoreAndRevocationCheckEnabled()
-      throws DatabricksHttpException {
+      throws DatabricksSSLException {
     // Define behavior for mock context
     when(mockContext.getSSLTrustStore()).thenReturn(null);
     when(mockContext.checkCertificateRevocation()).thenReturn(true);
@@ -189,7 +224,7 @@ public class ConfiguratorUtilsTest {
   }
 
   @Test
-  void testGetBaseConnectionManager_WithSSLTrustStore() throws DatabricksHttpException {
+  void testGetBaseConnectionManager_WithSSLTrustStore() throws DatabricksSSLException {
     try (MockedStatic<ConfiguratorUtils> configuratorUtils = mockStatic(ConfiguratorUtils.class)) {
       configuratorUtils
           .when(() -> ConfiguratorUtils.getBaseConnectionManager(mockContext))
@@ -211,7 +246,7 @@ public class ConfiguratorUtilsTest {
   }
 
   @Test
-  void testUseSystemTrustStoreFalse_NoCustomTrustStore() throws DatabricksHttpException {
+  void testUseSystemTrustStoreFalse_NoCustomTrustStore() throws DatabricksSSLException {
     // Scenario: useSystemTrustStore=false and no custom trust store provided
     // Should use JDK default trust store and ignore system property
 
@@ -233,7 +268,7 @@ public class ConfiguratorUtilsTest {
   }
 
   @Test
-  void testAllowSelfSignedCerts() throws DatabricksHttpException {
+  void testAllowSelfSignedCerts() throws DatabricksSSLException {
     // Scenario: allowSelfSignedCerts=true
     // Should use trust-all socket factory
 
@@ -246,7 +281,7 @@ public class ConfiguratorUtilsTest {
   }
 
   @Test
-  void testCustomTrustStore_WithRevocationChecking() throws DatabricksHttpException {
+  void testCustomTrustStore_WithRevocationChecking() throws DatabricksSSLException {
     // Scenario: Custom trust store with certificate revocation checking
 
     when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
@@ -264,7 +299,7 @@ public class ConfiguratorUtilsTest {
   }
 
   @Test
-  void testCreateRegistryWithSystemPropertyTrustStore() throws DatabricksHttpException {
+  void testCreateRegistryWithSystemPropertyTrustStore() throws DatabricksSSLException {
     // Save original system properties to restore later
     String originalTrustStore = System.getProperty("javax.net.ssl.trustStore");
     String originalPassword = System.getProperty("javax.net.ssl.trustStorePassword");
@@ -310,7 +345,7 @@ public class ConfiguratorUtilsTest {
 
   @Test
   void testCreateRegistryWithSystemPropertyTrustStore_WithRevocationChecking()
-      throws DatabricksHttpException {
+      throws DatabricksSSLException {
     // Save original system properties to restore later
     String originalTrustStore = System.getProperty("javax.net.ssl.trustStore");
     String originalPassword = System.getProperty("javax.net.ssl.trustStorePassword");
@@ -363,9 +398,9 @@ public class ConfiguratorUtilsTest {
     String nonExistentPath = "/path/to/nonexistent/truststore.jks";
     when(mockContextLocal.getSSLTrustStore()).thenReturn(nonExistentPath);
 
-    DatabricksHttpException exception =
+    DatabricksSSLException exception =
         assertThrows(
-            DatabricksHttpException.class,
+            DatabricksSSLException.class,
             () -> ConfiguratorUtils.loadTruststoreOrNull(mockContextLocal));
 
     assertTrue(
@@ -426,9 +461,9 @@ public class ConfiguratorUtilsTest {
     // Test the behavior when trust anchors are empty
     Set<TrustAnchor> emptyTrustAnchors = Collections.emptySet();
 
-    DatabricksHttpException exception =
+    DatabricksSSLException exception =
         assertThrows(
-            DatabricksHttpException.class,
+            DatabricksSSLException.class,
             () -> ConfiguratorUtils.buildTrustManagerParameters(emptyTrustAnchors, true, false));
 
     assertTrue(
@@ -456,5 +491,90 @@ public class ConfiguratorUtilsTest {
         SSLConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTPS));
     assertInstanceOf(
         PlainConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTP));
+  }
+
+  @Test
+  void testLoadKeystoreOrNull() throws DatabricksSSLException {
+    when(mockContext.getSSLKeyStorePassword()).thenReturn(KEY_STORE_PASSWORD);
+    when(mockContext.getSSLKeyStoreType()).thenReturn(KEY_STORE_TYPE);
+    when(mockContext.getSSLKeyStore()).thenReturn(DUMMY_KEY_STORE_PATH);
+
+    KeyStore keyStore = ConfiguratorUtils.loadKeystoreOrNull(mockContext);
+    assertNotNull(keyStore, "Keystore should be loaded successfully");
+
+    try {
+      assertTrue(
+          keyStore.containsAlias("client-cert"), "Keystore should contain the client-cert alias");
+      assertTrue(keyStore.isKeyEntry("client-cert"), "Alias should be a key entry");
+    } catch (KeyStoreException e) {
+      fail("Exception checking keystore: " + e.getMessage());
+    }
+  }
+
+  @Test
+  void testNonExistentKeyStore() {
+    when(mockContext.getSSLKeyStore()).thenReturn("non-existent-keystore.jks");
+    assertThrows(
+        DatabricksSSLException.class,
+        () -> ConfiguratorUtils.loadKeystoreOrNull(mockContext),
+        "Should throw an exception for non-existent keystore");
+  }
+
+  @Test
+  void testEmptyKeyStore() throws DatabricksSSLException {
+    when(mockContext.getSSLKeyStorePassword()).thenReturn(KEY_STORE_PASSWORD);
+    when(mockContext.getSSLKeyStoreType()).thenReturn(KEY_STORE_TYPE);
+    when(mockContext.getSSLKeyStore()).thenReturn(EMPTY_KEY_STORE_PATH);
+
+    KeyStore keyStore = ConfiguratorUtils.loadKeystoreOrNull(mockContext);
+    assertNotNull(keyStore, "Empty keystore should load successfully");
+
+    // Verify the keystore has no key entries
+    try {
+      boolean hasKeyEntry = false;
+      for (String alias : Collections.list(keyStore.aliases())) {
+        if (keyStore.isKeyEntry(alias)) {
+          hasKeyEntry = true;
+          break;
+        }
+      }
+      assertFalse(hasKeyEntry, "Empty keystore should not have key entries");
+    } catch (KeyStoreException e) {
+      fail("Exception checking empty keystore: " + e.getMessage());
+    }
+  }
+
+  @Test
+  void testClientCertificateAuthentication() throws DatabricksSSLException {
+    // Set up the mock context for both trust store and key store
+    when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
+    when(mockContext.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE);
+    when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
+    when(mockContext.getSSLKeyStorePassword()).thenReturn(KEY_STORE_PASSWORD);
+    when(mockContext.getSSLKeyStoreType()).thenReturn(KEY_STORE_TYPE);
+    when(mockContext.getSSLKeyStore()).thenReturn(DUMMY_KEY_STORE_PATH);
+    when(mockContext.checkCertificateRevocation()).thenReturn(false);
+
+    // Create registry with both trust store and key store configured
+    Registry<ConnectionSocketFactory> registry =
+        ConfiguratorUtils.createConnectionSocketFactoryRegistry(mockContext);
+
+    // Verify registry was created successfully
+    assertNotNull(registry, "Registry should be created successfully with client certificate");
+    assertInstanceOf(
+        SSLConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTPS));
+    assertInstanceOf(
+        PlainConnectionSocketFactory.class, registry.lookup(DatabricksJdbcConstants.HTTP));
+  }
+
+  @Test
+  void testMissingKeyStorePassword() {
+    when(mockContext.getSSLKeyStore()).thenReturn(DUMMY_KEY_STORE_PATH);
+    when(mockContext.getSSLKeyStorePassword()).thenReturn(null);
+
+    assertThrows(
+        DatabricksSSLException.class,
+        () -> ConfiguratorUtils.loadKeystoreOrNull(mockContext),
+        "Should throw an exception when key store password is missing");
   }
 }
