@@ -250,10 +250,6 @@ public class TestConstants {
       "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;ssl=1;"
           + "httpPath=sql/protocolv1/o/9999999999999999/9999999999999999999;AuthMech=3;loglevel=3";
 
-  public static final String INVALID_CLUSTER_URL =
-      "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;ssl=1;"
-          + "httpPath=sql/protocolv1/oo/9999999999999999/9999999999999999999;AuthMech=3";
-
   public static final String VALID_BASE_URL_1 =
       "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;";
 
@@ -262,6 +258,12 @@ public class TestConstants {
 
   public static final String VALID_BASE_URL_3 =
       "jdbc:databricks://sample-host.cloud.databricks.com:9999";
+
+  public static final String VALID_BASE_URL_4 =
+      "jdbc:databricks://sample-host.cloud.databricks.com:9999;AuthMech=3";
+
+  public static final String VALID_BASE_URL_5 =
+      "jdbc:databricks://sample-host.cloud.databricks.com:9999;EnableArrow=0;ConnCatalog=test";
 
   public static final String VALID_URL_WITH_PROXY =
       "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;ssl=1;AuthMech=3;"

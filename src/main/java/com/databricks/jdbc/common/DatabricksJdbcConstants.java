@@ -20,7 +20,7 @@ public final class DatabricksJdbcConstants {
   public static final Pattern HTTP_CLI_PATTERN = Pattern.compile(".*cliservice(.+)");
   public static final Pattern HTTP_PATH_CLI_PATTERN = Pattern.compile("cliservice");
   public static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://test");
-  public static final Pattern BASE_PATTERN = Pattern.compile("jdbc:databricks://[^;]+(;[^;]*)?");
+  public static final Pattern BASE_PATTERN = Pattern.compile("jdbc:databricks://[^;]+(;[^;]*)*");
   public static final Pattern HTTP_CLUSTER_PATH_PATTERN = Pattern.compile(".*/o/(.+)/(.+)");
   public static final String JDBC_SCHEMA = "jdbc:databricks://";
   public static final LogLevel DEFAULT_LOG_LEVEL = LogLevel.OFF;
