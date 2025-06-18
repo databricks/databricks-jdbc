@@ -291,8 +291,9 @@ public class DatabricksThriftUtilTest {
   @ParameterizedTest
   @MethodSource("typeIdAndColumnInfoType")
   public void testGetTypeFromTypeDesc(TTypeId type, ColumnInfoTypeName typeName) {
-    TTypeDesc typeDesc = createTypeDesc(type);
-    assertEquals(DatabricksThriftUtil.getTypeFromTypeDesc(typeDesc), typeName);
+    TColumnDesc columnDesc = new TColumnDesc().setTypeDesc(createTypeDesc(type));
+    assertEquals(
+        DatabricksThriftUtil.getColumnInfoFromTColumnDesc(columnDesc).getTypeName(), typeName);
   }
 
   @ParameterizedTest

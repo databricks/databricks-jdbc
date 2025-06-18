@@ -4,8 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATION_STATUS_COLUMN_NAME;
 import static com.databricks.jdbc.common.MetadataResultConstants.LARGE_DISPLAY_COLUMNS;
 import static com.databricks.jdbc.common.MetadataResultConstants.REMARKS_COLUMN;
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeTextFromTypeDesc;
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP_NTZ;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
@@ -53,7 +52,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   /**
    * Constructs a {@code DatabricksResultSetMetaData} object for a SEA result set.
    *
-   * @param statementId the unique identifier of the SQL statement execution
    * @param resultManifest the manifest containing metadata about the result set, including column
    *     information and types
    * @param usesExternalLinks whether or not the resultData contains external links (cloud fetch is
@@ -179,30 +177,35 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         for (int columnIndex = 0;
             columnIndex < resultManifest.getSchema().getColumnsSize();
             columnIndex++) {
-          TColumnDesc columnInfo = resultManifest.getSchema().getColumns().get(columnIndex);
-          ColumnInfoTypeName columnTypeName = getTypeFromTypeDesc(columnInfo.getTypeDesc());
-          int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
-          int[] precisionAndScale = getPrecisionAndScale(columnInfo, columnType);
+          TColumnDesc columnDesc = resultManifest.getSchema().getColumns().get(columnIndex);
+          //          ColumnInfoTypeName columnTypeName =
+          // getTypeFromTypeDesc(columnDesc.getTypeDesc());
+          //          int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
+          //          int[] precisionAndScale = getPrecisionAndScale(columnDesc, columnType);
+          //          int precision = precisionAndScale[0];
+          //          int scale = precisionAndScale[1];
+          ColumnInfo columnInfo = getColumnInfoFromTColumnDesc(columnDesc);
+          int[] precisionAndScale = getPrecisionAndScale(columnInfo);
           int precision = precisionAndScale[0];
           int scale = precisionAndScale[1];
 
           ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
           columnBuilder
-              .columnName(columnInfo.getColumnName())
-              .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
-              .columnType(columnType)
-              .columnTypeText(
-                  getTypeTextFromTypeDesc(
-                      columnInfo
-                          .getTypeDesc())) // columnInfoTypeName does not have BIGINT, SMALLINT.
-              // Extracting from thriftType in typeDesc
+              .columnName(columnInfo.getName())
+              .columnTypeClassName(
+                  DatabricksTypeUtil.getColumnTypeClassName(columnInfo.getTypeName()))
+              .columnType(DatabricksTypeUtil.getColumnType(columnInfo.getTypeName()))
+              .columnTypeText(getTypeTextFromTypeDesc(columnDesc.getTypeDesc()))
+              // columnInfoTypeName does not have BIGINT, SMALLINT. Extracting from thriftType in
+              // typeDesc
               .typePrecision(precision)
               .typeScale(scale)
-              .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
+              .displaySize(
+                  DatabricksTypeUtil.getDisplaySize(columnInfo.getTypeName(), precision, scale))
               .isSearchable(true)
               .schemaName(null)
               .tableName(null)
-              .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
+              .isSigned(DatabricksTypeUtil.isSigned(columnInfo.getTypeName()));
           if (isVariantColumn(arrowMetadata, columnIndex)) {
             columnBuilder
                 .columnTypeClassName("java.lang.String")
@@ -210,7 +213,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                 .columnTypeText(VARIANT);
           }
           columnsBuilder.add(columnBuilder.build());
-          columnNameToIndexMap.putIfAbsent(columnInfo.getColumnName(), ++currIndex);
+          columnNameToIndexMap.putIfAbsent(columnInfo.getName(), ++currIndex);
         }
       }
     }
@@ -628,20 +631,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return result;
   }
 
-  public int[] getPrecisionAndScale(TColumnDesc columnInfo, int columnType) {
-    int[] result = getBasePrecisionAndScale(columnType, ctx);
-    if (columnInfo.getTypeDesc() != null && columnInfo.getTypeDesc().getTypesSize() > 0) {
-      TTypeEntry tTypeEntry = columnInfo.getTypeDesc().getTypes().get(0);
-      if (tTypeEntry.isSetPrimitiveEntry()
-          && tTypeEntry.getPrimitiveEntry().isSetTypeQualifiers()
-          && tTypeEntry.getPrimitiveEntry().getTypeQualifiers().isSetQualifiers()) {
-        Map<String, TTypeQualifierValue> qualifiers =
-            tTypeEntry.getPrimitiveEntry().getTypeQualifiers().getQualifiers();
-        result[0] = qualifiers.get("precision").getI32Value(); // precision
-        result[1] = qualifiers.get("scale").getI32Value(); // scale
-      }
-    }
-    return result;
+  public int[] getPrecisionAndScale(ColumnInfo columnInfo) {
+    return getPrecisionAndScale(
+        columnInfo, DatabricksTypeUtil.getColumnType(columnInfo.getTypeName()));
   }
 
   private boolean isLargeColumn(String columnName) {
