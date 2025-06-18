@@ -178,12 +178,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             columnIndex < resultManifest.getSchema().getColumnsSize();
             columnIndex++) {
           TColumnDesc columnDesc = resultManifest.getSchema().getColumns().get(columnIndex);
-          //          ColumnInfoTypeName columnTypeName =
-          // getTypeFromTypeDesc(columnDesc.getTypeDesc());
-          //          int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
-          //          int[] precisionAndScale = getPrecisionAndScale(columnDesc, columnType);
-          //          int precision = precisionAndScale[0];
-          //          int scale = precisionAndScale[1];
           ColumnInfo columnInfo = getColumnInfoFromTColumnDesc(columnDesc);
           int[] precisionAndScale = getPrecisionAndScale(columnInfo);
           int precision = precisionAndScale[0];
