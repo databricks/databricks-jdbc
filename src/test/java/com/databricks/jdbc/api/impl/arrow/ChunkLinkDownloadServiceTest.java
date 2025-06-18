@@ -13,6 +13,8 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -203,7 +205,7 @@ class ChunkLinkDownloadServiceTest {
   void testBatchDownloadChaining()
       throws DatabricksSQLException, ExecutionException, InterruptedException, TimeoutException {
     // Use a far future date to ensure links are never considered expired
-    String farFutureExpiration = "2030-12-31T23:59:59Z";
+    String farFutureExpiration = Instant.now().plus(10, ChronoUnit.MINUTES).toString();
 
     ExternalLink linkForChunkIndex_1 =
         createExternalLink("test-url", 1L, Collections.emptyMap(), farFutureExpiration);
