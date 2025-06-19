@@ -293,14 +293,14 @@ public class DatabricksThriftUtilTest {
   public void testGetTypeFromTypeDesc(TTypeId type, ColumnInfoTypeName typeName) {
     TColumnDesc columnDesc = new TColumnDesc().setTypeDesc(createTypeDesc(type));
     assertEquals(
-        DatabricksThriftUtil.getColumnInfoFromTColumnDesc(columnDesc).getTypeName(), typeName);
+        typeName, DatabricksThriftUtil.getColumnInfoFromTColumnDesc(columnDesc).getTypeName());
   }
 
   @ParameterizedTest
   @MethodSource("typeIdColumnTypeText")
   public void testGetTypeTextFromTypeDesc(TTypeId type, String expectedColumnTypeText) {
     TTypeDesc typeDesc = createTypeDesc(type);
-    assertEquals(DatabricksThriftUtil.getTypeTextFromTypeDesc(typeDesc), expectedColumnTypeText);
+    assertEquals(expectedColumnTypeText, DatabricksThriftUtil.getTypeTextFromTypeDesc(typeDesc));
   }
 
   @ParameterizedTest

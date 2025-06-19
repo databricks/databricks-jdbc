@@ -33,6 +33,7 @@ public class DatabricksThriftUtil {
           Map.entry(FLOAT_TYPE, ColumnInfoTypeName.FLOAT),
           Map.entry(DOUBLE_TYPE, ColumnInfoTypeName.DOUBLE),
           Map.entry(STRING_TYPE, ColumnInfoTypeName.STRING),
+          Map.entry(VARCHAR_TYPE, ColumnInfoTypeName.STRING),
           Map.entry(TIMESTAMP_TYPE, ColumnInfoTypeName.TIMESTAMP),
           Map.entry(BINARY_TYPE, ColumnInfoTypeName.BINARY),
           Map.entry(DECIMAL_TYPE, ColumnInfoTypeName.DECIMAL),
@@ -42,6 +43,7 @@ public class DatabricksThriftUtil {
           Map.entry(INTERVAL_DAY_TIME_TYPE, ColumnInfoTypeName.INTERVAL),
           Map.entry(ARRAY_TYPE, ColumnInfoTypeName.ARRAY),
           Map.entry(MAP_TYPE, ColumnInfoTypeName.MAP),
+          Map.entry(NULL_TYPE, ColumnInfoTypeName.STRING),
           Map.entry(STRUCT_TYPE, ColumnInfoTypeName.STRUCT));
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
