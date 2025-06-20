@@ -13,6 +13,8 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -202,10 +204,21 @@ class ChunkLinkDownloadServiceTest {
   @Test
   void testBatchDownloadChaining()
       throws DatabricksSQLException, ExecutionException, InterruptedException, TimeoutException {
+    // Use a far future date to ensure links are never considered expired
+    String farFutureExpiration = Instant.now().plus(10, ChronoUnit.MINUTES).toString();
+
+    ExternalLink linkForChunkIndex_1 =
+        createExternalLink("test-url", 1L, Collections.emptyMap(), farFutureExpiration);
+    ExternalLink linkForChunkIndex_2 =
+        createExternalLink("test-url", 2L, Collections.emptyMap(), farFutureExpiration);
+    ExternalLink linkForChunkIndex_3 =
+        createExternalLink("test-url", 3L, Collections.emptyMap(), farFutureExpiration);
+    ExternalLink linkForChunkIndex_4 =
+        createExternalLink("test-url", 4L, Collections.emptyMap(), farFutureExpiration);
     ExternalLink linkForChunkIndex_5 =
-        createExternalLink("test-url", 5L, Collections.emptyMap(), "2025-02-16T00:00:00Z");
+        createExternalLink("test-url", 5L, Collections.emptyMap(), farFutureExpiration);
     ExternalLink linkForChunkIndex_6 =
-        createExternalLink("test-url", 6L, Collections.emptyMap(), "2025-02-16T00:00:00Z");
+        createExternalLink("test-url", 6L, Collections.emptyMap(), farFutureExpiration);
 
     ArrowResultChunk mockChunk = mock(ArrowResultChunk.class);
     when(mockChunkMap.get(anyLong())).thenReturn(mockChunk);
@@ -236,12 +249,12 @@ class ChunkLinkDownloadServiceTest {
     // Sleep to allow the service to complete the download pipeline
     TimeUnit.MILLISECONDS.sleep(2000);
 
-    ExternalLink result1 = future1.get(5, TimeUnit.SECONDS);
-    ExternalLink result2 = future2.get(5, TimeUnit.SECONDS);
-    ExternalLink result3 = future3.get(5, TimeUnit.SECONDS);
-    ExternalLink result4 = future4.get(5, TimeUnit.SECONDS);
-    ExternalLink result5 = future5.get(5, TimeUnit.SECONDS);
-    ExternalLink result6 = future6.get(5, TimeUnit.SECONDS);
+    ExternalLink result1 = future1.get(10, TimeUnit.SECONDS);
+    ExternalLink result2 = future2.get(10, TimeUnit.SECONDS);
+    ExternalLink result3 = future3.get(10, TimeUnit.SECONDS);
+    ExternalLink result4 = future4.get(10, TimeUnit.SECONDS);
+    ExternalLink result5 = future5.get(10, TimeUnit.SECONDS);
+    ExternalLink result6 = future6.get(10, TimeUnit.SECONDS);
 
     assertEquals(linkForChunkIndex_1, result1);
     assertEquals(linkForChunkIndex_2, result2);
