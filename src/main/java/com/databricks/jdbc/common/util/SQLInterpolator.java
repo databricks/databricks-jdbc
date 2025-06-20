@@ -6,6 +6,8 @@ import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class SQLInterpolator {
   private static String escapeApostrophes(String input) {
@@ -65,6 +67,24 @@ public class SQLInterpolator {
         sb.append(formatObject(params.get(i + 1))); // because we have 1 based index in params
       }
     }
+    return sb.toString();
+  }
+
+  /**
+   * Surrounds unquoted placeholders (?) with single quotes, preserving already quoted ones. This is
+   * crucial for DESCRIBE QUERY commands as unquoted placeholders will cause a parse_syntax_error.
+   */
+  public static String surroundPlaceholdersWithQuotes(String sql) {
+    if (sql == null || sql.isEmpty()) {
+      return sql;
+    }
+    // This pattern matches any '?' that is NOT already inside single quotes
+    StringBuilder sb = new StringBuilder();
+    Matcher m = Pattern.compile("(?<!')\\?(?!')").matcher(sql);
+    while (m.find()) {
+      m.appendReplacement(sb, "'?'");
+    }
+    m.appendTail(sb);
     return sb.toString();
   }
 }
