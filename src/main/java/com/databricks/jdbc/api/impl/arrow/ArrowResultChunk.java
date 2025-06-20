@@ -18,6 +18,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
+import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
@@ -195,12 +196,15 @@ public class ArrowResultChunk {
 
     /** Returns object in the current row at the specified columnIndex. */
     Object getColumnObjectAtCurrentRow(
-        int columnIndex, ColumnInfoTypeName requiredType, String arrowMetadata)
+        int columnIndex,
+        ColumnInfoTypeName requiredType,
+        String arrowMetadata,
+        ColumnInfo columnInfo)
         throws DatabricksSQLException {
       ValueVector columnVector =
           this.resultChunk.getColumnVector(this.recordBatchCursorInChunk, columnIndex);
       return ArrowToJavaObjectConverter.convert(
-          columnVector, this.rowCursorInRecordBatch, requiredType, arrowMetadata);
+          columnVector, this.rowCursorInRecordBatch, requiredType, arrowMetadata, columnInfo);
     }
 
     String getType(int columnIndex) {

@@ -1,7 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.Nullable.NULLABLE;
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
@@ -359,48 +358,24 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
-  public void testGetPrecisionAndScaleWithTColumnDesc() {
+  public void testGetPrecisionAndScaleWithColumnInfoWithoutType() {
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
             THRIFT_STATEMENT_ID, getResultManifest(), false, connectionContext);
 
-    TColumnDesc columnInfo = new TColumnDesc();
-    TTypeDesc typeDesc = new TTypeDesc();
-    TTypeEntry typeEntry = new TTypeEntry();
-    TPrimitiveTypeEntry primitiveEntry = new TPrimitiveTypeEntry(TTypeId.DECIMAL_TYPE);
-    Map<String, TTypeQualifierValue> qualifiers = new HashMap<>();
-    TTypeQualifierValue scaleValue = new TTypeQualifierValue();
-    scaleValue.setI32Value(2);
-    TTypeQualifierValue precisionValue = new TTypeQualifierValue();
-    precisionValue.setI32Value(10);
-    qualifiers.put("scale", scaleValue);
-    qualifiers.put("precision", precisionValue);
-    TTypeQualifiers typeQualifiers = new TTypeQualifiers().setQualifiers(qualifiers);
-    primitiveEntry.setTypeQualifiers(typeQualifiers);
-    typeEntry.setPrimitiveEntry(primitiveEntry);
-    typeDesc.setTypes(Collections.singletonList(typeEntry));
-    columnInfo.setTypeDesc(typeDesc);
-
-    int[] precisionAndScale =
-        metaData.getPrecisionAndScale(
-            columnInfo,
-            DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
+    ColumnInfo columnInfo = new ColumnInfo();
+    columnInfo.setTypeName(ColumnInfoTypeName.DECIMAL);
+    columnInfo.setTypePrecision(10L);
+    columnInfo.setTypeScale(2L);
+    int[] precisionAndScale = metaData.getPrecisionAndScale(columnInfo);
     assertEquals(10, precisionAndScale[0]);
     assertEquals(2, precisionAndScale[1]);
 
     // Test with string type
-    columnInfo = new TColumnDesc();
-    typeDesc = new TTypeDesc();
-    typeEntry = new TTypeEntry();
-    primitiveEntry = new TPrimitiveTypeEntry(TTypeId.STRING_TYPE);
-    typeEntry.setPrimitiveEntry(primitiveEntry);
-    typeDesc.setTypes(Collections.singletonList(typeEntry));
-    columnInfo.setTypeDesc(typeDesc);
+    columnInfo = new ColumnInfo();
+    columnInfo.setTypeName(ColumnInfoTypeName.STRING);
 
-    precisionAndScale =
-        metaData.getPrecisionAndScale(
-            columnInfo,
-            DatabricksTypeUtil.getColumnType(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
+    precisionAndScale = metaData.getPrecisionAndScale(columnInfo);
     assertEquals(255, precisionAndScale[0]);
     assertEquals(0, precisionAndScale[1]);
   }

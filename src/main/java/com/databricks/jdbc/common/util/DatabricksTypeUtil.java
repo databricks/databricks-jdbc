@@ -444,13 +444,13 @@ public class DatabricksTypeUtil {
     return type;
   }
 
-  public static TTypeId getThriftTypeFromTypeDesc(TTypeDesc typeDesc) {
+  public static TPrimitiveTypeEntry getTPrimitiveTypeOrDefault(TTypeDesc typeDesc) {
+    TPrimitiveTypeEntry defaultPrimitiveTypeEntry = new TPrimitiveTypeEntry(TTypeId.STRING_TYPE);
     return Optional.ofNullable(typeDesc)
         .map(TTypeDesc::getTypes)
         .map(t -> t.get(0))
         .map(TTypeEntry::getPrimitiveEntry)
-        .map(TPrimitiveTypeEntry::getType)
-        .orElse(TTypeId.STRING_TYPE);
+        .orElse(defaultPrimitiveTypeEntry);
   }
 
   public static ArrowType mapThriftToArrowType(TTypeId typeId) throws SQLException {
