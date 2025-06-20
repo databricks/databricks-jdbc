@@ -4,11 +4,11 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.NULL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDatabricksTypeFromSQLType;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.inferDatabricksType;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
+import static com.databricks.jdbc.common.util.SQLInterpolator.surroundPlaceholdersWithQuotes;
 import static com.databricks.jdbc.common.util.ValidationUtil.throwErrorIfNull;
 
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
-import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -42,6 +42,18 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     this.sql = sql;
     this.interpolateParameters = connection.getConnectionContext().supportManyParameters();
     this.databricksParameterMetaData = new DatabricksParameterMetaData();
+    this.databricksBatchParameterMetaData = new ArrayList<>();
+  }
+
+  DatabricksPreparedStatement(
+      DatabricksConnection connection,
+      String sql,
+      boolean interpolateParameters,
+      DatabricksParameterMetaData databricksParameterMetaData) {
+    super(connection);
+    this.sql = sql;
+    this.interpolateParameters = interpolateParameters;
+    this.databricksParameterMetaData = databricksParameterMetaData;
     this.databricksBatchParameterMetaData = new ArrayList<>();
   }
 
@@ -173,13 +185,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   /*
-   * Sets the designated parameter to the given array of bytes. The driver converts this to hex literal in the format X'hex' and interpolate it into the SQL statement.
-   * Works only when supportManyParameters is enabled in the connection string.
+  * Sets the designated parameter to the given array of bytes. The driver converts this to hex literal in the format X'hex' and interpolate it into the SQL statement.
+  * Works only when supportManyParameters is enabled in the connection string.
 
-   * @param parameterIndex – the first parameter is 1, the second is 2, ...
-   * @param x – the parameter value
-   * @throws SQLException - if a database access error occurs or this method is called on a closed PreparedStatement
-   * @throws DatabricksSQLFeatureNotSupportedException - if parameter interpolation is not enabled
+  * @param parameterIndex – the first parameter is 1, the second is 2, ...
+  * @param x – the parameter value
+  * @throws SQLException - if a database access error occurs or this method is called on a closed PreparedStatement
+  * @throws DatabricksSQLFeatureNotSupportedException - if parameter interpolation is not enabled
   */
   @Override
   public void setBytes(int parameterIndex, byte[] x) throws SQLException {
@@ -834,8 +846,11 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
    * @throws DatabricksSQLException if there is an error executing the DESCRIBE QUERY command
    */
   private ResultSetMetaData getMetaDataFromDescribeQuery() throws DatabricksSQLException {
-
-    try (DatabricksResultSet metadataResultSet = executeDescribeQueryCommand()) {
+    String describeQuerySQL = "DESCRIBE QUERY " + surroundPlaceholdersWithQuotes(sql);
+    try (DatabricksPreparedStatement preparedStatement =
+            new DatabricksPreparedStatement(
+                connection, describeQuerySQL, interpolateParameters, databricksParameterMetaData);
+        ResultSet metadataResultSet = preparedStatement.executeQuery(); ) {
       ArrayList<String> columnNames = new ArrayList<>();
       ArrayList<String> columnDataTypes = new ArrayList<>();
 
@@ -843,9 +858,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         columnNames.add(metadataResultSet.getString(1));
         columnDataTypes.add(metadataResultSet.getString(2));
       }
-
       return new DatabricksResultSetMetaData(
-          StatementId.deserialize(metadataResultSet.getStatementId()),
+          preparedStatement.getStatementId(),
           columnNames,
           columnDataTypes,
           this.connection.getConnectionContext());
@@ -855,19 +869,5 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       throw new DatabricksSQLException(
           errorMessage, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
-  }
-
-  private DatabricksResultSet executeDescribeQueryCommand() throws SQLException {
-    String interpolatedSql =
-        this.interpolateParameters
-            ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
-            : sql;
-
-    interpolatedSql = "DESCRIBE QUERY " + interpolatedSql;
-    Map<Integer, ImmutableSqlParameter> paramMap =
-        this.interpolateParameters
-            ? new HashMap<>()
-            : this.databricksParameterMetaData.getParameterBindings();
-    return executeInternal(interpolatedSql, paramMap, StatementType.QUERY);
   }
 }

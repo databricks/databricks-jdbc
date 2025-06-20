@@ -9,7 +9,11 @@ import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class SQLInterpolatorTest {
 
@@ -86,5 +90,53 @@ public class SQLInterpolatorTest {
     params.put(2, getSqlParam(2, "X'0102030405'", DatabricksTypeUtil.BINARY));
     String expected = "INSERT INTO sales (id, data) VALUES (101, X'0102030405')";
     assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  private static Stream<Arguments> providePlaceholderQuotingTestCases() {
+    return Stream.of(
+        // Basic placeholder quoting
+        Arguments.of(
+            "SELECT * FROM table WHERE id = ?",
+            "SELECT * FROM table WHERE id = '?'",
+            "Basic placeholder quoting"),
+
+        // Multiple placeholders
+        Arguments.of(
+            "SELECT * FROM table WHERE id = ? AND name = ?",
+            "SELECT * FROM table WHERE id = '?' AND name = '?'",
+            "Multiple placeholders"),
+
+        // Already quoted placeholders
+        Arguments.of(
+            "SELECT * FROM table WHERE id = '?' AND name = ?",
+            "SELECT * FROM table WHERE id = '?' AND name = '?'",
+            "Already quoted placeholders"),
+
+        // Mixed quoted and unquoted placeholders
+        Arguments.of(
+            "SELECT * FROM table WHERE id = '?' AND name = ? AND age = '?'",
+            "SELECT * FROM table WHERE id = '?' AND name = '?' AND age = '?'",
+            "Mixed quoted and unquoted placeholders"),
+
+        // Null input
+        Arguments.of(null, null, "Null input"),
+
+        // Empty input
+        Arguments.of("", "", "Empty input"),
+
+        // No placeholders
+        Arguments.of("SELECT * FROM table", "SELECT * FROM table", "No placeholders"),
+
+        // Complex query with multiple conditions
+        Arguments.of(
+            "SELECT * FROM table WHERE id = ? AND (name = ? OR age = ?) AND status = ?",
+            "SELECT * FROM table WHERE id = '?' AND (name = '?' OR age = '?') AND status = '?'",
+            "Complex query with multiple conditions"));
+  }
+
+  @ParameterizedTest(name = "{2}")
+  @MethodSource("providePlaceholderQuotingTestCases")
+  public void testSurroundPlaceholdersWithQuotes(String input, String expected, String testName) {
+    assertEquals(expected, SQLInterpolator.surroundPlaceholdersWithQuotes(input), testName);
   }
 }
