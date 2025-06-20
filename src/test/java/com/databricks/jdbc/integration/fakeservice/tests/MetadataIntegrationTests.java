@@ -148,7 +148,7 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
     }
 
     // Test getSchemas
-    try (ResultSet schemas = metaData.getSchemas("main", "%")) {
+    try (ResultSet schemas = metaData.getSchemas("main", "jdbc%")) {
       assertTrue(schemas.next(), "There should be at least one schema");
       do {
         String schemaName = schemas.getString("TABLE_SCHEM");
