@@ -21,7 +21,7 @@ name: SSL Certificate Validation Test with Squid Proxy
 
 on:
   workflow_dispatch:
-  pull_request:
+  pull_request_target:
 
 jobs:
   ssl-test:

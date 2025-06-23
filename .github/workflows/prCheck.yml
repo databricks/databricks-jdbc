@@ -3,10 +3,10 @@ name: Build
 
 on:
   push:
-    branches: [ main, benchmarking-branch ]
-  pull_request:
+    branches: [ main ]
+  pull_request: # Unit tests can be run for all external PRs
     types: [opened, synchronize, reopened]
-    branches: [ main, benchmarking-branch ]
+    branches: [ main ]
 
 jobs:
   formatting-check:
