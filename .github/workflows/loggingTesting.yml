@@ -2,6 +2,15 @@ name: Test JDBC Logging
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to checkout'
+        required: false
+        default: 'main'
+      repository:
+        description: 'Repository to checkout (e.g., user/repo)'
+        required: false
+        default: 'databricks/databricks-jdbc'
   pull_request_target:
 
 jobs:
@@ -24,7 +33,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref || inputs.branch }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || inputs.repository }}
 
       - name: Set up Java
         uses: actions/setup-java@v4

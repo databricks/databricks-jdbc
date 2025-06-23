@@ -21,6 +21,15 @@ name: SSL Certificate Validation Test with Squid Proxy
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to checkout'
+        required: false
+        default: 'main'
+      repository:
+        description: 'Repository to checkout (e.g., user/repo)'
+        required: false
+        default: 'databricks/databricks-jdbc'
   pull_request_target:
 
 jobs:
@@ -32,6 +41,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || inputs.branch }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || inputs.repository }}
 
       - name: Set Up Java
         uses: actions/setup-java@v4
