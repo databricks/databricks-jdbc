@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getTypeFromTypeDesc;
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getColumnInfoFromTColumnDesc;
 
 import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
 import com.databricks.jdbc.api.impl.IExecutionResult;
@@ -142,12 +142,13 @@ public class ArrowStreamResult implements IExecutionResult {
 
       Object result =
           chunkIterator.getColumnObjectAtCurrentRow(
-              columnIndex, ColumnInfoTypeName.STRING, "STRING");
+              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfos.get(columnIndex));
       ComplexDataTypeParser parser = new ComplexDataTypeParser();
       return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
     }
 
-    return chunkIterator.getColumnObjectAtCurrentRow(columnIndex, requiredType, arrowMetadata);
+    return chunkIterator.getColumnObjectAtCurrentRow(
+        columnIndex, requiredType, arrowMetadata, columnInfos.get(columnIndex));
   }
 
   /**
@@ -224,8 +225,8 @@ public class ArrowStreamResult implements IExecutionResult {
     if (resultManifest.getSchema() == null) {
       return;
     }
-    for (TColumnDesc columnInfo : resultManifest.getSchema().getColumns()) {
-      columnInfos.add(new ColumnInfo().setTypeName(getTypeFromTypeDesc(columnInfo.getTypeDesc())));
+    for (TColumnDesc tColumnDesc : resultManifest.getSchema().getColumns()) {
+      columnInfos.add(getColumnInfoFromTColumnDesc(tColumnDesc));
     }
   }
 }
