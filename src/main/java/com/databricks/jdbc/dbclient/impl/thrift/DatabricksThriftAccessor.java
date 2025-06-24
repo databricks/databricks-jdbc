@@ -131,6 +131,7 @@ final class DatabricksThriftAccessor {
         throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
       }
 
+      // TODO (PECOBLR-389): remove these latency logs once DatabricksMetricsTimedProcessor is ready
       long thriftRequestEndTime = System.currentTimeMillis();
       long thriftRequestLatency = thriftRequestEndTime - thriftRequestStartTime;
       LOGGER.debug(
