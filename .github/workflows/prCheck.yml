@@ -3,10 +3,10 @@ name: Build
 
 on:
   push:
-    branches: [ main, benchmarking-branch ]
-  pull_request:
+    branches: [ main ]
+  pull_request: # Unit tests can be run for all external PRs
     types: [opened, synchronize, reopened]
-    branches: [ main, benchmarking-branch ]
+    branches: [ main ]
 
 jobs:
   formatting-check:
@@ -27,6 +27,9 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          repository: ${{ github.event.pull_request.head.repo.full_name ||  github.repository }}
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -63,7 +66,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: true
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          repository: ${{ github.event.pull_request.head.repo.full_name ||  github.repository }}
 
       - name: Cache Maven packages
         uses: actions/cache@v4
