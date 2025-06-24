@@ -185,7 +185,8 @@ public class DatabricksThriftUtil {
         new ColumnInfo()
             .setName(columnDesc.getColumnName())
             .setPosition((long) columnDesc.getPosition())
-            .setTypeName(columnInfoTypeName);
+            .setTypeName(columnInfoTypeName)
+            .setTypeText(getTypeTextFromTypeDesc(columnDesc.getTypeDesc()));
     if (primitiveTypeEntry.isSetTypeQualifiers()) {
       TTypeQualifiers typeQualifiers = primitiveTypeEntry.getTypeQualifiers();
       String scaleQualifierKey = TCLIServiceConstants.SCALE,
