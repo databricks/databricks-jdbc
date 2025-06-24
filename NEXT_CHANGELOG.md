@@ -13,6 +13,6 @@
 
 ### Fixed
 - Updated JDBC URL regex to accept valid connection strings that were incorrectly rejected.   
-
+- Updated decimal conversion logic to fix numeric values missing decimal precision.
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 
