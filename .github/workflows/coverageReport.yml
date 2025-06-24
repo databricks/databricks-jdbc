@@ -1,0 +1,91 @@
+name: Code Coverage
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+on:
+  pull_request_target:
+
+jobs:
+  coverage:
+    runs-on:
+        group: databricks-protected-runner-group
+        labels: linux-ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Needed for coverage comparison
+        ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+        repository: ${{ github.event.pull_request.head.repo.full_name ||  github.repository }}
+        
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'adopt'
+        
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-m2-
+        
+    - name: Run tests with coverage
+      run: mvn clean test jacoco:report
+      
+    - name: Check for coverage override
+      id: override
+      run: |
+        OVERRIDE_COMMENT=$(echo "${{ github.event.pull_request.body }}" | grep -E "SKIP_COVERAGE_CHECK\s*=" || echo "")
+        if [ -n "$OVERRIDE_COMMENT" ]; then
+          echo "override=true" >> $GITHUB_OUTPUT
+          REASON=$(echo "$OVERRIDE_COMMENT" | sed -E 's/.*SKIP_COVERAGE_CHECK\s*=\s*(.+)/\1/')
+          echo "reason=$REASON" >> $GITHUB_OUTPUT
+          echo "Coverage override found in PR description: $REASON"
+        else
+          echo "override=false" >> $GITHUB_OUTPUT
+          echo "No coverage override found"
+        fi
+      
+    - name: Add coverage to PR (with strict checks)
+      if: steps.override.outputs.override == 'false'
+      id: jacoco
+      uses: madrapps/jacoco-report@v1.7.2
+      with:
+        paths: |
+          ${{ github.workspace }}/target/site/jacoco/jacoco.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
+        min-coverage-overall: 85
+        title: '📊 Code Coverage Report'
+        update-comment: true
+        pass-emoji: ':green_circle:'
+        fail-emoji: ':red_circle:'
+        
+    - name: Add coverage to PR (with override)
+      if: steps.override.outputs.override == 'true'
+      id: jacoco-override
+      uses: madrapps/jacoco-report@v1.7.2
+      with:
+        paths: |
+          ${{ github.workspace }}/target/site/jacoco/jacoco.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
+        min-coverage-overall: 85
+        min-coverage-changed-files: 0
+        title: '📊 Code Coverage Report (SKIPPED: ${{ steps.override.outputs.reason }})'
+        update-comment: true
+        pass-emoji: ':green_circle:'
+        fail-emoji: ':red_circle:'
+        
+    - name: Coverage enforcement summary
+      run: |
+        if [ "${{ steps.override.outputs.override }}" == "true" ]; then
+          echo "⚠️ Coverage checks bypassed: ${{ steps.override.outputs.reason }}"
+          echo "Please ensure this override is justified and temporary"
+        else
+          echo "✅ Coverage checks enforced - minimum 85% required"
+        fi

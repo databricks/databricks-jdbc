@@ -2,6 +2,7 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
+import static com.databricks.jdbc.model.client.thrift.generated.TTypeId.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -14,12 +15,36 @@ import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.StatementState;
 import java.nio.ByteBuffer;
 import java.util.*;
 
 public class DatabricksThriftUtil {
+
+  private static final Map<TTypeId, ColumnInfoTypeName> T_TYPE_ID_COLUMN_INFO_TYPE_NAME_MAP =
+      Map.ofEntries(
+          Map.entry(BOOLEAN_TYPE, ColumnInfoTypeName.BOOLEAN),
+          Map.entry(TINYINT_TYPE, ColumnInfoTypeName.BYTE),
+          Map.entry(SMALLINT_TYPE, ColumnInfoTypeName.SHORT),
+          Map.entry(INT_TYPE, ColumnInfoTypeName.INT),
+          Map.entry(BIGINT_TYPE, ColumnInfoTypeName.LONG),
+          Map.entry(FLOAT_TYPE, ColumnInfoTypeName.FLOAT),
+          Map.entry(DOUBLE_TYPE, ColumnInfoTypeName.DOUBLE),
+          Map.entry(STRING_TYPE, ColumnInfoTypeName.STRING),
+          Map.entry(VARCHAR_TYPE, ColumnInfoTypeName.STRING),
+          Map.entry(TIMESTAMP_TYPE, ColumnInfoTypeName.TIMESTAMP),
+          Map.entry(BINARY_TYPE, ColumnInfoTypeName.BINARY),
+          Map.entry(DECIMAL_TYPE, ColumnInfoTypeName.DECIMAL),
+          Map.entry(DATE_TYPE, ColumnInfoTypeName.DATE),
+          Map.entry(CHAR_TYPE, ColumnInfoTypeName.CHAR),
+          Map.entry(INTERVAL_YEAR_MONTH_TYPE, ColumnInfoTypeName.INTERVAL),
+          Map.entry(INTERVAL_DAY_TIME_TYPE, ColumnInfoTypeName.INTERVAL),
+          Map.entry(ARRAY_TYPE, ColumnInfoTypeName.ARRAY),
+          Map.entry(MAP_TYPE, ColumnInfoTypeName.MAP),
+          Map.entry(NULL_TYPE, ColumnInfoTypeName.STRING),
+          Map.entry(STRUCT_TYPE, ColumnInfoTypeName.STRUCT));
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
   private static final List<TStatusCode> SUCCESS_STATUS_LIST =
@@ -148,49 +173,34 @@ public class DatabricksThriftUtil {
   }
 
   public static String getTypeTextFromTypeDesc(TTypeDesc typeDesc) {
-    TTypeId type = getThriftTypeFromTypeDesc(typeDesc);
-    return type.name().replace("_TYPE", "");
+    TPrimitiveTypeEntry primitiveTypeEntry = getTPrimitiveTypeOrDefault(typeDesc);
+    return primitiveTypeEntry.getType().name().replace("_TYPE", "");
   }
 
-  public static ColumnInfoTypeName getTypeFromTypeDesc(TTypeDesc typeDesc) {
-    TTypeId type = getThriftTypeFromTypeDesc(typeDesc);
-    switch (type) {
-      case BOOLEAN_TYPE:
-        return ColumnInfoTypeName.BOOLEAN;
-      case TINYINT_TYPE:
-        return ColumnInfoTypeName.BYTE;
-      case SMALLINT_TYPE:
-        return ColumnInfoTypeName.SHORT;
-      case INT_TYPE:
-        return ColumnInfoTypeName.INT;
-      case BIGINT_TYPE:
-        return ColumnInfoTypeName.LONG;
-      case FLOAT_TYPE:
-        return ColumnInfoTypeName.FLOAT;
-      case DOUBLE_TYPE:
-        return ColumnInfoTypeName.DOUBLE;
-      case TIMESTAMP_TYPE:
-        return ColumnInfoTypeName.TIMESTAMP;
-      case BINARY_TYPE:
-        return ColumnInfoTypeName.BINARY;
-      case DECIMAL_TYPE:
-        return ColumnInfoTypeName.DECIMAL;
-      case DATE_TYPE:
-        return ColumnInfoTypeName.DATE;
-      case CHAR_TYPE:
-        return ColumnInfoTypeName.CHAR;
-      case INTERVAL_YEAR_MONTH_TYPE:
-      case INTERVAL_DAY_TIME_TYPE:
-        return ColumnInfoTypeName.INTERVAL;
-      case ARRAY_TYPE:
-        return ColumnInfoTypeName.ARRAY;
-      case MAP_TYPE:
-        return ColumnInfoTypeName.MAP;
-      case STRUCT_TYPE:
-        return ColumnInfoTypeName.STRUCT;
-      default:
-        return ColumnInfoTypeName.STRING;
+  public static ColumnInfo getColumnInfoFromTColumnDesc(TColumnDesc columnDesc) {
+    TPrimitiveTypeEntry primitiveTypeEntry = getTPrimitiveTypeOrDefault(columnDesc.getTypeDesc());
+    ColumnInfoTypeName columnInfoTypeName =
+        T_TYPE_ID_COLUMN_INFO_TYPE_NAME_MAP.get(primitiveTypeEntry.getType());
+    ColumnInfo columnInfo =
+        new ColumnInfo()
+            .setName(columnDesc.getColumnName())
+            .setPosition((long) columnDesc.getPosition())
+            .setTypeName(columnInfoTypeName)
+            .setTypeText(getTypeTextFromTypeDesc(columnDesc.getTypeDesc()));
+    if (primitiveTypeEntry.isSetTypeQualifiers()) {
+      TTypeQualifiers typeQualifiers = primitiveTypeEntry.getTypeQualifiers();
+      String scaleQualifierKey = TCLIServiceConstants.SCALE,
+          precisionQualifierKey = TCLIServiceConstants.PRECISION;
+      if (typeQualifiers.getQualifiers().get(scaleQualifierKey) != null) {
+        columnInfo.setTypeScale(
+            (long) typeQualifiers.getQualifiers().get(scaleQualifierKey).getI32Value());
+      }
+      if (typeQualifiers.getQualifiers().get(precisionQualifierKey) != null) {
+        columnInfo.setTypePrecision(
+            (long) typeQualifiers.getQualifiers().get(precisionQualifierKey).getI32Value());
+      }
     }
+    return columnInfo;
   }
 
   /**

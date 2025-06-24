@@ -12,6 +12,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -61,7 +62,8 @@ public class ArrowToJavaObjectConverter {
       ValueVector columnVector,
       int vectorIndex,
       ColumnInfoTypeName requiredType,
-      String arrowMetadata)
+      String arrowMetadata,
+      ColumnInfo columnInfo)
       throws DatabricksSQLException {
     // check isNull before getting the object from the vector
     if (columnVector.isNull(vectorIndex)) {
@@ -102,7 +104,7 @@ public class ArrowToJavaObjectConverter {
       case DOUBLE:
         return convertToNumber(object, Double::parseDouble, Number::doubleValue);
       case DECIMAL:
-        return convertToDecimal(object, arrowMetadata);
+        return convertToDecimal(object, columnInfo);
       case BINARY:
         return convertToByteArray(object);
       case BOOLEAN:
@@ -262,25 +264,17 @@ public class ArrowToJavaObjectConverter {
     return (byte[]) object;
   }
 
-  static BigDecimal convertToDecimal(Object object, String arrowMetadata)
+  static BigDecimal convertToDecimal(Object object, ColumnInfo columnInfo)
       throws DatabricksValidationException {
-    if (object instanceof Text) {
-      return new BigDecimal(object.toString());
-    }
-    int scale;
-    try {
-      scale =
-          Integer.parseInt(
-              arrowMetadata
-                  .substring(arrowMetadata.indexOf(',') + 1, arrowMetadata.indexOf(')'))
-                  .trim());
-    } catch (Exception e) {
-      LOGGER.error(
-          e, "Failed to parse scale from arrow metadata: {}. Defaulting to scale 0", arrowMetadata);
-      scale = 0;
-    }
-    if (object instanceof Number) {
-      return new BigDecimal(object.toString()).setScale(scale, RoundingMode.HALF_UP);
+    if (object instanceof Text || object instanceof Number) {
+      BigDecimal bigDecimal = new BigDecimal(object.toString());
+      Optional<Integer> bigDecimalScale =
+          columnInfo.getTypeScale() != null
+              ? Optional.of(columnInfo.getTypeScale().intValue())
+              : Optional.empty();
+      return bigDecimalScale
+          .map(scale -> bigDecimal.setScale(scale, RoundingMode.HALF_UP))
+          .orElse(bigDecimal);
     }
     String errorMessage =
         String.format("Unsupported object type for decimal conversion: %s", object.getClass());

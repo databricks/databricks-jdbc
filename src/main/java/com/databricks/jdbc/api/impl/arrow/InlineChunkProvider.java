@@ -199,8 +199,8 @@ public class InlineChunkProvider implements ChunkProvider {
   }
 
   private static Field getArrowField(TColumnDesc columnDesc) throws SQLException {
-    TTypeId thriftType = getThriftTypeFromTypeDesc(columnDesc.getTypeDesc());
-    ArrowType arrowType = mapThriftToArrowType(thriftType);
+    TPrimitiveTypeEntry primitiveTypeEntry = getTPrimitiveTypeOrDefault(columnDesc.getTypeDesc());
+    ArrowType arrowType = mapThriftToArrowType(primitiveTypeEntry.getType());
     FieldType fieldType = new FieldType(true, arrowType, null);
     return new Field(columnDesc.getColumnName(), fieldType, null);
   }

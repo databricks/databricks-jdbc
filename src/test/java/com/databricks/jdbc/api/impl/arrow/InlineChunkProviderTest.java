@@ -17,6 +17,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowBatch;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -95,12 +96,15 @@ public class InlineChunkProviderTest {
 
     // Get the iterator
     ArrowResultChunk.ArrowResultChunkIterator iterator = provider.getChunk().getChunkIterator();
+    ColumnInfo intColumnInfo = new ColumnInfo();
 
     // Verify the data
     assertTrue(iterator.nextRow());
-    assertEquals(1, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
+    assertEquals(
+        1, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
     assertTrue(iterator.nextRow());
-    assertEquals(2, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
+    assertEquals(
+        2, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
 
     // No more chunk
     assertFalse(provider.next());
@@ -134,12 +138,15 @@ public class InlineChunkProviderTest {
 
     // Get the iterator
     ArrowResultChunk.ArrowResultChunkIterator iterator = provider.getChunk().getChunkIterator();
+    ColumnInfo intColumnInfo = new ColumnInfo();
 
     // Verify the data
     assertTrue(iterator.nextRow());
-    assertEquals(1, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
+    assertEquals(
+        1, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
     assertTrue(iterator.nextRow());
-    assertEquals(2, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT"));
+    assertEquals(
+        2, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
 
     // No more chunk
     assertFalse(provider.next());
