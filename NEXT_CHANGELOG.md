@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
--
+- Added DCO (Developer Certificate of Origin) check workflow for pull requests to ensure all commits are properly signed-off
 
 ### Updated
 - 
