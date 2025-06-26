@@ -1,0 +1,104 @@
+name: DCO Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main ]
+
+jobs:
+  dco-check:
+    runs-on: ubuntu-latest
+    name: Check DCO Sign-off
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history to check all commits
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - name: Add upstream remote (for forks)
+        run: |
+          # Add the upstream repository as a remote if this is a fork
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "This is a fork, adding upstream remote"
+            git remote add upstream https://github.com/${{ github.repository }}.git
+            git fetch upstream ${{ github.event.pull_request.base.ref }}
+          else
+            echo "This is not a fork, using origin"
+          fi
+
+      - name: Check DCO Sign-off
+        run: |
+          #!/bin/bash
+          set -e
+          
+          # Get the list of commits in this PR
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          
+          echo "Checking commits from $BASE_SHA to $HEAD_SHA"
+          
+          # Verify that both commits exist
+          if ! git cat-file -e "$BASE_SHA" 2>/dev/null; then
+            echo "Error: Base commit $BASE_SHA not found"
+            echo "Trying to fetch from upstream..."
+            if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+              git fetch upstream ${{ github.event.pull_request.base.ref }}
+            else
+              git fetch origin ${{ github.event.pull_request.base.ref }}
+            fi
+          fi
+          
+          if ! git cat-file -e "$HEAD_SHA" 2>/dev/null; then
+            echo "Error: Head commit $HEAD_SHA not found"
+            exit 1
+          fi
+          
+          # Get commit messages for all commits in the PR
+          COMMITS=$(git rev-list --no-merges "$BASE_SHA..$HEAD_SHA")
+          
+          if [ -z "$COMMITS" ]; then
+            echo "No commits found in this PR"
+            exit 0
+          fi
+          
+          FAILED_COMMITS=()
+          
+          for commit in $COMMITS; do
+            echo "Checking commit: $commit"
+            
+            # Get the commit message
+            COMMIT_MSG=$(git log --format=%B -n 1 "$commit")
+            
+            # Check if the commit message contains "Signed-off-by:"
+            if echo "$COMMIT_MSG" | grep -q "^Signed-off-by: "; then
+              echo "✅ Commit $commit has DCO sign-off"
+            else
+              echo "❌ Commit $commit is missing DCO sign-off"
+              FAILED_COMMITS+=("$commit")
+            fi
+          done
+          
+          if [ ${#FAILED_COMMITS[@]} -ne 0 ]; then
+            echo ""
+            echo "❌ DCO Check Failed!"
+            echo "The following commits are missing the required 'Signed-off-by' line:"
+            for commit in "${FAILED_COMMITS[@]}"; do
+              echo "  - $commit: $(git log --format=%s -n 1 "$commit")"
+            done
+            echo ""
+            echo "To fix this, you need to sign off your commits. You can:"
+            echo "1. Add sign-off to new commits: git commit -s -m 'Your commit message'"
+            echo "2. Amend existing commits: git commit --amend --signoff"
+            echo "3. For multiple commits, use: git rebase --signoff HEAD~N (where N is the number of commits)"
+            echo ""
+            echo "The sign-off should be in the format:"
+            echo "Signed-off-by: Your Name <your.email@example.com>"
+            echo ""
+            echo "For more details, see CONTRIBUTING.md"
+            exit 1
+          else
+            echo ""
+            echo "✅ All commits have proper DCO sign-off!"
+          fi
