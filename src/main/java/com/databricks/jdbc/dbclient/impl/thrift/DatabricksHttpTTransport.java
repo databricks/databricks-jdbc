@@ -110,11 +110,18 @@ public class DatabricksHttpTTransport extends TTransport {
     // Overriding with URL defined headers
     this.connectionContext.getCustomHeaders().forEach(request::setHeader);
 
-    if (connectionContext.isRequestTracingEnabled()) {
-      String traceHeader = TracingUtil.getTraceHeader();
+    if (connectionContext.isRequestTracingEnabled() && connectionContext.getTraceId() != null) {
+      String traceHeader =
+          TracingUtil.generateTraceparentWithTraceId(
+              connectionContext.getTraceId(), connectionContext.getTraceFlags());
       LOGGER.debug("Thrift tracing header: " + traceHeader);
-
       request.addHeader(TracingUtil.TRACE_HEADER, traceHeader);
+
+      // Add tracestate if present
+      String traceState = connectionContext.getTraceState();
+      if (traceState != null && !traceState.isEmpty()) {
+        request.addHeader(TracingUtil.TRACE_STATE_HEADER, traceState);
+      }
     }
 
     // Set the request entity

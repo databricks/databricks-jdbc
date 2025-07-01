@@ -11,6 +11,7 @@ import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtils;
+import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
@@ -51,8 +52,10 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private final CloseableHttpClient httpClient;
   private IdleConnectionEvictor idleConnectionEvictor;
   private CloseableHttpAsyncClient asyncClient;
+  private final IDatabricksConnectionContext connectionContext;
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type) {
+    this.connectionContext = connectionContext;
     connectionManager = initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext, type);
     idleConnectionEvictor =
@@ -65,7 +68,9 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   @VisibleForTesting
   DatabricksHttpClient(
       CloseableHttpClient testCloseableHttpClient,
-      PoolingHttpClientConnectionManager testConnectionManager) {
+      PoolingHttpClientConnectionManager testConnectionManager,
+      IDatabricksConnectionContext connectionContext) {
+    this.connectionContext = connectionContext;
     httpClient = testCloseableHttpClient;
     connectionManager = testConnectionManager;
   }
@@ -88,6 +93,22 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       if (!isNullOrEmpty(userAgentString) && !request.containsHeader("User-Agent")) {
         request.setHeader("User-Agent", userAgentString);
       }
+
+      // Add W3C Trace Context headers if request tracing is enabled
+      if (connectionContext.isRequestTracingEnabled() && connectionContext.getTraceId() != null) {
+        String traceHeader =
+            TracingUtil.generateTraceparentWithTraceId(
+                connectionContext.getTraceId(), connectionContext.getTraceFlags());
+        request.setHeader(TracingUtil.TRACE_HEADER, traceHeader);
+        LOGGER.debug("Added trace header: {}", traceHeader);
+
+        // Add tracestate if present
+        String traceState = connectionContext.getTraceState();
+        if (traceState != null && !traceState.isEmpty()) {
+          request.setHeader(TracingUtil.TRACE_STATE_HEADER, traceState);
+        }
+      }
+
       return httpClient.execute(request);
     } catch (IOException e) {
       throwHttpException(e, request);

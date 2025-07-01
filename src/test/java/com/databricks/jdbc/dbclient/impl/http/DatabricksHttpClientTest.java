@@ -45,7 +45,8 @@ public class DatabricksHttpClientTest {
 
   @BeforeEach
   public void setUp() {
-    databricksHttpClient = new DatabricksHttpClient(mockHttpClient, mockConnectionManager);
+    databricksHttpClient =
+        new DatabricksHttpClient(mockHttpClient, mockConnectionManager, mockConnectionContext);
   }
 
   @Test
