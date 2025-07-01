@@ -11,6 +11,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
@@ -31,9 +32,25 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import org.apache.hc.client5.http.async.methods.*;
+import org.apache.hc.core5.concurrent.FutureCallback;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.nio.AsyncEntityProducer;
+import org.apache.hc.core5.http.nio.AsyncRequestProducer;
+import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
+import org.apache.hc.core5.http.nio.entity.AsyncEntityProducers;
+import org.apache.hc.core5.http.nio.support.AsyncRequestBuilder;
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
@@ -48,6 +65,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   final WorkspaceClient workspaceClient;
   final ApiClient apiClient;
   private final String allowedVolumeIngestionPaths;
+  private static int MAX_CONCURRENT_PRESIGNED_REQUESTS = 50;
+  private static final int MAX_RETRIES = 5;
+  private static final long INITIAL_RETRY_DELAY_MS = 200;
+  private static final long MAX_RETRY_DELAY_MS = 10000; // 10 seconds max delay
+  private final Semaphore presignedUrlSemaphore = new Semaphore(MAX_CONCURRENT_PRESIGNED_REQUESTS);
+  private final ThreadLocalRandom random = ThreadLocalRandom.current();
 
   @VisibleForTesting
   public DBFSVolumeClient(WorkspaceClient workspaceClient) {
@@ -66,6 +89,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         DatabricksHttpClientFactory.getInstance()
             .getClient(connectionContext, HttpClientType.VOLUME);
     this.allowedVolumeIngestionPaths = connectionContext.getVolumeOperationAllowedPaths();
+    MAX_CONCURRENT_PRESIGNED_REQUESTS = connectionContext.getMaxConcurrentPresignedRequests();
   }
 
   /** {@inheritDoc} */
@@ -147,7 +171,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     }
     try {
       String volumePath = StringUtil.getVolumePath(catalog, schema, volumeName);
-      // If getListResponse does not throw, then the volume exists (even if it’s empty).
+      // If getListResponse does not throw, then the volume exists (even if it's empty).
       getListResponse(volumePath);
       return true;
     } catch (DatabricksVolumeOperationException e) {
@@ -510,5 +534,423 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   @Override
   public void close() throws IOException {
     DatabricksThreadContextHolder.clearConnectionContext();
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public List<VolumePutResult> putFiles(
+      String catalog,
+      String schema,
+      String volume,
+      List<String> objectPaths,
+      List<String> localPaths,
+      boolean overwrite) {
+
+    LOGGER.debug(
+        String.format(
+            "Entering putFiles: catalog=%s, schema=%s, volume=%s, files=%d",
+            catalog, schema, volume, objectPaths.size()));
+
+    if (objectPaths.size() != localPaths.size()) {
+      String errorMessage = "objectPaths and localPaths – sizes differ";
+      LOGGER.error(errorMessage);
+      throw new IllegalArgumentException(errorMessage);
+    }
+
+    // Create file upload requests
+    List<UploadRequest> uploadRequests = new ArrayList<>(objectPaths.size());
+    List<CompletableFuture<VolumePutResult>> futures = new ArrayList<>(objectPaths.size());
+
+    // Initialize lists with null. Later, set values at the correct index
+    for (int i = 0; i < objectPaths.size(); i++) {
+      uploadRequests.add(null);
+      futures.add(null);
+    }
+
+    for (int i = 0; i < objectPaths.size(); i++) {
+      final String objPath = objectPaths.get(i);
+      final String fullPath = getObjectFullPath(catalog, schema, volume, objPath);
+      final String localPath = localPaths.get(i);
+      final Path file = Paths.get(localPath);
+
+      if (!Files.exists(file) || !Files.isRegularFile(file)) {
+        String errorMessage = "File not found or not a file: " + localPath;
+        LOGGER.error(errorMessage);
+        // Set a completed future at the same index to maintain order
+        futures.set(
+            i,
+            CompletableFuture.completedFuture(
+                new VolumePutResult(404, VolumeOperationStatus.FAILED, errorMessage)));
+        continue;
+      }
+
+      // Create file upload request
+      UploadRequest request = new UploadRequest();
+      request.objectPath = objPath;
+      request.fullPath = fullPath;
+      request.file = file;
+      request.fileIndex = i + 1;
+      // Set request at proper index to maintain order
+      uploadRequests.set(i, request);
+    }
+
+    // Remove null entries from uploadRequests. Files that don't exist will be null
+    uploadRequests.removeIf(Objects::isNull);
+
+    // Execute uploads in parallel
+    return executeUploads(uploadRequests, futures);
+  }
+
+  /** {@inheritDoc} */
+  public List<VolumePutResult> putFiles(
+      String catalog,
+      String schema,
+      String volume,
+      List<String> objectPaths,
+      List<InputStream> inputStreams,
+      List<Long> contentLengths,
+      boolean overwrite) {
+
+    LOGGER.debug(
+        String.format(
+            "Entering putFiles: catalog=%s, schema=%s, volume=%s, streams=%d",
+            catalog, schema, volume, objectPaths.size()));
+
+    if (objectPaths.size() != inputStreams.size() || inputStreams.size() != contentLengths.size()) {
+      String errorMessage = "objectPaths, inputStreams, contentLengths – sizes differ";
+      LOGGER.error(errorMessage);
+      throw new IllegalArgumentException(errorMessage);
+    }
+
+    // Create stream upload requests
+    List<UploadRequest> uploadRequests = new ArrayList<>(objectPaths.size());
+    List<CompletableFuture<VolumePutResult>> futures = new ArrayList<>(objectPaths.size());
+
+    // Initialize lists with proper size to maintain order
+    for (int i = 0; i < objectPaths.size(); i++) {
+      uploadRequests.add(null);
+      futures.add(null);
+    }
+
+    for (int i = 0; i < objectPaths.size(); i++) {
+      final String objPath = objectPaths.get(i);
+      final String fullPath = getObjectFullPath(catalog, schema, volume, objPath);
+      final InputStream inputStream = inputStreams.get(i);
+      final long contentLength = contentLengths.get(i);
+
+      // Create stream upload request
+      UploadRequest request = new UploadRequest();
+      request.objectPath = objPath;
+      request.fullPath = fullPath;
+      request.inputStream = inputStream;
+      request.contentLength = contentLength;
+      request.fileIndex = i + 1;
+      // Set request at proper index to maintain order
+      uploadRequests.set(i, request);
+    }
+
+    // Remove null entries from uploadRequests
+    uploadRequests.removeIf(Objects::isNull);
+
+    // Execute uploads in parallel
+    return executeUploads(uploadRequests, futures);
+  }
+
+  /** Request class that holds all necessary information for either file or stream uploads. */
+  public static class UploadRequest {
+    public String objectPath;
+    public String fullPath;
+    public Path file;
+    public InputStream inputStream;
+    public long contentLength;
+    public int fileIndex;
+
+    public boolean isFile() {
+      return file != null;
+    }
+  }
+
+  /** Common method to execute uploads in parallel. */
+  private List<VolumePutResult> executeUploads(
+      List<UploadRequest> uploadRequests, List<CompletableFuture<VolumePutResult>> futures) {
+    for (UploadRequest request : uploadRequests) {
+      // Get the original index for this request
+      int index = request.fileIndex - 1;
+
+      // Skip if the future at this index is already completed (e.g., for missing files)
+      if (futures.get(index) != null && futures.get(index).isDone()) {
+        continue;
+      }
+
+      LOGGER.debug(
+          String.format(
+              "Uploading %s %d/%d: %s (%d bytes)",
+              request.isFile() ? "file" : "stream",
+              request.fileIndex,
+              uploadRequests.size()
+                  + futures.size()
+                  - uploadRequests.size(), // Add count of pre-completed futures
+              request.objectPath,
+              request.isFile() ? request.file.toFile().length() : request.contentLength));
+
+      // Create a CompletableFuture for this upload
+      CompletableFuture<VolumePutResult> uploadFuture = new CompletableFuture<>();
+      futures.set(index, uploadFuture);
+
+      // Use retry logic with rate limiting for presigned URL requests
+      requestPresignedUrlWithRetry(request.fullPath, request.objectPath, 1)
+          .thenAccept(
+              response -> {
+                String presignedUrl = response.getUrl();
+                LOGGER.debug(
+                    String.format(
+                        "Got presigned URL for %s %d: %s",
+                        request.isFile() ? "file" : "stream",
+                        request.fileIndex,
+                        request.objectPath));
+
+                try {
+                  // Upload to presigned URL
+                  AsyncRequestProducer uploadProducer;
+                  if (request.isFile()) {
+                    // File upload
+                    uploadProducer =
+                        AsyncRequestBuilder.put()
+                            .setUri(URI.create(presignedUrl))
+                            .setEntity(
+                                AsyncEntityProducers.create(
+                                    request.file.toFile(), ContentType.DEFAULT_BINARY))
+                            .build();
+                  } else {
+                    // Stream upload
+                    AsyncEntityProducer entity =
+                        new InputStreamFixedLenProducer(request.inputStream, request.contentLength);
+                    uploadProducer =
+                        AsyncRequestBuilder.put()
+                            .setUri(URI.create(presignedUrl))
+                            .setEntity(entity)
+                            .build();
+                  }
+
+                  AsyncResponseConsumer<SimpleHttpResponse> uploadConsumer =
+                      SimpleResponseConsumer.create();
+
+                  // Create callback
+                  VolumeUploadCallback uploadCallback =
+                      new VolumeUploadCallback(
+                          databricksHttpClient,
+                          uploadFuture,
+                          request,
+                          presignedUrlSemaphore,
+                          this::requestPresignedUrlWithRetry,
+                          this::calculateRetryDelay);
+
+                  databricksHttpClient.executeAsync(uploadProducer, uploadConsumer, uploadCallback);
+                } catch (Exception e) {
+                  String errorMessage =
+                      String.format("Error uploading %s: %s", request.objectPath, e.getMessage());
+                  LOGGER.error(errorMessage, e);
+                  uploadFuture.complete(
+                      new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
+                }
+              })
+          .exceptionally(
+              e -> {
+                String errorMessage =
+                    String.format(
+                        "Failed to get presigned URL for %s: %s",
+                        request.objectPath, e.getMessage());
+                LOGGER.error(errorMessage, e);
+                uploadFuture.complete(
+                    new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
+                return null;
+              });
+    }
+
+    // Wait for all operations to complete
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+    // Convert futures to results - maintaining the original order of input files
+    List<VolumePutResult> results = new ArrayList<>(futures.size());
+    for (CompletableFuture<VolumePutResult> future : futures) {
+      results.add(future.join());
+    }
+
+    // Log results
+    long successCount = 0;
+    for (VolumePutResult result : results) {
+      if (result.getStatus() == VolumeOperationStatus.SUCCEEDED) {
+        successCount++;
+      }
+    }
+    LOGGER.info(
+        String.format(
+            "Completed uploads: %d/%d %s successful",
+            successCount,
+            futures.size(),
+            uploadRequests.isEmpty() || uploadRequests.get(0).isFile() ? "files" : "streams"));
+
+    return results;
+  }
+
+  CompletableFuture<CreateUploadUrlResponse> requestPresignedUrlWithRetry(
+      String fullPath, String objectPath, int attempt) {
+    CompletableFuture<CreateUploadUrlResponse> future = new CompletableFuture<>();
+
+    try {
+      // Acquire semaphore for rate limiting. will be released in the callback
+      presignedUrlSemaphore.acquire();
+      LOGGER.debug(
+          String.format("Requesting presigned URL for %s (attempt %d)", objectPath, attempt));
+
+      // Create request for presigned URL
+      CreateUploadUrlRequest request = new CreateUploadUrlRequest(fullPath);
+      String requestBody;
+      try {
+        requestBody = apiClient.serialize(request);
+      } catch (IOException e) {
+        // Release semaphore before returning
+        presignedUrlSemaphore.release();
+        future.completeExceptionally(e);
+        return future;
+      }
+
+      // Build async request with auth headers
+      AsyncRequestBuilder requestBuilder =
+          AsyncRequestBuilder.post(
+              URI.create(connectionContext.getHostUrl() + CREATE_UPLOAD_URL_PATH));
+
+      try {
+        Map<String, String> authHeaders = workspaceClient.config().authenticate();
+        for (Map.Entry<String, String> header : authHeaders.entrySet()) {
+          requestBuilder.addHeader(header.getKey(), header.getValue());
+        }
+      } catch (Exception e) {
+        LOGGER.warn("Failed to add authentication headers: " + e.getMessage(), e);
+      }
+
+      // Add standard headers
+      for (Map.Entry<String, String> entry : JSON_HTTP_HEADERS.entrySet()) {
+        requestBuilder.addHeader(entry.getKey(), entry.getValue());
+      }
+
+      // Set request body
+      requestBuilder.setEntity(
+          AsyncEntityProducers.create(requestBody.getBytes(), ContentType.APPLICATION_JSON));
+
+      // Execute request
+      databricksHttpClient.executeAsync(
+          requestBuilder.build(),
+          SimpleResponseConsumer.create(),
+          new FutureCallback<SimpleHttpResponse>() {
+            @Override
+            public void completed(SimpleHttpResponse result) {
+              // release semaphore
+              presignedUrlSemaphore.release();
+
+              if (result.getCode() >= 200 && result.getCode() < 300) {
+                try {
+                  String responseBody = result.getBodyText();
+                  CreateUploadUrlResponse response =
+                      JsonUtil.getMapper().readValue(responseBody, CreateUploadUrlResponse.class);
+                  future.complete(response);
+                } catch (Exception e) {
+                  future.completeExceptionally(e);
+                }
+              } else if (result.getCode() == 429 && attempt < MAX_RETRIES) {
+                // Rate limited - apply exponential backoff
+                long retryDelayMs = calculateRetryDelay(attempt);
+                LOGGER.info(
+                    String.format(
+                        "Rate limited (429) for %s. Retrying in %d ms (attempt %d/%d)",
+                        objectPath, retryDelayMs, attempt, MAX_RETRIES));
+
+                // Schedule retry after delay
+                CompletableFuture.delayedExecutor(retryDelayMs, TimeUnit.MILLISECONDS)
+                    .execute(
+                        () -> {
+                          requestPresignedUrlWithRetry(fullPath, objectPath, attempt + 1)
+                              .whenComplete(
+                                  (response, ex) -> {
+                                    if (ex != null) {
+                                      future.completeExceptionally(ex);
+                                    } else {
+                                      future.complete(response);
+                                    }
+                                  });
+                        });
+              } else {
+                // Other error status codes
+                String errorMsg =
+                    String.format(
+                        "Failed to get presigned URL for %s: HTTP %d - %s",
+                        objectPath, result.getCode(), result.getReasonPhrase());
+                future.completeExceptionally(
+                    new DatabricksVolumeOperationException(
+                        errorMsg,
+                        null,
+                        DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR));
+              }
+            }
+
+            @Override
+            public void failed(Exception ex) {
+              // called ONLY for exceptions during the HTTP request.Connection refused, IO
+              // exceptions.
+              // release semaphore
+              presignedUrlSemaphore.release();
+              if (attempt < MAX_RETRIES) {
+                // Apply exponential backoff for network failures too
+                long retryDelayMs = calculateRetryDelay(attempt);
+                LOGGER.info(
+                    String.format(
+                        "Request failed for %s: %s. Retrying in %d ms (attempt %d/%d)",
+                        objectPath, ex.getMessage(), retryDelayMs, attempt, MAX_RETRIES));
+
+                // Schedule retry after delay
+                CompletableFuture.delayedExecutor(retryDelayMs, TimeUnit.MILLISECONDS)
+                    .execute(
+                        () -> {
+                          requestPresignedUrlWithRetry(fullPath, objectPath, attempt + 1)
+                              .whenComplete(
+                                  (response, e) -> {
+                                    if (e != null) {
+                                      future.completeExceptionally(e);
+                                    } else {
+                                      future.complete(response);
+                                    }
+                                  });
+                        });
+              } else {
+                future.completeExceptionally(ex);
+              }
+            }
+
+            @Override
+            public void cancelled() {
+              presignedUrlSemaphore.release();
+              future.completeExceptionally(
+                  new CancellationException(
+                      "Request for presigned URL was cancelled for " + objectPath));
+            }
+          });
+
+    } catch (Exception e) {
+      // Make sure to release semaphore on unexpected exceptions
+      presignedUrlSemaphore.release();
+      future.completeExceptionally(e);
+    }
+
+    return future;
+  }
+
+  // Helper method to calculate retry delay with exponential backoff and jitter
+  private long calculateRetryDelay(int attempt) {
+    // Calculate exponential backoff: initialDelay * 2^attempt
+    long delay = INITIAL_RETRY_DELAY_MS * (1L << attempt);
+    // Cap at max delay
+    delay = Math.min(delay, MAX_RETRY_DELAY_MS);
+    // Add jitter (±20% randomness)
+    return (long) (delay * (0.8 + random.nextDouble(0.4)));
   }
 }

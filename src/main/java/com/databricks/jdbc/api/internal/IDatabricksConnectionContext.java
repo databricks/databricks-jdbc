@@ -318,6 +318,9 @@ public interface IDatabricksConnectionContext {
   /** Returns whether token caching is enabled for OAuth authentication */
   boolean isTokenCacheEnabled();
 
+  /** */
+  int getMaxConcurrentPresignedRequests();
+
   /** Returns the application name using JDBC Connection */
   String getApplicationName();
 }
