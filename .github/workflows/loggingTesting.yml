@@ -45,6 +45,19 @@ jobs:
       - name: Build JDBC driver
         run: mvn clean package -DskipTests
 
+      - name: Find JAR file
+        shell: bash
+        run: |
+          # Find the main JAR file dynamically
+          MAIN_JAR=$(find target -name "databricks-jdbc-*-oss.jar" -not -name "*-thin.jar" | head -1)
+          if [ -z "$MAIN_JAR" ]; then
+            echo "ERROR: Could not find main JAR file in target directory"
+            ls -la target/
+            exit 1
+          fi
+          echo "Using JAR file: $MAIN_JAR"
+          echo "MAIN_JAR=$MAIN_JAR" >> $GITHUB_ENV
+
       - name: Set Environment Variables
         if: runner.os != 'Windows'
         shell: bash
@@ -79,8 +92,10 @@ jobs:
           rm -rf target/test-classes
           mkdir -p target/test-classes
           
+          echo "Using JAR file: $MAIN_JAR"
+          
           javac \
-            -cp "target/databricks-jdbc-1.0.7-oss.jar" \
+            -cp "$MAIN_JAR" \
             -d target/test-classes \
             src/test/java/com/databricks/client/jdbc/LoggingTest.java
           
@@ -94,7 +109,9 @@ jobs:
           OS_TYPE=$(uname | tr '[:upper:]' '[:lower:]')
           if [[ "$OS_TYPE" == "linux" ]]; then SEP=":"; else SEP=";"; fi
           echo "Using classpath separator: '$SEP'"
-          CP="target/test-classes${SEP}target/databricks-jdbc-1.0.7-oss.jar"
+          echo "Using JAR file: $MAIN_JAR"
+          
+          CP="target/test-classes${SEP}$MAIN_JAR"
           
           java \
             --add-opens=java.base/java.nio=ALL-UNNAMED \
