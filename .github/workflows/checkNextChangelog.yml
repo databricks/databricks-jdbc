@@ -1,12 +1,11 @@
 name: Check for NEXT_CHANGELOG.md Changes
 
 on:
-  pull_request_target:
+  pull_request:
      branches: [ main ]
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   check-next-changelog:
@@ -67,47 +66,8 @@ jobs:
               echo "NO_CHANGELOG=true found in PR message. Skipping changelog check."
               exit 0
             else
-              echo "WARNING: file NEXT_CHANGELOG.md not changed. If this is expected, add NO_CHANGELOG=true to the PR message."
+              echo "ERROR: NEXT_CHANGELOG.md not changed and NO_CHANGELOG=true not found in PR message."
+              echo "Please update NEXT_CHANGELOG.md or add NO_CHANGELOG=true to the PR description."
               exit 1
             fi
           fi
-
-      - name: Comment on PR with instructions if needed
-        if: failure() # This step will only run if the previous step fails (i.e., if NEXT_CHANGELOG.md was not modified and NO_CHANGELOG=true was not in the PR message)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Check if a comment exists with the instructions
-          previous_comment_ids=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-            --jq '.[] | select(.body | startswith("<!-- NEXT_CHANGELOG_INSTRUCTIONS -->")) | .id')
-          echo "Previous comment IDs: $previous_comment_ids"
-
-          # If no previous comment exists, add one with instructions
-          if [ -z "$previous_comment_ids" ]; then
-            echo "Adding instructions comment."
-            gh pr comment ${{ github.event.pull_request.number }} --body \
-            "<!-- NEXT_CHANGELOG_INSTRUCTIONS -->
-            Please ensure that the NEXT_CHANGELOG.md file is updated with any relevant changes. 
-            If this is not necessary for your PR, please include the following in your PR description:
-            NO_CHANGELOG=true
-            and rerun the job."
-          fi
-
-      - name: Delete instructions comment on success
-        if: success() # This step will only run if the previous check passed (i.e., if NEXT_CHANGELOG.md was modified or NO_CHANGELOG=true is in the PR message)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Check if there is a previous instructions comment
-          previous_comment_ids=$(gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-            --jq '.[] | select(.body | startswith("<!-- NEXT_CHANGELOG_INSTRUCTIONS -->")) | .id')
-          
-            # If a comment exists, delete it
-            if [ -n "$previous_comment_ids" ]; then
-              echo "Deleting previous instructions comment."
-              for comment_id in $previous_comment_ids; do
-                gh api "repos/${{ github.repository }}/issues/comments/$comment_id" --method DELETE
-              done
-            else
-              echo "No instructions comment found to delete."
-            fi

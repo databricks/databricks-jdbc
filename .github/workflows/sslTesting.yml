@@ -20,6 +20,8 @@
 name: SSL Certificate Validation Test with Squid Proxy
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       branch:
@@ -30,7 +32,6 @@ on:
         description: 'Repository to checkout (e.g., user/repo)'
         required: false
         default: 'databricks/databricks-jdbc'
-  pull_request_target:
 
 jobs:
   ssl-test:
