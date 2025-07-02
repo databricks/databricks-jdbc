@@ -110,6 +110,8 @@ public class DatabricksHttpTTransportTest {
     when(mockEntity.getContent()).thenReturn(new ByteArrayInputStream(testData));
     when(mockedHttpClient.execute(any(HttpPost.class))).thenReturn(mockResponse);
     when(mockConnectionContext.isRequestTracingEnabled()).thenReturn(true);
+    when(mockConnectionContext.getTraceId()).thenReturn("4bf92f3577b34da6a3ce929d0e0e4736");
+    when(mockConnectionContext.getTraceFlags()).thenReturn("01");
 
     transport.flush();
     ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
