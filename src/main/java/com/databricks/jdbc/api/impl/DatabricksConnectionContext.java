@@ -10,6 +10,7 @@ import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.ValidationUtil;
+import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -41,6 +42,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private DatabricksClientType clientType;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
   @VisibleForTesting final String connectionUuid;
+  private String traceId;
+  private String traceFlags;
 
   private DatabricksConnectionContext(
       String connectionURL,
@@ -58,6 +61,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.computeResource = buildCompute();
     this.connectionUuid = UUID.randomUUID().toString();
     this.clientType = getClientTypeFromContext();
+    initializeTraceContext();
   }
 
   private DatabricksConnectionContext(
@@ -70,6 +74,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.customHeaders = parseCustomHeaders(parameters);
     this.computeResource = null;
     this.connectionUuid = UUID.randomUUID().toString();
+    initializeTraceContext();
   }
 
   /**
@@ -819,6 +824,26 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public String getTraceParent() {
+    return getParameter(DatabricksJdbcUrlParams.TRACE_PARENT);
+  }
+
+  @Override
+  public String getTraceState() {
+    return getParameter(DatabricksJdbcUrlParams.TRACE_STATE);
+  }
+
+  @Override
+  public String getTraceId() {
+    return traceId;
+  }
+
+  @Override
+  public String getTraceFlags() {
+    return traceFlags;
+  }
+
+  @Override
   public int getHttpConnectionPoolSize() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE));
   }
@@ -941,5 +966,29 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         .collect(
             Collectors.toMap(
                 entry -> entry.getKey().substring(filterPrefix.length()), Map.Entry::getValue));
+  }
+
+  private void initializeTraceContext() {
+    if (isRequestTracingEnabled()) {
+      // Extract or generate trace context
+      String traceParent = getTraceParent();
+      if (!isNullOrEmpty(traceParent) && TracingUtil.isValidTraceparent(traceParent)) {
+        // Use provided trace parent
+        traceId = TracingUtil.extractTraceId(traceParent);
+        traceFlags = TracingUtil.extractTraceFlags(traceParent);
+        LOGGER.debug("Initialized trace context with provided traceparent: {}", traceParent);
+      } else {
+        // Generate new trace context
+        traceId = TracingUtil.generateTraceId();
+        traceFlags = "01"; // sampled by default
+        if (!isNullOrEmpty(traceParent)) {
+          LOGGER.warn(
+              "Invalid traceparent header provided: {}. Generated new trace ID.", traceParent);
+        }
+      }
+    } else {
+      traceId = null;
+      traceFlags = null;
+    }
   }
 }

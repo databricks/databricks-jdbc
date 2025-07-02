@@ -450,10 +450,18 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   private Map<String, String> getHeaders(String method) {
     Map<String, String> headers = new HashMap<>(JSON_HTTP_HEADERS);
-    if (connectionContext.isRequestTracingEnabled()) {
-      String traceHeader = TracingUtil.getTraceHeader();
+    if (connectionContext.isRequestTracingEnabled() && connectionContext.getTraceId() != null) {
+      String traceHeader =
+          TracingUtil.generateTraceparentWithTraceId(
+              connectionContext.getTraceId(), connectionContext.getTraceFlags());
       LOGGER.debug("Tracing header for method {}: [{}]", method, traceHeader);
       headers.put(TracingUtil.TRACE_HEADER, traceHeader);
+
+      // Add tracestate if present
+      String traceState = connectionContext.getTraceState();
+      if (traceState != null && !traceState.isEmpty()) {
+        headers.put(TracingUtil.TRACE_STATE_HEADER, traceState);
+      }
     }
 
     // Overriding with URL defined headers

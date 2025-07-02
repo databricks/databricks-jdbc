@@ -256,6 +256,18 @@ public interface IDatabricksConnectionContext {
   /** Returns true if request tracing should be enabled. */
   boolean isRequestTracingEnabled();
 
+  /** Returns the W3C Trace Context traceparent header if provided. */
+  String getTraceParent();
+
+  /** Returns the W3C Trace Context tracestate header if provided. */
+  String getTraceState();
+
+  /** Returns the trace ID for this connection (extracted or generated). */
+  String getTraceId();
+
+  /** Returns the trace flags for this connection. */
+  String getTraceFlags();
+
   /** Returns maximum number of characters that can be contained in STRING columns. */
   int getDefaultStringColumnLength();
 

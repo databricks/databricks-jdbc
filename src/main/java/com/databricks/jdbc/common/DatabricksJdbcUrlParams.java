@@ -129,6 +129,8 @@ public enum DatabricksJdbcUrlParams {
   TOKEN_CACHE_PASS_PHRASE("TokenCachePassPhrase", "Pass phrase to use for OAuth U2M Token Cache"),
   ENABLE_TOKEN_CACHE("EnableTokenCache", "Enable caching OAuth tokens", "1"),
   APPLICATION_NAME("ApplicationName", "Name of application using the driver", ""),
+  TRACE_PARENT("TraceParent", "W3C Trace Context traceparent header to propagate", ""),
+  TRACE_STATE("TraceState", "W3C Trace Context tracestate header to propagate", ""),
   ;
 
   private final String paramName;
