@@ -20,6 +20,8 @@
 name: SSL Certificate Validation Test with Squid Proxy
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       branch:
