@@ -227,6 +227,9 @@ public interface IDatabricksConnectionContext {
   /** Returns the SSL key store provider for the key store. */
   String getSSLKeyStoreProvider();
 
+  /** Returns the SSL trust store provider for the trust store. */
+  String getSSLTrustStoreProvider();
+
   /** Returns the maximum number of commands that can be executed in a single batch. */
   int getMaxBatchSize();
 

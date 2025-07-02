@@ -592,4 +592,22 @@ class DatabricksConnectionContextTest {
     assertEquals("PKCS12", connectionContext.getSSLKeyStoreType());
     assertEquals("SunJSSE", connectionContext.getSSLKeyStoreProvider());
   }
+
+  @Test
+  public void testSSLTrustStoreParameters() throws DatabricksSQLException {
+    // Test case 1: Default settings (all null)
+    String validJdbcUrl = TestConstants.VALID_URL_1;
+    Properties properties = new Properties();
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
+    assertNull(connectionContext.getSSLTrustStore());
+
+    // Test case 2: With truststore parameters
+    properties.put("SSLTrustStore", "/path/to/truststore.jks");
+    properties.put("SSLTrustStorePwd", "truststorepassword");
+    properties.put("SSLTrustStoreType", "PKCS12");
+    properties.put("SSLTrustStoreProvider", "SunJSSE");
+    connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
+  }
 }

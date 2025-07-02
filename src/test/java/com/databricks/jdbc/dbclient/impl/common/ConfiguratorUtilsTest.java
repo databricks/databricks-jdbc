@@ -577,4 +577,26 @@ public class ConfiguratorUtilsTest {
         () -> ConfiguratorUtils.loadKeystoreOrNull(mockContext),
         "Should throw an exception when key store password is missing");
   }
+
+  @Test
+  void testLoadTrustStoreWithProvider() throws Exception {
+    String providerName = "TestProvider";
+    when(mockContext.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH);
+    when(mockContext.getSSLTrustStorePassword()).thenReturn(TRUST_STORE_PASSWORD);
+    when(mockContext.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE);
+    when(mockContext.getSSLTrustStoreProvider()).thenReturn(providerName);
+
+    try (MockedStatic<KeyStore> keyStoreStatic = mockStatic(KeyStore.class)) {
+      KeyStore mockKeyStore = mock(KeyStore.class);
+      keyStoreStatic
+          .when(() -> KeyStore.getInstance(TRUST_STORE_TYPE, providerName))
+          .thenReturn(mockKeyStore);
+
+      // Call the method under test
+      ConfiguratorUtils.loadTruststoreOrNull(mockContext);
+
+      keyStoreStatic.verify(() -> KeyStore.getInstance(TRUST_STORE_TYPE, providerName));
+      verify(mockKeyStore).load(any(), eq(TRUST_STORE_PASSWORD.toCharArray()));
+    }
+  }
 }
