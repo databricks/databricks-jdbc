@@ -1,8 +1,8 @@
 package com.databricks.jdbc.integration.fakeservice;
 
-import static com.databricks.jdbc.integration.IntegrationTestUtil.getJWTTokenEndpointHost;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.CLOUD_FETCH_HOST_PROP;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.DATABRICKS_HOST_PROP;
+import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.JWT_TOKEN_ENDPOINT_HOST_PROP;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
@@ -73,7 +73,7 @@ public abstract class AbstractFakeServiceIntegrationTests {
                           new FakeServiceHttpClientFactory(
                               FakeServiceConfigLoader.getFakeServiceUserAgent()))),
           DatabricksJdbcConstants.FakeServiceType.JWT_TOKEN_ENDPOINT,
-          getJWTTokenEndpointHost());
+          FakeServiceConfigLoader.getProperty(JWT_TOKEN_ENDPOINT_HOST_PROP));
 
   /**
    * Resets the potential mutations (e.g., URLs set by {@link #setDatabricksApiTargetUrl}, {@link
