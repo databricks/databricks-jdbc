@@ -191,10 +191,6 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_USER");
   }
 
-  public static String getPreSignedUrlHost() {
-    return System.getenv("DATABRICKS_PRE_SIGNED_URL_HOST");
-  }
-
   public static Connection getValidJDBCConnection() throws SQLException {
     Properties connectionProperties = new Properties();
     connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());

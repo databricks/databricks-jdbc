@@ -4,6 +4,7 @@ import static com.databricks.jdbc.TestConstants.UC_VOLUME_CATALOG;
 import static com.databricks.jdbc.TestConstants.UC_VOLUME_SCHEMA;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.getDatabricksUser;
+import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.PRESIGNED_URL_HOST;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -12,6 +13,7 @@ import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -33,7 +35,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
 
   @BeforeAll
   static void setupAll() throws Exception {
-    setCloudFetchApiTargetUrl(getPreSignedUrlHost());
+    setCloudFetchApiTargetUrl(FakeServiceConfigLoader.getProperty(PRESIGNED_URL_HOST));
   }
 
   @BeforeEach
