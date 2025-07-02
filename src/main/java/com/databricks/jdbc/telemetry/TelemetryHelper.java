@@ -231,7 +231,6 @@ public class TelemetryHelper {
             .setNonProxyHosts(StringUtil.split(connectionContext.getNonProxyHosts()))
             .setHttpConnectionPoolSize(connectionContext.getHttpConnectionPoolSize())
             .setEnableSeaHybridResults(connectionContext.isSqlExecHybridResultsEnabled())
-            .setEnableComplexSupport(connectionContext.isComplexDatatypeSupportEnabled())
             .setAllowSelfSignedSupport(connectionContext.allowSelfSignedCerts())
             .setUseSystemTrustStore(connectionContext.useSystemTrustStore())
             .setRowsFetchedPerBlock(connectionContext.getRowsFetchedPerBlock())

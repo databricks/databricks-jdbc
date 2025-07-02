@@ -12,13 +12,19 @@ public class ChunkDetails {
   private Long slowestChunkLatencyMillis;
 
   @JsonProperty("total_chunks_present")
-  private Integer totalChunksPresent;
+  private Long totalChunksPresent;
 
   @JsonProperty("total_chunks_iterated")
-  private Integer totalChunksIterated;
+  private Long totalChunksIterated;
 
   @JsonProperty("sum_chunks_download_time_millis")
   private Long sumChunksDownloadTimeMillis;
+
+  public ChunkDetails(long totalChunks) {
+    this.totalChunksIterated = 0L;
+    this.sumChunksDownloadTimeMillis = 0L;
+    this.totalChunksPresent = totalChunks;
+  }
 
   public ChunkDetails setInitialChunkLatencyMillis(Long initialChunkLatencyMillis) {
     this.initialChunkLatencyMillis = initialChunkLatencyMillis;
@@ -30,12 +36,12 @@ public class ChunkDetails {
     return this;
   }
 
-  public ChunkDetails setTotalChunksPresent(Integer totalChunksPresent) {
+  public ChunkDetails setTotalChunksPresent(Long totalChunksPresent) {
     this.totalChunksPresent = totalChunksPresent;
     return this;
   }
 
-  public ChunkDetails setTotalChunksIterated(Integer totalChunksIterated) {
+  public ChunkDetails setTotalChunksIterated(Long totalChunksIterated) {
     this.totalChunksIterated = totalChunksIterated;
     return this;
   }
@@ -43,6 +49,22 @@ public class ChunkDetails {
   public ChunkDetails setSumChunksDownloadTimeMillis(Long sumChunksDownloadTimeMillis) {
     this.sumChunksDownloadTimeMillis = sumChunksDownloadTimeMillis;
     return this;
+  }
+
+  public Long getSlowestChunkLatencyMillis() {
+    return slowestChunkLatencyMillis;
+  }
+
+  public Long getTotalChunksPresent() {
+    return totalChunksPresent;
+  }
+
+  public Long getTotalChunksIterated() {
+    return totalChunksIterated;
+  }
+
+  public Long getSumChunksDownloadTimeMillis() {
+    return sumChunksDownloadTimeMillis;
   }
 
   @Override
