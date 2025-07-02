@@ -13,6 +13,8 @@ public class FakeServiceConfigLoader {
 
   public static final String PRESIGNED_URL_HOST = "host.presignedurl";
 
+  public static final String JWT_TOKEN_ENDPOINT_HOST_PROP = "host.jwt.token.endpoint";
+
   public static final String TEST_CATALOG = "testcatalog";
 
   public static final String TEST_SCHEMA = "testschema";
