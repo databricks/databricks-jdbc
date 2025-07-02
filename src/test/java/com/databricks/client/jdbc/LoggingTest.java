@@ -97,7 +97,7 @@ public class LoggingTest {
       logger.info("Connected to the database successfully.");
 
       Statement statement = connection.createStatement();
-      statement.execute("SELECT 1");
+      statement.execute("SHOW CATALOGS");
       logger.info("Executed a sample query.");
 
       // Close the connection
