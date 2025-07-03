@@ -835,159 +835,131 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     return results;
   }
 
+  // Refactored method with robust semaphore handling
   CompletableFuture<CreateUploadUrlResponse> requestPresignedUrlWithRetry(
       String fullPath, String objectPath, int attempt) {
-    CompletableFuture<CreateUploadUrlResponse> future = new CompletableFuture<>();
+    final CompletableFuture<CreateUploadUrlResponse> future = new CompletableFuture<>();
 
     try {
-      // Acquire semaphore for rate limiting. will be released in the callback
+      // Acquire permit *before* the try block to handle InterruptedException separately.
       presignedUrlSemaphore.acquire();
-      LOGGER.debug("Requesting presigned URL for {} (attempt {})", objectPath, attempt);
 
-      // Create request for presigned URL
-      CreateUploadUrlRequest request = new CreateUploadUrlRequest(fullPath);
-      String requestBody;
-      try {
-        requestBody = apiClient.serialize(request);
-      } catch (IOException e) {
-        // Release semaphore before returning
-        presignedUrlSemaphore.release();
-        future.completeExceptionally(e);
-        return future;
-      }
-
-      // Build async request with auth headers
-      AsyncRequestBuilder requestBuilder =
-          AsyncRequestBuilder.post(
-              URI.create(connectionContext.getHostUrl() + CREATE_UPLOAD_URL_PATH));
-
-      try {
-        Map<String, String> authHeaders = workspaceClient.config().authenticate();
-        for (Map.Entry<String, String> header : authHeaders.entrySet()) {
-          requestBuilder.addHeader(header.getKey(), header.getValue());
-        }
-      } catch (Exception e) {
-        LOGGER.warn("Failed to add authentication headers: " + e.getMessage(), e);
-      }
-
-      // Add standard headers
-      for (Map.Entry<String, String> entry : JSON_HTTP_HEADERS.entrySet()) {
-        requestBuilder.addHeader(entry.getKey(), entry.getValue());
-      }
-
-      // Set request body
-      requestBuilder.setEntity(
-          AsyncEntityProducers.create(requestBody.getBytes(), ContentType.APPLICATION_JSON));
-
-      // Execute request
-      databricksHttpClient.executeAsync(
-          requestBuilder.build(),
-          SimpleResponseConsumer.create(),
-          new FutureCallback<SimpleHttpResponse>() {
-            @Override
-            public void completed(SimpleHttpResponse result) {
-              // release semaphore
-              presignedUrlSemaphore.release();
-
-              if (result.getCode() >= 200 && result.getCode() < 300) {
-                try {
-                  String responseBody = result.getBodyText();
-                  CreateUploadUrlResponse response =
-                      JsonUtil.getMapper().readValue(responseBody, CreateUploadUrlResponse.class);
-                  future.complete(response);
-                } catch (Exception e) {
-                  future.completeExceptionally(e);
-                }
-              } else if (result.getCode() == 429 && attempt < MAX_RETRIES) {
-                // Rate limited - apply exponential backoff
-                long retryDelayMs = calculateRetryDelay(attempt);
-                LOGGER.info(
-                    "Rate limited (429) for {}. Retrying in {} ms (attempt {}/{})",
-                    objectPath,
-                    retryDelayMs,
-                    attempt,
-                    MAX_RETRIES);
-
-                // Schedule retry after delay
-                CompletableFuture.delayedExecutor(retryDelayMs, TimeUnit.MILLISECONDS)
-                    .execute(
-                        () -> {
-                          requestPresignedUrlWithRetry(fullPath, objectPath, attempt + 1)
-                              .whenComplete(
-                                  (response, ex) -> {
-                                    if (ex != null) {
-                                      future.completeExceptionally(ex);
-                                    } else {
-                                      future.complete(response);
-                                    }
-                                  });
-                        });
-              } else {
-                // Other error status codes
-                String errorMsg =
-                    String.format(
-                        "Failed to get presigned URL for %s: HTTP %d - %s",
-                        objectPath, result.getCode(), result.getReasonPhrase());
-                future.completeExceptionally(
-                    new DatabricksVolumeOperationException(
-                        errorMsg,
-                        null,
-                        DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR));
-              }
-            }
-
-            @Override
-            public void failed(Exception ex) {
-              // called ONLY for exceptions during the HTTP request.Connection refused, IO
-              // exceptions.
-              // release semaphore
-              presignedUrlSemaphore.release();
-              if (attempt < MAX_RETRIES) {
-                // Apply exponential backoff for network failures too
-                long retryDelayMs = calculateRetryDelay(attempt);
-                LOGGER.info(
-                    "Request failed for {}: {}. Retrying in {} ms (attempt {}/{})",
-                    objectPath,
-                    ex.getMessage(),
-                    retryDelayMs,
-                    attempt,
-                    MAX_RETRIES);
-
-                // Schedule retry after delay
-                CompletableFuture.delayedExecutor(retryDelayMs, TimeUnit.MILLISECONDS)
-                    .execute(
-                        () -> {
-                          requestPresignedUrlWithRetry(fullPath, objectPath, attempt + 1)
-                              .whenComplete(
-                                  (response, e) -> {
-                                    if (e != null) {
-                                      future.completeExceptionally(e);
-                                    } else {
-                                      future.complete(response);
-                                    }
-                                  });
-                        });
-              } else {
-                future.completeExceptionally(ex);
-              }
-            }
-
-            @Override
-            public void cancelled() {
-              presignedUrlSemaphore.release();
-              future.completeExceptionally(
-                  new CancellationException(
-                      "Request for presigned URL was cancelled for " + objectPath));
-            }
+      // The whenComplete block acts as a "finally" for the async operation.
+      // It guarantees the semaphore is released when the future is done, for any reason.
+      future.whenComplete(
+          (response, throwable) -> {
+            LOGGER.debug("Releasing semaphore permit for {}", objectPath);
+            presignedUrlSemaphore.release();
           });
 
-    } catch (Exception e) {
-      // Make sure to release semaphore on unexpected exceptions
-      presignedUrlSemaphore.release();
-      future.completeExceptionally(e);
+      // All subsequent operations are inside a try-catch to ensure we complete the future.
+      try {
+        LOGGER.debug("Requesting presigned URL for {} (attempt {})", objectPath, attempt);
+
+        CreateUploadUrlRequest request = new CreateUploadUrlRequest(fullPath);
+        String requestBody = apiClient.serialize(request);
+
+        // Build async request
+        AsyncRequestBuilder requestBuilder =
+            AsyncRequestBuilder.post(
+                URI.create(connectionContext.getHostUrl() + CREATE_UPLOAD_URL_PATH));
+
+        // Add headers
+        Map<String, String> authHeaders = workspaceClient.config().authenticate();
+        authHeaders.forEach(requestBuilder::addHeader);
+        JSON_HTTP_HEADERS.forEach(requestBuilder::addHeader);
+
+        requestBuilder.setEntity(
+            AsyncEntityProducers.create(requestBody.getBytes(), ContentType.APPLICATION_JSON));
+
+        // Execute async request
+        databricksHttpClient.executeAsync(
+            requestBuilder.build(),
+            SimpleResponseConsumer.create(),
+            new FutureCallback<SimpleHttpResponse>() {
+              @Override
+              public void completed(SimpleHttpResponse result) {
+                if (result.getCode() >= 200 && result.getCode() < 300) {
+                  try {
+                    CreateUploadUrlResponse response =
+                        JsonUtil.getMapper()
+                            .readValue(result.getBodyText(), CreateUploadUrlResponse.class);
+                    future.complete(response);
+                  } catch (Exception e) {
+                    future.completeExceptionally(e);
+                  }
+                } else if (result.getCode() == 429 && attempt < MAX_RETRIES) {
+                  handleRetry(fullPath, objectPath, attempt, future);
+                } else {
+                  String errorMsg =
+                      String.format(
+                          "Failed to get presigned URL for %s: HTTP %d - %s",
+                          objectPath, result.getCode(), result.getReasonPhrase());
+                  future.completeExceptionally(
+                      new DatabricksVolumeOperationException(
+                          errorMsg,
+                          null,
+                          DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR));
+                }
+              }
+
+              @Override
+              public void failed(Exception ex) {
+                if (attempt < MAX_RETRIES) {
+                  handleRetry(fullPath, objectPath, attempt, future);
+                } else {
+                  future.completeExceptionally(ex);
+                }
+              }
+
+              @Override
+              public void cancelled() {
+                future.cancel(true);
+              }
+            });
+
+      } catch (Throwable t) {
+        // If any synchronous error occurs (e.g., serialization, auth), fail the future.
+        // The whenComplete block will then trigger the semaphore release.
+        future.completeExceptionally(t);
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      future.completeExceptionally(
+          new CancellationException("Thread was interrupted while waiting for semaphore permit."));
     }
 
     return future;
+  }
+
+  // Helper method for retry logic to avoid code duplication
+  private void handleRetry(
+      String fullPath,
+      String objectPath,
+      int attempt,
+      CompletableFuture<CreateUploadUrlResponse> future) {
+    long retryDelayMs = calculateRetryDelay(attempt);
+    LOGGER.info(
+        "Request for {} failed or was rate-limited. Retrying in {} ms (attempt {}/{})",
+        objectPath,
+        retryDelayMs,
+        attempt,
+        MAX_RETRIES);
+
+    CompletableFuture.delayedExecutor(retryDelayMs, TimeUnit.MILLISECONDS)
+        .execute(
+            () -> {
+              // The retry will return a new future; we pipe its result into our original future.
+              requestPresignedUrlWithRetry(fullPath, objectPath, attempt + 1)
+                  .whenComplete(
+                      (response, ex) -> {
+                        if (ex != null) {
+                          future.completeExceptionally(ex);
+                        } else {
+                          future.complete(response);
+                        }
+                      });
+            });
   }
 
   // Helper method to calculate retry delay with exponential backoff and jitter
