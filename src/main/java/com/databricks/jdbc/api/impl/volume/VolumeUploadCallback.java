@@ -224,7 +224,7 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
                                   + request.objectPath
                                   + ": "
                                   + e.getMessage();
-                          LOGGER.error(errorMessage, e);
+                          LOGGER.error(e, errorMessage);
                           uploadFuture.complete(
                               new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
                         }
@@ -236,7 +236,7 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
                                 + request.objectPath
                                 + ": "
                                 + e.getMessage();
-                        LOGGER.error(errorMessage, e);
+                        LOGGER.error(e, errorMessage);
                         uploadFuture.complete(
                             new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
                         return null;

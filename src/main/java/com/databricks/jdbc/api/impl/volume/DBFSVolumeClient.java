@@ -804,7 +804,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                 } catch (Exception e) {
                   String errorMessage =
                       String.format("Error uploading %s: %s", request.objectPath, e.getMessage());
-                  LOGGER.error(errorMessage, e);
+                  LOGGER.error(e, errorMessage);
                   uploadFuture.complete(
                       new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
                 }
@@ -815,7 +815,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                     String.format(
                         "Failed to get presigned URL for %s: %s",
                         request.objectPath, e.getMessage());
-                LOGGER.error(errorMessage, e);
+                LOGGER.error(e, errorMessage);
                 uploadFuture.complete(
                     new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
                 return null;
