@@ -42,7 +42,7 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
   @FunctionalInterface
   public interface UrlGenerator {
     CompletableFuture<CreateUploadUrlResponse> apply(
-        String fullPath, String objectPath, int attempt);
+        String ucVolumePath, String objectPath, int attempt);
   }
 
   /**
@@ -170,7 +170,7 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
 
               // Get a new presigned URL and retry the upload
               urlGenerator
-                  .apply(request.fullPath, request.objectPath, 1)
+                  .apply(request.ucVolumePath, request.objectPath, 1)
                   .thenAccept(
                       response -> {
                         String presignedUrl = response.getUrl();

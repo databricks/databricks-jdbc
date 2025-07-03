@@ -639,7 +639,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       // Create file upload request
       UploadRequest request = new UploadRequest();
       request.objectPath = objPath;
-      request.fullPath = fullPath;
+      request.ucVolumePath = fullPath;
       request.file = file;
       request.fileIndex = i + 1;
       // Set request at proper index to maintain order
@@ -689,7 +689,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       // Create stream upload request
       UploadRequest request = new UploadRequest();
       request.objectPath = objPath;
-      request.fullPath = fullPath;
+      request.ucVolumePath = fullPath;
       request.inputStream = inputStream;
       request.contentLength = contentLength;
       request.fileIndex = i + 1;
@@ -703,8 +703,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
   /** Request class that holds all necessary information for either file or stream uploads. */
   public static class UploadRequest {
+    /** Relative path within the volume (used for logging and error messages) */
     public String objectPath;
-    public String fullPath;
+
+    /** Full UC volume path (e.g., /Volumes/catalog/schema/volume/path/file.txt) */
+    public String ucVolumePath;
+
     public Path file;
     public InputStream inputStream;
     public long contentLength;
@@ -750,7 +754,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       futures.set(index, uploadFuture);
 
       // Use retry logic with rate limiting for presigned URL requests
-      requestPresignedUrlWithRetry(request.fullPath, request.objectPath, 1)
+      requestPresignedUrlWithRetry(request.ucVolumePath, request.objectPath, 1)
           .thenAccept(
               response -> {
                 String presignedUrl = response.getUrl();
@@ -845,7 +849,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
   // Refactored method with robust semaphore handling
   CompletableFuture<CreateUploadUrlResponse> requestPresignedUrlWithRetry(
-      String fullPath, String objectPath, int attempt) {
+      String ucVolumePath, String objectPath, int attempt) {
     final CompletableFuture<CreateUploadUrlResponse> future = new CompletableFuture<>();
 
     try {
@@ -864,7 +868,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       try {
         LOGGER.debug("Requesting presigned URL for {} (attempt {})", objectPath, attempt);
 
-        CreateUploadUrlRequest request = new CreateUploadUrlRequest(fullPath);
+        CreateUploadUrlRequest request = new CreateUploadUrlRequest(ucVolumePath);
         String requestBody = apiClient.serialize(request);
 
         // Build async request
@@ -897,7 +901,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                     future.completeExceptionally(e);
                   }
                 } else if (result.getCode() == 429 && attempt < MAX_RETRIES) {
-                  handleRetry(fullPath, objectPath, attempt, future);
+                  handleRetry(ucVolumePath, objectPath, attempt, future);
                 } else {
                   String errorMsg =
                       String.format(
@@ -914,7 +918,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
               @Override
               public void failed(Exception ex) {
                 if (attempt < MAX_RETRIES) {
-                  handleRetry(fullPath, objectPath, attempt, future);
+                  handleRetry(ucVolumePath, objectPath, attempt, future);
                 } else {
                   future.completeExceptionally(ex);
                 }
@@ -942,7 +946,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
   // Helper method for retry logic to avoid code duplication
   private void handleRetry(
-      String fullPath,
+      String ucVolumePath,
       String objectPath,
       int attempt,
       CompletableFuture<CreateUploadUrlResponse> future) {
@@ -958,7 +962,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         .execute(
             () -> {
               // The retry will return a new future; we pipe its result into our original future.
-              requestPresignedUrlWithRetry(fullPath, objectPath, attempt + 1)
+              requestPresignedUrlWithRetry(ucVolumePath, objectPath, attempt + 1)
                   .whenComplete(
                       (response, ex) -> {
                         if (ex != null) {
