@@ -97,14 +97,13 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
       // Server error - retry with backoff
       long retryDelayMs = retryDelayCalculator.apply(attempt);
       LOGGER.warn(
-          String.format(
-              "Upload failed for %s: HTTP %d - %s. Retrying in %d ms (attempt %d/%d)",
-              request.objectPath,
-              uploadResult.getCode(),
-              uploadResult.getReasonPhrase(),
-              retryDelayMs,
-              attempt,
-              MAX_UPLOAD_RETRIES));
+          "Upload failed for {}: HTTP {} - {}. Retrying in {} ms (attempt {}/{})",
+          request.objectPath,
+          uploadResult.getCode(),
+          uploadResult.getReasonPhrase(),
+          retryDelayMs,
+          attempt,
+          MAX_UPLOAD_RETRIES);
 
       // Retry the entire upload process
       retry(retryDelayMs);
@@ -114,9 +113,10 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
       String message = uploadResult.getReasonPhrase();
 
       LOGGER.error(
-          String.format(
-              "Upload failed for %s: HTTP %d - %s",
-              request.objectPath, uploadResult.getCode(), message));
+          "Upload failed for {}: HTTP {} - {}",
+          request.objectPath,
+          uploadResult.getCode(),
+          message);
 
       uploadFuture.complete(new VolumePutResult(uploadResult.getCode(), status, message));
     }
@@ -127,15 +127,17 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
     if (attempt < MAX_UPLOAD_RETRIES) {
       long retryDelayMs = retryDelayCalculator.apply(attempt);
       LOGGER.warn(
-          String.format(
-              "Upload failed for %s: %s. Retrying in %d ms (attempt %d/%d)",
-              request.objectPath, ex.getMessage(), retryDelayMs, attempt, MAX_UPLOAD_RETRIES));
+          "Upload failed for {}: {}. Retrying in {} ms (attempt {}/{})",
+          request.objectPath,
+          ex.getMessage(),
+          retryDelayMs,
+          attempt,
+          MAX_UPLOAD_RETRIES);
 
       // Retry the entire upload process
       retry(retryDelayMs);
     } else {
-      LOGGER.error(
-          String.format("Upload failed for %s: %s", request.objectPath, ex.getMessage()), ex);
+      LOGGER.error("Upload failed for {}: {}", request.objectPath, ex.getMessage(), ex);
       uploadFuture.complete(
           new VolumePutResult(500, VolumeOperationStatus.FAILED, ex.getMessage()));
     }
@@ -143,7 +145,7 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
 
   @Override
   public void cancelled() {
-    LOGGER.warn(String.format("Upload cancelled for %s", request.objectPath));
+    LOGGER.warn("Upload cancelled for {}", request.objectPath);
     uploadFuture.complete(
         new VolumePutResult(499, VolumeOperationStatus.ABORTED, "Upload cancelled"));
   }
@@ -173,9 +175,9 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
                       response -> {
                         String presignedUrl = response.getUrl();
                         LOGGER.debug(
-                            String.format(
-                                "Got new presigned URL for retry of %s (attempt %d)",
-                                request.objectPath, attempt + 1));
+                            "Got new presigned URL for retry of {} (attempt {})",
+                            request.objectPath,
+                            attempt + 1);
 
                         try {
                           // Create upload producer
@@ -218,9 +220,10 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
                           httpClient.executeAsync(uploadProducer, uploadConsumer, uploadCallback);
                         } catch (Exception e) {
                           String errorMessage =
-                              String.format(
-                                  "Error setting up retry for %s: %s",
-                                  request.objectPath, e.getMessage());
+                              "Error setting up retry for "
+                                  + request.objectPath
+                                  + ": "
+                                  + e.getMessage();
                           LOGGER.error(errorMessage, e);
                           uploadFuture.complete(
                               new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
@@ -229,9 +232,10 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
                   .exceptionally(
                       e -> {
                         String errorMessage =
-                            String.format(
-                                "Failed to get presigned URL for retry of %s: %s",
-                                request.objectPath, e.getMessage());
+                            "Failed to get presigned URL for retry of "
+                                + request.objectPath
+                                + ": "
+                                + e.getMessage();
                         LOGGER.error(errorMessage, e);
                         uploadFuture.complete(
                             new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));

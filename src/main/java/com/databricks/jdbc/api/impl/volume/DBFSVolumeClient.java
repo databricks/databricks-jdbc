@@ -724,6 +724,14 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
       // Skip if the future at this index is already completed (e.g., for missing files)
       if (futures.get(index) != null && futures.get(index).isDone()) {
+        LOGGER.debug(
+            "Skipping already completed upload for {} {}/{}: {}",
+            request.isFile() ? "file" : "stream",
+            request.fileIndex,
+            uploadRequests.size()
+                + futures.size()
+                - uploadRequests.size(), // Add count of pre-completed futures
+            request.objectPath);
         continue;
       }
 
