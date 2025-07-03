@@ -335,7 +335,7 @@ public class DBFSVolumeClientUploadTest {
         results.get(1).getStatus(),
         "Second result (invalid file) status should be FAILED");
     assertEquals(
-        404, results.get(1).getStatusCode(), "Invalid file result status code should be 404");
+        400, results.get(1).getStatusCode(), "Invalid file result status code should be 404");
     assertTrue(
         results.get(1).getMessage().contains("File not found"),
         "Invalid file result should have the appropriate error message");

@@ -318,8 +318,11 @@ public interface IDatabricksConnectionContext {
   /** Returns whether token caching is enabled for OAuth authentication */
   boolean isTokenCacheEnabled();
 
-  /** */
-  int getMaxConcurrentPresignedRequests();
+  /*
+   * Returns maximum number of concurrent pre-signed requests sent to Databricks File System (DBFS)
+   * Ensures rate-limit when uploading multiple files to DBFS in parallel.
+   */
+  int getMaxDBFSConcurrentPresignedRequests();
 
   /** Returns the application name using JDBC Connection */
   String getApplicationName();

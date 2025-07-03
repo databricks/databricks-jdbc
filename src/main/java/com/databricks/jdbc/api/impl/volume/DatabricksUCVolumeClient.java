@@ -488,7 +488,7 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
       String volume,
       List<String> objectPaths,
       List<String> localPaths,
-      boolean overwrite)
+      boolean toOverwrite)
       throws DatabricksSQLFeatureNotSupportedException {
     throw new DatabricksSQLFeatureNotSupportedException(
         "putFiles(...) is not supported. Please use DBFSVolumeClient instead.");

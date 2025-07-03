@@ -198,7 +198,7 @@ public interface IDatabricksVolumeClient {
    * @param objectPaths the list of destination paths in the volume where the files should be
    *     uploaded
    * @param localPaths the list of local file paths to upload
-   * @param overwrite whether to overwrite the objects if they already exist
+   * @param toOverwrite whether to overwrite the objects if they already exist
    * @return a list of results indicating the success or failure of each upload operation
    * @throws DatabricksSQLFeatureNotSupportedException if the operation is not supported
    */
@@ -208,6 +208,6 @@ public interface IDatabricksVolumeClient {
       String volume,
       List<String> objectPaths,
       List<String> localPaths,
-      boolean overwrite)
+      boolean toOverwrite)
       throws DatabricksSQLFeatureNotSupportedException;
 }

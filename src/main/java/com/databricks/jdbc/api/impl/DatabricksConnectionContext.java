@@ -809,7 +809,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getMaxConcurrentPresignedRequests() {
+  public int getMaxDBFSConcurrentPresignedRequests() {
     try {
       return Integer.parseInt(
           getParameter(DatabricksJdbcUrlParams.MAX_CONCURRENT_PRESIGNED_REQUESTS));

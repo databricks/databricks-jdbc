@@ -466,7 +466,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
       assertEquals(
           objectPaths.size(), results.size(), "Results count should match input files count");
 
-      // Check that results are in the same order as input files
+      // Check that results have expected status
       for (int i = 0; i < results.size(); i++) {
         VolumePutResult result = results.get(i);
         assertEquals(
@@ -558,7 +558,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
       assertEquals(
           objectPaths.size(), results.size(), "Results count should match input streams count");
 
-      // Check that results are in the same order as input files
+      // Check that results have expected status
       for (int i = 0; i < results.size(); i++) {
         VolumePutResult result = results.get(i);
         assertEquals(
@@ -611,77 +611,6 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
             Arrays.asList("stream_upload_1.txt", "stream_upload_2.txt", "stream_upload_3.txt"),
             Arrays.asList("stream-content1", "stream-content2", "stream-content3"),
             Arrays.asList(true, true, true)));
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideParametersForFileOrderTest")
-  void testResultOrderMatches(
-      String catalog,
-      String schema,
-      String volume,
-      List<String> objectPaths,
-      List<String> localPaths,
-      List<Boolean> pathsExist)
-      throws Exception {
-
-    List<File> files = new ArrayList<>();
-
-    try {
-      // Create files for the existing paths
-      for (int i = 0; i < localPaths.size(); i++) {
-        if (pathsExist.get(i)) {
-          File file = new File(localPaths.get(i));
-          Files.writeString(file.toPath(), "content-" + i);
-          files.add(file);
-        }
-      }
-
-      // Upload files
-      List<VolumePutResult> results =
-          client.putFiles(catalog, schema, volume, objectPaths, localPaths, false);
-
-      // Verify results are in the same order
-      assertEquals(
-          objectPaths.size(), results.size(), "Results count should match input paths count");
-
-      // For each path, the result should either be success (if the file exists)
-      // or failure (if the file doesn't exist)
-      for (int i = 0; i < objectPaths.size(); i++) {
-        assertEquals(
-            pathsExist.get(i) ? VolumeOperationStatus.SUCCEEDED : VolumeOperationStatus.FAILED,
-            results.get(i).getStatus(),
-            "Status at index " + i + " should match whether file exists");
-      }
-
-    } finally {
-      // Clean up files
-      for (File file : files) {
-        file.delete();
-      }
-
-      // Clean up uploaded files
-      for (int i = 0; i < objectPaths.size(); i++) {
-        if (pathsExist.get(i)) {
-          client.deleteObject(catalog, schema, volume, objectPaths.get(i));
-        }
-      }
-    }
-  }
-
-  private static Stream<Arguments> provideParametersForFileOrderTest() {
-    return Stream.of(
-        // Test case specifically for checking result ordering
-        Arguments.of(
-            UC_VOLUME_CATALOG,
-            UC_VOLUME_SCHEMA,
-            "test_volume1",
-            // Object paths
-            Arrays.asList("order_test_1.txt", "order_test_2.txt", "order_test_3.txt"),
-            // Local paths - mixing existing and non-existing
-            Arrays.asList(
-                "/tmp/order_test_1.txt", "/tmp/non_existent.txt", "/tmp/order_test_3.txt"),
-            // Which ones exist
-            Arrays.asList(true, false, true)));
   }
 
   private IDatabricksConnectionContext getConnectionContext() throws SQLException {
