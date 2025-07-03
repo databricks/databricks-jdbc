@@ -9,7 +9,6 @@ public class DatabricksThreadContextHolder {
   private static final ThreadLocal<IDatabricksConnectionContext> localConnectionContext =
       new ThreadLocal<>();
   private static final ThreadLocal<String> localStatementId = new ThreadLocal<>();
-  private static final ThreadLocal<Long> localChunkId = new ThreadLocal<>();
   private static final ThreadLocal<Integer> localRetryCount = new ThreadLocal<>();
   private static final ThreadLocal<StatementType> localStatementType = new ThreadLocal<>();
   private static final ThreadLocal<String> localSessionId = new ThreadLocal<>();
@@ -61,21 +60,12 @@ public class DatabricksThreadContextHolder {
     return localStatementType.get();
   }
 
-  public static void setChunkId(Long chunkId) {
-    localChunkId.set(chunkId);
-  }
-
-  public static Long getChunkId() {
-    return localChunkId.get();
-  }
-
   public static void clearConnectionContext() {
     localConnectionContext.remove();
   }
 
   public static void clearStatementInfo() {
     localStatementId.remove();
-    localChunkId.remove();
     localStatementType.remove();
     localRetryCount.remove();
   }

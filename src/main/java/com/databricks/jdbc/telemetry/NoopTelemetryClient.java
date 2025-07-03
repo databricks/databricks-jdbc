@@ -25,4 +25,9 @@ public class NoopTelemetryClient implements ITelemetryClient {
   public void close() {
     // do nothing
   }
+
+  @Override
+  public void closeStatement(String statementId) {
+    // do nothing
+  }
 }

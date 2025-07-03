@@ -47,7 +47,6 @@ class ChunkDownloadTask implements DatabricksCallableTask {
     boolean downloadSuccessful = false;
 
     // Sets context in the newly spawned thread
-    DatabricksThreadContextHolder.setChunkId(chunk.getChunkIndex());
     DatabricksThreadContextHolder.setConnectionContext(this.connectionContext);
     DatabricksThreadContextHolder.setStatementId(this.statementId);
 
@@ -84,7 +83,9 @@ class ChunkDownloadTask implements DatabricksCallableTask {
             throw new DatabricksSQLException(
                 "Failed to download chunk after multiple attempts",
                 e,
-                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
+                statementId,
+                chunk.getChunkIndex(),
+                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name());
           } else {
             LOGGER.warn(
                 String.format(

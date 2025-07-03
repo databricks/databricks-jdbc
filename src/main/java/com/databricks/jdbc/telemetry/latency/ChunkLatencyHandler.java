@@ -4,6 +4,8 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.latency.ChunkDetails;
+import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -154,5 +156,24 @@ public class ChunkLatencyHandler {
     String statementIdStr = statementId.toString();
     statementTrackers.remove(statementIdStr);
     LOGGER.trace("Cleared tracking for statement {}", statementIdStr);
+  }
+
+  /**
+   * Gets all pending chunk details and clears the trackers. This method is called when the
+   * connection/client is being closed.
+   *
+   * @return a map of statement ID to ChunkDetails for all pending statements
+   */
+  public Map<String, ChunkDetails> getAllPendingChunkDetails() {
+    if (statementTrackers.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    LOGGER.trace(
+        "Retrieved {} pending chunk details for telemetry export", statementTrackers.size());
+
+    Map<String, ChunkDetails> pendingDetails = statementTrackers;
+    statementTrackers.clear();
+    return pendingDetails;
   }
 }
