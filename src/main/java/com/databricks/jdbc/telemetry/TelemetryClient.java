@@ -70,6 +70,7 @@ public class TelemetryClient implements ITelemetryClient {
     if (chunkDetails != null) {
       TelemetryHelper.exportChunkLatencyTelemetry(chunkDetails, statementId);
     }
+    flush();
   }
 
   private void flush() {

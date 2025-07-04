@@ -172,7 +172,7 @@ public class ChunkLatencyHandler {
     LOGGER.trace(
         "Retrieved {} pending chunk details for telemetry export", statementTrackers.size());
 
-    Map<String, ChunkDetails> pendingDetails = statementTrackers;
+    Map<String, ChunkDetails> pendingDetails = new ConcurrentHashMap<>(statementTrackers);
     statementTrackers.clear();
     return pendingDetails;
   }

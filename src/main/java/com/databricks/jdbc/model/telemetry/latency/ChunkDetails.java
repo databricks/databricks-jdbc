@@ -51,6 +51,10 @@ public class ChunkDetails {
     return this;
   }
 
+  public Long getInitialChunkLatencyMillis() {
+    return initialChunkLatencyMillis;
+  }
+
   public Long getSlowestChunkLatencyMillis() {
     return slowestChunkLatencyMillis;
   }
