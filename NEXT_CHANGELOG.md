@@ -9,7 +9,7 @@
 - 
 
 ### Fixed
-- Fixed bouncy castle registration issue by using local instance instead of global registration with java security API.
+- Fixed Bouncy Castle registration conflicts by using local provider instance instead of global security registration.
 
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 
