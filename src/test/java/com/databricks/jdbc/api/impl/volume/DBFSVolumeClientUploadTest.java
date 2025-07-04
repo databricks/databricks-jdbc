@@ -18,6 +18,7 @@ import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.model.client.filesystem.CreateUploadUrlResponse;
+import com.databricks.jdbc.model.client.filesystem.VolumePutResult;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;

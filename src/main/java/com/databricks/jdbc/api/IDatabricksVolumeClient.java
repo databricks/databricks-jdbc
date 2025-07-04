@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api;
 
-import com.databricks.jdbc.api.impl.volume.VolumePutResult;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.model.client.filesystem.VolumePutResult;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.List;

@@ -804,7 +804,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                 } catch (Exception e) {
                   String errorMessage =
                       String.format("Error uploading %s: %s", request.objectPath, e.getMessage());
-                  LOGGER.error(e, errorMessage);
+                  LOGGER.error(errorMessage, e);
                   uploadFuture.complete(
                       new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
                 }
@@ -815,7 +815,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                     String.format(
                         "Failed to get presigned URL for %s: %s",
                         request.objectPath, e.getMessage());
-                LOGGER.error(e, errorMessage);
+                LOGGER.error(errorMessage, e);
                 uploadFuture.complete(
                     new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
                 return null;
@@ -907,6 +907,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                       String.format(
                           "Failed to get presigned URL for %s: HTTP %d - %s",
                           objectPath, result.getCode(), result.getReasonPhrase());
+                  LOGGER.error(errorMsg);
                   future.completeExceptionally(
                       new DatabricksVolumeOperationException(
                           errorMsg,
@@ -920,6 +921,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                 if (attempt < MAX_RETRIES) {
                   handleRetry(ucVolumePath, objectPath, attempt, future);
                 } else {
+
                   future.completeExceptionally(ex);
                 }
               }
@@ -966,6 +968,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                   .whenComplete(
                       (response, ex) -> {
                         if (ex != null) {
+                          LOGGER.error(
+                              ex,
+                              "Failed to get presigned URL for {} (attempt {})",
+                              objectPath,
+                              attempt + 1);
                           future.completeExceptionally(ex);
                         } else {
                           future.complete(response);

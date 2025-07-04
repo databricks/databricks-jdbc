@@ -1,4 +1,4 @@
-package com.databricks.jdbc.api.impl.volume;
+package com.databricks.jdbc.model.client.filesystem;
 
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import java.util.Objects;

@@ -6,6 +6,7 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.filesystem.CreateUploadUrlResponse;
+import com.databricks.jdbc.model.client.filesystem.VolumePutResult;
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
