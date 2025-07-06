@@ -754,6 +754,15 @@ final class DatabricksThriftAccessor {
     long operationStatusStartTime = System.nanoTime();
     TGetOperationStatusResp operationStatus = getThriftClient().GetOperationStatus(statusReq);
     long operationStatusEndTime = System.nanoTime();
+    long operationStatusLatencyMillis =
+        (operationStatusEndTime - operationStatusStartTime) / 1_000_000;
+    LOGGER.debug(
+        "Statement [{}] Thrift operation status latency: {}ms",
+        statementId,
+        operationStatusLatencyMillis);
+
+    // TODO: Export operation status latency to telemetry
+
     return operationStatus;
   }
 }
