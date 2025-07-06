@@ -3,6 +3,7 @@ package com.databricks.jdbc.telemetry;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
@@ -146,6 +147,9 @@ public class TelemetryHelper {
         DatabricksThreadContextHolder.getStatementId(),
         DatabricksThreadContextHolder.getSessionId());
   }
+
+  public static void exportPollingLatency(
+      long pollingLatencyMillis, IDatabricksSession session, String statementId) {}
 
   public static void exportChunkLatencyTelemetry(ChunkDetails chunkDetails, String statementId) {
     if (chunkDetails == null) {
