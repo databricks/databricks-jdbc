@@ -8,6 +8,8 @@ import com.databricks.sdk.core.DatabricksConfig;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class TelemetryClient implements ITelemetryClient {
 
@@ -16,6 +18,7 @@ public class TelemetryClient implements ITelemetryClient {
   private final int eventsBatchSize;
   private final boolean isAuthEnabled;
   private final ExecutorService executorService;
+  private final ScheduledExecutorService scheduledExecutorService;
   private List<TelemetryFrontendLog> eventsBatch;
 
   public TelemetryClient(
@@ -28,6 +31,9 @@ public class TelemetryClient implements ITelemetryClient {
     this.context = connectionContext;
     this.databricksConfig = config;
     this.executorService = executorService;
+    this.scheduledExecutorService =
+        java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+    schedulePeriodicFlush();
   }
 
   public TelemetryClient(
@@ -38,6 +44,16 @@ public class TelemetryClient implements ITelemetryClient {
     this.context = connectionContext;
     this.databricksConfig = null;
     this.executorService = executorService;
+    this.scheduledExecutorService =
+        java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+    schedulePeriodicFlush();
+  }
+
+  private void schedulePeriodicFlush() {
+    // Ensure minimum 1 second interval to avoid over-calling flush
+    int intervalMillis = Math.max(1000, context.getTelemetryFlushIntervalInMilliseconds());
+    scheduledExecutorService.scheduleAtFixedRate(
+        this::flush, intervalMillis, intervalMillis, TimeUnit.MILLISECONDS);
   }
 
   @Override
@@ -61,6 +77,7 @@ public class TelemetryClient implements ITelemetryClient {
               TelemetryHelper.exportChunkLatencyTelemetry(chunkDetails, statementId);
             });
     flush();
+    scheduledExecutorService.shutdown();
   }
 
   @Override
@@ -75,14 +92,18 @@ public class TelemetryClient implements ITelemetryClient {
 
   private void flush() {
     synchronized (this) {
-      List<TelemetryFrontendLog> logsToBeFlushed = eventsBatch;
-      executorService.submit(
-          new TelemetryPushTask(logsToBeFlushed, isAuthEnabled, context, databricksConfig));
-      eventsBatch = new LinkedList<>();
+      if (!eventsBatch.isEmpty()) {
+        List<TelemetryFrontendLog> logsToBeFlushed = eventsBatch;
+        executorService.submit(
+            new TelemetryPushTask(logsToBeFlushed, isAuthEnabled, context, databricksConfig));
+        eventsBatch = new LinkedList<>();
+      }
     }
   }
 
   int getCurrentSize() {
-    return eventsBatch.size();
+    synchronized (this) {
+      return eventsBatch.size();
+    }
   }
 }

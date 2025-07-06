@@ -58,6 +58,9 @@ public class TelemetryHelper {
   }
 
   public static boolean isTelemetryAllowedForConnection(IDatabricksConnectionContext context) {
+    if (context.forceEnableTelemetry()) {
+      return true;
+    }
     return context != null
         && context.isTelemetryEnabled()
         && DatabricksDriverFeatureFlagsContextFactory.getInstance(context)

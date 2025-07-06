@@ -139,4 +139,50 @@ public class TelemetryClientTest {
           () -> client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event2")));
     }
   }
+
+  @Test
+  public void testPeriodicFlushWithAuthenticatedClient() throws Exception {
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
+      when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
+      when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
+      when(mockStatusLine.getStatusCode()).thenReturn(200);
+      TelemetryResponse response = new TelemetryResponse().setNumSuccess(1L).setNumProtoSuccess(1L);
+      when(mockHttpResponse.getEntity())
+          .thenReturn(new StringEntity(new ObjectMapper().writeValueAsString(response)));
+
+      Map<String, String> headers = Map.of(HttpHeaders.AUTHORIZATION, "token");
+      when(databricksConfig.authenticate()).thenReturn(headers);
+
+      // JDBC URL with 2 seconds flush interval
+      String jdbcUrlWith2SecondsFlush =
+          "jdbc:databricks://adb-20.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/ghgjhgj;UserAgentEntry=MyApp;EnableTelemetry=1;TelemetryBatchSize=2;TelemetryFlushInterval=2000";
+
+      IDatabricksConnectionContext context =
+          DatabricksConnectionContext.parse(jdbcUrlWith2SecondsFlush, new Properties());
+      TelemetryClient client =
+          new TelemetryClient(context, MoreExecutors.newDirectExecutorService(), databricksConfig);
+
+      // Add a single event that won't trigger batch flush
+      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event1"));
+      assertEquals(1, client.getCurrentSize());
+
+      // Wait for a short time to verify the periodic flush doesn't trigger immediately
+      Thread.sleep(100);
+      assertEquals(1, client.getCurrentSize());
+
+      // Wait for 2 seconds to trigger the periodic flush
+      Thread.sleep(2000);
+      assertEquals(0, client.getCurrentSize());
+
+      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event2"));
+      assertEquals(1, client.getCurrentSize());
+      // Close the client to trigger final flush
+      client.close();
+      assertEquals(0, client.getCurrentSize());
+    }
+  }
 }
