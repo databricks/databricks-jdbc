@@ -34,7 +34,7 @@ public class SqlExecApiHybridResultsIntegrationTests extends AbstractFakeService
   @BeforeEach
   void setUp() throws SQLException {
     String jdbcUrl = String.format(jdbcUrlTemplate, getFakeServiceHost(), e2BenchfoodHttpPath);
-    connection = DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
+    connection = DriverManager.getConnection(jdbcUrl, "token", "token");
   }
 
   @AfterEach

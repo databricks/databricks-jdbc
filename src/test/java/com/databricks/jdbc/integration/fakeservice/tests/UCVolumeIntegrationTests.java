@@ -354,8 +354,8 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
     String jdbcUrl = String.format(jdbcUrlTemplate, getFakeServiceHost(), HTTP_PATH);
 
     Properties connProps = new Properties();
-    connProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
-    connProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
+    connProps.put(DatabricksJdbcUrlParams.USER.getParamName(), "token");
+    connProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), "token");
     connProps.put(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
     connProps.put(
         DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
