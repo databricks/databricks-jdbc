@@ -85,7 +85,7 @@ class DatabricksConnectionContextTest {
     assertEquals("https://sample-host.18.azuredatabricks.net:9999", connectionContext.getHostUrl());
     assertEquals("/sql/1.0/warehouses/9999999999", connectionContext.getHttpPath());
     assertEquals("passwd2", connectionContext.getToken());
-    assertEquals("96eecda7-19ea-49cc-abb5-240097d554f5", connectionContext.getClientId());
+    assertEquals("databricks-sql-jdbc", connectionContext.getClientId());
     assertEquals(7, connectionContext.parameters.size());
     assertEquals(CompressionCodec.LZ4_FRAME, connectionContext.getCompressionCodec());
     assertEquals(LogLevel.OFF, connectionContext.getLogLevel());
