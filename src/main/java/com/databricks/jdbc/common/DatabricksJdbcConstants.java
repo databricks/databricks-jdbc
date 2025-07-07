@@ -92,7 +92,7 @@ public final class DatabricksJdbcConstants {
   public static final String IS_JDBC_TEST_ENV = "IS_JDBC_TEST_ENV";
   public static final String AWS_CLIENT_ID = "databricks-sql-jdbc";
   public static final String GCP_CLIENT_ID = "databricks-sql-jdbc";
-  public static final String AAD_CLIENT_ID = "96eecda7-19ea-49cc-abb5-240097d554f5";
+  public static final String AAD_CLIENT_ID = "databricks-sql-jdbc";
   public static final String GCP_GOOGLE_CREDENTIALS_AUTH_TYPE = "google-credentials";
   public static final String GCP_GOOGLE_ID_AUTH_TYPE = "google-id";
   public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = "08000";
