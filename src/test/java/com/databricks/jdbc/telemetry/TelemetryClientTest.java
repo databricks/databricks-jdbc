@@ -15,6 +15,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpHeaders;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -183,6 +185,70 @@ public class TelemetryClientTest {
       // Close the client to trigger final flush
       client.close();
       assertEquals(0, client.getCurrentSize());
+    }
+  }
+
+  @Test
+  public void testTimerResetOnBatchSizeFlush() throws Exception {
+    TelemetryClient client = null;
+    ExecutorService executor = null;
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
+      when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
+      when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
+      when(mockStatusLine.getStatusCode()).thenReturn(200);
+      TelemetryResponse response = new TelemetryResponse().setNumSuccess(1L).setNumProtoSuccess(1L);
+      when(mockHttpResponse.getEntity())
+          .thenReturn(new StringEntity(new ObjectMapper().writeValueAsString(response)));
+
+      // Set up a client with 3 second flush interval and batch size of 2
+      String jdbcUrl =
+          "jdbc:databricks://adb-20.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/ghgjhgj;UserAgentEntry=MyApp;EnableTelemetry=1;TelemetryBatchSize=2;TelemetryFlushInterval=3000";
+      IDatabricksConnectionContext context =
+          DatabricksConnectionContext.parse(jdbcUrl, new Properties());
+      executor = MoreExecutors.newDirectExecutorService();
+      client = new TelemetryClient(context, executor);
+
+      // Add events to trigger batch size flush
+      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event1"));
+      client.exportEvent(
+          new TelemetryFrontendLog()
+              .setFrontendLogEventId("event2")); // This should trigger flush due to batch size
+
+      // Wait 2 seconds (less than the flush interval)
+      Thread.sleep(2000);
+
+      // Add another event
+      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event3"));
+
+      // Verify it's still in the batch (shouldn't have been flushed yet since timer was reset)
+      assertEquals(1, client.getCurrentSize());
+
+      // Wait another 2 seconds (still less than full interval from last flush)
+      Thread.sleep(2000);
+
+      // Verify it's still not flushed
+      assertEquals(1, client.getCurrentSize());
+
+    } finally {
+      // Clean up resources
+      if (client != null) {
+        client.close();
+      }
+      if (executor != null) {
+        executor.shutdown();
+        // Wait for any pending tasks to complete
+        if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+          executor.shutdownNow();
+        }
+      }
+      // Verify mocks were properly used
+      verify(mockHttpClient, atLeastOnce()).execute(any());
+      verify(mockHttpResponse, atLeastOnce()).getStatusLine();
+      verify(mockStatusLine, atLeastOnce()).getStatusCode();
     }
   }
 }

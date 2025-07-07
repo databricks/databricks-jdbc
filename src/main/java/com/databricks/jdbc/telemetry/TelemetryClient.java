@@ -9,6 +9,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class TelemetryClient implements ITelemetryClient {
@@ -20,6 +21,9 @@ public class TelemetryClient implements ITelemetryClient {
   private final ExecutorService executorService;
   private final ScheduledExecutorService scheduledExecutorService;
   private List<TelemetryFrontendLog> eventsBatch;
+  private volatile long lastFlushedTime;
+  private ScheduledFuture<?> flushTask;
+  private final int flushIntervalMillis;
 
   public TelemetryClient(
       IDatabricksConnectionContext connectionContext,
@@ -33,6 +37,8 @@ public class TelemetryClient implements ITelemetryClient {
     this.executorService = executorService;
     this.scheduledExecutorService =
         java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+    this.flushIntervalMillis = context.getTelemetryFlushIntervalInMilliseconds();
+    this.lastFlushedTime = System.currentTimeMillis();
     schedulePeriodicFlush();
   }
 
@@ -46,14 +52,25 @@ public class TelemetryClient implements ITelemetryClient {
     this.executorService = executorService;
     this.scheduledExecutorService =
         java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+    this.flushIntervalMillis = context.getTelemetryFlushIntervalInMilliseconds();
+    this.lastFlushedTime = System.currentTimeMillis();
     schedulePeriodicFlush();
   }
 
   private void schedulePeriodicFlush() {
-    // Ensure minimum 1 second interval to avoid over-calling flush
-    int intervalMillis = Math.max(1000, context.getTelemetryFlushIntervalInMilliseconds());
-    scheduledExecutorService.scheduleAtFixedRate(
-        this::flush, intervalMillis, intervalMillis, TimeUnit.MILLISECONDS);
+    if (flushTask != null) {
+      flushTask.cancel(false);
+    }
+    flushTask =
+        scheduledExecutorService.scheduleAtFixedRate(
+            this::periodicFlush, flushIntervalMillis, flushIntervalMillis, TimeUnit.MILLISECONDS);
+  }
+
+  private void periodicFlush() {
+    long now = System.currentTimeMillis();
+    if (now - lastFlushedTime >= flushIntervalMillis) {
+      flush();
+    }
   }
 
   @Override
@@ -77,6 +94,9 @@ public class TelemetryClient implements ITelemetryClient {
               TelemetryHelper.exportChunkLatencyTelemetry(chunkDetails, statementId);
             });
     flush();
+    if (flushTask != null) {
+      flushTask.cancel(false);
+    }
     scheduledExecutorService.shutdown();
   }
 
@@ -98,6 +118,7 @@ public class TelemetryClient implements ITelemetryClient {
             new TelemetryPushTask(logsToBeFlushed, isAuthEnabled, context, databricksConfig));
         eventsBatch = new LinkedList<>();
       }
+      lastFlushedTime = System.currentTimeMillis();
     }
   }
 

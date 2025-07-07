@@ -950,6 +950,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public int getTelemetryFlushIntervalInMilliseconds() {
-    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_FLUSH_INTERVAL));
+    // There is a minimum threshold of 1000ms for the flush interval
+    return Math.max(
+        1000, Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_FLUSH_INTERVAL)));
   }
 }
