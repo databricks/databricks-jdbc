@@ -78,8 +78,7 @@ public class ArrowResultChunkStateMachine {
       return; // No transition needed
     }
 
-    Set<ChunkStatus> validTargets = VALID_TRANSITIONS.get(currentStatus);
-    if (validTargets == null || !validTargets.contains(targetStatus)) {
+    if (!isValidTransition(targetStatus)) {
       throw new DatabricksParsingException(
           String.format(
               "Invalid state transition for chunk [%d] and statement [%s]: %s -> %s",

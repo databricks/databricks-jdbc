@@ -109,7 +109,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
       throw t;
     } finally {
       if (downloadSuccessful) {
-        chunk.getChunkReadyFuture().complete(null);
+        chunk.getChunkReadyFuture().complete(null); // complete the void future successfully
       } else {
         LOGGER.info(
             "Uncaught exception during chunk download. Chunk index: %d, Error: %s",

@@ -258,6 +258,13 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
     return chunkIndexMap;
   }
 
+  /**
+   * Populates the chunk index map with the chunk information from the result data (fetch-request).
+   *
+   * @param resultData The result data containing the chunk information.
+   * @param chunkIndexMap The map to populate with chunk indices and their corresponding chunks.
+   * @throws DatabricksSQLException if there is an error in processing the result data.
+   */
   private void populateChunkIndexMap(TRowSet resultData, ConcurrentMap<Long, T> chunkIndexMap)
       throws DatabricksSQLException {
     rowCount += DatabricksThriftUtil.getRowCount(resultData);

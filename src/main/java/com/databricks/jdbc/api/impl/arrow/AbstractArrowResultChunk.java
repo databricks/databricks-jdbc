@@ -254,6 +254,11 @@ public abstract class AbstractArrowResultChunk {
     try {
       chunkReadyFuture.get(CHUNK_READY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     } catch (InterruptedException e) {
+      LOGGER.error(
+          e,
+          "Chunk download interrupted for chunk index %s and statement %s",
+          chunkIndex,
+          statementId);
       Thread.currentThread().interrupt();
       throw e;
     }
@@ -274,6 +279,7 @@ public abstract class AbstractArrowResultChunk {
     recordBatchList = arrowData.getValueVectors();
     arrowMetadata = arrowData.getMetadata();
     LOGGER.debug("Data parsed for chunk index %s and statement %s", chunkIndex, statementId);
+    setStatus(ChunkStatus.PROCESSING_SUCCEEDED);
   }
 
   protected List<String> getArrowMetadata() {

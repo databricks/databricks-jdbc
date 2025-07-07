@@ -39,7 +39,6 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       // Data is already available
       try {
         initializeData(builder.inputStream);
-        setStatus(ChunkStatus.PROCESSING_SUCCEEDED);
       } catch (DatabricksSQLException | IOException e) {
         handleFailure(e, ChunkStatus.PROCESSING_FAILED);
       }
@@ -82,7 +81,6 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
           DecompressionUtil.decompress(
               response.getEntity().getContent(), compressionCodec, decompressionContext);
       initializeData(uncompressedStream);
-      setStatus(ChunkStatus.PROCESSING_SUCCEEDED);
     } catch (IOException | DatabricksSQLException | URISyntaxException e) {
       handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
     } finally {
