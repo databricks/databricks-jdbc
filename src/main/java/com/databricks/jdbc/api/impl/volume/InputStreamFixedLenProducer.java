@@ -24,21 +24,16 @@ public final class InputStreamFixedLenProducer implements AsyncEntityProducer, C
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(InputStreamFixedLenProducer.class);
-
-  /** Default internal buffer (16 KiB). */
   private static final int DEFAULT_BUF = 16 * 1024;
 
   private final InputStream source;
   private final long contentLength;
   private final byte[] buf;
   private final AtomicBoolean closed = new AtomicBoolean(false);
-
-  /** Buffer that still has bytes after a partial non-blocking write. */
-  private ByteBuffer currentChunk = null;
-
-  private long totalSent = 0;
-  private boolean endOfStream = false;
   private final AtomicReference<Exception> failure = new AtomicReference<>();
+
+  private ByteBuffer currentChunk = null;
+  private long totalBytesRead = 0;
 
   /**
    * @param source Input stream to upload. Caller still owns the stream until this producer is
@@ -109,50 +104,74 @@ public final class InputStreamFixedLenProducer implements AsyncEntityProducer, C
     }
 
     try {
-      /* 1 ─ Flush leftovers from a previous partial write. */
-      if (currentChunk != null && currentChunk.hasRemaining()) {
-        writeChunk(channel);
-        if (currentChunk != null && currentChunk.hasRemaining()) {
-          return; // socket still back-pressured
+      // 1. If there's a leftover chunk from a previous partial write, try to send it first.
+      if (currentChunk != null) {
+        channel.write(currentChunk);
+        if (currentChunk.hasRemaining()) {
+          // The socket is still back-pressured. Request a callback and wait.
+          channel.requestOutput();
+          return;
+        }
+        currentChunk = null; // The leftover chunk has been sent successfully.
+      }
+
+      // 2. Check if we have finished sending all the data.
+      // At this point, any pre-existing chunk has been sent, so `currentChunk` is null.
+      if (totalBytesRead >= contentLength) {
+        channel.endStream();
+        releaseResources(); // All done, close the stream.
+        return;
+      }
+
+      // 3. Read the next chunk of data from the source stream.
+      int toRead = (int) Math.min(buf.length, contentLength - totalBytesRead);
+      int bytesRead = source.read(buf, 0, toRead);
+
+      if (bytesRead == -1) {
+        // Premature End-Of-File is an error condition.
+        throw new IOException(
+            String.format(
+                "Unexpected end of stream. Read %d bytes, but expected %d.",
+                totalBytesRead, contentLength));
+      }
+
+      totalBytesRead += bytesRead;
+      currentChunk = ByteBuffer.wrap(buf, 0, bytesRead);
+
+      // 4. Immediately attempt to write the newly read chunk.
+      channel.write(currentChunk);
+      if (currentChunk.hasRemaining()) {
+        // If the write was partial, request a callback to send the rest later.
+        channel.requestOutput();
+      } else {
+        currentChunk = null;
+        // If we've read everything and it was written completely, end the stream.
+        if (totalBytesRead >= contentLength) {
+          channel.endStream();
+          releaseResources();
         }
       }
 
-      /* 2 ─ If everything sent, close the stream. */
-      if (endOfStream || totalSent >= contentLength) {
-        channel.endStream();
-        endOfStream = true;
-        return;
-      }
-
-      /* 3 ─ Read new data from source. */
-      int toRead = (int) Math.min(buf.length, contentLength - totalSent); // safe cast
-      int read = source.read(buf, 0, toRead);
-
-      if (read == -1) { // Premature EOF
-        endOfStream = true;
-        failAndClose(
-            new IOException("Unexpected end of upload stream after " + totalSent + " bytes"));
-        channel.endStream();
-        return;
-      }
-
-      totalSent += read;
-      currentChunk = ByteBuffer.wrap(buf, 0, read);
-      writeChunk(channel); // try to flush immediately
-
-      if (currentChunk == null && totalSent == contentLength) {
-        channel.endStream();
-      }
     } catch (Exception ex) {
-      failAndClose(ex);
       channel.endStream();
+      // Centralized failure handling for any exception during production.
+      if (failure.compareAndSet(null, ex)) {
+        LOGGER.error(ex, "Upload failed after reading {} bytes", totalBytesRead);
+        releaseResources();
+      }
+      // Propagate exception to the framework.
       throw ex;
     }
   }
 
   @Override
   public void failed(Exception cause) {
-    failAndClose(cause);
+    // This is called by the HttpClient framework for external failures (e.g., connection reset).
+    if (failure.compareAndSet(null, cause)) {
+      LOGGER.error(
+          cause, "Upload failed due to an external cause after reading {} bytes", totalBytesRead);
+      releaseResources();
+    }
   }
 
   @Override
@@ -168,25 +187,6 @@ public final class InputStreamFixedLenProducer implements AsyncEntityProducer, C
 
   @Override
   public void close() {
-    releaseResources();
-  }
-
-  private void writeChunk(DataStreamChannel channel) throws IOException {
-    if (currentChunk == null) return;
-
-    int written = channel.write(currentChunk); // may be zero
-    LOGGER.trace("wrote {} bytes ({} sent/{})", written, totalSent, contentLength);
-
-    if (!currentChunk.hasRemaining()) {
-      currentChunk = null;
-    } else {
-      channel.requestOutput(); // explicit request to I/O reactor to call produce() again
-    }
-  }
-
-  private void failAndClose(Exception ex) {
-    failure.compareAndSet(null, ex);
-    LOGGER.error(ex, "Upload failed after {} bytes", totalSent);
     releaseResources();
   }
 }

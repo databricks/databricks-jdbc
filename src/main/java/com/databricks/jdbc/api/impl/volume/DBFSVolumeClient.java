@@ -921,7 +921,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                 if (attempt < MAX_RETRIES) {
                   handleRetry(ucVolumePath, objectPath, attempt, future);
                 } else {
-
+                  LOGGER.error(
+                      ex, "Failed to get presigned URL for {} (attempt {})", objectPath, attempt);
                   future.completeExceptionally(ex);
                 }
               }
