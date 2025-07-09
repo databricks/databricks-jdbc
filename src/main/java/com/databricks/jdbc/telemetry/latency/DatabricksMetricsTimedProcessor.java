@@ -21,11 +21,15 @@ public class DatabricksMetricsTimedProcessor {
 
     Class<?> clazz = obj.getClass();
     if (clazz == null) {
+      LOGGER.trace("Cannot create proxy for null object, skipping latency processing.");
       return obj;
     }
 
     Class<?>[] interfaces = clazz.getInterfaces();
     if (interfaces == null || interfaces.length == 0) {
+      LOGGER.trace(
+          "Proxy creation skipped — target class {} does not implement any interfaces, skipping latency processing.",
+          obj.getClass().getName());
       return obj;
     }
 
