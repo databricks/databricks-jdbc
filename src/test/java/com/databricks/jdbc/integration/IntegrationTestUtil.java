@@ -18,6 +18,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 /** Utility class to support integration tests * */
@@ -152,7 +153,7 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksToken() {
-    return System.getenv("DATABRICKS_TOKEN");
+    return Optional.ofNullable(System.getenv("DATABRICKS_TOKEN")).orElse("token");
   }
 
   public static String getDatabricksDogfoodToken() {
@@ -188,7 +189,7 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksUser() {
-    return System.getenv("DATABRICKS_USER");
+    return Optional.ofNullable(System.getenv("DATABRICKS_USER")).orElse("token");
   }
 
   public static Connection getValidJDBCConnection() throws SQLException {
