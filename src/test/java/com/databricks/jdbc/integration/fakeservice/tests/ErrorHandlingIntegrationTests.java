@@ -8,7 +8,6 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
-import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
 import java.sql.*;
 import org.junit.jupiter.api.AfterEach;
@@ -61,8 +60,8 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
             () ->
                 getConnection(
                     "jdbc:databricks://e2-wrongfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath="
-                        + FakeServiceConfigLoader.getProperty(
-                            FakeServiceConfigLoader.HTTP_PATH_PROP)));
+                        + getDatabricksDogfoodHTTPPath()
+                        + ";"));
     assertTrue(
         e.getMessage().contains("Connection failure while using the OSS Databricks JDBC driver."));
   }

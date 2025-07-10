@@ -19,8 +19,6 @@ public class FakeServiceConfigLoader {
 
   public static final String TEST_SCHEMA = "testschema";
 
-  public static final String HTTP_PATH_PROP = "httppath";
-
   private static final DatabricksJdbcConstants.FakeServiceType fakeServiceType =
       System.getenv("FAKE_SERVICE_TYPE") != null
           ? DatabricksJdbcConstants.FakeServiceType.valueOf(
