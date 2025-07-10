@@ -27,7 +27,7 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
   @Test
   void testIncorrectCredentialsForPAT() {
     Properties extraProps = new Properties();
-    extraProps.put(DatabricksJdbcUrlParams.USER.getParamName(), "token");
+    extraProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
     extraProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), "bad_token_1");
     String url = getFakeServiceJDBCUrl();
     DatabricksSQLException e =
@@ -52,7 +52,7 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
             FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
 
     Properties extraProps = new Properties();
-    extraProps.put(DatabricksJdbcUrlParams.USER.getParamName(), "token");
+    extraProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
     extraProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), "bad_token_2");
     DatabricksSQLException e =
         assertThrows(
@@ -75,7 +75,7 @@ public class ConnectionIntegrationTests extends AbstractFakeServiceIntegrationTe
             getFakeServiceHost(),
             FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
     Properties extraProps = new Properties();
-    extraProps.put(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName(), "token");
+    extraProps.put(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName(), getDatabricksToken());
     Connection conn = DriverManager.getConnection(url, createConnectionProperties(extraProps));
     assert ((conn != null) && !conn.isClosed());
 
