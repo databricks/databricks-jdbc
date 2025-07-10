@@ -3,6 +3,7 @@ package com.databricks.jdbc.integration.fakeservice.tests;
 import static com.databricks.jdbc.TestConstants.UC_VOLUME_CATALOG;
 import static com.databricks.jdbc.TestConstants.UC_VOLUME_SCHEMA;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
+import static com.databricks.jdbc.integration.IntegrationTestUtil.getDatabricksUser;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.PRESIGNED_URL_HOST;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -435,6 +436,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
 
   private IDatabricksConnectionContext getConnectionContext() throws SQLException {
     String jdbcUrl = String.format(jdbcUrlTemplate, getFakeServiceHost(), getFakeServiceHTTPPath());
-    return DatabricksConnectionContextFactory.create(jdbcUrl, "token", "token");
+    return DatabricksConnectionContextFactory.create(
+        jdbcUrl, getDatabricksUser(), getDatabricksToken());
   }
 }
