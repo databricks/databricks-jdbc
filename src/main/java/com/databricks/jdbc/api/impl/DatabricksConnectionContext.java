@@ -947,4 +947,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
             Collectors.toMap(
                 entry -> entry.getKey().substring(filterPrefix.length()), Map.Entry::getValue));
   }
+
+  @Override
+  public boolean forceEnableTelemetry() {
+    return getParameter(DatabricksJdbcUrlParams.FORCE_ENABLE_TELEMETRY).equals("1");
+  }
+
+  @Override
+  public int getTelemetryFlushIntervalInMilliseconds() {
+    // There is a minimum threshold of 1000ms for the flush interval
+    return Math.max(
+        1000, Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_FLUSH_INTERVAL)));
+  }
 }

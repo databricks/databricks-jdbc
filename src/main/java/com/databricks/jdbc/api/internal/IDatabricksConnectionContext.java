@@ -323,4 +323,10 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the application name using JDBC Connection */
   String getApplicationName();
+
+  /** Returns whether telemetry is enabled for all connections */
+  boolean forceEnableTelemetry();
+
+  /** Returns the flush interval in milliseconds for telemetry */
+  int getTelemetryFlushIntervalInMilliseconds();
 }
