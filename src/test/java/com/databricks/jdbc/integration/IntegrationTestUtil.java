@@ -193,6 +193,8 @@ public class IntegrationTestUtil {
 
   public static Connection getValidJDBCConnection() throws SQLException {
     Properties connectionProperties = new Properties();
+    connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
+    connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
     connectionProperties.put(
         DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
 
@@ -206,17 +208,11 @@ public class IntegrationTestUtil {
       connectionProperties.put(
           DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
           FakeServiceConfigLoader.shouldUseThriftClient());
-      connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), "token");
-      connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), "token");
 
       return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
-    } else {
-      connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
-      connectionProperties.put(
-          DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
-
-      return DriverManager.getConnection(getJDBCUrl(), connectionProperties);
     }
+
+    return DriverManager.getConnection(getJDBCUrl(), connectionProperties);
   }
 
   public static Connection getValidJDBCConnection(List<List<String>> extraArgs)
