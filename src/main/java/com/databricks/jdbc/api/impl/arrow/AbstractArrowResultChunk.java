@@ -41,7 +41,6 @@ public abstract class AbstractArrowResultChunk {
       JdbcLoggerFactory.getLogger(AbstractArrowResultChunk.class);
 
   protected static final Integer SECONDS_BUFFER_FOR_EXPIRY = 60;
-  protected static final long CHUNK_READY_TIMEOUT_SECONDS = 30;
   protected final long numRows;
   protected final long rowOffset;
   protected final long chunkIndex;
@@ -61,6 +60,7 @@ public abstract class AbstractArrowResultChunk {
   protected Instant expiryTime;
   protected String errorMessage;
   protected List<String> arrowMetadata;
+  protected int chunkReadyTimeoutSeconds;
 
   static final class ArrowData {
     private final List<List<ValueVector>> valueVectors;
@@ -87,7 +87,8 @@ public abstract class AbstractArrowResultChunk {
       StatementId statementId,
       ChunkStatus initialStatus,
       ExternalLink chunkLink,
-      Instant expiryTime) {
+      Instant expiryTime,
+      int chunkReadyTimeoutSeconds) {
     this.numRows = numRows;
     this.rowOffset = rowOffset;
     this.chunkIndex = chunkIndex;
@@ -97,6 +98,7 @@ public abstract class AbstractArrowResultChunk {
     this.chunkLink = chunkLink;
     this.expiryTime = expiryTime;
     this.stateMachine = new ArrowResultChunkStateMachine(initialStatus, chunkIndex, statementId);
+    this.chunkReadyTimeoutSeconds = chunkReadyTimeoutSeconds;
   }
 
   /**
@@ -252,7 +254,13 @@ public abstract class AbstractArrowResultChunk {
   protected void waitForChunkReady()
       throws ExecutionException, InterruptedException, TimeoutException {
     try {
-      chunkReadyFuture.get(CHUNK_READY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+      if (chunkReadyTimeoutSeconds <= 0) {
+        // Wait indefinitely when timeout is 0 or negative
+        chunkReadyFuture.get();
+      } else {
+        chunkReadyFuture.get(chunkReadyTimeoutSeconds, TimeUnit.SECONDS);
+      }
+
     } catch (InterruptedException e) {
       LOGGER.error(
           e,

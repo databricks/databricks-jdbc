@@ -320,4 +320,7 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the application name using JDBC Connection */
   String getApplicationName();
+
+  /** Returns the timeout in seconds for waiting for a chunk to be ready. */
+  int getChunkReadyTimeoutSeconds();
 }

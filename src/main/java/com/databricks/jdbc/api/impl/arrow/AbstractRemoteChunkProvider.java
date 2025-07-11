@@ -55,6 +55,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
   protected final int maxParallelChunkDownloadsPerQuery;
 
   protected final ChunkLinkDownloadService<T> linkDownloadService;
+  protected final int chunkReadyTimeoutSeconds;
 
   protected AbstractRemoteChunkProvider(
       StatementId statementId,
@@ -65,6 +66,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
       int maxParallelChunkDownloadsPerQuery,
       CompressionCodec compressionCodec)
       throws DatabricksSQLException {
+    this.chunkReadyTimeoutSeconds = session.getConnectionContext().getChunkReadyTimeoutSeconds();
     this.maxParallelChunkDownloadsPerQuery = maxParallelChunkDownloadsPerQuery;
     this.session = session;
     this.httpClient = httpClient;
@@ -91,6 +93,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
       int maxParallelChunkDownloadsPerQuery,
       CompressionCodec compressionCodec)
       throws DatabricksSQLException {
+    this.chunkReadyTimeoutSeconds = session.getConnectionContext().getChunkReadyTimeoutSeconds();
     this.maxParallelChunkDownloadsPerQuery = maxParallelChunkDownloadsPerQuery;
     this.session = session;
     this.httpClient = httpClient;

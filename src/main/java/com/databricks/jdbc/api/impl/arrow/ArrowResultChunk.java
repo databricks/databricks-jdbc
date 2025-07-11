@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExterna
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -34,7 +35,8 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
         builder.statementId,
         builder.status,
         builder.chunkLink,
-        builder.expiryTime);
+        builder.expiryTime,
+        builder.chunkReadyTimeoutSeconds);
     if (builder.inputStream != null) {
       // Data is already available
       try {
@@ -132,6 +134,8 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     private Instant expiryTime;
     private ChunkStatus status;
     private InputStream inputStream;
+    private int chunkReadyTimeoutSeconds =
+        Integer.parseInt(DatabricksJdbcUrlParams.CHUNK_READY_TIMEOUT_SECONDS.getDefaultValue());
 
     public Builder withStatementId(StatementId statementId) {
       this.statementId = statementId;
@@ -168,6 +172,11 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
 
     public Builder withChunkStatus(ChunkStatus status) {
       this.status = status;
+      return this;
+    }
+
+    public Builder withChunkReadyTimeoutSeconds(int chunkReadyTimeoutSeconds) {
+      this.chunkReadyTimeoutSeconds = chunkReadyTimeoutSeconds;
       return this;
     }
 

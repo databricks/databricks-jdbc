@@ -62,7 +62,11 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
   protected ArrowResultChunk createChunk(
       StatementId statementId, long chunkIndex, BaseChunkInfo chunkInfo)
       throws DatabricksSQLException {
-    return ArrowResultChunk.builder().withStatementId(statementId).withChunkInfo(chunkInfo).build();
+    return ArrowResultChunk.builder()
+        .withStatementId(statementId)
+        .withChunkInfo(chunkInfo)
+        .withChunkReadyTimeoutSeconds(chunkReadyTimeoutSeconds)
+        .build();
   }
 
   /** {@inheritDoc} */
@@ -73,6 +77,7 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
     return ArrowResultChunk.builder()
         .withStatementId(statementId)
         .withThriftChunkInfo(chunkCount, resultLink)
+        .withChunkReadyTimeoutSeconds(chunkReadyTimeoutSeconds)
         .build();
   }
 
