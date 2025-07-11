@@ -697,7 +697,7 @@ public class DatabricksThriftAccessorTest {
     StatementId expectedStatementId = new StatementId(tOperationHandle.getOperationId());
 
     try {
-      accessor.execute(request, parentStatement, null, StatementType.SQL);
+      accessor.execute(request, parentStatement, session, StatementType.SQL);
       fail("Expected exception due to GetOperationStatus failure");
     } catch (DatabricksHttpException e) {
       // Verify that statement ID was set on parent statement despite the failure

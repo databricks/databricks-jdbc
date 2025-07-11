@@ -131,15 +131,23 @@ public class TelemetryHelperTest {
 
   @Test
   public void testGetDatabricksConfigSafely_HandlesNullContext() {
-    DatabricksConfig result = TelemetryHelper.getDatabricksConfigSafely(null);
+    DatabricksConfig result = TelemetryHelper.getDatabricksConfigSafely(connectionContext);
     assertNull(result, "Should return null when context is null");
   }
 
   @Test
   public void testTelemetryNotAllowedUsecase() {
-    assertFalse(() -> isTelemetryAllowedForConnection(null));
+    assertFalse(() -> isTelemetryAllowedForConnection(connectionContext));
     when(connectionContext.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
     enableFeatureFlagForTesting(connectionContext, Collections.emptyMap());
     assertFalse(() -> isTelemetryAllowedForConnection(connectionContext));
+  }
+
+  @Test
+  public void testTelemetryAllowedWithForceTelemetryFlag() {
+    when(connectionContext.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    when(connectionContext.forceEnableTelemetry()).thenReturn(true);
+    enableFeatureFlagForTesting(connectionContext, Collections.emptyMap());
+    assertTrue(() -> isTelemetryAllowedForConnection(connectionContext));
   }
 }

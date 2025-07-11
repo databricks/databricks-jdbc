@@ -227,6 +227,9 @@ public interface IDatabricksConnectionContext {
   /** Returns the SSL key store provider for the key store. */
   String getSSLKeyStoreProvider();
 
+  /** Returns the SSL trust store provider for the trust store. */
+  String getSSLTrustStoreProvider();
+
   /** Returns the maximum number of commands that can be executed in a single batch. */
   int getMaxBatchSize();
 
@@ -323,4 +326,10 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the timeout in seconds for waiting for a chunk to be ready. */
   int getChunkReadyTimeoutSeconds();
+
+  /** Returns whether telemetry is enabled for all connections */
+  boolean forceEnableTelemetry();
+
+  /** Returns the flush interval in milliseconds for telemetry */
+  int getTelemetryFlushIntervalInMilliseconds();
 }

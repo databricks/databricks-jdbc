@@ -28,6 +28,7 @@ public interface IDatabricksClient {
    * @param sessionConf session configuration
    * @return created session
    */
+  @DatabricksMetricsTimed
   ImmutableSessionInfo createSession(
       IDatabricksComputeResource computeResource,
       String catalog,
@@ -73,6 +74,7 @@ public interface IDatabricksClient {
    * @param parentStatement statement instance if called from a statement
    * @return response for statement execution
    */
+  @DatabricksMetricsTimed
   DatabricksResultSet executeStatementAsync(
       String sql,
       IDatabricksComputeResource computeResource,
@@ -86,6 +88,7 @@ public interface IDatabricksClient {
    *
    * @param statementId statement which should be closed
    */
+  @DatabricksMetricsTimed
   void closeStatement(StatementId statementId) throws DatabricksSQLException;
 
   /**
@@ -93,6 +96,7 @@ public interface IDatabricksClient {
    *
    * @param statementId statement which should be aborted
    */
+  @DatabricksMetricsTimed
   void cancelStatement(StatementId statementId) throws DatabricksSQLException;
 
   /**

@@ -484,10 +484,6 @@
                   <shadedPattern>com.databricks.internal.io</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>jakarta.servlet</pattern>
-                  <shadedPattern>com.databricks.internal.jakarta.servlet</shadedPattern>
-                </relocation>
-                <relocation>
                   <pattern>net.jpountz</pattern>
                   <shadedPattern>com.databricks.internal.jpountz</shadedPattern>
                 </relocation>
@@ -533,6 +529,7 @@
                   <excludes>
                     <exclude>edu/**</exclude>
                     <exclude>javax/**</exclude>
+                    <exclude>jakarta/**</exclude>
                     <exclude>net/jcip/**</exclude>
                     <exclude>oauth/**</exclude>
                   </excludes>
