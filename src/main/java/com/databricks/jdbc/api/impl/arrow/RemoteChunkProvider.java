@@ -76,7 +76,7 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
       throws DatabricksSQLException {
     return ArrowResultChunk.builder()
         .withStatementId(statementId)
-        .withThriftChunkInfo(chunkCount, resultLink)
+        .withThriftChunkInfo(chunkIndex, resultLink)
         .withChunkReadyTimeoutSeconds(chunkReadyTimeoutSeconds)
         .build();
   }
