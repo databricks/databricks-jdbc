@@ -8,18 +8,17 @@ import com.databricks.jdbc.model.telemetry.latency.ResultLatency;
 /** This class is used to store the telemetry details for a statement. */
 public class StatementTelemetryDetails {
   private boolean isInternalCall;
-  private ChunkDetails chunkDetails;
-  private ResultLatency resultLatency;
-  private OperationDetail operationDetail;
+  private final ChunkDetails chunkDetails;
+  private final ResultLatency resultLatency;
+  private final OperationDetail operationDetail;
   private Long operationLatencyMillis;
-  private String statementId;
+  private final String statementId;
 
   /*
    * TODO :
    * 1. Add connectionContext, sessionId, etc here to eliminate the need of threadLocal
    * 2. Add volumeOperationDetails here
    * 3. Add internal call flag here
-   * 4. Add latency for session open when statement id is null
    */
 
   public StatementTelemetryDetails(String statementId) {
@@ -96,5 +95,9 @@ public class StatementTelemetryDetails {
   public void recordOperationLatency(long latencyMillis, OperationType operationType) {
     this.operationDetail.setOperationType(operationType);
     this.operationLatencyMillis = latencyMillis;
+  }
+
+  public void recordGetOperationStatusLatency(long latencyMillis) {
+    this.operationDetail.addOperationStatusLatencyMillis(latencyMillis);
   }
 }

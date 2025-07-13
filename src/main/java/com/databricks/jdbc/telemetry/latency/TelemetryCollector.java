@@ -100,8 +100,6 @@ public class TelemetryCollector {
   /**
    * Exports all pending telemetry details and clears the trackers. This method is called when the
    * connection/client is being closed.
-   *
-   * @return a map of statement ID to StatementTelemetryDetails for all pending statements
    */
   public void exportAllPendingTelemetryDetails() {
     LOGGER.trace(" {} pending telemetry details for telemetry export", statementTrackers.size());
@@ -110,5 +108,11 @@ public class TelemetryCollector {
           TelemetryHelper.exportTelemetryLog(statementTelemetryDetails);
         });
     statementTrackers.clear();
+  }
+
+  public void recordGetOperationStatus(String statementId, long latencyMillis) {
+    statementTrackers
+        .computeIfAbsent(statementId, k -> new StatementTelemetryDetails(statementId))
+        .recordGetOperationStatusLatency(latencyMillis);
   }
 }
