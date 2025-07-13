@@ -898,6 +898,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcUrlParams.APPLICATION_NAME);
   }
 
+  /** {@inheritDoc} */
+  @Override
+  public int getChunkReadyTimeoutSeconds() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.CHUNK_READY_TIMEOUT_SECONDS));
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }

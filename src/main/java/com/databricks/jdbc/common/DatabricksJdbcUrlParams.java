@@ -130,6 +130,10 @@ public enum DatabricksJdbcUrlParams {
   TOKEN_CACHE_PASS_PHRASE("TokenCachePassPhrase", "Pass phrase to use for OAuth U2M Token Cache"),
   ENABLE_TOKEN_CACHE("EnableTokenCache", "Enable caching OAuth tokens", "1"),
   APPLICATION_NAME("ApplicationName", "Name of application using the driver", ""),
+  CHUNK_READY_TIMEOUT_SECONDS(
+      "ChunkReadyTimeoutSeconds",
+      "Time limit for a chunk to be ready to consume when downloading",
+      "0"),
   FORCE_ENABLE_TELEMETRY("ForceEnableTelemetry", "Force enable telemetry", "0"),
   TELEMETRY_FLUSH_INTERVAL(
       "TelemetryFlushInterval", "Flush interval in milliseconds", "300000"), // 5 MINUTES

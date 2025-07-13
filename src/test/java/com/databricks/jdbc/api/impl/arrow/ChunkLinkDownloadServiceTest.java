@@ -16,10 +16,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +42,7 @@ class ChunkLinkDownloadServiceTest {
 
   @Mock private StatementId mockStatementId;
 
-  @Mock private Map<Long, ArrowResultChunk> mockChunkMap;
+  @Mock private ConcurrentMap<Long, ArrowResultChunk> mockChunkMap;
 
   @BeforeEach
   void setUp() {
@@ -70,8 +67,8 @@ class ChunkLinkDownloadServiceTest {
     long chunkIndex = 1L;
     when(mockChunkMap.get(chunkIndex)).thenReturn(mock(ArrowResultChunk.class));
 
-    ChunkLinkDownloadService service =
-        new ChunkLinkDownloadService(
+    ChunkLinkDownloadService<ArrowResultChunk> service =
+        new ChunkLinkDownloadService<>(
             mockSession, mockStatementId, TOTAL_CHUNKS, mockChunkMap, NEXT_BATCH_START_INDEX);
 
     // Trigger the download chain
@@ -86,8 +83,8 @@ class ChunkLinkDownloadServiceTest {
 
   @Test
   void testGetLinkForChunk_AfterShutdown() throws ExecutionException, InterruptedException {
-    ChunkLinkDownloadService service =
-        new ChunkLinkDownloadService(
+    ChunkLinkDownloadService<ArrowResultChunk> service =
+        new ChunkLinkDownloadService<>(
             mockSession, mockStatementId, TOTAL_CHUNKS, mockChunkMap, NEXT_BATCH_START_INDEX);
     service.shutdown();
 
@@ -100,8 +97,8 @@ class ChunkLinkDownloadServiceTest {
 
   @Test
   void testGetLinkForChunk_InvalidIndex() throws ExecutionException, InterruptedException {
-    ChunkLinkDownloadService service =
-        new ChunkLinkDownloadService(
+    ChunkLinkDownloadService<ArrowResultChunk> service =
+        new ChunkLinkDownloadService<>(
             mockSession, mockStatementId, TOTAL_CHUNKS, mockChunkMap, NEXT_BATCH_START_INDEX);
     CompletableFuture<ExternalLink> future = service.getLinkForChunk(TOTAL_CHUNKS + 1);
     ExecutionException exception =
@@ -121,8 +118,8 @@ class ChunkLinkDownloadServiceTest {
     when(mockClient.getResultChunks(eq(mockStatementId), anyLong())).thenThrow(expectedError);
     when(mockChunkMap.get(chunkIndex)).thenReturn(mock(ArrowResultChunk.class));
 
-    ChunkLinkDownloadService service =
-        new ChunkLinkDownloadService(
+    ChunkLinkDownloadService<ArrowResultChunk> service =
+        new ChunkLinkDownloadService<>(
             mockSession, mockStatementId, TOTAL_CHUNKS, mockChunkMap, NEXT_BATCH_START_INDEX);
 
     CompletableFuture<ExternalLink> future = service.getLinkForChunk(chunkIndex);
@@ -147,7 +144,7 @@ class ChunkLinkDownloadServiceTest {
     // Download chain will be triggered immediately in the constructor
     when(mockSession.getConnectionContext().getClientType()).thenReturn(DatabricksClientType.SEA);
 
-    new ChunkLinkDownloadService(
+    new ChunkLinkDownloadService<>(
         mockSession, mockStatementId, TOTAL_CHUNKS, mockChunkMap, NEXT_BATCH_START_INDEX);
 
     // Sleep to allow the service to complete the download pipeline
@@ -177,11 +174,11 @@ class ChunkLinkDownloadServiceTest {
 
     long chunkIndex = 1L;
     ArrowResultChunk mockChunk = mock(ArrowResultChunk.class);
-    when(mockChunk.getStatus()).thenReturn(ArrowResultChunk.ChunkStatus.PENDING);
+    when(mockChunk.getStatus()).thenReturn(ChunkStatus.PENDING);
     when(mockChunkMap.get(chunkIndex)).thenReturn(mockChunk);
 
-    ChunkLinkDownloadService service =
-        new ChunkLinkDownloadService(
+    ChunkLinkDownloadService<ArrowResultChunk> service =
+        new ChunkLinkDownloadService<>(
             mockSession, mockStatementId, TOTAL_CHUNKS, mockChunkMap, NEXT_BATCH_START_INDEX);
 
     // Sleep to allow the service to complete the download pipeline
@@ -234,8 +231,8 @@ class ChunkLinkDownloadServiceTest {
     when(mockClient.getResultChunks(eq(mockStatementId), eq(5L)))
         .thenReturn(Arrays.asList(linkForChunkIndex_5, linkForChunkIndex_6));
 
-    ChunkLinkDownloadService service =
-        new ChunkLinkDownloadService(
+    ChunkLinkDownloadService<ArrowResultChunk> service =
+        new ChunkLinkDownloadService<>(
             mockSession, mockStatementId, 7, mockChunkMap, NEXT_BATCH_START_INDEX);
 
     // Trigger the download chain

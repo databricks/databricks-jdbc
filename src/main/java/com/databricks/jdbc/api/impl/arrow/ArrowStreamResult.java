@@ -30,7 +30,7 @@ public class ArrowStreamResult implements IExecutionResult {
   private final ChunkProvider chunkProvider;
   private long currentRowIndex = -1;
   private boolean isClosed;
-  private ArrowResultChunk.ArrowResultChunkIterator chunkIterator;
+  private ArrowResultChunkIterator chunkIterator;
   private List<ColumnInfo> columnInfos;
   private final IDatabricksSession session;
 
