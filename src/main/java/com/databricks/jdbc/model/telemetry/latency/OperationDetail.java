@@ -19,6 +19,13 @@ public class OperationDetail {
   @JsonProperty("is_internal_call")
   private Boolean isInternalCall;
 
+  public OperationDetail(Boolean isInternalCall) {
+    this.nOperationStatusCalls = 0L;
+    this.operationStatusLatencyMillis = 0L;
+    this.operationType = OperationType.TYPE_UNSPECIFIED;
+    this.isInternalCall = isInternalCall;
+  }
+
   public void addOperationStatusLatencyMillis(Long latencyMillis) {
     if (this.operationStatusLatencyMillis != null) {
       this.operationStatusLatencyMillis += latencyMillis;

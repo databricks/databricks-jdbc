@@ -21,9 +21,9 @@ public class ChunkDetails {
   private Long sumChunksDownloadTimeMillis;
 
   public ChunkDetails() {
-    this.totalChunksIterated = 0L;
+    this.totalChunksIterated = null;
     this.sumChunksDownloadTimeMillis = 0L;
-    this.totalChunksPresent = 0L;
+    this.totalChunksPresent = null;
   }
 
   public ChunkDetails setInitialChunkLatencyMillis(Long initialChunkLatencyMillis) {

@@ -11,12 +11,18 @@ public class ResultLatency {
   @JsonProperty("result_set_consumption_latency_millis")
   private Long resultSetConsumptionLatencyMillis;
 
+  private Long startTimeOfResultSetIterationNano;
+
   public Long getResultSetReadyLatencyMillis() {
     return resultSetReadyLatencyMillis;
   }
 
   public Long getResultSetConsumptionLatencyMillis() {
     return resultSetConsumptionLatencyMillis;
+  }
+
+  public ResultLatency() {
+    resultSetConsumptionLatencyMillis = null;
   }
 
   public ResultLatency setResultSetReadyLatencyMillis(Long resultSetReadyLatencyMillis) {
@@ -28,6 +34,16 @@ public class ResultLatency {
       Long resultSetConsumptionLatencyMillis) {
     this.resultSetConsumptionLatencyMillis = resultSetConsumptionLatencyMillis;
     return this;
+  }
+
+  public void markResultSetConsumption(boolean hasNext) {
+    if (startTimeOfResultSetIterationNano == null) {
+      startTimeOfResultSetIterationNano = System.nanoTime();
+    }
+    if (!hasNext) {
+      resultSetConsumptionLatencyMillis =
+          (System.nanoTime() - startTimeOfResultSetIterationNano) / 1_000; // convert nano to milli
+    }
   }
 
   @Override

@@ -27,8 +27,8 @@ public class StatementTelemetryDetails {
         new ResultLatency()
             .setResultSetReadyLatencyMillis(null)
             .setResultSetConsumptionLatencyMillis(null);
-    this.operationDetail = new OperationDetail().setOperationType(OperationType.TYPE_UNSPECIFIED);
     this.isInternalCall = false;
+    this.operationDetail = new OperationDetail(isInternalCall);
     this.operationLatencyMillis = null;
     this.statementId = statementId;
   }
@@ -53,10 +53,6 @@ public class StatementTelemetryDetails {
     return chunkDetails;
   }
 
-  public Long getOperationLatencyMillis() {
-    return operationLatencyMillis;
-  }
-
   public StatementTelemetryDetails setOperationLatencyMillis(Long operationLatencyMillis) {
     this.operationLatencyMillis = operationLatencyMillis;
     return this;
@@ -71,7 +67,7 @@ public class StatementTelemetryDetails {
     if (chunkIndex == 0) {
       chunkDetails.setInitialChunkLatencyMillis(latencyMillis);
     }
-    // Update slowest chunk latency
+    // Update the slowest chunk latency
     Long currentSlowest = chunkDetails.getSlowestChunkLatencyMillis();
     if (currentSlowest == null || latencyMillis > currentSlowest) {
       chunkDetails.setSlowestChunkLatencyMillis(latencyMillis);
@@ -84,12 +80,20 @@ public class StatementTelemetryDetails {
     chunkDetails.setSumChunksDownloadTimeMillis(currentSum + latencyMillis);
   }
 
-  public void recordChunkIteration(long chunkIndex) {
+  public void recordChunkIteration(Long totalChunks) {
     Long currentIterated = chunkDetails.getTotalChunksIterated();
     if (currentIterated == null) {
       currentIterated = 0L;
+      chunkDetails.setTotalChunksPresent(totalChunks);
     }
     chunkDetails.setTotalChunksIterated(currentIterated + 1);
+  }
+
+  public void recordResultSetIteration(Long totalChunks, boolean hasNext) {
+    if (totalChunks != null && totalChunks > 0) {
+      this.recordChunkIteration(totalChunks);
+    }
+    this.resultLatency.markResultSetConsumption(hasNext);
   }
 
   public void recordOperationLatency(long latencyMillis, OperationType operationType) {
