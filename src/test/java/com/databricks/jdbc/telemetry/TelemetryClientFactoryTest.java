@@ -24,7 +24,7 @@ public class TelemetryClientFactoryTest {
   private static final String JDBC_URL_1 =
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;UserAgentEntry=MyApp;";
   private static final String JDBC_URL_2 =
-      "jdbc:databricks://adb-20.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/ghgjhgj;UserAgentEntry=MyApp;EnableTelemetry=1";
+      "jdbc:databricks://adb-20.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/ghgjhgj;UserAgentEntry=MyApp;forceEnableTelemetry=1";
 
   @Mock ClientConfigurator clientConfigurator;
   @Mock DatabricksConfig databricksConfig;
