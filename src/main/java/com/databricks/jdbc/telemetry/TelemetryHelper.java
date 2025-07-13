@@ -108,7 +108,8 @@ public class TelemetryHelper {
             .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext))
             .setSessionId(DatabricksThreadContextHolder.getSessionId())
             .setDriverErrorInfo(errorInfo) // This is only set for failure logs
-            .setSqlStatementId(telemetryDetails.getStatementId());
+            .setSqlStatementId(telemetryDetails.getStatementId())
+            .setLatency(telemetryDetails.getOperationLatencyMillis());
     SqlExecutionEvent sqlExecutionEvent =
         new SqlExecutionEvent()
             .setChunkDetails(telemetryDetails.getChunkDetails())

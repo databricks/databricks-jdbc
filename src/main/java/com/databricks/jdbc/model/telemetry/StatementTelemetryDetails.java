@@ -104,4 +104,8 @@ public class StatementTelemetryDetails {
   public void recordGetOperationStatusLatency(long latencyMillis) {
     this.operationDetail.addOperationStatusLatencyMillis(latencyMillis);
   }
+
+  public Long getOperationLatencyMillis() {
+    return operationLatencyMillis;
+  }
 }
