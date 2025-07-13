@@ -41,6 +41,7 @@ public class TelemetryClientFactoryTest {
     TelemetryClientFactory.getInstance().closeTelemetryClient(context);
     assertEquals(0, TelemetryClientFactory.getInstance().telemetryClients.size());
     assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClients.size());
+    TelemetryClientFactory.getInstance().closeTelemetryClient(context);
   }
 
   @Test
@@ -58,6 +59,7 @@ public class TelemetryClientFactoryTest {
     TelemetryClientFactory.getInstance().closeTelemetryClient(context);
     assertEquals(0, TelemetryClientFactory.getInstance().telemetryClients.size());
     assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClients.size());
+    TelemetryClientFactory.getInstance().closeTelemetryClient(context);
   }
 
   @Test
@@ -76,6 +78,7 @@ public class TelemetryClientFactoryTest {
       assertInstanceOf(NoopTelemetryClient.class, telemetryClient);
       assertEquals(0, TelemetryClientFactory.getInstance().telemetryClients.size());
       assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClients.size());
+      TelemetryClientFactory.getInstance().closeTelemetryClient(context);
     }
   }
 

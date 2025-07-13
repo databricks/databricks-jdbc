@@ -19,6 +19,7 @@ public class StatementTelemetryDetails {
    * 1. Add connectionContext, sessionId, etc here to eliminate the need of threadLocal
    * 2. Add volumeOperationDetails here
    * 3. Add internal call flag here
+   * 4. Add latency for session open when statement id is null
    */
 
   public StatementTelemetryDetails(String statementId) {
@@ -53,8 +54,13 @@ public class StatementTelemetryDetails {
     return chunkDetails;
   }
 
-  public long getOperationLatencyMillis() {
+  public Long getOperationLatencyMillis() {
     return operationLatencyMillis;
+  }
+
+  public StatementTelemetryDetails setOperationLatencyMillis(Long operationLatencyMillis) {
+    this.operationLatencyMillis = operationLatencyMillis;
+    return this;
   }
 
   public void setInternalCall(boolean isInternalCall) {

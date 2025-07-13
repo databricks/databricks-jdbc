@@ -80,6 +80,10 @@ public class TelemetryCollector {
    * @param statementId the statement ID
    */
   public StatementTelemetryDetails getTelemetryDetails(String statementId) {
+    if (statementId == null) {
+      LOGGER.trace("Statement ID is null, returning null telemetry details");
+      return null;
+    }
     return statementTrackers.get(statementId);
   }
 

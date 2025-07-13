@@ -59,7 +59,7 @@ public class TelemetryHelper {
   }
 
   public static boolean isTelemetryAllowedForConnection(IDatabricksConnectionContext context) {
-    if (context.forceEnableTelemetry()) {
+    if (context != null && context.forceEnableTelemetry()) {
       return true;
     }
     return context != null
@@ -69,7 +69,7 @@ public class TelemetryHelper {
   }
 
   public static void exportInitialTelemetryLog(IDatabricksConnectionContext connectionContext) {
-    if (connectionContext == null) {
+    if (getDriverConnectionParameter(connectionContext) == null) {
       return;
     }
     TelemetryFrontendLog telemetryFrontendLog =
@@ -99,18 +99,16 @@ public class TelemetryHelper {
       DriverErrorInfo errorInfo,
       Long chunkIndex) {
     if (connectionContext == null || telemetryDetails == null) {
-      // This is when the context is not set in the following scenarios:
-      // a. Unit tests
-      // b. When Url parsing has failed
-      // In either of these scenarios, we don't export logs
+      // This is when the context is not set or the telemetry details are not set.
+      // In either of these scenarios, we don't export logs.
       return;
     }
     TelemetryEvent telemetryEvent =
         new TelemetryEvent()
             .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext))
-            .setSqlStatementId(telemetryDetails.getStatementId())
             .setSessionId(DatabricksThreadContextHolder.getSessionId())
-            .setDriverErrorInfo(errorInfo); // This is only set for failure logs
+            .setDriverErrorInfo(errorInfo) // This is only set for failure logs
+            .setSqlStatementId(telemetryDetails.getStatementId());
     SqlExecutionEvent sqlExecutionEvent =
         new SqlExecutionEvent()
             .setChunkDetails(telemetryDetails.getChunkDetails())
@@ -165,6 +163,8 @@ public class TelemetryHelper {
       hostUrl = connectionContext.getHostUrl();
     } catch (DatabricksParsingException e) {
       hostUrl = "Error in parsing host url";
+      // This would mean, telemetry data cannot be sent.
+      return null;
     }
     DriverConnectionParameters connectionParameters =
         new DriverConnectionParameters()
@@ -262,14 +262,14 @@ public class TelemetryHelper {
   public static DatabricksConfig getDatabricksConfigSafely(IDatabricksConnectionContext context) {
     try {
       return DatabricksClientConfiguratorManager.getInstance()
-          .getConfigurator(context)
+          .getConfiguratorOnlyIfExists(context)
           .getDatabricksConfig();
     } catch (Exception e) {
       String errorMessage =
           String.format(
-              "Unable to get databricks config for telemetry helper; falling back to no-auth. Error: %s; Context: %s",
+              "Connection config is not available, using no-auth telemetry client. Error: %s; Context: %s",
               e.getMessage(), context);
-      LOGGER.debug(errorMessage);
+      LOGGER.trace(errorMessage);
       return null;
     }
   }

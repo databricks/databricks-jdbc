@@ -47,9 +47,10 @@ public class TelemetryClientFactory {
               new TelemetryClient(
                   connectionContext, getTelemetryExecutorService(), databricksConfig));
     }
-    return NoopTelemetryClient
-        .getInstance(); // Currently, un-auth endpoints do not make sense as feature flag endpoint
-    // cannot be hit without auth
+    // Use noauth telemetry client if connection creation failed.
+    return noauthTelemetryClients.computeIfAbsent(
+        connectionContext.getConnectionUuid(),
+        k -> new TelemetryClient(connectionContext, getTelemetryExecutorService()));
   }
 
   public void closeTelemetryClient(IDatabricksConnectionContext connectionContext) {

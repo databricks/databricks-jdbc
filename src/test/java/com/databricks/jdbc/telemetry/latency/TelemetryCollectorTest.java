@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.latency.ChunkDetails;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -14,6 +15,11 @@ import org.mockito.MockedStatic;
 
 public class TelemetryCollectorTest {
   private final TelemetryCollector handler = TelemetryCollector.getInstance();
+
+  @AfterEach
+  public void tearDown() throws Exception {
+    handler.exportAllPendingTelemetryDetails();
+  }
 
   @Test
   void testRecordChunkDownloadLatency_CreatesAndUpdatesDetails() {
