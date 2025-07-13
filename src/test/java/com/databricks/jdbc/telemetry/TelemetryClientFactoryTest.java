@@ -13,6 +13,7 @@ import com.databricks.sdk.core.DatabricksConfig;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -28,6 +29,12 @@ public class TelemetryClientFactoryTest {
 
   @Mock ClientConfigurator clientConfigurator;
   @Mock DatabricksConfig databricksConfig;
+
+  @BeforeEach
+  public void setUp() {
+    // Reset the singleton to ensure clean state between tests
+    TelemetryClientFactory.getInstance().reset();
+  }
 
   @Test
   public void testGetNoOpTelemetryClient() throws Exception {

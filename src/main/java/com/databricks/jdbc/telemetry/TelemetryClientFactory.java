@@ -65,6 +65,18 @@ public class TelemetryClientFactory {
     return telemetryExecutorService;
   }
 
+  @VisibleForTesting
+  public void reset() {
+    // Close all existing clients
+    telemetryClients.values().forEach(client -> client.close());
+
+    noauthTelemetryClients.values().forEach(client -> client.close());
+
+    // Clear the maps
+    telemetryClients.clear();
+    noauthTelemetryClients.clear();
+  }
+
   private void closeTelemetryClient(ITelemetryClient client, String clientType) {
     if (client != null) {
       try {
