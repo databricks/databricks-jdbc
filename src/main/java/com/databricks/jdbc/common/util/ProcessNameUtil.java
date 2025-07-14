@@ -8,6 +8,7 @@ import java.lang.management.RuntimeMXBean;
  */
 public class ProcessNameUtil {
   private static final String FALL_BACK_PROCESS_NAME = "UnknownJavaProcess";
+
   /**
    * Gets the current process name as it would appear in Activity Monitor.
    *

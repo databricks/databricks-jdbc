@@ -730,10 +730,11 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
         session.setSchema(rs.getString(2));
       }
     } catch (SQLException e) {
-      LOGGER.error(e, "Error fetching current schema and catalog");
+      String errorMessage =
+          String.format("Error fetching current schema and catalog %s", e.getMessage());
+      LOGGER.error(e, errorMessage);
       throw new DatabricksSQLException(
-          "Error fetching current schema and catalog",
-          DatabricksDriverErrorCode.CATALOG_OR_SCHEMA_FETCH_ERROR);
+          errorMessage, DatabricksDriverErrorCode.CATALOG_OR_SCHEMA_FETCH_ERROR);
     }
   }
 }
