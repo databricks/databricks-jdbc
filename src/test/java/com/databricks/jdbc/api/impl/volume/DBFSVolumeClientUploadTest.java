@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.volume;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -586,5 +587,119 @@ public class DBFSVolumeClientUploadTest {
     File file = new File(tempFolder, filename);
     java.nio.file.Files.write(file.toPath(), content.getBytes());
     return file;
+  }
+
+  /** Test executeUploads method with mixed valid and invalid requests. */
+  @Test
+  public void testExecuteUploads_MixedValidInvalid() throws Exception {
+    // Setup necessary mocks
+    lenient().when(workspaceClient.config()).thenReturn(databricksConfig);
+    Map<String, String> authHeaders = new HashMap<>();
+    authHeaders.put("Authorization", "Bearer test-token");
+    lenient().when(databricksConfig.authenticate()).thenReturn(authHeaders);
+    lenient().when(apiClient.serialize(any())).thenReturn("{}");
+
+    // Create one valid file and one invalid path
+    File validFile = createTestFile("valid.txt", "valid content");
+    String invalidPath = "/non/existent/path/invalid.txt";
+
+    List<String> objectPaths = Arrays.asList("valid.txt", "invalid.txt");
+    List<String> localPaths = Arrays.asList(validFile.getAbsolutePath(), invalidPath);
+
+    // Setup mock for presigned URL
+    setupMockPresignedUrlFuture("https://presigned-url.example.com");
+
+    // Mock HTTP client to succeed for valid uploads
+    doAnswer(
+            invocation -> {
+              FutureCallback<SimpleHttpResponse> callback = invocation.getArgument(2);
+              SimpleHttpResponse response = mock(SimpleHttpResponse.class);
+              lenient().when(response.getCode()).thenReturn(200);
+              lenient().when(response.getReasonPhrase()).thenReturn("OK");
+              callback.completed(response);
+              return null;
+            })
+        .when(httpClient)
+        .executeAsync(any(), any(), any());
+
+    // Execute putFiles
+    List<VolumePutResult> results =
+        volumeClient.putFiles("catalog", "schema", "volume", objectPaths, localPaths, false);
+
+    // Verify results
+    assertEquals(2, results.size());
+
+    // First result should be successful
+    assertEquals(VolumeOperationStatus.SUCCEEDED, results.get(0).getStatus());
+    assertEquals(200, results.get(0).getStatusCode());
+
+    // Second result should be failed (file not found)
+    assertEquals(VolumeOperationStatus.FAILED, results.get(1).getStatus());
+    assertEquals(400, results.get(1).getStatusCode());
+    assertTrue(results.get(1).getMessage().contains("File not found"));
+
+    // Verify HTTP client was only once (for the valid file)
+    verify(httpClient, times(1)).executeAsync(any(), any(), any());
+  }
+
+  /** Test putFiles with mismatched array sizes. */
+  @Test
+  public void testPutFiles_MismatchedArraySizes() {
+    List<String> objectPaths = Arrays.asList("file1.txt", "file2.txt");
+    List<String> localPaths = Arrays.asList("path1.txt"); // Only one path
+
+    // Should throw IllegalArgumentException
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                volumeClient.putFiles(
+                    "catalog", "schema", "volume", objectPaths, localPaths, false));
+
+    assertTrue(exception.getMessage().contains("objectPaths and localPaths – sizes differ"));
+  }
+
+  /** Test putFiles with input streams - mismatched array sizes. */
+  @Test
+  public void testPutFiles_InputStreams_MismatchedArraySizes() {
+    List<String> objectPaths = Arrays.asList("file1.txt", "file2.txt");
+    List<InputStream> inputStreams = Arrays.asList(new ByteArrayInputStream("test".getBytes()));
+    List<Long> contentLengths = Arrays.asList(4L, 5L);
+
+    // Should throw IllegalArgumentException
+    IllegalArgumentException exception =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                volumeClient.putFiles(
+                    "catalog",
+                    "schema",
+                    "volume",
+                    objectPaths,
+                    inputStreams,
+                    contentLengths,
+                    false));
+
+    assertTrue(
+        exception
+            .getMessage()
+            .contains("objectPaths, inputStreams, contentLengths – sizes differ"));
+  }
+
+  /** Test putFiles with empty lists. */
+  @Test
+  public void testPutFiles_EmptyLists() throws Exception {
+    List<String> objectPaths = Arrays.asList();
+    List<String> localPaths = Arrays.asList();
+
+    // Execute putFiles
+    List<VolumePutResult> results =
+        volumeClient.putFiles("catalog", "schema", "volume", objectPaths, localPaths, false);
+
+    // Verify results
+    assertEquals(0, results.size());
+
+    // Verify HTTP client was never called
+    verify(httpClient, never()).executeAsync(any(), any(), any());
   }
 }
