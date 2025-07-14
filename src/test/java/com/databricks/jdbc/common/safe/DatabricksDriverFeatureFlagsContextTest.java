@@ -1,6 +1,5 @@
 package com.databricks.jdbc.common.safe;
 
-import static com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContext.FEATURE_FLAGS_ENDPOINT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -37,11 +36,15 @@ class DatabricksDriverFeatureFlagsContextTest {
   @Mock private HttpEntity httpEntityMock;
   @Mock private ObjectMapper objectMapperMock;
   private static final String FEATURE_FLAG_NAME = "featureFlagName";
+  private static final String FEATURE_FLAGS_ENDPOINT =
+      "https://test-host/api/2.0/connector-service/feature-flags/OSS_JDBC/1.0.7";
 
   private DatabricksDriverFeatureFlagsContext context;
 
   @BeforeEach
   void setUp() {
+    // Mock the host for OAuth to return a test host
+    when(connectionContextMock.getHostForOAuth()).thenReturn("test-host");
     context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, new HashMap<>());
   }
 

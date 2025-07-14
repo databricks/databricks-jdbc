@@ -88,7 +88,10 @@ public enum DatabricksJdbcUrlParams {
       "AcceptUndeterminedRevocation", "Accept undetermined revocation", "0"),
   GOOGLE_SERVICE_ACCOUNT("GoogleServiceAccount", "Gcp service account email"),
   GOOGLE_CREDENTIALS_FILE("GoogleCredentialsFile", "path to gcp credentials json"),
-  ENABLE_TELEMETRY("EnableTelemetry", "flag to enable telemetry", "0"), // Disabled for now
+  ENABLE_TELEMETRY(
+      "EnableTelemetry",
+      "flag to enable telemetry",
+      "1"), // Note : telemetry enablement also depends on the server flag.
   TELEMETRY_BATCH_SIZE("TelemetryBatchSize", "Batch size for telemetry", "200"),
   MAX_BATCH_SIZE("MaxBatchSize", "Maximum batch size", "500"),
   ALLOWED_VOLUME_INGESTION_PATHS("VolumeOperationAllowedLocalPaths", ""),
