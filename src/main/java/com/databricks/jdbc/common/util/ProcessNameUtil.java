@@ -1,5 +1,8 @@
 package com.databricks.jdbc.common.util;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.RuntimeMXBean;
+
 /**
  * Utility class for determining the current process name as it would appear in Activity Monitor.
  */
@@ -11,40 +14,41 @@ public class ProcessNameUtil {
    * @return The current process name
    */
   public static String getProcessName() {
-    // Try to get the main class name first
-    String mainClass = getMainClassName();
-    if (mainClass != null) {
-      return mainClass;
-    }
-
-    // Fallback to java
-    return "java";
-  }
-
-  /**
-   * Gets the current process ID.
-   *
-   * @return The current process ID
-   */
-  public static long getCurrentProcessId() {
-    return ProcessHandle.current().pid();
-  }
-
-  /**
-   * Gets the main class name from the sun.java.command system property.
-   *
-   * @return The main class name or null if not available
-   */
-  private static String getMainClassName() {
+    // Step 1: Try sun.java.command (HotSpot and OpenJDK)
     String command = System.getProperty("sun.java.command");
-    if (command != null && !command.trim().isEmpty()) {
+    if (command != null && !command.isEmpty()) {
       String[] parts = command.split(" ");
       String className = parts[0];
-
-      // Extract just the class name without package
-      String[] classParts = className.split("\\.");
-      return classParts[classParts.length - 1];
+      return getSimpleClassName(className);
     }
-    return null;
+
+    // Step 2: Try runtime MXBean (available on many JVMs)
+    RuntimeMXBean runtimeMXBean = ManagementFactory.getRuntimeMXBean();
+    String jvmName = runtimeMXBean.getName(); // usually something like "12345@hostname"
+    if (jvmName != null && !jvmName.isEmpty()) {
+      return jvmName.split("@")[0]; // process ID
+    }
+
+    // Step 3: Try stack trace inspection (very brittle fallback)
+    for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+      if ("main".equals(element.getMethodName())) {
+        return getSimpleClassName(element.getClassName());
+      }
+    }
+
+    // Fallback: unknown
+    return "UnknownJavaProcess";
+  }
+
+  /**
+   * Extracts the simple class name from a fully qualified class name.
+   *
+   * @param fqcn The fully qualified class name
+   * @return The simple class name or null if input is null or empty
+   */
+  private static String getSimpleClassName(String fqcn) {
+    if (fqcn == null || fqcn.isEmpty()) return null;
+    int lastDot = fqcn.lastIndexOf('.');
+    return lastDot >= 0 ? fqcn.substring(lastDot + 1) : fqcn;
   }
 }
