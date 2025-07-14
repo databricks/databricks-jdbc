@@ -214,6 +214,12 @@ public class DBFSVolumeClientUploadTest {
     lenient().when(databricksConfig.authenticate()).thenReturn(authHeaders);
     lenient().when(apiClient.serialize(any())).thenReturn("{}");
 
+    // Setup connectionContext mock for retry logic
+    lenient()
+        .when(connectionContext.getUCIngestionRetriableHttpCodes())
+        .thenReturn(List.of(408, 429, 500, 502, 503, 504));
+    lenient().when(connectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(900);
+
     // Prepare test file
     File file = createTestFile("retry-test.txt", "test content");
     List<String> objectPaths = Arrays.asList("path/to/retry-test.txt");
@@ -401,6 +407,12 @@ public class DBFSVolumeClientUploadTest {
     authHeaders.put("Authorization", "Bearer test-token");
     lenient().when(databricksConfig.authenticate()).thenReturn(authHeaders);
     lenient().when(apiClient.serialize(any())).thenReturn("{}");
+
+    // Setup connectionContext mock for retry logic
+    lenient()
+        .when(connectionContext.getUCIngestionRetriableHttpCodes())
+        .thenReturn(List.of(408, 429, 500, 502, 503, 504));
+    lenient().when(connectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(900);
 
     // Prepare test file
     File file = createTestFile("exception.txt", "test content");

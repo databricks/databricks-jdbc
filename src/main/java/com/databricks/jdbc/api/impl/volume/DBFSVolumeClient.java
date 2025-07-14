@@ -13,6 +13,7 @@ import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.common.util.StringUtil;
+import com.databricks.jdbc.common.util.VolumeRetryUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -65,12 +66,6 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   final WorkspaceClient workspaceClient;
   final ApiClient apiClient;
   private final String allowedVolumeIngestionPaths;
-
-  /**
-   * Maximum number of retry attempts for failed presigned URL requests. Used when requests fail due
-   * to rate limiting (HTTP 429) or network issues.
-   */
-  private static final int MAX_RETRIES = 5;
 
   /**
    * Initial delay in milliseconds before the first retry attempt. Used as the base value for
@@ -798,7 +793,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                           request,
                           presignedUrlSemaphore,
                           this::requestPresignedUrlWithRetry,
-                          this::calculateRetryDelay);
+                          this::calculateRetryDelay,
+                          connectionContext);
 
                   databricksHttpClient.executeAsync(uploadProducer, uploadConsumer, uploadCallback);
                 } catch (Exception e) {
@@ -847,9 +843,16 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     return results;
   }
 
-  // Refactored method with robust semaphore handling
+  // Refactored method with robust semaphore handling and attempt-based retries
   CompletableFuture<CreateUploadUrlResponse> requestPresignedUrlWithRetry(
       String ucVolumePath, String objectPath, int attempt) {
+    return requestPresignedUrlWithRetry(
+        ucVolumePath, objectPath, attempt, System.currentTimeMillis());
+  }
+
+  // Internal method with retry start time tracking and attempt-based retries
+  private CompletableFuture<CreateUploadUrlResponse> requestPresignedUrlWithRetry(
+      String ucVolumePath, String objectPath, int attempt, long retryStartTime) {
     final CompletableFuture<CreateUploadUrlResponse> future = new CompletableFuture<>();
 
     try {
@@ -900,8 +903,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                   } catch (Exception e) {
                     future.completeExceptionally(e);
                   }
-                } else if (result.getCode() == 429 && attempt < MAX_RETRIES) {
-                  handleRetry(ucVolumePath, objectPath, attempt, future);
+                } else if (VolumeRetryUtil.isRetryableHttpCode(result.getCode(), connectionContext)
+                    && VolumeRetryUtil.shouldRetry(attempt, retryStartTime, connectionContext)) {
+                  handleRetry(ucVolumePath, objectPath, attempt, future, retryStartTime);
                 } else {
                   String errorMsg =
                       String.format(
@@ -918,8 +922,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
               @Override
               public void failed(Exception ex) {
-                if (attempt < MAX_RETRIES) {
-                  handleRetry(ucVolumePath, objectPath, attempt, future);
+                if (VolumeRetryUtil.shouldRetry(attempt, retryStartTime, connectionContext)) {
+                  handleRetry(ucVolumePath, objectPath, attempt, future, retryStartTime);
                 } else {
                   LOGGER.error(
                       ex, "Failed to get presigned URL for {} (attempt {})", objectPath, attempt);
@@ -952,20 +956,23 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String ucVolumePath,
       String objectPath,
       int attempt,
-      CompletableFuture<CreateUploadUrlResponse> future) {
+      CompletableFuture<CreateUploadUrlResponse> future,
+      long retryStartTime) {
     long retryDelayMs = calculateRetryDelay(attempt);
+    long elapsedSeconds = (System.currentTimeMillis() - retryStartTime) / 1000;
+    int timeoutSeconds = VolumeRetryUtil.getRetryTimeoutSeconds(connectionContext);
     LOGGER.info(
-        "Request for {} failed or was rate-limited. Retrying in {} ms (attempt {}/{})",
+        "Request for {} failed or was rate-limited. Retrying in {} ms (elapsed: {}s, timeout: {}s)",
         objectPath,
         retryDelayMs,
-        attempt,
-        MAX_RETRIES);
+        elapsedSeconds,
+        timeoutSeconds);
 
     CompletableFuture.delayedExecutor(retryDelayMs, TimeUnit.MILLISECONDS)
         .execute(
             () -> {
               // The retry will return a new future; we pipe its result into our original future.
-              requestPresignedUrlWithRetry(ucVolumePath, objectPath, attempt + 1)
+              requestPresignedUrlWithRetry(ucVolumePath, objectPath, attempt + 1, retryStartTime)
                   .whenComplete(
                       (response, ex) -> {
                         if (ex != null) {

@@ -2,6 +2,8 @@ package com.databricks.jdbc.api.impl.volume;
 
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
 import com.databricks.jdbc.api.impl.volume.DBFSVolumeClient.UploadRequest;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.VolumeRetryUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -29,7 +31,6 @@ import org.apache.hc.core5.http.nio.support.AsyncRequestBuilder;
  */
 public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(VolumeUploadCallback.class);
-  private static final int MAX_UPLOAD_RETRIES = 3;
 
   private final IDatabricksHttpClient httpClient;
   private final CompletableFuture<VolumePutResult> uploadFuture;
@@ -38,6 +39,8 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
   private final int attempt;
   private final UrlGenerator urlGenerator;
   private final Function<Integer, Long> retryDelayCalculator;
+  private final IDatabricksConnectionContext connectionContext;
+  private final long retryStartTime;
 
   /** Interface for generating presigned URLs. */
   @FunctionalInterface
@@ -62,8 +65,18 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
       UploadRequest request,
       Semaphore semaphore,
       UrlGenerator urlGenerator,
-      Function<Integer, Long> retryDelayCalculator) {
-    this(httpClient, uploadFuture, request, semaphore, urlGenerator, retryDelayCalculator, 1);
+      Function<Integer, Long> retryDelayCalculator,
+      IDatabricksConnectionContext connectionContext) {
+    this(
+        httpClient,
+        uploadFuture,
+        request,
+        semaphore,
+        urlGenerator,
+        retryDelayCalculator,
+        connectionContext,
+        1,
+        System.currentTimeMillis());
   }
 
   /** Constructor with attempt number for retries. */
@@ -74,14 +87,18 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
       Semaphore semaphore,
       UrlGenerator urlGenerator,
       Function<Integer, Long> retryDelayCalculator,
-      int attempt) {
+      IDatabricksConnectionContext connectionContext,
+      int attempt,
+      long retryStartTime) {
     this.httpClient = httpClient;
     this.uploadFuture = uploadFuture;
     this.request = request;
     this.semaphore = semaphore;
     this.urlGenerator = urlGenerator;
     this.retryDelayCalculator = retryDelayCalculator;
+    this.connectionContext = connectionContext;
     this.attempt = attempt;
+    this.retryStartTime = retryStartTime;
   }
 
   @Override
@@ -90,21 +107,20 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
       // Success case
       VolumeOperationStatus status = VolumeOperationStatus.SUCCEEDED;
       uploadFuture.complete(new VolumePutResult(uploadResult.getCode(), status, null));
-    } else if ((uploadResult.getCode() == 500
-            || uploadResult.getCode() == 502
-            || uploadResult.getCode() == 503
-            || uploadResult.getCode() == 504)
-        && attempt < MAX_UPLOAD_RETRIES) {
+    } else if (VolumeRetryUtil.isRetryableHttpCode(uploadResult.getCode(), connectionContext)
+        && VolumeRetryUtil.shouldRetry(attempt, retryStartTime, connectionContext)) {
       // Server error - retry with backoff
       long retryDelayMs = retryDelayCalculator.apply(attempt);
+      long elapsedSeconds = (System.currentTimeMillis() - retryStartTime) / 1000;
+      int timeoutSeconds = VolumeRetryUtil.getRetryTimeoutSeconds(connectionContext);
       LOGGER.warn(
-          "Upload failed for {}: HTTP {} - {}. Retrying in {} ms (attempt {}/{})",
+          "Upload failed for {}: HTTP {} - {}. Retrying in {} ms (elapsed: {}s, timeout: {}s)",
           request.objectPath,
           uploadResult.getCode(),
           uploadResult.getReasonPhrase(),
           retryDelayMs,
-          attempt,
-          MAX_UPLOAD_RETRIES);
+          elapsedSeconds,
+          timeoutSeconds);
 
       // Retry the entire upload process
       retry(retryDelayMs);
@@ -125,15 +141,17 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
 
   @Override
   public void failed(Exception ex) {
-    if (attempt < MAX_UPLOAD_RETRIES) {
+    if (VolumeRetryUtil.shouldRetry(attempt, retryStartTime, connectionContext)) {
       long retryDelayMs = retryDelayCalculator.apply(attempt);
+      long elapsedSeconds = (System.currentTimeMillis() - retryStartTime) / 1000;
+      int timeoutSeconds = VolumeRetryUtil.getRetryTimeoutSeconds(connectionContext);
       LOGGER.warn(
-          "Upload failed for {}: {}. Retrying in {} ms (attempt {}/{})",
+          "Upload failed for {}: {}. Retrying in {} ms (elapsed: {}s, timeout: {}s)",
           request.objectPath,
           ex.getMessage(),
           retryDelayMs,
-          attempt,
-          MAX_UPLOAD_RETRIES);
+          elapsedSeconds,
+          timeoutSeconds);
 
       // Retry the entire upload process
       retry(retryDelayMs);
@@ -216,7 +234,9 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
                                   semaphore,
                                   urlGenerator,
                                   retryDelayCalculator,
-                                  attempt + 1);
+                                  connectionContext,
+                                  attempt + 1,
+                                  retryStartTime);
 
                           httpClient.executeAsync(uploadProducer, uploadConsumer, uploadCallback);
                         } catch (Exception e) {
