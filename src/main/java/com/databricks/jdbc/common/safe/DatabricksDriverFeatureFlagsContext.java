@@ -4,6 +4,7 @@ import static java.lang.Math.max;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -28,8 +29,10 @@ public class DatabricksDriverFeatureFlagsContext {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksDriverFeatureFlagsContext.class);
   private static final String FEATURE_FLAGS_ENDPOINT_SUFFIX =
-      String.format("/api/2.0/connector-service/feature-flags/OSS_JDBC/%s", "1.0.7");
-  private static final int DEFAULT_TTL_SECONDS = 1; // 15 minutes
+      String.format(
+          "/api/2.0/connector-service/feature-flags/OSS_JDBC/%s",
+          DriverUtil.getDriverVersionWithoutOSSSuffix());
+  private static final int DEFAULT_TTL_SECONDS = 900; // 15 minutes
   private static final int REFRESH_BEFORE_EXPIRY_SECONDS = 10; // refresh 10s before expiry
   private final String featureFlagEndpoint;
   private final IDatabricksConnectionContext connectionContext;
