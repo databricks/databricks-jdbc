@@ -23,6 +23,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryClientFactory;
+import com.databricks.jdbc.telemetry.latency.ChunkLatencyHandler;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
 import java.util.*;
@@ -150,6 +151,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     LOGGER.debug("public void close()");
     for (IDatabricksStatementInternal statement : statementSet) {
       statement.close(false);
+      ChunkLatencyHandler.getInstance().clearStatement(statement.getStatementId());
       statementSet.remove(statement);
     }
     this.session.close();

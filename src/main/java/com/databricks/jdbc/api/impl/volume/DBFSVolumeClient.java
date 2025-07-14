@@ -604,15 +604,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throw new IllegalArgumentException(errorMessage);
     }
 
-    // Create file upload requests
-    List<UploadRequest> uploadRequests = new ArrayList<>(objectPaths.size());
-    List<CompletableFuture<VolumePutResult>> futures = new ArrayList<>(objectPaths.size());
-
-    // Initialize lists with null. Later, set values at the correct index
-    for (int i = 0; i < objectPaths.size(); i++) {
-      uploadRequests.add(null);
-      futures.add(null);
-    }
+    // Create upload requests - Optional.empty() for errors, Optional.of() for valid requests
+    List<Optional<UploadRequest>> uploadRequests = new ArrayList<>(objectPaths.size());
 
     for (int i = 0; i < objectPaths.size(); i++) {
       final String objPath = objectPaths.get(i);
@@ -623,11 +616,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       if (!Files.exists(file) || !Files.isRegularFile(file)) {
         String errorMessage = "File not found or not a file: " + localPath;
         LOGGER.error(errorMessage);
-        // Set a completed future at the same index to maintain order
-        futures.set(
-            i,
-            CompletableFuture.completedFuture(
-                new VolumePutResult(400, VolumeOperationStatus.FAILED, errorMessage)));
+        // Optional.empty() represents an error case
+        uploadRequests.add(Optional.empty());
         continue;
       }
 
@@ -636,16 +626,15 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       request.objectPath = objPath;
       request.ucVolumePath = fullPath;
       request.file = file;
-      request.fileIndex = i + 1;
-      // Set request at proper index to maintain order
-      uploadRequests.set(i, request);
+      request.originalIndex = i;
+      request.errorMessage = null;
+
+      // Optional.of() represents a valid request
+      uploadRequests.add(Optional.of(request));
     }
 
-    // Remove null entries from uploadRequests. Files that don't exist will be null
-    uploadRequests.removeIf(Objects::isNull);
-
     // Execute uploads in parallel
-    return executeUploads(uploadRequests, futures);
+    return executeUploads(uploadRequests, localPaths);
   }
 
   /** {@inheritDoc} */
@@ -671,9 +660,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throw new IllegalArgumentException(errorMessage);
     }
 
-    // Create stream upload requests
-    List<UploadRequest> uploadRequests = new ArrayList<>(objectPaths.size());
-    List<CompletableFuture<VolumePutResult>> futures = new ArrayList<>(objectPaths.size());
+    // Create upload requests - Optional.empty() for errors, Optional.of() for valid requests
+    List<Optional<UploadRequest>> uploadRequests = new ArrayList<>(objectPaths.size());
 
     for (int i = 0; i < objectPaths.size(); i++) {
       final String objPath = objectPaths.get(i);
@@ -687,13 +675,15 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       request.ucVolumePath = fullPath;
       request.inputStream = inputStream;
       request.contentLength = contentLength;
-      request.fileIndex = i + 1;
-      uploadRequests.add(request);
-      futures.add(null); // Placeholder for the future
+      request.originalIndex = i;
+      request.errorMessage = null;
+
+      // All stream requests are valid (no file existence check needed)
+      uploadRequests.add(Optional.of(request));
     }
 
     // Execute uploads in parallel
-    return executeUploads(uploadRequests, futures);
+    return executeUploads(uploadRequests, objectPaths);
   }
 
   /** Request class that holds all necessary information for either file or stream uploads. */
@@ -707,7 +697,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     public Path file;
     public InputStream inputStream;
     public long contentLength;
-    public int fileIndex;
+    public int originalIndex;
+    public String errorMessage;
 
     public boolean isFile() {
       return file != null;
@@ -716,39 +707,38 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
   /** Common method to execute uploads in parallel. */
   private List<VolumePutResult> executeUploads(
-      List<UploadRequest> uploadRequests, List<CompletableFuture<VolumePutResult>> futures) {
-    for (UploadRequest request : uploadRequests) {
-      // Get the original index for this request
-      int index = request.fileIndex - 1;
+      List<Optional<UploadRequest>> uploadRequests, List<String> originalPaths) {
 
-      // Skip if the future at this index is already completed (e.g., for missing files)
-      if (futures.get(index) != null && futures.get(index).isDone()) {
-        LOGGER.debug(
-            "Skipping already completed upload for {} {}/{}: {}",
-            request.isFile() ? "file" : "stream",
-            request.fileIndex,
-            uploadRequests.size()
-                + futures.size()
-                - uploadRequests.size(), // Add count of pre-completed futures
-            request.objectPath);
+    // Create futures array to maintain order
+    CompletableFuture<VolumePutResult>[] futures = new CompletableFuture[uploadRequests.size()];
+
+    for (int i = 0; i < uploadRequests.size(); i++) {
+      final int index = i; // Make effectively final for lambda usage
+      Optional<UploadRequest> optionalRequest = uploadRequests.get(index);
+
+      if (optionalRequest.isEmpty()) {
+        // Error case: create a failed result immediately
+        String errorMessage = "File not found or not a file: " + originalPaths.get(index);
+        futures[index] =
+            CompletableFuture.completedFuture(
+                new VolumePutResult(400, VolumeOperationStatus.FAILED, errorMessage));
         continue;
       }
+
+      // Valid request: process the upload
+      UploadRequest request = optionalRequest.get();
+      CompletableFuture<VolumePutResult> uploadFuture = new CompletableFuture<>();
+      futures[index] = uploadFuture;
 
       LOGGER.debug(
           "Uploading {} {}/{}: {} ({} bytes)",
           request.isFile() ? "file" : "stream",
-          request.fileIndex,
-          uploadRequests.size()
-              + futures.size()
-              - uploadRequests.size(), // Add count of pre-completed futures
+          index + 1,
+          uploadRequests.size(),
           request.objectPath,
           request.isFile() ? request.file.toFile().length() : request.contentLength);
 
-      // Create a CompletableFuture for this upload
-      CompletableFuture<VolumePutResult> uploadFuture = new CompletableFuture<>();
-      futures.set(index, uploadFuture);
-
-      // Use retry logic with rate limiting for presigned URL requests
+      // Get presigned URL and start upload
       requestPresignedUrlWithRetry(request.ucVolumePath, request.objectPath, 1)
           .thenAccept(
               response -> {
@@ -756,7 +746,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                 LOGGER.debug(
                     "Got presigned URL for {} {}: {}",
                     request.isFile() ? "file" : "stream",
-                    request.fileIndex,
+                    index + 1,
                     request.objectPath);
 
                 try {
@@ -819,26 +809,32 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     }
 
     // Wait for all operations to complete
-    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+    CompletableFuture.allOf(futures).join();
 
-    // Convert futures to results - maintaining the original order of input files
-    List<VolumePutResult> results = new ArrayList<>(futures.size());
+    // Convert futures to results - order is automatically maintained
+    List<VolumePutResult> results = new ArrayList<>(futures.length);
     for (CompletableFuture<VolumePutResult> future : futures) {
       results.add(future.join());
     }
 
     // Log results
-    long successCount = 0;
-    for (VolumePutResult result : results) {
-      if (result.getStatus() == VolumeOperationStatus.SUCCEEDED) {
-        successCount++;
-      }
-    }
+    long successCount =
+        results.stream()
+            .mapToLong(result -> result.getStatus() == VolumeOperationStatus.SUCCEEDED ? 1 : 0)
+            .sum();
+
+    boolean isFileUpload =
+        uploadRequests.stream()
+            .filter(Optional::isPresent)
+            .findFirst()
+            .map(opt -> opt.get().isFile())
+            .orElse(true);
+
     LOGGER.info(
         "Completed uploads: {}/{} {} successful",
         successCount,
-        futures.size(),
-        uploadRequests.isEmpty() || uploadRequests.get(0).isFile() ? "files" : "streams");
+        results.size(),
+        isFileUpload ? "files" : "streams");
 
     return results;
   }

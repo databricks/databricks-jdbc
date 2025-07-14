@@ -10,12 +10,11 @@ import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
-import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
-import com.databricks.jdbc.api.impl.volume.VolumePutResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.client.filesystem.VolumePutResult;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.File;
 import java.io.FileInputStream;
@@ -1225,34 +1224,5 @@ public class DatabricksDriverExamples {
     printResultSet(rs);
     rs.close();
     con.close();
-  }
-
-  /**
-   * Demonstrates chunk download retry logic by injecting artificial errors in ArrowResultChunk (for
-   * advanced debugging).
-   */
-  @Test
-  void exampleChunkDownloadRetry() throws Exception {
-    // Enable error injection for demonstration
-    ArrowResultChunk.enableErrorInjection();
-    ArrowResultChunk.setErrorInjectionCountMaxValue(2);
-
-    String jdbcUrl = JDBC_URL_WAREHOUSE;
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
-    System.out.println("Connection established......");
-
-    Statement s = con.createStatement();
-    // Large RANGE to force chunk downloads
-    s.executeQuery("SELECT * from RANGE(37500000)");
-
-    ResultSet rs = s.getResultSet();
-    while (rs.next())
-      ;
-
-    con.close();
-    System.out.println("Connection closed successfully......");
-
-    // Disable error injection after the test
-    ArrowResultChunk.disableErrorInjection();
   }
 }

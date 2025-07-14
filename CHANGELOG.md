@@ -1,5 +1,18 @@
 # Version Changelog
 
+## [v1.0.7-oss] - 2025-05-26
+
+### Added
+- Added support for DoD (.mil) domains
+- Enables fetching of metadata for SELECT queries using PreparedStatement prior to setting parameters or executing the query.
+- Added support for SSL client certificate authentication via keystore configuration parameters: SSLKeyStore, SSLKeyStorePwd, SSLKeyStoreType, and SSLKeyStoreProvider.
+
+### Fixed
+- Updated JDBC URL regex to accept valid connection strings that were incorrectly rejected.
+- Updated decimal conversion logic to fix numeric values missing decimal precision.
+
+---
+
 ## [v1.0.6-oss] - 2025-05-29
 
 ### Added

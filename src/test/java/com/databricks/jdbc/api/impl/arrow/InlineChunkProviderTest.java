@@ -95,7 +95,7 @@ public class InlineChunkProviderTest {
     assertTrue(provider.next());
 
     // Get the iterator
-    ArrowResultChunk.ArrowResultChunkIterator iterator = provider.getChunk().getChunkIterator();
+    ArrowResultChunkIterator iterator = provider.getChunk().getChunkIterator();
     ColumnInfo intColumnInfo = new ColumnInfo();
 
     // Verify the data
@@ -137,7 +137,7 @@ public class InlineChunkProviderTest {
     assertTrue(provider.next());
 
     // Get the iterator
-    ArrowResultChunk.ArrowResultChunkIterator iterator = provider.getChunk().getChunkIterator();
+    ArrowResultChunkIterator iterator = provider.getChunk().getChunkIterator();
     ColumnInfo intColumnInfo = new ColumnInfo();
 
     // Verify the data

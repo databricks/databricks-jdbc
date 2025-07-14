@@ -1,0 +1,37 @@
+name: Integration Tests Workflow - Pull Requests
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build and Run Integration Tests (PR)
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!M2MAuthIntegrationTests
+            fake-service-type: 'SQL_EXEC'
+          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!SqlExecApiHybridResultsIntegrationTests,!DBFSVolumeIntegrationTests,!M2MAuthIntegrationTests,!UCVolumeIntegrationTests
+            fake-service-type: 'THRIFT_SERVER'
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: 'adopt'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+      - name: Run Integration Tests (without secrets)
+        run: ${{ matrix.test-command }}
+        env:
+          FAKE_SERVICE_TYPE: ${{ matrix.fake-service-type }} 

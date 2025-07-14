@@ -3,6 +3,7 @@ package com.databricks.jdbc.telemetry;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
@@ -12,6 +13,7 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.*;
+import com.databricks.jdbc.model.telemetry.latency.ChunkDetails;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
@@ -57,6 +59,9 @@ public class TelemetryHelper {
   }
 
   public static boolean isTelemetryAllowedForConnection(IDatabricksConnectionContext context) {
+    if (context.forceEnableTelemetry()) {
+      return true;
+    }
     return context != null
         && context.isTelemetryEnabled()
         && DatabricksDriverFeatureFlagsContextFactory.getInstance(context)
@@ -85,6 +90,20 @@ public class TelemetryHelper {
 
   public static void exportFailureLog(
       IDatabricksConnectionContext connectionContext, String errorName, String errorMessage) {
+    exportFailureLog(
+        connectionContext,
+        errorName,
+        errorMessage,
+        null,
+        DatabricksThreadContextHolder.getStatementId());
+  }
+
+  public static void exportFailureLog(
+      IDatabricksConnectionContext connectionContext,
+      String errorName,
+      String errorMessage,
+      Long chunkIndex,
+      String statementId) {
 
     // Connection context is not set in following scenarios:
     // a. Unit tests
@@ -101,10 +120,18 @@ public class TelemetryHelper {
                   new FrontendLogEntry()
                       .setSqlDriverLog(
                           new TelemetryEvent()
+                              .setSqlStatementId(statementId)
                               .setDriverConnectionParameters(
                                   getDriverConnectionParameter(connectionContext))
                               .setDriverErrorInfo(errorInfo)
                               .setDriverSystemConfiguration(getDriverSystemConfiguration())));
+      if (chunkIndex != null) {
+        // When chunkIndex is provided, we are exporting a chunk download failure log
+        telemetryFrontendLog
+            .getEntry()
+            .getSqlDriverLog()
+            .setSqlOperation(new SqlExecutionEvent().setChunkId(chunkIndex));
+      }
       ITelemetryClient client =
           TelemetryClientFactory.getInstance().getTelemetryClient(connectionContext);
       client.exportEvent(telemetryFrontendLog);
@@ -115,14 +142,45 @@ public class TelemetryHelper {
     SqlExecutionEvent executionEvent =
         new SqlExecutionEvent()
             .setDriverStatementType(DatabricksThreadContextHolder.getStatementType())
-            .setRetryCount(DatabricksThreadContextHolder.getRetryCount())
-            .setChunkId(DatabricksThreadContextHolder.getChunkId());
+            .setRetryCount(DatabricksThreadContextHolder.getRetryCount());
     exportLatencyLog(
         DatabricksThreadContextHolder.getConnectionContext(),
         executionTime,
         executionEvent,
         DatabricksThreadContextHolder.getStatementId(),
         DatabricksThreadContextHolder.getSessionId());
+  }
+
+  public static void exportPollingLatency(
+      long pollingLatencyMillis, IDatabricksSession session, String statementId) {}
+
+  public static void exportChunkLatencyTelemetry(ChunkDetails chunkDetails, String statementId) {
+    if (chunkDetails == null) {
+      return;
+    }
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksThreadContextHolder.getConnectionContext();
+    if (connectionContext == null) {
+      return;
+    }
+
+    SqlExecutionEvent sqlExecutionEvent = new SqlExecutionEvent().setChunkDetails(chunkDetails);
+
+    TelemetryEvent telemetryEvent =
+        new TelemetryEvent()
+            .setSqlOperation(sqlExecutionEvent)
+            .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext));
+
+    TelemetryFrontendLog telemetryFrontendLog =
+        new TelemetryFrontendLog()
+            .setFrontendLogEventId(getEventUUID())
+            .setContext(getLogContext())
+            .setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
+
+    TelemetryClientFactory.getInstance()
+        .getTelemetryClient(connectionContext)
+        .exportEvent(telemetryFrontendLog);
   }
 
   @VisibleForTesting
@@ -231,7 +289,6 @@ public class TelemetryHelper {
             .setNonProxyHosts(StringUtil.split(connectionContext.getNonProxyHosts()))
             .setHttpConnectionPoolSize(connectionContext.getHttpConnectionPoolSize())
             .setEnableSeaHybridResults(connectionContext.isSqlExecHybridResultsEnabled())
-            .setEnableComplexSupport(connectionContext.isComplexDatatypeSupportEnabled())
             .setAllowSelfSignedSupport(connectionContext.allowSelfSignedCerts())
             .setUseSystemTrustStore(connectionContext.useSystemTrustStore())
             .setRowsFetchedPerBlock(connectionContext.getRowsFetchedPerBlock())

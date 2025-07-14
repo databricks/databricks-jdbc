@@ -2,11 +2,9 @@ name: Code Coverage
 
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
 
 on:
-  pull_request_target:
+  pull_request:
 
 jobs:
   coverage:
@@ -52,34 +50,38 @@ jobs:
           echo "No coverage override found"
         fi
       
-    - name: Add coverage to PR (with strict checks)
+    - name: Check coverage percentage
       if: steps.override.outputs.override == 'false'
-      id: jacoco
-      uses: madrapps/jacoco-report@v1.7.2
-      with:
-        paths: |
-          ${{ github.workspace }}/target/site/jacoco/jacoco.xml
-        token: ${{ secrets.GITHUB_TOKEN }}
-        min-coverage-overall: 85
-        title: '📊 Code Coverage Report'
-        update-comment: true
-        pass-emoji: ':green_circle:'
-        fail-emoji: ':red_circle:'
+      run: |
+        COVERAGE_FILE="target/site/jacoco/jacoco.xml"
+        if [ ! -f "$COVERAGE_FILE" ]; then
+          echo "ERROR: Coverage file not found at $COVERAGE_FILE"
+          exit 1
+        fi
         
-    - name: Add coverage to PR (with override)
-      if: steps.override.outputs.override == 'true'
-      id: jacoco-override
-      uses: madrapps/jacoco-report@v1.7.2
-      with:
-        paths: |
-          ${{ github.workspace }}/target/site/jacoco/jacoco.xml
-        token: ${{ secrets.GITHUB_TOKEN }}
-        min-coverage-overall: 85
-        min-coverage-changed-files: 0
-        title: '📊 Code Coverage Report (SKIPPED: ${{ steps.override.outputs.reason }})'
-        update-comment: true
-        pass-emoji: ':green_circle:'
-        fail-emoji: ':red_circle:'
+        # Install xmllint if not available
+        if ! command -v xmllint &> /dev/null; then
+          sudo apt-get update && sudo apt-get install -y libxml2-utils
+        fi
+        
+        COVERED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@covered)" "$COVERAGE_FILE")
+        MISSED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@missed)" "$COVERAGE_FILE")
+        TOTAL=$((COVERED + MISSED))
+        
+        # Use Python for floating-point math
+        PERCENTAGE=$(python3 -c "covered=${COVERED}; total=${TOTAL}; print(round((covered/total)*100, 2))")
+        
+        echo "Branch Coverage: $PERCENTAGE%"
+        echo "Required Coverage: 85%"
+        
+        # Use Python to compare the coverage with 85
+        python3 -c "import sys; sys.exit(0 if float('$PERCENTAGE') >= 85 else 1)"
+        if [ $? -eq 1 ]; then
+          echo "ERROR: Coverage is $PERCENTAGE%, which is less than the required 85%"
+          exit 1
+        else
+          echo "SUCCESS: Coverage is $PERCENTAGE%, which meets the required 85%"
+        fi
         
     - name: Coverage enforcement summary
       run: |

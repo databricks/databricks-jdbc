@@ -55,6 +55,7 @@ final class DatabricksThriftAccessor {
   private final boolean enableDirectResults;
   private final int asyncPollIntervalMillis;
   private final int maxRowsPerBlock;
+  private final String connectionUuid;
   private TProtocolVersion serverProtocolVersion = JDBC_THRIFT_VERSION;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
@@ -67,6 +68,7 @@ final class DatabricksThriftAccessor {
     String endPointUrl = connectionContext.getEndpointURL();
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
     this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
+    this.connectionUuid = connectionContext.getConnectionUuid();
 
     if (!DriverUtil.isRunningAgainstFake()) {
       // Create a new thrift client for each thread as client state is not thread safe. Note that
@@ -89,6 +91,7 @@ final class DatabricksThriftAccessor {
     this.enableDirectResults = connectionContext.getDirectResultMode();
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
     this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
+    this.connectionUuid = connectionContext.getConnectionUuid();
   }
 
   @SuppressWarnings("rawtypes")
@@ -99,31 +102,29 @@ final class DatabricksThriftAccessor {
         return getThriftClient().OpenSession((TOpenSessionReq) request);
       } else if (request instanceof TCloseSessionReq) {
         return getThriftClient().CloseSession((TCloseSessionReq) request);
-      } else if (request instanceof TGetPrimaryKeysReq) {
-        return listPrimaryKeys((TGetPrimaryKeysReq) request);
       } else if (request instanceof TGetFunctionsReq) {
         return listFunctions((TGetFunctionsReq) request);
-      } else if (request instanceof TGetSchemasReq) {
-        return listSchemas((TGetSchemasReq) request);
-      } else if (request instanceof TGetColumnsReq) {
-        return listColumns((TGetColumnsReq) request);
+      } else if (request instanceof TGetPrimaryKeysReq) {
+        return listPrimaryKeys((TGetPrimaryKeysReq) request);
+      } else if (request instanceof TGetCrossReferenceReq) {
+        return listCrossReferences((TGetCrossReferenceReq) request);
       } else if (request instanceof TGetCatalogsReq) {
         return getCatalogs((TGetCatalogsReq) request);
       } else if (request instanceof TGetTablesReq) {
         return getTables((TGetTablesReq) request);
       } else if (request instanceof TGetTableTypesReq) {
         return getTableTypes((TGetTableTypesReq) request);
+      } else if (request instanceof TGetSchemasReq) {
+        return listSchemas((TGetSchemasReq) request);
       } else if (request instanceof TGetTypeInfoReq) {
         return getTypeInfo((TGetTypeInfoReq) request);
-      } else if (request instanceof TGetCrossReferenceReq) {
-        return listCrossReferences((TGetCrossReferenceReq) request);
-      } else {
-        String errorMessage =
-            String.format(
-                "No implementation for fetching thrift response for Request {%s}", request);
-        LOGGER.error(errorMessage);
-        throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
+      } else if (request instanceof TGetColumnsReq) {
+        return listColumns((TGetColumnsReq) request);
       }
+      String errorMessage =
+          String.format("No implementation for fetching thrift response for Request {%s}", request);
+      LOGGER.error(errorMessage);
+      throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
     } catch (TException | SQLException e) {
       Throwable cause = e;
       while (cause != null) {
@@ -203,21 +204,20 @@ final class DatabricksThriftAccessor {
       StatementType statementType)
       throws SQLException {
 
-    // Set direct result configuration
-    if (enableDirectResults) {
-      // if getDirectResults.maxRows > 0, the server will immediately call FetchResults. Fetch
-      // initial rows limited by maxRows.
-      // if = 0, server does not call FetchResults.
-      TSparkGetDirectResults directResults =
-          new TSparkGetDirectResults().setMaxBytes(DEFAULT_BYTE_LIMIT).setMaxRows(maxRowsPerBlock);
-      request.setGetDirectResults(directResults);
-    }
-    TExecuteStatementResp response;
-    TFetchResultsResp resultSet;
-    int timeoutInSeconds =
-        (parentStatement == null) ? 0 : parentStatement.getStatement().getQueryTimeout();
-
     try {
+      // Set direct result configuration
+      if (enableDirectResults) {
+        // if getDirectResults.maxRows > 0, the server will immediately call FetchResults. Fetch
+        // initial rows limited by maxRows.
+        // if = 0, server does not call FetchResults.
+        TSparkGetDirectResults directResults =
+            new TSparkGetDirectResults()
+                .setMaxBytes(DEFAULT_BYTE_LIMIT)
+                .setMaxRows(maxRowsPerBlock);
+        request.setGetDirectResults(directResults);
+      }
+      TExecuteStatementResp response;
+      TFetchResultsResp resultSet;
       response = getThriftClient().ExecuteStatement(request);
       checkResponseForErrors(response);
 
@@ -228,39 +228,13 @@ final class DatabricksThriftAccessor {
       }
 
       // Get the operation status from direct results if present
-      TGetOperationStatusResp statusResp = null;
-      if (response.isSetDirectResults()) {
-        checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
-        statusResp = response.getDirectResults().getOperationStatus();
-        checkOperationStatusForErrors(statusResp);
-      }
+      String sessionDebugInfo =
+          String.format(
+              "Session [%s] with (%s)", session.getSessionId(), session.getComputeResource());
 
-      // Create a timeout handler for this operation
-      TimeoutHandler timeoutHandler = getTimeoutHandler(response, timeoutInSeconds);
-
-      // Polling until query operation state is finished
-      TGetOperationStatusReq statusReq =
-          new TGetOperationStatusReq()
-              .setOperationHandle(response.getOperationHandle())
-              .setGetProgressUpdate(false);
-      while (shouldContinuePolling(statusResp)) {
-        // Check for timeout before continuing
-        timeoutHandler.checkTimeout();
-
-        // Polling for operation status
-        statusResp = getThriftClient().GetOperationStatus(statusReq);
-        checkOperationStatusForErrors(statusResp);
-        try {
-          TimeUnit.MILLISECONDS.sleep(asyncPollIntervalMillis);
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt(); // Restore interrupt flag
-          cancelOperation(
-              new TCancelOperationReq().setOperationHandle(response.getOperationHandle()));
-          throw new DatabricksSQLException(
-              "Query execution interrupted", e, DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
-        }
-      }
-
+      TGetOperationStatusResp statusResp =
+          pollTillOperationFinished(
+              response, parentStatement, session, statementId, sessionDebugInfo);
       if (hasResultDataInDirectResults(response)) {
         // The first response has result data
         // There is no polling in this case as status was already finished
@@ -268,6 +242,7 @@ final class DatabricksThriftAccessor {
         resultSet.setResultSetMetadata(response.getDirectResults().getResultSetMetadata());
       } else {
         // Fetch the result data after polling
+        long fetchStartTime = System.nanoTime();
         resultSet =
             getResultSetResp(
                 response.getStatus(),
@@ -275,8 +250,14 @@ final class DatabricksThriftAccessor {
                 response.toString(),
                 maxRowsPerBlock,
                 true);
+        long fetchEndTime = System.nanoTime();
+        long fetchLatencyNanos = fetchEndTime - fetchStartTime;
+        long fetchLatencyMillis = fetchLatencyNanos / 1_000_000;
+        LOGGER.debug(
+            String.format(
+                "Connection [%s] Statement [%s] Session [%s] Thrift fetch latency: %dms",
+                connectionUuid, statementId, sessionDebugInfo, fetchLatencyMillis));
       }
-
       return new DatabricksResultSet(
           getStatementStatus(statusResp),
           statementId,
@@ -294,12 +275,65 @@ final class DatabricksThriftAccessor {
     }
   }
 
+  private TGetOperationStatusResp pollTillOperationFinished(
+      TExecuteStatementResp response,
+      IDatabricksStatementInternal parentStatement,
+      IDatabricksSession session,
+      StatementId statementId,
+      String sessionDebugInfo)
+      throws SQLException, TException {
+    int timeoutInSeconds =
+        (parentStatement == null) ? 0 : parentStatement.getStatement().getQueryTimeout();
+
+    TGetOperationStatusResp statusResp = null;
+    if (response.isSetDirectResults()) {
+      checkDirectResultsForErrorStatus(response.getDirectResults(), response.toString());
+      statusResp = response.getDirectResults().getOperationStatus();
+      checkOperationStatusForErrors(statusResp);
+    }
+
+    TimeoutHandler timeoutHandler = getTimeoutHandler(response, timeoutInSeconds);
+
+    // Polling until query operation state is finished
+    long pollingStartTime = System.nanoTime();
+    TGetOperationStatusReq statusReq =
+        new TGetOperationStatusReq()
+            .setOperationHandle(response.getOperationHandle())
+            .setGetProgressUpdate(false);
+    while (shouldContinuePolling(statusResp)) {
+      // Check for timeout before continuing
+      timeoutHandler.checkTimeout();
+
+      // Polling for operation status
+      statusResp = getOperationStatus(statusReq, statementId);
+      checkOperationStatusForErrors(statusResp);
+      try {
+        TimeUnit.MILLISECONDS.sleep(asyncPollIntervalMillis);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt(); // Restore interrupt flag
+        cancelOperation(
+            new TCancelOperationReq().setOperationHandle(response.getOperationHandle()));
+        throw new DatabricksSQLException(
+            "Query execution interrupted", e, DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
+      }
+    }
+    long pollingEndTime = System.nanoTime();
+    long pollingLatencyNanos = pollingEndTime - pollingStartTime;
+    long pollingLatencyMillis = pollingLatencyNanos / 1_000_000;
+    LOGGER.debug(
+        String.format(
+            "Connection [%s] Statement [%s] Session [%s] Thrift polling latency: %dms",
+            connectionUuid, statementId, sessionDebugInfo, pollingLatencyMillis));
+    return statusResp;
+  }
+
   DatabricksResultSet executeAsync(
       TExecuteStatementReq request,
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       StatementType statementType)
       throws SQLException {
+
     TExecuteStatementResp response;
     try {
       response = getThriftClient().ExecuteStatement(request);
@@ -312,6 +346,7 @@ final class DatabricksThriftAccessor {
         throw new DatabricksSQLException(response.status.errorMessage, response.status.sqlState);
       }
     } catch (DatabricksSQLException | TException e) {
+
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
@@ -329,6 +364,7 @@ final class DatabricksThriftAccessor {
       parentStatement.setStatementId(statementId);
     }
     StatementStatus statementStatus = getAsyncStatus(response.getStatus());
+
     return new DatabricksResultSet(
         statementStatus, statementId, null, statementType, parentStatement, session);
   }
@@ -339,19 +375,53 @@ final class DatabricksThriftAccessor {
       IDatabricksSession session)
       throws SQLException {
     LOGGER.debug("Operation handle {}", operationHandle);
+
+    long getStatementResultStartTime = System.nanoTime();
+    StatementId statementId = new StatementId(operationHandle.getOperationId());
+    String sessionInfo = session.getSessionId() + " (" + session.getComputeResource() + ")";
+
     TGetOperationStatusReq request =
         new TGetOperationStatusReq()
             .setOperationHandle(operationHandle)
             .setGetProgressUpdate(false);
     TGetOperationStatusResp response;
     TFetchResultsResp resultSet = null;
-    StatementId statementId = new StatementId(operationHandle.getOperationId());
     try {
-      response = getThriftClient().GetOperationStatus(request);
+      response = getOperationStatus(request, statementId);
       TOperationState operationState = response.getOperationState();
       if (operationState == TOperationState.FINISHED_STATE) {
+        long fetchStartTime = System.nanoTime();
         resultSet =
             getResultSetResp(response.getStatus(), operationHandle, response.toString(), -1, true);
+        long fetchEndTime = System.nanoTime();
+        long fetchLatencyNanos = fetchEndTime - fetchStartTime;
+        long fetchLatencyMillis = fetchLatencyNanos / 1_000_000;
+        LOGGER.debug(
+            "Connection ["
+                + connectionUuid
+                + "] Statement ["
+                + statementId
+                + "] Session ["
+                + sessionInfo
+                + "] Thrift getStatementResult fetch latency: "
+                + fetchLatencyMillis
+                + "ms");
+
+        long getStatementResultEndTime = System.nanoTime();
+        long getStatementResultLatencyNanos =
+            getStatementResultEndTime - getStatementResultStartTime;
+        long getStatementResultLatencyMillis = getStatementResultLatencyNanos / 1_000_000;
+        LOGGER.debug(
+            "Connection ["
+                + connectionUuid
+                + "] Statement ["
+                + statementId
+                + "] Session ["
+                + sessionInfo
+                + "] Thrift getStatementResult latency: "
+                + getStatementResultLatencyMillis
+                + "ms");
+
         return new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),
             statementId,
@@ -361,6 +431,20 @@ final class DatabricksThriftAccessor {
             session);
       }
     } catch (TException e) {
+      long getStatementResultEndTime = System.nanoTime();
+      long getStatementResultLatencyNanos = getStatementResultEndTime - getStatementResultStartTime;
+      long getStatementResultLatencyMillis = getStatementResultLatencyNanos / 1_000_000;
+      LOGGER.debug(
+          "Connection ["
+              + connectionUuid
+              + "] Statement ["
+              + statementId
+              + "] Session ["
+              + sessionInfo
+              + "] Thrift getStatementResult latency (with error): "
+              + getStatementResultLatencyMillis
+              + "ms");
+
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
@@ -369,6 +453,21 @@ final class DatabricksThriftAccessor {
       throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
     StatementStatus executionStatus = getStatementStatus(response);
+
+    long getStatementResultEndTime = System.nanoTime();
+    long getStatementResultLatencyNanos = getStatementResultEndTime - getStatementResultStartTime;
+    long getStatementResultLatencyMillis = getStatementResultLatencyNanos / 1_000_000;
+    LOGGER.debug(
+        "Connection ["
+            + connectionUuid
+            + "] Statement ["
+            + statementId
+            + "] Session ["
+            + sessionInfo
+            + "] Thrift getStatementResult latency: "
+            + getStatementResultLatencyMillis
+            + "ms");
+
     return new DatabricksResultSet(
         executionStatus, statementId, resultSet, StatementType.SQL, parentStatement, session);
   }
@@ -648,5 +747,22 @@ final class DatabricksThriftAccessor {
             LOGGER.warn("Failed to cancel operation on timeout: {}", e.getMessage());
           }
         });
+  }
+
+  private TGetOperationStatusResp getOperationStatus(
+      TGetOperationStatusReq statusReq, StatementId statementId) throws TException {
+    long operationStatusStartTime = System.nanoTime();
+    TGetOperationStatusResp operationStatus = getThriftClient().GetOperationStatus(statusReq);
+    long operationStatusEndTime = System.nanoTime();
+    long operationStatusLatencyMillis =
+        (operationStatusEndTime - operationStatusStartTime) / 1_000_000;
+    LOGGER.debug(
+        "Statement [{}] Thrift operation status latency: {}ms",
+        statementId,
+        operationStatusLatencyMillis);
+
+    // TODO: Export operation status latency to telemetry
+
+    return operationStatus;
   }
 }

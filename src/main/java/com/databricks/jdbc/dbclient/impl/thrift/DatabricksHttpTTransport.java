@@ -92,7 +92,16 @@ public class DatabricksHttpTTransport extends TTransport {
 
   @Override
   public void flush() throws TTransportException {
+    long refreshHeadersStartTime = System.currentTimeMillis();
     refreshHeadersIfRequired();
+    long refreshHeadersEndTime = System.currentTimeMillis();
+    long refreshHeadersLatency = refreshHeadersEndTime - refreshHeadersStartTime;
+    LOGGER.debug(
+        "Connection ["
+            + connectionContext.getConnectionUuid()
+            + "] Header refresh latency: "
+            + refreshHeadersLatency
+            + "ms");
 
     HttpPost request = new HttpPost(this.url);
     DEFAULT_HEADERS.forEach(request::addHeader);
@@ -112,7 +121,17 @@ public class DatabricksHttpTTransport extends TTransport {
     request.setEntity(new ByteArrayEntity(requestBuffer.toByteArray()));
 
     // Execute the request and handle the response
+    long httpRequestStartTime = System.currentTimeMillis();
     try (CloseableHttpResponse response = httpClient.execute(request)) {
+      long httpRequestEndTime = System.currentTimeMillis();
+      long httpRequestLatency = httpRequestEndTime - httpRequestStartTime;
+      LOGGER.debug(
+          "Connection ["
+              + connectionContext.getConnectionUuid()
+              + "] HTTP request latency: "
+              + httpRequestLatency
+              + "ms");
+
       ValidationUtil.checkHTTPError(response);
 
       // Read the response
@@ -122,6 +141,15 @@ public class DatabricksHttpTTransport extends TTransport {
         responseBuffer = new ByteArrayInputStream(responseBytes);
       }
     } catch (DatabricksHttpException | IOException e) {
+      long httpRequestEndTime = System.currentTimeMillis();
+      long httpRequestLatency = httpRequestEndTime - httpRequestStartTime;
+      LOGGER.debug(
+          "Connection ["
+              + connectionContext.getConnectionUuid()
+              + "] HTTP request latency (with error): "
+              + httpRequestLatency
+              + "ms");
+
       String errorMessage = "Failed to flush data to server: " + e.getMessage();
       LOGGER.error(e, errorMessage);
       throw new TTransportException(TTransportException.UNKNOWN, errorMessage);

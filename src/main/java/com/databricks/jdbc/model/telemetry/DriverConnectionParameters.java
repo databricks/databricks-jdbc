@@ -121,9 +121,6 @@ public class DriverConnectionParameters {
   @JsonProperty("enable_sea_hybrid_results")
   boolean enableSeaHybridResults;
 
-  @JsonProperty("enable_complex_datatype_support")
-  boolean enableComplexSupport;
-
   @JsonProperty("allow_self_signed_support")
   boolean allowSelfSignedSupport;
 
@@ -331,11 +328,6 @@ public class DriverConnectionParameters {
     return this;
   }
 
-  public DriverConnectionParameters setEnableComplexSupport(boolean enableComplexSupport) {
-    this.enableComplexSupport = enableComplexSupport;
-    return this;
-  }
-
   public DriverConnectionParameters setAllowSelfSignedSupport(boolean allowSelfSignedSupport) {
     this.allowSelfSignedSupport = allowSelfSignedSupport;
     return this;
@@ -397,7 +389,6 @@ public class DriverConnectionParameters {
         .add("nonProxyHosts", nonProxyHosts)
         .add("httpConnectionPoolSize", httpConnectionPoolSize)
         .add("enableSeaHybridResults", enableSeaHybridResults)
-        .add("enableComplexSupport", enableComplexSupport)
         .add("allowSelfSignedSupport", allowSelfSignedSupport)
         .add("useSystemTrustStore", useSystemTrustStore)
         .add("rowsFetchedPerBlock", rowsFetchedPerBlock)

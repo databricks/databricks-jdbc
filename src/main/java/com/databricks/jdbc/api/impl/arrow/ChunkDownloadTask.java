@@ -1,16 +1,14 @@
 package com.databricks.jdbc.api.impl.arrow;
 
-import static com.databricks.jdbc.telemetry.TelemetryHelper.exportLatencyLog;
-
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.latency.ChunkLatencyHandler;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
@@ -23,17 +21,17 @@ class ChunkDownloadTask implements DatabricksCallableTask {
   private static final long RETRY_DELAY_MS = 1500; // 1.5 seconds
   private final ArrowResultChunk chunk;
   private final IDatabricksHttpClient httpClient;
-  private final ChunkDownloadCallback chunkDownloader;
+  private final ChunkDownloadManager chunkDownloader;
   private final IDatabricksConnectionContext connectionContext;
   private final String statementId;
-  private final ChunkLinkDownloadService linkDownloadService;
+  private final ChunkLinkDownloadService<ArrowResultChunk> linkDownloadService;
   Throwable uncaughtException = null;
 
   ChunkDownloadTask(
       ArrowResultChunk chunk,
       IDatabricksHttpClient httpClient,
-      ChunkDownloadCallback chunkDownloader,
-      ChunkLinkDownloadService linkDownloadService) {
+      ChunkDownloadManager chunkDownloader,
+      ChunkLinkDownloadService<ArrowResultChunk> linkDownloadService) {
     this.chunk = chunk;
     this.httpClient = httpClient;
     this.chunkDownloader = chunkDownloader;
@@ -49,7 +47,6 @@ class ChunkDownloadTask implements DatabricksCallableTask {
     boolean downloadSuccessful = false;
 
     // Sets context in the newly spawned thread
-    DatabricksThreadContextHolder.setChunkId(chunk.getChunkIndex());
     DatabricksThreadContextHolder.setConnectionContext(this.connectionContext);
     DatabricksThreadContextHolder.setStatementId(this.statementId);
 
@@ -67,7 +64,13 @@ class ChunkDownloadTask implements DatabricksCallableTask {
 
           chunk.downloadData(httpClient, chunkDownloader.getCompressionCodec());
           downloadSuccessful = true;
-        } catch (DatabricksParsingException | IOException e) {
+
+          // Record chunk download latency on successful download
+          long downloadLatency = System.currentTimeMillis() - startTime;
+          ChunkLatencyHandler.getInstance()
+              .recordChunkDownloadLatency(statementId, chunk.getChunkIndex(), downloadLatency);
+
+        } catch (IOException | DatabricksSQLException e) {
           retries++;
           if (retries >= MAX_RETRIES) {
             LOGGER.error(
@@ -76,17 +79,19 @@ class ChunkDownloadTask implements DatabricksCallableTask {
                 MAX_RETRIES,
                 chunk.getChunkIndex(),
                 e.getMessage());
-            chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
+            chunk.setStatus(ChunkStatus.DOWNLOAD_FAILED);
             throw new DatabricksSQLException(
                 "Failed to download chunk after multiple attempts",
                 e,
-                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
+                statementId,
+                chunk.getChunkIndex(),
+                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name());
           } else {
             LOGGER.warn(
                 String.format(
                     "Retry attempt %d for chunk index: %d, Error: %s",
                     retries, chunk.getChunkIndex(), e.getMessage()));
-            chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_RETRY);
+            chunk.setStatus(ChunkStatus.DOWNLOAD_RETRY);
             try {
               Thread.sleep(RETRY_DELAY_MS);
             } catch (InterruptedException ie) {
@@ -103,15 +108,23 @@ class ChunkDownloadTask implements DatabricksCallableTask {
       uncaughtException = t;
       throw t;
     } finally {
-      if (!downloadSuccessful) {
+      if (downloadSuccessful) {
+        chunk.getChunkReadyFuture().complete(null); // complete the void future successfully
+      } else {
         LOGGER.info(
             "Uncaught exception during chunk download. Chunk index: %d, Error: %s",
             chunk.getChunkIndex(), Arrays.toString(uncaughtException.getStackTrace()));
-        chunk.setStatus(ArrowResultChunk.ChunkStatus.DOWNLOAD_FAILED);
+        // Status is set to DOWNLOAD_SUCCEEDED in the happy path. For any failure case,
+        // explicitly set status to DOWNLOAD_FAILED here to ensure consistent error handling
+        chunk.setStatus(ChunkStatus.DOWNLOAD_FAILED);
+        chunk
+            .getChunkReadyFuture()
+            .completeExceptionally(
+                new DatabricksSQLException(
+                    "Download failed for chunk index " + chunk.getChunkIndex(),
+                    DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR));
       }
 
-      exportLatencyLog(System.currentTimeMillis() - startTime);
-      chunkDownloader.downloadProcessed(chunk.getChunkIndex());
       DatabricksThreadContextHolder.clearAllContext();
     }
 

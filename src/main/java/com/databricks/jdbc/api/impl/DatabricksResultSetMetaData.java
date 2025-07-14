@@ -25,7 +25,6 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -44,7 +43,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final StatementId statementId;
   private IDatabricksConnectionContext ctx;
   private final ImmutableList<ImmutableDatabricksColumn> columns;
-  private final ImmutableMap<String, Integer> columnNameIndex;
+  private final CaseInsensitiveImmutableMap<Integer> columnNameIndex;
   private final long totalRows;
   private Long chunkCount;
   private final boolean isCloudFetchUsed;
@@ -127,7 +126,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       }
     }
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
+    this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = resultManifest.getTotalRowCount();
     this.chunkCount = resultManifest.getTotalChunkCount();
     this.isCloudFetchUsed = usesExternalLinks;
@@ -213,7 +212,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       }
     }
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
+    this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = rows;
     this.chunkCount = chunkCount;
     this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
@@ -263,7 +262,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     }
 
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
+    this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
   }
@@ -315,7 +314,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       columnNameToIndexMap.putIfAbsent(columnNames.get(i), i + 1);
     }
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
+    this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
   }
@@ -373,7 +372,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       columnNameToIndexMap.putIfAbsent(columnNames.get(i), i + 1);
     }
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
+    this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
   }
@@ -450,7 +449,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.isCloudFetchUsed = false;
     this.totalRows = -1;
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = ImmutableMap.copyOf(columnNameToIndexMap);
+    this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
     ;
   }
 

@@ -25,7 +25,6 @@ import java.io.Reader;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
-import java.security.Security;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.sql.Timestamp;
@@ -118,7 +117,8 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
     }
   }
 
-  private final String BOUNCY_CASTLE_PROVIDER = "BC";
+  private static final BouncyCastleProvider bouncyCastleProvider = new BouncyCastleProvider();
+
   private IDatabricksHttpClient hc;
   private String clientId;
   private String tokenUrl;
@@ -235,13 +235,10 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
   }
 
   private PrivateKey getPrivateKey() {
-    try {
-      Security.addProvider(new BouncyCastleProvider());
-      try (Reader reader = new FileReader(jwtKeyFile);
-          PEMParser pemParser = new PEMParser(reader)) {
-        Object object = pemParser.readObject();
-        return convertPrivateKey(object);
-      }
+    try (Reader reader = new FileReader(jwtKeyFile);
+        PEMParser pemParser = new PEMParser(reader)) {
+      Object object = pemParser.readObject();
+      return convertPrivateKey(object);
     } catch (DatabricksSQLException | IOException e) {
       String errorMessage = "Failed to parse private key: " + e.getMessage();
       LOGGER.error(errorMessage);
@@ -257,7 +254,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
         PKCS8EncryptedPrivateKeyInfo encryptedKeyInfo = (PKCS8EncryptedPrivateKeyInfo) pemObject;
         JceOpenSSLPKCS8DecryptorProviderBuilder decryptorProviderBuilder =
             new JceOpenSSLPKCS8DecryptorProviderBuilder();
-        decryptorProviderBuilder.setProvider(BOUNCY_CASTLE_PROVIDER);
+        decryptorProviderBuilder.setProvider(bouncyCastleProvider);
         InputDecryptorProvider decryptorProvider =
             decryptorProviderBuilder.build(jwtKeyPassphrase.toCharArray());
         privateKeyInfo = encryptedKeyInfo.decryptPrivateKeyInfo(decryptorProvider);
@@ -269,8 +266,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
           privateKeyInfo = (PrivateKeyInfo) pemObject;
         }
       }
-      JcaPEMKeyConverter keyConverter =
-          new JcaPEMKeyConverter().setProvider(BOUNCY_CASTLE_PROVIDER);
+      JcaPEMKeyConverter keyConverter = new JcaPEMKeyConverter().setProvider(bouncyCastleProvider);
       return keyConverter.getPrivateKey(privateKeyInfo);
     } catch (OperatorCreationException | PKCSException | PEMException e) {
       String errorMessage = "Cannot decrypt private JWT key " + e.getMessage();

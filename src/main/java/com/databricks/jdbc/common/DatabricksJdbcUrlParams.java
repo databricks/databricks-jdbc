@@ -81,6 +81,7 @@ public enum DatabricksJdbcUrlParams {
   SSL_KEY_STORE_PASSWORD("SSLKeyStorePwd", "SSL key store password"),
   SSL_KEY_STORE_TYPE("SSLKeyStoreType", "SSL key store type", "JKS"),
   SSL_KEY_STORE_PROVIDER("SSLKeyStoreProvider", "SSL key store provider"),
+  SSL_TRUST_STORE_PROVIDER("SSLTrustStoreProvider", "SSL trust store provider"),
   USE_SYSTEM_TRUST_STORE("UseSystemTrustStore", "Use system trust store for SSL", "0"),
   CHECK_CERTIFICATE_REVOCATION("CheckCertRevocation", "Check certificate revocation", "1"),
   ACCEPT_UNDETERMINED_CERTIFICATE_REVOCATION(
@@ -131,6 +132,12 @@ public enum DatabricksJdbcUrlParams {
   TOKEN_CACHE_PASS_PHRASE("TokenCachePassPhrase", "Pass phrase to use for OAuth U2M Token Cache"),
   ENABLE_TOKEN_CACHE("EnableTokenCache", "Enable caching OAuth tokens", "1"),
   APPLICATION_NAME("ApplicationName", "Name of application using the driver", ""),
+  CHUNK_READY_TIMEOUT_SECONDS(
+      "ChunkReadyTimeoutSeconds",
+      "Time limit for a chunk to be ready to consume when downloading",
+      "0"),
+  FORCE_ENABLE_TELEMETRY("ForceEnableTelemetry", "Force enable telemetry", "0"),
+  TELEMETRY_FLUSH_INTERVAL("TelemetryFlushInterval", "Flush interval in milliseconds", "5000"),
   MAX_CONCURRENT_PRESIGNED_REQUESTS(
       "MaxConcurrentPresignedRequests", "Maximum number of concurrent presigned requests", "50");
 

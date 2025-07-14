@@ -5,7 +5,7 @@
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
   <!-- This value may be modified by a release script to reflect the current version of the driver. -->
-  <version>1.0.6-oss</version>
+  <version>1.0.7-oss</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver</name>
   <description>Databricks JDBC Driver.</description>
@@ -484,10 +484,6 @@
                   <shadedPattern>com.databricks.internal.io</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>jakarta.servlet</pattern>
-                  <shadedPattern>com.databricks.internal.jakarta.servlet</shadedPattern>
-                </relocation>
-                <relocation>
                   <pattern>net.jpountz</pattern>
                   <shadedPattern>com.databricks.internal.jpountz</shadedPattern>
                 </relocation>
@@ -533,6 +529,7 @@
                   <excludes>
                     <exclude>edu/**</exclude>
                     <exclude>javax/**</exclude>
+                    <exclude>jakarta/**</exclude>
                     <exclude>net/jcip/**</exclude>
                     <exclude>oauth/**</exclude>
                   </excludes>

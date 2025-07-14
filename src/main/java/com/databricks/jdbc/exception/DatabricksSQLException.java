@@ -25,6 +25,18 @@ public class DatabricksSQLException extends SQLException {
         reason);
   }
 
+  // This constructor is used to export chunk download failure logs
+  public DatabricksSQLException(
+      String reason, Throwable cause, String statementId, Long chunkIndex, String sqlState) {
+    super(reason, sqlState, cause);
+    exportFailureLog(
+        DatabricksThreadContextHolder.getConnectionContext(),
+        DatabricksDriverErrorCode.CONNECTION_ERROR.name(),
+        reason,
+        chunkIndex,
+        statementId);
+  }
+
   public DatabricksSQLException(String reason, String sqlState) {
     super(reason, sqlState);
     exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);

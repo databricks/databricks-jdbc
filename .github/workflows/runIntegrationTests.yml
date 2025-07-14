@@ -1,21 +1,8 @@
-name: Integration Tests Workflow
+name: Integration Tests Workflow - Main Branch
 
 on:
   push:
     branches: [main]
-  pull_request_target:
-    types: [opened, synchronize, reopened]
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to checkout'
-        required: false
-        default: 'main'
-      repository:
-        description: 'Repository to checkout (e.g., user/repo)'
-        required: false
-        default: 'databricks/databricks-jdbc'
 
 jobs:
   build-and-test:
@@ -34,12 +21,8 @@ jobs:
             token-secret: THRIFT_DATABRICKS_TOKEN
             fake-service-type: 'THRIFT_SERVER'
     steps:
-      - name: Checkout PR or Manual Dispatch
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref || inputs.branch || github.ref_name }}
-          repository: ${{ github.event.pull_request.head.repo.full_name || inputs.repository || github.repository }}
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-java@v4
         with:
@@ -71,4 +54,3 @@ jobs:
           DATABRICKS_JDBC_M2M_PRIVATE_KEY_JWT_KEY_PASSPHRASE: ${{ secrets.DATABRICKS_JDBC_M2M_PRIVATE_KEY_JWT_KEY_PASSPHRASE }}
           DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HTTP_PATH: ${{ secrets.DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HTTP_PATH }}
           DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HOST: ${{ secrets.DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HOST }}
-          DATABRICKS_PRE_SIGNED_URL_HOST: ${{ secrets.DATABRICKS_PRE_SIGNED_URL_HOST }}
