@@ -138,7 +138,7 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
       // Retry the entire upload process
       retry(retryDelayMs);
     } else {
-      LOGGER.error("Upload failed for {}: {}", request.objectPath, ex.getMessage(), ex);
+      LOGGER.error(ex, "Upload failed for {}: {}", request.objectPath, ex.getMessage());
       uploadFuture.complete(
           new VolumePutResult(500, VolumeOperationStatus.FAILED, ex.getMessage()));
     }

@@ -135,13 +135,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       return !objects.isEmpty();
     } catch (Exception e) {
       LOGGER.error(
+          e,
           "Error checking prefix existence: catalog = {}, schema = {}, volume = {}, prefix = {}, caseSensitive = {}",
           catalog,
           schema,
           volume,
           prefix,
-          caseSensitive,
-          e);
+          caseSensitive);
       throw new DatabricksVolumeOperationException(
           "Error checking prefix existence: " + e.getMessage(),
           e,
@@ -179,13 +179,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       return false;
     } catch (Exception e) {
       LOGGER.error(
+          e,
           "Error checking object existence: catalog = {}, schema = {}, volume = {}, objectPath = {}, caseSensitive = {}",
           catalog,
           schema,
           volume,
           objectPath,
-          caseSensitive,
-          e);
+          caseSensitive);
       throw new DatabricksVolumeOperationException(
           "Error checking object existence: " + e.getMessage(),
           e,
@@ -218,12 +218,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         return false;
       }
       LOGGER.error(
+          e,
           "Error checking volume existence: catalog = {}, schema = {}, volumeName = {}, caseSensitive = {}",
           catalog,
           schema,
           volumeName,
-          caseSensitive,
-          e);
+          caseSensitive);
       throw new DatabricksVolumeOperationException(
           "Error checking volume existence: " + e.getMessage(),
           e,
@@ -804,7 +804,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                 } catch (Exception e) {
                   String errorMessage =
                       String.format("Error uploading %s: %s", request.objectPath, e.getMessage());
-                  LOGGER.error(errorMessage, e);
+                  LOGGER.error(e, errorMessage);
                   uploadFuture.complete(
                       new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
                 }
@@ -815,7 +815,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
                     String.format(
                         "Failed to get presigned URL for %s: %s",
                         request.objectPath, e.getMessage());
-                LOGGER.error(errorMessage, e);
+                LOGGER.error(e, errorMessage);
                 uploadFuture.complete(
                     new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
                 return null;
