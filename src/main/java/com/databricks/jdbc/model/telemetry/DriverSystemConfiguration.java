@@ -39,6 +39,9 @@ public class DriverSystemConfiguration {
   @JsonProperty("char_set_encoding")
   private String charSetEncoding;
 
+  @JsonProperty("process_name")
+  private String processName;
+
   @VisibleForTesting
   public String getClientAppName() {
     return clientAppName;
@@ -51,6 +54,11 @@ public class DriverSystemConfiguration {
 
   public DriverSystemConfiguration setDriverVersion(String driverVersion) {
     this.driverVersion = driverVersion;
+    return this;
+  }
+
+  public DriverSystemConfiguration setProcessName(String processName) {
+    this.processName = processName;
     return this;
   }
 
@@ -112,6 +120,7 @@ public class DriverSystemConfiguration {
         .add("runtimeVendor", runtimeVendor)
         .add("clientAppName", clientAppName)
         .add("localeName", localeName)
+        .add("processName", processName)
         .add("defaultCharsetEncoding", charSetEncoding)
         .toString();
   }

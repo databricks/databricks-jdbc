@@ -65,7 +65,8 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
       connection.open();
       isConnectionOpen = true;
       DriverUtil.resolveMetadataClient(connection);
-      exportInitialTelemetryLog(connectionContext);
+      exportInitialTelemetryLog(
+          connectionContext); // Initial log can be emitted only after auth headers are present.
       return connection;
     } catch (Exception e) {
       if (!isConnectionOpen) {
