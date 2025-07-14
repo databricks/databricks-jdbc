@@ -7,7 +7,7 @@ import java.lang.management.RuntimeMXBean;
  * Utility class for determining the current process name as it would appear in Activity Monitor.
  */
 public class ProcessNameUtil {
-
+  private static final String FALL_BACK_PROCESS_NAME = "UnknownJavaProcess";
   /**
    * Gets the current process name as it would appear in Activity Monitor.
    *
@@ -37,7 +37,7 @@ public class ProcessNameUtil {
     }
 
     // Fallback: unknown
-    return "UnknownJavaProcess";
+    return FALL_BACK_PROCESS_NAME;
   }
 
   /**
