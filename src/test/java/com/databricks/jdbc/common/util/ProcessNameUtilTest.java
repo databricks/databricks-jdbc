@@ -2,11 +2,15 @@ package com.databricks.jdbc.common.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
-import org.junit.jupiter.api.Test;
+import java.util.Optional;
+import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.MockedStatic;
 
 public class ProcessNameUtilTest {
 
@@ -30,14 +34,38 @@ public class ProcessNameUtilTest {
     }
   }
 
-  @Test
-  void testFallback() {
+  @ParameterizedTest
+  @MethodSource("processHandlePaths")
+  void testProcessHandlePaths(String processPath, String expectedName, String description) {
     System.clearProperty("sun.java.command");
-    String processName = ProcessNameUtil.getProcessName();
-    assertNotNull(processName);
-    assertTrue(
-        processName.matches("\\d+") || processName.equals("UnknownJavaProcess"),
-        "Process name should be either numeric (PID) or UnknownJavaProcess");
+    try (MockedStatic<ProcessHandle> processHandleMock = mockStatic(ProcessHandle.class)) {
+      ProcessHandle mockHandle = org.mockito.Mockito.mock(ProcessHandle.class);
+      ProcessHandle.Info mockInfo = org.mockito.Mockito.mock(ProcessHandle.Info.class);
+
+      when(ProcessHandle.current()).thenReturn(mockHandle);
+      when(mockHandle.info()).thenReturn(mockInfo);
+      when(mockInfo.command()).thenReturn(Optional.of(processPath));
+
+      String processName = ProcessNameUtil.getProcessName();
+      assertEquals(expectedName, processName, description);
+    }
+  }
+
+  static Stream<Arguments> processHandlePaths() {
+    return Stream.of(
+        Arguments.of(
+            "/Applications/DBeaver.app/Contents/MacOS/dbeaver",
+            "dbeaver",
+            "Should extract 'dbeaver' from Mac path"),
+        Arguments.of(
+            "C:\\Program Files\\DBeaver\\dbeaver.exe",
+            "dbeaver",
+            "Should extract 'dbeaver' from Windows path"),
+        Arguments.of("/usr/bin/java", "java", "Should extract 'java' from Unix path"),
+        Arguments.of(
+            "C:\\Program Files\\Java\\bin\\java.exe",
+            "java",
+            "Should extract 'java' from Windows Java path"));
   }
 
   static Object[][] processNameFormats() {

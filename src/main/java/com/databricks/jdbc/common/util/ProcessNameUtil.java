@@ -1,13 +1,16 @@
 package com.databricks.jdbc.common.util;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.RuntimeMXBean;
+import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Utility class for determining the current process name as it would appear in Activity Monitor.
  */
 public class ProcessNameUtil {
   private static final String FALL_BACK_PROCESS_NAME = "UnknownJavaProcess";
+  private static final Logger LOGGER = LoggerFactory.getLogger(ProcessNameUtil.class);
 
   /**
    * Gets the current process name as it would appear in Activity Monitor.
@@ -15,30 +18,62 @@ public class ProcessNameUtil {
    * @return The current process name
    */
   public static String getProcessName() {
-    // Step 1: Try sun.java.command (HotSpot and OpenJDK)
-    String command = System.getProperty("sun.java.command");
-    if (command != null && !command.isEmpty()) {
-      String[] parts = command.split(" ");
-      String className = parts[0];
-      return getSimpleClassName(className);
-    }
-
-    // Step 2: Try runtime MXBean (available on many JVMs)
-    RuntimeMXBean runtimeMXBean = ManagementFactory.getRuntimeMXBean();
-    String jvmName = runtimeMXBean.getName(); // usually something like "12345@hostname"
-    if (jvmName != null && !jvmName.isEmpty()) {
-      return jvmName.split("@")[0]; // process ID
-    }
-
-    // Step 3: Try stack trace inspection (very brittle fallback)
-    for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
-      if ("main".equals(element.getMethodName())) {
-        return getSimpleClassName(element.getClassName());
+    try {
+      // Step 1: Try ProcessHandle API (Java 9+)
+      String processName = getProcessNameFromHandle();
+      if (!isNullOrEmpty(processName)) {
+        return processName;
       }
-    }
 
-    // Fallback: unknown
-    return FALL_BACK_PROCESS_NAME;
+      // Step 2: Try stack trace inspection
+      for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+        if ("main".equals(element.getMethodName())) {
+          String mainClass = getSimpleClassName(element.getClassName());
+          if (!isNullOrEmpty(mainClass)) {
+            return mainClass;
+          }
+        }
+      }
+
+      // Fallback
+      return FALL_BACK_PROCESS_NAME;
+    } catch (Exception e) {
+      LOGGER.trace("Error getting process name {}, returning fallback", e);
+      return FALL_BACK_PROCESS_NAME;
+    }
+  }
+
+  /**
+   * Gets the current process name using ProcessHandle (Java 9+).
+   *
+   * @return The current process name or null if not available
+   */
+  private static String getProcessNameFromHandle() {
+    try {
+      // Try sun.java.command first as it's more reliable
+      String command = System.getProperty("sun.java.command");
+      if (!isNullOrEmpty(command)) {
+        String[] parts = command.split(" ");
+        return getSimpleClassName(parts[0]);
+      }
+
+      // Try to get application name from process command
+      var cmdOptional = ProcessHandle.current().info().command();
+      if (cmdOptional.isPresent()) {
+        String cmd = cmdOptional.get();
+        // Handle both Windows and Unix paths
+        String filename = cmd.substring(Math.max(cmd.lastIndexOf('/'), cmd.lastIndexOf('\\')) + 1);
+        int dotIndex = filename.lastIndexOf('.');
+        if (dotIndex > 0) {
+          filename = filename.substring(0, dotIndex);
+        }
+        return filename;
+      }
+      return null;
+    } catch (Exception e) {
+      LOGGER.trace("Error getting process name from handle {}, returning null", e);
+      return null;
+    }
   }
 
   /**
