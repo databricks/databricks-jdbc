@@ -22,17 +22,8 @@ public class ProcessNameUtil {
       // Step 1: Try ProcessHandle API (Java 9+)
       String processName = getProcessNameFromHandle();
       if (!isNullOrEmpty(processName)) {
+        LOGGER.trace("getProcessNameFromHandle: {}", processName);
         return processName;
-      }
-
-      // Step 2: Try stack trace inspection
-      for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
-        if ("main".equals(element.getMethodName())) {
-          String mainClass = getSimpleClassName(element.getClassName());
-          if (!isNullOrEmpty(mainClass)) {
-            return mainClass;
-          }
-        }
       }
 
       // Fallback
@@ -48,7 +39,7 @@ public class ProcessNameUtil {
    *
    * @return The current process name or null if not available
    */
-  private static String getProcessNameFromHandle() {
+  public static String getProcessNameFromHandle() {
     try {
       // Try sun.java.command first as it's more reliable
       String command = System.getProperty("sun.java.command");
