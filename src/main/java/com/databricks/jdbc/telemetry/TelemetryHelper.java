@@ -131,7 +131,8 @@ public class TelemetryHelper {
   public static void exportFailureLog(
       IDatabricksConnectionContext connectionContext, String errorName, String errorMessage) {
     String statementId = DatabricksThreadContextHolder.getStatementId();
-    exportFailureLog(connectionContext, errorName, errorMessage, statementId, null);
+    exportFailureLog(
+        connectionContext, errorName, errorMessage, statementId, /* chunkIndex */ null);
   }
 
   public static void exportFailureLog(

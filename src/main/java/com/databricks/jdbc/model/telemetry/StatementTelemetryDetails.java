@@ -58,8 +58,9 @@ public class StatementTelemetryDetails {
     return this;
   }
 
-  public void setInternalCall(boolean isInternalCall) {
+  public StatementTelemetryDetails setInternalCall(boolean isInternalCall) {
     this.isInternalCall = isInternalCall;
+    return this;
   }
 
   public void recordChunkDownloadLatency(long chunkIndex, long latencyMillis) {
