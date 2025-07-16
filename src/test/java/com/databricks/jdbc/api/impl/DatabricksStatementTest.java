@@ -120,6 +120,25 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  public void testGetUpdateCountForQueries() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    statement.executeQuery(STATEMENT);
+    assertEquals(-1, statement.getUpdateCount());
+  }
+
+  @Test
   public void testFetchSizeAndWarnings() throws SQLException {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());

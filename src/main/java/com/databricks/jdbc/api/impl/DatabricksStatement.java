@@ -240,7 +240,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   public int getUpdateCount() throws SQLException {
     LOGGER.debug("public int getUpdateCount()");
     checkIfClosed();
-    return (int) resultSet.getUpdateCount();
+    if (resultSet.hasUpdateCount()) {
+      return (int) resultSet.getUpdateCount();
+    }
+    return -1;
   }
 
   @Override
