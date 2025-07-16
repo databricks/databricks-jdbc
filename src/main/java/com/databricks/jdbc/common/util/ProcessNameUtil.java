@@ -74,7 +74,9 @@ public class ProcessNameUtil {
    * @return The simple class name or null if input is null or empty
    */
   private static String getSimpleClassName(String fqcn) {
-    if (fqcn == null || fqcn.isEmpty()) return null;
+    if (isNullOrEmpty(fqcn)) {
+      return null;
+    }
     int lastDot = fqcn.lastIndexOf('.');
     return lastDot >= 0 ? fqcn.substring(lastDot + 1) : fqcn;
   }
