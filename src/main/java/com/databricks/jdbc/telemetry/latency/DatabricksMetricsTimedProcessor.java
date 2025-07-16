@@ -3,6 +3,7 @@ package com.databricks.jdbc.telemetry.latency;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
@@ -48,12 +49,10 @@ public class DatabricksMetricsTimedProcessor {
       if (proxy == null || method == null) {
         return method != null ? method.invoke(target, args) : null;
       }
-
-      // Check if the method is annotated with @DatabricksMetricsTimed
-      if (method.isAnnotationPresent(DatabricksMetricsTimed.class)) {
-        String methodName = method.getName() != null ? method.getName() : "unknown";
-        long startTime = System.nanoTime();
-        try {
+      try {
+        if (method.isAnnotationPresent(DatabricksMetricsTimed.class)) {
+          String methodName = method.getName() != null ? method.getName() : "unknown";
+          long startTime = System.nanoTime();
           // Invoke the actual method
           Object result = method.invoke(target, args);
           // Calculate execution time in nanoseconds
@@ -82,13 +81,14 @@ public class DatabricksMetricsTimedProcessor {
                 "Failed to export latency metrics for method {}: {}", methodName, e.getMessage());
           }
           return result;
-        } catch (Throwable throwable) {
-          // Handle exceptions from the target method
-          throw throwable.getCause() != null ? throwable.getCause() : throwable;
+        } else {
+          return method.invoke(target, args);
         }
+      } catch (InvocationTargetException e) {
+        // catch the exception from either path, unwraps it, and
+        // throws the real cause. It does not log latency.
+        throw e.getCause();
       }
-      // Default behavior for methods without @DatabricksMetricsTimed
-      return method.invoke(target, args);
     }
   }
 }

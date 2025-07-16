@@ -7,6 +7,7 @@ import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.ProcessNameUtil;
 import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -46,6 +47,7 @@ public class TelemetryHelper {
           .setOsArch(System.getProperty("os.arch"))
           .setOsVersion(System.getProperty("os.version"))
           .setOsName(System.getProperty("os.name"))
+          .setProcessName(ProcessNameUtil.getProcessName())
           .setClientAppName(null);
 
   public static DriverSystemConfiguration getDriverSystemConfiguration() {

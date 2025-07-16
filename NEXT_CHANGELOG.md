@@ -12,6 +12,7 @@
 ### Fixed
 - Fixed Bouncy Castle registration conflicts by using local provider instance instead of global security registration.
 - Fixed Azure U2M authentication issue.
+- Fixed unchecked exception thrown in delete session
 
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 

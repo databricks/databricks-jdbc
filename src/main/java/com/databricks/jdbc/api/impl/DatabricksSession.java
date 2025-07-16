@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.INVALID_SESSION_STATE_MSG;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.REDACTED_TOKEN;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -15,6 +16,7 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksEmptyMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -156,9 +158,22 @@ public class DatabricksSession implements IDatabricksSession {
     LOGGER.debug("public void close()");
     synchronized (this) {
       if (isSessionOpen) {
-        databricksClient.deleteSession(sessionInfo);
-        this.sessionInfo = null;
-        this.isSessionOpen = false;
+        try {
+          databricksClient.deleteSession(sessionInfo);
+        } catch (DatabricksHttpException e) {
+          if (e.getMessage() != null
+              && e.getMessage().toLowerCase().contains(INVALID_SESSION_STATE_MSG)) {
+            LOGGER.warn(
+                "Session [{}] already expired/invalid on server – ignoring during close()",
+                sessionInfo.sessionId());
+          } else {
+            throw e;
+          }
+        } finally {
+          // Always clean up local state
+          this.sessionInfo = null;
+          this.isSessionOpen = false;
+        }
       }
     }
   }
