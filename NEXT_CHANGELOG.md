@@ -7,7 +7,7 @@
 - Added support for SSL client certificate authentication via parameter: SSLTrustStoreProvider
 
 ### Updated
-- 
+- Column name support for JDBC ResultSet operations is now case-insensitive
 
 ### Fixed
 - Fixed Bouncy Castle registration conflicts by using local provider instance instead of global security registration.

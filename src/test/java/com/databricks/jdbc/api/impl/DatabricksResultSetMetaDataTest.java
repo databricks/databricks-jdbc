@@ -99,6 +99,7 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("col5", metaData.getColumnName(4));
     assertEquals(10, metaData.getTotalRows());
     assertEquals(2, metaData.getColumnNameIndex("col2"));
+    assertEquals(2, metaData.getColumnNameIndex("COL2"));
 
     metaData =
         new DatabricksResultSetMetaData(
@@ -271,6 +272,7 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("testCol", metaData.getColumnName(1));
     assertEquals(1, metaData.getTotalRows());
     assertEquals(1, metaData.getColumnNameIndex("testCol"));
+    assertEquals(1, metaData.getColumnNameIndex("TESTCol"));
     assertEquals(Types.OTHER, metaData.getColumnType(1));
     assertEquals("java.lang.String", metaData.getColumnClassName(1));
     assertEquals(VARIANT, metaData.getColumnTypeName(1));
