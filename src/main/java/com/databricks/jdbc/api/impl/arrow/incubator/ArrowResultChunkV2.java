@@ -9,7 +9,6 @@ import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -21,15 +20,11 @@ import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
 import java.time.Instant;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import org.apache.hc.core5.concurrent.FutureCallback;
-import org.apache.hc.core5.http.ConnectionClosedException;
-import org.apache.hc.core5.http.HttpException;
 import org.apache.hc.core5.http.nio.AsyncRequestProducer;
 import org.apache.hc.core5.http.nio.support.AsyncRequestBuilder;
 
@@ -142,39 +137,7 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
       httpClient.executeAsync(
           requestProducer,
           consumer,
-          new FutureCallback<>() {
-            @Override
-            public void completed(byte[] result) {
-              // Store downloaded data and update status on successful download
-              downloadedBytes = result;
-              setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
-              String context =
-                  String.format(
-                      "Data decompression for chunk index [%d] and statement [%s]",
-                      getChunkIndex(), statementId);
-              // Submit arrow data processing task to executor
-              arrowDataProcessingExecutor.submit(() -> processArrowData(compressionCodec, context));
-            }
-
-            @Override
-            public void failed(Exception e) {
-              // Handle download failures with retry logic
-              handleRetryableError(
-                  httpClient,
-                  compressionCodec,
-                  retryConfig,
-                  currentAttempt,
-                  e,
-                  DownloadPhase.DATA_DOWNLOAD);
-            }
-
-            @Override
-            public void cancelled() {
-              // Update status and cancel future on request cancellation
-              setStatus(ChunkStatus.CANCELLED);
-              chunkReadyFuture.cancel(true);
-            }
-          });
+          new ChunkDownloadCallback(httpClient, compressionCodec, retryConfig, currentAttempt));
     } catch (Exception e) {
       // Handle exceptions during request setup with retry logic
       handleRetryableError(
@@ -237,7 +200,7 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
             + e);
 
     // Check if we should retry based on max attempts and error type
-    if (currentAttempt < retryConfig.maxAttempts && isRetryableError(e)) {
+    if (currentAttempt < retryConfig.maxAttempts) {
       long delayMs = calculateBackoffDelay(currentAttempt, retryConfig);
       LOGGER.warn(
           "Retryable error during %s for chunk %s (attempt %s/%s), retrying in %s ms. Error: %s",
@@ -258,23 +221,6 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
       // If max attempts reached or non-retryable error, mark as failed
       handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
     }
-  }
-
-  /**
-   * Determines if an error is retryable based on its type and characteristics.
-   *
-   * @param e the exception to evaluate
-   * @return true if the error is retryable, false otherwise
-   */
-  private boolean isRetryableError(Exception e) {
-    return e instanceof SocketException
-        || e instanceof SocketTimeoutException
-        || e instanceof ConnectionClosedException
-        || e instanceof DatabricksHttpException
-        || (e instanceof IOException && e.getMessage().contains("Connection reset"))
-        || (e instanceof HttpException
-            && e.getMessage().contains("Unexpected response status: 500"))
-        || (e instanceof DatabricksParsingException && e.getCause() instanceof SocketException);
   }
 
   /** Calculates the backoff delay for retry attempts using exponential backoff with jitter. */
@@ -328,6 +274,56 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
 
     public ArrowResultChunkV2 build() {
       return new ArrowResultChunkV2(this);
+    }
+  }
+
+  private class ChunkDownloadCallback implements FutureCallback<byte[]> {
+    private final IDatabricksHttpClient httpClient;
+    private final CompressionCodec compressionCodec;
+    private final RetryConfig retryConfig;
+    private final int currentAttempt;
+
+    public ChunkDownloadCallback(
+        IDatabricksHttpClient httpClient,
+        CompressionCodec compressionCodec,
+        RetryConfig retryConfig,
+        int currentAttempt) {
+      this.httpClient = httpClient;
+      this.compressionCodec = compressionCodec;
+      this.retryConfig = retryConfig;
+      this.currentAttempt = currentAttempt;
+    }
+
+    @Override
+    public void completed(byte[] result) {
+      // Store downloaded data and update status on successful download
+      downloadedBytes = result;
+      setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
+      String context =
+          String.format(
+              "Data decompression for chunk index [%d] and statement [%s]",
+              getChunkIndex(), statementId);
+      // Submit arrow data processing task to executor
+      arrowDataProcessingExecutor.submit(() -> processArrowData(compressionCodec, context));
+    }
+
+    @Override
+    public void failed(Exception e) {
+      // Handle download failures with retry logic
+      handleRetryableError(
+          httpClient,
+          compressionCodec,
+          retryConfig,
+          currentAttempt,
+          e,
+          DownloadPhase.DATA_DOWNLOAD);
+    }
+
+    @Override
+    public void cancelled() {
+      // Update status and cancel future on request cancellation
+      setStatus(ChunkStatus.CANCELLED);
+      chunkReadyFuture.cancel(true);
     }
   }
 }
