@@ -62,7 +62,10 @@ public class DatabricksDriverFeatureFlagsContext {
     return CacheBuilder.newBuilder()
         .expireAfterWrite(ttlSeconds, TimeUnit.SECONDS)
         .refreshAfterWrite(
-            max(1, ttlSeconds - REFRESH_BEFORE_EXPIRY_SECONDS), // refresh time should be positive
+            max(
+                300,
+                ttlSeconds
+                    - REFRESH_BEFORE_EXPIRY_SECONDS), // refresh time should be minimum 5 minutes
             TimeUnit.SECONDS)
         .build(
             new CacheLoader<>() {
