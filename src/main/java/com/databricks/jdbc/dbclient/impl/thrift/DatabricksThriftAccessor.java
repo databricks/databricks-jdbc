@@ -766,7 +766,7 @@ final class DatabricksThriftAccessor {
         statementId,
         operationStatusLatencyMillis);
     TelemetryCollector.getInstance()
-        .recordGetOperationStatus(statementId.toString(), operationStatusLatencyMillis);
+        .recordGetOperationStatus(statementId.toSQLExecStatementId(), operationStatusLatencyMillis);
     return operationStatus;
   }
 }

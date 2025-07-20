@@ -16,6 +16,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -50,6 +51,7 @@ class ExecutionResultFactory {
       throw new DatabricksParsingException(
           "Empty response format", DatabricksDriverErrorCode.INVALID_STATE);
     }
+    TelemetryCollector.getInstance().setResultFormat(statementId, manifest.getFormat());
     LOGGER.info("Processing result of format {} from SQL Execution API", manifest.getFormat());
     // We use JSON_ARRAY for metadata and update commands, and ARROW_STREAM for query results
     switch (manifest.getFormat()) {
@@ -90,7 +92,8 @@ class ExecutionResultFactory {
       IDatabricksSession session)
       throws SQLException {
     TSparkRowSetType resultFormat = resultsResp.getResultSetMetadata().getResultFormat();
-    LOGGER.info("Processing result of format {} from SQL Gateway", resultFormat);
+    TelemetryCollector.getInstance().setResultFormat(parentStatement, resultFormat);
+    LOGGER.info("Processing result of format {} from Thrift server", resultFormat);
     switch (resultFormat) {
       case COLUMN_BASED_SET:
         return getResultSet(convertColumnarToRowBased(resultsResp, parentStatement, session));

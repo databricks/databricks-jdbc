@@ -84,6 +84,7 @@ class TelemetryPushTask implements Runnable {
       HttpPost post = new HttpPost(uri);
       post.setEntity(
           new StringEntity(objectMapper.writeValueAsString(request), StandardCharsets.UTF_8));
+      System.out.println("here is entity " + objectMapper.writeValueAsString(request));
       DatabricksJdbcConstants.JSON_HTTP_HEADERS.forEach(post::addHeader);
       Map<String, String> authHeaders =
           isAuthenticated ? databricksConfig.authenticate() : Collections.emptyMap();

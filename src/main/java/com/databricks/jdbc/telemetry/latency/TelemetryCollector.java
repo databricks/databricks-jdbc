@@ -1,11 +1,18 @@
 package com.databricks.jdbc.telemetry.latency;
 
+import static com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType.ARROW_BASED_SET;
+
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
+import com.databricks.jdbc.model.telemetry.enums.ExecutionResultFormat;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
+import com.databricks.sdk.service.sql.Format;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -39,14 +46,13 @@ public class TelemetryCollector {
    * @param chunkIndex the index of the chunk being downloaded
    * @param latencyMillis the time taken to download the chunk in milliseconds
    */
-  public void recordChunkDownloadLatency(String statementId, long chunkIndex, long latencyMillis) {
-    if (statementId == null) {
-      LOGGER.trace("Statement ID is null, skipping latency recording");
-      return;
-    }
-    statementTrackers
-        .computeIfAbsent(statementId, k -> new StatementTelemetryDetails(statementId))
-        .recordChunkDownloadLatency(chunkIndex, latencyMillis);
+  public void recordChunkDownloadLatency(
+      StatementId statementId, long chunkIndex, long latencyMillis) {
+    String id =
+        statementId != null
+            ? statementId.toSQLExecStatementId()
+            : DatabricksThreadContextHolder.getStatementId();
+    recordChunkDownloadLatency(id, chunkIndex, latencyMillis);
   }
 
   public void recordOperationLatency(long latencyMillis, String methodName) {
@@ -74,15 +80,9 @@ public class TelemetryCollector {
    */
   public void recordResultSetIteration(String statementId, Long totalChunks, boolean hasNext) {
     if (statementId == null) return;
-
-    StatementTelemetryDetails details =
-        statementTrackers.computeIfAbsent(
-            statementId, k -> new StatementTelemetryDetails(statementId));
-
-    if (totalChunks != null && totalChunks > 0) {
-      details.recordChunkIteration(totalChunks);
-    }
-    details.recordResultSetIteration(totalChunks, hasNext);
+    statementTrackers
+        .computeIfAbsent(statementId, k -> new StatementTelemetryDetails(statementId))
+        .recordResultSetIteration(totalChunks, hasNext);
   }
 
   /**
@@ -151,5 +151,62 @@ public class TelemetryCollector {
   private void exportTelemetryDetailsAndClear(String statementId) {
     StatementTelemetryDetails statementTelemetryDetails = statementTrackers.remove(statementId);
     TelemetryHelper.exportTelemetryLog(statementTelemetryDetails);
+  }
+
+  public void setResultFormat(
+      IDatabricksStatementInternal statement, TSparkRowSetType executionResultFormat) {
+    if (statement == null || statement.getStatementId() == null) {
+      return;
+    }
+    setExecutionFormat(statement.getStatementId().toSQLExecStatementId(), getResultFormat(executionResultFormat));
+  }
+
+  public void setResultFormat(StatementId statementId, Format executionResultFormat) {
+    if (statementId == null) {
+      return;
+    }
+    setExecutionFormat(statementId.toSQLExecStatementId(), getResultFormat(executionResultFormat));
+
+  }
+
+  private void setExecutionFormat(String statementId, ExecutionResultFormat executionResultFormat) {
+    statementTrackers
+            .computeIfAbsent(statementId, k -> new StatementTelemetryDetails(statementId))
+            .setExecutionResultFormat(executionResultFormat);
+  }
+
+  private ExecutionResultFormat getResultFormat(TSparkRowSetType resultFormat) {
+    switch (resultFormat) {
+      case ARROW_BASED_SET:
+        return ExecutionResultFormat.INLINE_ARROW;
+      case URL_BASED_SET:
+        return ExecutionResultFormat.EXTERNAL_LINKS;
+      case COLUMN_BASED_SET:
+        return ExecutionResultFormat.COLUMNAR_INLINE;
+      default:
+        return ExecutionResultFormat.FORMAT_UNSPECIFIED;
+    }
+  }
+
+  private ExecutionResultFormat getResultFormat(Format resultFormat) {
+    switch (resultFormat) {
+      case ARROW_STREAM:
+        return ExecutionResultFormat.EXTERNAL_LINKS;
+      case JSON_ARRAY:
+        return ExecutionResultFormat.INLINE_JSON;
+      default:
+        return ExecutionResultFormat.FORMAT_UNSPECIFIED;
+    }
+  }
+
+  @VisibleForTesting
+  void recordChunkDownloadLatency(String id, long chunkIndex, long latencyMillis) {
+    if (id == null) {
+      LOGGER.trace("Statement ID is null, skipping chunk latency recording");
+      return;
+    }
+    statementTrackers
+        .computeIfAbsent(id, k -> new StatementTelemetryDetails(id))
+        .recordChunkDownloadLatency(chunkIndex, latencyMillis);
   }
 }

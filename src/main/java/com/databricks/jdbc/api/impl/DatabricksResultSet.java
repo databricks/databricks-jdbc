@@ -269,7 +269,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     boolean hasNext = this.executionResult.next();
     TelemetryCollector.getInstance()
         .recordResultSetIteration(
-            statementId.toString(), resultSetMetaData.getChunkCount(), hasNext);
+            statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), hasNext);
     return hasNext;
   }
 
@@ -1816,7 +1816,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public String getStatementId() {
-    return statementId.toString();
+    return statementId.toSQLExecStatementId();
   }
 
   @Override
