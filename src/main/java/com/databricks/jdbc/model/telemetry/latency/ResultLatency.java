@@ -42,7 +42,8 @@ public class ResultLatency {
     }
     if (!hasNext) {
       resultSetConsumptionLatencyMillis =
-          (System.nanoTime() - startTimeOfResultSetIterationNano) / 1_000; // convert nano to milli
+          (System.nanoTime() - startTimeOfResultSetIterationNano)
+              / 1_000_000; // convert nano to milli
     }
   }
 

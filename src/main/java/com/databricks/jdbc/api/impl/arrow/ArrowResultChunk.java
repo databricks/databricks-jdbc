@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
+import static com.databricks.jdbc.telemetry.TelemetryHelper.getStatementIdString;
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
@@ -78,7 +79,9 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       checkHTTPError(response);
       TelemetryCollector.getInstance()
           .recordChunkDownloadLatency(
-              statementId, chunkIndex, (System.nanoTime() - startTime) / 1000);
+              getStatementIdString(statementId),
+              chunkIndex,
+              ((System.nanoTime() - startTime) / 1000_000)); // Convert nano to millis
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
       String decompressionContext =
           String.format(

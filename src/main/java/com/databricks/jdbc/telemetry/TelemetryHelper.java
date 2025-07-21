@@ -9,6 +9,7 @@ import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.ProcessNameUtil;
 import com.databricks.jdbc.common.util.StringUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -129,6 +130,12 @@ public class TelemetryHelper {
     DriverErrorInfo errorInfo =
         new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
     exportTelemetryEvent(connectionContext, telemetryDetails, errorInfo, chunkIndex);
+  }
+
+  public static String getStatementIdString(StatementId statementId) {
+    return statementId != null
+        ? statementId.toSQLExecStatementId()
+        : DatabricksThreadContextHolder.getStatementId();
   }
 
   private static DriverConnectionParameters getDriverConnectionParameter(
