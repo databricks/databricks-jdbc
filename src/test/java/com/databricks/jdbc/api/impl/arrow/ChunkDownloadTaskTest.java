@@ -188,8 +188,8 @@ public class ChunkDownloadTaskTest {
     assertEquals(6, statusHistory.size());
     assertEquals(ChunkStatus.DOWNLOAD_FAILED, statusHistory.get(0));
     assertEquals(ChunkStatus.DOWNLOAD_RETRY, statusHistory.get(1)); // First retry
-    assertEquals(ChunkStatus.DOWNLOAD_FAILED, statusHistory.get(0));
-    assertEquals(ChunkStatus.DOWNLOAD_RETRY, statusHistory.get(1)); // Second retry
+    assertEquals(ChunkStatus.DOWNLOAD_FAILED, statusHistory.get(2));
+    assertEquals(ChunkStatus.DOWNLOAD_RETRY, statusHistory.get(3)); // Second retry
     assertEquals(ChunkStatus.DOWNLOAD_SUCCEEDED, statusHistory.get(4)); // Download success
 
     // The chunk should eventually reach PROCESSING_SUCCEEDED after parsing the Arrow data
