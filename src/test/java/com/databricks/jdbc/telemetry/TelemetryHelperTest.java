@@ -12,6 +12,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
+import com.databricks.jdbc.model.telemetry.latency.OperationType;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.util.Collections;
 import java.util.stream.Stream;
@@ -19,7 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -31,6 +32,8 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TelemetryHelperTest {
+  private static final String TEST_STRING = "test";
+
   @Mock IDatabricksConnectionContext connectionContext;
 
   @BeforeEach
@@ -101,17 +104,40 @@ public class TelemetryHelperTest {
     assertTrue(TelemetryHelper.isTelemetryAllowedForConnection(connectionContext));
   }
 
+  private static Stream<Arguments> methodToOperationTypeTestCases() {
+    return Stream.of(
+        // Basic operations
+        Arguments.of("createSession", OperationType.CREATE_SESSION),
+        Arguments.of("executeStatement", OperationType.EXECUTE_STATEMENT),
+        Arguments.of("executeStatementAsync", OperationType.EXECUTE_STATEMENT_ASYNC),
+        Arguments.of("closeStatement", OperationType.CLOSE_STATEMENT),
+        Arguments.of("cancelStatement", OperationType.CANCEL_STATEMENT),
+        Arguments.of("deleteSession", OperationType.DELETE_SESSION),
+
+        // List operations
+        Arguments.of("listCrossReferences", OperationType.LIST_CROSS_REFERENCES),
+        Arguments.of("listExportedKeys", OperationType.LIST_EXPORTED_KEYS),
+        Arguments.of("listImportedKeys", OperationType.LIST_IMPORTED_KEYS),
+        Arguments.of("listPrimaryKeys", OperationType.LIST_PRIMARY_KEYS),
+        Arguments.of("listFunctions", OperationType.LIST_FUNCTIONS),
+        Arguments.of("listColumns", OperationType.LIST_COLUMNS),
+        Arguments.of("listTableTypes", OperationType.LIST_TABLE_TYPES),
+        Arguments.of("listTables", OperationType.LIST_TABLES),
+        Arguments.of("listSchemas", OperationType.LIST_SCHEMAS),
+        Arguments.of("listCatalogs", OperationType.LIST_CATALOGS),
+        Arguments.of("listTypeInfo", OperationType.LIST_TYPE_INFO),
+
+        // Edge cases
+        Arguments.of(null, OperationType.TYPE_UNSPECIFIED),
+        Arguments.of("", OperationType.TYPE_UNSPECIFIED),
+        Arguments.of("unknownMethod", OperationType.TYPE_UNSPECIFIED),
+        Arguments.of("invalidOperation", OperationType.TYPE_UNSPECIFIED));
+  }
+
   @ParameterizedTest
-  @CsvSource({
-    "createSession, CREATE_SESSION",
-    "executeStatement, EXECUTE_STATEMENT",
-    "unknownMethod, TYPE_UNSPECIFIED",
-    "null, TYPE_UNSPECIFIED"
-  })
-  void testMapMethodToOperationType(String methodName, String expectedOperationType) {
-    com.databricks.jdbc.model.telemetry.latency.OperationType expected =
-        com.databricks.jdbc.model.telemetry.latency.OperationType.valueOf(expectedOperationType);
-    assertEquals(expected, TelemetryHelper.mapMethodToOperationType(methodName));
+  @MethodSource("methodToOperationTypeTestCases")
+  void testMapMethodToOperationType(String methodName, OperationType expectedType) {
+    assertEquals(expectedType, TelemetryHelper.mapMethodToOperationType(methodName));
   }
 
   @ParameterizedTest
