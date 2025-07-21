@@ -57,9 +57,7 @@ public class MetadataResultSetBuilder {
   }
 
   public DatabricksResultSet getCatalogsResult(DatabricksResultSet resultSet) throws SQLException {
-    System.out.println("HERE YOU GO BABE ");
     List<List<Object>> rows = getRows(resultSet, CATALOG_COLUMNS, defaultAdapter);
-    System.out.println("HERE YOU GO BABE2 ");
     return buildResultSet(
         CATALOG_COLUMNS,
         rows,
