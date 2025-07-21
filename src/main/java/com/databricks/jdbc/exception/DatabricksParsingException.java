@@ -9,6 +9,11 @@ public class DatabricksParsingException extends DatabricksSQLException {
   }
 
   public DatabricksParsingException(
+      String message, DatabricksDriverErrorCode errorCode, boolean silentExceptions) {
+    super(message, errorCode, silentExceptions);
+  }
+
+  public DatabricksParsingException(
       String message, Throwable cause, DatabricksDriverErrorCode errorCode) {
     super(message, cause, errorCode);
   }

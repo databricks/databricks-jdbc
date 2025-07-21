@@ -7,4 +7,8 @@ import org.apache.http.entity.InputStreamEntity;
 public interface IDatabricksResultSetInternal {
 
   InputStreamEntity getVolumeOperationInputStream() throws SQLException;
+
+  void setSilentExceptions();
+
+  void unsetSilentExceptions();
 }
