@@ -111,6 +111,7 @@ public final class DatabricksJdbcConstants {
 
   /** Default retry timeout in seconds for UC Volume operations. */
   public static final int DEFAULT_UC_INGESTION_RETRY_TIMEOUT_SECONDS = 900; // 15 minutes
+
   public static final String INVALID_SESSION_STATE_MSG = "invalid session";
 
   /** Enum for the services that can be replaced with a fake service in integration tests. */
