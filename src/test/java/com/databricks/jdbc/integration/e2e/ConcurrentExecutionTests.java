@@ -6,14 +6,19 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ConcurrentExecutionTests {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ConcurrentExecutionTests.class);
   private static final int NUM_THREADS = 20;
+  private static final int TIMEOUT_SECONDS = 90;
 
   @Test
   void testConcurrentExecution() throws InterruptedException {
@@ -29,7 +34,7 @@ public class ConcurrentExecutionTests {
                   runThreadQueries(threadNum);
                   return true;
                 } catch (Exception e) {
-                  e.printStackTrace();
+                  LOGGER.error("Exception in thread {}", threadNum, e);
                   return false;
                 }
               });
@@ -38,17 +43,20 @@ public class ConcurrentExecutionTests {
 
     executorService.shutdown();
 
-    boolean allSuccess = true;
-    for (Future<Boolean> future : futures) {
-      try {
-        if (!future.get()) {
-          allSuccess = false;
-        }
-      } catch (ExecutionException e) {
-        e.printStackTrace();
-        allSuccess = false;
-      }
-    }
+    boolean allSuccess =
+        futures.stream()
+            .allMatch(
+                future -> {
+                  try {
+                    return future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                  } catch (TimeoutException e) {
+                    LOGGER.error("Thread execution timed out after {} seconds", TIMEOUT_SECONDS, e);
+                    return false;
+                  } catch (Exception e) {
+                    LOGGER.error("Thread execution failed", e);
+                    return false;
+                  }
+                });
 
     assertTrue(allSuccess, "Not all threads completed successfully");
   }
@@ -111,6 +119,82 @@ public class ConcurrentExecutionTests {
 
       // Clean up table
       deleteTable(connection, tableName);
+    }
+  }
+
+  @Test
+  void testConcurrentInsertAndCount() throws InterruptedException, SQLException {
+
+    String sharedTableName = "shared_insert_table";
+
+    try (Connection setupConn = getValidJDBCConnection()) {
+      setupDatabaseTable(setupConn, sharedTableName);
+    }
+
+    try {
+      ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
+      List<Future<Boolean>> futures = new ArrayList<>();
+
+      // Each thread inserts one row
+      for (int i = 0; i < NUM_THREADS; i++) {
+        final int threadId = i;
+        futures.add(
+            executorService.submit(
+                () -> {
+                  try (Connection conn = getValidJDBCConnection()) {
+                    conn.createStatement()
+                        .executeUpdate(
+                            String.format(
+                                "INSERT INTO %s (id, col1, col2) VALUES (%d, 'thread_%d', 'data')",
+                                getFullyQualifiedTableName(sharedTableName), threadId, threadId));
+                    return true;
+                  } catch (Exception e) {
+                    LOGGER.error("Error while executing concurrent insert statements", e);
+                    return false;
+                  }
+                }));
+      }
+
+      executorService.shutdown();
+
+      // Verify all threads succeeded
+      boolean allSuccess =
+          futures.stream()
+              .allMatch(
+                  future -> {
+                    try {
+                      return future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                    } catch (TimeoutException e) {
+                      LOGGER.error(
+                          "Thread execution timed out after {} seconds", TIMEOUT_SECONDS, e);
+                      return false;
+                    } catch (Exception e) {
+                      LOGGER.error("Thread execution failed", e);
+                      return false;
+                    }
+                  });
+
+      assertTrue(allSuccess, "Not all threads completed successfully");
+
+      // Verify row count = NUM_THREADS
+      try (Connection verifyConn = getValidJDBCConnection()) {
+        ResultSet rs =
+            verifyConn
+                .createStatement()
+                .executeQuery(
+                    "SELECT COUNT(*) FROM " + getFullyQualifiedTableName(sharedTableName));
+        rs.next();
+        int rowCount = rs.getInt(1);
+        assertEquals(NUM_THREADS, rowCount, "Row count should equal number of threads");
+      }
+
+    } finally {
+      // Cleanup
+      try (Connection cleanupConn = getValidJDBCConnection()) {
+        deleteTable(cleanupConn, sharedTableName);
+      } catch (Exception e) {
+        LOGGER.warn("Failed to cleanup table {}", sharedTableName, e);
+      }
     }
   }
 }

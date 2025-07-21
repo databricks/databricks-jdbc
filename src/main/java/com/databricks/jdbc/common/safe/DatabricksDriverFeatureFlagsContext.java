@@ -1,5 +1,7 @@
 package com.databricks.jdbc.common.safe;
 
+import static java.lang.Math.max;
+
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -26,11 +28,13 @@ import org.apache.http.util.EntityUtils;
 public class DatabricksDriverFeatureFlagsContext {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksDriverFeatureFlagsContext.class);
-  static final String FEATURE_FLAGS_ENDPOINT =
-      String.format("/2.0/connector-service/feature-flags/JDBC/%s", DriverUtil.getDriverVersion());
+  private static final String FEATURE_FLAGS_ENDPOINT_SUFFIX =
+      String.format(
+          "/api/2.0/connector-service/feature-flags/OSS_JDBC/%s",
+          DriverUtil.getDriverVersionWithoutOSSSuffix());
   private static final int DEFAULT_TTL_SECONDS = 900; // 15 minutes
   private static final int REFRESH_BEFORE_EXPIRY_SECONDS = 10; // refresh 10s before expiry
-
+  private final String featureFlagEndpoint;
   private final IDatabricksConnectionContext connectionContext;
   private LoadingCache<String, String> featureFlags;
   private final ExecutorService asyncExecutor = Executors.newCachedThreadPool();
@@ -38,6 +42,9 @@ public class DatabricksDriverFeatureFlagsContext {
   public DatabricksDriverFeatureFlagsContext(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
     this.featureFlags = createFeatureFlagsCache(DEFAULT_TTL_SECONDS);
+    this.featureFlagEndpoint =
+        String.format(
+            "https://%s%s", connectionContext.getHostForOAuth(), FEATURE_FLAGS_ENDPOINT_SUFFIX);
   }
 
   // Constructor for testing
@@ -45,13 +52,21 @@ public class DatabricksDriverFeatureFlagsContext {
       IDatabricksConnectionContext connectionContext, Map<String, String> initialFlags) {
     this.connectionContext = connectionContext;
     this.featureFlags = createFeatureFlagsCache(DEFAULT_TTL_SECONDS);
+    this.featureFlagEndpoint =
+        String.format(
+            "https://%s%s", connectionContext.getHostForOAuth(), FEATURE_FLAGS_ENDPOINT_SUFFIX);
     initialFlags.forEach(this.featureFlags::put);
   }
 
   private LoadingCache<String, String> createFeatureFlagsCache(int ttlSeconds) {
     return CacheBuilder.newBuilder()
         .expireAfterWrite(ttlSeconds, TimeUnit.SECONDS)
-        .refreshAfterWrite(ttlSeconds - REFRESH_BEFORE_EXPIRY_SECONDS, TimeUnit.SECONDS)
+        .refreshAfterWrite(
+            max(
+                300,
+                ttlSeconds
+                    - REFRESH_BEFORE_EXPIRY_SECONDS), // refresh time should be minimum 5 minutes
+            TimeUnit.SECONDS)
         .build(
             new CacheLoader<>() {
               @Override
@@ -74,7 +89,7 @@ public class DatabricksDriverFeatureFlagsContext {
     try {
       IDatabricksHttpClient httpClient =
           DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
-      HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
+      HttpGet request = new HttpGet(featureFlagEndpoint);
       DatabricksClientConfiguratorManager.getInstance()
           .getConfigurator(connectionContext)
           .getDatabricksConfig()
@@ -82,7 +97,7 @@ public class DatabricksDriverFeatureFlagsContext {
           .forEach(request::addHeader);
       fetchAndSetFlagsFromServer(httpClient, request);
     } catch (Exception e) {
-      LOGGER.warn(
+      LOGGER.trace(
           "Error fetching feature flags for context: {}. Error: {}",
           connectionContext,
           e.getMessage());
@@ -97,7 +112,6 @@ public class DatabricksDriverFeatureFlagsContext {
         String responseBody = EntityUtils.toString(response.getEntity());
         FeatureFlagsResponse featureFlagsResponse =
             JsonUtil.getMapper().readValue(responseBody, FeatureFlagsResponse.class);
-
         featureFlags.invalidateAll();
         if (featureFlagsResponse.getFlags() != null) {
           for (FeatureFlagsResponse.FeatureFlagEntry flag : featureFlagsResponse.getFlags()) {
@@ -110,7 +124,7 @@ public class DatabricksDriverFeatureFlagsContext {
           featureFlags = createFeatureFlagsCache(ttlSeconds);
         }
       } else {
-        LOGGER.warn(
+        LOGGER.trace(
             "Failed to fetch feature flags. Context: {}, Status code: {}",
             connectionContext,
             response.getStatusLine().getStatusCode());
@@ -122,7 +136,7 @@ public class DatabricksDriverFeatureFlagsContext {
     try {
       return Boolean.parseBoolean(featureFlags.get(name));
     } catch (Exception e) {
-      LOGGER.warn("Error fetching flag {}: {}", name, e.getMessage());
+      LOGGER.trace("Error fetching feature flag {}: {}", name, e.getMessage());
       return false;
     }
   }

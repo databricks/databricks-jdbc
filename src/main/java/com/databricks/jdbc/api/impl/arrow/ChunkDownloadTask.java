@@ -8,7 +8,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.databricks.jdbc.telemetry.latency.ChunkLatencyHandler;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
@@ -67,7 +67,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
 
           // Record chunk download latency on successful download
           long downloadLatency = System.currentTimeMillis() - startTime;
-          ChunkLatencyHandler.getInstance()
+          TelemetryCollector.getInstance()
               .recordChunkDownloadLatency(statementId, chunk.getChunkIndex(), downloadLatency);
 
         } catch (IOException | DatabricksSQLException e) {

@@ -30,7 +30,7 @@ public class TelemetryEvent {
   DriverErrorInfo driverErrorInfo;
 
   @JsonProperty("operation_latency_ms")
-  long latency;
+  Long latency;
 
   public TelemetryEvent() {}
 
@@ -43,7 +43,7 @@ public class TelemetryEvent {
     return this;
   }
 
-  public TelemetryEvent setLatency(long latency) {
+  public TelemetryEvent setLatency(Long latency) {
     this.latency = latency;
     return this;
   }

@@ -33,8 +33,8 @@ public class DatabricksSQLException extends SQLException {
         DatabricksThreadContextHolder.getConnectionContext(),
         DatabricksDriverErrorCode.CONNECTION_ERROR.name(),
         reason,
-        chunkIndex,
-        statementId);
+        statementId,
+        chunkIndex);
   }
 
   public DatabricksSQLException(String reason, String sqlState) {
