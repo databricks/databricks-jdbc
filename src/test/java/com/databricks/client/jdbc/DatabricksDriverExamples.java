@@ -47,8 +47,8 @@ import org.junit.jupiter.api.Test;
 public class DatabricksDriverExamples {
 
   private static final String JDBC_URL_WAREHOUSE =
-      "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;"
-          + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999999;";
+      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;"
+          + "transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/dd43ee29fedd958d;logLevel=6;logPath=/Users/jayant/remote-provider-1";
   private static final String JDBC_URL_CLUSTER =
       "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;"
           + "transportMode=http;ssl=1;httpPath=sql/protocolv1/o/9999999999999999/9999999999999999;AuthMech=3;";
@@ -157,14 +157,12 @@ public class DatabricksDriverExamples {
   void exampleMaxRows() throws Exception {
     // Register the Databricks JDBC driver
     DriverManager.registerDriver(new Driver());
-    String jdbcUrl = JDBC_URL_WAREHOUSE + "EnableTelemetry=1" + "enableArrow=0";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
+    String jdbcUrl = JDBC_URL_WAREHOUSE;
+    Connection con = DriverManager.getConnection(jdbcUrl, "token", "token");
     Statement stmt = con.createStatement();
-    stmt.setMaxRows(5);
-    ResultSet rs = stmt.executeQuery("SELECT * FROM RANGE(10)");
+    stmt.setMaxRows(1000000);
+    ResultSet rs = stmt.executeQuery("SELECT * FROM samples.tpch.lineitem LIMIT 1000000");
     printResultSet(rs); // 5 rows will be printed
-    stmt.close();
-    rs.close();
     con.close();
   }
 
