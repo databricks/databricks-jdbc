@@ -5,7 +5,7 @@
 ### Added
 - Added DCO (Developer Certificate of Origin) check workflow for pull requests to ensure all commits are properly signed-off
 - Added support for SSL client certificate authentication via parameter: SSLTrustStoreProvider
-- Added putFiles methods in DBFSVolumeClient for async multi-file uplaod.
+- Added putFiles methods in DBFSVolumeClient for async multi-file upload.
 
 ### Updated
 - Column name support for JDBC ResultSet operations is now case-insensitive
