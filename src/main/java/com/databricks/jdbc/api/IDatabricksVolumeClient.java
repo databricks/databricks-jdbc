@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api;
 
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.model.client.filesystem.VolumePutResult;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.List;
@@ -162,4 +164,50 @@ public interface IDatabricksVolumeClient {
    */
   boolean deleteObject(String catalog, String schema, String volume, String objectPath)
       throws SQLException;
+
+  /**
+   * Uploads multiple files from input streams to specified paths within a UC Volume.
+   *
+   * @param catalog the catalog name in Unity Catalog
+   * @param schema the schema name in the specified catalog
+   * @param volume the volume name in the specified schema
+   * @param objectPaths the list of destination paths in the volume where the data should be
+   *     uploaded
+   * @param inputStreams the list of input streams containing the data to upload
+   * @param contentLengths the list of lengths of the data in bytes
+   * @param toOverwrite whether to overwrite the objects if they already exist
+   * @return a list of results indicating the success or failure of each upload operation
+   * @throws DatabricksSQLFeatureNotSupportedException if the operation is not supported
+   */
+  List<VolumePutResult> putFiles(
+      String catalog,
+      String schema,
+      String volume,
+      List<String> objectPaths,
+      List<InputStream> inputStreams,
+      List<Long> contentLengths,
+      boolean toOverwrite)
+      throws DatabricksSQLFeatureNotSupportedException;
+
+  /**
+   * Uploads multiple files from local paths to specified paths within a UC Volume.
+   *
+   * @param catalog the catalog name in Unity Catalog
+   * @param schema the schema name in the specified catalog
+   * @param volume the volume name in the specified schema
+   * @param objectPaths the list of destination paths in the volume where the files should be
+   *     uploaded
+   * @param localPaths the list of local file paths to upload
+   * @param toOverwrite whether to overwrite the objects if they already exist
+   * @return a list of results indicating the success or failure of each upload operation
+   * @throws DatabricksSQLFeatureNotSupportedException if the operation is not supported
+   */
+  List<VolumePutResult> putFiles(
+      String catalog,
+      String schema,
+      String volume,
+      List<String> objectPaths,
+      List<String> localPaths,
+      boolean toOverwrite)
+      throws DatabricksSQLFeatureNotSupportedException;
 }

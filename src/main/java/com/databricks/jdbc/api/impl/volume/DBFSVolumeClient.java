@@ -11,7 +11,9 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.common.util.StringUtil;
+import com.databricks.jdbc.common.util.VolumeRetryUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -31,9 +33,25 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import org.apache.hc.client5.http.async.methods.*;
+import org.apache.hc.core5.concurrent.FutureCallback;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.nio.AsyncEntityProducer;
+import org.apache.hc.core5.http.nio.AsyncRequestProducer;
+import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
+import org.apache.hc.core5.http.nio.entity.AsyncEntityProducers;
+import org.apache.hc.core5.http.nio.support.AsyncRequestBuilder;
 import org.apache.http.HttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 
@@ -49,6 +67,27 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   final ApiClient apiClient;
   private final String allowedVolumeIngestionPaths;
 
+  /**
+   * Initial delay in milliseconds before the first retry attempt. Used as the base value for
+   * exponential backoff calculations.
+   */
+  private static final long INITIAL_RETRY_DELAY_MS = 200;
+
+  /**
+   * Maximum delay in milliseconds between retry attempts. Caps the exponential backoff to prevent
+   * excessively long delays.
+   */
+  private static final long MAX_RETRY_DELAY_MS = 10000; // 10 seconds max delay
+
+  /**
+   * Semaphore to limit concurrent presigned URL requests to prevent connection pool exhaustion. The
+   * limit is configurable via connection context (default: 50 concurrent requests). Each presigned
+   * URL request acquires a permit and releases it when the request completes.
+   */
+  private final Semaphore presignedUrlSemaphore;
+
+  private final ThreadLocalRandom random = ThreadLocalRandom.current();
+
   @VisibleForTesting
   public DBFSVolumeClient(WorkspaceClient workspaceClient) {
     this.connectionContext = null;
@@ -56,6 +95,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     this.apiClient = workspaceClient.apiClient();
     this.databricksHttpClient = null;
     this.allowedVolumeIngestionPaths = "";
+    this.presignedUrlSemaphore = new Semaphore(50);
   }
 
   public DBFSVolumeClient(IDatabricksConnectionContext connectionContext) {
@@ -66,6 +106,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         DatabricksHttpClientFactory.getInstance()
             .getClient(connectionContext, HttpClientType.VOLUME);
     this.allowedVolumeIngestionPaths = connectionContext.getVolumeOperationAllowedPaths();
+    int maxConcurrentRequests = connectionContext.getMaxDBFSConcurrentPresignedRequests();
+    this.presignedUrlSemaphore = new Semaphore(maxConcurrentRequests);
   }
 
   /** {@inheritDoc} */
@@ -74,9 +116,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException {
     LOGGER.debug(
-        String.format(
-            "Entering prefixExists method with parameters: catalog = {%s}, schema = {%s}, volume = {%s}, prefix = {%s}, caseSensitive = {%s}",
-            catalog, schema, volume, prefix, caseSensitive));
+        "Entering prefixExists method with parameters: catalog = {}, schema = {}, volume = {}, prefix = {}, caseSensitive = {}",
+        catalog,
+        schema,
+        volume,
+        prefix,
+        caseSensitive);
     if (WildcardUtil.isNullOrEmpty(prefix)) {
       return false;
     }
@@ -85,10 +130,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       return !objects.isEmpty();
     } catch (Exception e) {
       LOGGER.error(
-          String.format(
-              "Error checking prefix existence: catalog = {%s}, schema = {%s}, volume = {%s}, prefix = {%s}, caseSensitive = {%s}",
-              catalog, schema, volume, prefix, caseSensitive),
-          e);
+          e,
+          "Error checking prefix existence: catalog = {}, schema = {}, volume = {}, prefix = {}, caseSensitive = {}",
+          catalog,
+          schema,
+          volume,
+          prefix,
+          caseSensitive);
       throw new DatabricksVolumeOperationException(
           "Error checking prefix existence: " + e.getMessage(),
           e,
@@ -102,9 +150,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String catalog, String schema, String volume, String objectPath, boolean caseSensitive)
       throws SQLException {
     LOGGER.debug(
-        String.format(
-            "Entering objectExists method with parameters: catalog = {%s}, schema = {%s}, volume = {%s}, objectPath = {%s}, caseSensitive = {%s}",
-            catalog, schema, volume, objectPath, caseSensitive));
+        "Entering objectExists method with parameters: catalog = {}, schema = {}, volume = {}, objectPath = {}, caseSensitive = {}",
+        catalog,
+        schema,
+        volume,
+        objectPath,
+        caseSensitive);
     if (WildcardUtil.isNullOrEmpty(objectPath)) {
       return false;
     }
@@ -123,10 +174,13 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       return false;
     } catch (Exception e) {
       LOGGER.error(
-          String.format(
-              "Error checking object existence: catalog = {%s}, schema = {%s}, volume = {%s}, objectPath = {%s}, caseSensitive = {%s}",
-              catalog, schema, volume, objectPath, caseSensitive),
-          e);
+          e,
+          "Error checking object existence: catalog = {}, schema = {}, volume = {}, objectPath = {}, caseSensitive = {}",
+          catalog,
+          schema,
+          volume,
+          objectPath,
+          caseSensitive);
       throw new DatabricksVolumeOperationException(
           "Error checking object existence: " + e.getMessage(),
           e,
@@ -139,15 +193,17 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   public boolean volumeExists(
       String catalog, String schema, String volumeName, boolean caseSensitive) throws SQLException {
     LOGGER.debug(
-        String.format(
-            "Entering volumeExists method with parameters: catalog = {%s}, schema = {%s}, volumeName = {%s}, caseSensitive = {%s}",
-            catalog, schema, volumeName, caseSensitive));
+        "Entering volumeExists method with parameters: catalog = {}, schema = {}, volumeName = {}, caseSensitive = {}",
+        catalog,
+        schema,
+        volumeName,
+        caseSensitive);
     if (WildcardUtil.isNullOrEmpty(volumeName)) {
       return false;
     }
     try {
       String volumePath = StringUtil.getVolumePath(catalog, schema, volumeName);
-      // If getListResponse does not throw, then the volume exists (even if it’s empty).
+      // If getListResponse does not throw, then the volume exists (even if it's empty).
       getListResponse(volumePath);
       return true;
     } catch (DatabricksVolumeOperationException e) {
@@ -157,10 +213,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         return false;
       }
       LOGGER.error(
-          String.format(
-              "Error checking volume existence: catalog = {%s}, schema = {%s}, volumeName = {%s}, caseSensitive = {%s}",
-              catalog, schema, volumeName, caseSensitive),
-          e);
+          e,
+          "Error checking volume existence: catalog = {}, schema = {}, volumeName = {}, caseSensitive = {}",
+          catalog,
+          schema,
+          volumeName,
+          caseSensitive);
       throw new DatabricksVolumeOperationException(
           "Error checking volume existence: " + e.getMessage(),
           e,
@@ -174,9 +232,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String catalog, String schema, String volume, String prefix, boolean caseSensitive)
       throws SQLException {
     LOGGER.debug(
-        String.format(
-            "Entering listObjects method with parameters: catalog={%s}, schema={%s}, volume={%s}, prefix={%s}, caseSensitive={%s}",
-            catalog, schema, volume, prefix, caseSensitive));
+        "Entering listObjects method with parameters: catalog={}, schema={}, volume={}, prefix={}, caseSensitive={}",
+        catalog,
+        schema,
+        volume,
+        prefix,
+        caseSensitive);
 
     String basename = StringUtil.getBaseNameFromPath(prefix);
     ListResponse listResponse = getListResponse(constructListPath(catalog, schema, volume, prefix));
@@ -196,9 +257,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String catalog, String schema, String volume, String objectPath, String localPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
-        String.format(
-            "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
-            catalog, schema, volume, objectPath, localPath));
+        "Entering getObject method with parameters: catalog={}, schema={}, volume={}, objectPath={}, localPath={}",
+        catalog,
+        schema,
+        volume,
+        objectPath,
+        localPath);
 
     try {
       // Fetching the Pre signed URL
@@ -232,9 +296,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       String catalog, String schema, String volume, String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
-        String.format(
-            "Entering getObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
-            catalog, schema, volume, objectPath));
+        "Entering getObject method with parameters: catalog={}, schema={}, volume={}, objectPath={}",
+        catalog,
+        schema,
+        volume,
+        objectPath);
 
     try {
       // Fetching the Pre Signed Url
@@ -283,9 +349,12 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       throws DatabricksVolumeOperationException {
 
     LOGGER.debug(
-        String.format(
-            "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, localPath={%s}",
-            catalog, schema, volume, objectPath, localPath));
+        "Entering putObject method with parameters: catalog={}, schema={}, volume={}, objectPath={}, localPath={}",
+        catalog,
+        schema,
+        volume,
+        objectPath,
+        localPath);
 
     try {
       // Fetching the Pre Signed Url
@@ -325,9 +394,14 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       boolean toOverwrite)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
-        String.format(
-            "Entering putObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}, inputStream={%s}, contentLength={%s}, toOverwrite={%s}",
-            catalog, schema, volume, objectPath, inputStream, contentLength, toOverwrite));
+        "Entering putObject method with parameters: catalog={}, schema={}, volume={}, objectPath={}, inputStream={}, contentLength={}, toOverwrite={}",
+        catalog,
+        schema,
+        volume,
+        objectPath,
+        inputStream,
+        contentLength,
+        toOverwrite);
 
     try {
       // Fetching the Pre Signed Url
@@ -362,9 +436,11 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   public boolean deleteObject(String catalog, String schema, String volume, String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
-        String.format(
-            "Entering deleteObject method with parameters: catalog={%s}, schema={%s}, volume={%s}, objectPath={%s}",
-            catalog, schema, volume, objectPath));
+        "Entering deleteObject method with parameters: catalog={}, schema={}, volume={}, objectPath={}",
+        catalog,
+        schema,
+        volume,
+        objectPath);
 
     try {
       // Fetching the Pre Signed Url
@@ -402,9 +478,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   CreateUploadUrlResponse getCreateUploadUrlResponse(String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
-        String.format(
-            "Entering getCreateUploadUrlResponse method with parameters: objectPath={%s}",
-            objectPath));
+        "Entering getCreateUploadUrlResponse method with parameters: objectPath={}", objectPath);
 
     CreateUploadUrlRequest request = new CreateUploadUrlRequest(objectPath);
     try {
@@ -424,9 +498,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   CreateDownloadUrlResponse getCreateDownloadUrlResponse(String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
-        String.format(
-            "Entering getCreateDownloadUrlResponse method with parameters: objectPath={%s}",
-            objectPath));
+        "Entering getCreateDownloadUrlResponse method with parameters: objectPath={}", objectPath);
 
     CreateDownloadUrlRequest request = new CreateDownloadUrlRequest(objectPath);
 
@@ -448,9 +520,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   CreateDeleteUrlResponse getCreateDeleteUrlResponse(String objectPath)
       throws DatabricksVolumeOperationException {
     LOGGER.debug(
-        String.format(
-            "Entering getCreateDeleteUrlResponse method with parameters: objectPath={%s}",
-            objectPath));
+        "Entering getCreateDeleteUrlResponse method with parameters: objectPath={}", objectPath);
     CreateDeleteUrlRequest request = new CreateDeleteUrlRequest(objectPath);
 
     try {
@@ -468,8 +538,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
   /** Fetches the list of objects in the volume using the SQL Exec API */
   ListResponse getListResponse(String listPath) throws DatabricksVolumeOperationException {
-    LOGGER.debug(
-        String.format("Entering getListResponse method with parameters : listPath={%s}", listPath));
+    LOGGER.debug("Entering getListResponse method with parameters : listPath={}", listPath);
     ListRequest request = new ListRequest(listPath);
     try {
       Request req = new Request(Request.GET, LIST_PATH);
@@ -510,5 +579,419 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   @Override
   public void close() throws IOException {
     DatabricksThreadContextHolder.clearConnectionContext();
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public List<VolumePutResult> putFiles(
+      String catalog,
+      String schema,
+      String volume,
+      List<String> objectPaths,
+      List<String> localPaths,
+      boolean toOverwrite) {
+
+    LOGGER.debug(
+        "Entering putFiles: catalog={}, schema={}, volume={}, files={}",
+        catalog,
+        schema,
+        volume,
+        objectPaths.size());
+
+    if (objectPaths.size() != localPaths.size()) {
+      String errorMessage = "objectPaths and localPaths – sizes differ";
+      LOGGER.error(errorMessage);
+      throw new IllegalArgumentException(errorMessage);
+    }
+
+    // Create upload requests - Optional.empty() for errors, Optional.of() for valid requests
+    List<Optional<UploadRequest>> uploadRequests = new ArrayList<>(objectPaths.size());
+
+    for (int i = 0; i < objectPaths.size(); i++) {
+      final String objPath = objectPaths.get(i);
+      final String fullPath = getObjectFullPath(catalog, schema, volume, objPath);
+      final String localPath = localPaths.get(i);
+      final Path file = Paths.get(localPath);
+
+      if (!Files.exists(file) || !Files.isRegularFile(file)) {
+        String errorMessage = "File not found or not a file: " + localPath;
+        LOGGER.error(errorMessage);
+        // Optional.empty() represents an error case
+        uploadRequests.add(Optional.empty());
+        continue;
+      }
+
+      // Create file upload request
+      UploadRequest request = new UploadRequest();
+      request.objectPath = objPath;
+      request.ucVolumePath = fullPath;
+      request.file = file;
+      request.originalIndex = i;
+      request.errorMessage = null;
+
+      // Optional.of() represents a valid request
+      uploadRequests.add(Optional.of(request));
+    }
+
+    // Execute uploads in parallel
+    return executeUploads(uploadRequests, localPaths);
+  }
+
+  /** {@inheritDoc} */
+  public List<VolumePutResult> putFiles(
+      String catalog,
+      String schema,
+      String volume,
+      List<String> objectPaths,
+      List<InputStream> inputStreams,
+      List<Long> contentLengths,
+      boolean toOverwrite) {
+
+    LOGGER.debug(
+        "Entering putFiles: catalog={}, schema={}, volume={}, streams={}",
+        catalog,
+        schema,
+        volume,
+        objectPaths.size());
+
+    if (objectPaths.size() != inputStreams.size() || inputStreams.size() != contentLengths.size()) {
+      String errorMessage = "objectPaths, inputStreams, contentLengths – sizes differ";
+      LOGGER.error(errorMessage);
+      throw new IllegalArgumentException(errorMessage);
+    }
+
+    // Create upload requests - Optional.empty() for errors, Optional.of() for valid requests
+    List<Optional<UploadRequest>> uploadRequests = new ArrayList<>(objectPaths.size());
+
+    for (int i = 0; i < objectPaths.size(); i++) {
+      final String objPath = objectPaths.get(i);
+      final String fullPath = getObjectFullPath(catalog, schema, volume, objPath);
+      final InputStream inputStream = inputStreams.get(i);
+      final long contentLength = contentLengths.get(i);
+
+      // Create stream upload request
+      UploadRequest request = new UploadRequest();
+      request.objectPath = objPath;
+      request.ucVolumePath = fullPath;
+      request.inputStream = inputStream;
+      request.contentLength = contentLength;
+      request.originalIndex = i;
+      request.errorMessage = null;
+
+      // All stream requests are valid (no file existence check needed)
+      uploadRequests.add(Optional.of(request));
+    }
+
+    // Execute uploads in parallel
+    return executeUploads(uploadRequests, objectPaths);
+  }
+
+  /** Request class that holds all necessary information for either file or stream uploads. */
+  public static class UploadRequest {
+    /** Relative path within the volume (used for logging and error messages) */
+    public String objectPath;
+
+    /** Full UC volume path (e.g., /Volumes/catalog/schema/volume/path/file.txt) */
+    public String ucVolumePath;
+
+    public Path file;
+    public InputStream inputStream;
+    public long contentLength;
+    public int originalIndex;
+    public String errorMessage;
+
+    public boolean isFile() {
+      return file != null;
+    }
+  }
+
+  /** Common method to execute uploads in parallel. */
+  private List<VolumePutResult> executeUploads(
+      List<Optional<UploadRequest>> uploadRequests, List<String> originalPaths) {
+
+    // Create futures array to maintain order
+    CompletableFuture<VolumePutResult>[] futures = new CompletableFuture[uploadRequests.size()];
+
+    for (int i = 0; i < uploadRequests.size(); i++) {
+      final int index = i; // Make effectively final for lambda usage
+      Optional<UploadRequest> optionalRequest = uploadRequests.get(index);
+
+      if (optionalRequest.isEmpty()) {
+        // Error case: create a failed result immediately
+        String errorMessage = "File not found or not a file: " + originalPaths.get(index);
+        futures[index] =
+            CompletableFuture.completedFuture(
+                new VolumePutResult(400, VolumeOperationStatus.FAILED, errorMessage));
+        continue;
+      }
+
+      // Valid request: process the upload
+      UploadRequest request = optionalRequest.get();
+      CompletableFuture<VolumePutResult> uploadFuture = new CompletableFuture<>();
+      futures[index] = uploadFuture;
+
+      LOGGER.debug(
+          "Uploading {} {}/{}: {} ({} bytes)",
+          request.isFile() ? "file" : "stream",
+          index + 1,
+          uploadRequests.size(),
+          request.objectPath,
+          request.isFile() ? request.file.toFile().length() : request.contentLength);
+
+      // Get presigned URL and start upload
+      requestPresignedUrlWithRetry(request.ucVolumePath, request.objectPath, 1)
+          .thenAccept(
+              response -> {
+                String presignedUrl = response.getUrl();
+                LOGGER.debug(
+                    "Got presigned URL for {} {}: {}",
+                    request.isFile() ? "file" : "stream",
+                    index + 1,
+                    request.objectPath);
+
+                try {
+                  // Upload to presigned URL
+                  AsyncRequestProducer uploadProducer;
+                  if (request.isFile()) {
+                    // File upload
+                    uploadProducer =
+                        AsyncRequestBuilder.put()
+                            .setUri(URI.create(presignedUrl))
+                            .setEntity(
+                                AsyncEntityProducers.create(
+                                    request.file.toFile(), ContentType.DEFAULT_BINARY))
+                            .build();
+                  } else {
+                    // Stream upload
+                    AsyncEntityProducer entity =
+                        new InputStreamFixedLenProducer(request.inputStream, request.contentLength);
+                    uploadProducer =
+                        AsyncRequestBuilder.put()
+                            .setUri(URI.create(presignedUrl))
+                            .setEntity(entity)
+                            .build();
+                  }
+
+                  AsyncResponseConsumer<SimpleHttpResponse> uploadConsumer =
+                      SimpleResponseConsumer.create();
+
+                  // Create callback
+                  VolumeUploadCallback uploadCallback =
+                      new VolumeUploadCallback(
+                          databricksHttpClient,
+                          uploadFuture,
+                          request,
+                          presignedUrlSemaphore,
+                          this::requestPresignedUrlWithRetry,
+                          this::calculateRetryDelay,
+                          connectionContext);
+
+                  databricksHttpClient.executeAsync(uploadProducer, uploadConsumer, uploadCallback);
+                } catch (Exception e) {
+                  String errorMessage =
+                      String.format("Error uploading %s: %s", request.objectPath, e.getMessage());
+                  LOGGER.error(e, errorMessage);
+                  uploadFuture.complete(
+                      new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
+                }
+              })
+          .exceptionally(
+              e -> {
+                String errorMessage =
+                    String.format(
+                        "Failed to get presigned URL for %s: %s",
+                        request.objectPath, e.getMessage());
+                LOGGER.error(e, errorMessage);
+                uploadFuture.complete(
+                    new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
+                return null;
+              });
+    }
+
+    // Wait for all operations to complete
+    CompletableFuture.allOf(futures).join();
+
+    // Convert futures to results - order is automatically maintained
+    List<VolumePutResult> results = new ArrayList<>(futures.length);
+    for (CompletableFuture<VolumePutResult> future : futures) {
+      results.add(future.join());
+    }
+
+    // Log results
+    long successCount =
+        results.stream()
+            .mapToLong(result -> result.getStatus() == VolumeOperationStatus.SUCCEEDED ? 1 : 0)
+            .sum();
+
+    boolean isFileUpload =
+        uploadRequests.stream()
+            .filter(Optional::isPresent)
+            .findFirst()
+            .map(opt -> opt.get().isFile())
+            .orElse(true);
+
+    LOGGER.info(
+        "Completed uploads: {}/{} {} successful",
+        successCount,
+        results.size(),
+        isFileUpload ? "files" : "streams");
+
+    return results;
+  }
+
+  // Refactored method with robust semaphore handling and attempt-based retries
+  CompletableFuture<CreateUploadUrlResponse> requestPresignedUrlWithRetry(
+      String ucVolumePath, String objectPath, int attempt) {
+    return requestPresignedUrlWithRetry(
+        ucVolumePath, objectPath, attempt, System.currentTimeMillis());
+  }
+
+  // Internal method with retry start time tracking and attempt-based retries
+  private CompletableFuture<CreateUploadUrlResponse> requestPresignedUrlWithRetry(
+      String ucVolumePath, String objectPath, int attempt, long retryStartTime) {
+    final CompletableFuture<CreateUploadUrlResponse> future = new CompletableFuture<>();
+
+    try {
+      // Acquire permit *before* the try block to handle InterruptedException separately.
+      presignedUrlSemaphore.acquire();
+
+      // The whenComplete block acts as a "finally" for the async operation.
+      // It guarantees the semaphore is released when the future is done, for any reason.
+      future.whenComplete(
+          (response, throwable) -> {
+            LOGGER.debug("Releasing semaphore permit for {}", objectPath);
+            presignedUrlSemaphore.release();
+          });
+
+      // All subsequent operations are inside a try-catch to ensure we complete the future.
+      try {
+        LOGGER.debug("Requesting presigned URL for {} (attempt {})", objectPath, attempt);
+
+        CreateUploadUrlRequest request = new CreateUploadUrlRequest(ucVolumePath);
+        String requestBody = apiClient.serialize(request);
+
+        // Build async request
+        AsyncRequestBuilder requestBuilder =
+            AsyncRequestBuilder.post(
+                URI.create(connectionContext.getHostUrl() + CREATE_UPLOAD_URL_PATH));
+
+        // Add headers
+        Map<String, String> authHeaders = workspaceClient.config().authenticate();
+        authHeaders.forEach(requestBuilder::addHeader);
+        JSON_HTTP_HEADERS.forEach(requestBuilder::addHeader);
+
+        requestBuilder.setEntity(
+            AsyncEntityProducers.create(requestBody.getBytes(), ContentType.APPLICATION_JSON));
+
+        // Execute async request
+        databricksHttpClient.executeAsync(
+            requestBuilder.build(),
+            SimpleResponseConsumer.create(),
+            new FutureCallback<SimpleHttpResponse>() {
+              @Override
+              public void completed(SimpleHttpResponse result) {
+                if (result.getCode() >= 200 && result.getCode() < 300) {
+                  try {
+                    CreateUploadUrlResponse response =
+                        JsonUtil.getMapper()
+                            .readValue(result.getBodyText(), CreateUploadUrlResponse.class);
+                    future.complete(response);
+                  } catch (Exception e) {
+                    future.completeExceptionally(e);
+                  }
+                } else if (VolumeRetryUtil.isRetryableHttpCode(result.getCode(), connectionContext)
+                    && VolumeRetryUtil.shouldRetry(attempt, retryStartTime, connectionContext)) {
+                  handleRetry(ucVolumePath, objectPath, attempt, future, retryStartTime);
+                } else {
+                  String errorMsg =
+                      String.format(
+                          "Failed to get presigned URL for %s: HTTP %d - %s",
+                          objectPath, result.getCode(), result.getReasonPhrase());
+                  LOGGER.error(errorMsg);
+                  future.completeExceptionally(
+                      new DatabricksVolumeOperationException(
+                          errorMsg,
+                          null,
+                          DatabricksDriverErrorCode.VOLUME_OPERATION_URL_GENERATION_ERROR));
+                }
+              }
+
+              @Override
+              public void failed(Exception ex) {
+                if (VolumeRetryUtil.shouldRetry(attempt, retryStartTime, connectionContext)) {
+                  handleRetry(ucVolumePath, objectPath, attempt, future, retryStartTime);
+                } else {
+                  LOGGER.error(
+                      ex, "Failed to get presigned URL for {} (attempt {})", objectPath, attempt);
+                  future.completeExceptionally(ex);
+                }
+              }
+
+              @Override
+              public void cancelled() {
+                future.cancel(true);
+              }
+            });
+
+      } catch (Throwable t) {
+        // If any synchronous error occurs (e.g., serialization, auth), fail the future.
+        // The whenComplete block will then trigger the semaphore release.
+        future.completeExceptionally(t);
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      future.completeExceptionally(
+          new CancellationException("Thread was interrupted while waiting for semaphore permit."));
+    }
+
+    return future;
+  }
+
+  // Helper method for retry logic to avoid code duplication
+  private void handleRetry(
+      String ucVolumePath,
+      String objectPath,
+      int attempt,
+      CompletableFuture<CreateUploadUrlResponse> future,
+      long retryStartTime) {
+    long retryDelayMs = calculateRetryDelay(attempt);
+    long elapsedSeconds = (System.currentTimeMillis() - retryStartTime) / 1000;
+    int timeoutSeconds = VolumeRetryUtil.getRetryTimeoutSeconds(connectionContext);
+    LOGGER.info(
+        "Request for {} failed or was rate-limited. Retrying in {} ms (elapsed: {}s, timeout: {}s)",
+        objectPath,
+        retryDelayMs,
+        elapsedSeconds,
+        timeoutSeconds);
+
+    CompletableFuture.delayedExecutor(retryDelayMs, TimeUnit.MILLISECONDS)
+        .execute(
+            () -> {
+              // The retry will return a new future; we pipe its result into our original future.
+              requestPresignedUrlWithRetry(ucVolumePath, objectPath, attempt + 1, retryStartTime)
+                  .whenComplete(
+                      (response, ex) -> {
+                        if (ex != null) {
+                          LOGGER.error(
+                              ex,
+                              "Failed to get presigned URL for {} (attempt {})",
+                              objectPath,
+                              attempt + 1);
+                          future.completeExceptionally(ex);
+                        } else {
+                          future.complete(response);
+                        }
+                      });
+            });
+  }
+
+  // Helper method to calculate retry delay with exponential backoff and jitter
+  private long calculateRetryDelay(int attempt) {
+    // Calculate exponential backoff: initialDelay * 2^attempt
+    long delay = INITIAL_RETRY_DELAY_MS * (1L << attempt);
+    // Cap at max delay
+    delay = Math.min(delay, MAX_RETRY_DELAY_MS);
+    // Add jitter (±20% randomness)
+    return (long) (delay * (0.8 + random.nextDouble(0.4)));
   }
 }

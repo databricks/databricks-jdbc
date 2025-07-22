@@ -425,7 +425,9 @@ class DatabricksConnectionContextTest {
 
     connectionContext = DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
     assertEquals("", connectionContext.getVolumeOperationAllowedPaths());
-    assertEquals(List.of(408, 502, 503, 504), connectionContext.getUCIngestionRetriableHttpCodes());
+    assertEquals(
+        List.of(408, 429, 500, 502, 503, 504),
+        connectionContext.getUCIngestionRetriableHttpCodes());
     assertEquals(900, connectionContext.getUCIngestionRetryTimeoutSeconds());
   }
 

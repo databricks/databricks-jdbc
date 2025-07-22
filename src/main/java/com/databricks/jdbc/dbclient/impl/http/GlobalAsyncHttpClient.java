@@ -1,14 +1,23 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
+
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.Closeable;
+import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.hc.client5.http.HttpRoute;
+import org.apache.hc.client5.http.impl.DefaultSchemePortResolver;
 import org.apache.hc.client5.http.impl.IdleConnectionEvictor;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
+import org.apache.hc.core5.http.HttpException;
+import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.io.CloseMode;
 import org.apache.hc.core5.reactor.IOReactorConfig;
 import org.apache.hc.core5.util.TimeValue;
@@ -82,11 +91,14 @@ public class GlobalAsyncHttpClient {
       connectionManager.setMaxTotal(MAX_TOTAL_CONNECTIONS);
       connectionManager.setDefaultMaxPerRoute(MAX_CONNECTIONS_PER_ROUTE);
 
-      client =
+      HttpAsyncClientBuilder builder =
           HttpAsyncClients.custom()
               .setIOReactorConfig(ioReactorConfig)
-              .setConnectionManager(connectionManager)
-              .build();
+              .setConnectionManager(connectionManager);
+      if (DriverUtil.isRunningAgainstFake()) {
+        setFakeServiceRouteInAsyncHttpClient(builder);
+      }
+      client = builder.build();
       client.start();
 
       connectionEvictor =
@@ -95,6 +107,49 @@ public class GlobalAsyncHttpClient {
               TimeValue.of(EVICTION_CHECK_INTERVAL_SECONDS, TimeUnit.SECONDS),
               TimeValue.of(IDLE_CONNECTION_TIMEOUT_SECONDS, TimeUnit.SECONDS));
       connectionEvictor.start();
+    }
+
+    /**
+     * Configures a custom route planner in the {@link HttpAsyncClientBuilder} to handle routing
+     * between actual services and their fake service counterparts during testing.
+     *
+     * <p>The route planner implements the following logic:
+     *
+     * <ul>
+     *   <li>For localhost requests, direct routing is used without any proxy
+     *   <li>For other hosts, looks up a fake service URI from system properties using the pattern
+     *       {@code [target-uri] + FAKE_SERVICE_URI_PROP_SUFFIX} and sets it as a proxy
+     * </ul>
+     *
+     * @param builder The {@link HttpAsyncClientBuilder} to be configured with the custom route
+     *     planner
+     */
+    private void setFakeServiceRouteInAsyncHttpClient(HttpAsyncClientBuilder builder) {
+      builder.setRoutePlanner(
+          (host, context) -> {
+            final HttpHost target;
+            target =
+                new HttpHost(
+                    host.getSchemeName(),
+                    host.getHostName(),
+                    DefaultSchemePortResolver.INSTANCE.resolve(host));
+
+            // If the target host is localhost, then no need to set proxy
+            if ("localhost".equalsIgnoreCase(host.getHostName())) {
+              return new HttpRoute(target, null, false);
+            }
+
+            // Get the fake service URI for the target URI and set it as proxy
+            final HttpHost proxy;
+            try {
+              proxy =
+                  HttpHost.create(System.getProperty(host.toURI() + FAKE_SERVICE_URI_PROP_SUFFIX));
+            } catch (URISyntaxException e) {
+              throw new HttpException(e.getMessage());
+            }
+
+            return new HttpRoute(target, null, proxy, false);
+          });
     }
 
     CloseableHttpAsyncClient getClient() {

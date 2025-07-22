@@ -1,6 +1,8 @@
 package com.databricks.jdbc.common;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -63,6 +65,7 @@ public final class DatabricksJdbcConstants {
   public static final String ALLOWED_STAGING_INGESTION_PATHS = "StagingAllowedLocalPaths";
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
   public static final String VOLUME_OPERATION_STATUS_SUCCEEDED = "SUCCEEDED";
+  public static final int VOLUME_OPERATION_MAX_RETRIES = 3;
 
   public static final String ARROW_METADATA_KEY = "Spark:DataType:SqlName";
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
@@ -100,6 +103,15 @@ public final class DatabricksJdbcConstants {
   public static final String REDACTED_TOKEN = "****";
   public static final int MAX_DEFAULT_STRING_COLUMN_LENGTH = 32767;
   public static final int DEFUALT_STRING_COLUMN_LENGTH = 255;
+  public static final int DEFAULT_MAX_CONCURRENT_PRESIGNED_REQUESTS = 50;
+
+  /** Default retryable HTTP codes for UC Volume operations. */
+  public static final List<Integer> DEFAULT_UC_INGESTION_RETRYABLE_HTTP_CODES =
+      Arrays.asList(408, 429, 500, 502, 503, 504);
+
+  /** Default retry timeout in seconds for UC Volume operations. */
+  public static final int DEFAULT_UC_INGESTION_RETRY_TIMEOUT_SECONDS = 900; // 15 minutes
+
   public static final String INVALID_SESSION_STATE_MSG = "invalid session";
 
   /** Enum for the services that can be replaced with a fake service in integration tests. */
