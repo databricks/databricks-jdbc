@@ -820,7 +820,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           getParameter(DatabricksJdbcUrlParams.MAX_CONCURRENT_PRESIGNED_REQUESTS));
     } catch (NumberFormatException e) {
       LOGGER.warn(
-          "Invalid number format for MaxConcurrentPresignedRequests. Falling back to default value 50.");
+          "Invalid number format for MaxVolumeOperationConcurrentPresignedRequests. Falling back to default value 50.");
       return DEFAULT_MAX_CONCURRENT_PRESIGNED_REQUESTS;
     }
   }

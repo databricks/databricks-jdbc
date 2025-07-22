@@ -143,7 +143,9 @@ public enum DatabricksJdbcUrlParams {
   TELEMETRY_FLUSH_INTERVAL(
       "TelemetryFlushInterval", "Flush interval in milliseconds", "300000"), // 5 MINUTES
   MAX_CONCURRENT_PRESIGNED_REQUESTS(
-      "MaxConcurrentPresignedRequests", "Maximum number of concurrent presigned requests", "50");
+      "MaxVolumeOperationConcurrentPresignedRequests",
+      "Maximum number of concurrent presigned requests",
+      "50");
 
   private final String paramName;
   private final String defaultValue;
