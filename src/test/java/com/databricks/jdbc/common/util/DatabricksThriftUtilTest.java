@@ -275,11 +275,11 @@ public class DatabricksThriftUtilTest {
         DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
     assertEquals(maxRows, rowBasedData.size());
 
-    maxRows = 0;
+    maxRows = 0; // no limit
     when(parentStatement.getMaxRows()).thenReturn(maxRows);
     rowBasedData =
         DatabricksThriftUtil.convertColumnarToRowBased(fetchResultsResp, parentStatement, session);
-    assertTrue(rowBasedData.isEmpty());
+    assertEquals(4, rowBasedData.size());
 
     maxRows = 5;
     when(parentStatement.getMaxRows()).thenReturn(maxRows);

@@ -370,8 +370,8 @@ public class DatabricksStatementTest {
     statement.setMaxRows(Integer.MAX_VALUE);
     assertEquals(Integer.MAX_VALUE, statement.getMaxRows());
     // "no limit"
-    statement.setMaxRows(0);
-    assertEquals(DEFAULT_RESULT_ROW_LIMIT, statement.getMaxRows());
+    statement.setLargeMaxRows(0);
+    assertEquals(0, statement.getLargeMaxRows());
   }
 
   @Test
@@ -384,7 +384,7 @@ public class DatabricksStatementTest {
     assertEquals(Long.MAX_VALUE, statement.getLargeMaxRows());
     // "no limit"
     statement.setLargeMaxRows(0);
-    assertEquals(DEFAULT_RESULT_ROW_LIMIT, statement.getLargeMaxRows());
+    assertEquals(0, statement.getLargeMaxRows());
   }
 
   @Test

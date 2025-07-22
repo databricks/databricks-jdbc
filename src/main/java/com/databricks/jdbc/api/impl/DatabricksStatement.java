@@ -157,11 +157,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     LOGGER.debug(String.format("public void setMaxRows(int max = {%s})", max));
     checkIfClosed();
     ValidationUtil.checkIfNonNegative(max, "maxRows");
-    if (max == 0) {
-      this.maxRows = DEFAULT_RESULT_ROW_LIMIT;
-    } else {
-      this.maxRows = max;
-    }
+    this.maxRows = max;
   }
 
   @Override
@@ -169,11 +165,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     LOGGER.debug("public void setLargeMaxRows(long max = {})", max);
     checkIfClosed();
     ValidationUtil.checkIfNonNegative(max, "maxRows");
-    if (max == 0) {
-      this.maxRows = DEFAULT_RESULT_ROW_LIMIT;
-    } else {
-      this.maxRows = max;
-    }
+    this.maxRows = max;
   }
 
   @Override

@@ -266,7 +266,7 @@ public class DatabricksThriftUtil {
       throws DatabricksSQLException {
     int statementMaxRows =
         parentStatement != null ? parentStatement.getMaxRows() : DEFAULT_RESULT_ROW_LIMIT;
-    boolean hasRowLimit = statementMaxRows != DEFAULT_RESULT_ROW_LIMIT;
+    boolean hasRowLimit = statementMaxRows > 0;
     List<List<Object>> rows = extractRowsFromColumnar(resultsResp.getResults());
     while (resultsResp.hasMoreRows) {
       resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
