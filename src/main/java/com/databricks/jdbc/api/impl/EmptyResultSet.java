@@ -1172,12 +1172,12 @@ public class EmptyResultSet
   }
 
   @Override
-  public void setSilentExceptions() {
+  public void setSilenceNonTerminalExceptions() {
     // do nothing
   }
 
   @Override
-  public void unsetSilentExceptions() {
+  public void unsetSilenceNonTerminalExceptions() {
     // do nothing
   }
 }

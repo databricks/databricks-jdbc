@@ -155,7 +155,7 @@ public class MetadataResultSetBuilder {
       IDatabricksResultSetAdapter adapter)
       throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
-    resultSet.setSilentExceptions();
+    resultSet.setSilenceNonTerminalExceptions();
     while (resultSet.next()) {
       // Check if this row should be included based on the adapter's filter
       if (!adapter.includeRow(resultSet, columns)) {
@@ -273,7 +273,7 @@ public class MetadataResultSetBuilder {
       }
       rows.add(row);
     }
-    resultSet.unsetSilentExceptions();
+    resultSet.unsetSilenceNonTerminalExceptions();
     return rows;
   }
 

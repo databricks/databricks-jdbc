@@ -8,7 +8,7 @@ public interface IDatabricksResultSetInternal {
 
   InputStreamEntity getVolumeOperationInputStream() throws SQLException;
 
-  void setSilentExceptions();
+  void setSilenceNonTerminalExceptions();
 
-  void unsetSilentExceptions();
+  void unsetSilenceNonTerminalExceptions();
 }
