@@ -112,8 +112,10 @@ public class StatementTelemetryDetails {
     return operationLatencyMillis;
   }
 
-  public void setExecutionResultFormat(ExecutionResultFormat executionResultFormat) {
+  public StatementTelemetryDetails setExecutionResultFormat(
+      ExecutionResultFormat executionResultFormat) {
     this.executionResultFormat = executionResultFormat;
+    return this;
   }
 
   public ExecutionResultFormat getExecutionResultFormat() {

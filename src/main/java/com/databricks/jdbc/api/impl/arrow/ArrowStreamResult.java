@@ -61,12 +61,13 @@ public class ArrowStreamResult implements IExecutionResult {
     boolean isInlineArrow = resultData.getAttachment() != null;
     if (isInlineArrow) {
       LOGGER.debug(
-          "Creating ArrowStreamResult with inline attachment {}",
+          "Creating ArrowStreamResult with inline attachment for statementId: {}",
           statementId.toSQLExecStatementId());
       this.chunkProvider = new InlineChunkProvider(resultData, resultManifest);
     } else {
       LOGGER.debug(
-          "Creating ArrowStreamResult with remote links {}", statementId.toSQLExecStatementId());
+          "Creating ArrowStreamResult with remote links for statementId: {}",
+          statementId.toSQLExecStatementId());
       this.chunkProvider =
           new RemoteChunkProvider(
               statementId,
