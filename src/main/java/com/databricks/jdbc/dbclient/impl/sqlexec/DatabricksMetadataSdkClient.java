@@ -15,7 +15,6 @@ import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -224,7 +223,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     }
   }
 
-  private ResultSet getResultSet(String SQL, IDatabricksSession session) throws SQLException {
+  private DatabricksResultSet getResultSet(String SQL, IDatabricksSession session)
+      throws SQLException {
     return sdkClient.executeStatement(
         SQL,
         session.getComputeResource(),

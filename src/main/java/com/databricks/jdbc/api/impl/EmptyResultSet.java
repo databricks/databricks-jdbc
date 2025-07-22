@@ -1170,4 +1170,14 @@ public class EmptyResultSet
   public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
     return null;
   }
+
+  @Override
+  public void setSilenceNonTerminalExceptions() {
+    // do nothing
+  }
+
+  @Override
+  public void unsetSilenceNonTerminalExceptions() {
+    // do nothing
+  }
 }
