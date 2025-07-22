@@ -13,6 +13,11 @@ public class DatabricksSQLException extends SQLException {
   }
 
   public DatabricksSQLException(
+      String reason, DatabricksDriverErrorCode internalError, boolean silentExceptions) {
+    this(reason, internalError.name(), silentExceptions);
+  }
+
+  public DatabricksSQLException(
       String reason, Throwable cause, DatabricksDriverErrorCode internalError) {
     this(reason, cause, internalError.toString());
   }
@@ -40,6 +45,13 @@ public class DatabricksSQLException extends SQLException {
   public DatabricksSQLException(String reason, String sqlState) {
     super(reason, sqlState);
     exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);
+  }
+
+  public DatabricksSQLException(String reason, String sqlState, boolean silentExceptions) {
+    super(reason, sqlState);
+    if (!silentExceptions) {
+      exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);
+    }
   }
 
   public DatabricksSQLException(
