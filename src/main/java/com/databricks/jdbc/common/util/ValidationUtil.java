@@ -106,11 +106,7 @@ public class ValidationUtil {
     // Validate UID parameter
     validateUidParameter(parameters);
 
-    // Future property validations can be added here, such as:
-    // validateAuthMechParameter(parameters);
-    // validatePortParameter(parameters);
-    // validateTimeoutParameters(parameters);
-    // etc.
+    // Future property validations can be added here
   }
 
   /**

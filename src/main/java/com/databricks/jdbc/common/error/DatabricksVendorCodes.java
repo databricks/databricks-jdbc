@@ -52,35 +52,6 @@ public enum DatabricksVendorCodes {
   }
 
   /**
-   * Formats this vendor code with the standard Databricks JDBC driver prefix.
-   *
-   * @return Formatted string like "[Databricks][JDBCDriver](500174)"
-   */
-  public String formatVendorCode() {
-    return String.format("[Databricks][JDBCDriver](%d)", code);
-  }
-
-  /**
-   * Gets a complete formatted error message with vendor code prefix.
-   *
-   * @return Complete formatted error message like "[Databricks][JDBCDriver](500174) Invalid UID
-   *     parameter..."
-   */
-  public String getFormattedErrorMessage() {
-    return formatVendorCode() + " " + message;
-  }
-
-  /**
-   * Static utility method to format any vendor code.
-   *
-   * @param vendorCode The numeric vendor code
-   * @return Formatted string like "[Databricks][JDBCDriver](500174)"
-   */
-  public static String formatVendorCode(int vendorCode) {
-    return String.format("[Databricks][JDBCDriver](%d)", vendorCode);
-  }
-
-  /**
    * Finds a vendor code enum by its numeric code.
    *
    * @param code The numeric vendor code to search for
