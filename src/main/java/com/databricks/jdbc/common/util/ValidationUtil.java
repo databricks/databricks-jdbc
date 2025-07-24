@@ -8,7 +8,6 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -50,8 +49,7 @@ public class ValidationUtil {
     throw new DatabricksValidationException(errorMessage);
   }
 
-  public static void checkHTTPError(HttpResponse response)
-      throws DatabricksHttpException, IOException {
+  public static void checkHTTPError(HttpResponse response) throws DatabricksHttpException {
     int statusCode = response.getStatusLine().getStatusCode();
     String statusLine = response.getStatusLine().toString();
     if (statusCode >= 200 && statusCode < 300) {
@@ -65,6 +63,7 @@ public class ValidationUtil {
               "Thrift Header : %s",
               response.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue());
     }
+    LOGGER.error(errorReason);
     throw new DatabricksHttpException(errorReason, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 

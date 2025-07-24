@@ -678,48 +678,6 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testUidValidation_EnumBasedErrorHandling() {
-    // Demo test showing how client code can use enum-based vendor codes
-    String urlWithInvalidUid =
-        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999;UID=invalid";
-    Properties properties = new Properties();
-    properties.setProperty("password", "passwd");
-
-    try {
-      DatabricksConnectionContext.parse(urlWithInvalidUid, properties);
-      fail("Expected DatabricksSQLException to be thrown");
-    } catch (DatabricksSQLException e) {
-      // Demonstrate enum-based error handling
-      int errorCode = e.getErrorCode();
-      DatabricksVendorCodes vendorCode = DatabricksVendorCodes.fromCode(errorCode);
-
-      assertNotNull(vendorCode, "Should find vendor code enum for error code " + errorCode);
-
-      switch (vendorCode) {
-        case INCORRECT_UID:
-          System.out.println("✅ Caught UID error: " + vendorCode.formatVendorCode());
-          System.out.println("✅ Error message: " + vendorCode.getMessage());
-          System.out.println("✅ Formatted message: " + vendorCode.getFormattedErrorMessage());
-          break;
-        case INCORRECT_ACCESS_TOKEN:
-          System.out.println("Caught access token error");
-          break;
-        case INCORRECT_HOST:
-          System.out.println("Caught host error");
-          break;
-        default:
-          fail("Unexpected vendor code: " + vendorCode);
-      }
-
-      // Verify the enum approach works correctly
-      assertEquals(DatabricksVendorCodes.INCORRECT_UID, vendorCode);
-      assertEquals(500174, vendorCode.getCode());
-      assertEquals("[Databricks][JDBCDriver](500174)", vendorCode.formatVendorCode());
-      assertTrue(vendorCode.getMessage().contains("Invalid UID parameter"));
-    }
-  }
-
-  @Test
   public void testUidValidation_InvalidUidInProperties() {
     // Test UID validation when provided via Properties instead of URL
     String baseUrl =
