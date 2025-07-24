@@ -82,6 +82,12 @@ public enum DatabricksVendorCode {
     return null;
   }
 
+  /**
+   * Extracts a vendor error code from a throwable by examining the exception chain.
+   *
+   * @param throwable the throwable to analyze, may be null
+   * @return the vendor error code if found, or 0 if none detected
+   */
   public static int getVendorCode(Throwable throwable) {
     Throwable current = throwable;
     while (current != null) {
@@ -98,6 +104,12 @@ public enum DatabricksVendorCode {
     return 0;
   }
 
+  /**
+   * Extracts a vendor error code from an error message string using case-insensitive matching.
+   *
+   * @param exceptionMessage the error message to analyze, may be null
+   * @return the vendor error code if found, or 0 if none detected
+   */
   public static int getVendorCode(String exceptionMessage) {
     if (exceptionMessage == null) {
       return 0;

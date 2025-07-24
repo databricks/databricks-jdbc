@@ -69,10 +69,15 @@ public class ValidationUtil {
               response.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue());
     }
     if (response.getEntity() != null) {
-      JsonNode jsonNode = JsonUtil.getMapper().readTree(EntityUtils.toString(response.getEntity()));
-      JsonNode errorNode = jsonNode.path("message");
-      if (errorNode != null) {
-        errorReason += String.format(" Error message: %s", errorNode.textValue());
+      try {
+        JsonNode jsonNode =
+            JsonUtil.getMapper().readTree(EntityUtils.toString(response.getEntity()));
+        JsonNode errorNode = jsonNode.path("message");
+        if (errorNode != null) {
+          errorReason += String.format(" Error message: %s", errorNode.textValue());
+        }
+      } catch (IOException e) {
+        LOGGER.warn("Unable to parse JSON from response entity", e);
       }
     }
 
