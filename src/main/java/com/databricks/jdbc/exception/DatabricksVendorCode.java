@@ -37,7 +37,7 @@ public enum DatabricksVendorCode {
   DatabricksVendorCode(int code, String message, String upstreamErrorMessage) {
     this.code = code;
     this.message = message;
-    this.upstreamErrorMessage = upstreamErrorMessage;
+    this.upstreamErrorMessage = upstreamErrorMessage.toLowerCase();
   }
 
   /**
@@ -99,6 +99,10 @@ public enum DatabricksVendorCode {
   }
 
   public static int getVendorCode(String exceptionMessage) {
+    if (exceptionMessage == null) {
+      return 0;
+    }
+    exceptionMessage = exceptionMessage.toLowerCase();
     for (DatabricksVendorCode vendorCode : values()) {
       if (exceptionMessage.contains(vendorCode.getUpstreamErrorMessage())) {
         return vendorCode.getCode();
