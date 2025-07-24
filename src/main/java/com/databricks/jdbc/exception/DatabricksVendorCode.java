@@ -85,12 +85,10 @@ public enum DatabricksVendorCode {
   public static int getVendorCode(Throwable throwable) {
     Throwable current = throwable;
     while (current != null) {
-      String errorMessage = current.getMessage();
-      if (errorMessage != null) {
-        int vendorCode = getVendorCode(errorMessage);
-        if (vendorCode != 0) {
-          return vendorCode;
-        }
+      String errorMessage = current.getClass() + ": " + current.getMessage();
+      int vendorCode = getVendorCode(errorMessage);
+      if (vendorCode != 0) {
+        return vendorCode;
       }
 
       // Move to the next cause in the chain
