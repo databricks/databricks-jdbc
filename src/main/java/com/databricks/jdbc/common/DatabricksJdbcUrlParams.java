@@ -8,7 +8,7 @@ public enum DatabricksJdbcUrlParams {
   LOG_PATH("logpath", "Path to the log file"),
   LOG_FILE_SIZE("LogFileSize", "Maximum size of the log file", "10"), // 10 MB
   LOG_FILE_COUNT("LogFileCount", "Number of log files to retain", "10"),
-  USER("user", "Username for authentication"),
+  UID("uid", "UID for authentication"),
   PASSWORD("password", "Password for authentication"),
   CLIENT_ID("OAuth2ClientId", "OAuth2 Client ID"),
   CLIENT_SECRET("OAuth2Secret", "OAuth2 Client Secret"),

@@ -2,6 +2,7 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.error.DatabricksVendorCodes;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -121,7 +122,7 @@ public class ValidationUtil {
    */
   public static void validateUidParameter(Map<String, String> parameters)
       throws DatabricksSQLException {
-    String uid = parameters.get("uid");
+    String uid = parameters.get(DatabricksJdbcUrlParams.UID.getParamName());
     if (uid != null) {
       if (!uid.equals("token")) {
         LOGGER.error(DatabricksVendorCodes.INCORRECT_UID.getMessage());

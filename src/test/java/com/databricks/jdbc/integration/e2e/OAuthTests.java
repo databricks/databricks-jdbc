@@ -1,7 +1,7 @@
 package com.databricks.jdbc.integration.e2e;
 
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.PASSWORD;
-import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.USER;
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.UID;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,7 +19,7 @@ public class OAuthTests {
   @Test
   void testPAT() throws SQLException {
     Properties connectionProperties = new Properties();
-    connectionProperties.put(USER, getDatabricksUser());
+    connectionProperties.put(UID, getDatabricksUser());
     connectionProperties.put(PASSWORD, getDatabricksToken());
     Connection connection = DriverManager.getConnection(getJDBCUrl(), connectionProperties);
     assertDoesNotThrow(() -> connection.createStatement().execute("select 1"));
