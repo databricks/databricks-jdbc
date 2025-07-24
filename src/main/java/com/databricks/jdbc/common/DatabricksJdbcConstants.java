@@ -44,6 +44,7 @@ public final class DatabricksJdbcConstants {
   public static final String AZURE_MSI_AUTH_TYPE = "azure-msi";
   public static final String M2M_AZURE_CLIENT_SECRET_AUTH_TYPE = "azure-client-secret";
   public static final String ACCESS_TOKEN_AUTH_TYPE = "pat";
+  public static final String VALID_UID_VALUE = "token";
   public static final String SQL_SCOPE = "sql";
   public static final String OFFLINE_ACCESS_SCOPE = "offline_access";
   public static final String FULL_STOP = ".";

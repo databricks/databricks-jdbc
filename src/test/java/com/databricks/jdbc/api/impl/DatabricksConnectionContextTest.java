@@ -691,7 +691,7 @@ class DatabricksConnectionContextTest {
         assertThrows(
             DatabricksSQLException.class,
             () -> DatabricksConnectionContext.parse(baseUrl, properties));
-    assertTrue(exception.getMessage().contains("Expected 'token' but got 'admin'"));
+    assertTrue(exception.getMessage().contains("Expected 'token' or omit UID parameter entirely"));
   }
 
   @Test

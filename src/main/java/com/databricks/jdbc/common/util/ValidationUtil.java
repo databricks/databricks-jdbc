@@ -120,7 +120,7 @@ public class ValidationUtil {
       throws DatabricksSQLException {
     String uid = parameters.get(DatabricksJdbcUrlParams.UID.getParamName());
     if (uid != null) {
-      if (!uid.equals("token")) {
+      if (!uid.equals(VALID_UID_VALUE)) {
         LOGGER.error(DatabricksVendorCodes.INCORRECT_UID.getMessage());
         throw new DatabricksValidationException(
             DatabricksVendorCodes.INCORRECT_UID.getMessage(),

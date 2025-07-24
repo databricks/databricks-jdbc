@@ -7,6 +7,7 @@
 - Added support for SSL client certificate authentication via parameter: SSLTrustStoreProvider
 - Provide an option to push telemetry logs (using the flag `ForceEnableTelemetry=1`). For more details see [documentation](https://docs.databricks.com/aws/en/integrations/jdbc-oss/properties#-telemetry-collection)
 - Added putFiles methods in DBFSVolumeClient for async multi-file upload.
+- Added validation on UID param to ensure it is either not set or set to 'token'.
 
 ### Updated
 - Column name support for JDBC ResultSet operations is now case-insensitive
