@@ -143,6 +143,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
               : DatabricksJdbcConstants.DEFAULT_PORT;
 
       ImmutableMap<String, String> propertiesMap = buildPropertiesMap(urlMinusHost, properties);
+
+      // Validate all input properties
+      ValidationUtil.validateInputProperties(propertiesMap);
+
       if (propertiesMap.containsKey(PORT)) {
         try {
           portValue = Integer.parseInt(propertiesMap.get(PORT));

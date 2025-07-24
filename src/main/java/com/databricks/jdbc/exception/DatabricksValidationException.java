@@ -12,4 +12,12 @@ public class DatabricksValidationException extends DatabricksSQLException {
   public DatabricksValidationException(String reason) {
     super(reason, DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
   }
+
+  public DatabricksValidationException(String reason, int vendorCode) {
+    super(reason, "HY000", vendorCode);
+  }
+
+  public DatabricksValidationException(String reason, Throwable e, int vendorCode) {
+    super(reason, "HY000", vendorCode, e);
+  }
 }

@@ -2,11 +2,13 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
+import com.databricks.jdbc.common.error.DatabricksVendorCodes;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -48,7 +50,8 @@ public class ValidationUtil {
     throw new DatabricksValidationException(errorMessage);
   }
 
-  public static void checkHTTPError(HttpResponse response) throws DatabricksHttpException {
+  public static void checkHTTPError(HttpResponse response)
+      throws DatabricksHttpException, IOException {
     int statusCode = response.getStatusLine().getStatusCode();
     String statusLine = response.getStatusLine().toString();
     if (statusCode >= 200 && statusCode < 300) {
@@ -62,7 +65,6 @@ public class ValidationUtil {
               "Thrift Header : %s",
               response.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue());
     }
-    LOGGER.error(errorReason);
     throw new DatabricksHttpException(errorReason, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
@@ -89,5 +91,45 @@ public class ValidationUtil {
 
     // check if path in URL matches any of the specific patterns
     return PATH_PATTERNS.stream().anyMatch(pattern -> pattern.matcher(url).matches());
+  }
+
+  /**
+   * Validates all input properties for JDBC connection parameters. This umbrella function
+   * consolidates all property validations in one place for better maintainability and
+   * extensibility.
+   *
+   * @param parameters Map of JDBC connection parameters to validate
+   * @throws DatabricksSQLException if any validation fails
+   */
+  public static void validateInputProperties(Map<String, String> parameters)
+      throws DatabricksSQLException {
+    // Validate UID parameter
+    validateUidParameter(parameters);
+
+    // Future property validations can be added here, such as:
+    // validateAuthMechParameter(parameters);
+    // validatePortParameter(parameters);
+    // validateTimeoutParameters(parameters);
+    // etc.
+  }
+
+  /**
+   * Validates the UID parameter in JDBC connection properties. UID must either be omitted or set to
+   * "token".
+   *
+   * @param parameters Map of JDBC connection parameters
+   * @throws DatabricksSQLException if UID validation fails
+   */
+  public static void validateUidParameter(Map<String, String> parameters)
+      throws DatabricksSQLException {
+    String uid = parameters.get("uid");
+    if (uid != null) {
+      if (!uid.equals("token")) {
+        LOGGER.error(DatabricksVendorCodes.INCORRECT_UID.getMessage());
+        throw new DatabricksValidationException(
+            DatabricksVendorCodes.INCORRECT_UID.getMessage(),
+            DatabricksVendorCodes.INCORRECT_UID.getCode());
+      }
+    }
   }
 }

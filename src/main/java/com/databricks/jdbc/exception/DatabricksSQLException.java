@@ -60,4 +60,17 @@ public class DatabricksSQLException extends SQLException {
     exportFailureLog(
         DatabricksThreadContextHolder.getConnectionContext(), internalError.name(), reason);
   }
+
+  public DatabricksSQLException(String reason, String sqlState, int vendorCode) {
+    super(reason, sqlState, vendorCode);
+    exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);
+  }
+
+  public DatabricksSQLException(String reason, String sqlState, int vendorCode, Throwable cause) {
+    super(reason, sqlState, vendorCode, cause);
+    exportFailureLog(
+        DatabricksThreadContextHolder.getConnectionContext(),
+        DatabricksDriverErrorCode.CONNECTION_ERROR.name(),
+        reason);
+  }
 }

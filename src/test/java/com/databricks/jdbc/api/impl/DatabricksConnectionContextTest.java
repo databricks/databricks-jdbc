@@ -10,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.TestConstants;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
+import com.databricks.jdbc.common.error.DatabricksVendorCodes;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -611,5 +612,142 @@ class DatabricksConnectionContextTest {
     properties.put("SSLTrustStoreProvider", "SunJSSE");
     connectionContext =
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(validJdbcUrl, properties);
+  }
+
+  @Test
+  public void testUidValidation_ValidToken() throws DatabricksSQLException {
+    // Test that UID=token is valid
+    String urlWithValidUid =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999;UID=token";
+    Properties properties = new Properties();
+    properties.setProperty("password", "passwd");
+
+    // Should not throw exception
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithValidUid, properties);
+    assertNotNull(connectionContext);
+  }
+
+  @Test
+  public void testUidValidation_NoUidProvided() throws DatabricksSQLException {
+    // Test that missing UID is valid (backward compatibility)
+    String urlWithoutUid =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999";
+    Properties properties = new Properties();
+    properties.setProperty("password", "passwd");
+
+    // Should not throw exception
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(urlWithoutUid, properties);
+    assertNotNull(connectionContext);
+  }
+
+  @Test
+  public void testUidValidation_EmptyUid() {
+    // Test that UID= (empty) is invalid
+    String urlWithEmptyUid =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999;UID=";
+    Properties properties = new Properties();
+    properties.setProperty("password", "passwd");
+
+    // Should throw DatabricksValidationException with vendor code 500174
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> DatabricksConnectionContext.parse(urlWithEmptyUid, properties));
+    assertTrue(exception.getMessage().contains("Invalid UID parameter"));
+    assertEquals(DatabricksVendorCodes.INCORRECT_UID.getCode(), exception.getErrorCode());
+  }
+
+  @Test
+  public void testUidValidation_InvalidUidValue() {
+    // Test that UID=user is invalid
+    String urlWithInvalidUid =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999;UID=user";
+    Properties properties = new Properties();
+    properties.setProperty("password", "passwd");
+
+    // Should throw DatabricksValidationException with vendor code 500174
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> DatabricksConnectionContext.parse(urlWithInvalidUid, properties));
+    assertTrue(exception.getMessage().contains("Invalid UID parameter"));
+    assertEquals(DatabricksVendorCodes.INCORRECT_UID.getCode(), exception.getErrorCode());
+  }
+
+  @Test
+  public void testUidValidation_EnumBasedErrorHandling() {
+    // Demo test showing how client code can use enum-based vendor codes
+    String urlWithInvalidUid =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999;UID=invalid";
+    Properties properties = new Properties();
+    properties.setProperty("password", "passwd");
+
+    try {
+      DatabricksConnectionContext.parse(urlWithInvalidUid, properties);
+      fail("Expected DatabricksSQLException to be thrown");
+    } catch (DatabricksSQLException e) {
+      // Demonstrate enum-based error handling
+      int errorCode = e.getErrorCode();
+      DatabricksVendorCodes vendorCode = DatabricksVendorCodes.fromCode(errorCode);
+
+      assertNotNull(vendorCode, "Should find vendor code enum for error code " + errorCode);
+
+      switch (vendorCode) {
+        case INCORRECT_UID:
+          System.out.println("✅ Caught UID error: " + vendorCode.formatVendorCode());
+          System.out.println("✅ Error message: " + vendorCode.getMessage());
+          System.out.println("✅ Formatted message: " + vendorCode.getFormattedErrorMessage());
+          break;
+        case INCORRECT_ACCESS_TOKEN:
+          System.out.println("Caught access token error");
+          break;
+        case INCORRECT_HOST:
+          System.out.println("Caught host error");
+          break;
+        default:
+          fail("Unexpected vendor code: " + vendorCode);
+      }
+
+      // Verify the enum approach works correctly
+      assertEquals(DatabricksVendorCodes.INCORRECT_UID, vendorCode);
+      assertEquals(500174, vendorCode.getCode());
+      assertEquals("[Databricks][JDBCDriver](500174)", vendorCode.formatVendorCode());
+      assertTrue(vendorCode.getMessage().contains("Invalid UID parameter"));
+    }
+  }
+
+  @Test
+  public void testUidValidation_InvalidUidInProperties() {
+    // Test UID validation when provided via Properties instead of URL
+    String baseUrl =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999";
+    Properties properties = new Properties();
+    properties.setProperty("password", "passwd");
+    properties.setProperty("UID", "admin"); // Invalid UID value
+
+    // Should throw DatabricksValidationException
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> DatabricksConnectionContext.parse(baseUrl, properties));
+    assertTrue(exception.getMessage().contains("Expected 'token' but got 'admin'"));
+  }
+
+  @Test
+  public void testUidValidation_ValidUidInProperties() throws DatabricksSQLException {
+    // Test that UID=token in Properties is valid
+    String baseUrl =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999";
+    Properties properties = new Properties();
+    properties.setProperty("password", "passwd");
+    properties.setProperty("UID", "token"); // Valid UID value
+
+    // Should not throw exception
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(baseUrl, properties);
+    assertNotNull(connectionContext);
   }
 }
