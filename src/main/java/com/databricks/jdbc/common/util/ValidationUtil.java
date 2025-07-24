@@ -73,10 +73,10 @@ public class ValidationUtil {
         JsonNode jsonNode =
             JsonUtil.getMapper().readTree(EntityUtils.toString(response.getEntity()));
         JsonNode errorNode = jsonNode.path("message");
-        if (errorNode != null) {
+        if (errorNode.isTextual()) {
           errorReason += String.format(" Error message: %s", errorNode.textValue());
         }
-      } catch (IOException e) {
+      } catch (Exception e) {
         LOGGER.warn("Unable to parse JSON from response entity", e);
       }
     }
