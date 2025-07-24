@@ -12,7 +12,7 @@ public enum DatabricksVendorCode {
   INCORRECT_UID(
       500174,
       "Invalid UID parameter: Expected 'token' or omit UID parameter entirely",
-      "Invalid UID parameter"),
+      "Invalid UID parameter: Expected 'token' or omit UID parameter entirely"),
 
   /** Incorrect or invalid access token provided */
   INCORRECT_ACCESS_TOKEN(

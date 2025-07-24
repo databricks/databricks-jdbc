@@ -140,7 +140,7 @@ public class ValidationUtil {
     if (uid != null && !uid.equals(VALID_UID_VALUE)) {
       LOGGER.error(DatabricksVendorCode.INCORRECT_UID.getMessage());
       throw new DatabricksValidationException(
-          DatabricksVendorCode.INCORRECT_UID.getUpstreamErrorMessage(),
+          DatabricksVendorCode.INCORRECT_UID.getMessage(),
           DatabricksVendorCode.INCORRECT_UID.getCode());
     }
   }
