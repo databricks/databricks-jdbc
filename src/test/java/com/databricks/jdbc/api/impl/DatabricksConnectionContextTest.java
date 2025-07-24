@@ -10,10 +10,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.TestConstants;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
-import com.databricks.jdbc.common.error.DatabricksVendorCodes;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.collect.ImmutableMap;
 import java.util.List;
@@ -657,7 +657,7 @@ class DatabricksConnectionContextTest {
             DatabricksSQLException.class,
             () -> DatabricksConnectionContext.parse(urlWithEmptyUid, properties));
     assertTrue(exception.getMessage().contains("Invalid UID parameter"));
-    assertEquals(DatabricksVendorCodes.INCORRECT_UID.getCode(), exception.getErrorCode());
+    assertEquals(DatabricksVendorCode.INCORRECT_UID.getCode(), exception.getErrorCode());
   }
 
   @Test
@@ -674,7 +674,7 @@ class DatabricksConnectionContextTest {
             DatabricksSQLException.class,
             () -> DatabricksConnectionContext.parse(urlWithInvalidUid, properties));
     assertTrue(exception.getMessage().contains("Invalid UID parameter"));
-    assertEquals(DatabricksVendorCodes.INCORRECT_UID.getCode(), exception.getErrorCode());
+    assertEquals(DatabricksVendorCode.INCORRECT_UID.getCode(), exception.getErrorCode());
   }
 
   @Test
@@ -691,7 +691,7 @@ class DatabricksConnectionContextTest {
         assertThrows(
             DatabricksSQLException.class,
             () -> DatabricksConnectionContext.parse(baseUrl, properties));
-    assertEquals(DatabricksVendorCodes.INCORRECT_UID.getCode(), exception.getErrorCode());
+    assertEquals(DatabricksVendorCode.INCORRECT_UID.getCode(), exception.getErrorCode());
     assertTrue(exception.getMessage().contains("Expected 'token' or omit UID parameter entirely"));
   }
 
