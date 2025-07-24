@@ -119,13 +119,12 @@ public class ValidationUtil {
   public static void validateUidParameter(Map<String, String> parameters)
       throws DatabricksSQLException {
     String uid = parameters.get(DatabricksJdbcUrlParams.UID.getParamName());
-    if (uid != null) {
-      if (!uid.equals(VALID_UID_VALUE)) {
-        LOGGER.error(DatabricksVendorCodes.INCORRECT_UID.getMessage());
-        throw new DatabricksValidationException(
-            DatabricksVendorCodes.INCORRECT_UID.getMessage(),
-            DatabricksVendorCodes.INCORRECT_UID.getCode());
-      }
+    // UID must either be omitted or set to "token"
+    if (uid != null && !uid.equals(VALID_UID_VALUE)) {
+      LOGGER.error(DatabricksVendorCodes.INCORRECT_UID.getMessage());
+      throw new DatabricksValidationException(
+          DatabricksVendorCodes.INCORRECT_UID.getMessage(),
+          DatabricksVendorCodes.INCORRECT_UID.getCode());
     }
   }
 }
