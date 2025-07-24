@@ -94,9 +94,9 @@ public class ValidationUtil {
   }
 
   /**
-   * Validates all input properties for JDBC connection parameters. This umbrella function
-   * consolidates all property validations in one place for better maintainability and
-   * extensibility.
+   * Validates all input properties for JDBC connection parameters. This method serves as a central
+   * validation entry point, consolidating all property validations in one place for better
+   * maintainability and extensibility.
    *
    * @param parameters Map of JDBC connection parameters to validate
    * @throws DatabricksSQLException if any validation fails

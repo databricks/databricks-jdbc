@@ -691,6 +691,7 @@ class DatabricksConnectionContextTest {
         assertThrows(
             DatabricksSQLException.class,
             () -> DatabricksConnectionContext.parse(baseUrl, properties));
+    assertEquals(DatabricksVendorCodes.INCORRECT_UID.getCode(), exception.getErrorCode());
     assertTrue(exception.getMessage().contains("Expected 'token' or omit UID parameter entirely"));
   }
 
