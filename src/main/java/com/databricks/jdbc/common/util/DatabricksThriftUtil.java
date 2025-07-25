@@ -57,7 +57,7 @@ public class DatabricksThriftUtil {
 
   public static String byteBufferToString(ByteBuffer buffer) {
     ByteBuffer newBuffer = buffer.duplicate(); // This is to avoid a BufferUnderflowException
-    // sessionId and guid are 16 bytes long
+    // sessionId and statementID have guid which are 16 bytes long
     if (newBuffer.remaining() >= DatabricksJdbcConstants.UUID_LENGTH) {
       long mostSigBits = newBuffer.getLong();
       long leastSigBits = newBuffer.getLong();
