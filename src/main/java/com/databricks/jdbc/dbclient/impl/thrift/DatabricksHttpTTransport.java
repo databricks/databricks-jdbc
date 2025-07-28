@@ -143,7 +143,7 @@ public class DatabricksHttpTTransport extends TTransport {
 
       String errorMessage = "Failed to flush data to server: " + e.getMessage();
       LOGGER.error(e, errorMessage);
-      throw new TTransportException(TTransportException.UNKNOWN, errorMessage);
+      throw new TTransportException(TTransportException.UNKNOWN, errorMessage, e);
     }
 
     // Reset the request buffer

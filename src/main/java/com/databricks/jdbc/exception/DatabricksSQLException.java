@@ -23,17 +23,13 @@ public class DatabricksSQLException extends SQLException {
   }
 
   public DatabricksSQLException(String reason, Throwable cause, String sqlState) {
-    super(reason, sqlState, cause);
-    exportFailureLog(
-        DatabricksThreadContextHolder.getConnectionContext(),
-        DatabricksDriverErrorCode.CONNECTION_ERROR.name(),
-        reason);
+    this(reason, sqlState, DatabricksVendorCode.getVendorCode(cause), cause);
   }
 
   // This constructor is used to export chunk download failure logs
   public DatabricksSQLException(
       String reason, Throwable cause, String statementId, Long chunkIndex, String sqlState) {
-    super(reason, sqlState, cause);
+    super(reason, sqlState, DatabricksVendorCode.getVendorCode(cause), cause);
     exportFailureLog(
         DatabricksThreadContextHolder.getConnectionContext(),
         DatabricksDriverErrorCode.CONNECTION_ERROR.name(),
@@ -43,15 +39,11 @@ public class DatabricksSQLException extends SQLException {
   }
 
   public DatabricksSQLException(String reason, String sqlState) {
-    super(reason, sqlState);
-    exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);
+    this(reason, sqlState, false);
   }
 
   public DatabricksSQLException(String reason, String sqlState, boolean silentExceptions) {
-    super(reason, sqlState);
-    if (!silentExceptions) {
-      exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);
-    }
+    this(reason, sqlState, DatabricksVendorCode.getVendorCode(reason), silentExceptions);
   }
 
   public DatabricksSQLException(
@@ -62,8 +54,15 @@ public class DatabricksSQLException extends SQLException {
   }
 
   public DatabricksSQLException(String reason, String sqlState, int vendorCode) {
+    this(reason, sqlState, vendorCode, false);
+  }
+
+  public DatabricksSQLException(
+      String reason, String sqlState, int vendorCode, boolean silentExceptions) {
     super(reason, sqlState, vendorCode);
-    exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);
+    if (!silentExceptions) {
+      exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);
+    }
   }
 
   public DatabricksSQLException(String reason, String sqlState, int vendorCode, Throwable cause) {
