@@ -423,6 +423,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public double getCloudFetchSpeedThreshold() {
+    return Double.parseDouble(getParameter(DatabricksJdbcUrlParams.CLOUD_FETCH_SPEED_THRESHOLD));
+  }
+
+  @Override
   public String getCatalog() {
     return getParameter(DatabricksJdbcUrlParams.CONN_CATALOG);
   }
