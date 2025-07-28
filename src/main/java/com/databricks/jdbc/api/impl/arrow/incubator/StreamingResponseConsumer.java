@@ -8,6 +8,7 @@ import java.nio.ByteBuffer;
 import org.apache.hc.client5.http.async.methods.AbstractBinResponseConsumer;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpException;
+import org.apache.hc.core5.http.HttpResponse;
 
 /**
  * {@link AbstractBinResponseConsumer} that handles streaming Arrow data chunks. This class
@@ -31,8 +32,7 @@ class StreamingResponseConsumer extends AbstractBinResponseConsumer<byte[]> {
   }
 
   @Override
-  protected void start(org.apache.hc.core5.http.HttpResponse response, ContentType contentType)
-      throws HttpException {
+  protected void start(HttpResponse response, ContentType contentType) throws HttpException {
     // Verify response status code here if needed
     if (response.getCode() != 200) {
       throw new HttpException("Unexpected response status: " + response.getCode());

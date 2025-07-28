@@ -32,8 +32,26 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunkV2.class);
 
   /**
+   * The number of threads in the executor for processing downloaded Arrow data chunks.
+   *
+   * <p>TODO: Make this configurable
+   */
+  private static final int N_THREADS_PROCESSING = 150;
+
+  /**
    * Scheduler dedicated to retry operations for failed chunk downloads. Uses a small thread pool
-   * since chunk downloads operate asynchronously.
+   * since chunk downloads operate asynchronously and retry operations are lightweight scheduling
+   * tasks.
+   *
+   * <p>Thread pool size is set to the number of available processors to balance resource usage with
+   * responsiveness. Each thread is configured as a daemon thread to prevent blocking JVM shutdown.
+   *
+   * <p>This scheduler handles: - Exponential backoff delays between retry attempts - Scheduling
+   * retry operations when network errors or timeouts occur - Managing retry attempts across
+   * multiple concurrent chunk downloads
+   *
+   * <p>The scheduler operates independently of the main arrow data processing executor to ensure
+   * retry scheduling is not blocked by data processing operations.
    */
   private static final ScheduledExecutorService retryScheduler =
       Executors.newScheduledThreadPool(
@@ -50,10 +68,23 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
             }
           });
 
-  /** A thread pool executor for processing Arrow data chunks. */
+  /**
+   * A thread pool executor for processing Arrow data chunks after successful download.
+   *
+   * <p>Processing operations include: - Decompressing downloaded byte arrays using the specified
+   * compression codec - Initializing Arrow data structures from the decompressed input stream
+   *
+   * <p>Uses a fixed thread pool of 150 threads to handle concurrent chunk processing across
+   * multiple active result sets. The large thread pool size accommodates the potentially blocking
+   * nature of decompression and Arrow data initialization operations.
+   *
+   * <p>Each thread is configured as a daemon thread to prevent blocking JVM shutdown. Processing
+   * tasks are submitted here after chunks are successfully downloaded to separate I/O operations
+   * from CPU-intensive data transformation work.
+   */
   private static final ExecutorService arrowDataProcessingExecutor =
       Executors.newFixedThreadPool(
-          150,
+          N_THREADS_PROCESSING,
           new ThreadFactory() {
             private final AtomicInteger threadNumber = new AtomicInteger(1);
 
@@ -89,6 +120,7 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
 
   @Override
   protected void downloadData(IDatabricksHttpClient httpClient, CompressionCodec compressionCodec) {
+    // TODO: Make this configurable
     RetryConfig retryConfig =
         new RetryConfig.Builder().maxAttempts(3).baseDelayMs(1000).maxDelayMs(5000).build();
     retryDownload(httpClient, compressionCodec, retryConfig, 1);
