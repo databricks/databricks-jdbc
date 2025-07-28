@@ -23,7 +23,6 @@ import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.ByteArrayOutputStream;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -55,6 +54,37 @@ class RemoteChunkProviderV2Test {
   @Mock private IDatabricksHttpClient mockHttpClient;
   @Mock private IDatabricksStatementInternal mockStatement;
   @Mock private IDatabricksConnectionContext mockConnectionContext;
+
+  /** Creates a minimal valid Arrow stream as byte array for testing */
+  public static byte[] createValidArrowData() {
+    try (BufferAllocator allocator = new RootAllocator();
+        ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+
+      // Create a simple schema with one string column
+      Field field = new Field("test_column", FieldType.nullable(new ArrowType.Utf8()), null);
+      Schema schema = new Schema(List.of(field));
+
+      try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+          ArrowStreamWriter writer = new ArrowStreamWriter(root, null, out)) {
+
+        writer.start();
+
+        // Add one batch with some test data
+        VarCharVector vector = (VarCharVector) root.getVector("test_column");
+        vector.allocateNew();
+        vector.setSafe(0, "test_value".getBytes());
+        vector.setValueCount(1);
+        root.setRowCount(1);
+
+        writer.writeBatch();
+        writer.end();
+      }
+
+      return out.toByteArray();
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to create test Arrow data", e);
+    }
+  }
 
   @BeforeEach
   void setUp() {
@@ -203,19 +233,17 @@ class RemoteChunkProviderV2Test {
   }
 
   @Test
-  void shouldHandleInterruptedLinkDownload() throws Exception {
+  void shouldHandleInterruptedLinkDownload() {
     // Prepare test data
     ResultManifest manifest = createTestManifest(1);
-    ResultData resultData = createTestResultData(1);
 
     // Mock ChunkLinkDownloadService to simulate interruption
     try (MockedConstruction<ChunkLinkDownloadService> mockedConstruction =
         mockConstruction(
             ChunkLinkDownloadService.class,
-            (mock, context) -> {
-              when(mock.getLinkForChunk(anyLong()))
-                  .thenThrow(new InterruptedException("Thread interrupted"));
-            })) {
+            (mock, context) ->
+                when(mock.getLinkForChunk(anyLong()))
+                    .thenThrow(new InterruptedException("Thread interrupted")))) {
 
       // Create provider with invalid links to trigger link download
       ResultData emptyResultData = new ResultData();
@@ -342,10 +370,9 @@ class RemoteChunkProviderV2Test {
     try (MockedConstruction<ChunkLinkDownloadService> mockedConstruction =
         mockConstruction(
             ChunkLinkDownloadService.class,
-            (mock, context) -> {
-              when(mock.getLinkForChunk(anyLong()))
-                  .thenReturn(CompletableFuture.completedFuture(createTestExternalLink(0)));
-            })) {
+            (mock, context) ->
+                when(mock.getLinkForChunk(anyLong()))
+                    .thenReturn(CompletableFuture.completedFuture(createTestExternalLink(0))))) {
 
       // Mock HTTP client to simulate successful downloads during initialization
       doAnswer(
@@ -518,36 +545,5 @@ class RemoteChunkProviderV2Test {
     resp.setResults(rowSet);
     resp.setHasMoreRows(false);
     return resp;
-  }
-
-  /** Creates a minimal valid Arrow stream as byte array for testing */
-  private byte[] createValidArrowData() {
-    try (BufferAllocator allocator = new RootAllocator();
-        ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-
-      // Create a simple schema with one string column
-      Field field = new Field("test_column", FieldType.nullable(new ArrowType.Utf8()), null);
-      Schema schema = new Schema(Arrays.asList(field));
-
-      try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-          ArrowStreamWriter writer = new ArrowStreamWriter(root, null, out)) {
-
-        writer.start();
-
-        // Add one batch with some test data
-        VarCharVector vector = (VarCharVector) root.getVector("test_column");
-        vector.allocateNew();
-        vector.setSafe(0, "test_value".getBytes());
-        vector.setValueCount(1);
-        root.setRowCount(1);
-
-        writer.writeBatch();
-        writer.end();
-      }
-
-      return out.toByteArray();
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to create test Arrow data", e);
-    }
   }
 }

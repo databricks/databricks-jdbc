@@ -164,7 +164,6 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
       initializeData(uncompressedStream);
       // Clear the downloaded bytes after successful processing
       downloadedBytes = null;
-      setStatus(ChunkStatus.PROCESSING_SUCCEEDED);
       chunkReadyFuture.complete(null);
     } catch (IOException | DatabricksSQLException e) {
       handleFailure(e, ChunkStatus.PROCESSING_FAILED);
@@ -189,6 +188,7 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
       int currentAttempt,
       Exception e,
       DownloadPhase phase) {
+    setStatus(ChunkStatus.DOWNLOAD_FAILED);
     LOGGER.info(
         "Retrying, current attempt: "
             + currentAttempt

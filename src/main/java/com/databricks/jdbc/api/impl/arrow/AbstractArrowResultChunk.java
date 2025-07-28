@@ -153,6 +153,15 @@ public abstract class AbstractArrowResultChunk {
   }
 
   /**
+   * Returns the current status of the chunk.
+   *
+   * @return current ChunkStatus
+   */
+  public ChunkStatus getStatus() {
+    return stateMachine.getCurrentStatus();
+  }
+
+  /**
    * Downloads and initializes data for this chunk using the provided HTTP client and compression
    * codec.
    *
@@ -205,15 +214,6 @@ public abstract class AbstractArrowResultChunk {
    */
   protected ValueVector getColumnVector(int recordBatchIndex, int columnIndex) {
     return recordBatchList.get(recordBatchIndex).get(columnIndex);
-  }
-
-  /**
-   * Returns the current status of the chunk.
-   *
-   * @return current ChunkStatus
-   */
-  protected ChunkStatus getStatus() {
-    return stateMachine.getCurrentStatus();
   }
 
   /**
