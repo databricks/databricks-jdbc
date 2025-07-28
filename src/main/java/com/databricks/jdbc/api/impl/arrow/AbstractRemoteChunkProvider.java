@@ -207,6 +207,14 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
     }
   }
 
+  public boolean isClosed() {
+    return isClosed;
+  }
+
+  public long getAllowedChunksInMemory() {
+    return allowedChunksInMemory;
+  }
+
   /** Subclasses should override this method to perform their specific cleanup. */
   protected void doClose() {
     // Default implementation does nothing
