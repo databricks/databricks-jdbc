@@ -353,9 +353,24 @@ public class DatabricksConnectionTest {
         () -> connection.prepareStatement(SQL, 1, 1, 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.prepareStatement(SQL, 1));
+    // Test createStatement with default values succeeds
+    assertDoesNotThrow(
+        () -> {
+          connection.createStatement(
+              ResultSet.TYPE_FORWARD_ONLY,
+              ResultSet.CONCUR_READ_ONLY,
+              ResultSet.CLOSE_CURSORS_AT_COMMIT);
+        });
+
+    // Test createStatement with non-default values throws exception
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
-        () -> connection.createStatement(1, 1, 1));
+        () -> {
+          connection.createStatement(
+              ResultSet.TYPE_SCROLL_INSENSITIVE,
+              ResultSet.CONCUR_READ_ONLY,
+              ResultSet.CLOSE_CURSORS_AT_COMMIT);
+        });
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class, () -> connection.setSavepoint("1"));
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::setSavepoint);

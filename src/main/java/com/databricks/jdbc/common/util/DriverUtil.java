@@ -31,6 +31,10 @@ public class DriverUtil {
     return DRIVER_VERSION;
   }
 
+  public static String getDriverVersionWithoutOSSSuffix() {
+    return DRIVER_VERSION.replace("-oss", "");
+  }
+
   public static String getDriverName() {
     return DRIVER_NAME;
   }

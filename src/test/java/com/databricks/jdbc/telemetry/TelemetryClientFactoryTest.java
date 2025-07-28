@@ -13,6 +13,7 @@ import com.databricks.sdk.core.DatabricksConfig;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -24,21 +25,25 @@ public class TelemetryClientFactoryTest {
   private static final String JDBC_URL_1 =
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;UserAgentEntry=MyApp;";
   private static final String JDBC_URL_2 =
-      "jdbc:databricks://adb-20.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/ghgjhgj;UserAgentEntry=MyApp;EnableTelemetry=1";
+      "jdbc:databricks://adb-20.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/ghgjhgj;UserAgentEntry=MyApp;forceEnableTelemetry=1";
 
   @Mock ClientConfigurator clientConfigurator;
   @Mock DatabricksConfig databricksConfig;
+
+  @BeforeEach
+  public void setUp() {
+    // Reset the singleton to ensure clean state between tests
+    TelemetryClientFactory.getInstance().reset();
+  }
 
   @Test
   public void testGetNoOpTelemetryClient() throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL_1, new Properties());
+    TelemetryClientFactory.getInstance().closeTelemetryClient(context);
     ITelemetryClient telemetryClient =
         TelemetryClientFactory.getInstance().getTelemetryClient(context);
     assertInstanceOf(NoopTelemetryClient.class, telemetryClient);
-    assertEquals(0, TelemetryClientFactory.getInstance().telemetryClients.size());
-    assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClients.size());
-    TelemetryClientFactory.getInstance().closeTelemetryClient(context);
     assertEquals(0, TelemetryClientFactory.getInstance().telemetryClients.size());
     assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClients.size());
   }
@@ -58,6 +63,7 @@ public class TelemetryClientFactoryTest {
     TelemetryClientFactory.getInstance().closeTelemetryClient(context);
     assertEquals(0, TelemetryClientFactory.getInstance().telemetryClients.size());
     assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClients.size());
+    TelemetryClientFactory.getInstance().closeTelemetryClient(context);
   }
 
   @Test
@@ -76,10 +82,12 @@ public class TelemetryClientFactoryTest {
       assertInstanceOf(NoopTelemetryClient.class, telemetryClient);
       assertEquals(0, TelemetryClientFactory.getInstance().telemetryClients.size());
       assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClients.size());
+      TelemetryClientFactory.getInstance().closeTelemetryClient(context);
     }
   }
 
   private void setupMocksForTelemetryClient(IDatabricksConnectionContext context) {
+    TelemetryClientFactory.getInstance().closeTelemetryClient(context);
     TelemetryAuthHelper.setupAuthMocks(context, clientConfigurator);
     Map<String, String> featureFlagMap = new HashMap<>();
     featureFlagMap.put(TELEMETRY_FEATURE_FLAG_NAME, "true");

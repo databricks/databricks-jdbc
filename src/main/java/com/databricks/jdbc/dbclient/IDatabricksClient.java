@@ -41,6 +41,7 @@ public interface IDatabricksClient {
    *
    * @param sessionInfo for which the session should be deleted
    */
+  @DatabricksMetricsTimed
   void deleteSession(ImmutableSessionInfo sessionInfo) throws DatabricksSQLException;
 
   /**

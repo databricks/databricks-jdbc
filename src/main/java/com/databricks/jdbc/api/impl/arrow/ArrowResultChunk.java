@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
+import static com.databricks.jdbc.telemetry.TelemetryHelper.getStatementIdString;
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
@@ -14,6 +15,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.IOException;
 import java.io.InputStream;
@@ -67,6 +69,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
   protected void downloadData(IDatabricksHttpClient httpClient, CompressionCodec compressionCodec)
       throws DatabricksParsingException, IOException {
     CloseableHttpResponse response = null;
+    long startTime = System.nanoTime();
     try {
       URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
       HttpGet getRequest = new HttpGet(uriBuilder.build());
@@ -74,6 +77,11 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       // Retry would be done in http client, we should not bother about that here
       response = httpClient.execute(getRequest, true);
       checkHTTPError(response);
+      TelemetryCollector.getInstance()
+          .recordChunkDownloadLatency(
+              getStatementIdString(statementId),
+              chunkIndex,
+              ((System.nanoTime() - startTime) / 1000_000)); // Convert nano to millis
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
       String decompressionContext =
           String.format(

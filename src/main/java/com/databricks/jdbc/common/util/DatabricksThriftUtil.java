@@ -6,6 +6,7 @@ import static com.databricks.jdbc.model.client.thrift.generated.TTypeId.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -56,8 +57,15 @@ public class DatabricksThriftUtil {
 
   public static String byteBufferToString(ByteBuffer buffer) {
     ByteBuffer newBuffer = buffer.duplicate(); // This is to avoid a BufferUnderflowException
-    long sigBits = newBuffer.getLong();
-    return new UUID(sigBits, sigBits).toString();
+    // sessionId and statementID have guid which are 16 bytes long
+    if (newBuffer.remaining() >= DatabricksJdbcConstants.UUID_LENGTH) {
+      long mostSigBits = newBuffer.getLong();
+      long leastSigBits = newBuffer.getLong();
+      return new UUID(mostSigBits, leastSigBits).toString();
+    } else {
+      long sigBits = newBuffer.getLong();
+      return new UUID(sigBits, sigBits).toString();
+    }
   }
 
   public static ExternalLink createExternalLink(TSparkArrowResultLink chunkInfo, long chunkIndex) {
@@ -286,9 +294,7 @@ public class DatabricksThriftUtil {
   public static TOperationHandle getOperationHandle(StatementId statementId) {
     THandleIdentifier identifier = statementId.toOperationIdentifier();
     // This will help logging the statement-Id in readable format for debugging purposes
-    LOGGER.debug(
-        "getOperationHandle {%s} for statementId {%s}",
-        statementId, byteBufferToString(identifier.guid));
+    LOGGER.debug("getOperationHandle for statementId {%s}", byteBufferToString(identifier.guid));
     return new TOperationHandle()
         .setOperationId(identifier)
         .setOperationType(TOperationType.UNKNOWN);

@@ -8,7 +8,6 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.databricks.jdbc.telemetry.latency.ChunkLatencyHandler;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
@@ -42,7 +41,6 @@ class ChunkDownloadTask implements DatabricksCallableTask {
 
   @Override
   public Void call() throws DatabricksSQLException, ExecutionException, InterruptedException {
-    long startTime = System.currentTimeMillis();
     int retries = 0;
     boolean downloadSuccessful = false;
 
@@ -64,12 +62,6 @@ class ChunkDownloadTask implements DatabricksCallableTask {
 
           chunk.downloadData(httpClient, chunkDownloader.getCompressionCodec());
           downloadSuccessful = true;
-
-          // Record chunk download latency on successful download
-          long downloadLatency = System.currentTimeMillis() - startTime;
-          ChunkLatencyHandler.getInstance()
-              .recordChunkDownloadLatency(statementId, chunk.getChunkIndex(), downloadLatency);
-
         } catch (IOException | DatabricksSQLException e) {
           retries++;
           if (retries >= MAX_RETRIES) {

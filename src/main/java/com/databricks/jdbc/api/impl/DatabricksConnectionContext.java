@@ -143,6 +143,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
               : DatabricksJdbcConstants.DEFAULT_PORT;
 
       ImmutableMap<String, String> propertiesMap = buildPropertiesMap(urlMinusHost, properties);
+
+      // Validate all input properties
+      ValidationUtil.validateInputProperties(propertiesMap);
+
       if (propertiesMap.containsKey(PORT)) {
         try {
           portValue = Integer.parseInt(propertiesMap.get(PORT));
@@ -810,6 +814,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       LOGGER.warn(
           "Invalid number format for DefaultStringColumnLength. Falling back to default value 255.");
       return DEFUALT_STRING_COLUMN_LENGTH;
+    }
+  }
+
+  @Override
+  public int getMaxDBFSConcurrentPresignedRequests() {
+    try {
+      return Integer.parseInt(
+          getParameter(DatabricksJdbcUrlParams.MAX_CONCURRENT_PRESIGNED_REQUESTS));
+    } catch (NumberFormatException e) {
+      LOGGER.warn(
+          "Invalid number format for MaxVolumeOperationConcurrentPresignedRequests. Falling back to default value 50.");
+      return DEFAULT_MAX_CONCURRENT_PRESIGNED_REQUESTS;
     }
   }
 

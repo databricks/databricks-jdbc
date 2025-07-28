@@ -30,6 +30,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
@@ -67,6 +68,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private boolean isClosed;
   private SQLWarning warnings = null;
   private boolean wasNull;
+  private boolean silenceNonTerminalExceptions = false;
 
   private ResultSetType resultSetType = ResultSetType.UNASSIGNED;
 
@@ -265,7 +267,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean next() throws SQLException {
     checkIfClosed();
-    return this.executionResult.next();
+    boolean hasNext = this.executionResult.next();
+    TelemetryCollector.getInstance()
+        .recordResultSetIteration(
+            statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), hasNext);
+    return hasNext;
   }
 
   @Override
@@ -520,7 +526,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     throw new DatabricksParsingException(
         "Unexpected metadata format. Type is not a COMPLEX: " + columnName,
-        DatabricksDriverErrorCode.JSON_PARSING_ERROR);
+        DatabricksDriverErrorCode.JSON_PARSING_ERROR,
+        silenceNonTerminalExceptions);
   }
 
   @Override
@@ -536,7 +543,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (columnIndex == -1) {
       LOGGER.error("Column not found: {}", columnLabel);
       throw new DatabricksSQLException(
-          "Column not found: " + columnLabel, DatabricksDriverErrorCode.RESULT_SET_ERROR);
+          "Column not found: " + columnLabel,
+          DatabricksDriverErrorCode.RESULT_SET_ERROR,
+          silenceNonTerminalExceptions);
     }
     return columnIndex;
   }
@@ -1163,14 +1172,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
           "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
       throw new DatabricksSQLException(
           "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.",
-          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
       LOGGER.error("Complex data types are not supported in inline mode");
       throw new DatabricksSQLException(
           "Complex data types are not supported in inline mode",
-          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
     }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
@@ -1193,14 +1204,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
           "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
       throw new DatabricksSQLException(
           "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.",
-          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR);
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
       LOGGER.error("Complex data types are not supported in inline mode");
       throw new DatabricksSQLException(
           "Complex data types are not supported in inline mode",
-          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR);
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
     }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
@@ -1223,14 +1236,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
           "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
       throw new DatabricksSQLException(
           "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.",
-          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
     }
     if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
         || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
       LOGGER.error("Complex data types are not supported in inline mode");
       throw new DatabricksSQLException(
           "Complex data types are not supported in inline mode",
-          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
     }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
@@ -1811,7 +1826,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public String getStatementId() {
-    return statementId.toString();
+    return statementId.toSQLExecStatementId();
   }
 
   @Override
@@ -1863,6 +1878,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     throw new DatabricksValidationException("Invalid volume operation");
   }
 
+  @Override
+  public void setSilenceNonTerminalExceptions() {
+    silenceNonTerminalExceptions = true;
+  }
+
+  @Override
+  public void unsetSilenceNonTerminalExceptions() {
+    silenceNonTerminalExceptions = false;
+  }
+
   private void addWarningAndLog(String warningMessage) {
     LOGGER.warn(warningMessage);
     warnings = WarningUtil.addWarning(warnings, warningMessage);
@@ -1871,7 +1896,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private Object getObjectInternal(int columnIndex) throws SQLException {
     if (columnIndex <= 0) {
       throw new DatabricksSQLException(
-          "Invalid column index", DatabricksDriverErrorCode.INVALID_STATE);
+          "Invalid column index",
+          DatabricksDriverErrorCode.INVALID_STATE,
+          silenceNonTerminalExceptions);
     }
     Object object = executionResult.getObject(columnIndex - 1);
     this.wasNull = object == null;
