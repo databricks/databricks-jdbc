@@ -13,6 +13,8 @@
 
 ### Updated
 - Column name support for JDBC ResultSet operations is now case-insensitive
+- Updated arrow to 17.0.0 to resolve CVE-2024-52338
+- Updated commons-lang3 to 3.18.0 to resolve CVE-2025-48924
 
 ### Fixed
 - Fixed Bouncy Castle registration conflicts by using local provider instance instead of global security registration.
