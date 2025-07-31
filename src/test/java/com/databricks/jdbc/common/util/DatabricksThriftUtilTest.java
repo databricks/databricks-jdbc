@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -40,6 +41,20 @@ public class DatabricksThriftUtilTest {
     buffer.flip();
     String result = helper.byteBufferToString(buffer);
     String expectedUUID = new UUID(expectedLong, expectedLong).toString();
+    assertEquals(expectedUUID, result);
+  }
+
+  @Test
+  void testByteBufferToStringWithUuidLengthBytes() {
+    DatabricksThriftUtil helper = new DatabricksThriftUtil();
+    long mostSigBits = 987654321L;
+    long leastSigBits = 123456789L;
+    ByteBuffer buffer = ByteBuffer.allocate(DatabricksJdbcConstants.UUID_LENGTH);
+    buffer.putLong(mostSigBits);
+    buffer.putLong(leastSigBits);
+    buffer.flip();
+    String result = helper.byteBufferToString(buffer);
+    String expectedUUID = new UUID(mostSigBits, leastSigBits).toString();
     assertEquals(expectedUUID, result);
   }
 

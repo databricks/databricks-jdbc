@@ -41,7 +41,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     super(connection);
     this.sql = sql;
     this.interpolateParameters = connection.getConnectionContext().supportManyParameters();
-    this.databricksParameterMetaData = new DatabricksParameterMetaData();
+    this.databricksParameterMetaData = new DatabricksParameterMetaData(sql);
     this.databricksBatchParameterMetaData = new ArrayList<>();
   }
 
@@ -345,14 +345,14 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void addBatch() {
     LOGGER.debug("public void addBatch()");
     this.databricksBatchParameterMetaData.add(databricksParameterMetaData);
-    this.databricksParameterMetaData = new DatabricksParameterMetaData();
+    this.databricksParameterMetaData = new DatabricksParameterMetaData(sql);
   }
 
   @Override
   public void clearBatch() throws DatabricksSQLException {
     LOGGER.debug("public void clearBatch()");
     checkIfClosed();
-    this.databricksParameterMetaData = new DatabricksParameterMetaData();
+    this.databricksParameterMetaData = new DatabricksParameterMetaData(sql);
     this.databricksBatchParameterMetaData = new ArrayList<>();
   }
 

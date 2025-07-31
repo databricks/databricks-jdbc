@@ -40,7 +40,8 @@
     </repository>
   </distributionManagement>
   <properties>
-    <arrow.version>13.0.0</arrow.version>
+    <arrow.version>17.0.0</arrow.version>
+    <commons-lang3.version>3.18.0</commons-lang3.version>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
     <mockito.version>5.2.0</mockito.version>
@@ -69,6 +70,16 @@
     <netty.version>4.2.0.Final</netty.version>
     <grpc.version>1.71.0</grpc.version>
   </properties>
+  <dependencyManagement>
+    <!-- Force safe version of commons-lang3 https://nvd.nist.gov/vuln/detail/CVE-2025-48924 -->
+    <dependencies>
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>${commons-lang3.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>com.databricks</groupId>

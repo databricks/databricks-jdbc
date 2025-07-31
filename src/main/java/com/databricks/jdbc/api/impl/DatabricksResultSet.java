@@ -1826,7 +1826,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public String getStatementId() {
-    return statementId.toSQLExecStatementId();
+    return statementId.toString();
   }
 
   @Override

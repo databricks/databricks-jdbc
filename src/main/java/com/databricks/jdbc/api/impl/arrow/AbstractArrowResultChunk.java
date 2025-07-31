@@ -147,11 +147,12 @@ public abstract class AbstractArrowResultChunk {
    *
    * @param httpClient the HTTP client to use for downloading
    * @param compressionCodec the compression codec to use for decompression
+   * @param speedThreshold the minimum expected download speed in MB/s for logging warnings
    * @throws DatabricksParsingException if there is an error parsing the data
    * @throws IOException if there is an error downloading or reading the data
    */
   protected abstract void downloadData(
-      IDatabricksHttpClient httpClient, CompressionCodec compressionCodec)
+      IDatabricksHttpClient httpClient, CompressionCodec compressionCodec, double speedThreshold)
       throws DatabricksParsingException, IOException;
 
   /** Handles a failure during the download or processing of this chunk. */

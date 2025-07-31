@@ -67,6 +67,7 @@ public final class DatabricksJdbcConstants {
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
   public static final String VOLUME_OPERATION_STATUS_SUCCEEDED = "SUCCEEDED";
   public static final int VOLUME_OPERATION_MAX_RETRIES = 3;
+  public static final int UUID_LENGTH = 16;
 
   public static final String ARROW_METADATA_KEY = "Spark:DataType:SqlName";
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
