@@ -22,6 +22,7 @@ import java.util.concurrent.ExecutionException;
  * responses.
  */
 public class RemoteChunkProviderV2 extends AbstractRemoteChunkProvider<ArrowResultChunkV2> {
+  private final double downloadSpeedThresholdForWaring;
 
   public RemoteChunkProviderV2(
       StatementId statementId,
@@ -39,6 +40,8 @@ public class RemoteChunkProviderV2 extends AbstractRemoteChunkProvider<ArrowResu
         httpClient,
         maxParallelChunkDownloadsPerQuery,
         resultManifest.getResultCompression());
+    this.downloadSpeedThresholdForWaring =
+        session.getConnectionContext().getCloudFetchSpeedThreshold();
   }
 
   public RemoteChunkProviderV2(
@@ -56,6 +59,8 @@ public class RemoteChunkProviderV2 extends AbstractRemoteChunkProvider<ArrowResu
         httpClient,
         maxParallelChunkDownloadsPerQuery,
         compressionCodec);
+    this.downloadSpeedThresholdForWaring =
+        session.getConnectionContext().getCloudFetchSpeedThreshold();
   }
 
   @Override
@@ -128,7 +133,7 @@ public class RemoteChunkProviderV2 extends AbstractRemoteChunkProvider<ArrowResu
               "Chunk link download failed", e, DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
         }
       }
-      chunk.downloadData(httpClient, getCompressionCodec());
+      chunk.downloadData(httpClient, getCompressionCodec(), downloadSpeedThresholdForWaring);
       nextChunkToDownload++;
     }
   }

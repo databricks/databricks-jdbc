@@ -119,7 +119,8 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
   }
 
   @Override
-  protected void downloadData(IDatabricksHttpClient httpClient, CompressionCodec compressionCodec) {
+  protected void downloadData(
+      IDatabricksHttpClient httpClient, CompressionCodec compressionCodec, double speedThreshold) {
     // TODO: Make this configurable
     RetryConfig retryConfig =
         new RetryConfig.Builder().maxAttempts(3).baseDelayMs(1000).maxDelayMs(5000).build();

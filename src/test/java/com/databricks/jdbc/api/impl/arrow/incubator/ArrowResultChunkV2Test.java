@@ -50,7 +50,7 @@ class ArrowResultChunkV2Test {
   void testSuccessfulDownload() throws InterruptedException {
     setupSuccessfulDownload(RemoteChunkProviderV2Test.createValidArrowData());
 
-    chunk.downloadData(mockHttpClient, CompressionCodec.NONE);
+    chunk.downloadData(mockHttpClient, CompressionCodec.NONE, 0.1);
 
     // Wait a bit for async processing to complete
     TimeUnit.SECONDS.sleep(1);
@@ -69,7 +69,7 @@ class ArrowResultChunkV2Test {
         2,
         RemoteChunkProviderV2Test.createValidArrowData());
 
-    chunk.downloadData(mockHttpClient, CompressionCodec.NONE);
+    chunk.downloadData(mockHttpClient, CompressionCodec.NONE, 0.1);
 
     // Wait a bit for retry
     TimeUnit.SECONDS.sleep(5);
@@ -86,7 +86,7 @@ class ArrowResultChunkV2Test {
         3,
         RemoteChunkProviderV2Test.createValidArrowData());
 
-    chunk.downloadData(mockHttpClient, CompressionCodec.NONE);
+    chunk.downloadData(mockHttpClient, CompressionCodec.NONE, 0.1);
 
     // Wait for all retries to complete
     TimeUnit.SECONDS.sleep(5);
@@ -113,7 +113,7 @@ class ArrowResultChunkV2Test {
   @Test
   void testReleaseChunk() throws InterruptedException {
     setupSuccessfulDownload(RemoteChunkProviderV2Test.createValidArrowData());
-    chunk.downloadData(mockHttpClient, CompressionCodec.NONE);
+    chunk.downloadData(mockHttpClient, CompressionCodec.NONE, 0.1);
 
     // Wait a bit for async processing to complete
     TimeUnit.SECONDS.sleep(1);
@@ -127,7 +127,7 @@ class ArrowResultChunkV2Test {
   @Test
   void testDoubleRelease() throws InterruptedException {
     setupSuccessfulDownload(RemoteChunkProviderV2Test.createValidArrowData());
-    chunk.downloadData(mockHttpClient, CompressionCodec.NONE);
+    chunk.downloadData(mockHttpClient, CompressionCodec.NONE, 0.1);
 
     // Wait a bit for async processing to complete
     TimeUnit.SECONDS.sleep(1);
@@ -151,7 +151,7 @@ class ArrowResultChunkV2Test {
         .when(mockHttpClient)
         .executeAsync(any(), any(), any());
 
-    chunk.downloadData(mockHttpClient, CompressionCodec.NONE);
+    chunk.downloadData(mockHttpClient, CompressionCodec.NONE, 0.1);
 
     assertEquals(ChunkStatus.CANCELLED, chunk.getStatus());
   }
