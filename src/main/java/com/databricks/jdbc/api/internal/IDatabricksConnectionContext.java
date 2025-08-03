@@ -132,6 +132,9 @@ public interface IDatabricksConnectionContext {
   /** Returns the number of threads to be used for fetching data from cloud storage */
   int getCloudFetchThreadPoolSize();
 
+  /** Returns the minimum expected download speed threshold in MB/s for CloudFetch operations */
+  double getCloudFetchSpeedThreshold();
+
   Boolean getDirectResultMode();
 
   Boolean shouldRetryTemporarilyUnavailableError();

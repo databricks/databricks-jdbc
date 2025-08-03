@@ -65,11 +65,11 @@ public class ChunkDownloadTaskTest {
         .doThrow(throwableError)
         .doNothing()
         .when(chunk)
-        .downloadData(httpClient, CompressionCodec.NONE);
+        .downloadData(httpClient, CompressionCodec.NONE, 0.1);
 
     chunkDownloadTask.call();
 
-    verify(chunk, times(3)).downloadData(httpClient, CompressionCodec.NONE);
+    verify(chunk, times(3)).downloadData(httpClient, CompressionCodec.NONE, 0.1);
     assertTrue(downloadFuture.isDone());
     assertDoesNotThrow(() -> downloadFuture.get());
   }
@@ -88,11 +88,11 @@ public class ChunkDownloadTaskTest {
                 new SocketException("Connection reset"),
                 DatabricksDriverErrorCode.INVALID_STATE))
         .when(chunk)
-        .downloadData(httpClient, CompressionCodec.NONE);
+        .downloadData(httpClient, CompressionCodec.NONE, 0.1);
 
     assertThrows(DatabricksSQLException.class, () -> chunkDownloadTask.call());
     verify(chunk, times(ChunkDownloadTask.MAX_RETRIES))
-        .downloadData(httpClient, CompressionCodec.NONE);
+        .downloadData(httpClient, CompressionCodec.NONE, 0.1);
     assertTrue(downloadFuture.isDone());
     ExecutionException executionException =
         assertThrows(ExecutionException.class, () -> downloadFuture.get());

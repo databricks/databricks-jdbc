@@ -7,14 +7,19 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.IDatabricksConnection;
+import com.databricks.jdbc.api.IDatabricksResultSet;
+import com.databricks.jdbc.api.IDatabricksStatement;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
+import com.databricks.sdk.service.sql.StatementState;
 import com.github.tomakehurst.wiremock.client.CountMatchingStrategy;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -233,5 +238,46 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
               new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 5),
               postRequestedFor(urlEqualTo(STATEMENT_PATH)));
     }
+  }
+
+  @Test
+  void testExecuteAsyncStatement() throws Exception {
+    Statement s = connection.createStatement();
+    IDatabricksStatement ids = s.unwrap(IDatabricksStatement.class);
+
+    // Takes approx 10s to complete
+    String sql =
+        "WITH a AS (\n"
+            + "    SELECT id AS x FROM range(1, 1000000)\n"
+            + "),\n"
+            + "b AS (\n"
+            + "    SELECT id AS y FROM range(1, 1000000)\n"
+            + ")\n"
+            + "SELECT a.x, b.y\n"
+            + "FROM a\n"
+            + "JOIN b\n"
+            + "  ON (a.x * b.y) % 1234567 = 1\n"
+            + "WHERE a.x < 100\n"
+            + "LIMIT 10;";
+
+    // Execute asynchronously
+    ResultSet rs = ids.executeAsync(sql);
+    StatementState state = rs.unwrap(IDatabricksResultSet.class).getStatementStatus().getState();
+
+    // Poll for status
+    while (state != StatementState.SUCCEEDED && state != StatementState.FAILED) {
+      Thread.sleep(1000);
+      rs = s.unwrap(IDatabricksStatement.class).getExecutionResult();
+      state = rs.unwrap(IDatabricksResultSet.class).getStatementStatus().getState();
+    }
+
+    // Second connection
+    Connection con2 = getValidJDBCConnection();
+    IDatabricksConnection idc = con2.unwrap(IDatabricksConnection.class);
+    Statement stm = idc.getStatement(rs.unwrap(IDatabricksResultSet.class).getStatementId());
+    ResultSet rs2 = stm.unwrap(IDatabricksStatement.class).getExecutionResult();
+    assertEquals(
+        StatementState.SUCCEEDED,
+        rs2.unwrap(IDatabricksResultSet.class).getStatementStatus().getState());
   }
 }

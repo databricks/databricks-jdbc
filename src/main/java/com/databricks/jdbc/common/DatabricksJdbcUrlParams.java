@@ -145,7 +145,9 @@ public enum DatabricksJdbcUrlParams {
   MAX_CONCURRENT_PRESIGNED_REQUESTS(
       "MaxVolumeOperationConcurrentPresignedRequests",
       "Maximum number of concurrent presigned requests",
-      "50");
+      "50"),
+  CLOUD_FETCH_SPEED_THRESHOLD(
+      "CloudFetchSpeedThreshold", "Minimum expected download speed in MB/s", "0.1");
 
   private final String paramName;
   private final String defaultValue;

@@ -9,6 +9,8 @@ import static com.databricks.sdk.service.sql.ColumnInfoTypeName.STRING;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -16,6 +18,7 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtilsTest;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
@@ -31,9 +34,11 @@ import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.service.sql.*;
+import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
+import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -52,6 +57,8 @@ public class DatabricksSdkClientTest {
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String JDBC_URL =
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
+  private static final String DEFAULT_KEYSTORE_PASSWORD = "changeit";
+
   private static final Map<String, String> headers =
       new HashMap<>() {
         {
@@ -495,6 +502,82 @@ public class DatabricksSdkClientTest {
 
     assertEquals("INT", result.getType());
     assertNull(result.getValue());
+  }
+
+  @Test
+  public void testCreateSessionWithSSLCertificatePathError() throws Exception {
+
+    File wrongTrustStore = File.createTempFile("wrong-trust-store", ".jks");
+    wrongTrustStore.deleteOnExit();
+    ConfiguratorUtilsTest.createDummyStore(
+        wrongTrustStore.getAbsolutePath(), "JKS", DEFAULT_KEYSTORE_PASSWORD, "wrong-ca", false);
+
+    SSLHandshakeException sslException =
+        new SSLHandshakeException(
+            "PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target");
+
+    DatabricksError sslError = mock(DatabricksError.class);
+    when(sslError.getMessage()).thenReturn(sslException.getMessage());
+    when(sslError.getCause()).thenReturn(sslException);
+
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(sslError);
+
+    Properties props = new Properties();
+    props.setProperty("SSLTrustStore", wrongTrustStore.getAbsolutePath());
+    props.setProperty("SSLTrustStorePwd", DEFAULT_KEYSTORE_PASSWORD);
+    props.setProperty("SSLTrustStoreType", "JKS");
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, props);
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    // Assert that createSession throws a DatabricksSQLException with actionable error message
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> databricksSdkClient.createSession(warehouse, null, null, null));
+
+    String errorMessage = exception.getMessage();
+
+    // Verify that we get the exact SSL error message
+    String expectedErrorMessage =
+        String.format(
+            "Unable to find certification path to requested target in truststore: %s\n\n"
+                + "SSL Error: PKIX path building failed: sun.security.provider.certpath.SunCertPathBuilderException: unable to find valid certification path to requested target\n\n"
+                + "Details: TLS handshake failure due to TLS Certificate of server being connected is not in the configured truststore.\n\n"
+                + "Next steps:\n"
+                + "- Make sure that the connection string has the appropriate Databricks workspace FQDN.\n\n"
+                + "- Verify the configured truststore path and make sure the required certificates are imported.\n"
+                + "  .   PEM certificate chain of the warehouse endpoint can be fetched using \"openssl s_client -connect sample-host.18.azuredatabricks.net:443 -showcerts\"\n"
+                + "  .   Reference KB article with troubleshooting steps.\n",
+            wrongTrustStore.getAbsolutePath());
+    assertEquals(expectedErrorMessage, errorMessage);
+
+    // Clean up
+    wrongTrustStore.delete();
+  }
+
+  @Test
+  public void testCreateSessionWithNonSSLError() throws IOException, DatabricksSQLException {
+
+    DatabricksError nonSSLError = new DatabricksError("500", "Some other error", 500);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(nonSSLError);
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> databricksSdkClient.createSession(warehouse, null, null, null));
+
+    String errorMessage = exception.getMessage();
+    assertEquals("Error while establishing a connection in databricks", errorMessage);
   }
 
   private static ImmutableSqlParameter getSqlParam(
