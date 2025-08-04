@@ -1,5 +1,6 @@
 name: Release
 on:
+  pull_request:
   push:
     tags:
       - 'v*'
@@ -19,7 +20,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.release_tag }}
+          ref: "v1.0.8-oss"
+#          ref: ${{ github.event.inputs.release_tag }}
 
       - name: Set up Java for publishing to Maven Central Repository
         uses: actions/setup-java@v4
