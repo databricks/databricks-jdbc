@@ -27,7 +27,7 @@ jobs:
           MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
         with:
           java-version: 11
-          server-id: ossrh
+          server-id: central
           distribution: "adopt"
           server-username: MAVEN_CENTRAL_USERNAME
           server-password: MAVEN_CENTRAL_PASSWORD
