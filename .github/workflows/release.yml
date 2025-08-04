@@ -45,7 +45,7 @@ jobs:
           MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
           MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
 
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: target/*.jar
+      # - name: Create GitHub release
+      #   uses: softprops/action-gh-release@v1
+      #   with:
+      #     files: target/*.jar
