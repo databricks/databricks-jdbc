@@ -6,7 +6,10 @@ import static com.databricks.jdbc.dbclient.impl.common.ClientConfigurator.conver
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.HTTPRequestConfig;
+import com.databricks.jdbc.common.HTTPRequestConfigList;
 import com.databricks.jdbc.common.HttpClientType;
+import com.databricks.jdbc.common.RequestIdempotency;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -51,6 +54,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private final CloseableHttpClient httpClient;
   private IdleConnectionEvictor idleConnectionEvictor;
   private CloseableHttpAsyncClient asyncClient;
+  private HTTPRequestConfig currentHTTPRequestConfig;
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type) {
     connectionManager = initializeConnectionManager(connectionContext);
@@ -60,6 +64,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
     idleConnectionEvictor.start();
     asyncClient = GlobalAsyncHttpClient.getClient();
+    currentHTTPRequestConfig = HTTPRequestConfigList.NOT_SET_CONFIG;
   }
 
   @VisibleForTesting
@@ -71,18 +76,34 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   }
 
   @Override
-  public CloseableHttpResponse execute(HttpUriRequest request) throws DatabricksHttpException {
-    return execute(request, false);
+  public HTTPRequestConfig getCurrentRequestConfig() {
+    return currentHTTPRequestConfig;
   }
 
   @Override
-  public CloseableHttpResponse execute(HttpUriRequest request, boolean supportGzipEncoding)
+  public void setCurrentRequestConfig(HTTPRequestConfig currentHTTPRequestConfig) {
+    if (this.currentHTTPRequestConfig.currentRequestIdempotency == RequestIdempotency.NOT_SET) {
+      this.currentHTTPRequestConfig = currentHTTPRequestConfig;
+    }
+  }
+
+  @Override
+  public CloseableHttpResponse execute(HttpUriRequest request, HTTPRequestConfig config)
+      throws DatabricksHttpException {
+    return execute(request, config, false);
+  }
+
+  @Override
+  public CloseableHttpResponse execute(
+      HttpUriRequest request, HTTPRequestConfig config, boolean supportGzipEncoding)
       throws DatabricksHttpException {
     LOGGER.debug("Executing HTTP request {}", RequestSanitizer.sanitizeRequest(request));
     if (!DriverUtil.isRunningAgainstFake() && supportGzipEncoding) {
       // TODO : allow gzip in wiremock
       request.setHeader("Content-Encoding", "gzip");
     }
+
+    currentHTTPRequestConfig = HTTPRequestConfigList.NOT_SET_CONFIG;
     try {
       String userAgentString = UserAgentManager.getUserAgentString();
       if (!isNullOrEmpty(userAgentString) && !request.containsHeader("User-Agent")) {
@@ -156,17 +177,11 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
   private CloseableHttpClient makeClosableHttpClient(
       IDatabricksConnectionContext connectionContext, HttpClientType type) {
-    DatabricksHttpRetryHandler retryHandler =
-        type.equals(HttpClientType.COMMON)
-            ? new DatabricksHttpRetryHandler(connectionContext)
-            : new UCVolumeHttpRetryHandler(connectionContext);
     HttpClientBuilder builder =
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)
             .setUserAgent(UserAgentManager.getUserAgentString())
-            .setDefaultRequestConfig(makeRequestConfig(connectionContext.getSocketTimeout()))
-            .setRetryHandler(retryHandler)
-            .addInterceptorFirst(retryHandler);
+            .setDefaultRequestConfig(makeRequestConfig(connectionContext.getSocketTimeout()));
     setupProxy(connectionContext, builder);
     if (DriverUtil.isRunningAgainstFake()) {
       setFakeServiceRouteInHttpClient(builder);

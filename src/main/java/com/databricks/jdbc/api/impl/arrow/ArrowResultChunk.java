@@ -6,6 +6,7 @@ import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.HTTPRequestConfigList;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -272,7 +273,8 @@ public class ArrowResultChunk {
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
-      response = httpClient.execute(getRequest, true);
+      response =
+          httpClient.execute(getRequest, HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG, true);
       checkHTTPError(response);
       String decompressionContext =
           String.format(

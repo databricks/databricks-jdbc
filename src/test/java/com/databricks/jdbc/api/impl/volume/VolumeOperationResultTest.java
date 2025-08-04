@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.impl.DatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.HTTPRequestConfig;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -61,7 +62,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
-    when(mockHttpClient.execute(isA(HttpGet.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpGet.class), isA(HTTPRequestConfig.class)))
+        .thenReturn(httpResponse);
     when(httpResponse.getEntity()).thenReturn(new StringEntity("test"));
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
@@ -94,7 +96,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("__input_stream__");
-    when(mockHttpClient.execute(isA(HttpGet.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpGet.class), isA(HTTPRequestConfig.class)))
+        .thenReturn(httpResponse);
     when(httpResponse.getEntity()).thenReturn(new StringEntity("test"));
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
@@ -300,7 +303,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
-    when(mockHttpClient.execute(isA(HttpGet.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpGet.class), isA(HTTPRequestConfig.class)))
+        .thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
 
@@ -326,7 +330,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("PUT");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
-    when(mockHttpClient.execute(isA(HttpPut.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpPut.class), isA(HTTPRequestConfig.class)))
+        .thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
 
@@ -353,7 +358,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("PUT");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("__input_stream__");
-    when(mockHttpClient.execute(isA(HttpPut.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpPut.class), isA(HTTPRequestConfig.class)))
+        .thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
     when(statement.isAllowedInputStreamForVolumeOperation()).thenReturn(true);
@@ -432,7 +438,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("PUT");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
-    when(mockHttpClient.execute(isA(HttpPut.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpPut.class), isA(HTTPRequestConfig.class)))
+        .thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
 
@@ -536,7 +543,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("REMOVE");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
-    when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpDelete.class), isA(HTTPRequestConfig.class)))
+        .thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
 
@@ -574,7 +582,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("REMOVE");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
-    when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpDelete.class), isA(HTTPRequestConfig.class)))
+        .thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
 
@@ -605,7 +614,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("REMOVE");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
-    when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
+    when(mockHttpClient.execute(isA(HttpDelete.class), isA(HTTPRequestConfig.class)))
+        .thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
     VolumeOperationResult volumeOperationResult =
@@ -632,7 +642,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("REMOVE");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
-    when(mockHttpClient.execute(isA(HttpDelete.class)))
+    when(mockHttpClient.execute(isA(HttpDelete.class), isA(HTTPRequestConfig.class)))
         .thenThrow(
             new DatabricksHttpException("exception", DatabricksDriverErrorCode.INVALID_STATE));
 

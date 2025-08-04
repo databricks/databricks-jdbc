@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.HTTPRequestConfig;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
@@ -48,7 +49,8 @@ public class TelemetryClientTest {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
       when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
-      when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
+      when(mockHttpClient.execute(any(), isA(HTTPRequestConfig.class)))
+          .thenReturn(mockHttpResponse);
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(200);
       TelemetryResponse response = new TelemetryResponse().setNumSuccess(2L).setNumProtoSuccess(2L);
@@ -84,7 +86,8 @@ public class TelemetryClientTest {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
       when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
-      when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
+      when(mockHttpClient.execute(any(), isA(HTTPRequestConfig.class)))
+          .thenReturn(mockHttpResponse);
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(200);
 
@@ -107,7 +110,7 @@ public class TelemetryClientTest {
       Thread.sleep(1000);
       assertEquals(0, client.getCurrentSize());
       ArgumentCaptor<HttpUriRequest> requestCaptor = ArgumentCaptor.forClass(HttpUriRequest.class);
-      Mockito.verify(mockHttpClient).execute(requestCaptor.capture());
+      Mockito.verify(mockHttpClient).execute(requestCaptor.capture(), isA(HTTPRequestConfig.class));
       // Assert: Check if the Authorization header exists
       assertNotNull(requestCaptor.getValue().getFirstHeader("Authorization"));
       assertEquals("token", requestCaptor.getValue().getFirstHeader("Authorization").getValue());
@@ -128,7 +131,8 @@ public class TelemetryClientTest {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
       when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
-      when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
+      when(mockHttpClient.execute(any(), isA(HTTPRequestConfig.class)))
+          .thenReturn(mockHttpResponse);
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(400);
       IDatabricksConnectionContext context =
@@ -149,7 +153,8 @@ public class TelemetryClientTest {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
       when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
-      when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
+      when(mockHttpClient.execute(any(), isA(HTTPRequestConfig.class)))
+          .thenReturn(mockHttpResponse);
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(200);
       TelemetryResponse response = new TelemetryResponse().setNumSuccess(1L).setNumProtoSuccess(1L);
@@ -197,7 +202,8 @@ public class TelemetryClientTest {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
       when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
-      when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
+      when(mockHttpClient.execute(any(), isA(HTTPRequestConfig.class)))
+          .thenReturn(mockHttpResponse);
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(200);
       TelemetryResponse response = new TelemetryResponse().setNumSuccess(1L).setNumProtoSuccess(1L);
@@ -246,7 +252,7 @@ public class TelemetryClientTest {
         }
       }
       // Verify mocks were properly used
-      verify(mockHttpClient, atLeastOnce()).execute(any());
+      verify(mockHttpClient, atLeastOnce()).execute(any(), isA(HTTPRequestConfig.class));
       verify(mockHttpResponse, atLeastOnce()).getStatusLine();
       verify(mockStatusLine, atLeastOnce()).getStatusCode();
     }

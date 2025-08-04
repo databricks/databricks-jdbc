@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -20,6 +21,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import org.apache.thrift.TException;
+import org.apache.thrift.protocol.TProtocol;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -32,6 +34,9 @@ public class DatabricksThriftAccessorTest {
   @Mock IDatabricksSession session;
   @Mock IDatabricksConnectionContext connectionContext;
   @Mock IDatabricksStatementInternal parentStatement;
+  @Mock TProtocol mockProtocol;
+  @Mock DatabricksHttpTTransport mockTransport;
+  @Mock IDatabricksHttpClient mockHttpClient;
   private static DatabricksThriftAccessor accessor;
   private static final String TEST_STMT_ID =
       "01efc77c-7c8b-1a8e-9ecb-a9a6e6aa050a|338d529d-8272-46eb-8482-cb419466839d";
@@ -68,9 +73,19 @@ public class DatabricksThriftAccessorTest {
           .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
           .setOperationState(TOperationState.RUNNING_STATE);
 
+  void setMockHttpClient() {
+    // Mock the protocol chain for getHttpClient()
+    when(thriftClient.getInputProtocol()).thenReturn(mockProtocol);
+    when(mockProtocol.getTransport()).thenReturn(mockTransport);
+    when(mockTransport.getHttpClient()).thenReturn(mockHttpClient);
+  }
+
   void setup(Boolean directResultsEnabled) {
     when(connectionContext.getDirectResultMode()).thenReturn(directResultsEnabled);
     when(connectionContext.getRowsFetchedPerBlock()).thenReturn(DEFAULT_ROW_LIMIT_PER_BLOCK);
+
+    setMockHttpClient();
+
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
   }
 
@@ -332,6 +347,7 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testIncludeResultSetMetadataNotSetForOldProtocol()
       throws TException, DatabricksHttpException {
+    setMockHttpClient();
     DatabricksThriftAccessor accessor =
         new DatabricksThriftAccessor(thriftClient, connectionContext);
     accessor.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V4);
@@ -359,6 +375,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testGetStatementResult_success() throws Exception {
+    setMockHttpClient();
     when(connectionContext.getDirectResultMode()).thenReturn(false);
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
     when(thriftClient.GetOperationStatus(operationStatusReq))
@@ -381,6 +398,7 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testGetStatementResult_pending() throws Exception {
     when(connectionContext.getDirectResultMode()).thenReturn(false);
+    setMockHttpClient();
     accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
     TGetOperationStatusResp resp =
         new TGetOperationStatusResp()
@@ -710,6 +728,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testExecuteWithTimeout() throws TException, SQLException {
+    setMockHttpClient();
     // Set the async poll interval to 200 ms
     when(connectionContext.getAsyncExecPollInterval()).thenReturn(200);
 
@@ -748,6 +767,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testExecuteWithTimeoutExpired() throws TException, SQLException {
+    setMockHttpClient();
     // Set the async poll interval to 1 second to facilitate testing
     when(connectionContext.getAsyncExecPollInterval()).thenReturn(1000);
 
@@ -792,6 +812,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testFetchResultsWithCustomMaxRowsPerBlock() throws TException, SQLException {
+    setMockHttpClient();
     int customMaxRows = 500000;
     IDatabricksConnectionContext mockConnectionContext = mock(IDatabricksConnectionContext.class);
     when(mockConnectionContext.getDirectResultMode()).thenReturn(true);
@@ -829,6 +850,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   private TFetchResultsReq getFetchResultsRequest(boolean includeMetadata) {
+    setMockHttpClient();
     TFetchResultsReq request =
         new TFetchResultsReq()
             .setOperationHandle(tOperationHandle)

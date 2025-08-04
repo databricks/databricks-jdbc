@@ -2,6 +2,7 @@ package com.databricks.jdbc.common.safe;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
+import com.databricks.jdbc.common.HTTPRequestConfigList;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -92,7 +93,8 @@ public class DatabricksDriverFeatureFlagsContext {
   @VisibleForTesting
   void fetchAndSetFlagsFromServer(IDatabricksHttpClient httpClient, HttpGet request)
       throws DatabricksHttpException, IOException {
-    try (CloseableHttpResponse response = httpClient.execute(request)) {
+    try (CloseableHttpResponse response =
+        httpClient.execute(request, HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG)) {
       if (response.getStatusLine().getStatusCode() == 200) {
         String responseBody = EntityUtils.toString(response.getEntity());
         FeatureFlagsResponse featureFlagsResponse =
