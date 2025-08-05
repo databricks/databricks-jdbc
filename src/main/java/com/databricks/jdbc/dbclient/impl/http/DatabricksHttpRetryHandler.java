@@ -138,11 +138,12 @@ public class DatabricksHttpRetryHandler
     if ((statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
             || statusCode == HttpStatus.SC_TOO_MANY_REQUESTS)
         && retryInterval == -1) {
-      throw new RuntimeException(
+      LOGGER.warn(
           "Invalid retry interval in the context "
               + context
               + " for the error: "
               + exception.getMessage());
+      return false;
     }
 
     long tempUnavailableAccumulatedTime =
