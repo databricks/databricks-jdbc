@@ -138,6 +138,7 @@ public class DatabricksHttpRetryHandler
     if ((statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
             || statusCode == HttpStatus.SC_TOO_MANY_REQUESTS)
         && retryInterval == -1) {
+      // This case arises when the server does not send the retryAfter header
       LOGGER.warn(
           "Invalid retry interval in the context "
               + context
