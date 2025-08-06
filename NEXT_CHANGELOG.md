@@ -4,6 +4,8 @@
 
 ### Added
 - Added support for providing custom HTTP options: `HttpMaxConnectionsPerRoute` and `HttpConnectionRequestTimeout`.
+- Add V2 of chunk download using async http client with corresponding implementations of AbstractRemoteChunkProvider and 
+AbstractArrowResultChunk
 
 ### Updated
 
