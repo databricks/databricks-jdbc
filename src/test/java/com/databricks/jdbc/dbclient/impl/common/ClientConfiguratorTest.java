@@ -45,6 +45,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostUrl()).thenReturn("https://pat.databricks.com");
     when(mockContext.getToken()).thenReturn("pat-token");
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
 
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -64,6 +65,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostUrl()).thenReturn("https://oauth-token.databricks.com");
     when(mockContext.getPassThroughAccessToken()).thenReturn("oauth-token");
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
 
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -84,6 +86,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getClientId()).thenReturn("client-id");
     when(mockContext.getClientSecret()).thenReturn("client-secret");
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
 
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -106,6 +109,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getGcpAuthType()).thenReturn(GCP_GOOGLE_CREDENTIALS_AUTH_TYPE);
     when(mockContext.getGoogleCredentials()).thenReturn("google-credentials");
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -128,6 +132,7 @@ public class ClientConfiguratorTest {
     when(mockContext.useJWTAssertion()).thenReturn(true);
     when(mockContext.getTokenEndpoint()).thenReturn("token-endpoint");
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
 
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -178,6 +183,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of("scope1", "scope2"));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -205,6 +211,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuthDiscoveryURL()).thenReturn(TEST_DISCOVERY_URL);
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -223,6 +230,7 @@ public class ClientConfiguratorTest {
   void testNonOauth() throws DatabricksSSLException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OTHER);
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
     DatabricksConfig config = configurator.getDatabricksConfig();
     assertEquals(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, config.getAuthType());
@@ -259,6 +267,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getProxyPassword()).thenReturn("proxyPass");
     when(mockContext.getProxyAuthType()).thenReturn(ProxyConfig.ProxyAuthType.values()[0]);
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     // For non-proxy hosts conversion, an input of ".example.com,localhost"
     // is expected to be converted to "*.example.com|localhost"
     when(mockContext.getNonProxyHosts()).thenReturn(".example.com,localhost");
@@ -290,6 +299,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getCloud()).thenReturn(Cloud.AZURE);
     when(mockContext.getClientId()).thenReturn("azure-client-id");
     when(mockContext.getClientSecret()).thenReturn("azure-client-secret");
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
 
     configurator = new ClientConfigurator(mockContext);
 
@@ -315,6 +325,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getAzureTenantId()).thenReturn("azure-tenant-id");
     when(mockContext.getCloud()).thenReturn(Cloud.AWS);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
 
     DatabricksException exception =
         assertThrows(DatabricksException.class, () -> new ClientConfigurator(mockContext));
@@ -334,6 +345,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostUrl()).thenReturn("https://test.databricks.com");
     when(mockContext.getToken()).thenReturn("test-token");
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
 
     // Test with a single available port
@@ -367,6 +379,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostUrl()).thenReturn("https://test.databricks.com");
     when(mockContext.getToken()).thenReturn("test-token");
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
 
     // Use a port that is likely to be available
@@ -429,6 +442,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of("scope1", "scope2"));
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(testPort));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
 
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -456,6 +470,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.isTokenCacheEnabled()).thenReturn(true);
     when(mockContext.getTokenCachePassPhrase()).thenReturn("testPassphrase");
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
 
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -487,6 +502,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.isTokenCacheEnabled()).thenReturn(true);
     when(mockContext.getTokenCachePassPhrase()).thenReturn(null);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
 
     assertThrows(DatabricksException.class, () -> new ClientConfigurator(mockContext));
   }
@@ -503,6 +519,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.isTokenCacheEnabled()).thenReturn(false);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
 
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();

@@ -58,6 +58,7 @@ public class AzureMSICredentialProviderTest {
     when(mockConnectionContext.getNullableClientId()).thenReturn(TEST_CLIENT_ID);
     when(mockConnectionContext.getAzureWorkspaceResourceId()).thenReturn(TEST_RESOURCE_ID);
     when(mockConnectionContext.getConnectionUuid()).thenReturn(TEST_STRING);
+    when(mockConnectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     // Cover the constructor too
     AzureMSICredentialProvider provider = new AzureMSICredentialProvider(mockConnectionContext);
     assertEquals("azure-msi", provider.authType());

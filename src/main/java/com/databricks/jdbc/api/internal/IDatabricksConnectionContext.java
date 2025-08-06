@@ -341,4 +341,10 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the flush interval in milliseconds for telemetry */
   int getTelemetryFlushIntervalInMilliseconds();
+
+  /** Returns the maximum number of HTTP connections per route */
+  int getHttpMaxConnectionsPerRoute();
+
+  /** Returns the HTTP connection request timeout in seconds */
+  Integer getHttpConnectionRequestTimeout();
 }
