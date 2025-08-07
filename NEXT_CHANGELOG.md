@@ -12,6 +12,7 @@
 ### Fixed
 - Fixed Bouncy Castle registration conflicts by using local provider instance instead of global security registration.
 - Fixed Azure U2M authentication issue.
+- Fixed Statement.setMaxRows(0) to be interepeted as no limit.
 
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 
