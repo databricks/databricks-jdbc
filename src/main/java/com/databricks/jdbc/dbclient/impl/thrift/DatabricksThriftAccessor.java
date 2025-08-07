@@ -24,6 +24,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
 import com.google.common.annotations.VisibleForTesting;
@@ -307,6 +308,10 @@ final class DatabricksThriftAccessor {
       // Polling for operation status
       statusResp = getOperationStatus(statusReq, statementId);
       checkOperationStatusForErrors(statusResp);
+      // Save some time if sleep isn't required by breaking.
+      if (!shouldContinuePolling(statusResp)) {
+        break;
+      }
       try {
         TimeUnit.MILLISECONDS.sleep(asyncPollIntervalMillis);
       } catch (InterruptedException e) {
@@ -760,9 +765,8 @@ final class DatabricksThriftAccessor {
         "Statement [{}] Thrift operation status latency: {}ms",
         statementId,
         operationStatusLatencyMillis);
-
-    // TODO: Export operation status latency to telemetry
-
+    TelemetryCollector.getInstance()
+        .recordGetOperationStatus(statementId.toSQLExecStatementId(), operationStatusLatencyMillis);
     return operationStatus;
   }
 }

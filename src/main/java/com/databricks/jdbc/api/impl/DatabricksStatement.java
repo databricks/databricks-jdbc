@@ -120,6 +120,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       if (removeFromSession) {
         this.connection.closeStatement(this);
       }
+      DatabricksThreadContextHolder.clearStatementInfo();
     }
 
     shutDownExecutor();
@@ -196,6 +197,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
     if (statementId != null) {
       this.connection.getSession().getDatabricksClient().cancelStatement(statementId);
+      DatabricksThreadContextHolder.clearStatementInfo();
     } else {
       warnings =
           WarningUtil.addWarning(

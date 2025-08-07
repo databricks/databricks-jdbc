@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.core.ResultColumn;
@@ -229,7 +230,7 @@ public class MetadataResultSetBuilderTest {
   @MethodSource("getRowsTableTypeColumnArguments")
   void testGetRowsHandlesTableTypeColumn(String tableTypeValue, String expectedTableType)
       throws SQLException {
-    ResultSet resultSet = mock(ResultSet.class);
+    DatabricksResultSet resultSet = mock(DatabricksResultSet.class);
     when(resultSet.next()).thenReturn(true).thenReturn(false);
     for (ResultColumn resultColumn : TABLE_COLUMNS) {
       when(resultSet.getObject(resultColumn.getResultSetColumnName())).thenReturn(null);
@@ -262,7 +263,7 @@ public class MetadataResultSetBuilderTest {
   @MethodSource("getRowsNullableColumnArguments")
   void testGetRowsHandlesNullableColumn(String isNullableValue, int expectedNullable)
       throws SQLException {
-    ResultSet resultSet = mock(ResultSet.class);
+    DatabricksResultSet resultSet = mock(DatabricksResultSet.class);
     when(resultSet.next()).thenReturn(true).thenReturn(false);
     for (ResultColumn resultColumn : COLUMN_COLUMNS) {
       if (resultColumn.getResultSetColumnName().equals("SQLDataType")) {
@@ -286,7 +287,7 @@ public class MetadataResultSetBuilderTest {
   @ParameterizedTest
   @MethodSource("getRowsColumnTypeArguments")
   void testGetRowsColumnType(String typeName, String expectedTypeName) throws SQLException {
-    ResultSet resultSet = mock(ResultSet.class);
+    DatabricksResultSet resultSet = mock(DatabricksResultSet.class);
     when(resultSet.next()).thenReturn(true).thenReturn(false);
     when(resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName())).thenReturn(typeName);
 

@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
+import static com.databricks.jdbc.telemetry.TelemetryHelper.getStatementIdString;
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
@@ -14,6 +15,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.IOException;
 import java.io.InputStream;
@@ -64,9 +66,11 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
    * @throws IOException if there is an error during download or data reading
    */
   @Override
-  protected void downloadData(IDatabricksHttpClient httpClient, CompressionCodec compressionCodec)
+  protected void downloadData(
+      IDatabricksHttpClient httpClient, CompressionCodec compressionCodec, double speedThreshold)
       throws DatabricksParsingException, IOException {
     CloseableHttpResponse response = null;
+    long startTime = System.nanoTime();
     try {
       URIBuilder uriBuilder = new URIBuilder(chunkLink.getExternalLink());
       HttpGet getRequest = new HttpGet(uriBuilder.build());
@@ -74,6 +78,15 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       // Retry would be done in http client, we should not bother about that here
       response = httpClient.execute(getRequest, true);
       checkHTTPError(response);
+
+      long downloadTimeMs = (System.nanoTime() - startTime) / 1_000_000;
+      long contentLength = response.getEntity().getContentLength();
+      logDownloadMetrics(
+          downloadTimeMs, contentLength, chunkLink.getExternalLink(), speedThreshold);
+
+      TelemetryCollector.getInstance()
+          .recordChunkDownloadLatency(
+              getStatementIdString(statementId), chunkIndex, downloadTimeMs);
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
       String decompressionContext =
           String.format(
@@ -122,6 +135,26 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       LOGGER.debug(
           "No encryption headers present for chunk index %s and statement %s",
           chunkIndex, statementId);
+    }
+  }
+
+  private void logDownloadMetrics(
+      long downloadTimeMs, long contentLength, String url, double speedThreshold) {
+    if (downloadTimeMs > 0 && contentLength > 0) {
+      double speedMBps = (contentLength / 1024.0 / 1024.0) / (downloadTimeMs / 1000.0);
+      String baseUrl = url.split("\\?")[0];
+
+      LOGGER.info(
+          String.format(
+              "CloudFetch download: %.4f MB/s, %d bytes in %dms from %s",
+              speedMBps, contentLength, downloadTimeMs, baseUrl));
+
+      if (speedMBps < speedThreshold) {
+        LOGGER.warn(
+            String.format(
+                "CloudFetch download slower than threshold: %.4f MB/s < %.4f MB/s",
+                speedMBps, speedThreshold));
+      }
     }
   }
 

@@ -5,7 +5,7 @@
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
   <!-- This value may be modified by a release script to reflect the current version of the driver. -->
-  <version>1.0.7-oss</version>
+  <version>1.0.8-oss</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver</name>
   <description>Databricks JDBC Driver.</description>
@@ -40,7 +40,8 @@
     </repository>
   </distributionManagement>
   <properties>
-    <arrow.version>13.0.0</arrow.version>
+    <arrow.version>17.0.0</arrow.version>
+    <commons-lang3.version>3.18.0</commons-lang3.version>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
     <mockito.version>5.2.0</mockito.version>
@@ -63,12 +64,22 @@
     <slt.executor>dbsql</slt.executor>
     <slt.token>dummy-token</slt.token>
     <wiremock.version>3.5.4</wiremock.version>
-    <nimbusjose.version>9.40</nimbusjose.version>
+    <nimbusjose.version>10.0.2</nimbusjose.version>
     <bouncycastle.version>1.78.1</bouncycastle.version>
     <async-httpclient.version>5.3.1</async-httpclient.version>
     <netty.version>4.2.0.Final</netty.version>
     <grpc.version>1.71.0</grpc.version>
   </properties>
+  <dependencyManagement>
+    <!-- Force safe version of commons-lang3 https://nvd.nist.gov/vuln/detail/CVE-2025-48924 -->
+    <dependencies>
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>${commons-lang3.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>com.databricks</groupId>

@@ -6,6 +6,4 @@ public interface ITelemetryClient {
   void exportEvent(TelemetryFrontendLog event);
 
   void close();
-
-  void closeStatement(String statementId);
 }

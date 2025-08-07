@@ -16,7 +16,6 @@ import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.StatementState;
 import com.google.common.annotations.VisibleForTesting;
-import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -36,7 +35,7 @@ public class MetadataResultSetBuilder {
     this.ctx = ctx;
   }
 
-  public DatabricksResultSet getFunctionsResult(ResultSet resultSet, String catalog)
+  public DatabricksResultSet getFunctionsResult(DatabricksResultSet resultSet, String catalog)
       throws SQLException {
     List<List<Object>> rows = getRowsForFunctions(resultSet, FUNCTION_COLUMNS, catalog);
     return buildResultSet(
@@ -47,7 +46,7 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_FUNCTIONS);
   }
 
-  public DatabricksResultSet getColumnsResult(ResultSet resultSet) throws SQLException {
+  public DatabricksResultSet getColumnsResult(DatabricksResultSet resultSet) throws SQLException {
     List<List<Object>> rows = getRows(resultSet, COLUMN_COLUMNS, defaultAdapter);
     return buildResultSet(
         COLUMN_COLUMNS,
@@ -57,7 +56,7 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_COLUMNS);
   }
 
-  public DatabricksResultSet getCatalogsResult(ResultSet resultSet) throws SQLException {
+  public DatabricksResultSet getCatalogsResult(DatabricksResultSet resultSet) throws SQLException {
     List<List<Object>> rows = getRows(resultSet, CATALOG_COLUMNS, defaultAdapter);
     return buildResultSet(
         CATALOG_COLUMNS,
@@ -67,7 +66,7 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_CATALOGS);
   }
 
-  public DatabricksResultSet getSchemasResult(ResultSet resultSet, String catalog)
+  public DatabricksResultSet getSchemasResult(DatabricksResultSet resultSet, String catalog)
       throws SQLException {
     List<List<Object>> rows = getRowsForSchemas(resultSet, SCHEMA_COLUMNS, catalog);
     return buildResultSet(
@@ -78,7 +77,7 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_SCHEMAS);
   }
 
-  public DatabricksResultSet getTablesResult(ResultSet resultSet, String[] tableTypes)
+  public DatabricksResultSet getTablesResult(DatabricksResultSet resultSet, String[] tableTypes)
       throws SQLException {
     List<String> allowedTableTypes = List.of(tableTypes);
     List<List<Object>> rows =
@@ -101,7 +100,8 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_TABLE_TYPES);
   }
 
-  public DatabricksResultSet getPrimaryKeysResult(ResultSet resultSet) throws SQLException {
+  public DatabricksResultSet getPrimaryKeysResult(DatabricksResultSet resultSet)
+      throws SQLException {
     List<List<Object>> rows = getRows(resultSet, PRIMARY_KEYS_COLUMNS, defaultAdapter);
     return buildResultSet(
         PRIMARY_KEYS_COLUMNS,
@@ -111,7 +111,8 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_PRIMARY_KEYS);
   }
 
-  public DatabricksResultSet getImportedKeysResult(ResultSet resultSet) throws SQLException {
+  public DatabricksResultSet getImportedKeysResult(DatabricksResultSet resultSet)
+      throws SQLException {
     List<List<Object>> rows = getRows(resultSet, IMPORTED_KEYS_COLUMNS, importedKeysAdapter);
     return buildResultSet(
         IMPORTED_KEYS_COLUMNS,
@@ -122,7 +123,7 @@ public class MetadataResultSetBuilder {
   }
 
   public DatabricksResultSet getCrossReferenceKeysResult(
-      ResultSet resultSet,
+      DatabricksResultSet resultSet,
       String targetParentCatalogName,
       String targetParentNamespaceName,
       String targetParentTableName)
@@ -149,10 +150,12 @@ public class MetadataResultSetBuilder {
   }
 
   List<List<Object>> getRows(
-      ResultSet resultSet, List<ResultColumn> columns, IDatabricksResultSetAdapter adapter)
+      DatabricksResultSet resultSet,
+      List<ResultColumn> columns,
+      IDatabricksResultSetAdapter adapter)
       throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
-
+    resultSet.setSilenceNonTerminalExceptions();
     while (resultSet.next()) {
       // Check if this row should be included based on the adapter's filter
       if (!adapter.includeRow(resultSet, columns)) {
@@ -270,6 +273,7 @@ public class MetadataResultSetBuilder {
       }
       rows.add(row);
     }
+    resultSet.unsetSilenceNonTerminalExceptions();
     return rows;
   }
 
@@ -530,7 +534,8 @@ public class MetadataResultSetBuilder {
   }
 
   private List<List<Object>> getRowsForFunctions(
-      ResultSet resultSet, List<ResultColumn> columns, String catalog) throws SQLException {
+      DatabricksResultSet resultSet, List<ResultColumn> columns, String catalog)
+      throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();
@@ -557,7 +562,8 @@ public class MetadataResultSetBuilder {
   }
 
   private List<List<Object>> getRowsForSchemas(
-      ResultSet resultSet, List<ResultColumn> columns, String catalog) throws SQLException {
+      DatabricksResultSet resultSet, List<ResultColumn> columns, String catalog)
+      throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();

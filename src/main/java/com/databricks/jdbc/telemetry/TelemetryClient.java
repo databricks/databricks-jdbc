@@ -2,8 +2,7 @@ package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
-import com.databricks.jdbc.model.telemetry.latency.ChunkDetails;
-import com.databricks.jdbc.telemetry.latency.ChunkLatencyHandler;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.util.LinkedList;
 import java.util.List;
@@ -86,28 +85,13 @@ public class TelemetryClient implements ITelemetryClient {
 
   @Override
   public void close() {
-    // Export any pending chunk latency telemetry before flushing
-    ChunkLatencyHandler.getInstance()
-        .getAllPendingChunkDetails()
-        .forEach(
-            (statementId, chunkDetails) -> {
-              TelemetryHelper.exportChunkLatencyTelemetry(chunkDetails, statementId);
-            });
+    // Export any pending latency telemetry before flushing
+    TelemetryCollector.getInstance().exportAllPendingTelemetryDetails();
     flush();
     if (flushTask != null) {
       flushTask.cancel(false);
     }
     scheduledExecutorService.shutdown();
-  }
-
-  @Override
-  public void closeStatement(String statementId) {
-    ChunkDetails chunkDetails =
-        ChunkLatencyHandler.getInstance().getChunkDetailsAndCleanup(statementId);
-    if (chunkDetails != null) {
-      TelemetryHelper.exportChunkLatencyTelemetry(chunkDetails, statementId);
-    }
-    flush();
   }
 
   private void flush() {

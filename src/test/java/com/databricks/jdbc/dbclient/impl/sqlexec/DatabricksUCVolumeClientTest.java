@@ -9,6 +9,7 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.impl.volume.DatabricksUCVolumeClient;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -607,5 +608,43 @@ public class DatabricksUCVolumeClientTest {
             10L,
             false,
             true));
+  }
+
+  @Test
+  public void testPutFilesWithLocalPaths() {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    List<String> objectPaths = Arrays.asList("file1.txt", "file2.txt");
+    List<String> localPaths = Arrays.asList("/local/file1.txt", "/local/file2.txt");
+
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () ->
+            client.putFiles(
+                TEST_CATALOG, TEST_SCHEMA, "test_volume", objectPaths, localPaths, false));
+  }
+
+  @Test
+  public void testPutFilesWithInputStreams() {
+    DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
+
+    List<String> objectPaths = Arrays.asList("file1.txt", "file2.txt");
+    List<InputStream> inputStreams =
+        Arrays.asList(
+            new ByteArrayInputStream("content1".getBytes(StandardCharsets.UTF_8)),
+            new ByteArrayInputStream("content2".getBytes(StandardCharsets.UTF_8)));
+    List<Long> contentLengths = Arrays.asList(8L, 8L);
+
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () ->
+            client.putFiles(
+                TEST_CATALOG,
+                TEST_SCHEMA,
+                "test_volume",
+                objectPaths,
+                inputStreams,
+                contentLengths,
+                false));
   }
 }

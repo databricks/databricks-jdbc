@@ -20,10 +20,10 @@ public class ChunkDetails {
   @JsonProperty("sum_chunks_download_time_millis")
   private Long sumChunksDownloadTimeMillis;
 
-  public ChunkDetails(long totalChunks) {
-    this.totalChunksIterated = 0L;
+  public ChunkDetails() {
+    this.totalChunksIterated = null;
     this.sumChunksDownloadTimeMillis = 0L;
-    this.totalChunksPresent = totalChunks;
+    this.totalChunksPresent = null;
   }
 
   public ChunkDetails setInitialChunkLatencyMillis(Long initialChunkLatencyMillis) {

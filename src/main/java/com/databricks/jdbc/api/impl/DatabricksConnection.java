@@ -23,7 +23,6 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryClientFactory;
-import com.databricks.jdbc.telemetry.latency.ChunkLatencyHandler;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
 import java.util.*;
@@ -151,7 +150,6 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     LOGGER.debug("public void close()");
     for (IDatabricksStatementInternal statement : statementSet) {
       statement.close(false);
-      ChunkLatencyHandler.getInstance().clearStatement(statement.getStatementId());
       statementSet.remove(statement);
     }
     this.session.close();
@@ -326,9 +324,13 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public Statement createStatement(
       int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)");
+    if (resultSetType != ResultSet.TYPE_FORWARD_ONLY
+        || resultSetConcurrency != ResultSet.CONCUR_READ_ONLY
+        || resultSetHoldability != ResultSet.CLOSE_CURSORS_AT_COMMIT) {
+      throw new DatabricksSQLFeatureNotImplementedException(
+          "Databricks OSS JDBC only supports resultSetType as ResultSet.TYPE_FORWARD_ONLY, resultSetConcurrency as ResultSet.CONCUR_READ_ONLY and resultSetHoldability as ResultSet.CLOSE_CURSORS_AT_COMMIT");
+    }
+    return createStatement();
   }
 
   @Override
@@ -730,10 +732,11 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
         session.setSchema(rs.getString(2));
       }
     } catch (SQLException e) {
-      LOGGER.error(e, "Error fetching current schema and catalog");
+      String errorMessage =
+          String.format("Error fetching current schema and catalog %s", e.getMessage());
+      LOGGER.error(e, errorMessage);
       throw new DatabricksSQLException(
-          "Error fetching current schema and catalog",
-          DatabricksDriverErrorCode.CATALOG_OR_SCHEMA_FETCH_ERROR);
+          errorMessage, DatabricksDriverErrorCode.CATALOG_OR_SCHEMA_FETCH_ERROR);
     }
   }
 }

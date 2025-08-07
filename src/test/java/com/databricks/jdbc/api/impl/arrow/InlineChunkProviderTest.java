@@ -89,7 +89,7 @@ public class InlineChunkProviderTest {
 
     assertTrue(provider.hasNextChunk());
     assertEquals(TOTAL_ROWS, provider.getRowCount());
-    assertNotNull(provider.arrowResultChunk);
+    assertNotNull(provider.getChunk());
 
     // Move to next chunk
     assertTrue(provider.next());
@@ -129,7 +129,7 @@ public class InlineChunkProviderTest {
 
     InlineChunkProvider provider = new InlineChunkProvider(mockResultData, mockResultManifest);
 
-    assertNotNull(provider.arrowResultChunk);
+    assertNotNull(provider.getChunk());
     assertEquals(TOTAL_ROWS, provider.getRowCount());
     assertTrue(provider.hasNextChunk());
 
