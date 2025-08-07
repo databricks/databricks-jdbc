@@ -10,6 +10,8 @@ import com.google.common.annotations.VisibleForTesting;
 import java.util.LinkedHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class TelemetryClientFactory {
 
@@ -26,8 +28,21 @@ public class TelemetryClientFactory {
 
   private final ExecutorService telemetryExecutorService;
 
+  private static ThreadFactory createThreadFactory() {
+    return new ThreadFactory() {
+      private final AtomicInteger threadNumber = new AtomicInteger(1);
+
+      @Override
+      public Thread newThread(Runnable r) {
+        Thread thread = new Thread(r, "Telemetry-Thread-" + threadNumber.getAndIncrement());
+        thread.setDaemon(true);
+        return thread;
+      }
+    };
+  }
+
   private TelemetryClientFactory() {
-    telemetryExecutorService = Executors.newFixedThreadPool(10);
+    telemetryExecutorService = Executors.newFixedThreadPool(10, createThreadFactory());
   }
 
   public static TelemetryClientFactory getInstance() {
