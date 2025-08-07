@@ -469,6 +469,7 @@
             <configuration>
               <!-- The shaded uber jar is the default jar produced by this build -->
               <shadedArtifactAttached>false</shadedArtifactAttached>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
               <relocations>
                 <relocation>
                   <pattern>codegen</pattern>
@@ -559,6 +560,24 @@
               </transformers>
             </configuration>
           </execution>
+
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-install-plugin</artifactId>
+        <version>3.1.1</version>
+        <executions>
+          <execution>
+            <id>install-thin</id>
+            <phase>install</phase>
+            <goals><goal>install-file</goal></goals>
+            <configuration>
+              <file>${project.build.directory}/${project.build.finalName}-thin.jar</file>
+              <pomFile>${project.basedir}/thin_public_pom.xml</pomFile>
+              <classifier>thin</classifier>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
     </plugins>
@@ -594,7 +613,7 @@
                 </goals>
                 <configuration>
                   <file>${project.build.directory}/${project.build.finalName}.jar</file>
-                  <pomFile>${project.basedir}/uber-minimal-pom.xml</pomFile>
+                  <pomFile>${project.basedir}/thin_public_pom.xml</pomFile>
                   <!-- Include other artifacts like sources and javadocs -->
                   <files>${project.build.directory}/${project.build.finalName}-thin.jar</files>
                   <types>jar</types>
@@ -664,7 +683,7 @@
                     <arg>loopback</arg>
                   </gpgArguments>
                   <!-- Custom reduced pom file for fat jar -->
-                  <pomFile>${project.basedir}/uber-minimal-pom.xml</pomFile>
+                  <pomFile>${project.basedir}/thin_public_pom.xml</pomFile>
                   <sources>${project.build.directory}/${project.build.finalName}-sources.jar</sources>
                   <javadoc>${project.build.directory}/${project.build.finalName}-javadoc.jar</javadoc>
                   <files>${project.build.directory}/${project.build.finalName}-thin.jar</files>
