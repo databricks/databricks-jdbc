@@ -1,15 +1,9 @@
 name: Release
 on:
-  pull_request:
   push:
     tags:
       - 'v*'
-  # workflow_dispatch:
-  #   inputs:
-  #     release_tag:
-  #       description: 'v1.0.8-oss'
-  #       required: true
-
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -19,10 +13,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # ref: "v1.0.8-oss"
-          ref: ${{ github.event.pull_request.head.sha }}
-#          ref: ${{ github.event.inputs.release_tag }}
 
       - name: Set up Java for publishing to Maven Central Repository
         uses: actions/setup-java@v4
@@ -48,7 +38,7 @@ jobs:
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
 
-      # - name: Create GitHub release
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     files: target/*.jar
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: target/*.jar
