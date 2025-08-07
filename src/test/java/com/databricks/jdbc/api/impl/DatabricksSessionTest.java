@@ -6,6 +6,7 @@ import static com.databricks.jdbc.telemetry.TelemetryHelper.getDriverSystemConfi
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -154,6 +155,33 @@ public class DatabricksSessionTest {
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());
+  }
+
+  @Test
+  public void testCloseIgnoresInvalidSession() throws DatabricksSQLException {
+    setupWarehouse(true /* useThrift */);
+
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .computeResource(WAREHOUSE_COMPUTE)
+            .build();
+    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
+
+    DatabricksSQLException invalidStateEx = Mockito.mock(DatabricksSQLException.class);
+    when(invalidStateEx.getMessage()).thenReturn("INVALID_STATE: Invalid SessionHandle");
+    doThrow(invalidStateEx).when(thriftClient).deleteSession(any());
+
+    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
+    session.open();
+    assertTrue(session.isOpen());
+
+    assertDoesNotThrow(session::close);
+
+    assertFalse(session.isOpen());
+    assertNull(session.getSessionId());
+
+    verify(thriftClient).deleteSession(any());
   }
 
   @Test

@@ -47,6 +47,7 @@ public class ExecutionResultFactoryTest {
   @Test
   public void testGetResultSet_externalLink() throws DatabricksSQLException {
     when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+    when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     ResultManifest manifest = new ResultManifest();
@@ -81,6 +82,7 @@ public class ExecutionResultFactoryTest {
   @Test
   public void testGetResultSet_volumeOperationThriftResp() throws Exception {
     when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+    when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(resultSetMetadataResp);
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);

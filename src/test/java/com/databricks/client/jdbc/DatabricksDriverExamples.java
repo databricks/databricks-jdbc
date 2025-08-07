@@ -14,6 +14,7 @@ import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.client.filesystem.VolumePutResult;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.File;
 import java.io.FileInputStream;
@@ -672,6 +673,52 @@ public class DatabricksDriverExamples {
       file.delete();
       con.close();
     }
+  }
+
+  @Test
+  void examplePutFiles() throws Exception {
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL_WAREHOUSE, "token", DATABRICKS_TOKEN);
+    var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
+
+    int numFiles = 2;
+    List<String> objectPaths = new ArrayList<>();
+    List<String> localPaths = new ArrayList<>();
+    for (int i = 0; i < numFiles; i++) {
+      String objectPath = "test-stream-" + i + ".csv";
+      String localPath = "/tmp/put-" + i + ".txt";
+      objectPaths.add(objectPath);
+      localPaths.add(localPath);
+      File file = new File(localPath);
+      Files.writeString(file.toPath(), "test-put");
+      System.out.println("File created at " + localPath);
+    }
+    List<VolumePutResult> results =
+        client.putFiles(
+            "main", "jdbc_test_schema", "jdbc_test_volume", objectPaths, localPaths, true);
+
+    for (int i = 0; i < numFiles; i++) {
+      System.out.println(
+          "status: "
+              + results.get(i).getStatus()
+              + ", error message: "
+              + results.get(i).getMessage());
+    }
+
+    for (int i = 0; i < numFiles; i++) {
+      File file = new File(localPaths.get(i));
+      file.delete();
+    }
+
+    for (int i = 0; i < numFiles; i++) {
+      System.out.println(
+          "Delete object result: "
+              + client.deleteObject(
+                  "main", "jdbc_test_schema", "jdbc_test_volume", objectPaths.get(i)));
+    }
+
+    System.out.println("Files deleted.");
   }
 
   /**

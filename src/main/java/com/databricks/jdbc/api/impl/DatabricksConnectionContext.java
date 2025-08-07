@@ -21,6 +21,7 @@ import com.databricks.sdk.core.DatabricksEnvironment;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.utils.Cloud;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.util.*;
@@ -143,6 +144,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
               : DatabricksJdbcConstants.DEFAULT_PORT;
 
       ImmutableMap<String, String> propertiesMap = buildPropertiesMap(urlMinusHost, properties);
+
+      // Validate all input properties
+      ValidationUtil.validateInputProperties(propertiesMap);
+
       if (propertiesMap.containsKey(PORT)) {
         try {
           portValue = Integer.parseInt(propertiesMap.get(PORT));
@@ -416,6 +421,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getCloudFetchThreadPoolSize() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE));
+  }
+
+  @Override
+  public double getCloudFetchSpeedThreshold() {
+    return Double.parseDouble(getParameter(DatabricksJdbcUrlParams.CLOUD_FETCH_SPEED_THRESHOLD));
   }
 
   @Override
@@ -814,6 +824,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public int getMaxDBFSConcurrentPresignedRequests() {
+    try {
+      return Integer.parseInt(
+          getParameter(DatabricksJdbcUrlParams.MAX_CONCURRENT_PRESIGNED_REQUESTS));
+    } catch (NumberFormatException e) {
+      LOGGER.warn(
+          "Invalid number format for MaxVolumeOperationConcurrentPresignedRequests. Falling back to default value 50.");
+      return DEFAULT_MAX_CONCURRENT_PRESIGNED_REQUESTS;
+    }
+  }
+
+  @Override
   public boolean isComplexDatatypeSupportEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_COMPLEX_DATATYPE_SUPPORT).equals("1");
   }
@@ -902,6 +924,32 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getChunkReadyTimeoutSeconds() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.CHUNK_READY_TIMEOUT_SECONDS));
+  }
+
+  @Override
+  public int getHttpMaxConnectionsPerRoute() {
+    int maxConnectionsPerRoute = DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE;
+    try {
+      maxConnectionsPerRoute =
+          Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_MAX_CONNECTIONS_PER_ROUTE));
+    } catch (NumberFormatException e) {
+      LOGGER.warn("Invalid value for HttpMaxConnectionsPerRoutes");
+    }
+    return maxConnectionsPerRoute;
+  }
+
+  @Override
+  public Integer getHttpConnectionRequestTimeout() {
+    String httpConnectionRequestTimeout =
+        getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_REQUEST_TIMEOUT);
+    if (!Strings.isNullOrEmpty(httpConnectionRequestTimeout)) {
+      try {
+        return Integer.parseInt(httpConnectionRequestTimeout);
+      } catch (NumberFormatException e) {
+        LOGGER.warn("Invalid value for HttpConnectionRequestTimeout");
+      }
+    }
+    return null;
   }
 
   private static boolean nullOrEmptyString(String s) {

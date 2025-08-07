@@ -46,7 +46,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksHttpClient.class);
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS = 1000;
-  private static final int DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE = 1000;
   private final PoolingHttpClientConnectionManager connectionManager;
   private final CloseableHttpClient httpClient;
   private IdleConnectionEvictor idleConnectionEvictor;
@@ -134,7 +133,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       PoolingHttpClientConnectionManager connectionManager =
           ConfiguratorUtils.getBaseConnectionManager(connectionContext);
       connectionManager.setMaxTotal(DEFAULT_MAX_HTTP_CONNECTIONS);
-      connectionManager.setDefaultMaxPerRoute(DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE);
+      connectionManager.setDefaultMaxPerRoute(connectionContext.getHttpMaxConnectionsPerRoute());
       return connectionManager;
     } catch (DatabricksSSLException e) {
       LOGGER.error("Failed to initialize HTTP connection manager", e);
@@ -145,10 +144,14 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     }
   }
 
-  private RequestConfig makeRequestConfig(int timeoutSeconds) {
-    int timeoutMillis = timeoutSeconds * 1000;
+  private RequestConfig makeRequestConfig(IDatabricksConnectionContext connectionContext) {
+    int timeoutMillis = connectionContext.getSocketTimeout() * 1000;
+    int requestTimeout =
+        connectionContext.getHttpConnectionRequestTimeout() != null
+            ? connectionContext.getHttpConnectionRequestTimeout() * 1000
+            : timeoutMillis;
     return RequestConfig.custom()
-        .setConnectionRequestTimeout(timeoutMillis)
+        .setConnectionRequestTimeout(requestTimeout)
         .setConnectTimeout(timeoutMillis)
         .setSocketTimeout(timeoutMillis)
         .build();
@@ -164,7 +167,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)
             .setUserAgent(UserAgentManager.getUserAgentString())
-            .setDefaultRequestConfig(makeRequestConfig(connectionContext.getSocketTimeout()))
+            .setDefaultRequestConfig(makeRequestConfig(connectionContext))
             .setRetryHandler(retryHandler)
             .addInterceptorFirst(retryHandler);
     setupProxy(connectionContext, builder);

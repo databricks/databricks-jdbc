@@ -142,16 +142,37 @@ public abstract class AbstractArrowResultChunk {
   }
 
   /**
+   * Sets the external link details for this chunk.
+   *
+   * @param chunk the external link information
+   */
+  public void setChunkLink(ExternalLink chunk) {
+    chunkLink = chunk;
+    expiryTime = Instant.parse(chunk.getExpiration());
+    setStatus(ChunkStatus.URL_FETCHED);
+  }
+
+  /**
+   * Returns the current status of the chunk.
+   *
+   * @return current ChunkStatus
+   */
+  public ChunkStatus getStatus() {
+    return stateMachine.getCurrentStatus();
+  }
+
+  /**
    * Downloads and initializes data for this chunk using the provided HTTP client and compression
    * codec.
    *
    * @param httpClient the HTTP client to use for downloading
    * @param compressionCodec the compression codec to use for decompression
+   * @param speedThreshold the minimum expected download speed in MB/s for logging warnings
    * @throws DatabricksParsingException if there is an error parsing the data
    * @throws IOException if there is an error downloading or reading the data
    */
   protected abstract void downloadData(
-      IDatabricksHttpClient httpClient, CompressionCodec compressionCodec)
+      IDatabricksHttpClient httpClient, CompressionCodec compressionCodec, double speedThreshold)
       throws DatabricksParsingException, IOException;
 
   /** Handles a failure during the download or processing of this chunk. */
@@ -197,15 +218,6 @@ public abstract class AbstractArrowResultChunk {
   }
 
   /**
-   * Returns the current status of the chunk.
-   *
-   * @return current ChunkStatus
-   */
-  protected ChunkStatus getStatus() {
-    return stateMachine.getCurrentStatus();
-  }
-
-  /**
    * Updates the status of the chunk.
    *
    * @param targetStatus new status to set
@@ -227,17 +239,6 @@ public abstract class AbstractArrowResultChunk {
    */
   protected ArrowResultChunkIterator getChunkIterator() {
     return new ArrowResultChunkIterator(this);
-  }
-
-  /**
-   * Sets the external link details for this chunk.
-   *
-   * @param chunk the external link information
-   */
-  protected void setChunkLink(ExternalLink chunk) {
-    chunkLink = chunk;
-    expiryTime = Instant.parse(chunk.getExpiration());
-    setStatus(ChunkStatus.URL_FETCHED);
   }
 
   protected CompletableFuture<Void> getChunkReadyFuture() {

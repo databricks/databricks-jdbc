@@ -68,7 +68,7 @@ public class SqlExecutionEvent {
     return this;
   }
 
-  public SqlExecutionEvent setOperationDetails(OperationDetail operationDetail) {
+  public SqlExecutionEvent setOperationDetail(OperationDetail operationDetail) {
     this.operationDetail = operationDetail;
     return this;
   }

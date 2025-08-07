@@ -96,7 +96,7 @@ public class ConfiguratorUtilsTest {
    * @param alias The alias for the certificate entry
    * @param isKeyStore Whether this is a keystore (with private key) or truststore (cert only)
    */
-  private static void createDummyStore(
+  public static void createDummyStore(
       String filePath, String storeType, String password, String alias, boolean isKeyStore)
       throws Exception {
     KeyStore keyStore = KeyStore.getInstance(storeType);

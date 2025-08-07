@@ -42,10 +42,13 @@ import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.URL;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.net.ssl.SSLHandshakeException;
 
 /** Implementation of IDatabricksClient interface using Databricks Java SDK. */
 public class DatabricksSdkClient implements IDatabricksClient {
@@ -121,7 +124,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       if (e.getStatusCode() == TEMPORARY_REDIRECT_STATUS_CODE) {
         throw new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION);
       }
-      String errorReason = "Error while establishing a connection in databricks";
+      String errorReason = buildErrorMessage(e);
       throw new DatabricksSQLException(errorReason, e, DatabricksDriverErrorCode.CONNECTION_ERROR);
     } catch (IOException e) {
       String errorMessage = "Error while processing the request via the sdk client";
@@ -548,5 +551,57 @@ public class DatabricksSdkClient implements IDatabricksClient {
         .setStatus(getStatementResponse.getStatus())
         .setManifest(getStatementResponse.getManifest())
         .setResult(getStatementResponse.getResult());
+  }
+
+  /**
+   * Builds actionable error messages for SSL handshake failures. Returns a generic message if the
+   * error is not SSL-related.
+   */
+  private String buildErrorMessage(DatabricksError e) {
+
+    boolean isSSLException =
+        Stream.iterate(e.getCause(), Objects::nonNull, Throwable::getCause)
+            .anyMatch(cause -> cause instanceof SSLHandshakeException);
+
+    boolean isCertificatePathError =
+        e.getMessage().contains("PKIX path building failed")
+            || e.getMessage().contains("unable to find valid certification path");
+
+    if (isSSLException && isCertificatePathError) {
+      return buildSSLCertificatePathErrorMessage(e);
+    }
+
+    return "Error while establishing a connection in databricks";
+  }
+
+  /** Builds the SSL certificate path error message with actionable steps. */
+  private String buildSSLCertificatePathErrorMessage(DatabricksError e) {
+
+    String customTruststorePathMessage = "";
+    if (connectionContext != null && connectionContext.getSSLTrustStore() != null) {
+      customTruststorePathMessage = " in truststore: " + connectionContext.getSSLTrustStore();
+    }
+
+    // Get the actual workspace hostname for the openssl command
+    // by removing protocol and port from host url
+    String workspaceHostname = "<workspace>";
+    try {
+      if (connectionContext != null && connectionContext.getHostUrl() != null) {
+        workspaceHostname = new URL(connectionContext.getHostUrl()).getHost();
+      }
+    } catch (Exception ex) {
+      LOGGER.debug("Could not retrieve workspace hostname for error message", ex);
+    }
+
+    return String.format(
+        "Unable to find certification path to requested target%s\n\n"
+            + "SSL Error: %s\n\n"
+            + "Details: TLS handshake failure due to TLS Certificate of server being connected is not in the configured truststore.\n\n"
+            + "Next steps:\n"
+            + "- Make sure that the connection string has the appropriate Databricks workspace FQDN.\n\n"
+            + "- Verify the configured truststore path and make sure the required certificates are imported.\n"
+            + "  .   PEM certificate chain of the warehouse endpoint can be fetched using \"openssl s_client -connect %s:443 -showcerts\"\n"
+            + "  .   Reference KB article with troubleshooting steps.\n",
+        customTruststorePathMessage, e.getMessage(), workspaceHostname);
   }
 }

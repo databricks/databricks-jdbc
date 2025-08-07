@@ -132,6 +132,9 @@ public interface IDatabricksConnectionContext {
   /** Returns the number of threads to be used for fetching data from cloud storage */
   int getCloudFetchThreadPoolSize();
 
+  /** Returns the minimum expected download speed threshold in MB/s for CloudFetch operations */
+  double getCloudFetchSpeedThreshold();
+
   Boolean getDirectResultMode();
 
   Boolean shouldRetryTemporarilyUnavailableError();
@@ -321,6 +324,12 @@ public interface IDatabricksConnectionContext {
   /** Returns whether token caching is enabled for OAuth authentication */
   boolean isTokenCacheEnabled();
 
+  /*
+   * Returns maximum number of concurrent pre-signed requests sent to Databricks File System (DBFS)
+   * Ensures rate-limit when uploading multiple files to DBFS in parallel.
+   */
+  int getMaxDBFSConcurrentPresignedRequests();
+
   /** Returns the application name using JDBC Connection */
   String getApplicationName();
 
@@ -332,4 +341,10 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the flush interval in milliseconds for telemetry */
   int getTelemetryFlushIntervalInMilliseconds();
+
+  /** Returns the maximum number of HTTP connections per route */
+  int getHttpMaxConnectionsPerRoute();
+
+  /** Returns the HTTP connection request timeout in seconds */
+  Integer getHttpConnectionRequestTimeout();
 }

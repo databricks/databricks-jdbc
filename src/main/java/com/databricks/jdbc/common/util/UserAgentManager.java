@@ -46,7 +46,7 @@ public class UserAgentManager {
       return appName;
     }
 
-    // Then check applicationname URL param
+    // Then check application name URL param
     appName = connectionContext.getApplicationName();
     if (!isNullOrEmpty(appName)) {
       return appName;

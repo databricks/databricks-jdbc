@@ -3,17 +3,19 @@ package com.databricks.jdbc.telemetry;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.ProcessNameUtil;
 import com.databricks.jdbc.common.util.StringUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.*;
-import com.databricks.jdbc.model.telemetry.latency.ChunkDetails;
+import com.databricks.jdbc.model.telemetry.latency.OperationType;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
@@ -46,6 +48,7 @@ public class TelemetryHelper {
           .setOsArch(System.getProperty("os.arch"))
           .setOsVersion(System.getProperty("os.version"))
           .setOsName(System.getProperty("os.name"))
+          .setProcessName(ProcessNameUtil.getProcessName())
           .setClientAppName(null);
 
   public static DriverSystemConfiguration getDriverSystemConfiguration() {
@@ -59,7 +62,7 @@ public class TelemetryHelper {
   }
 
   public static boolean isTelemetryAllowedForConnection(IDatabricksConnectionContext context) {
-    if (context.forceEnableTelemetry()) {
+    if (context != null && context.forceEnableTelemetry()) {
       return true;
     }
     return context != null
@@ -68,21 +71,42 @@ public class TelemetryHelper {
             .isFeatureEnabled(TELEMETRY_FEATURE_FLAG_NAME);
   }
 
-  public static void exportInitialTelemetryLog(IDatabricksConnectionContext connectionContext) {
-    if (connectionContext == null) {
+  public static void exportTelemetryLog(StatementTelemetryDetails telemetryDetails) {
+    exportTelemetryEvent(
+        DatabricksThreadContextHolder.getConnectionContext(), telemetryDetails, null, null);
+  }
+
+  private static void exportTelemetryEvent(
+      IDatabricksConnectionContext connectionContext,
+      StatementTelemetryDetails telemetryDetails,
+      DriverErrorInfo errorInfo,
+      Long chunkIndex) {
+    if (connectionContext == null || telemetryDetails == null) {
+      // This is when the context is not set or the telemetry details are not set.
+      // In either of these scenarios, we don't export logs.
       return;
     }
+    TelemetryEvent telemetryEvent =
+        new TelemetryEvent()
+            .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext))
+            .setSessionId(DatabricksThreadContextHolder.getSessionId())
+            .setDriverErrorInfo(errorInfo) // This is only set for failure logs
+            .setSqlStatementId(telemetryDetails.getStatementId())
+            .setLatency(telemetryDetails.getOperationLatencyMillis());
+    SqlExecutionEvent sqlExecutionEvent =
+        new SqlExecutionEvent()
+            .setChunkDetails(telemetryDetails.getChunkDetails())
+            .setResultLatency(telemetryDetails.getResultLatency())
+            .setOperationDetail(telemetryDetails.getOperationDetail())
+            .setExecutionResultFormat(telemetryDetails.getExecutionResultFormat())
+            .setChunkId(chunkIndex); // This is only set for chunk download failure logs
+    telemetryEvent.setSqlOperation(sqlExecutionEvent);
+
     TelemetryFrontendLog telemetryFrontendLog =
         new TelemetryFrontendLog()
             .setFrontendLogEventId(getEventUUID())
             .setContext(getLogContext())
-            .setEntry(
-                new FrontendLogEntry()
-                    .setSqlDriverLog(
-                        new TelemetryEvent()
-                            .setDriverConnectionParameters(
-                                getDriverConnectionParameter(connectionContext))
-                            .setDriverSystemConfiguration(getDriverSystemConfiguration())));
+            .setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
     TelemetryClientFactory.getInstance()
         .getTelemetryClient(connectionContext)
         .exportEvent(telemetryFrontendLog);
@@ -90,151 +114,28 @@ public class TelemetryHelper {
 
   public static void exportFailureLog(
       IDatabricksConnectionContext connectionContext, String errorName, String errorMessage) {
+    String statementId = DatabricksThreadContextHolder.getStatementId();
     exportFailureLog(
-        connectionContext,
-        errorName,
-        errorMessage,
-        null,
-        DatabricksThreadContextHolder.getStatementId());
+        connectionContext, errorName, errorMessage, statementId, /* chunkIndex */ null);
   }
 
   public static void exportFailureLog(
       IDatabricksConnectionContext connectionContext,
       String errorName,
       String errorMessage,
-      Long chunkIndex,
-      String statementId) {
-
-    // Connection context is not set in following scenarios:
-    // a. Unit tests
-    // b. When Url parsing has failed
-    // In either of these scenarios, we don't export logs
-    if (connectionContext != null) {
-      DriverErrorInfo errorInfo =
-          new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
-      TelemetryFrontendLog telemetryFrontendLog =
-          new TelemetryFrontendLog()
-              .setFrontendLogEventId(getEventUUID())
-              .setContext(getLogContext())
-              .setEntry(
-                  new FrontendLogEntry()
-                      .setSqlDriverLog(
-                          new TelemetryEvent()
-                              .setSqlStatementId(statementId)
-                              .setDriverConnectionParameters(
-                                  getDriverConnectionParameter(connectionContext))
-                              .setDriverErrorInfo(errorInfo)
-                              .setDriverSystemConfiguration(getDriverSystemConfiguration())));
-      if (chunkIndex != null) {
-        // When chunkIndex is provided, we are exporting a chunk download failure log
-        telemetryFrontendLog
-            .getEntry()
-            .getSqlDriverLog()
-            .setSqlOperation(new SqlExecutionEvent().setChunkId(chunkIndex));
-      }
-      ITelemetryClient client =
-          TelemetryClientFactory.getInstance().getTelemetryClient(connectionContext);
-      client.exportEvent(telemetryFrontendLog);
-    }
-  }
-
-  public static void exportLatencyLog(long executionTime) {
-    SqlExecutionEvent executionEvent =
-        new SqlExecutionEvent()
-            .setDriverStatementType(DatabricksThreadContextHolder.getStatementType())
-            .setRetryCount(DatabricksThreadContextHolder.getRetryCount());
-    exportLatencyLog(
-        DatabricksThreadContextHolder.getConnectionContext(),
-        executionTime,
-        executionEvent,
-        DatabricksThreadContextHolder.getStatementId(),
-        DatabricksThreadContextHolder.getSessionId());
-  }
-
-  public static void exportPollingLatency(
-      long pollingLatencyMillis, IDatabricksSession session, String statementId) {}
-
-  public static void exportChunkLatencyTelemetry(ChunkDetails chunkDetails, String statementId) {
-    if (chunkDetails == null) {
-      return;
-    }
-
-    IDatabricksConnectionContext connectionContext =
-        DatabricksThreadContextHolder.getConnectionContext();
-    if (connectionContext == null) {
-      return;
-    }
-
-    SqlExecutionEvent sqlExecutionEvent = new SqlExecutionEvent().setChunkDetails(chunkDetails);
-
-    TelemetryEvent telemetryEvent =
-        new TelemetryEvent()
-            .setSqlOperation(sqlExecutionEvent)
-            .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext));
-
-    TelemetryFrontendLog telemetryFrontendLog =
-        new TelemetryFrontendLog()
-            .setFrontendLogEventId(getEventUUID())
-            .setContext(getLogContext())
-            .setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
-
-    TelemetryClientFactory.getInstance()
-        .getTelemetryClient(connectionContext)
-        .exportEvent(telemetryFrontendLog);
-  }
-
-  @VisibleForTesting
-  static void exportLatencyLog(
-      IDatabricksConnectionContext connectionContext,
-      long latencyMilliseconds,
-      SqlExecutionEvent executionEvent,
       String statementId,
-      String sessionId) {
-    // Though we already handle null connectionContext in the downstream implementation,
-    // we are adding this check for extra sanity
-    if (connectionContext != null) {
-      TelemetryEvent telemetryEvent =
-          new TelemetryEvent()
-              .setLatency(latencyMilliseconds)
-              .setSqlOperation(executionEvent)
-              .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext))
-              .setSqlStatementId(statementId)
-              .setSessionId(sessionId);
-      TelemetryFrontendLog telemetryFrontendLog =
-          new TelemetryFrontendLog()
-              .setFrontendLogEventId(getEventUUID())
-              .setContext(getLogContext())
-              .setEntry(new FrontendLogEntry().setSqlDriverLog(telemetryEvent));
-      TelemetryClientFactory.getInstance()
-          .getTelemetryClient(connectionContext)
-          .exportEvent(telemetryFrontendLog);
-    }
+      Long chunkIndex) {
+    StatementTelemetryDetails telemetryDetails =
+        TelemetryCollector.getInstance().getTelemetryDetails(statementId);
+    DriverErrorInfo errorInfo =
+        new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
+    exportTelemetryEvent(connectionContext, telemetryDetails, errorInfo, chunkIndex);
   }
 
-  public static void exportLatencyLog(
-      IDatabricksConnectionContext connectionContext,
-      long latencyMilliseconds,
-      DriverVolumeOperation volumeOperationEvent) {
-    // Though we already handle null connectionContext in the downstream implementation,
-    // we are adding this check for extra sanity
-    if (connectionContext != null) {
-      TelemetryFrontendLog telemetryFrontendLog =
-          new TelemetryFrontendLog()
-              .setFrontendLogEventId(getEventUUID())
-              .setContext(getLogContext())
-              .setEntry(
-                  new FrontendLogEntry()
-                      .setSqlDriverLog(
-                          new TelemetryEvent()
-                              .setLatency(latencyMilliseconds)
-                              .setVolumeOperation(volumeOperationEvent)
-                              .setDriverConnectionParameters(
-                                  getDriverConnectionParameter(connectionContext))));
-
-      TelemetryClientFactory.getInstance()
-          .getTelemetryClient(connectionContext)
-          .exportEvent(telemetryFrontendLog);
-    }
+  public static String getStatementIdString(StatementId statementId) {
+    return statementId != null
+        ? statementId.toSQLExecStatementId()
+        : DatabricksThreadContextHolder.getStatementId();
   }
 
   private static DriverConnectionParameters getDriverConnectionParameter(
@@ -254,6 +155,8 @@ public class TelemetryHelper {
       hostUrl = connectionContext.getHostUrl();
     } catch (DatabricksParsingException e) {
       hostUrl = "Error in parsing host url";
+      // This would mean, telemetry data cannot be sent.
+      return null;
     }
     DriverConnectionParameters connectionParameters =
         new DriverConnectionParameters()
@@ -351,15 +254,58 @@ public class TelemetryHelper {
   public static DatabricksConfig getDatabricksConfigSafely(IDatabricksConnectionContext context) {
     try {
       return DatabricksClientConfiguratorManager.getInstance()
-          .getConfigurator(context)
+          .getConfiguratorOnlyIfExists(context)
           .getDatabricksConfig();
     } catch (Exception e) {
       String errorMessage =
           String.format(
-              "Unable to get databricks config for telemetry helper; falling back to no-auth. Error: %s; Context: %s",
+              "Connection config is not available, using no-auth telemetry client. Error: %s; Context: %s",
               e.getMessage(), context);
-      LOGGER.debug(errorMessage);
+      LOGGER.trace(errorMessage);
       return null;
+    }
+  }
+
+  // Add mapping function for method name to OperationType
+  public static OperationType mapMethodToOperationType(String methodName) {
+    if (methodName == null) return OperationType.TYPE_UNSPECIFIED;
+    switch (methodName) {
+      case "createSession":
+        return OperationType.CREATE_SESSION;
+      case "executeStatement":
+        return OperationType.EXECUTE_STATEMENT;
+      case "executeStatementAsync":
+        return OperationType.EXECUTE_STATEMENT_ASYNC;
+      case "closeStatement":
+        return OperationType.CLOSE_STATEMENT;
+      case "cancelStatement":
+        return OperationType.CANCEL_STATEMENT;
+      case "deleteSession":
+        return OperationType.DELETE_SESSION;
+      case "listCrossReferences":
+        return OperationType.LIST_CROSS_REFERENCES;
+      case "listExportedKeys":
+        return OperationType.LIST_EXPORTED_KEYS;
+      case "listImportedKeys":
+        return OperationType.LIST_IMPORTED_KEYS;
+      case "listPrimaryKeys":
+        return OperationType.LIST_PRIMARY_KEYS;
+      case "listFunctions":
+        return OperationType.LIST_FUNCTIONS;
+      case "listColumns":
+        return OperationType.LIST_COLUMNS;
+      case "listTableTypes":
+        return OperationType.LIST_TABLE_TYPES;
+      case "listTables":
+        return OperationType.LIST_TABLES;
+      case "listSchemas":
+        return OperationType.LIST_SCHEMAS;
+      case "listCatalogs":
+        return OperationType.LIST_CATALOGS;
+      case "listTypeInfo":
+        return OperationType.LIST_TYPE_INFO;
+      default:
+        return OperationType.TYPE_UNSPECIFIED;
     }
   }
 }

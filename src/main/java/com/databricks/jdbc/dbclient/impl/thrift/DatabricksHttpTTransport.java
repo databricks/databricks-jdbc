@@ -96,7 +96,7 @@ public class DatabricksHttpTTransport extends TTransport {
     refreshHeadersIfRequired();
     long refreshHeadersEndTime = System.currentTimeMillis();
     long refreshHeadersLatency = refreshHeadersEndTime - refreshHeadersStartTime;
-    LOGGER.debug(
+    LOGGER.trace(
         "Connection ["
             + connectionContext.getConnectionUuid()
             + "] Header refresh latency: "
@@ -113,7 +113,6 @@ public class DatabricksHttpTTransport extends TTransport {
     if (connectionContext.isRequestTracingEnabled()) {
       String traceHeader = TracingUtil.getTraceHeader();
       LOGGER.debug("Thrift tracing header: " + traceHeader);
-
       request.addHeader(TracingUtil.TRACE_HEADER, traceHeader);
     }
 
@@ -123,14 +122,6 @@ public class DatabricksHttpTTransport extends TTransport {
     // Execute the request and handle the response
     long httpRequestStartTime = System.currentTimeMillis();
     try (CloseableHttpResponse response = httpClient.execute(request)) {
-      long httpRequestEndTime = System.currentTimeMillis();
-      long httpRequestLatency = httpRequestEndTime - httpRequestStartTime;
-      LOGGER.debug(
-          "Connection ["
-              + connectionContext.getConnectionUuid()
-              + "] HTTP request latency: "
-              + httpRequestLatency
-              + "ms");
 
       ValidationUtil.checkHTTPError(response);
 
@@ -152,7 +143,7 @@ public class DatabricksHttpTTransport extends TTransport {
 
       String errorMessage = "Failed to flush data to server: " + e.getMessage();
       LOGGER.error(e, errorMessage);
-      throw new TTransportException(TTransportException.UNKNOWN, errorMessage);
+      throw new TTransportException(TTransportException.UNKNOWN, errorMessage, e);
     }
 
     // Reset the request buffer

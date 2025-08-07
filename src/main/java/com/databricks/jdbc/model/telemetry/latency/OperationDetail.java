@@ -3,10 +3,12 @@ package com.databricks.jdbc.model.telemetry.latency;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+// Note: Thread safety is not required for this class as it is used within
+// a single statement context that is not shared across multiple threads.
 public class OperationDetail {
 
   @JsonProperty("n_operation_status_calls")
-  private Integer nOperationStatusCalls;
+  private Long nOperationStatusCalls;
 
   @JsonProperty("operation_status_latency_millis")
   private Long operationStatusLatencyMillis;
@@ -17,14 +19,16 @@ public class OperationDetail {
   @JsonProperty("is_internal_call")
   private Boolean isInternalCall;
 
-  public OperationDetail setNOperationStatusCalls(Integer nOperationStatusCalls) {
-    this.nOperationStatusCalls = nOperationStatusCalls;
-    return this;
+  public OperationDetail(Boolean isInternalCall) {
+    this.nOperationStatusCalls = 0L;
+    this.operationStatusLatencyMillis = 0L;
+    this.operationType = OperationType.TYPE_UNSPECIFIED;
+    this.isInternalCall = isInternalCall;
   }
 
-  public OperationDetail setOperationStatusLatencyMillis(Long operationStatusLatencyMillis) {
-    this.operationStatusLatencyMillis = operationStatusLatencyMillis;
-    return this;
+  public void addOperationStatusLatencyMillis(Long latencyMillis) {
+    this.operationStatusLatencyMillis += latencyMillis;
+    this.nOperationStatusCalls++;
   }
 
   public OperationDetail setOperationType(OperationType operationType) {

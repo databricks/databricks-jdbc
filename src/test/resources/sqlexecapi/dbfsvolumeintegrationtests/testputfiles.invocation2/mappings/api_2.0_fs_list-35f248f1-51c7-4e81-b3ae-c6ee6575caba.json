@@ -1,0 +1,31 @@
+{
+  "id" : "35f248f1-51c7-4e81-b3ae-c6ee6575caba",
+  "name" : "api_2.0_fs_list",
+  "request" : {
+    "url" : "/api/2.0/fs/list?path=%2FVolumes%2Fuc_volume_test_catalog%2Fuc_volume_test_schema%2Ftest_volume1%2F",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"files\":[{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/#!#_file1.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717406255000,\"name\":\"#!#_file1.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/#!#_file3.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717406255000,\"name\":\"#!#_file3.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/#!_file3.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717406255000,\"name\":\"#!_file3.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/@!aBc_file1.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717406255000,\"name\":\"@!aBc_file1.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/@ABC_file1.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717406255000,\"name\":\"@ABC_file1.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/aBc_file1.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717406255000,\"name\":\"aBc_file1.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/abc_file1.csv\",\"is_dir\":false,\"file_size\":13289,\"modification_time\":1721025731000,\"name\":\"abc_file1.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/def_file1.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717406255000,\"name\":\"def_file1.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/hello_world.txt\",\"is_dir\":false,\"file_size\":10,\"modification_time\":1742894222000,\"name\":\"hello_world.txt\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/missing_file.txt\",\"is_dir\":false,\"file_size\":15,\"modification_time\":1747258029000,\"name\":\"missing_file.txt\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/multi_upload_4.txt\",\"is_dir\":false,\"file_size\":14,\"modification_time\":1747384132000,\"name\":\"multi_upload_4.txt\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/multi_upload_5.txt\",\"is_dir\":false,\"file_size\":14,\"modification_time\":1747384132000,\"name\":\"multi_upload_5.txt\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/overwrite.txt\",\"is_dir\":false,\"file_size\":16,\"modification_time\":1731114204000,\"name\":\"overwrite.txt\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/stream_upload_2.txt\",\"is_dir\":false,\"file_size\":15,\"modification_time\":1747299584000,\"name\":\"stream_upload_2.txt\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/stream_upload_3.txt\",\"is_dir\":false,\"file_size\":15,\"modification_time\":1747299583000,\"name\":\"stream_upload_3.txt\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/upload1.csv\",\"is_dir\":false,\"file_size\":8,\"modification_time\":1747305762000,\"name\":\"upload1.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/upload1.txt\",\"is_dir\":false,\"file_size\":10,\"modification_time\":1731114275000,\"name\":\"upload1.txt\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/\",\"is_dir\":true,\"name\":\"folder1\"}]}",
+    "headers" : {
+      "x-request-id" : "b1466029-056d-4167-ad3a-b80ce62aaa55",
+      "date" : "Fri, 16 May 2025 08:28:53 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "accept-encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "35f248f1-51c7-4e81-b3ae-c6ee6575caba",
+  "scenarioName" : "scenario-1-api-2.0-fs-list",
+  "requiredScenarioState" : "Started",
+  "newScenarioState" : "scenario-1-api-2.0-fs-list-2",
+  "insertionIndex" : 14
+}

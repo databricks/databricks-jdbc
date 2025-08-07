@@ -243,6 +243,27 @@ public class DatabricksHttpRetryHandlerTest {
         isRequestMethodRetryable("PATCH"), "PATCH requests should not be allowed for retry");
   }
 
+  @Test
+  void testRetryRequestWithInvalidRetryInterval() {
+    // Set up context with -1 retry interval (invalid)
+    httpContext.setAttribute(RETRY_INTERVAL_KEY, -1);
+
+    // Test for Service Unavailable (503)
+    DatabricksRetryHandlerException exception503 =
+        new DatabricksRetryHandlerException(
+            "Service Unavailable", HttpStatus.SC_SERVICE_UNAVAILABLE);
+
+    boolean shouldRetry503 = retryHandler.retryRequest(exception503, 1, httpContext);
+    assertFalse(shouldRetry503, "Should return false when retryInterval is -1 for status 503");
+
+    // Test for Too Many Requests (429)
+    DatabricksRetryHandlerException exception429 =
+        new DatabricksRetryHandlerException("Too Many Requests", HttpStatus.SC_TOO_MANY_REQUESTS);
+
+    boolean shouldRetry429 = retryHandler.retryRequest(exception429, 1, httpContext);
+    assertFalse(shouldRetry429, "Should return false when retryInterval is -1 for status 429");
+  }
+
   private HttpResponse createResponse(int statusCode) {
     return createResponse(statusCode, null);
   }

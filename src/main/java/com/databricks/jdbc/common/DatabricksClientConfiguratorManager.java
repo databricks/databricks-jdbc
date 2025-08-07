@@ -45,6 +45,17 @@ public class DatabricksClientConfiguratorManager {
     }
   }
 
+  /**
+   * Returns the client configurator if it exists, otherwise returns null. This is is indetended to
+   * be used only for telemetry clients to avoid infinite recursion.
+   *
+   * @param context the connection context
+   * @return the client configurator if it exists, otherwise null
+   */
+  public ClientConfigurator getConfiguratorOnlyIfExists(IDatabricksConnectionContext context) {
+    return instances.get(context.getConnectionUuid());
+  }
+
   @VisibleForTesting
   void setConfigurator(
       IDatabricksConnectionContext context, ClientConfigurator clientConfigurator) {

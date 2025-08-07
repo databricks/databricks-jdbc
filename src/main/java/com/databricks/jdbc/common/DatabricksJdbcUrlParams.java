@@ -8,7 +8,7 @@ public enum DatabricksJdbcUrlParams {
   LOG_PATH("logpath", "Path to the log file"),
   LOG_FILE_SIZE("LogFileSize", "Maximum size of the log file", "10"), // 10 MB
   LOG_FILE_COUNT("LogFileCount", "Number of log files to retain", "10"),
-  USER("user", "Username for authentication"),
+  UID("uid", "UID for authentication"),
   PASSWORD("password", "Password for authentication"),
   CLIENT_ID("OAuth2ClientId", "OAuth2 Client ID"),
   CLIENT_SECRET("OAuth2Secret", "OAuth2 Client Secret"),
@@ -88,17 +88,22 @@ public enum DatabricksJdbcUrlParams {
       "AcceptUndeterminedRevocation", "Accept undetermined revocation", "0"),
   GOOGLE_SERVICE_ACCOUNT("GoogleServiceAccount", "Gcp service account email"),
   GOOGLE_CREDENTIALS_FILE("GoogleCredentialsFile", "path to gcp credentials json"),
-  ENABLE_TELEMETRY("EnableTelemetry", "flag to enable telemetry", "0"), // Disabled for now
+  ENABLE_TELEMETRY(
+      "EnableTelemetry",
+      "flag to enable telemetry",
+      "0"), // Note : telemetry enablement also depends on the server flag.
   TELEMETRY_BATCH_SIZE("TelemetryBatchSize", "Batch size for telemetry", "200"),
   MAX_BATCH_SIZE("MaxBatchSize", "Maximum batch size", "500"),
   ALLOWED_VOLUME_INGESTION_PATHS("VolumeOperationAllowedLocalPaths", ""),
   ALLOWED_STAGING_INGESTION_PATHS("StagingAllowedLocalPaths", ""),
   UC_INGESTION_RETRIABLE_HTTP_CODE(
-      "UCIngestionRetriableHttpCode", "Retryable HTTP codes for UC Ingestion", "408,502,503,504"),
+      "UCIngestionRetriableHttpCode",
+      "Retryable HTTP codes for UC Ingestion",
+      "408,429,500,502,503,504"),
   VOLUME_OPERATION_RETRYABLE_HTTP_CODE(
       "VolumeOperationRetryableHttpCode",
       "Retryable HTTP codes for UC Ingestion",
-      "408,502,503,504"),
+      "408,429,500,502,503,504"),
   UC_INGESTION_RETRY_TIMEOUT(
       "UCIngestionRetryTimeout",
       "The retry timeout in minutes for UC Ingestion HTTP requests.",
@@ -135,7 +140,18 @@ public enum DatabricksJdbcUrlParams {
       "Time limit for a chunk to be ready to consume when downloading",
       "0"),
   FORCE_ENABLE_TELEMETRY("ForceEnableTelemetry", "Force enable telemetry", "0"),
-  TELEMETRY_FLUSH_INTERVAL("TelemetryFlushInterval", "Flush interval in milliseconds", "5000");
+  TELEMETRY_FLUSH_INTERVAL(
+      "TelemetryFlushInterval", "Flush interval in milliseconds", "300000"), // 5 MINUTES
+  MAX_CONCURRENT_PRESIGNED_REQUESTS(
+      "MaxVolumeOperationConcurrentPresignedRequests",
+      "Maximum number of concurrent presigned requests",
+      "50"),
+  HTTP_MAX_CONNECTIONS_PER_ROUTE(
+      "HttpMaxConnectionsPerRoute", "Maximum connections per route for HTTP client", "1000"),
+  HTTP_CONNECTION_REQUEST_TIMEOUT(
+      "HttpConnectionRequestTimeout", "HTTP connection request timeout in seconds"),
+  CLOUD_FETCH_SPEED_THRESHOLD(
+      "CloudFetchSpeedThreshold", "Minimum expected download speed in MB/s", "0.1");
 
   private final String paramName;
   private final String defaultValue;

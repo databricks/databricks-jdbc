@@ -8,8 +8,10 @@ import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.StringUtil;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.client.filesystem.VolumePutResult;
 import java.io.InputStream;
 import java.sql.*;
 import java.util.ArrayList;
@@ -464,5 +466,32 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
     }
 
     return isOperationSucceeded;
+  }
+
+  @Override
+  public List<VolumePutResult> putFiles(
+      String catalog,
+      String schema,
+      String volume,
+      List<String> objectPaths,
+      List<InputStream> inputStreams,
+      List<Long> contentLengths,
+      boolean toOverwrite)
+      throws DatabricksSQLFeatureNotSupportedException {
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "putFiles(...) is not supported. Please use DBFSVolumeClient instead.");
+  }
+
+  @Override
+  public List<VolumePutResult> putFiles(
+      String catalog,
+      String schema,
+      String volume,
+      List<String> objectPaths,
+      List<String> localPaths,
+      boolean toOverwrite)
+      throws DatabricksSQLFeatureNotSupportedException {
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "putFiles(...) is not supported. Please use DBFSVolumeClient instead.");
   }
 }
