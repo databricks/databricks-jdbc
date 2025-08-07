@@ -32,7 +32,7 @@ jobs:
           gpg-connect-agent reloadagent /bye
 
       - name: Publish to the Maven Central Repository
-        run: mvn -Prelease -X --batch-mode deploy -Dnvd.api.key=${{ secrets.NVD_API_KEY }}
+        run: mvn -Prelease --batch-mode deploy -Dnvd.api.key=${{ secrets.NVD_API_KEY }}
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
