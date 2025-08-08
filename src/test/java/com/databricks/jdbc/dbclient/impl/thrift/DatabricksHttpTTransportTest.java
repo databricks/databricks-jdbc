@@ -7,8 +7,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.common.HTTPRequestConfig;
-import com.databricks.jdbc.common.HTTPRequestConfigList;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -83,15 +82,15 @@ public class DatabricksHttpTTransportTest {
     when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
     when(mockStatusLine.getStatusCode()).thenReturn(200);
     when(mockEntity.getContent()).thenReturn(new ByteArrayInputStream(testData));
-    when(mockedHttpClient.getCurrentRequestConfig())
-        .thenReturn(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
-    when(mockedHttpClient.execute(any(HttpPost.class), isA(HTTPRequestConfig.class)))
+    when(mockedHttpClient.getCurrentRequestType())
+        .thenReturn(HTTPRequestType.THRIFT_EXECUTE_STATEMENT);
+    when(mockedHttpClient.execute(any(HttpPost.class), isA(HTTPRequestType.class)))
         .thenReturn(mockResponse);
     when(mockConnectionContext.isRequestTracingEnabled()).thenReturn(false);
 
     transport.flush();
     ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
-    verify(mockedHttpClient).execute(requestCaptor.capture(), isA(HTTPRequestConfig.class));
+    verify(mockedHttpClient).execute(requestCaptor.capture(), isA(HTTPRequestType.class));
     HttpPost capturedRequest = requestCaptor.getValue();
 
     assertNotNull(capturedRequest.getEntity());
@@ -114,15 +113,15 @@ public class DatabricksHttpTTransportTest {
     when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
     when(mockStatusLine.getStatusCode()).thenReturn(200);
     when(mockEntity.getContent()).thenReturn(new ByteArrayInputStream(testData));
-    when(mockedHttpClient.getCurrentRequestConfig())
-        .thenReturn(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
-    when(mockedHttpClient.execute(any(HttpPost.class), isA(HTTPRequestConfig.class)))
+    when(mockedHttpClient.getCurrentRequestType())
+        .thenReturn(HTTPRequestType.THRIFT_EXECUTE_STATEMENT);
+    when(mockedHttpClient.execute(any(HttpPost.class), isA(HTTPRequestType.class)))
         .thenReturn(mockResponse);
     when(mockConnectionContext.isRequestTracingEnabled()).thenReturn(true);
 
     transport.flush();
     ArgumentCaptor<HttpPost> requestCaptor = ArgumentCaptor.forClass(HttpPost.class);
-    verify(mockedHttpClient).execute(requestCaptor.capture(), isA(HTTPRequestConfig.class));
+    verify(mockedHttpClient).execute(requestCaptor.capture(), isA(HTTPRequestType.class));
     HttpPost capturedRequest = requestCaptor.getValue();
 
     assertNotNull(capturedRequest.getEntity());

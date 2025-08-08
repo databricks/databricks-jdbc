@@ -6,10 +6,8 @@ import static com.databricks.jdbc.dbclient.impl.common.ClientConfigurator.conver
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.HTTPRequestConfig;
-import com.databricks.jdbc.common.HTTPRequestConfigList;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.common.HttpClientType;
-import com.databricks.jdbc.common.RequestIdempotency;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -54,7 +52,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private final CloseableHttpClient httpClient;
   private IdleConnectionEvictor idleConnectionEvictor;
   private CloseableHttpAsyncClient asyncClient;
-  private HTTPRequestConfig currentHTTPRequestConfig;
+  private HTTPRequestType currentHTTPRequestType;
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type) {
     connectionManager = initializeConnectionManager(connectionContext);
@@ -64,7 +62,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
     idleConnectionEvictor.start();
     asyncClient = GlobalAsyncHttpClient.getClient();
-    currentHTTPRequestConfig = HTTPRequestConfigList.NOT_SET_CONFIG;
+    currentHTTPRequestType = HTTPRequestType.NOT_SET;
   }
 
   @VisibleForTesting
@@ -76,26 +74,26 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   }
 
   @Override
-  public HTTPRequestConfig getCurrentRequestConfig() {
-    return currentHTTPRequestConfig;
+  public HTTPRequestType getCurrentRequestType() {
+    return currentHTTPRequestType;
   }
 
   @Override
-  public void setCurrentRequestConfig(HTTPRequestConfig currentHTTPRequestConfig) {
-    if (this.currentHTTPRequestConfig.currentRequestIdempotency == RequestIdempotency.NOT_SET) {
-      this.currentHTTPRequestConfig = currentHTTPRequestConfig;
+  public void setCurrentRequestType(HTTPRequestType currentHTTPRequestType) {
+    if (this.currentHTTPRequestType == HTTPRequestType.NOT_SET) {
+      this.currentHTTPRequestType = currentHTTPRequestType;
     }
   }
 
   @Override
-  public CloseableHttpResponse execute(HttpUriRequest request, HTTPRequestConfig config)
+  public CloseableHttpResponse execute(HttpUriRequest request, HTTPRequestType config)
       throws DatabricksHttpException {
     return execute(request, config, false);
   }
 
   @Override
   public CloseableHttpResponse execute(
-      HttpUriRequest request, HTTPRequestConfig config, boolean supportGzipEncoding)
+      HttpUriRequest request, HTTPRequestType config, boolean supportGzipEncoding)
       throws DatabricksHttpException {
     LOGGER.debug("Executing HTTP request {}", RequestSanitizer.sanitizeRequest(request));
     if (!DriverUtil.isRunningAgainstFake() && supportGzipEncoding) {
@@ -103,7 +101,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       request.setHeader("Content-Encoding", "gzip");
     }
 
-    currentHTTPRequestConfig = HTTPRequestConfigList.NOT_SET_CONFIG;
+    currentHTTPRequestType = HTTPRequestType.NOT_SET;
     try {
       String userAgentString = UserAgentManager.getUserAgentString();
       if (!isNullOrEmpty(userAgentString) && !request.containsHeader("User-Agent")) {

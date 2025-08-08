@@ -3,7 +3,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.HTTPRequestConfig;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
@@ -91,8 +91,8 @@ public class DatabricksHttpTTransport extends TTransport {
     requestBuffer.write(buf, off, len);
   }
 
-  public IDatabricksHttpClient getHttpClient() {
-    return this.httpClient;
+  public void setHttpRequestType(HTTPRequestType config) {
+    this.httpClient.setCurrentRequestType(config);
   }
 
   @Override
@@ -127,7 +127,7 @@ public class DatabricksHttpTTransport extends TTransport {
 
     // Execute the request and handle the response
     long httpRequestStartTime = System.currentTimeMillis();
-    HTTPRequestConfig currentRequestConfig = httpClient.getCurrentRequestConfig();
+    HTTPRequestType currentRequestConfig = httpClient.getCurrentRequestType();
     try (CloseableHttpResponse response = httpClient.execute(request, currentRequestConfig)) {
       long httpRequestEndTime = System.currentTimeMillis();
       long httpRequestLatency = httpRequestEndTime - httpRequestStartTime;

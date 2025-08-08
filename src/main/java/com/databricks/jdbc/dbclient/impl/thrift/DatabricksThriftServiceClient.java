@@ -11,6 +11,7 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
@@ -573,6 +574,14 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   @Override
   public DatabricksConfig getDatabricksConfig() {
     return thriftAccessor.getDatabricksConfig();
+  }
+
+  /**
+   * Sets the HTTP request type for the next request. Used to configure retry behavior and
+   * idempotency settings.
+   */
+  public void setHttpRequestType(HTTPRequestType requestType) {
+    thriftAccessor.setHttpRequestType(requestType);
   }
 
   private TNamespace getNamespace(String catalog, String schema) {

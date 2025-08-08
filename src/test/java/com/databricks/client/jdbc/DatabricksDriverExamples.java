@@ -48,11 +48,11 @@ import org.junit.jupiter.api.Test;
 public class DatabricksDriverExamples {
 
   private static final String JDBC_URL_WAREHOUSE =
-    "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;"
-      + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999999;";
+      "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;"
+          + "transportMode=https;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/999999999999;";
   private static final String JDBC_URL_CLUSTER =
-    "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;"
-      + "transportMode=http;ssl=1;httpPath=sql/protocolv1/o/9999999999999999/9999999999999999;AuthMech=3;";
+      "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;"
+          + "transportMode=http;ssl=1;httpPath=sql/protocolv1/o/9999999999999999/9999999999999999;AuthMech=3;";
   private static final String DATABRICKS_TOKEN = System.getenv("DATABRICKS_EXAMPLE_TOKEN");
 
   /**

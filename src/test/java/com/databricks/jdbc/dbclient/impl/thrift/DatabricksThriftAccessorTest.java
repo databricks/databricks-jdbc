@@ -77,7 +77,6 @@ public class DatabricksThriftAccessorTest {
     // Mock the protocol chain for getHttpClient()
     when(thriftClient.getInputProtocol()).thenReturn(mockProtocol);
     when(mockProtocol.getTransport()).thenReturn(mockTransport);
-    when(mockTransport.getHttpClient()).thenReturn(mockHttpClient);
   }
 
   void setup(Boolean directResultsEnabled) {

@@ -8,12 +8,11 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
-import com.databricks.jdbc.common.HTTPRequestConfigList;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
-import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -96,48 +95,53 @@ final class DatabricksThriftAccessor {
     this.connectionUuid = connectionContext.getConnectionUuid();
   }
 
-  IDatabricksHttpClient getHttpClient() {
+  /**
+   * Sets the HTTP request configuration for the next request. Encapsulates access to the underlying
+   * HTTP client.
+   */
+  void setHttpRequestType(HTTPRequestType config) {
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
-    return transport.getHttpClient();
+    transport.setHttpRequestType(config);
   }
 
   @SuppressWarnings("rawtypes")
   TBase getThriftResponse(TBase request) throws DatabricksSQLException {
     LOGGER.debug("Fetching thrift response for request {}", request.toString());
+    // All the operations listed below are idempotent
     try {
       if (request instanceof TOpenSessionReq) {
-        getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+        setHttpRequestType(HTTPRequestType.THRIFT_OPEN_SESSION);
         return getThriftClient().OpenSession((TOpenSessionReq) request);
       } else if (request instanceof TCloseSessionReq) {
-        getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+        setHttpRequestType(HTTPRequestType.THRIFT_CLOSE_SESSION);
         return getThriftClient().CloseSession((TCloseSessionReq) request);
       } else if (request instanceof TGetFunctionsReq) {
-        getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+        setHttpRequestType(HTTPRequestType.THRIFT_METADATA);
         return listFunctions((TGetFunctionsReq) request);
       } else if (request instanceof TGetPrimaryKeysReq) {
-        getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+        setHttpRequestType(HTTPRequestType.THRIFT_METADATA);
         return listPrimaryKeys((TGetPrimaryKeysReq) request);
       } else if (request instanceof TGetCrossReferenceReq) {
-        getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+        setHttpRequestType(HTTPRequestType.THRIFT_METADATA);
         return listCrossReferences((TGetCrossReferenceReq) request);
       } else if (request instanceof TGetCatalogsReq) {
-        getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+        setHttpRequestType(HTTPRequestType.THRIFT_METADATA);
         return getCatalogs((TGetCatalogsReq) request);
       } else if (request instanceof TGetTablesReq) {
-        getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+        setHttpRequestType(HTTPRequestType.THRIFT_METADATA);
         return getTables((TGetTablesReq) request);
       } else if (request instanceof TGetTableTypesReq) {
-        getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+        setHttpRequestType(HTTPRequestType.THRIFT_METADATA);
         return getTableTypes((TGetTableTypesReq) request);
       } else if (request instanceof TGetSchemasReq) {
-        getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+        setHttpRequestType(HTTPRequestType.THRIFT_METADATA);
         return listSchemas((TGetSchemasReq) request);
       } else if (request instanceof TGetTypeInfoReq) {
-        getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+        setHttpRequestType(HTTPRequestType.THRIFT_METADATA);
         return getTypeInfo((TGetTypeInfoReq) request);
       } else if (request instanceof TGetColumnsReq) {
-        getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+        setHttpRequestType(HTTPRequestType.THRIFT_METADATA);
         return listColumns((TGetColumnsReq) request);
       }
       String errorMessage =
@@ -178,7 +182,7 @@ final class DatabricksThriftAccessor {
 
   TCancelOperationResp cancelOperation(TCancelOperationReq req) throws DatabricksHttpException {
     try {
-      getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+      setHttpRequestType(HTTPRequestType.THRIFT_CANCEL_OPERATION);
       return getThriftClient().CancelOperation(req);
     } catch (TException e) {
       String errorMessage =
@@ -192,7 +196,7 @@ final class DatabricksThriftAccessor {
 
   TCloseOperationResp closeOperation(TCloseOperationReq req) throws DatabricksHttpException {
     try {
-      getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+      setHttpRequestType(HTTPRequestType.THRIFT_CLOSE_OPERATION);
       return getThriftClient().CloseOperation(req);
     } catch (TException e) {
       String errorMessage =
@@ -239,7 +243,7 @@ final class DatabricksThriftAccessor {
       }
       TExecuteStatementResp response;
       TFetchResultsResp resultSet;
-      getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_NON_IDEMPOTENT_CONFIG);
+      setHttpRequestType(HTTPRequestType.THRIFT_EXECUTE_STATEMENT);
       response = getThriftClient().ExecuteStatement(request);
       checkResponseForErrors(response);
 
@@ -358,7 +362,7 @@ final class DatabricksThriftAccessor {
 
     TExecuteStatementResp response;
     try {
-      getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_NON_IDEMPOTENT_CONFIG);
+      setHttpRequestType(HTTPRequestType.THRIFT_EXECUTE_STATEMENT);
       response = getThriftClient().ExecuteStatement(request);
       if (Arrays.asList(TStatusCode.ERROR_STATUS, TStatusCode.INVALID_HANDLE_STATUS)
           .contains(response.status.statusCode)) {
@@ -524,7 +528,7 @@ final class DatabricksThriftAccessor {
     }
     TFetchResultsResp response;
     try {
-      getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_NON_IDEMPOTENT_CONFIG);
+      setHttpRequestType(HTTPRequestType.THRIFT_FETCH_RESULTS);
       response = getThriftClient().FetchResults(request);
     } catch (TException e) {
       String errorMessage =
@@ -545,7 +549,6 @@ final class DatabricksThriftAccessor {
   private TFetchResultsResp listFunctions(TGetFunctionsReq request)
       throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
-    getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
     TGetFunctionsResp response = getThriftClient().GetFunctions(request);
     return fetchMetadataResults(response, response.toString());
   }
@@ -553,7 +556,6 @@ final class DatabricksThriftAccessor {
   private TFetchResultsResp listPrimaryKeys(TGetPrimaryKeysReq request)
       throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
-    getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
     TGetPrimaryKeysResp response = getThriftClient().GetPrimaryKeys(request);
     return fetchMetadataResults(response, response.toString());
   }
@@ -561,7 +563,6 @@ final class DatabricksThriftAccessor {
   private TFetchResultsResp listCrossReferences(TGetCrossReferenceReq request)
       throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
-    getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
     TGetCrossReferenceResp response = getThriftClient().GetCrossReference(request);
     return fetchMetadataResults(response, response.toString());
   }
@@ -569,7 +570,6 @@ final class DatabricksThriftAccessor {
   private TFetchResultsResp getTables(TGetTablesReq request)
       throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
-    getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
     TGetTablesResp response = getThriftClient().GetTables(request);
     return fetchMetadataResults(response, response.toString());
   }
@@ -577,7 +577,6 @@ final class DatabricksThriftAccessor {
   private TFetchResultsResp getTableTypes(TGetTableTypesReq request)
       throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
-    getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
     TGetTableTypesResp response = getThriftClient().GetTableTypes(request);
     return fetchMetadataResults(response, response.toString());
   }
@@ -585,7 +584,6 @@ final class DatabricksThriftAccessor {
   private TFetchResultsResp getCatalogs(TGetCatalogsReq request)
       throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
-    getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
     TGetCatalogsResp response = getThriftClient().GetCatalogs(request);
     return fetchMetadataResults(response, response.toString());
   }
@@ -593,7 +591,6 @@ final class DatabricksThriftAccessor {
   private TFetchResultsResp listSchemas(TGetSchemasReq request)
       throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
-    getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
     TGetSchemasResp response = getThriftClient().GetSchemas(request);
     return fetchMetadataResults(response, response.toString());
   }
@@ -601,7 +598,6 @@ final class DatabricksThriftAccessor {
   private TFetchResultsResp getTypeInfo(TGetTypeInfoReq request)
       throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
-    getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
     TGetTypeInfoResp response = getThriftClient().GetTypeInfo(request);
     return fetchMetadataResults(response, response.toString());
   }
@@ -609,7 +605,6 @@ final class DatabricksThriftAccessor {
   private TFetchResultsResp listColumns(TGetColumnsReq request)
       throws TException, DatabricksSQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
-    getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
     TGetColumnsResp response = getThriftClient().GetColumns(request);
     return fetchMetadataResults(response, response.toString());
   }
@@ -675,7 +670,7 @@ final class DatabricksThriftAccessor {
             .setOperationHandle(operationHandle)
             .setGetProgressUpdate(false);
     while (shouldContinuePolling(statusResp)) {
-      getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+      setHttpRequestType(HTTPRequestType.THRIFT_METADATA);
       statusResp = getThriftClient().GetOperationStatus(statusReq);
       checkOperationStatusForErrors(statusResp);
     }
@@ -786,7 +781,7 @@ final class DatabricksThriftAccessor {
   private TGetOperationStatusResp getOperationStatus(
       TGetOperationStatusReq statusReq, StatementId statementId) throws TException {
     long operationStatusStartTime = System.nanoTime();
-    getHttpClient().setCurrentRequestConfig(HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+    setHttpRequestType(HTTPRequestType.THRIFT_METADATA);
     TGetOperationStatusResp operationStatus = getThriftClient().GetOperationStatus(statusReq);
     long operationStatusEndTime = System.nanoTime();
     long operationStatusLatencyMillis =

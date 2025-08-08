@@ -5,9 +5,13 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATIO
 import static com.databricks.jdbc.common.util.StringUtil.escapeStringLiteral;
 
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.common.util.StringUtil;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.io.InputStream;
@@ -31,6 +35,41 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
   public DatabricksUCVolumeClient(Connection connection) {
     this.connection = connection;
+  }
+
+  /**
+   * Helper method to set HTTP request configuration for volume operations based on operation type.
+   * Only works with Thrift client connections; SDK clients use their own retry logic.
+   */
+  private void setVolumeOperationConfig(HTTPRequestType config) {
+    try {
+      IDatabricksConnectionInternal databricksConnection =
+          connection.unwrap(IDatabricksConnectionInternal.class);
+
+      // Check if unwrap returned null (can happen in tests or with non-Databricks connections)
+      if (databricksConnection == null) {
+        LOGGER.debug("Connection unwrap returned null - skipping HTTP config setup");
+        return;
+      }
+
+      IDatabricksClient client = databricksConnection.getSession().getDatabricksClient();
+
+      // Only set config for Thrift clients (SDK clients handle their own retry logic)
+      if (client instanceof DatabricksThriftServiceClient) {
+        DatabricksThriftServiceClient thriftClient = (DatabricksThriftServiceClient) client;
+        thriftClient.setHttpRequestType(config);
+        LOGGER.debug("Set volume operation HTTP config: {} for Thrift client", config);
+      } else {
+        LOGGER.debug(
+            "SDK client detected - using SDK's built-in retry logic for volume operations");
+      }
+    } catch (Exception e) {
+      // Catch all exceptions (SQLException, NullPointerException, etc.)
+      // This ensures volume operations continue to work even if HTTP config setup fails
+      LOGGER.debug(
+          "Could not set volume operation config (test environment or non-Databricks connection?): {}",
+          e.getMessage());
+    }
   }
 
   private static String getVolumePath(String catalog, String schema, String volume) {
@@ -121,6 +160,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume, folder);
 
+    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_LIST);
+
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
         LOGGER.debug("SQL query executed successfully");
@@ -163,6 +204,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
     String basename = StringUtil.getBaseNameFromPath(objectPath);
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume, folder);
+
+    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_LIST);
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
@@ -208,6 +251,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
     }
 
     String showVolumesSQLQuery = createShowVolumesQuery(catalog, schema);
+
+    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_SHOW_VOLUMES);
 
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(showVolumesSQLQuery)) {
@@ -269,6 +314,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume, folder);
 
+    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_LIST);
+
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
         LOGGER.info("SQL query executed successfully");
@@ -304,6 +351,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
     boolean volumeOperationStatus = false;
 
+    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_GET_TO);
+
     try (Statement statement = connection.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery(getObjectQuery)) {
         LOGGER.info("GET query executed successfully");
@@ -332,6 +381,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
             catalog, schema, volume, objectPath));
 
     String getObjectQuery = createGetObjectQueryForInputStream(catalog, schema, volume, objectPath);
+
+    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_GET_TO);
 
     try (Statement statement = connection.createStatement()) {
       IDatabricksStatementInternal databricksStatement =
@@ -370,6 +421,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
     String putObjectQuery =
         createPutObjectQuery(catalog, schema, volume, objectPath, localPath, toOverwrite);
+
+    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_PUT_INTO);
 
     boolean isOperationSucceeded = false;
 
@@ -410,6 +463,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
     String putObjectQueryForInputStream =
         createPutObjectQueryForInputStream(catalog, schema, volume, objectPath, toOverwrite);
 
+    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_PUT_INTO);
+
     boolean isOperationSucceeded = false;
 
     try (Statement statement = connection.createStatement()) {
@@ -445,6 +500,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
             catalog, schema, volume, objectPath));
 
     String deleteObjectQuery = createDeleteObjectQuery(catalog, schema, volume, objectPath);
+
+    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_REMOVE);
 
     boolean isOperationSucceeded = false;
 

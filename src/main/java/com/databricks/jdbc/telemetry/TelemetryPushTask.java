@@ -2,7 +2,7 @@ package com.databricks.jdbc.telemetry;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.common.HTTPRequestConfigList;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.common.util.HttpUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -95,7 +95,7 @@ class TelemetryPushTask implements Runnable {
       authHeaders.forEach(post::addHeader);
 
       try (CloseableHttpResponse response =
-          httpClient.execute(post, HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG)) {
+          httpClient.execute(post, HTTPRequestType.TELEMETRY_PUSH)) {
         // TODO: check response and add retry for partial failures
         if (!HttpUtil.isSuccessfulHttpResponse(response)) {
           LOGGER.trace(

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.HTTPRequestConfig;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -105,7 +105,7 @@ public class DatabricksTokenFederationProviderTest {
   @Test
   public void testRetrieveTokensFailure() throws Exception {
 
-    when(mockHttpClient.execute(any(HttpPost.class), isA(HTTPRequestConfig.class)))
+    when(mockHttpClient.execute(any(HttpPost.class), isA(HTTPRequestType.class)))
         .thenThrow(
             new DatabricksHttpException(
                 "Connection error", DatabricksDriverErrorCode.CONNECTION_ERROR));

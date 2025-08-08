@@ -1,6 +1,6 @@
 package com.databricks.jdbc.dbclient;
 
-import com.databricks.jdbc.common.HTTPRequestConfig;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import java.util.concurrent.Future;
 import org.apache.hc.core5.concurrent.FutureCallback;
@@ -13,10 +13,10 @@ import org.apache.http.client.methods.HttpUriRequest;
 public interface IDatabricksHttpClient {
 
   // gets the current http request config
-  HTTPRequestConfig getCurrentRequestConfig();
+  HTTPRequestType getCurrentRequestType();
 
   // sets the current http request config
-  void setCurrentRequestConfig(HTTPRequestConfig config);
+  void setCurrentRequestType(HTTPRequestType config);
 
   /**
    * Executes the given http request and returns the response
@@ -24,7 +24,7 @@ public interface IDatabricksHttpClient {
    * @param request underlying http request
    * @return http response
    */
-  CloseableHttpResponse execute(HttpUriRequest request, HTTPRequestConfig config)
+  CloseableHttpResponse execute(HttpUriRequest request, HTTPRequestType config)
       throws DatabricksHttpException;
 
   /**
@@ -35,7 +35,7 @@ public interface IDatabricksHttpClient {
    * @return http response
    */
   CloseableHttpResponse execute(
-      HttpUriRequest request, HTTPRequestConfig config, boolean supportGzipEncoding)
+      HttpUriRequest request, HTTPRequestType config, boolean supportGzipEncoding)
       throws DatabricksHttpException;
 
   /**

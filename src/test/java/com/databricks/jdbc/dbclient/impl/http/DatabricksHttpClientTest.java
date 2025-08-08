@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.HTTPRequestConfigList;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -174,16 +174,16 @@ public class DatabricksHttpClientTest {
   @Test
   void testExecuteWithGzipHeaders() throws Exception {
     HttpUriRequest request = new HttpGet("https://databricks.com");
-    databricksHttpClient.execute(request, HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+    databricksHttpClient.execute(request, HTTPRequestType.OTHER);
 
     assertFalse(request.containsHeader("Content-Encoding"));
 
     System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
-    databricksHttpClient.execute(request, HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG, true);
+    databricksHttpClient.execute(request, HTTPRequestType.OTHER, true);
     assertFalse(request.containsHeader("Content-Encoding"));
     System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "false");
 
-    databricksHttpClient.execute(request, HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG, true);
+    databricksHttpClient.execute(request, HTTPRequestType.OTHER, true);
     assertTrue(request.containsHeader("Content-Encoding"));
   }
 
@@ -193,9 +193,7 @@ public class DatabricksHttpClientTest {
     when(mockHttpClient.execute(mockRequest)).thenThrow(new IOException());
     assertThrows(
         DatabricksHttpException.class,
-        () ->
-            databricksHttpClient.execute(
-                mockRequest, HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG));
+        () -> databricksHttpClient.execute(mockRequest, HTTPRequestType.OTHER));
   }
 
   @Test
@@ -205,9 +203,7 @@ public class DatabricksHttpClientTest {
         .thenThrow(new DatabricksRetryHandlerException("Retry http request.Error code: ", 503));
     assertThrows(
         DatabricksHttpException.class,
-        () ->
-            databricksHttpClient.execute(
-                mockRequest, HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG));
+        () -> databricksHttpClient.execute(mockRequest, HTTPRequestType.OTHER));
   }
 
   @Test
@@ -216,7 +212,7 @@ public class DatabricksHttpClientTest {
     when(mockHttpClient.execute(mockRequest)).thenReturn(mockCloseableHttpResponse);
     assertEquals(
         mockCloseableHttpResponse,
-        databricksHttpClient.execute(mockRequest, HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG));
+        databricksHttpClient.execute(mockRequest, HTTPRequestType.OTHER));
   }
 
   @Test

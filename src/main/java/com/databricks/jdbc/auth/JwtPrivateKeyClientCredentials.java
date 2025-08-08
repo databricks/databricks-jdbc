@@ -2,7 +2,7 @@ package com.databricks.jdbc.auth;
 
 import static com.nimbusds.jose.JWSAlgorithm.*;
 
-import com.databricks.jdbc.common.HTTPRequestConfigList;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -180,8 +180,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
                   .collect(Collectors.toList()),
               StandardCharsets.UTF_8));
       headers.forEach(postRequest::setHeader);
-      HttpResponse response =
-          hc.execute(postRequest, HTTPRequestConfigList.DEFAULT_IDEMPOTENT_CONFIG);
+      HttpResponse response = hc.execute(postRequest, HTTPRequestType.AUTH);
       OAuthResponse resp =
           JsonUtil.getMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
       LocalDateTime expiry = LocalDateTime.now().plus(resp.getExpiresIn(), ChronoUnit.SECONDS);
