@@ -640,6 +640,7 @@ final class DatabricksThriftAccessor {
     FResp operationHandleField = response.fieldForId(operationHandleFieldId);
     TOperationHandle operationHandle =
         (TOperationHandle) response.getFieldValue(operationHandleField);
+    LOGGER.info("Fetching metadata results for operation handle: " + operationHandle.toString());
 
     // Polling until query operation state is finished
     TGetOperationStatusReq statusReq =
