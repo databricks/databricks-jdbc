@@ -52,7 +52,7 @@ class TelemetryPushTask implements Runnable {
 
   @Override
   public void run() {
-    LOGGER.debug("Pushing Telemetry logs of size {}", queueToBePushed.size());
+    LOGGER.trace("Pushing Telemetry logs of size {}", queueToBePushed.size());
     TelemetryRequest request = new TelemetryRequest();
     if (queueToBePushed.isEmpty()) {
       return;
@@ -67,7 +67,7 @@ class TelemetryPushTask implements Runnable {
                         try {
                           return objectMapper.writeValueAsString(event);
                         } catch (JsonProcessingException e) {
-                          LOGGER.error(
+                          LOGGER.trace(
                               "Failed to serialize Telemetry event {} with error: {}", event, e);
                           return null; // Return null for failed serialization
                         }
@@ -84,7 +84,6 @@ class TelemetryPushTask implements Runnable {
       HttpPost post = new HttpPost(uri);
       post.setEntity(
           new StringEntity(objectMapper.writeValueAsString(request), StandardCharsets.UTF_8));
-      System.out.println("Telemetry response: " + objectMapper.writeValueAsString(request));
       DatabricksJdbcConstants.JSON_HTTP_HEADERS.forEach(post::addHeader);
       Map<String, String> authHeaders =
           isAuthenticated ? databricksConfig.authenticate() : Collections.emptyMap();
@@ -99,13 +98,13 @@ class TelemetryPushTask implements Runnable {
         TelemetryResponse telResponse =
             objectMapper.readValue(
                 EntityUtils.toString(response.getEntity()), TelemetryResponse.class);
-        LOGGER.debug(
+        LOGGER.trace(
             "Pushed Telemetry logs with request-Id {} with events {} with error count {}",
             response.getFirstHeader(REQUEST_ID_HEADER),
             telResponse.getNumProtoSuccess(),
             telResponse.getErrors().size());
         if (!telResponse.getErrors().isEmpty()) {
-          LOGGER.debug("Failed to push telemetry logs with error: {}", telResponse.getErrors());
+          LOGGER.trace("Failed to push telemetry logs with error: {}", telResponse.getErrors());
         }
         if (queueToBePushed.size() != telResponse.getNumProtoSuccess()) {
           LOGGER.debug(

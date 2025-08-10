@@ -10,7 +10,10 @@ import com.databricks.jdbc.model.telemetry.latency.ResultLatency;
 public class StatementTelemetryDetails {
   private boolean isInternalCall;
   private final ChunkDetails chunkDetails;
-  private final ResultLatency resultLatency;
+  private final ResultLatency resultLatency =
+      new ResultLatency()
+          .setResultSetReadyLatencyMillis(null)
+          .setResultSetConsumptionLatencyMillis(null);
   private final OperationDetail operationDetail;
   private Long operationLatencyMillis;
   private final String statementId;
@@ -25,10 +28,6 @@ public class StatementTelemetryDetails {
 
   public StatementTelemetryDetails(String statementId) {
     this.chunkDetails = new ChunkDetails();
-    this.resultLatency =
-        new ResultLatency()
-            .setResultSetReadyLatencyMillis(null)
-            .setResultSetConsumptionLatencyMillis(null);
     this.isInternalCall = false;
     this.operationDetail = new OperationDetail(isInternalCall);
     this.operationLatencyMillis = null;
