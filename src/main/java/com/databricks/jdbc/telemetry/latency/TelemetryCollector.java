@@ -11,12 +11,10 @@ import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.enums.ExecutionResultFormat;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
-import com.databricks.jdbc.telemetry.TelemetryClientFactory;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.service.sql.Format;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
 
 /**
  * Context handler for tracking telemetry details for Databricks JDBC driver. This class manages
@@ -32,10 +30,6 @@ public class TelemetryCollector {
   // Per-statement latency tracking using StatementLatencyDetails
   private final ConcurrentHashMap<String, StatementTelemetryDetails> statementTrackers =
       new ConcurrentHashMap<>();
-
-  // Use the shared daemon executor from TelemetryClientFactory
-  private final ExecutorService exporterExecutor =
-      TelemetryClientFactory.getInstance().getTelemetryExecutorService();
 
   private TelemetryCollector() {
     // Private constructor for singleton
@@ -85,12 +79,9 @@ public class TelemetryCollector {
       exportTelemetryDetailsAndClear(statementId);
       return;
     }
-    if (statementId == null) {
-      return;
-    }
-    statementTrackers
-        .computeIfAbsent(statementId, k -> new StatementTelemetryDetails(statementId))
-        .recordOperationLatency(latencyMillis, operationType);
+    TelemetryHelper.exportTelemetryLog(
+        new StatementTelemetryDetails(statementId)
+            .recordOperationLatency(latencyMillis, operationType));
   }
 
   /**
@@ -172,7 +163,7 @@ public class TelemetryCollector {
    */
   private void exportTelemetryDetailsAndClear(String statementId) {
     StatementTelemetryDetails statementTelemetryDetails = statementTrackers.remove(statementId);
-    exporterExecutor.submit(() -> TelemetryHelper.exportTelemetryLog(statementTelemetryDetails));
+    TelemetryHelper.exportTelemetryLog(statementTelemetryDetails);
   }
 
   public void setResultFormat(

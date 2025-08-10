@@ -91,12 +91,7 @@ public class TelemetryClient implements ITelemetryClient {
   @Override
   public void exportEvent(TelemetryFrontendLog event) {
     synchronized (this) {
-      boolean wasEmpty = eventsBatch.isEmpty();
       eventsBatch.add(event);
-      if (wasEmpty) {
-        // Reset the inactivity timer so periodic flush occurs relative to the last activity
-        lastFlushedTime = System.currentTimeMillis();
-      }
     }
 
     if (eventsBatch.size() == eventsBatchSize) {
