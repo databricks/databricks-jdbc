@@ -2,15 +2,13 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * Utility class for determining the current process name as it would appear in Activity Monitor.
+ * Note : removing logging as it methods are called on static INIT and logging might not be fully
+ * configured.
  */
 public class ProcessNameUtil {
   private static final String FALL_BACK_PROCESS_NAME = "UnknownJavaProcess";
-  private static final Logger LOGGER = LoggerFactory.getLogger(ProcessNameUtil.class);
 
   /**
    * Gets the current process name as it would appear in Activity Monitor.
@@ -22,14 +20,12 @@ public class ProcessNameUtil {
       // Step 1: Try ProcessHandle API (Java 9+)
       String processName = getProcessNameFromHandle();
       if (!isNullOrEmpty(processName)) {
-        LOGGER.trace("getProcessNameFromHandle: {}", processName);
         return processName;
       }
 
       // Fallback
       return FALL_BACK_PROCESS_NAME;
     } catch (Exception e) {
-      LOGGER.trace("Error getting process name {}, returning fallback", e);
       return FALL_BACK_PROCESS_NAME;
     }
   }
@@ -62,7 +58,6 @@ public class ProcessNameUtil {
       }
       return null;
     } catch (Exception e) {
-      LOGGER.trace("Error getting process name from handle {}, returning null", e);
       return null;
     }
   }
