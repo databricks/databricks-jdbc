@@ -4,14 +4,17 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.latency.ChunkDetails;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.MockedStatic;
 
 public class TelemetryCollectorTest {
   private final TelemetryCollector handler = TelemetryCollector.getInstance();
@@ -71,16 +74,12 @@ public class TelemetryCollectorTest {
     String methodName = "closeStatement";
     long latency = 100L;
 
-    // Ensure telemetry is collected for the statement id prior to close
-    handler.recordGetOperationStatus(TEST_STATEMENT_ID, 1L);
-    handler.recordOperationLatency(latency, methodName);
-    // Allow asynchronous export to complete and internal map to be cleared
-    try {
-      Thread.sleep(200);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
+    try (MockedStatic<TelemetryHelper> mockedStatic = mockStatic(TelemetryHelper.class)) {
+      handler.recordOperationLatency(latency, methodName);
+
+      mockedStatic.verify(
+          () -> TelemetryHelper.exportTelemetryLog(any(StatementTelemetryDetails.class)));
     }
-    assertNull(handler.getTelemetryDetails(TEST_STATEMENT_ID));
   }
 
   @ParameterizedTest
