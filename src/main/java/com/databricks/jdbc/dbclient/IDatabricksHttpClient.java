@@ -16,7 +16,7 @@ public interface IDatabricksHttpClient {
   HTTPRequestType getCurrentRequestType();
 
   // sets the current http request config
-  void setCurrentRequestType(HTTPRequestType config);
+  void setCurrentRequestType(HTTPRequestType requestType);
 
   /**
    * Executes the given http request and returns the response
@@ -24,7 +24,7 @@ public interface IDatabricksHttpClient {
    * @param request underlying http request
    * @return http response
    */
-  CloseableHttpResponse execute(HttpUriRequest request, HTTPRequestType config)
+  CloseableHttpResponse execute(HttpUriRequest request, HTTPRequestType requestType)
       throws DatabricksHttpException;
 
   /**
@@ -35,7 +35,7 @@ public interface IDatabricksHttpClient {
    * @return http response
    */
   CloseableHttpResponse execute(
-      HttpUriRequest request, HTTPRequestType config, boolean supportGzipEncoding)
+      HttpUriRequest request, HTTPRequestType requestType, boolean supportGzipEncoding)
       throws DatabricksHttpException;
 
   /**

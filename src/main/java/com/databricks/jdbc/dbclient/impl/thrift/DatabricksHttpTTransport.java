@@ -91,8 +91,8 @@ public class DatabricksHttpTTransport extends TTransport {
     requestBuffer.write(buf, off, len);
   }
 
-  public void setHttpRequestType(HTTPRequestType config) {
-    this.httpClient.setCurrentRequestType(config);
+  public void setHttpRequestType(HTTPRequestType requestType) {
+    this.httpClient.setCurrentRequestType(requestType);
   }
 
   @Override

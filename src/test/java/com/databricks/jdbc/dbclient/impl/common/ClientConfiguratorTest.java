@@ -78,6 +78,7 @@ public class ClientConfiguratorTest {
   @Test
   void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectly()
       throws DatabricksParsingException, DatabricksSSLException {
+    when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-client.databricks.com");
@@ -99,6 +100,7 @@ public class ClientConfiguratorTest {
   @Test
   void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectlyGCP()
       throws DatabricksParsingException, DatabricksSSLException {
+    when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-client.databricks.com");
@@ -170,6 +172,7 @@ public class ClientConfiguratorTest {
   @Test
   void getWorkspaceClient_OAuthWithBrowserBasedAuthentication_AuthenticatesCorrectly()
       throws DatabricksParsingException, DatabricksSSLException {
+    when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
@@ -195,6 +198,7 @@ public class ClientConfiguratorTest {
   void
       getWorkspaceClient_OAuthWithBrowserBasedAuthentication_WithDiscoveryURL_AuthenticatesCorrectly()
           throws DatabricksParsingException, IOException, DatabricksSSLException {
+    when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
@@ -282,6 +286,7 @@ public class ClientConfiguratorTest {
   @Test
   void setupM2MConfig_WithAzureTenantId_ConfiguresCorrectly()
       throws DatabricksParsingException, DatabricksSSLException {
+    when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
     when(mockContext.getHostForOAuth()).thenReturn("https://azure-oauth.databricks.com");
@@ -421,6 +426,7 @@ public class ClientConfiguratorTest {
       throws Exception {
     // We'll mock getOAuth2RedirectUrlPorts to return a predefined list
     int testPort = findFreePort();
+    when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
@@ -446,6 +452,7 @@ public class ClientConfiguratorTest {
   @Test
   void testSetupU2MConfig_WithTokenCache()
       throws DatabricksParsingException, DatabricksSSLException {
+    when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
@@ -494,6 +501,7 @@ public class ClientConfiguratorTest {
   @Test
   void testSetupU2MConfig_WithoutTokenCache()
       throws DatabricksParsingException, DatabricksSSLException {
+    when(mockContext.getConnectionUuid()).thenReturn("connection-uuid");
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
     when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");

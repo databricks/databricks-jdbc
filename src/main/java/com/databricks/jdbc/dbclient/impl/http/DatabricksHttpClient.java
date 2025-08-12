@@ -7,7 +7,6 @@ import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.HTTPRequestType;
-import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -50,13 +49,15 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE = 1000;
   private final PoolingHttpClientConnectionManager connectionManager;
   private final CloseableHttpClient httpClient;
+  private final IDatabricksConnectionContext connectionContext;
   private IdleConnectionEvictor idleConnectionEvictor;
   private CloseableHttpAsyncClient asyncClient;
   private HTTPRequestType currentHTTPRequestType;
 
-  DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type) {
+  DatabricksHttpClient(IDatabricksConnectionContext connectionContext) {
+    this.connectionContext = connectionContext;
     connectionManager = initializeConnectionManager(connectionContext);
-    httpClient = makeClosableHttpClient(connectionContext, type);
+    httpClient = makeClosableHttpClient(connectionContext);
     idleConnectionEvictor =
         new IdleConnectionEvictor(
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
@@ -69,6 +70,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   DatabricksHttpClient(
       CloseableHttpClient testCloseableHttpClient,
       PoolingHttpClientConnectionManager testConnectionManager) {
+    this.connectionContext = null; // Test constructor doesn't need connection context
     httpClient = testCloseableHttpClient;
     connectionManager = testConnectionManager;
   }
@@ -80,20 +82,24 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
   @Override
   public void setCurrentRequestType(HTTPRequestType currentHTTPRequestType) {
+    /* The NOT_SET check is needed while executing UC volume requests, as they go through Thrift ExecuteStatement,
+    So, this function will be called 2 times (from UC Volume Client as well as Thrift Client). In order to avoid that conflict,
+    this check is required.
+    */
     if (this.currentHTTPRequestType == HTTPRequestType.NOT_SET) {
       this.currentHTTPRequestType = currentHTTPRequestType;
     }
   }
 
   @Override
-  public CloseableHttpResponse execute(HttpUriRequest request, HTTPRequestType config)
+  public CloseableHttpResponse execute(HttpUriRequest request, HTTPRequestType requestType)
       throws DatabricksHttpException {
-    return execute(request, config, false);
+    return execute(request, requestType, false);
   }
 
   @Override
   public CloseableHttpResponse execute(
-      HttpUriRequest request, HTTPRequestType config, boolean supportGzipEncoding)
+      HttpUriRequest request, HTTPRequestType requestType, boolean supportGzipEncoding)
       throws DatabricksHttpException {
     LOGGER.debug("Executing HTTP request {}", RequestSanitizer.sanitizeRequest(request));
     if (!DriverUtil.isRunningAgainstFake() && supportGzipEncoding) {
@@ -102,16 +108,26 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     }
 
     currentHTTPRequestType = HTTPRequestType.NOT_SET;
-    try {
-      String userAgentString = UserAgentManager.getUserAgentString();
-      if (!isNullOrEmpty(userAgentString) && !request.containsHeader("User-Agent")) {
-        request.setHeader("User-Agent", userAgentString);
-      }
-      return httpClient.execute(request);
-    } catch (IOException e) {
-      throwHttpException(e, request);
+
+    // Set user agent if not already present
+    String userAgentString = UserAgentManager.getUserAgentString();
+    if (!isNullOrEmpty(userAgentString) && !request.containsHeader("User-Agent")) {
+      request.setHeader("User-Agent", userAgentString);
     }
-    return null;
+
+    // Fall back to direct execution if no connection context (test scenarios)
+    if (connectionContext == null) {
+      try {
+        return httpClient.execute(request);
+      } catch (IOException e) {
+        throwHttpException(e, request);
+        return null; // This line will never be reached due to throwHttpException
+      }
+    }
+
+    // Use the request type-aware retry handler
+    return HttpRequestTypeBasedRetryHandler.executeWithRetry(
+        httpClient, request, requestType, connectionContext);
   }
 
   /**
@@ -174,7 +190,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   }
 
   private CloseableHttpClient makeClosableHttpClient(
-      IDatabricksConnectionContext connectionContext, HttpClientType type) {
+      IDatabricksConnectionContext connectionContext) {
     HttpClientBuilder builder =
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)

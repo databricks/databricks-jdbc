@@ -99,10 +99,10 @@ final class DatabricksThriftAccessor {
    * Sets the HTTP request configuration for the next request. Encapsulates access to the underlying
    * HTTP client.
    */
-  void setHttpRequestType(HTTPRequestType config) {
+  void setHttpRequestType(HTTPRequestType requestType) {
     DatabricksHttpTTransport transport =
         (DatabricksHttpTTransport) getThriftClient().getInputProtocol().getTransport();
-    transport.setHttpRequestType(config);
+    transport.setHttpRequestType(requestType);
   }
 
   @SuppressWarnings("rawtypes")

@@ -41,7 +41,7 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
    * Helper method to set HTTP request configuration for volume operations based on operation type.
    * Only works with Thrift client connections; SDK clients use their own retry logic.
    */
-  private void setVolumeOperationConfig(HTTPRequestType config) {
+  private void setVolumeOperationRequestType(HTTPRequestType requestType) {
     try {
       IDatabricksConnectionInternal databricksConnection =
           connection.unwrap(IDatabricksConnectionInternal.class);
@@ -57,8 +57,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
       // Only set config for Thrift clients (SDK clients handle their own retry logic)
       if (client instanceof DatabricksThriftServiceClient) {
         DatabricksThriftServiceClient thriftClient = (DatabricksThriftServiceClient) client;
-        thriftClient.setHttpRequestType(config);
-        LOGGER.debug("Set volume operation HTTP config: {} for Thrift client", config);
+        thriftClient.setHttpRequestType(requestType);
+        LOGGER.debug("Set volume operation HTTP request type: {} for Thrift client", requestType);
       } else {
         LOGGER.debug(
             "SDK client detected - using SDK's built-in retry logic for volume operations");
@@ -160,9 +160,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume, folder);
 
-    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_LIST);
-
     try (Statement statement = connection.createStatement()) {
+      setVolumeOperationRequestType(HTTPRequestType.VOLUME_LIST);
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
         LOGGER.debug("SQL query executed successfully");
         boolean exists = false;
@@ -205,9 +204,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume, folder);
 
-    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_LIST);
-
     try (Statement statement = connection.createStatement()) {
+      setVolumeOperationRequestType(HTTPRequestType.VOLUME_LIST);
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
         LOGGER.info("SQL query executed successfully");
         boolean exists = false;
@@ -252,9 +250,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
     String showVolumesSQLQuery = createShowVolumesQuery(catalog, schema);
 
-    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_SHOW_VOLUMES);
-
     try (Statement statement = connection.createStatement()) {
+      setVolumeOperationRequestType(HTTPRequestType.VOLUME_SHOW_VOLUMES);
       try (ResultSet resultSet = statement.executeQuery(showVolumesSQLQuery)) {
         LOGGER.info("SQL query executed successfully");
         boolean exists = false;
@@ -314,9 +311,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
     String listFilesSQLQuery = createListQuery(catalog, schema, volume, folder);
 
-    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_LIST);
-
     try (Statement statement = connection.createStatement()) {
+      setVolumeOperationRequestType(HTTPRequestType.VOLUME_LIST);
       try (ResultSet resultSet = statement.executeQuery(listFilesSQLQuery)) {
         LOGGER.info("SQL query executed successfully");
         List<String> filenames = new ArrayList<>();
@@ -351,9 +347,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
     boolean volumeOperationStatus = false;
 
-    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_GET_TO);
-
     try (Statement statement = connection.createStatement()) {
+      setVolumeOperationRequestType(HTTPRequestType.VOLUME_GET);
       try (ResultSet resultSet = statement.executeQuery(getObjectQuery)) {
         LOGGER.info("GET query executed successfully");
         if (resultSet.next()) {
@@ -382,9 +377,8 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
     String getObjectQuery = createGetObjectQueryForInputStream(catalog, schema, volume, objectPath);
 
-    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_GET_TO);
-
     try (Statement statement = connection.createStatement()) {
+      setVolumeOperationRequestType(HTTPRequestType.VOLUME_GET);
       IDatabricksStatementInternal databricksStatement =
           statement.unwrap(IDatabricksStatementInternal.class);
       databricksStatement.allowInputStreamForVolumeOperation(true);
@@ -422,11 +416,10 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
     String putObjectQuery =
         createPutObjectQuery(catalog, schema, volume, objectPath, localPath, toOverwrite);
 
-    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_PUT_INTO);
-
     boolean isOperationSucceeded = false;
 
     try (Statement statement = connection.createStatement()) {
+      setVolumeOperationRequestType(HTTPRequestType.VOLUME_PUT);
       try (ResultSet resultSet = statement.executeQuery(putObjectQuery)) {
         LOGGER.info("PUT query executed successfully");
         if (resultSet.next()) {
@@ -463,11 +456,10 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
     String putObjectQueryForInputStream =
         createPutObjectQueryForInputStream(catalog, schema, volume, objectPath, toOverwrite);
 
-    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_PUT_INTO);
-
     boolean isOperationSucceeded = false;
 
     try (Statement statement = connection.createStatement()) {
+      setVolumeOperationRequestType(HTTPRequestType.VOLUME_PUT);
       IDatabricksStatementInternal databricksStatement =
           statement.unwrap(IDatabricksStatementInternal.class);
       databricksStatement.allowInputStreamForVolumeOperation(true);
@@ -501,11 +493,10 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
 
     String deleteObjectQuery = createDeleteObjectQuery(catalog, schema, volume, objectPath);
 
-    setVolumeOperationConfig(HTTPRequestType.UC_VOLUME_REMOVE);
-
     boolean isOperationSucceeded = false;
 
     try (Statement statement = connection.createStatement()) {
+      setVolumeOperationRequestType(HTTPRequestType.VOLUME_DELETE);
       try (ResultSet resultSet = statement.executeQuery(deleteObjectQuery)) {
         LOGGER.info("SQL query executed successfully");
         if (resultSet.next()) {
