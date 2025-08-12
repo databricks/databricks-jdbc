@@ -93,6 +93,7 @@ public class HttpRequestTypeBasedRetryHandler {
             : NON_IDEMPOTENT_STRATEGY;
 
     CloseableHttpResponse response = null;
+    IOException lastException = null;
 
     for (int attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
       try {
@@ -114,31 +115,29 @@ public class HttpRequestTypeBasedRetryHandler {
 
         // Last attempt check
         if (attempt > MAX_RETRIES) {
-          throw new DatabricksHttpException(
-              String.format(
-                  "HTTP request failed after %d attempts. Status: %d", MAX_RETRIES + 1, statusCode),
-              DatabricksDriverErrorCode.CONNECTION_ERROR);
+          return null;
         }
 
         // Get retry delay from strategy
-        int retryDelayMillis = strategy.retryRequest(response, attempt, connectionContext);
+        int retryDelayMillis = strategy.retryRequestAfter(response, attempt, connectionContext);
         if (retryDelayMillis == -1) {
           return response; // Strategy says don't retry
         }
 
         Thread.sleep(retryDelayMillis);
         response.close();
+
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new RuntimeException("Thread interrupted during retry", e);
-      } catch (IOException e) {
+      } catch (RuntimeException e) {
         throwHttpException(e, request);
-        return null; // This line will never be reached due to throwHttpException
+      } catch (IOException e) {
+        // Continue retry loop for IOException
       }
     }
 
-    throw new DatabricksHttpException(
-        "Unexpected end of retry loop", DatabricksDriverErrorCode.CONNECTION_ERROR);
+    return null;
   }
 
   // Helper methods
@@ -195,7 +194,7 @@ public class HttpRequestTypeBasedRetryHandler {
     return -1;
   }
 
-  private static void throwHttpException(IOException e, HttpUriRequest request)
+  private static void throwHttpException(RuntimeException e, HttpUriRequest request)
       throws DatabricksHttpException {
     Throwable cause = e;
     while (cause != null) {

@@ -39,7 +39,7 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
   }
 
   @Override
-  public int retryRequest(
+  public int retryRequestAfter(
       CloseableHttpResponse response,
       int executionAttempt,
       IDatabricksConnectionContext connectionContext) {

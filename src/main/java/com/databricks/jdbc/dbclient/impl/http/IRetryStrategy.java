@@ -8,7 +8,7 @@ public interface IRetryStrategy {
   boolean isStatusCodeRetriable(int statusCode, IDatabricksConnectionContext connectionContext);
 
   /* Tells after how much time (in milliseconds) should a request be retried and returns -1 if it shouldn't be retried*/
-  int retryRequest(
+  int retryRequestAfter(
       CloseableHttpResponse response,
       int executionAttempt,
       IDatabricksConnectionContext connectionContext);

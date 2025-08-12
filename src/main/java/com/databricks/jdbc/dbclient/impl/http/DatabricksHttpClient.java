@@ -121,8 +121,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         return httpClient.execute(request);
       } catch (IOException e) {
         throwHttpException(e, request);
-        return null; // This line will never be reached due to throwHttpException
       }
+      return null;
     }
 
     // Use the request type-aware retry handler
