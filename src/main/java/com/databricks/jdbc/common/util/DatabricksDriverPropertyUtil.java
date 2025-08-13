@@ -33,6 +33,7 @@ public class DatabricksDriverPropertyUtil {
           DatabricksJdbcUrlParams.LZ4_COMPRESSION_FLAG,
           DatabricksJdbcUrlParams.USER_AGENT_ENTRY,
           DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS,
+          DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_DIRECT_RESULTS,
           DatabricksJdbcUrlParams.ENABLE_COMPLEX_DATATYPE_SUPPORT,
           DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK,
           DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH,

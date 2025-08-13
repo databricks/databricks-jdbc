@@ -800,6 +800,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean isSqlExecDirectResultsEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_DIRECT_RESULTS).equals("1");
+  }
+
+  @Override
   public String getAzureTenantId() {
     return getParameter(DatabricksJdbcUrlParams.AZURE_TENANT_ID);
   }
