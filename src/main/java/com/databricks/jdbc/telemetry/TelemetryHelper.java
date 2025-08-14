@@ -88,6 +88,7 @@ public class TelemetryHelper {
     }
     TelemetryEvent telemetryEvent =
         new TelemetryEvent()
+            .setDriverSystemConfiguration(DRIVER_SYSTEM_CONFIGURATION)
             .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext))
             .setSessionId(DatabricksThreadContextHolder.getSessionId())
             .setDriverErrorInfo(errorInfo) // This is only set for failure logs
