@@ -157,7 +157,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
               DatabricksDriverErrorCode.CONNECTION_ERROR);
         }
       }
-      return new DatabricksConnectionContext(url, hostValue, portValue, schema, propertiesMap);
+      return new DatabricksConnectionContext(
+          url,
+          hostValue,
+          portValue,
+          Objects.equals(schema, EMPTY_STRING) ? null : schema,
+          propertiesMap);
     } else {
       // Should never reach here, since we have already checked for url validity
       throw new DatabricksValidationException("Connection Context invalid state error");
