@@ -39,7 +39,7 @@ public class UserAgentManagerTest {
 
   @Test
   public void testUpdateUserAgent() {
-    // Test that user agent is updated
+    // Test that user agent is updated even without a version
     when(connectionContext.getCustomerUserAgent()).thenReturn("TestApp");
     when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
     UserAgentManager.setUserAgent(connectionContext);
@@ -49,22 +49,32 @@ public class UserAgentManagerTest {
 
   @Test
   public void testEncodedUserAgent() {
-    // Test that user agent is updated
-    when(connectionContext.getCustomerUserAgent()).thenReturn("DBeaver%2F25.1.4.202508031529");
+    // Test that user agent is updated even if it is encoded
+    when(connectionContext.getCustomerUserAgent())
+        .thenReturn("DBeaverEncoded%2F25.1.4.202508031529");
     when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
     UserAgentManager.setUserAgent(connectionContext);
     String userAgent = getUserAgentString();
-    assertTrue(userAgent.contains("DBeaver/25.1.4.202508031529"));
+    assertTrue(userAgent.contains("DBeaverEncoded/25.1.4.202508031529"));
   }
 
   @Test
   public void testIncorrectUserAgentDoesNotThrowException() {
-    // Test that user agent is updated
-    when(connectionContext.getCustomerUserAgent()).thenReturn("DBeaver    25.1.4.202508031529");
+    when(connectionContext.getCustomerUserAgent()).thenReturn("DBeaverInvalid~25.1.4.202508031529");
     when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
     UserAgentManager.setUserAgent(connectionContext);
     String userAgent = getUserAgentString();
-    assertFalse(userAgent.contains("DBeaver/25.1.4.202508031529"));
+    assertFalse(userAgent.contains("DBeaverInvalid"));
+  }
+
+  @Test
+  public void testUserAgentWithSlash() {
+    // Test that user agent with added version is updated
+    when(connectionContext.getCustomerUserAgent()).thenReturn("MyAppSlash/25.1.4.202508031529");
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
+    UserAgentManager.setUserAgent(connectionContext);
+    String userAgent = getUserAgentString();
+    assertTrue(userAgent.contains("MyAppSlash/25.1.4.202508031529"));
   }
 
   @Test
