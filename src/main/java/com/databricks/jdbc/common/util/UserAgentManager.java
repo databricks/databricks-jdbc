@@ -2,6 +2,8 @@ package com.databricks.jdbc.common.util;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.sdk.core.UserAgent;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 public class UserAgentManager {
   private static final String SDK_USER_AGENT = "databricks-sdk-java";
@@ -21,12 +23,14 @@ public class UserAgentManager {
     // Set the base product and client info
     UserAgent.withProduct(DEFAULT_USER_AGENT, DriverUtil.getDriverVersion());
     UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
-
-    String inputUserAgent = connectionContext.getCustomerUserAgent();
-    if (inputUserAgent != null) {
-      int i = inputUserAgent.indexOf('/');
-      String customerName = (i < 0) ? inputUserAgent : inputUserAgent.substring(0, i);
-      String customerVersion = (i < 0) ? VERSION_FILLER : inputUserAgent.substring(i + 1);
+    if (connectionContext.getCustomerUserAgent() != null) {
+      String decodedUA =
+          URLDecoder.decode(
+              connectionContext.getCustomerUserAgent(),
+              StandardCharsets.UTF_8); // This is for encoded userAgentString
+      int i = decodedUA.indexOf('/');
+      String customerName = (i < 0) ? decodedUA : decodedUA.substring(0, i);
+      String customerVersion = (i < 0) ? VERSION_FILLER : decodedUA.substring(i + 1);
       UserAgent.withOtherInfo(customerName, UserAgent.sanitize(customerVersion));
     }
   }

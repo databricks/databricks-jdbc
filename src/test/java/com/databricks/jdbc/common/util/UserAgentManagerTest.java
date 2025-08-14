@@ -48,6 +48,16 @@ public class UserAgentManagerTest {
   }
 
   @Test
+  public void testEncodedUserAgent() {
+    // Test that user agent is updated
+    when(connectionContext.getCustomerUserAgent()).thenReturn("DBeaver%2F25.1.4.202508031529");
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
+    UserAgentManager.setUserAgent(connectionContext);
+    String userAgent = getUserAgentString();
+    assertTrue(userAgent.contains("DBeaver/25.1.4.202508031529"));
+  }
+
+  @Test
   void testUserAgentSetsClientCorrectly() throws DatabricksSQLException {
     // Thrift with all-purpose cluster
     IDatabricksConnectionContext connectionContext =
