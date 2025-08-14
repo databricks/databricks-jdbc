@@ -1,11 +1,14 @@
 package com.databricks.jdbc.common.util;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.UserAgent;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 
 public class UserAgentManager {
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(UserAgentManager.class);
   private static final String SDK_USER_AGENT = "databricks-sdk-java";
   private static final String JDBC_HTTP_USER_AGENT = "databricks-jdbc-http";
   private static final String DEFAULT_USER_AGENT = "DatabricksJDBCDriverOSS";
@@ -23,7 +26,10 @@ public class UserAgentManager {
     // Set the base product and client info
     UserAgent.withProduct(DEFAULT_USER_AGENT, DriverUtil.getDriverVersion());
     UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
-    if (connectionContext.getCustomerUserAgent() != null) {
+    if (connectionContext.getCustomerUserAgent() == null) {
+      return;
+    }
+    try {
       String decodedUA =
           URLDecoder.decode(
               connectionContext.getCustomerUserAgent(),
@@ -32,6 +38,11 @@ public class UserAgentManager {
       String customerName = (i < 0) ? decodedUA : decodedUA.substring(0, i);
       String customerVersion = (i < 0) ? VERSION_FILLER : decodedUA.substring(i + 1);
       UserAgent.withOtherInfo(customerName, UserAgent.sanitize(customerVersion));
+    } catch (Exception e) {
+      LOGGER.debug(
+          "Failed to set user agent for customer userAgent entry {}, Error {}",
+          connectionContext.getCustomerUserAgent(),
+          e);
     }
   }
 
