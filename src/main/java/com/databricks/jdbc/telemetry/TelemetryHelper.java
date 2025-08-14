@@ -30,6 +30,7 @@ public class TelemetryHelper {
   // Cache to store unique DriverConnectionParameters for each connectionUuid
   private static final ConcurrentHashMap<String, DriverConnectionParameters>
       connectionParameterCache = new ConcurrentHashMap<>();
+  private static final String APP_NAME_SYSTEM_PROPERTY = "app.name";
 
   @VisibleForTesting
   static final String TELEMETRY_FEATURE_FLAG_NAME =
@@ -53,12 +54,6 @@ public class TelemetryHelper {
 
   public static DriverSystemConfiguration getDriverSystemConfiguration() {
     return DRIVER_SYSTEM_CONFIGURATION;
-  }
-
-  public static void updateClientAppName(String clientAppName) {
-    if (!isNullOrEmpty(clientAppName)) {
-      DRIVER_SYSTEM_CONFIGURATION.setClientAppName(clientAppName);
-    }
   }
 
   public static boolean isTelemetryAllowedForConnection(IDatabricksConnectionContext context) {
@@ -308,5 +303,51 @@ public class TelemetryHelper {
       default:
         return OperationType.TYPE_UNSPECIFIED;
     }
+  }
+
+  /**
+   * Sets/updates client app name in telemetry
+   *
+   * @param connectionContext The connection context
+   * @param clientInfoAppName The application name from client info properties, can be null
+   */
+  public static void updateTelemetryAppName(
+      IDatabricksConnectionContext connectionContext, String clientInfoAppName) {
+    String appName = determineApplicationName(connectionContext, clientInfoAppName);
+    if (!isNullOrEmpty(appName)) {
+      DRIVER_SYSTEM_CONFIGURATION.setClientAppName(appName);
+    }
+  }
+
+  /**
+   * Determines the application name using a fallback mechanism: 1. useragententry url param 2.
+   * applicationname url param 3. client info property "applicationname" 4. System property app.name
+   *
+   * @param connectionContext The connection context
+   * @param clientInfoAppName The application name from client info properties, can be null
+   * @return The determined application name or null if none is found
+   */
+  @VisibleForTesting
+  static String determineApplicationName(
+      IDatabricksConnectionContext connectionContext, String clientInfoAppName) {
+    // First check URL params
+    String appName = connectionContext.getCustomerUserAgent();
+    if (!isNullOrEmpty(appName)) {
+      return appName;
+    }
+
+    // Then check application name URL param
+    appName = connectionContext.getApplicationName();
+    if (!isNullOrEmpty(appName)) {
+      return appName;
+    }
+
+    // Then check client info property
+    if (!isNullOrEmpty(clientInfoAppName)) {
+      return clientInfoAppName;
+    }
+
+    // Finally check system property
+    return System.getProperty(APP_NAME_SYSTEM_PROPERTY);
   }
 }
