@@ -121,10 +121,14 @@ public class TelemetryHelper {
       String errorMessage,
       String statementId,
       Long chunkIndex) {
-    StatementTelemetryDetails telemetryDetails =
-        TelemetryCollector.getInstance().getOrCreateTelemetryDetails(statementId);
     DriverErrorInfo errorInfo =
         new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
+    StatementTelemetryDetails telemetryDetails;
+    if (statementId == null) {
+      telemetryDetails = new StatementTelemetryDetails(null);
+    } else {
+      telemetryDetails = TelemetryCollector.getInstance().getOrCreateTelemetryDetails(statementId);
+    }
     exportTelemetryEvent(connectionContext, telemetryDetails, errorInfo, chunkIndex);
   }
 

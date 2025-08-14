@@ -164,16 +164,11 @@ public class TelemetryHelperTest {
   }
 
   @Test
-  void testExportFailureLogWithNullContext() {
+  void testExportFailureLogWithNullContextAndNullStatementId() {
     // Clear thread context to test with null context
     DatabricksThreadContextHolder.clearConnectionContext();
+    DatabricksThreadContextHolder.clearStatementInfo();
     assertDoesNotThrow(() -> TelemetryHelper.exportFailureLog(null, "err", "msg"));
-  }
-
-  @Test
-  void testExportFailureLogWithNullStatementId() {
-    // Skip this test as it causes infinite recursion
-    // The test would verify that exportFailureLog handles null statement ID
   }
 
   @Test
