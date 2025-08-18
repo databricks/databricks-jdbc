@@ -14,7 +14,7 @@
 - Fixed Statement.setMaxRows(0) to be interepeted as no limit.
 - Fixed retry behaviour to not throw an exception when there is no retry-after header for 503 and 429 status codes.
 - Fixed encoded UserAgent parsing in BI tools.
-
+- Fixed setting empty schema as the default schema in the spark session.
 ---
 
 ## [v1.0.8-oss] - 2025-07-25
