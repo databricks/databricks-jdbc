@@ -11,17 +11,9 @@ import org.apache.http.client.methods.CloseableHttpResponse;
  */
 public class IdempotentRetryStrategy implements IRetryStrategy {
 
-  // Non-retryable codes for idempotent requests (client errors + success codes)
+  // Non-retryable client errors for idempotent requests
   private static final Set<Integer> NON_RETRYABLE_CLIENT_ERRORS =
       Set.of(
-          // Success codes - no need to retry
-          HttpStatus.SC_OK,
-          HttpStatus.SC_CREATED,
-          HttpStatus.SC_ACCEPTED,
-          HttpStatus.SC_NO_CONTENT,
-          HttpStatus.SC_RESET_CONTENT,
-          HttpStatus.SC_PARTIAL_CONTENT,
-          // Client errors - should not retry
           HttpStatus.SC_BAD_REQUEST,
           HttpStatus.SC_UNAUTHORIZED,
           HttpStatus.SC_FORBIDDEN,
@@ -51,11 +43,8 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
       CloseableHttpResponse response,
       int executionAttempt,
       IDatabricksConnectionContext connectionContext) {
-    if (executionAttempt <= 0) {
-      return MIN_BACKOFF_INTERVAL;
-    }
     // For idempotent requests: always use exponential backoff (ignore Retry-After header)
-    return calculateExponentialBackoff(executionAttempt - 1);
+    return calculateExponentialBackoff(executionAttempt);
   }
 
   private static int calculateExponentialBackoff(int executionCount) {
