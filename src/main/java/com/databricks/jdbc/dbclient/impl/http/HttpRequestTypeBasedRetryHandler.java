@@ -63,13 +63,15 @@ public class HttpRequestTypeBasedRetryHandler {
     REQUEST_IDEMPOTENCY_MAP.put(HTTPRequestType.VOLUME_DELETE, RequestIdempotency.IDEMPOTENT);
     REQUEST_IDEMPOTENCY_MAP.put(HTTPRequestType.AUTH, RequestIdempotency.IDEMPOTENT);
     REQUEST_IDEMPOTENCY_MAP.put(HTTPRequestType.TELEMETRY_PUSH, RequestIdempotency.IDEMPOTENT);
+    REQUEST_IDEMPOTENCY_MAP.put(
+        HTTPRequestType.OTHER,
+        RequestIdempotency.IDEMPOTENT); // some HTTP get requests written in test
 
     // Non-idempotent operations
     REQUEST_IDEMPOTENCY_MAP.put(
         HTTPRequestType.THRIFT_EXECUTE_STATEMENT, RequestIdempotency.NON_IDEMPOTENT);
     REQUEST_IDEMPOTENCY_MAP.put(HTTPRequestType.VOLUME_PUT, RequestIdempotency.NON_IDEMPOTENT);
     REQUEST_IDEMPOTENCY_MAP.put(HTTPRequestType.NOT_SET, RequestIdempotency.NON_IDEMPOTENT);
-    REQUEST_IDEMPOTENCY_MAP.put(HTTPRequestType.OTHER, RequestIdempotency.NON_IDEMPOTENT);
   }
 
   private static final IRetryStrategy IDEMPOTENT_STRATEGY = new IdempotentRetryStrategy();
@@ -92,12 +94,8 @@ public class HttpRequestTypeBasedRetryHandler {
             ? IDEMPOTENT_STRATEGY
             : NON_IDEMPOTENT_STRATEGY;
 
-    CloseableHttpResponse response = null;
-    IOException lastException = null;
-
     for (int attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-      try {
-        response = httpClient.execute(request, httpContext);
+      try (CloseableHttpResponse response = httpClient.execute(request, httpContext)) {
         int statusCode = response.getStatusLine().getStatusCode();
 
         // Check if status code is retryable
@@ -109,7 +107,7 @@ public class HttpRequestTypeBasedRetryHandler {
         updateAccumulatedTime(statusCode, response, httpContext);
 
         // Check timeout constraints
-        if (!isRetryAllowedByTimeout(statusCode, response, httpContext, connectionContext)) {
+        if (!isRetryAllowedByTimeout(statusCode, httpContext, connectionContext)) {
           return response;
         }
 
@@ -125,7 +123,6 @@ public class HttpRequestTypeBasedRetryHandler {
         }
 
         Thread.sleep(retryDelayMillis);
-        response.close();
 
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
@@ -165,20 +162,18 @@ public class HttpRequestTypeBasedRetryHandler {
   }
 
   private static boolean isRetryAllowedByTimeout(
-      int statusCode,
-      CloseableHttpResponse response,
-      HttpContext httpContext,
-      IDatabricksConnectionContext connectionContext) {
-    int retryInterval = extractRetryInterval(response);
-    if (retryInterval == -1) return true;
+      int statusCode, HttpContext httpContext, IDatabricksConnectionContext connectionContext) {
+    // If no connection context, allow retry (handled by strategy)
+    if (connectionContext == null) {
+      return true;
+    }
 
     if (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE) {
       long accumulated = (Long) httpContext.getAttribute(TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY);
-      return accumulated + retryInterval
-          <= connectionContext.getTemporarilyUnavailableRetryTimeout();
+      return accumulated <= connectionContext.getTemporarilyUnavailableRetryTimeout();
     } else if (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS) {
       long accumulated = (Long) httpContext.getAttribute(RATE_LIMIT_ACCUMULATED_TIME_KEY);
-      return accumulated + retryInterval <= connectionContext.getRateLimitRetryTimeout();
+      return accumulated <= connectionContext.getRateLimitRetryTimeout();
     }
     return true;
   }

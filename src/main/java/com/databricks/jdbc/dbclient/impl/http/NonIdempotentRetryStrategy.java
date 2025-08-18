@@ -15,6 +15,10 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
   @Override
   public boolean isStatusCodeRetriable(
       int statusCode, IDatabricksConnectionContext connectionContext) {
+    if (connectionContext == null) {
+      return false; // Default to no retry if connection context is null
+    }
+
     switch (statusCode) {
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
         return connectionContext.shouldRetryTemporarilyUnavailableError();
@@ -45,7 +49,7 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
   private static int extractRetryInterval(CloseableHttpResponse response) {
     if (response.containsHeader(RETRY_AFTER_HEADER)) {
       try {
-        return Integer.parseInt(response.getFirstHeader(RETRY_AFTER_HEADER).getValue());
+        return Integer.parseInt(response.getFirstHeader(RETRY_AFTER_HEADER).getValue().trim());
       } catch (NumberFormatException e) {
         // Invalid header value
       }
