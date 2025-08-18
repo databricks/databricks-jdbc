@@ -134,7 +134,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
       String hostUrlVal = urlMatcher.group(1);
-      String schema = urlMatcher.group(2);
+      String schema =
+          Objects.equals(urlMatcher.group(2), EMPTY_STRING) ? null : urlMatcher.group(2);
       String urlMinusHost = urlMatcher.group(3);
       String[] hostAndPort = hostUrlVal.split(DatabricksJdbcConstants.PORT_DELIMITER);
       String hostValue = hostAndPort[0];
