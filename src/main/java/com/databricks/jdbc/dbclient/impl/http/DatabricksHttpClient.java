@@ -115,7 +115,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       request.setHeader("User-Agent", userAgentString);
     }
 
-    // Fall back to direct execution if no connection context (test scenarios)
     if (connectionContext == null) {
       try {
         return httpClient.execute(request);
@@ -124,8 +123,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       }
       return null;
     }
-
-    // Use the request type-aware retry handler
     return HttpRequestTypeBasedRetryHandler.executeWithRetry(
         httpClient, request, requestType, connectionContext);
   }
