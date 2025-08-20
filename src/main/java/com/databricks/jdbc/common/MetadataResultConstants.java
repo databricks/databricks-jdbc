@@ -13,7 +13,7 @@ public class MetadataResultConstants {
   public static final String[] DEFAULT_TABLE_TYPES = {"TABLE", "VIEW", "SYSTEM TABLE"};
   public static final ResultColumn CATALOG_COLUMN =
       new ResultColumn("TABLE_CAT", "catalogName", Types.VARCHAR);
-  private static final ResultColumn CATALOG_FULL_COLUMN =
+  public static final ResultColumn CATALOG_FULL_COLUMN =
       new ResultColumn("TABLE_CATALOG", "catalogName", Types.VARCHAR);
   public static final ResultColumn CATALOG_COLUMN_FOR_GET_CATALOGS =
       new ResultColumn("TABLE_CAT", "catalog", Types.VARCHAR);

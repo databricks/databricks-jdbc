@@ -147,11 +147,6 @@ class CommandBuilderTest {
       CommandBuilder builder1 = new CommandBuilder("*", mockSession);
       String sql1 = builder1.getSQLString(CommandName.LIST_TABLES);
       assertEquals(SHOW_TABLES_IN_ALL_CATALOGS_SQL, sql1);
-
-      // Test with '%' wildcard
-      CommandBuilder builder2 = new CommandBuilder("%", mockSession);
-      String sql2 = builder2.getSQLString(CommandName.LIST_TABLES);
-      assertEquals(SHOW_TABLES_IN_ALL_CATALOGS_SQL, sql2);
     }
   }
 

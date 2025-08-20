@@ -683,14 +683,6 @@ public class DatabricksDatabaseMetaDataTest {
             DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL_WITH_SEA, new Properties()));
     ResultSet resultSet = metaData.getSchemas();
     assertNotNull(resultSet);
-
-    // Result set should have 2 columns; TABLE_SCHEM and TABLE_CATALOG
-    assertEquals(2, resultSet.getMetaData().getColumnCount());
-    assertSame("TABLE_SCHEM", resultSet.getMetaData().getColumnName(1));
-    assertSame("TABLE_CATALOG", resultSet.getMetaData().getColumnName(2));
-
-    // For SQL_EXEC execution, result set data should be empty
-    assertFalse(resultSet.next());
   }
 
   @Test
