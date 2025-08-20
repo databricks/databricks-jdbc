@@ -568,6 +568,26 @@
         <artifactId>maven-install-plugin</artifactId>
         <version>3.1.1</version>
         <executions>
+          <!-- Skip default install to use our custom POMs -->
+          <execution>
+            <id>default-install</id>
+            <phase>install</phase>
+            <goals><goal>install</goal></goals>
+            <configuration>
+              <skip>true</skip>
+            </configuration>
+          </execution>
+          <!-- Install uber JAR with minimal POM (no dependencies) -->
+          <execution>
+            <id>install-uber</id>
+            <phase>install</phase>
+            <goals><goal>install-file</goal></goals>
+            <configuration>
+              <file>${project.build.directory}/${project.build.finalName}.jar</file>
+              <pomFile>${project.basedir}/uber-minimal-pom.xml</pomFile>
+            </configuration>
+          </execution>
+          <!-- Install thin JAR as separate artifact with different artifactId -->
           <execution>
             <id>install-thin</id>
             <phase>install</phase>
@@ -575,7 +595,7 @@
             <configuration>
               <file>${project.build.directory}/${project.build.finalName}-thin.jar</file>
               <pomFile>${project.basedir}/thin_public_pom.xml</pomFile>
-              <classifier>thin</classifier>
+              <!-- No classifier - this is a separate artifact with different artifactId -->
             </configuration>
           </execution>
         </executions>
@@ -613,11 +633,8 @@
                 </goals>
                 <configuration>
                   <file>${project.build.directory}/${project.build.finalName}.jar</file>
-                  <pomFile>${project.basedir}/thin_public_pom.xml</pomFile>
-                  <!-- Include other artifacts like sources and javadocs -->
-                  <files>${project.build.directory}/${project.build.finalName}-thin.jar</files>
-                  <types>jar</types>
-                  <classifiers>thin</classifiers>
+                  <pomFile>${project.basedir}/uber-minimal-pom.xml</pomFile>
+                  <!-- Thin JAR will be deployed separately with different artifactId -->
                   <!-- Use repository details from distributionManagement -->
                   <repositoryId>local-test-repo</repositoryId>
                   <url>file://${project.build.directory}/local-repo</url>
@@ -682,13 +699,11 @@
                     <arg>--pinentry-mode</arg>
                     <arg>loopback</arg>
                   </gpgArguments>
-                  <!-- Custom reduced pom file for fat jar -->
-                  <pomFile>${project.basedir}/thin_public_pom.xml</pomFile>
+                  <!-- Custom minimal pom file for uber JAR (no dependencies) -->
+                  <pomFile>${project.basedir}/uber-minimal-pom.xml</pomFile>
                   <sources>${project.build.directory}/${project.build.finalName}-sources.jar</sources>
                   <javadoc>${project.build.directory}/${project.build.finalName}-javadoc.jar</javadoc>
-                  <files>${project.build.directory}/${project.build.finalName}-thin.jar</files>
-                  <types>jar</types>
-                  <classifiers>thin</classifiers>
+                  <!-- Thin JAR will be released separately with different artifactId -->
                 </configuration>
               </execution>
             </executions>
