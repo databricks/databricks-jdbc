@@ -3,7 +3,8 @@ package com.databricks.jdbc.auth;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.sdk.core.oauth.Token;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.Test;
 
 public class NoOpTokenCacheTest {
@@ -19,7 +20,7 @@ public class NoOpTokenCacheTest {
 
     // Create a token
     Token token =
-        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, LocalDateTime.now().plusHours(1));
+        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS));
 
     // Save should not throw any exception
     assertDoesNotThrow(() -> tokenCache.save(token), "save() should not throw an exception");
@@ -42,7 +43,7 @@ public class NoOpTokenCacheTest {
 
     // Create a token
     Token token =
-        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, LocalDateTime.now().plusHours(1));
+        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS));
 
     // Save the token
     tokenCache.save(token);

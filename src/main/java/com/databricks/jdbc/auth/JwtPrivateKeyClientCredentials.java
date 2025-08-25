@@ -13,8 +13,8 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OAuthResponse;
-import com.databricks.sdk.core.oauth.RefreshableTokenSource;
 import com.databricks.sdk.core.oauth.Token;
+import com.databricks.sdk.core.oauth.TokenSource;
 import com.google.common.annotations.VisibleForTesting;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.*;
@@ -28,6 +28,7 @@ import java.security.PrivateKey;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -53,7 +54,7 @@ import org.bouncycastle.pkcs.PKCSException;
  * An implementation of RefreshableTokenSource implementing the JWT client_credentials OAuth grant
  * type.
  */
-public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
+public class JwtPrivateKeyClientCredentials implements TokenSource {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(JwtPrivateKeyClientCredentials.class);
@@ -149,7 +150,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
   }
 
   @Override
-  protected Token refresh() {
+  public Token getToken() {
     Map<String, String> params = new HashMap<>();
     params.put("grant_type", "client_credentials");
     if (scopes != null) {
@@ -182,7 +183,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
       HttpResponse response = hc.execute(postRequest);
       OAuthResponse resp =
           JsonUtil.getMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
-      LocalDateTime expiry = LocalDateTime.now().plus(resp.getExpiresIn(), ChronoUnit.SECONDS);
+      Instant expiry = Instant.now().plus(resp.getExpiresIn(), ChronoUnit.SECONDS);
       return new Token(resp.getAccessToken(), resp.getTokenType(), resp.getRefreshToken(), expiry);
     } catch (IOException | URISyntaxException | DatabricksHttpException e) {
       String errorMessage = "Failed to retrieve custom M2M token: " + e.getMessage();
