@@ -245,7 +245,8 @@ public class MetadataResultConstants {
           PRIMARY_KEY_NAME_COLUMN);
 
   public static List<List<Object>> TABLE_TYPES_ROWS =
-      Arrays.asList(List.of("SYSTEM TABLE"), List.of("TABLE"), List.of("VIEW"));
+      Arrays.asList(
+          List.of("SYSTEM TABLE"), List.of("TABLE"), List.of("VIEW"), List.of("METRIC_VIEW"));
 
   public static List<ResultColumn> TABLE_TYPE_COLUMNS = List.of(TABLE_TYPE_COLUMN);
 

@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.INTERVAL;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MEASURE;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.TypeValConstants.*;
 
@@ -249,9 +250,11 @@ public class MetadataResultSetBuilder {
             // Handle TYPE_NAME separately for potential modifications
             if (mappedColumn.getColumnName().equals(COLUMN_TYPE_COLUMN.getColumnName())) {
               if (typeVal != null
-                  && (typeVal.contains(ARRAY_TYPE)
+                  && (typeVal.contains(MEASURE)
+                      || typeVal.contains(ARRAY_TYPE)
                       || typeVal.contains(
-                          MAP_TYPE))) { // for complex data types, do not strip type name
+                          MAP_TYPE))) { // for complex data types or measure columns, do not strip
+                // type name
                 object = typeVal;
               } else {
                 object = stripTypeName(typeVal);
@@ -867,7 +870,9 @@ public class MetadataResultSetBuilder {
               // Handle TYPE_NAME separately for potential modifications
               if (column.getColumnName().equals(COLUMN_TYPE_COLUMN.getColumnName())) {
                 if (typeVal != null
-                    && (typeVal.contains(ARRAY_TYPE) || typeVal.contains(MAP_TYPE))) {
+                    && (typeVal.contains(MEASURE)
+                        || typeVal.contains(ARRAY_TYPE)
+                        || typeVal.contains(MAP_TYPE))) {
                   object = typeVal;
                 } else {
                   object = stripTypeName(typeVal);

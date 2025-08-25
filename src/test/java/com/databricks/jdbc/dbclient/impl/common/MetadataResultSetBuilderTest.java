@@ -256,7 +256,8 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("DECIMAL", "DECIMAL"),
         Arguments.of("DECIMAL(6,2)", "DECIMAL"),
         Arguments.of("MAP<STRING, ARRAY<STRING>>", "MAP<STRING, ARRAY<STRING>>"),
-        Arguments.of("ARRAY<DOUBLE>", "ARRAY<DOUBLE>"));
+        Arguments.of("ARRAY<DOUBLE>", "ARRAY<DOUBLE>"),
+        Arguments.of("BINGINT measure", "BINGINT measure"));
   }
 
   @ParameterizedTest
@@ -308,6 +309,16 @@ public class MetadataResultSetBuilderTest {
     List<Object> updatedRow = updatedRows.get(0);
     assertEquals("VARCHAR", updatedRow.get(0));
     assertNull(updatedRow.get(1));
+  }
+
+  @Test
+  void testGetThriftRowsMeasureColumn() {
+    List<ResultColumn> columns = List.of(COLUMN_TYPE_COLUMN);
+    List<Object> row = List.of("DECIMAL(6,2) measure");
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(List.of(row), columns);
+    List<Object> updatedRow = updatedRows.get(0);
+    // verify that type name for measure column is not stripped
+    assertEquals("DECIMAL(6,2) measure", updatedRow.get(0));
   }
 
   @ParameterizedTest

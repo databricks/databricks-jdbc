@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATIO
 import static com.databricks.jdbc.common.MetadataResultConstants.LARGE_DISPLAY_COLUMNS;
 import static com.databricks.jdbc.common.MetadataResultConstants.REMARKS_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MEASURE;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP_NTZ;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
@@ -205,6 +206,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                 .columnTypeClassName("java.lang.String")
                 .columnType(Types.OTHER)
                 .columnTypeText(VARIANT);
+          }
+          if (isMeasureColumn(arrowMetadata, columnIndex)) {
+            columnBuilder.columnTypeText(arrowMetadata.get(columnIndex));
           }
           columnsBuilder.add(columnBuilder.build());
           columnNameToIndexMap.putIfAbsent(columnInfo.getName(), ++currIndex);
@@ -640,6 +644,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         && arrowMetadata.size() > i
         && arrowMetadata.get(i) != null
         && arrowMetadata.get(i).equalsIgnoreCase(VARIANT);
+  }
+
+  private boolean isMeasureColumn(List<String> arrowMetadata, int i) {
+    return arrowMetadata != null
+        && arrowMetadata.size() > i
+        && arrowMetadata.get(i) != null
+        && arrowMetadata.get(i).contains(MEASURE);
   }
 
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {

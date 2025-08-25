@@ -287,6 +287,42 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
+  public void testColumnsWithMeasureTypeThrift() throws Exception {
+    TGetResultSetMetadataResp resultManifest = getThriftResultManifest();
+    TColumnDesc columnDesc = new TColumnDesc().setColumnName("testCol");
+    TTypeDesc typeDesc = new TTypeDesc();
+    TTypeEntry typeEntry = new TTypeEntry();
+    TPrimitiveTypeEntry primitiveEntry = new TPrimitiveTypeEntry(TTypeId.BIGINT_TYPE);
+    typeEntry.setPrimitiveEntry(primitiveEntry);
+    typeDesc.setTypes(Collections.singletonList(typeEntry));
+    columnDesc.setTypeDesc(typeDesc);
+    TTableSchema schema = new TTableSchema().setColumns(Collections.singletonList(columnDesc));
+    resultManifest.setSchema(schema);
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(
+            THRIFT_STATEMENT_ID,
+            resultManifest,
+            1,
+            1,
+            List.of("BIGINT measure"),
+            connectionContext);
+    assertEquals(1, metaData.getColumnCount());
+    assertEquals("testCol", metaData.getColumnName(1));
+    assertEquals(1, metaData.getTotalRows());
+    assertEquals(1, metaData.getColumnNameIndex("testCol"));
+    assertEquals(1, metaData.getColumnNameIndex("TESTCol"));
+    assertEquals(Types.BIGINT, metaData.getColumnType(1));
+    assertEquals("BIGINT measure", metaData.getColumnTypeName(1));
+
+    List<String> nullArrowMetadata = Collections.singletonList(null);
+    metaData =
+        new DatabricksResultSetMetaData(
+            THRIFT_STATEMENT_ID, resultManifest, 1, 1, nullArrowMetadata, connectionContext);
+    assertEquals(Types.BIGINT, metaData.getColumnType(1));
+    assertEquals("BIGINT", metaData.getColumnTypeName(1));
+  }
+
+  @Test
   public void testThriftColumns() throws SQLException {
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(

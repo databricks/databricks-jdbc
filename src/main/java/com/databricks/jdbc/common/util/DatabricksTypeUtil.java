@@ -55,6 +55,7 @@ public class DatabricksTypeUtil {
   public static final String VARIANT = "VARIANT";
   public static final String CHAR = "CHAR";
   public static final String INTERVAL = "INTERVAL";
+  public static final String MEASURE = "measure";
   private static final ArrayList<ColumnInfoTypeName> SIGNED_TYPES =
       new ArrayList<>(
           Arrays.asList(

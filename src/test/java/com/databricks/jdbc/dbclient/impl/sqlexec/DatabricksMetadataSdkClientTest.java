@@ -201,7 +201,7 @@ public class DatabricksMetadataSdkClientTest {
     DatabricksResultSet actualResult = metadataClient.listTableTypes(session);
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
     assertEquals(actualResult.getStatementId(), GET_TABLE_TYPE_STATEMENT_ID);
-    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 3);
+    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 4);
   }
 
   @ParameterizedTest
