@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
-import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
@@ -66,7 +65,6 @@ public class UCVolumeInputStreamTests {
       inputStream.getContent().close();
 
       assertTrue(client.objectExists(VOL_CATALOG, VOL_SCHEMA, VOL_ROOT, VOLUME_FILE, false));
-      con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
       client.deleteObject(VOL_CATALOG, VOL_SCHEMA, VOL_ROOT, VOLUME_FILE);
       assertFalse(client.objectExists(VOL_CATALOG, VOL_SCHEMA, VOL_ROOT, VOLUME_FILE, false));
     } finally {

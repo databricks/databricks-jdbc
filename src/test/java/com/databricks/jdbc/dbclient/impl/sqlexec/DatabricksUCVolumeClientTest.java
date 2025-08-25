@@ -487,6 +487,7 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
+    when(statement.unwrap(IDatabricksStatementInternal.class)).thenReturn(databricksStatement);
     String deleteObjectQuery =
         String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
     when(statement.executeQuery(deleteObjectQuery)).thenReturn(resultSet);
@@ -510,6 +511,7 @@ public class DatabricksUCVolumeClientTest {
     DatabricksUCVolumeClient client = new DatabricksUCVolumeClient(connection);
 
     when(connection.createStatement()).thenReturn(statement);
+    when(statement.unwrap(IDatabricksStatementInternal.class)).thenReturn(databricksStatement);
     String deleteObjectQuery =
         String.format("REMOVE '/Volumes/%s/%s/%s/%s'", catalog, schema, volume, objectPath);
     when(statement.executeQuery(deleteObjectQuery))

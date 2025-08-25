@@ -451,6 +451,9 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
     boolean isOperationSucceeded = false;
 
     try (Statement statement = connection.createStatement()) {
+      IDatabricksStatementInternal databricksStatement =
+          statement.unwrap(IDatabricksStatementInternal.class);
+      databricksStatement.allowInputStreamForVolumeOperation(true);
       try (ResultSet resultSet = statement.executeQuery(deleteObjectQuery)) {
         LOGGER.info("SQL query executed successfully");
         if (resultSet.next()) {

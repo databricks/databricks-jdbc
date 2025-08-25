@@ -645,6 +645,18 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  public void testShouldReturnResultSet_StartWithBegin() {
+    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN"));
+    assertTrue(DatabricksStatement.shouldReturnResultSet("   begin   "));
+    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN; WORK; END"));
+    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN; SELECT 1"));
+    // Not supporting for transaction statements
+    assertFalse(DatabricksStatement.shouldReturnResultSet("BEGIN TRANSACTION"));
+    assertFalse(DatabricksStatement.shouldReturnResultSet("   BeGiN    TRANSACTION"));
+    assertFalse(DatabricksStatement.shouldReturnResultSet("BEGIN    transaction "));
+  }
+
+  @Test
   public void testIsSelectQuery() {
     String query =
         "-- Single-line comment\n/* Multi-line comment */ SELECT * FROM table; /* Another comment */ -- End comment";

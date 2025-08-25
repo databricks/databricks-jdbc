@@ -91,7 +91,7 @@ public enum DatabricksJdbcUrlParams {
   ENABLE_TELEMETRY(
       "EnableTelemetry",
       "flag to enable telemetry",
-      "0"), // Note : telemetry enablement also depends on the server flag.
+      "1"), // Note : telemetry enablement also depends on the server flag.
   TELEMETRY_BATCH_SIZE("TelemetryBatchSize", "Batch size for telemetry", "200"),
   MAX_BATCH_SIZE("MaxBatchSize", "Maximum batch size", "500"),
   ALLOWED_VOLUME_INGESTION_PATHS("VolumeOperationAllowedLocalPaths", ""),

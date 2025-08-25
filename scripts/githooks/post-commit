@@ -12,10 +12,23 @@ if ! git diff --quiet; then
     echo "Please 'git add' and 'git commit' these to include formatting changes."
     echo "========================================================================"
     echo
-    # Optional: show the changed files
     git status --short
 else
     echo
     echo "✓ Spotless checked: No further formatting changes needed after commit."
+    echo
+fi
+
+# Check if the latest commit message contains a Signed-off-by: line
+if ! git log -1 --pretty=%B | grep -q "Signed-off-by:"; then
+    echo
+    echo "========================================================================"
+    echo "❗ WARNING: Your last commit is missing a Signed-off-by line."
+    echo "Please amend your commit with 'git commit -s --amend' to add it."
+    echo "========================================================================"
+    echo
+else
+    echo
+    echo "✓ DCO check: Last commit includes a Signed-off-by line."
     echo
 fi
