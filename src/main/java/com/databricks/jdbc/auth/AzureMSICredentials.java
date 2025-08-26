@@ -7,11 +7,11 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OAuthResponse;
-import com.databricks.sdk.core.oauth.RefreshableTokenSource;
 import com.databricks.sdk.core.oauth.Token;
+import com.databricks.sdk.core.oauth.TokenSource;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,14 +22,14 @@ import org.apache.http.client.utils.URIBuilder;
 /**
  * Provides authentication functionality using Azure Managed Service Identity (MSI).
  *
- * <p>This class extends RefreshableTokenSource to handle token retrieval and refreshing for
- * Databricks services running on Azure. It leverages the Azure Instance Metadata Service to obtain
- * OAuth tokens that can be used to authenticate with Databricks and Azure Management endpoints.
+ * <p>This class implements TokenSource to handle token retrieval and refreshing for Databricks
+ * services running on Azure. It leverages the Azure Instance Metadata Service to obtain OAuth
+ * tokens that can be used to authenticate with Databricks and Azure Management endpoints.
  *
  * <p>The class supports both user-assigned and system-assigned managed identities. For
  * user-assigned managed identities, a client ID should be provided.
  */
-public class AzureMSICredentials extends RefreshableTokenSource {
+public class AzureMSICredentials implements TokenSource {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(AzureMSICredentials.class);
 
   /** The Azure Instance Metadata Service endpoint for token retrieval */
@@ -71,7 +71,7 @@ public class AzureMSICredentials extends RefreshableTokenSource {
    * @return A new Token object containing the refreshed access token
    */
   @Override
-  protected Token refresh() {
+  public Token getToken() {
     return getTokenForResource(AZURE_DATABRICKS_SCOPE);
   }
 
@@ -140,7 +140,7 @@ public class AzureMSICredentials extends RefreshableTokenSource {
       HttpResponse response = hc.execute(getRequest);
       OAuthResponse resp =
           JsonUtil.getMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
-      LocalDateTime expiry = LocalDateTime.now().plus(resp.getExpiresIn(), ChronoUnit.SECONDS);
+      Instant expiry = Instant.now().plus(resp.getExpiresIn(), ChronoUnit.SECONDS);
       LOGGER.debug("Azure MSI Token retrieved successfully");
       return new Token(resp.getAccessToken(), resp.getTokenType(), resp.getRefreshToken(), expiry);
     } catch (IOException | URISyntaxException | DatabricksHttpException e) {

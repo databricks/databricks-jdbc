@@ -472,4 +472,15 @@ public class DatabricksConnectionTest {
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> connection.setHoldability(3));
   }
+
+  @Test
+  public void testQueryTagsInSessionConfigs() throws SQLException {
+    String queryTagsJdbcUrl = JDBC_URL + ";QUERY_TAGS=team:marketing,dashboard:abc123";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(queryTagsJdbcUrl, new Properties());
+
+    Map<String, String> sessionConfigs = connectionContext.getSessionConfigs();
+    assertTrue(sessionConfigs.containsKey("query_tags"));
+    assertEquals("team:marketing,dashboard:abc123", sessionConfigs.get("query_tags"));
+  }
 }
