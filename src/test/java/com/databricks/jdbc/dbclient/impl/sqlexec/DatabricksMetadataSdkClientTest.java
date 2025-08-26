@@ -183,9 +183,7 @@ public class DatabricksMetadataSdkClientTest {
     setupCatalogMocks();
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     doReturn(1).when(mockedMetaData).getColumnCount();
-    doReturn(CATALOG_COLUMN_FOR_GET_CATALOGS.getResultSetColumnName())
-        .when(mockedMetaData)
-        .getColumnName(1);
+    doReturn(CATALOG_RESULT_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
     doReturn(255).when(mockedMetaData).getPrecision(1);
     doReturn(0).when(mockedMetaData).getScale(1);
     when(mockedCatalogResultSet.getMetaData()).thenReturn(mockedMetaData);
@@ -399,7 +397,7 @@ public class DatabricksMetadataSdkClientTest {
     doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
     doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
     when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
-    when(mockedResultSet.findColumn(CATALOG_COLUMN_FOR_GET_CATALOGS.getResultSetColumnName()))
+    when(mockedResultSet.findColumn(CATALOG_RESULT_COLUMN.getResultSetColumnName()))
         .thenThrow(DatabricksSQLException.class);
     DatabricksResultSet actualResult = metadataClient.listSchemas(session, TEST_CATALOG, schema);
     assertEquals(
@@ -428,8 +426,7 @@ public class DatabricksMetadataSdkClientTest {
     doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
     doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
     when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
-    when(mockedResultSet.findColumn(CATALOG_COLUMN_FOR_GET_CATALOGS.getResultSetColumnName()))
-        .thenReturn(2);
+    when(mockedResultSet.findColumn(CATALOG_RESULT_COLUMN.getResultSetColumnName())).thenReturn(2);
     DatabricksResultSet actualResult = metadataClient.listSchemas(session, null, "a*");
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
     assertEquals(actualResult.getStatementId(), METADATA_STATEMENT_ID);

@@ -1,7 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
-import static com.databricks.jdbc.common.MetadataResultConstants.CATALOG_COLUMN_FOR_GET_CATALOGS;
 import static com.databricks.jdbc.common.MetadataResultConstants.CATALOG_FULL_COLUMN;
+import static com.databricks.jdbc.common.MetadataResultConstants.CATALOG_RESULT_COLUMN;
 
 import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.ResultSet;
@@ -14,7 +14,7 @@ public class SchemasDatabricksResultSetAdapter implements IDatabricksResultSetAd
     String columnName = column.getResultSetColumnName();
     if (columnName.equals(CATALOG_FULL_COLUMN.getResultSetColumnName())) {
       // Map CATALOG_FULL_COLUMN to CATALOG_COLUMN_FOR_GET_CATALOGS of result set
-      return CATALOG_COLUMN_FOR_GET_CATALOGS;
+      return CATALOG_RESULT_COLUMN;
     } else {
       return column;
     }

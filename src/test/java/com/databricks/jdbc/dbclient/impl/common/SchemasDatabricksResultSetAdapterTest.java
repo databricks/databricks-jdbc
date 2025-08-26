@@ -1,7 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
-import static com.databricks.jdbc.common.MetadataResultConstants.CATALOG_COLUMN_FOR_GET_CATALOGS;
 import static com.databricks.jdbc.common.MetadataResultConstants.CATALOG_FULL_COLUMN;
+import static com.databricks.jdbc.common.MetadataResultConstants.CATALOG_RESULT_COLUMN;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -34,7 +34,7 @@ class SchemasDatabricksResultSetAdapterTest {
 
     ResultColumn result = adapter.mapColumn(inputColumn);
 
-    assertSame(CATALOG_COLUMN_FOR_GET_CATALOGS, result);
+    assertSame(CATALOG_RESULT_COLUMN, result);
   }
 
   @Test

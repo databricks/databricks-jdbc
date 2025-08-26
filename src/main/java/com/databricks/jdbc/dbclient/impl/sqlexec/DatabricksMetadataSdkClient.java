@@ -1,7 +1,5 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
-import static com.databricks.jdbc.api.impl.DatabricksDatabaseMetaData.DEFAULT_MAX_THREADS_FETCH_SCHEMAS;
-import static com.databricks.jdbc.api.impl.DatabricksDatabaseMetaData.getOrCreateSchemasThreadPool;
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.GET_TABLES_STATEMENT_ID;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
@@ -24,12 +22,18 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** Implementation for {@link IDatabricksMetadataClient} using {@link IDatabricksClient}. */
 public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksMetadataSdkClient.class);
+  private static final int DEFAULT_MAX_THREADS_FETCH_SCHEMAS = 10;
+  private static final int TASK_TIMEOUT_FETCH_SCHEMAS_SEC = 90;
+  private static final Object THREAD_POOL_LOCK = new Object();
+  private static ExecutorService schemasThreadPool = null;
   private final IDatabricksClient sdkClient;
   private final MetadataResultSetBuilder metadataResultSetBuilder;
 
@@ -270,7 +274,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             session.getConnectionContext(),
             DEFAULT_MAX_THREADS_FETCH_SCHEMAS, // Not significant since the executor is provided as
             // a parameter
-            90, // 90 seconds timeout
+            TASK_TIMEOUT_FETCH_SCHEMAS_SEC,
             c -> {
               List<List<Object>> rows = new ArrayList<>();
               try (ResultSet catalogSchemas =
@@ -294,5 +298,22 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         schemaRows,
         METADATA_STATEMENT_ID,
         com.databricks.jdbc.common.CommandName.LIST_SCHEMAS);
+  }
+
+  public static ExecutorService getOrCreateSchemasThreadPool() {
+    synchronized (THREAD_POOL_LOCK) {
+      if (schemasThreadPool == null || schemasThreadPool.isShutdown()) {
+        // Could read max threads from a configuration property
+        schemasThreadPool =
+            Executors.newFixedThreadPool(
+                DEFAULT_MAX_THREADS_FETCH_SCHEMAS,
+                r -> {
+                  Thread t = new Thread(r, "jdbc-schemas-fetcher");
+                  t.setDaemon(true);
+                  return t;
+                });
+      }
+      return schemasThreadPool;
+    }
   }
 }

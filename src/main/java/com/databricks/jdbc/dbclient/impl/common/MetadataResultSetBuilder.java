@@ -583,7 +583,7 @@ public class MetadataResultSetBuilder {
 
         if (mappedColumn
             .getResultSetColumnName()
-            .equals(CATALOG_COLUMN_FOR_GET_CATALOGS.getResultSetColumnName())) {
+            .equals(CATALOG_RESULT_COLUMN.getResultSetColumnName())) {
           try {
             resultSet.findColumn(mappedColumn.getResultSetColumnName());
           } catch (SQLException e) {

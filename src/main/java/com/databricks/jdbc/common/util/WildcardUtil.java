@@ -22,7 +22,7 @@ public class WildcardUtil {
   }
 
   public static boolean isNullOrWildcard(String s) {
-    return s == null || isWildcard(s);
+    return s == null || isWildcard(s) || s.equals("%");
   }
 
   /**

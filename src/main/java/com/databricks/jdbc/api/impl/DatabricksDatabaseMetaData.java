@@ -19,8 +19,6 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.*;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
@@ -39,9 +37,6 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public static final String SYSTEM_FUNCTIONS = "DATABASE,IFNULL,USER";
   public static final String TIME_DATE_FUNCTIONS =
       "CURDATE,CURRENT_DATE,CURRENT_TIME,CURRENT_TIMESTAMP,CURTIME,DAYNAME,DAYOFMONTH,DAYOFWEEK,DAYOFYEAR,HOUR,MINUTE,MONTH,MONTHNAME,NOW,QUARTER,SECOND,TIMESTAMPADD,TIMESTAMPDIFF,WEEK,YEAR";
-  public static final int DEFAULT_MAX_THREADS_FETCH_SCHEMAS = 10;
-  private static final Object THREAD_POOL_LOCK = new Object();
-  private static ExecutorService schemasThreadPool = null;
   private final IDatabricksConnectionInternal connection;
   private final IDatabricksSession session;
   private final MetadataResultSetBuilder metadataResultSetBuilder;
@@ -1614,23 +1609,6 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug("public boolean isWrapperFor(Class<?> iface = {})", iface);
 
     return iface != null && iface.isAssignableFrom(this.getClass());
-  }
-
-  public static ExecutorService getOrCreateSchemasThreadPool() {
-    synchronized (THREAD_POOL_LOCK) {
-      if (schemasThreadPool == null || schemasThreadPool.isShutdown()) {
-        // Could read max threads from a configuration property
-        schemasThreadPool =
-            Executors.newFixedThreadPool(
-                DEFAULT_MAX_THREADS_FETCH_SCHEMAS,
-                r -> {
-                  Thread t = new Thread(r, "jdbc-schemas-fetcher");
-                  t.setDaemon(true);
-                  return t;
-                });
-      }
-      return schemasThreadPool;
-    }
   }
 
   private void throwExceptionIfConnectionIsClosed() throws SQLException {
