@@ -12,7 +12,9 @@ import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
 import com.databricks.jdbc.model.client.filesystem.VolumePutResult;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.File;
@@ -616,7 +618,8 @@ public class DatabricksDriverExamples {
 
   /**
    * Demonstrates Unity Catalog (UC) volume operations (PUT, GET, DELETE) using InputStream. Assumes
-   * the user has privileges to ingest to UC volumes, and the volume path is valid.
+   * the user has privileges to ingest to UC volumes, and the volume path is valid and
+   * enableVolumeOperations is set true in client properties
    */
   @Test
   void exampleUCVolumeUsingInputStream() throws Exception {
@@ -626,7 +629,9 @@ public class DatabricksDriverExamples {
     String jdbcUrl = JDBC_URL_WAREHOUSE;
 
     Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
-
+    // Example setting an allowed ingestion path
+    con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
+    con.setClientInfo(DatabricksJdbcConstants.ENABLE_VOLUME_OPERATIONS, "1");
     System.out.println("Connection created.");
 
     var client = DatabricksVolumeClientFactory.getVolumeClient(con);
@@ -675,10 +680,12 @@ public class DatabricksDriverExamples {
   @Test
   void examplePutFiles() throws Exception {
 
+    Properties p = new Properties();
+    p.setProperty(DatabricksJdbcConstants.ENABLE_VOLUME_OPERATIONS, "1");
+    p.setProperty("PWD", DATABRICKS_TOKEN);
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(JDBC_URL_WAREHOUSE, "token", DATABRICKS_TOKEN);
+        DatabricksConnectionContextFactory.create(JDBC_URL_WAREHOUSE, p);
     var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
-
     int numFiles = 2;
     List<String> objectPaths = new ArrayList<>();
     List<String> localPaths = new ArrayList<>();
@@ -720,7 +727,8 @@ public class DatabricksDriverExamples {
 
   /**
    * Demonstrates DBFS volume operations (PUT, GET, LIST, DELETE) using streams. Replace the
-   * relevant path or volume name if you use a different setup.
+   * relevant path or volume name if you use a different setup. Enable enableVolumeOperations client
+   * property to perform these operations
    */
   @Test
   void exampleDBFSVolumeOperationUsingStream() throws Exception {
@@ -728,9 +736,11 @@ public class DatabricksDriverExamples {
 
     // You can replace the token if using a different workspace/token
     String jdbcUrl = JDBC_URL_WAREHOUSE + "Loglevel=debug;";
-
+    Properties p = new Properties();
+    p.setProperty(DatabricksJdbcConstants.ENABLE_VOLUME_OPERATIONS, "1");
+    p.setProperty("PWD", DATABRICKS_TOKEN);
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(jdbcUrl, "token", DATABRICKS_TOKEN);
+        DatabricksConnectionContextFactory.create(jdbcUrl, p);
     var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
     File file = new File("/tmp/put.txt");
@@ -769,16 +779,18 @@ public class DatabricksDriverExamples {
 
   /**
    * Demonstrates DBFS volume operations with local file paths instead of streams. (PUT, GET, LIST,
-   * DELETE)
+   * DELETE) Enable enableVolumeOperations client property to perform these operations
    */
   @Test
   void exampleDBFSVolumeOperation() throws Exception {
     System.out.println("Starting DBFS volume test...");
 
     String jdbcUrl = JDBC_URL_WAREHOUSE + "Loglevel=debug;VolumeOperationAllowedLocalPaths=/tmp;";
-
+    Properties p = new Properties();
+    p.setProperty(DatabricksJdbcConstants.ENABLE_VOLUME_OPERATIONS, "1");
+    p.setProperty("PWD", DATABRICKS_TOKEN);
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(jdbcUrl, "token", DATABRICKS_TOKEN);
+        DatabricksConnectionContextFactory.create(jdbcUrl, p);
     var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
     File file = new File("/tmp/put.txt");
@@ -818,6 +830,63 @@ public class DatabricksDriverExamples {
     } finally {
       file.delete();
       fileGet.delete();
+    }
+  }
+
+  /**
+   * Demonstrates DBFS volume operations(GET/PUT/DELETE) with stream failing without
+   * enableVolumeOperations in client properties Setting this property from jdbcrUrl will not work.
+   */
+  @Test
+  void exampleDBFSVolumeOperationWithoutVolumeOperationsEnabled() throws Exception {
+    System.out.println("Starting DBFS volume test...");
+
+    // You can replace the token if using a different workspace/token
+    String jdbcUrl = JDBC_URL_WAREHOUSE + "Loglevel=debug;enableVolumeOperations=1";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, "TOKEN", DATABRICKS_TOKEN);
+    var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
+
+    File file = new File("/tmp/put.txt");
+    try {
+      Files.writeString(file.toPath(), "test-put");
+      System.out.println("File created at /tmp/put.txt");
+
+      Exception putEx =
+          assertThrows(
+              DatabricksVolumeOperationException.class,
+              () ->
+                  client.putObject(
+                      "main",
+                      "jdbc_test_schema",
+                      "jdbc_test_volume",
+                      "test-stream.csv",
+                      new FileInputStream(file),
+                      file.length(),
+                      true),
+              "putObject should fail if enableVolumeOperations not present in client properties");
+      System.out.println("putObject failed as expected: " + putEx.getMessage());
+
+      Exception getEx =
+          assertThrows(
+              DatabricksVolumeOperationException.class,
+              () -> {
+                client.getObject("main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv");
+              },
+              "getObject should fail if enableVolumeOperations not present in client properties");
+      System.out.println("getObject failed as expected: " + getEx.getMessage());
+
+      Exception delEx =
+          assertThrows(
+              DatabricksVolumeOperationException.class,
+              () ->
+                  client.deleteObject(
+                      "main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv"),
+              "deleteObject should fail if enableVolumeOperations not present in client properties");
+      System.out.println("deleteObject failed as expected: " + delEx.getMessage());
+
+    } finally {
+      file.delete();
     }
   }
 

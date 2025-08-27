@@ -6,7 +6,8 @@ import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.Token;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -34,7 +35,7 @@ public class EncryptedFileTokenCacheTest {
 
     // Create a token to save
     Token token =
-        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, LocalDateTime.now().plusHours(1));
+        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS));
 
     // Save the token
     tokenCache.save(token);
@@ -50,7 +51,7 @@ public class EncryptedFileTokenCacheTest {
     assertEquals(ACCESS_TOKEN, loadedToken.getAccessToken(), "Access token should match");
     assertEquals(REFRESH_TOKEN, loadedToken.getRefreshToken(), "Refresh token should match");
     assertEquals(TOKEN_TYPE, loadedToken.getTokenType(), "Token type should match");
-    assertFalse(loadedToken.isExpired(), "Token should not be expired");
+    assertFalse(loadedToken.getExpiry().isBefore(Instant.now()), "Token should not be expired");
   }
 
   @Test
@@ -74,7 +75,7 @@ public class EncryptedFileTokenCacheTest {
 
     // Create and save a token
     Token token =
-        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, LocalDateTime.now().plusHours(1));
+        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS));
     tokenCache1.save(token);
 
     // Create a second token cache with a different passphrase
@@ -111,7 +112,7 @@ public class EncryptedFileTokenCacheTest {
 
     // Create a token to save
     Token token =
-        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, LocalDateTime.now().plusHours(1));
+        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS));
 
     // Save the token
     tokenCache.save(token);
