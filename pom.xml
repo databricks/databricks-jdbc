@@ -560,9 +560,13 @@
               </transformers>
             </configuration>
           </execution>
-
         </executions>
       </plugin>
+      <!-- 
+        Following approach: Install two separate artifacts with different artifactIds
+        - databricks-jdbc (uber JAR): Self-contained with minimal POM (no dependencies)
+        - databricks-jdbc-thin (thin JAR): Requires external dependencies listed in POM
+      -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-install-plugin</artifactId>
@@ -572,7 +576,9 @@
           <execution>
             <id>default-install</id>
             <phase>install</phase>
-            <goals><goal>install</goal></goals>
+            <goals>
+              <goal>install</goal>
+            </goals>
             <configuration>
               <skip>true</skip>
             </configuration>
@@ -685,6 +691,7 @@
             <version>1.6</version>
             <executions>
               <execution>
+                <id>sign-uber-jar</id>
                 <goals>
                   <!-- Refer: https://maven.apache.org/plugins/maven-gpg-plugin/sign-and-deploy-file-mojo.html -->
                   <goal>sign-and-deploy-file</goal>
@@ -696,14 +703,40 @@
                   <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
                   <!-- Prevent gpg from using pinentry programs -->
                   <gpgArguments>
+                    <arg>--batch</arg>
                     <arg>--pinentry-mode</arg>
                     <arg>loopback</arg>
+                    <arg>--no-tty</arg>
+                    <arg>--yes</arg>
                   </gpgArguments>
+                  <passphrase>${env.GPG_PASSPHRASE}</passphrase>
                   <!-- Custom minimal pom file for uber JAR (no dependencies) -->
                   <pomFile>${project.basedir}/uber-minimal-pom.xml</pomFile>
                   <sources>${project.build.directory}/${project.build.finalName}-sources.jar</sources>
                   <javadoc>${project.build.directory}/${project.build.finalName}-javadoc.jar</javadoc>
-                  <!-- Thin JAR will be released separately with different artifactId -->
+                </configuration>
+              </execution>
+              <execution>
+                <id>sign-thin-jar</id>
+                <goals>
+                  <goal>sign-and-deploy-file</goal>
+                </goals>
+                <phase>deploy</phase>
+                <configuration>
+                  <file>${project.build.directory}/${project.build.finalName}-thin.jar</file>
+                  <repositoryId>ossrh</repositoryId>
+                  <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+                  <!-- Prevent gpg from using pinentry programs -->
+                  <gpgArguments>
+                    <arg>--batch</arg>
+                    <arg>--pinentry-mode</arg>
+                    <arg>loopback</arg>
+                    <arg>--no-tty</arg>
+                    <arg>--yes</arg>
+                  </gpgArguments>
+                  <passphrase>${env.GPG_PASSPHRASE}</passphrase>
+                  <!-- Thin JAR with full dependency list -->
+                  <pomFile>${project.basedir}/thin_public_pom.xml</pomFile>
                 </configuration>
               </execution>
             </executions>
@@ -713,6 +746,7 @@
             <artifactId>maven-deploy-plugin</artifactId>
             <version>2.8.2</version>
             <configuration>
+              <!-- Skip default deploy - GPG plugin handles deployment -->
               <skip>true</skip>
             </configuration>
           </plugin>

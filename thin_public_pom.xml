@@ -36,142 +36,167 @@
         <url>https://github.com/databricks/databricks-jdbc</url>
     </scm>
 
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        
+        <!-- Dependency versions - synchronized with main pom.xml -->
+        <arrow.version>17.0.0</arrow.version>
+        <databricks-sdk.version>0.52.0</databricks-sdk.version>
+        <httpclient.version>4.5.14</httpclient.version>
+        <jackson.version>2.18.3</jackson.version>
+        <slf4j.version>2.0.13</slf4j.version>
+        <google.guava.version>33.0.0-jre</google.guava.version>
+        <jakarta.annotation.version>1.3.5</jakarta.annotation.version>
+        <async-httpclient.version>5.3.1</async-httpclient.version>
+        <netty.version>4.2.0.Final</netty.version>
+        <bouncycastle.version>1.78.1</bouncycastle.version>
+        <commons-lang3.version>3.0.1</commons-lang3.version>
+        <logback.version>1.8.0</logback.version>
+        <okio.version>1.71.0</okio.version>
+        <okhttp.version>10.0.2</okhttp.version>
+        <thrift.version>2.14.0</thrift.version>
+        <zstd-jni.version>2.10.1</zstd-jni.version>
+        <commons-io.version>0.19.0</commons-io.version>
+    </properties>
+
     <dependencies>
         <!-- Core SDK -->
         <dependency>
             <groupId>com.databricks</groupId>
             <artifactId>databricks-sdk-java</artifactId>
-            <version>0.52.0</version>
+            <version>${databricks-sdk.version}</version>
         </dependency>
         <!-- Configuration -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-configuration2</artifactId>
-            <version>2.10.1</version>
+            <version>${zstd-jni.version}</version>
         </dependency>
         <!-- Apache Arrow -->
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-core</artifactId>
-            <version>17.0.0</version>
+            <version>${arrow.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-unsafe</artifactId>
-            <version>17.0.0</version>
+            <version>${arrow.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
-            <version>17.0.0</version>
+            <version>${arrow.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-netty</artifactId>
-            <version>17.0.0</version>
+            <version>${arrow.version}</version>
         </dependency>
         <!-- HTTP / Thrift -->
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.5.14</version>
+            <version>${httpclient.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.thrift</groupId>
             <artifactId>libthrift</artifactId>
-            <version>0.19.0</version>
+            <version>${commons-io.version}</version>
         </dependency>
         <!-- Logging API -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>2.0.13</version>
+            <version>${slf4j.version}</version>
         </dependency>
         <!-- Utilities -->
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.14.0</version>
+            <version>${thrift.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>annotations</artifactId>
-            <version>3.0.1</version>
+            <version>${commons-lang3.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.0.0-jre</version>
+            <version>${google.guava.version}</version>
         </dependency>
         <!-- JSON and JWT -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>2.18.3</version>
+            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.18.3</version>
+            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>2.18.3</version>
+            <version>${jackson.version}</version>
         </dependency>
         <dependency>
             <groupId>com.nimbusds</groupId>
             <artifactId>nimbus-jose-jwt</artifactId>
-            <version>10.0.2</version>
+            <version>${okhttp.version}</version>
         </dependency>
         <!-- Crypto -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.78.1</version>
+            <version>${bouncycastle.version}</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
-            <version>1.78.1</version>
+            <version>${bouncycastle.version}</version>
         </dependency>
         <!-- LZ4, Netty, GRPC -->
         <dependency>
             <groupId>org.lz4</groupId>
             <artifactId>lz4-java</artifactId>
-            <version>1.8.0</version>
+            <version>${logback.version}</version>
         </dependency>
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-context</artifactId>
-            <version>1.71.0</version>
+            <version>${okio.version}</version>
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-common</artifactId>
-            <version>4.2.0.Final</version>
+            <version>${netty.version}</version>
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-buffer</artifactId>
-            <version>4.2.0.Final</version>
+            <version>${netty.version}</version>
         </dependency>
         <!-- Async HTTP (for Edge cases) -->
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
-            <version>5.3.1</version>
+            <version>${async-httpclient.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents.core5</groupId>
             <artifactId>httpcore5</artifactId>
-            <version>5.3.1</version>
+            <version>${async-httpclient.version}</version>
         </dependency>
         <!-- Jakarta Annotations -->
         <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
-            <version>1.3.5</version>
+            <version>${jakarta.annotation.version}</version>
         </dependency>
     </dependencies>
 </project>
