@@ -7,6 +7,7 @@ import java.nio.file.Paths;
 import java.util.Set;
 import java.util.logging.*;
 import java.util.stream.Stream;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * The {@code JulLogger} class provides an implementation of the {@link JdbcLogger} interface using
@@ -27,9 +28,13 @@ public class JulLogger implements JdbcLogger {
 
   private static final String DEFAULT_PACKAGE_PREFIX = "com.databricks.jdbc";
 
+  private static final String DEFAULT_DRIVER_PACKAGE_PREFIX = "com.databricks.client.jdbc";
+
   public static final String STDOUT = "STDOUT";
 
   public static final String PARENT_CLASS_PREFIX = getPackagePrefix();
+
+  public static final String DRIVER_CLASS_PREFIX = getDriverPackagePrefix();
 
   public static final String DATABRICKS_LOG_FILE = "databricks_jdbc.log";
 
@@ -130,9 +135,14 @@ public class JulLogger implements JdbcLogger {
       // java.util.logging uses hierarchical loggers, so we just need to set the log level on the
       // parent package logger
       Logger jdbcJulLogger = Logger.getLogger(PARENT_CLASS_PREFIX);
-
       jdbcJulLogger.setLevel(level);
       jdbcJulLogger.setUseParentHandlers(false);
+
+      // Jdbc client driver is present in a different namespace and hence need to configure its
+      // logger separately
+      Logger jdbcDriverJulLogger = Logger.getLogger(DRIVER_CLASS_PREFIX);
+      jdbcDriverJulLogger.setLevel(level);
+      jdbcDriverJulLogger.setUseParentHandlers(false);
 
       String logPattern = getLogPattern(logDir);
       Handler handler;
@@ -152,6 +162,7 @@ public class JulLogger implements JdbcLogger {
       handler.setLevel(level);
       handler.setFormatter(new Slf4jFormatter());
       jdbcJulLogger.addHandler(handler);
+      jdbcDriverJulLogger.addHandler(handler);
     }
   }
 
@@ -223,6 +234,14 @@ public class JulLogger implements JdbcLogger {
       return prefix;
     }
     return DEFAULT_PACKAGE_PREFIX;
+  }
+
+  private static String getDriverPackagePrefix() {
+    String prefix = System.getenv("JDBC_DRIVER_PACKAGE_PREFIX");
+    if (StringUtils.isNotEmpty(prefix)) {
+      return prefix;
+    }
+    return DEFAULT_DRIVER_PACKAGE_PREFIX;
   }
 
   private String slf4jToJavaFormat(String format) {
