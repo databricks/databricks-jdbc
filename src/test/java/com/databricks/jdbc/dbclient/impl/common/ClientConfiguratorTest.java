@@ -25,6 +25,7 @@ import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.utils.Cloud;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -453,6 +454,7 @@ public class ClientConfiguratorTest {
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
     assertEquals(List.of("scope1", "scope2"), config.getScopes());
+    assertEquals(Duration.ofHours(1), config.getOAuthBrowserAuthTimeout());
     assertEquals("http://localhost:" + testPort, config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
   }

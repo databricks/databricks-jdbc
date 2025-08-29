@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -196,6 +197,8 @@ public class ClientConfigurator {
         .setAuthType(DatabricksJdbcConstants.U2M_AUTH_TYPE)
         .setHost(host)
         .setClientId(clientId)
+        .setOAuthBrowserAuthTimeout(
+            Duration.ofHours(1)) // TODO : add a browser timeout connection config
         .setClientSecret(connectionContext.getClientSecret())
         .setOAuthRedirectUrl(redirectUrl);
 
