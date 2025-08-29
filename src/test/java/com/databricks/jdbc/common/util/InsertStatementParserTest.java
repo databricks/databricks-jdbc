@@ -117,7 +117,7 @@ class InsertStatementParserTest {
   }
 
   @Test
-  void testGenerateMultiRowInsert() {
+  void testGenerateMultiRowInsert() throws Exception {
     InsertInfo info =
         InsertStatementParser.parseInsert("INSERT INTO users (id, name, email) VALUES (?, ?, ?)");
     assertNotNull(info);
@@ -128,7 +128,7 @@ class InsertStatementParserTest {
   }
 
   @Test
-  void testGenerateMultiRowInsertSingleRow() {
+  void testGenerateMultiRowInsertSingleRow() throws Exception {
     InsertInfo info =
         InsertStatementParser.parseInsert("INSERT INTO users (id, name) VALUES (?, ?)");
     assertNotNull(info);
@@ -144,9 +144,10 @@ class InsertStatementParserTest {
         InsertStatementParser.parseInsert("INSERT INTO users (id, name) VALUES (?, ?)");
     assertNotNull(info);
 
-    assertNull(InsertStatementParser.generateMultiRowInsert(null, 3));
-    assertNull(InsertStatementParser.generateMultiRowInsert(info, 0));
-    assertNull(InsertStatementParser.generateMultiRowInsert(info, -1));
+    // Test that exceptions are thrown for invalid inputs
+    assertThrows(Exception.class, () -> InsertStatementParser.generateMultiRowInsert(null, 3));
+    assertThrows(Exception.class, () -> InsertStatementParser.generateMultiRowInsert(info, 0));
+    assertThrows(Exception.class, () -> InsertStatementParser.generateMultiRowInsert(info, -1));
   }
 
   @Test

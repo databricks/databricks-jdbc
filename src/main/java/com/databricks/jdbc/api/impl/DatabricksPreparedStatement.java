@@ -107,14 +107,44 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   /**
    * Checks if the current batch can be optimized using multi-row INSERT. All statements must be
    * compatible INSERT operations.
+   *
+   * <p>A batch is eligible for multi-row INSERT optimization when:
+   *
+   * <ul>
+   *   <li>The EnableBatchedInserts connection property is enabled (default: true)
+   *   <li>The SQL statement is an INSERT operation
+   *   <li>The INSERT can be parsed successfully (has table name and column list)
+   *   <li>The batch contains parameter sets for multiple rows
+   * </ul>
+   *
+   * <p>Compatible INSERT operations target the same table with the same columns in the same order.
+   * When compatible, multiple individual INSERTs like:
+   *
+   * <pre>
+   *   INSERT INTO users (id, name) VALUES (?, ?)  -- with parameters [1, "Alice"]
+   *   INSERT INTO users (id, name) VALUES (?, ?)  -- with parameters [2, "Bob"]
+   * </pre>
+   *
+   * Are combined into a single multi-row INSERT:
+   *
+   * <pre>
+   *   INSERT INTO users (id, name) VALUES (?, ?), (?, ?)  -- with parameters [1, "Alice", 2, "Bob"]
+   * </pre>
    */
   private boolean canUseBatchedInsert() {
-    if (!DatabricksStatement.isInsertQuery(sql)) {
+    // Check if batched inserts are enabled via connection property
+    if (!connection.getConnectionContext().isBatchedInsertsEnabled()) {
       return false;
     }
 
-    InsertStatementParser.InsertInfo insertInfo = InsertStatementParser.parseInsert(sql);
-    return insertInfo != null && !databricksBatchParameterMetaData.isEmpty();
+    // Use strict exception-based parsing for better error handling
+    try {
+      InsertStatementParser.parseInsertStrict(sql);
+      return !databricksBatchParameterMetaData.isEmpty();
+    } catch (Exception e) {
+      // Not a valid INSERT statement suitable for batching
+      return false;
+    }
   }
 
   /** Executes the batch as a single multi-row INSERT statement. */
@@ -122,11 +152,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("Executing batched INSERT with {} rows", databricksBatchParameterMetaData.size());
 
     try {
-      InsertStatementParser.InsertInfo insertInfo = InsertStatementParser.parseInsert(sql);
-      if (insertInfo == null) {
-        throw new DatabricksSQLException(
-            "Unable to parse INSERT statement", DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION);
-      }
+      InsertStatementParser.InsertInfo insertInfo = InsertStatementParser.parseInsertStrict(sql);
 
       // Calculate how many rows we can fit in one chunk based on parameter limit
       int parametersPerRow = insertInfo.getColumnCount();

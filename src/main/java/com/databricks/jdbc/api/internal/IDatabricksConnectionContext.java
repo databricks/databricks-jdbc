@@ -350,4 +350,7 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the HTTP connection request timeout in seconds */
   Integer getHttpConnectionRequestTimeout();
+
+  /** Returns whether batched INSERT optimization is enabled */
+  boolean isBatchedInsertsEnabled();
 }
