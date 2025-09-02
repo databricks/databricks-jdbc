@@ -436,7 +436,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       String catalog,
       String schemaNamePattern,
       String functionNamePattern)
-      throws DatabricksSQLException {
+      throws SQLException {
     String context =
         String.format(
             "Fetching functions using Thrift client. Session {%s}, catalog {%s}, schemaNamePattern {%s}, functionNamePattern {%s}.",

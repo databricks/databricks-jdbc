@@ -82,19 +82,19 @@ public class DatabricksMetadataSdkClientTest {
   private static Stream<Arguments> listFunctionsTestParams() {
     return Stream.of(
         Arguments.of(
-            "SHOW FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema' LIKE 'functionPattern'",
+            "SHOW USER FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema' LIKE 'functionPattern'",
             TEST_CATALOG,
             TEST_SCHEMA,
             TEST_FUNCTION_PATTERN,
             "test for get functions"),
         Arguments.of(
-            "SHOW FUNCTIONS IN CATALOG catalog1 LIKE 'functionPattern'",
+            "SHOW USER FUNCTIONS IN CATALOG catalog1 LIKE 'functionPattern'",
             TEST_CATALOG,
             null,
             TEST_FUNCTION_PATTERN,
             "test for get functions without schema"),
         Arguments.of(
-            "SHOW FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema'",
+            "SHOW USER FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema'",
             TEST_CATALOG,
             TEST_SCHEMA,
             null,
@@ -742,7 +742,7 @@ public class DatabricksMetadataSdkClientTest {
 
   @ParameterizedTest
   @MethodSource("listFunctionsTestParams")
-  void testTestFunctions(
+  void testGetFunctions(
       String sql, String catalog, String schema, String functionPattern, String description)
       throws SQLException {
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
@@ -768,7 +768,6 @@ public class DatabricksMetadataSdkClientTest {
     when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
     DatabricksResultSet actualResult =
         metadataClient.listFunctions(session, catalog, schema, functionPattern);
-
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
     assertEquals(actualResult.getStatementId(), GET_FUNCTIONS_STATEMENT_ID, description);

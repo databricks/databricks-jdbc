@@ -9,31 +9,40 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
 import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class DatabricksDatabaseMetaDataTest {
+  @Mock IDatabricksConnectionInternal connection;
+  @Mock IDatabricksSession session;
+  @Mock IDatabricksMetadataClient metadataClient;
+  @Mock DatabricksConnectionContext connectionContext;
+  @Mock DatabricksThriftServiceClient client;
+  @Mock ResultSetMetaData resultSetMetaData;
+  @Mock DatabricksResultSet resultSet;
 
-  private IDatabricksConnectionInternal connection;
-  private IDatabricksSession session;
-  private DatabricksDatabaseMetaData metaData;
-  private IDatabricksMetadataClient metadataClient;
+  DatabricksDatabaseMetaData metaData;
 
   @BeforeEach
   public void setup() throws SQLException {
-    connection = Mockito.mock(IDatabricksConnectionInternal.class);
-    session = Mockito.mock(IDatabricksSession.class);
     when(connection.getSession()).thenReturn(session);
     metaData = new DatabricksDatabaseMetaData(connection);
-    metadataClient = Mockito.mock(IDatabricksMetadataClient.class);
     when(session.getDatabricksMetadataClient()).thenReturn(metadataClient);
     when(metadataClient.listTables(any(), any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
@@ -42,6 +51,8 @@ public class DatabricksDatabaseMetaDataTest {
     when(metadataClient.listSchemas(any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL, new Properties()));
+    when(connection.getConnectionContext())
         .thenReturn(DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL, new Properties()));
     when(metadataClient.listCatalogs(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listTableTypes(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
@@ -67,7 +78,7 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
-  public void getDatabaseProductName_throwsExceptionWhenConnectionIsClosed() throws Exception {
+  public void getDatabaseProductName_throwsExceptionWhenConnectionIsClosed() throws SQLException {
     when(connection.getSession().isOpen()).thenReturn(false);
     try {
       metaData.getDatabaseProductName();
@@ -798,12 +809,14 @@ public class DatabricksDatabaseMetaDataTest {
 
   @Test
   public void testGetDriverMajorVersion() {
+    // setup() not needed; method does not depend on connection state
     int result = metaData.getDriverMajorVersion();
     assertEquals(1, result);
   }
 
   @Test
   public void testGetDriverMinorVersion() {
+    // setup() not needed; method does not depend on connection state
     int result = metaData.getDriverMinorVersion();
     assertEquals(0, result);
   }
@@ -1639,5 +1652,39 @@ public class DatabricksDatabaseMetaDataTest {
 
         // Test case 9: Special characters in patterns
         Arguments.of(null, "_test%", "%ENTITY_", "_column%", "Special characters in patterns"));
+  }
+
+  @Test
+  void testGetTablesFunctionsWithShowCommandEnabled() throws SQLException {
+    when(connection.getSession()).thenReturn(session);
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    metaData = new DatabricksDatabaseMetaData(connection);
+    when(session.isOpen()).thenReturn(true);
+    when(connectionContext.enableShowCommandsForGetFunctions()).thenReturn(true);
+    when(resultSetMetaData.getColumnCount()).thenReturn(6);
+    when(resultSetMetaData.getColumnName(1)).thenReturn("functionName");
+    when(resultSetMetaData.getColumnName(2)).thenReturn("namespace");
+    when(resultSetMetaData.getColumnName(3)).thenReturn("catalogName");
+    when(resultSetMetaData.getColumnName(4)).thenReturn("remarks");
+    when(resultSetMetaData.getColumnName(5)).thenReturn("functionType");
+    when(resultSetMetaData.getColumnName(6)).thenReturn("specificName");
+    when(resultSet.getMetaData()).thenReturn(resultSetMetaData);
+    when(resultSet.next()).thenReturn(true, false);
+    when(resultSet.getObject("functionName")).thenReturn("my_fn");
+    when(resultSet.getObject("namespace")).thenReturn(TEST_SCHEMA);
+    when(resultSet.getObject("catalogName")).thenReturn(TEST_CATALOG);
+    when(resultSet.getObject("remarks")).thenReturn("remark");
+    when(resultSet.getObject("functionType")).thenReturn(1);
+    when(resultSet.getObject("specificName")).thenReturn("my_fn");
+    Statement statement = Mockito.mock(Statement.class);
+    when(connection.createStatement()).thenReturn(statement);
+    when(statement.executeQuery("SHOW USER FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema'"))
+        .thenReturn(resultSet);
+    ResultSet out = metaData.getFunctions(TEST_CATALOG, TEST_SCHEMA, null);
+    assertNotNull(out);
+    assertTrue(out.next());
+    assertEquals(TEST_CATALOG, out.getString("FUNCTION_CAT"));
+    assertEquals("my_fn", out.getString("FUNCTION_NAME"));
   }
 }

@@ -19,11 +19,12 @@ public class CommandConstants {
   public static final String SHOW_TABLES_SQL = "SHOW TABLES" + IN_CATALOG_SQL;
   public static final String SHOW_TABLES_IN_ALL_CATALOGS_SQL = "SHOW TABLES" + IN_ALL_CATALOGS_SQL;
   public static final String SHOW_COLUMNS_SQL = "SHOW COLUMNS" + IN_CATALOG_SQL;
-  public static final String SHOW_FUNCTIONS_SQL = "SHOW FUNCTIONS" + IN_CATALOG_SQL;
+  public static final String SHOW_FUNCTIONS_SQL = "SHOW USER FUNCTIONS" + IN_CATALOG_SQL;
   public static final String SHOW_SCHEMAS_IN_ALL_CATALOGS_SQL =
       "SHOW SCHEMAS" + IN_ALL_CATALOGS_SQL;
   public static final String SHOW_PRIMARY_KEYS_SQL =
       "SHOW KEYS" + IN_CATALOG_SQL + IN_ABSOLUTE_SCHEMA_SQL + IN_ABSOLUTE_TABLE_SQL;
   public static final String SHOW_FOREIGN_KEYS_SQL =
       "SHOW FOREIGN KEYS" + IN_CATALOG_SQL + IN_ABSOLUTE_SCHEMA_SQL + IN_ABSOLUTE_TABLE_SQL;
+  public static final String USE_CATALOG_SQL = "USE CATALOG %s";
 }

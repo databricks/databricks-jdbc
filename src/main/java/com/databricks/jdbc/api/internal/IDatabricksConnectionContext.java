@@ -350,4 +350,6 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the HTTP connection request timeout in seconds */
   Integer getHttpConnectionRequestTimeout();
+
+  boolean enableShowCommandsForGetFunctions();
 }

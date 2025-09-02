@@ -6,7 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.util.WildcardUtil;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.sql.SQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -200,7 +200,6 @@ class CommandBuilderTest {
 
     CommandName mockCommand = mock(CommandName.class);
 
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> builder.getSQLString(mockCommand));
+    assertThrows(DatabricksValidationException.class, () -> builder.getSQLString(mockCommand));
   }
 }
