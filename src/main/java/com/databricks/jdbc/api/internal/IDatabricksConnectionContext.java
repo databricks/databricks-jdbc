@@ -89,6 +89,9 @@ public interface IDatabricksConnectionContext {
 
   String getHttpPath();
 
+  /** Returns the value of the EnableSQLValidationForIsValid connection property. */
+  boolean getEnableSQLValidationForIsValid();
+
   String getProxyHost();
 
   int getProxyPort();

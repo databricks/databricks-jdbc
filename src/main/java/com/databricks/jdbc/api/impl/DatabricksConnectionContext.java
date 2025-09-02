@@ -225,6 +225,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcUrlParams.HTTP_PATH);
   }
 
+  public boolean getEnableSQLValidationForIsValid() {
+    LOGGER.debug("String getEnableSQLValidationForIsValid()");
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_VALIDATION_FOR_IS_VALID, "0")
+        .equals("1");
+  }
+
   @Override
   public String getHostForOAuth() {
     return this.host;

@@ -483,4 +483,38 @@ public class DatabricksConnectionTest {
     assertTrue(sessionConfigs.containsKey("query_tags"));
     assertEquals("team:marketing,dashboard:abc123", sessionConfigs.get("query_tags"));
   }
+
+  @Test
+  public void testIsValidWithSQLValidationEnabled() throws SQLException {
+    String jdbcUrlWithValidation = CATALOG_SCHEMA_JDBC_URL + ";EnableSQLValidationForIsValid=1";
+    IDatabricksConnectionContext connectionContextWithValidation =
+        DatabricksConnectionContext.parse(jdbcUrlWithValidation, new Properties());
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContextWithValidation, databricksClient);
+    connection.open();
+    DatabricksConnection spyConnection = spy(connection);
+    DatabricksStatement mockStatement = mock(DatabricksStatement.class);
+    doReturn(mockStatement).when(spyConnection).createStatement();
+    doNothing().when(mockStatement).setQueryTimeout(anyInt());
+    when(mockStatement.execute("SELECT VERSION()")).thenReturn(true);
+
+    assertTrue(spyConnection.isValid(5));
+    verify(spyConnection).createStatement();
+    verify(mockStatement).setQueryTimeout(5);
+    verify(mockStatement).execute("SELECT VERSION()");
+
+    DatabricksStatement mockStatementFail = mock(DatabricksStatement.class);
+    doReturn(mockStatementFail).when(spyConnection).createStatement();
+    doNothing().when(mockStatementFail).setQueryTimeout(anyInt());
+    when(mockStatementFail.execute("SELECT VERSION()"))
+        .thenThrow(new SQLException("Connection lost"));
+
+    assertFalse(spyConnection.isValid(5));
+    verify(mockStatementFail).setQueryTimeout(5);
+    verify(mockStatementFail).execute("SELECT VERSION()");
+
+    connection.close();
+  }
 }

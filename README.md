@@ -91,6 +91,7 @@ Optional parameters:
 - `OAuth2RedirectUrlPort` - Ports for redirect URL (default: 8020)
 - `EnableOIDCDiscovery` - Enable OIDC discovery (default: 1)
 - `OAuthDiscoveryURL` - OIDC discovery endpoint (default: /oidc/.well-known/oauth-authorization-server)
+- `EnableSQLValidationForIsValid` - Enable SQL query based validation in `isValid()` connection checks (default: 0)
 
 ### Logging
 
