@@ -82,19 +82,19 @@ public class DatabricksMetadataSdkClientTest {
   private static Stream<Arguments> listFunctionsTestParams() {
     return Stream.of(
         Arguments.of(
-            "SHOW USER FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema' LIKE 'functionPattern'",
+            "SHOW FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema' LIKE 'functionPattern'",
             TEST_CATALOG,
             TEST_SCHEMA,
             TEST_FUNCTION_PATTERN,
             "test for get functions"),
         Arguments.of(
-            "SHOW USER FUNCTIONS IN CATALOG catalog1 LIKE 'functionPattern'",
+            "SHOW FUNCTIONS IN CATALOG catalog1 LIKE 'functionPattern'",
             TEST_CATALOG,
             null,
             TEST_FUNCTION_PATTERN,
             "test for get functions without schema"),
         Arguments.of(
-            "SHOW USER FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema'",
+            "SHOW FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema'",
             TEST_CATALOG,
             TEST_SCHEMA,
             null,

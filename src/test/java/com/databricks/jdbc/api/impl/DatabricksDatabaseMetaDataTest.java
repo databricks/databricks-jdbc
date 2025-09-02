@@ -1679,7 +1679,7 @@ public class DatabricksDatabaseMetaDataTest {
     when(resultSet.getObject("specificName")).thenReturn("my_fn");
     Statement statement = Mockito.mock(Statement.class);
     when(connection.createStatement()).thenReturn(statement);
-    when(statement.executeQuery("SHOW USER FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema'"))
+    when(statement.executeQuery("SHOW FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema'"))
         .thenReturn(resultSet);
     ResultSet out = metaData.getFunctions(TEST_CATALOG, TEST_SCHEMA, null);
     assertNotNull(out);
