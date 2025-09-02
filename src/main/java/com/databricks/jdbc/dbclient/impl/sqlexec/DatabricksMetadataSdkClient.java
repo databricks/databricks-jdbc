@@ -1,7 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
-import static com.databricks.jdbc.common.MetadataResultConstants.DEFAULT_TABLE_TYPES;
-import static com.databricks.jdbc.common.MetadataResultConstants.PARSE_SYNTAX_ERROR_SQL_STATE;
+import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.GET_TABLES_STATEMENT_ID;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
@@ -10,21 +9,31 @@ import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.MetadataResultConstants;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.util.JdbcThreadUtils;
+import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** Implementation for {@link IDatabricksMetadataClient} using {@link IDatabricksClient}. */
 public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksMetadataSdkClient.class);
+  private static final int DEFAULT_MAX_THREADS_FETCH_SCHEMAS = 10;
+  private static final int TASK_TIMEOUT_FETCH_SCHEMAS_SEC = 90;
+  private static final Object THREAD_POOL_LOCK = new Object();
+  private static ExecutorService schemasThreadPool = null;
   private final IDatabricksClient sdkClient;
   private final MetadataResultSetBuilder metadataResultSetBuilder;
 
@@ -54,7 +63,20 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         new CommandBuilder(catalog, session).setSchemaPattern(schemaNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);
     LOGGER.debug("SQL command to fetch schemas: {}", SQL);
-    return metadataResultSetBuilder.getSchemasResult(getResultSet(SQL, session), catalog);
+    try {
+      return metadataResultSetBuilder.getSchemasResult(getResultSet(SQL, session), catalog);
+    } catch (SQLException e) {
+      if (WildcardUtil.isNullOrWildcard(catalog)
+          && e.getSQLState().equals(PARSE_SYNTAX_ERROR_SQL_STATE)) {
+        // This is a fallback for the case where the SQL command fails with "syntax error at or near
+        // "ALL CATALOGS""
+        // This is a known issue for older DBR versions
+        LOGGER.debug("SQL command failed with syntax error. Fetching schemas across all catalogs.");
+        return fetchSchemasAcrossCatalogs(session, schemaNamePattern);
+      } else {
+        throw e;
+      }
+    }
   }
 
   @Override
@@ -159,7 +181,6 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       if (e.getSQLState().equals(PARSE_SYNTAX_ERROR_SQL_STATE)) {
         // This is a workaround for the issue where the SQL command fails with "syntax error at or
         // near "foreign""
-        // This is a known issue in Databricks for older DBSQL versions
         LOGGER.debug("SQL command failed with syntax error. Returning empty result set.");
         return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
             MetadataResultConstants.IMPORTED_KEYS_COLUMNS,
@@ -232,5 +253,67 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         StatementType.METADATA,
         session,
         null /* parentStatement */);
+  }
+
+  private DatabricksResultSet fetchSchemasAcrossCatalogs(
+      IDatabricksSession session, String schemaPattern) throws SQLException {
+    List<String> catalogList = new ArrayList<>();
+    try (ResultSet catalogs = session.getDatabricksMetadataClient().listCatalogs(session)) {
+      while (catalogs.next()) {
+        String c = catalogs.getString(1);
+        if (c != null && !c.isEmpty()) {
+          catalogList.add(c);
+        }
+      }
+    }
+
+    // Process catalogs in parallel, gathering schema information
+    List<List<Object>> schemaRows =
+        JdbcThreadUtils.parallelFlatMap(
+            catalogList,
+            session.getConnectionContext(),
+            DEFAULT_MAX_THREADS_FETCH_SCHEMAS, // Not significant since the executor is provided as
+            // a parameter
+            TASK_TIMEOUT_FETCH_SCHEMAS_SEC,
+            c -> {
+              List<List<Object>> rows = new ArrayList<>();
+              try (ResultSet catalogSchemas =
+                  session.getDatabricksMetadataClient().listSchemas(session, c, schemaPattern)) {
+                while (catalogSchemas.next()) {
+                  List<Object> schemaRow = new ArrayList<>();
+                  schemaRow.add(catalogSchemas.getString(1)); // TABLE_SCHEM
+                  schemaRow.add(catalogSchemas.getString(2)); // TABLE_CATALOG
+                  rows.add(schemaRow);
+                }
+              } catch (SQLException e) {
+                LOGGER.warn("Error fetching schemas for catalog %s %s", c, e.getMessage());
+              }
+              return rows;
+            },
+            getOrCreateSchemasThreadPool());
+
+    // Convert combined data into a result set
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        SCHEMA_COLUMNS,
+        schemaRows,
+        METADATA_STATEMENT_ID,
+        com.databricks.jdbc.common.CommandName.LIST_SCHEMAS);
+  }
+
+  public static ExecutorService getOrCreateSchemasThreadPool() {
+    synchronized (THREAD_POOL_LOCK) {
+      if (schemasThreadPool == null || schemasThreadPool.isShutdown()) {
+        // Could read max threads from a configuration property
+        schemasThreadPool =
+            Executors.newFixedThreadPool(
+                DEFAULT_MAX_THREADS_FETCH_SCHEMAS,
+                r -> {
+                  Thread t = new Thread(r, "jdbc-schemas-fetcher");
+                  t.setDaemon(true);
+                  return t;
+                });
+      }
+      return schemasThreadPool;
+    }
   }
 }
