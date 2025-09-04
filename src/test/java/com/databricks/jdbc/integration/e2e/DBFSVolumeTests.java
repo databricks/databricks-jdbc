@@ -198,7 +198,7 @@ public class DBFSVolumeTests {
       throws Exception {
     File file = new File(localPath);
     try {
-      Files.writeString(file.toPath(), "test-put");
+      java.nio.file.Files.write(file.toPath(), "test-put".getBytes());
       assertEquals(
           expected, client.putObject(catalog, schema, volume, objectPath, localPath, toOverwrite));
     } catch (Exception e) {
@@ -244,7 +244,7 @@ public class DBFSVolumeTests {
     File downloadedFile = new File(localPathForDownload);
 
     try {
-      Files.writeString(file.toPath(), expectedContent);
+      java.nio.file.Files.write(file.toPath(), expectedContent.getBytes());
 
       assertTrue(
           client.putObject(catalog, schema, volume, objectPath, localPathForUpload, toOverwrite));
@@ -286,7 +286,7 @@ public class DBFSVolumeTests {
 
     File file = new File(localPathForUpload);
     try {
-      Files.writeString(file.toPath(), fileContent);
+      java.nio.file.Files.write(file.toPath(), fileContent.getBytes());
 
       assertTrue(client.putObject(catalog, schema, volume, objectPath, localPathForUpload, false));
       assertTrue(client.deleteObject(catalog, schema, volume, objectPath));

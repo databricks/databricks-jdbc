@@ -21,7 +21,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
@@ -638,7 +637,7 @@ public class DatabricksDriverExamples {
 
     File file = new File("/tmp/put.txt");
     try {
-      Files.writeString(file.toPath(), "test-put");
+      java.nio.file.Files.write(file.toPath(), "test-put".getBytes());
       System.out.println("File created at /tmp/put.txt");
 
       // Put object
@@ -695,7 +694,7 @@ public class DatabricksDriverExamples {
       objectPaths.add(objectPath);
       localPaths.add(localPath);
       File file = new File(localPath);
-      Files.writeString(file.toPath(), "test-put");
+      java.nio.file.Files.write(file.toPath(), "test-put".getBytes());
       System.out.println("File created at " + localPath);
     }
     List<VolumePutResult> results =
@@ -745,7 +744,7 @@ public class DatabricksDriverExamples {
 
     File file = new File("/tmp/put.txt");
     try {
-      Files.writeString(file.toPath(), "test-put");
+      java.nio.file.Files.write(file.toPath(), "test-put".getBytes());
       System.out.println("File created at /tmp/put.txt");
 
       System.out.println(
@@ -797,7 +796,7 @@ public class DatabricksDriverExamples {
     File fileGet = new File("/tmp/dbfs.txt");
 
     try {
-      Files.writeString(file.toPath(), "test-put");
+      java.nio.file.Files.write(file.toPath(), "test-put".getBytes());
       System.out.println("File created at /tmp/put.txt");
 
       System.out.println(
@@ -849,7 +848,7 @@ public class DatabricksDriverExamples {
 
     File file = new File("/tmp/put.txt");
     try {
-      Files.writeString(file.toPath(), "test-put");
+      java.nio.file.Files.write(file.toPath(), "test-put".getBytes());
       System.out.println("File created at /tmp/put.txt");
 
       Exception putEx =

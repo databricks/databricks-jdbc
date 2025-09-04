@@ -442,9 +442,12 @@ public class DatabricksResultSetTest {
     // Test with Calendar argument
     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"));
     Time actualTime = resultSet.getTime(columnIndex, calendar);
-    assertEquals(
-        new Time(OffsetTime.parse("12:30:00+09:00").toEpochSecond(LocalDate.EPOCH) * 1000),
-        actualTime);
+    // Compute epoch millis for the given offset time using Calendar for JDK8
+    java.util.Calendar cal =
+        java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Tokyo"));
+    cal.set(1970, java.util.Calendar.JANUARY, 1, 12, 30, 0);
+    cal.set(java.util.Calendar.MILLISECOND, 0);
+    assertEquals(new Time(cal.getTimeInMillis()), actualTime);
 
     // Test with null Calendar argument
     assertEquals(Time.valueOf("12:30:00"), resultSet.getTime(columnIndex, null));
@@ -543,7 +546,7 @@ public class DatabricksResultSetTest {
 
     // Mock execution result
     when(mockedExecutionResult.getObject(3))
-        .thenReturn(new DatabricksArray(List.of(arrayElements), "ARRAY<STRING>"));
+        .thenReturn(new DatabricksArray(java.util.Arrays.asList(arrayElements), "ARRAY<STRING>"));
     when(mockedResultSetMetadata.getColumnNameIndex("string_array")).thenReturn(4);
 
     // Instantiate result set
@@ -581,7 +584,10 @@ public class DatabricksResultSetTest {
     DatabricksMap<String, Integer> mockMap = mock(DatabricksMap.class);
 
     // Mock execution result
-    when(mockedExecutionResult.getObject(4)).thenReturn(Map.of("key1", 100, "key2", 200));
+    java.util.Map<String, Integer> testMap = new java.util.HashMap<String, Integer>();
+    testMap.put("key1", 100);
+    testMap.put("key2", 200);
+    when(mockedExecutionResult.getObject(4)).thenReturn(testMap);
     when(mockedResultSetMetadata.getColumnNameIndex("int_map")).thenReturn(5);
 
     // Instantiate result set
@@ -782,13 +788,13 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateCharacterStream(1, null));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateBlob(1, InputStream.nullInputStream()));
+        () -> resultSet.updateBlob(1, new ByteArrayInputStream(new byte[0])));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateClob(1, Reader.nullReader()));
+        () -> resultSet.updateClob(1, new StringReader("")));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateNClob(1, Reader.nullReader()));
+        () -> resultSet.updateNClob(1, new StringReader("")));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateNCharacterStream("column", null));
@@ -803,13 +809,13 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateCharacterStream("column", null));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateBlob("column", InputStream.nullInputStream()));
+        () -> resultSet.updateBlob("column", new ByteArrayInputStream(new byte[0])));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateClob("column", Reader.nullReader()));
+        () -> resultSet.updateClob("column", new StringReader("")));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateNClob("column", Reader.nullReader()));
+        () -> resultSet.updateNClob("column", new StringReader("")));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateInt(1, 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateInt("column", 1));
@@ -864,16 +870,16 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateTimestamp("column", new Timestamp(0)));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateAsciiStream(1, InputStream.nullInputStream(), 1));
+        () -> resultSet.updateAsciiStream(1, new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateAsciiStream("column", InputStream.nullInputStream(), 1));
+        () -> resultSet.updateAsciiStream("column", new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateBinaryStream(1, InputStream.nullInputStream(), 1));
+        () -> resultSet.updateBinaryStream(1, new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateBinaryStream("column", InputStream.nullInputStream(), 1));
+        () -> resultSet.updateBinaryStream("column", new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::rowUpdated);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::rowInserted);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::rowDeleted);

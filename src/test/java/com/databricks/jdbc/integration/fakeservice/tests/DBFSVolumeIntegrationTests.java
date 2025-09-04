@@ -215,7 +215,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
       throws Exception {
     File file = new File(localPath);
     try {
-      Files.writeString(file.toPath(), "test-put");
+      java.nio.file.Files.write(file.toPath(), "test-put".getBytes());
       assertEquals(
           expected, client.putObject(catalog, schema, volume, objectPath, localPath, toOverwrite));
     } catch (Exception e) {
@@ -261,7 +261,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
     File downloadedFile = new File(localPathForDownload);
 
     try {
-      Files.writeString(file.toPath(), expectedContent);
+      java.nio.file.Files.write(file.toPath(), expectedContent.getBytes());
 
       assertTrue(
           client.putObject(catalog, schema, volume, objectPath, localPathForUpload, toOverwrite));
@@ -303,7 +303,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
 
     File file = new File(localPathForUpload);
     try {
-      Files.writeString(file.toPath(), fileContent);
+      java.nio.file.Files.write(file.toPath(), fileContent.getBytes());
 
       assertTrue(client.putObject(catalog, schema, volume, objectPath, localPathForUpload, false));
       assertTrue(client.deleteObject(catalog, schema, volume, objectPath));
@@ -456,7 +456,7 @@ public class DBFSVolumeIntegrationTests extends AbstractFakeServiceIntegrationTe
       for (int i = 0; i < inputLocalPaths.size(); i++) {
         String tempPath = "/tmp/multi_upload_" + i + ".txt";
         File file = new File(tempPath);
-        Files.writeString(file.toPath(), "test-content-" + i);
+        java.nio.file.Files.write(file.toPath(), ("test-content-" + i).getBytes());
         localPaths.add(tempPath);
       }
 

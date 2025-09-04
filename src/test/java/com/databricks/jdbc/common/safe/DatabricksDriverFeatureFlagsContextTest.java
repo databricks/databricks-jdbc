@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
@@ -51,8 +50,12 @@ class DatabricksDriverFeatureFlagsContextTest {
   private String createFeatureFlagsJson(String flagName, String flagValue, int ttlSeconds)
       throws Exception {
     ObjectMapper mapper = new ObjectMapper();
-    Map<String, Object> flag = Map.of("name", flagName, "value", flagValue);
-    Map<String, Object> response = Map.of("flags", List.of(flag), "ttlSeconds", ttlSeconds);
+    java.util.Map<String, Object> flag = new java.util.HashMap<String, Object>();
+    flag.put("name", flagName);
+    flag.put("value", flagValue);
+    java.util.Map<String, Object> response = new java.util.HashMap<String, Object>();
+    response.put("flags", java.util.Collections.singletonList(flag));
+    response.put("ttlSeconds", ttlSeconds);
     return mapper.writeValueAsString(response);
   }
 
@@ -78,8 +81,12 @@ class DatabricksDriverFeatureFlagsContextTest {
   private FeatureFlagsResponse createFeatureFlagsResponse(
       String flagName, String flagValue, int ttlSeconds) throws Exception {
     ObjectMapper mapper = new ObjectMapper();
-    Map<String, Object> flag = Map.of("name", flagName, "value", flagValue);
-    Map<String, Object> response = Map.of("flags", List.of(flag), "ttlSeconds", ttlSeconds);
+    java.util.Map<String, Object> flag = new java.util.HashMap<String, Object>();
+    flag.put("name", flagName);
+    flag.put("value", flagValue);
+    java.util.Map<String, Object> response = new java.util.HashMap<String, Object>();
+    response.put("flags", java.util.Collections.singletonList(flag));
+    response.put("ttlSeconds", ttlSeconds);
     return mapper.readValue(mapper.writeValueAsString(response), FeatureFlagsResponse.class);
   }
 

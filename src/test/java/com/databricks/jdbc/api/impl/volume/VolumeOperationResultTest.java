@@ -99,7 +99,13 @@ public class VolumeOperationResultTest {
     File file = new File(LOCAL_FILE_GET);
     assertTrue(file.exists());
     try (FileInputStream fis = new FileInputStream(file)) {
-      String fileContent = new String(fis.readAllBytes());
+      java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+      byte[] buf = new byte[8192];
+      int n;
+      while ((n = fis.read(buf)) != -1) {
+        baos.write(buf, 0, n);
+      }
+      String fileContent = new String(baos.toByteArray());
       assertEquals("test", fileContent);
     } finally {
       assertTrue(file.delete());
@@ -173,8 +179,9 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(2)).thenReturn(HEADERS);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""));
+    java.util.Map<String, String> m = new java.util.HashMap<String, String>();
+    m.put(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), "");
+    when(session.getClientInfoProperties()).thenReturn(m);
     when(session.getConnectionContext()).thenReturn(context);
     when(context.getVolumeOperationAllowedPaths()).thenReturn("");
 
@@ -268,7 +275,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
 
     File file = new File(LOCAL_FILE_GET);
-    Files.writeString(file.toPath(), "test-put");
+    java.nio.file.Files.write(file.toPath(), "test-put".getBytes());
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -348,7 +355,7 @@ public class VolumeOperationResultTest {
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "test-put");
+    java.nio.file.Files.write(file.toPath(), "test-put".getBytes());
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -485,7 +492,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "");
+    java.nio.file.Files.write(file.toPath(), new byte[0]);
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(

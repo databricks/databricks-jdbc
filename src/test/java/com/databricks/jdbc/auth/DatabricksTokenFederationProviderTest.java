@@ -122,14 +122,14 @@ public class DatabricksTokenFederationProviderTest {
 
     Optional<Token> returnedToken =
         databricksTokenFederationProvider.tryTokenExchange("accessToken", "tokenType");
-    assertTrue(returnedToken.isEmpty());
+    assertFalse(returnedToken.isPresent());
   }
 
   @Test
   public void testSameHostNoTokenExchange() throws Exception {
 
-    Map<String, String> testExternalHeaders =
-        Map.of("Authorization", "Bearer " + testJwtTokenString());
+    java.util.Map<String, String> testExternalHeaders = new java.util.HashMap<String, String>();
+    testExternalHeaders.put("Authorization", "Bearer " + testJwtTokenString());
 
     when(mockConfig.getHost()).thenReturn("https://host.com");
     when(mockCredentialsProvider.configure(any())).thenReturn(() -> testExternalHeaders);

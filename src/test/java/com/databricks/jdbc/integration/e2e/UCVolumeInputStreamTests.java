@@ -8,7 +8,6 @@ import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.File;
 import java.io.FileInputStream;
-import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.SQLException;
 import org.apache.http.entity.InputStreamEntity;
@@ -46,7 +45,7 @@ public class UCVolumeInputStreamTests {
 
     File file = new File(LOCAL_FILE);
     try {
-      Files.writeString(file.toPath(), FILE_CONTENT);
+      java.nio.file.Files.write(file.toPath(), FILE_CONTENT.getBytes());
 
       System.out.println("File created");
       System.out.println(

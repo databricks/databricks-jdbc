@@ -74,7 +74,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo col2 = getColumn("col2", ColumnInfoTypeName.STRING, "string");
     ColumnInfo col2dup = getColumn("col2", ColumnInfoTypeName.DOUBLE, "double");
     ColumnInfo col3 = getColumn("col5", null, "double");
-    schema.setColumns(List.of(col1, col2, col2dup, col3));
+    schema.setColumns(java.util.Arrays.asList(col1, col2, col2dup, col3));
     manifest.setSchema(schema);
     return manifest;
   }
@@ -104,11 +104,11 @@ public class DatabricksResultSetMetaDataTest {
     metaData =
         new DatabricksResultSetMetaData(
             STATEMENT_ID,
-            List.of("col1", "col2", "col2"),
-            List.of("int", "string", "double"),
-            List.of(4, 12, 8),
-            List.of(0, 0, 0),
-            List.of(NULLABLE, NULLABLE, NULLABLE),
+            java.util.Arrays.asList("col1", "col2", "col2"),
+            java.util.Arrays.asList("int", "string", "double"),
+            java.util.Arrays.asList(4, 12, 8),
+            java.util.Arrays.asList(0, 0, 0),
+            java.util.Arrays.asList(NULLABLE, NULLABLE, NULLABLE),
             10);
     assertEquals(3, metaData.getColumnCount());
     assertEquals("col1", metaData.getColumnName(1));
@@ -126,7 +126,7 @@ public class DatabricksResultSetMetaDataTest {
     schema.setColumnCount(1L);
 
     ColumnInfo timestampColumnInfo = getColumn("timestamp_ntz", null, "TIMESTAMP_NTZ");
-    schema.setColumns(List.of(timestampColumnInfo));
+    schema.setColumns(java.util.Collections.singletonList(timestampColumnInfo));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -144,8 +144,8 @@ public class DatabricksResultSetMetaDataTest {
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
             STATEMENT_ID,
-            List.of("col1", "col2", "col3"),
-            List.of("INTEGER", "VARCHAR", "DOUBLE"),
+            java.util.Arrays.asList("col1", "col2", "col3"),
+            java.util.Arrays.asList("INTEGER", "VARCHAR", "DOUBLE"),
             new int[] {4, 12, 8},
             new int[] {10, 255, 15},
             new int[] {
@@ -267,7 +267,12 @@ public class DatabricksResultSetMetaDataTest {
     resultManifest.setSchema(schema);
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
-            THRIFT_STATEMENT_ID, resultManifest, 1, 1, List.of(VARIANT), connectionContext);
+            THRIFT_STATEMENT_ID,
+            resultManifest,
+            1,
+            1,
+            java.util.Collections.singletonList(VARIANT),
+            connectionContext);
     assertEquals(1, metaData.getColumnCount());
     assertEquals("testCol", metaData.getColumnName(1));
     assertEquals(1, metaData.getTotalRows());
@@ -342,11 +347,11 @@ public class DatabricksResultSetMetaDataTest {
     metaData =
         new DatabricksResultSetMetaData(
             STATEMENT_ID,
-            List.of("col1", "col2", "col2"),
-            List.of("int", "string", "double"),
-            List.of(4, 12, 8),
-            List.of(0, 0, 0),
-            List.of(NULLABLE, NULLABLE, NULLABLE),
+            java.util.Arrays.asList("col1", "col2", "col2"),
+            java.util.Arrays.asList("int", "string", "double"),
+            java.util.Arrays.asList(4, 12, 8),
+            java.util.Arrays.asList(0, 0, 0),
+            java.util.Arrays.asList(NULLABLE, NULLABLE, NULLABLE),
             10);
     assertEquals(3, metaData.getColumnCount());
     verifyDefaultMetadataProperties(metaData, StatementType.METADATA);

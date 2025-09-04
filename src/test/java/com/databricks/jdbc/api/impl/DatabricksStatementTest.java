@@ -465,7 +465,11 @@ public class DatabricksStatementTest {
     // Empty string
     assertFalse(stmt.isSimpleIdentifier(""));
     // Too long identifier
-    String longIdentifier = "a".repeat(129);
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < 129; i++) {
+      sb.append('a');
+    }
+    String longIdentifier = sb.toString();
     assertFalse(stmt.isSimpleIdentifier(longIdentifier));
   }
 
