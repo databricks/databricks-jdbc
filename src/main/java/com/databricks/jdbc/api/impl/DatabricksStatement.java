@@ -631,6 +631,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       throw new DatabricksSQLException(
           "Identifier is null", DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
+    // If already quoted, return as-is (avoid double-quoting)
+    if (identifier.length() >= 2 && identifier.startsWith("\"") && identifier.endsWith("\"")) {
+      return identifier;
+    }
     try {
       if (!alwaysQuote && isSimpleIdentifier(identifier)) {
         return identifier;
@@ -658,6 +662,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     LOGGER.debug("String isSimpleIdentifier(String identifier = {})", identifier);
     checkIfClosed();
     if (identifier == null || identifier.isEmpty()) {
+      return false;
+    }
+    // Enforce maximum identifier length (128 characters)
+    if (identifier.length() > 128) {
       return false;
     }
     // Simple rule: starts with letter or underscore; contains letters, digits, underscore, or $

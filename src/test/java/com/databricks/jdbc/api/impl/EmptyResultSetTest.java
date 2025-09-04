@@ -214,7 +214,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testGetObjectWithMap() throws SQLException {
-    assertNull(resultSet.getObject(1, new java.util.HashMap<Object, Class<?>>()));
+    assertNull(resultSet.getObject(1, new java.util.HashMap<String, Class<?>>()));
   }
 
   @Test
@@ -239,7 +239,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testGetObjectWithMapAndLabel() throws SQLException {
-    assertNull(resultSet.getObject("column", new java.util.HashMap<Object, Class<?>>()));
+    assertNull(resultSet.getObject("column", new java.util.HashMap<String, Class<?>>()));
   }
 
   @Test
