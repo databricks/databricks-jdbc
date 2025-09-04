@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -101,7 +101,9 @@ public class OAuthEndpointResolverTest {
       when(mockFactory.getClient(any())).thenReturn(httpClient);
       when(httpClient.execute(any(HttpGet.class)))
           .thenThrow(
-              new DatabricksHttpException("Error fetching token endpoint from discovery endpoint"));
+              new DatabricksHttpException(
+                  "Error fetching token endpoint from discovery endpoint",
+                  com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.AUTH_ERROR));
       when(context.isOAuthDiscoveryModeEnabled()).thenReturn(true);
       when(context.getOAuthDiscoveryURL()).thenReturn("https://fake");
       when(context.getTokenEndpoint()).thenReturn(null);

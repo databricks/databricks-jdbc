@@ -1,6 +1,7 @@
 package com.databricks.client.jdbc;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.File;
 import java.security.KeyStore;
@@ -33,6 +34,16 @@ public class SSLTest {
     httpsProxyUrl = System.getenv("HTTPS_PROXY_URL");
     trustStorePath = System.getenv("TRUSTSTORE_PATH");
     trustStorePassword = System.getenv("TRUSTSTORE_PASSWORD");
+  }
+
+  private static void assumeEnvReady() {
+    boolean ready =
+        host != null
+            && !host.isEmpty()
+            && httpPath != null
+            && !httpPath.isEmpty()
+            && patToken != null;
+    assumeTrue(ready, "Skipping SSL tests: DATABRICKS_HOST/HTTP_PATH/TOKEN not configured");
   }
 
   private String buildJdbcUrl(
@@ -134,6 +145,7 @@ public class SSLTest {
 
   @Test
   public void testDirectConnectionDefaultSSL() {
+    assumeEnvReady();
     LOGGER.info("Scenario: Direct connection with default SSL settings");
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, false, false, false, false, false);
@@ -147,6 +159,7 @@ public class SSLTest {
 
   @Test
   public void testHttpProxyDefaultSSL() {
+    assumeEnvReady();
     LOGGER.info("Scenario: HTTP Proxy with default SSL settings");
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, true, false, false, false, false);
@@ -160,6 +173,7 @@ public class SSLTest {
 
   @Test
   public void testWithAllowSelfSigned() {
+    assumeEnvReady();
     LOGGER.info("Scenario: Testing with AllowSelfSignedCerts=1");
 
     // Save original system properties
@@ -270,6 +284,7 @@ public class SSLTest {
 
   @Test
   public void testWithSystemTrustStore() {
+    assumeEnvReady();
     LOGGER.info("Scenario: Testing with UseSystemTrustStore=1");
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, true, false, false, true, false);
@@ -283,6 +298,7 @@ public class SSLTest {
 
   @Test
   public void testDirectConnectionSystemTrustStoreFallback() {
+    assumeEnvReady();
     LOGGER.info(
         "Scenario: UseSystemTrustStore=1 with no system property -> fallback to cacerts (direct)");
 
@@ -313,6 +329,7 @@ public class SSLTest {
 
   @Test
   public void testIgnoreSystemPropertyWhenUseSystemTrustStoreDisabled() {
+    assumeEnvReady();
     LOGGER.info(
         "Scenario: bogus javax.net.ssl.trustStore present but UseSystemTrustStore=0 (driver must ignore)");
 
@@ -424,6 +441,7 @@ public class SSLTest {
 
   @Test
   public void testWithSystemProperties() {
+    assumeEnvReady();
     LOGGER.info("Scenario: Using system properties for SSL configuration");
 
     String originalTrustStore = System.getProperty("javax.net.ssl.trustStore");
@@ -491,6 +509,7 @@ public class SSLTest {
 
   @Test
   public void testEmptyTrustStore() {
+    assumeEnvReady();
     LOGGER.info("Scenario: Testing with manually created empty trust store");
 
     try {
@@ -532,6 +551,7 @@ public class SSLTest {
 
   @Test
   public void testNonExistentTrustStore() {
+    assumeEnvReady();
     LOGGER.info("Scenario: Testing with non-existent trust store");
 
     String nonExistentPath = "/path/to/nonexistent/truststore.jks";
@@ -558,6 +578,7 @@ public class SSLTest {
    */
   @Test
   public void testNoCustomTrustStoreWithUseSystemTrustStoreFalse() {
+    assumeEnvReady();
     LOGGER.info("Scenario: No custom trust store with UseSystemTrustStore=false");
 
     // This test simply verifies that when UseSystemTrustStore=false and no custom trust store
@@ -583,6 +604,7 @@ public class SSLTest {
   /** Test that verifies custom trust store takes precedence over system property trust store. */
   @Test
   public void testCustomTrustStorePrecedence() {
+    assumeEnvReady();
     LOGGER.info("Scenario: Custom trust store takes precedence over system property");
 
     // Skip if we don't have a valid trust store

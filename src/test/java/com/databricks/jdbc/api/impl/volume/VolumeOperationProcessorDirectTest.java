@@ -3,12 +3,13 @@ package com.databricks.jdbc.api.impl.volume;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksVolumeOperationException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.File;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -106,7 +107,8 @@ public class VolumeOperationProcessorDirectTest {
     @Test
     void testExecutePutOperation_IOException() throws Exception {
       when(mockHttpClient.execute(any(HttpPut.class)))
-          .thenThrow(new DatabricksHttpException("IO error"));
+          .thenThrow(
+              new DatabricksHttpException("IO error", DatabricksDriverErrorCode.SDK_CLIENT_ERROR));
 
       DatabricksVolumeOperationException exception =
           assertThrows(
@@ -118,7 +120,9 @@ public class VolumeOperationProcessorDirectTest {
     @Test
     void testExecutePutOperation_DatabricksHttpException() throws Exception {
       when(mockHttpClient.execute(any(HttpPut.class)))
-          .thenThrow(new DatabricksHttpException("HTTP error"));
+          .thenThrow(
+              new DatabricksHttpException(
+                  "HTTP error", DatabricksDriverErrorCode.SDK_CLIENT_ERROR));
 
       DatabricksVolumeOperationException exception =
           assertThrows(

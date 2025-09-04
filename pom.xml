@@ -292,19 +292,13 @@
         <version>${maven-surefire-plugin.version}</version>
         <configuration>
           <excludes>
+            <!-- Keep only heavy or environment-dependent exclusions -->
             <exclude>**/DriverTest.java</exclude>
             <exclude>**/integration/**/*.java</exclude>
-            <exclude>**/client/jdbc/SSLTest.java</exclude>
-            <exclude>**/client/jdbc/ProxyTest.java</exclude>
-            <!-- Re-enable ProcessNameUtilTest -->
-            <exclude>**/api/impl/arrow/**/*Test.java</exclude>
-            <exclude>**/api/impl/converters/ArrowToJavaObjectConverterTest.java</exclude>
-            <exclude>**/api/impl/ExecutionResultFactoryTest.java</exclude>
-            <exclude>**/api/impl/arrow/incubator/**/*Test.java</exclude>
           </excludes>
           <argLine>
             @{argLine}
-<!--            &#45;&#45;add-opens=java.base/java.nio=ALL-UNNAMED-->
+            --add-opens=java.base/java.nio=ALL-UNNAMED
             -Dnet.bytebuddy.experimental=true
           </argLine>
           <systemPropertyVariables>
@@ -349,8 +343,6 @@
             <testExclude>**/DriverTest.java</testExclude>
             <testExclude>**/DatabricksDriverExamples.java</testExclude>
             <testExclude>**/DatabricksSdkClientTest.java</testExclude>
-            <testExclude>**/OAuthEndpointResolverTest.java</testExclude>
-            <testExclude>**/VolumeOperationProcessorDirectTest.java</testExclude>
           </testExcludes>
         </configuration>
       </plugin>

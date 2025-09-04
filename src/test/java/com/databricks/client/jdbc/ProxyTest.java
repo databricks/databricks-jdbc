@@ -1,6 +1,7 @@
 package com.databricks.client.jdbc;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -36,6 +37,16 @@ public class ProxyTest {
     System.out.println("ProxyUrl: " + proxyUrl);
     System.out.println("CFProxyUrl: " + cfProxyUrl);
     System.out.println("ProxyUser: " + proxyUser);
+  }
+
+  private static void assumeEnvReady() {
+    boolean ready =
+        host != null
+            && !host.isEmpty()
+            && httpPath != null
+            && !httpPath.isEmpty()
+            && patToken != null;
+    assumeTrue(ready, "Skipping Proxy tests: DATABRICKS_HOST/HTTP_PATH/TOKEN not configured");
   }
 
   private String buildJdbcUrl(
@@ -135,6 +146,7 @@ public class ProxyTest {
   /** Scenario 1: No Proxy */
   @Test
   public void testNoProxy() {
+    assumeEnvReady();
     System.out.println("Scenario: No Proxy");
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, false, false, false, false);
@@ -152,6 +164,7 @@ public class ProxyTest {
    */
   @Test
   public void testSingleProxy() {
+    assumeEnvReady();
     System.out.println("Scenario: Single Proxy (JDBC only)");
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, true, false, false, false);
@@ -170,6 +183,7 @@ public class ProxyTest {
    */
   @Test
   public void testSeparateProxies() {
+    assumeEnvReady();
     System.out.println("Scenario: Separate Proxies (JDBC + CF)");
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, true, true, false, false);
@@ -185,6 +199,7 @@ public class ProxyTest {
   /** Scenario 4: Failure case with broken proxy port. */
   @Test
   public void testFailureCase() {
+    assumeEnvReady();
     System.out.println("Scenario: Proxy failure (invalid port)");
     for (boolean thrift : new boolean[] {true, false}) {
       String url = buildJdbcUrl(thrift, true, false, false, true);
@@ -201,6 +216,7 @@ public class ProxyTest {
   /** Scenario 5: Using system proxy without JDBC params */
   @Test
   public void testSystemProxy() {
+    assumeEnvReady();
     System.out.println("Scenario: Test using system proxy");
     String defaultProxyHost = "localhost";
     String defaultProxyPort = "3128";
