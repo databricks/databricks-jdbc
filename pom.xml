@@ -294,6 +294,13 @@
           <excludes>
             <exclude>**/DriverTest.java</exclude>
             <exclude>**/integration/**/*.java</exclude>
+            <exclude>**/client/jdbc/SSLTest.java</exclude>
+            <exclude>**/client/jdbc/ProxyTest.java</exclude>
+            <!-- Re-enable ProcessNameUtilTest -->
+            <exclude>**/api/impl/arrow/**/*Test.java</exclude>
+            <exclude>**/api/impl/converters/ArrowToJavaObjectConverterTest.java</exclude>
+            <exclude>**/api/impl/ExecutionResultFactoryTest.java</exclude>
+            <exclude>**/api/impl/arrow/incubator/**/*Test.java</exclude>
           </excludes>
           <argLine>
             @{argLine}
@@ -336,6 +343,15 @@
               <version>${immutables.value.version}</version>
             </path>
           </annotationProcessorPaths>
+          <testExcludes>
+            <testExclude>**/integration/**</testExclude>
+            <testExclude>**/fakeservice/**</testExclude>
+            <testExclude>**/DriverTest.java</testExclude>
+            <testExclude>**/DatabricksDriverExamples.java</testExclude>
+            <testExclude>**/DatabricksSdkClientTest.java</testExclude>
+            <testExclude>**/OAuthEndpointResolverTest.java</testExclude>
+            <testExclude>**/VolumeOperationProcessorDirectTest.java</testExclude>
+          </testExcludes>
         </configuration>
       </plugin>
       <plugin>

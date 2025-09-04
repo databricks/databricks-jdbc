@@ -2,15 +2,11 @@ package com.databricks.jdbc.common.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
 
-import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.MockedStatic;
 
 public class ProcessNameUtilTest {
 
@@ -37,17 +33,14 @@ public class ProcessNameUtilTest {
   @ParameterizedTest
   @MethodSource("processHandlePaths")
   void testProcessHandlePaths(String processPath, String expectedName, String description) {
-    System.clearProperty("sun.java.command");
-    try (MockedStatic<ProcessHandle> processHandleMock = mockStatic(ProcessHandle.class)) {
-      ProcessHandle mockHandle = org.mockito.Mockito.mock(ProcessHandle.class);
-      ProcessHandle.Info mockInfo = org.mockito.Mockito.mock(ProcessHandle.Info.class);
-
-      when(ProcessHandle.current()).thenReturn(mockHandle);
-      when(mockHandle.info()).thenReturn(mockInfo);
-      when(mockInfo.command()).thenReturn(Optional.of(processPath));
-
+    // On JDK 8 build, ProcessHandle API is not available; implementation
+    // relies on sun.java.command fallback. Simulate via property only.
+    System.setProperty("sun.java.command", processPath);
+    try {
       String processName = ProcessNameUtil.getProcessName();
       assertEquals(expectedName, processName, description);
+    } finally {
+      System.clearProperty("sun.java.command");
     }
   }
 
