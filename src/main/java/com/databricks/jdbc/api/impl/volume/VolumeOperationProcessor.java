@@ -225,10 +225,22 @@ class VolumeOperationProcessor {
     }
     Optional<Boolean> pathMatched =
         allowedVolumeIngestionPaths.stream()
-            .map(localFilePath::startsWith)
-            .filter(x -> x)
+            .map(
+                new java.util.function.Function<String, Boolean>() {
+                  @Override
+                  public Boolean apply(String s) {
+                    return localFilePath.startsWith(s);
+                  }
+                })
+            .filter(
+                new java.util.function.Predicate<Boolean>() {
+                  @Override
+                  public boolean test(Boolean x) {
+                    return x;
+                  }
+                })
             .findFirst();
-    if (pathMatched.isEmpty() || !pathMatched.get()) {
+    if (!pathMatched.isPresent() || !pathMatched.get()) {
       LOGGER.error("Local file path is not allowed {}", localFilePath);
       status = VolumeOperationStatus.ABORTED;
       errorMessage = "Local file path is not allowed";

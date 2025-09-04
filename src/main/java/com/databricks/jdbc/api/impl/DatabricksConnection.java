@@ -619,13 +619,13 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     this.statementSet.remove(statement);
   }
 
-  @Override
+  // Removed @Override for JDBC 4.3-only method; keep as no-op for JDK 8
   public void beginRequest() {
     LOGGER.debug("public void beginRequest()");
     LOGGER.warn("public void beginRequest() is a no-op method");
   }
 
-  @Override
+  // Removed @Override for JDBC 4.3-only method; keep as no-op for JDK 8
   public void endRequest() {
     LOGGER.debug("public void endRequest()");
     LOGGER.warn("public void endRequest() is a no-op method");

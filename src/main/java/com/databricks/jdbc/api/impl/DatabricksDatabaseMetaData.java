@@ -885,7 +885,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     return false;
   }
 
-  @Override
+  // JDBC 4.3-only; keep method but drop @Override for JDK 8
   public boolean supportsSharding() throws SQLException {
     LOGGER.debug("public boolean supportsSharding()");
     throwExceptionIfConnectionIsClosed();

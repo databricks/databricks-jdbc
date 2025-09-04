@@ -134,12 +134,12 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
       SignedJWT signedJWT = SignedJWT.parse(accessToken);
       JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
 
-      Optional<Token> optionalToken = Optional.empty();
+      Optional<Token> optionalToken = Optional.<Token>empty();
       if (!isSameHost(claims.getIssuer(), this.config.getHost())) {
         optionalToken = tryTokenExchange(accessToken, accessTokenType);
       }
-      if (optionalToken.isEmpty()) {
-        optionalToken = Optional.of(createToken(accessToken, accessTokenType));
+      if (!optionalToken.isPresent()) {
+        optionalToken = Optional.<Token>of(createToken(accessToken, accessTokenType));
       }
       return optionalToken.get();
     } catch (Exception e) {

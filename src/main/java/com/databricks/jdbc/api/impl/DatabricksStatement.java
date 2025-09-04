@@ -609,14 +609,17 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         .getStatementResult(statementId, connection.getSession(), this);
   }
 
-  @Override
+  // Implemented for JDK 8 (no default in Statement prior to JDBC 4.3)
   public String enquoteLiteral(String val) throws SQLException {
     LOGGER.debug("String enquoteLiteral(String val = {})", val);
     checkIfClosed();
-    return IDatabricksStatement.super.enquoteLiteral(val);
+    if (val == null) {
+      return "NULL";
+    }
+    return "'" + val.replace("'", "''") + "'";
   }
 
-  @Override
+  // Implemented for JDK 8
   public String enquoteIdentifier(String identifier, boolean alwaysQuote)
       throws DatabricksSQLException {
     LOGGER.debug(
@@ -624,26 +627,41 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         identifier,
         alwaysQuote);
     checkIfClosed();
+    if (identifier == null) {
+      throw new DatabricksSQLException(
+          "Identifier is null", DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+    }
     try {
-      return IDatabricksStatement.super.enquoteIdentifier(identifier, alwaysQuote);
+      if (!alwaysQuote && isSimpleIdentifier(identifier)) {
+        return identifier;
+      }
     } catch (SQLException e) {
       throw new DatabricksSQLException(
           e.getMessage(), DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
+    String quoted = identifier.replace("\"", "\"\"");
+    return "\"" + quoted + "\"";
   }
 
-  @Override
+  // Implemented for JDK 8
   public String enquoteNCharLiteral(String val) throws SQLException {
     LOGGER.debug("String enquoteNCharLiteral(String val = {})", val);
     checkIfClosed();
-    return IDatabricksStatement.super.enquoteNCharLiteral(val);
+    if (val == null) {
+      return "NULL";
+    }
+    return "N" + enquoteLiteral(val);
   }
 
-  @Override
+  // Implemented for JDK 8
   public boolean isSimpleIdentifier(String identifier) throws SQLException {
     LOGGER.debug("String isSimpleIdentifier(String identifier = {})", identifier);
     checkIfClosed();
-    return IDatabricksStatement.super.isSimpleIdentifier(identifier);
+    if (identifier == null || identifier.isEmpty()) {
+      return false;
+    }
+    // Simple rule: starts with letter or underscore; contains letters, digits, underscore, or $
+    return identifier.matches("[A-Za-z_][A-Za-z0-9_\\$]*");
   }
 
   static String trimCommentsAndWhitespaces(String query) {

@@ -725,7 +725,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       final int index = i; // Make effectively final for lambda usage
       Optional<UploadRequest> optionalRequest = uploadRequests.get(index);
 
-      if (optionalRequest.isEmpty()) {
+      if (!optionalRequest.isPresent()) {
         // Error case: create a failed result immediately
         String errorMessage = "File not found or not a file: " + originalPaths.get(index);
         futures[index] =
@@ -736,7 +736,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
       // Valid request: process the upload
       UploadRequest request = optionalRequest.get();
-      CompletableFuture<VolumePutResult> uploadFuture = new CompletableFuture<>();
+      CompletableFuture<VolumePutResult> uploadFuture = new CompletableFuture<VolumePutResult>();
       futures[index] = uploadFuture;
 
       LOGGER.debug(

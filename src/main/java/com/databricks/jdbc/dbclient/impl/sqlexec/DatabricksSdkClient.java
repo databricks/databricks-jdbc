@@ -47,7 +47,6 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
 
 /** Implementation of IDatabricksClient interface using Databricks Java SDK. */
@@ -559,9 +558,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
    */
   private String buildErrorMessage(DatabricksError e) {
 
-    boolean isSSLException =
-        Stream.iterate(e.getCause(), Objects::nonNull, Throwable::getCause)
-            .anyMatch(cause -> cause instanceof SSLHandshakeException);
+    boolean isSSLException = false;
+    {
+      Throwable cur = e.getCause();
+      while (cur != null) {
+        if (cur instanceof SSLHandshakeException) {
+          isSSLException = true;
+          break;
+        }
+        cur = cur.getCause();
+      }
+    }
 
     boolean isCertificatePathError =
         e.getMessage().contains("PKIX path building failed")
