@@ -4,10 +4,12 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.INSERT_PATTERN;
 
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Utility class for parsing INSERT statements to extract table and column information. Supports
@@ -150,11 +152,11 @@ public class InsertStatementParser {
 
   /** Parses a comma-separated list of column names, handling quoted identifiers. */
   private static List<String> parseColumns(String columnsStr) {
-    return List.of(columnsStr.split(",")).stream()
+    return Arrays.stream(columnsStr.split(","))
         .map(String::trim)
         .map(col -> col.replaceAll("^`|`$", "")) // Remove backticks if present
         .filter(col -> !col.isEmpty())
-        .toList();
+        .collect(Collectors.toList());
   }
 
   /**
