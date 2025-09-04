@@ -22,9 +22,9 @@ import net.hydromatic.sqllogictest.executors.JdbcExecutor;
 public class DbsqlExecutor extends JdbcExecutor {
 
   static String dbsqlUrl =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443"
+      "jdbc:databricks://sample-host.cloud.databricks.com:443"
           + "/default;transportMode=http;ssl=1;AuthMech=3;httpPath="
-          + "/sql/1.0/warehouses/791ba2a31c7fd70a;ConnCatalog=field_demos;"
+          + "/sql/1.0/warehouses/9999999999999999;ConnCatalog=field_demos;"
           + "ConnSchema=ossjdbc;";
 
   /**

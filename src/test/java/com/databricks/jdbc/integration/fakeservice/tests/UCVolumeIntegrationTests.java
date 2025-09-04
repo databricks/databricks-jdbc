@@ -36,7 +36,7 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
   void setUp() throws SQLException {
     con = getConnection();
     client = new DatabricksUCVolumeClient(con);
-    con.setClientInfo("allowlistedVolumeOperationLocalFilePaths", LOCAL_TEST_DIRECTORY);
+    con.setClientInfo("VolumeOperationAllowedLocalPaths", LOCAL_TEST_DIRECTORY);
   }
 
   @AfterEach
@@ -353,14 +353,18 @@ public class UCVolumeIntegrationTests extends AbstractFakeServiceIntegrationTest
     String jdbcUrl = String.format(jdbcUrlTemplate, getFakeServiceHost(), HTTP_PATH);
 
     Properties connProps = new Properties();
-    connProps.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
+    connProps.put(DatabricksJdbcUrlParams.UID.getParamName(), getDatabricksUser());
     connProps.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
+    connProps.put(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
     connProps.put(
-        DatabricksJdbcUrlParams.CATALOG.getParamName(),
-        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+        DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));
     connProps.put(
         DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
         FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
+    connProps.put(
+        DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
+        FakeServiceConfigLoader.shouldUseThriftClient());
 
     return DriverManager.getConnection(jdbcUrl, connProps);
   }

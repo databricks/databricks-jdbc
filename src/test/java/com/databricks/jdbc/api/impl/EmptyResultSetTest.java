@@ -2,13 +2,14 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.Calendar;
-import java.util.Collections;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -132,8 +133,8 @@ public class EmptyResultSetTest {
   }
 
   @Test
-  public void testFindColumn() throws SQLException {
-    assertEquals(resultSet.findColumn("column"), 0);
+  public void testFindColumn() {
+    assertThrows(DatabricksSQLException.class, () -> resultSet.findColumn("column"));
   }
 
   @Test
@@ -214,7 +215,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testGetObjectWithMap() throws SQLException {
-    assertNull(resultSet.getObject(1, Collections.emptyMap()));
+    assertNull(resultSet.getObject(1, Map.of()));
   }
 
   @Test
@@ -239,7 +240,7 @@ public class EmptyResultSetTest {
 
   @Test
   public void testGetObjectWithMapAndLabel() throws SQLException {
-    assertNull(resultSet.getObject("column", Collections.emptyMap()));
+    assertNull(resultSet.getObject("column", Map.of()));
   }
 
   @Test
@@ -407,6 +408,8 @@ public class EmptyResultSetTest {
     assertNull(resultSet.getUnicodeStream("anyString"));
     assertNull(resultSet.getBinaryStream("anyString"));
     assertNull(resultSet.getObject("anyString"));
+    assertNull(resultSet.getStruct("anyString"));
+    assertNull(resultSet.getMap("anyString"));
 
     // For getBigDecimal(int) - assuming 1 as a placeholder for column index
     assertNull(resultSet.getBigDecimal(1));

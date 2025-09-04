@@ -1,13 +1,14 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.EnvironmentVariables.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.IDatabricksResultSet;
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
@@ -15,13 +16,10 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.StatementState;
-import com.databricks.sdk.service.sql.StatementStatus;
 import java.io.InputStream;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.SQLWarning;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
@@ -35,13 +33,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class DatabricksStatementTest {
 
-  private static final String WAREHOUSE_ID = "erg6767gg";
+  private static final String WAREHOUSE_ID = "99999999";
   private static final String STATEMENT = "select 1";
   private static final StatementId STATEMENT_ID = new StatementId("statement_id");
   private static final String SESSION_ID = "session_id";
   private static final IDatabricksComputeResource WAREHOUSE_COMPUTE = new Warehouse(WAREHOUSE_ID);
   private static final String JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
   @Mock DatabricksSdkClient client;
   @Mock DatabricksResultSet resultSet;
 
@@ -123,6 +121,25 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  public void testGetUpdateCountForQueries() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    statement.executeQuery(STATEMENT);
+    assertEquals(-1, statement.getUpdateCount());
+  }
+
+  @Test
   public void testFetchSizeAndWarnings() throws SQLException {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -201,17 +218,22 @@ public class DatabricksStatementTest {
         DatabricksSQLFeatureNotSupportedException.class,
         () -> statement.execute("sql", new String[0]));
     assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> statement.executeLargeUpdate("sql", Statement.RETURN_GENERATED_KEYS));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> statement.executeLargeUpdate("sql", new int[0]));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> statement.executeLargeUpdate("sql", new String[0]));
+    assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> statement.setPoolable(true));
     assertThrows(DatabricksSQLException.class, () -> statement.unwrap(java.sql.Connection.class));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> statement.setCursorName("name"));
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, statement::getMaxFieldSize);
-    assertThrows(DatabricksSQLFeatureNotSupportedException.class, statement::getMoreResults);
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> statement.getMoreResults(Statement.CLOSE_CURRENT_RESULT));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> statement.setMaxFieldSize(5));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> statement.setFetchDirection(ResultSet.FETCH_REVERSE));
@@ -356,6 +378,95 @@ public class DatabricksStatementTest {
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksStatement statement = new DatabricksStatement(connection);
     assertThrows(DatabricksSQLException.class, statement::getExecutionResult);
+  }
+
+  @Test
+  public void testGetAndSetMaxRows() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setMaxRows(Integer.MAX_VALUE);
+    assertEquals(Integer.MAX_VALUE, statement.getMaxRows());
+    // "no limit"
+    statement.setMaxRows(0);
+    assertEquals(0, statement.getMaxRows());
+  }
+
+  @Test
+  public void testGetAndSetLargeMaxRows() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setLargeMaxRows(Long.MAX_VALUE);
+    assertEquals(Long.MAX_VALUE, statement.getLargeMaxRows());
+    // "no limit"
+    statement.setLargeMaxRows(0);
+    assertEquals(0, statement.getLargeMaxRows());
+  }
+
+  @Test
+  public void testEnquoteLiteral() throws Exception {
+    DatabricksConnection connection = getTestConnection();
+    DatabricksStatement stmt = new DatabricksStatement(connection);
+    // Normal string
+    assertEquals("'hello'", stmt.enquoteLiteral("hello"));
+    // Empty string
+    assertEquals("''", stmt.enquoteLiteral(""));
+    // String with single quote
+    assertEquals("'It''s a test'", stmt.enquoteLiteral("It's a test"));
+    // String with multiple single quotes
+    assertEquals("'It''s a ''quoted'' test'", stmt.enquoteLiteral("It's a 'quoted' test"));
+  }
+
+  @Test
+  public void testEnquoteIdentifier() throws Exception {
+    DatabricksConnection connection = getTestConnection();
+    DatabricksStatement stmt = new DatabricksStatement(connection);
+    // Valid identifier without forced quoting
+    assertEquals("myTable", stmt.enquoteIdentifier("myTable", false));
+    // Valid identifier with forced quoting
+    assertEquals("\"myTable\"", stmt.enquoteIdentifier("myTable", true));
+    // Identifier that requires quoting
+    assertEquals("\"my-table\"", stmt.enquoteIdentifier("my-table", false));
+    // Already quoted identifier
+    assertEquals("\"my-table\"", stmt.enquoteIdentifier("\"my-table\"", false));
+  }
+
+  @Test
+  public void testEnquoteNCharLiteral() throws Exception {
+    DatabricksConnection connection = getTestConnection();
+    DatabricksStatement stmt = new DatabricksStatement(connection);
+    // Normal string
+    assertEquals("N'hello'", stmt.enquoteNCharLiteral("hello"));
+    // Empty string
+    assertEquals("N''", stmt.enquoteNCharLiteral(""));
+    // String with single quote
+    assertEquals("N'It''s a test'", stmt.enquoteNCharLiteral("It's a test"));
+    // String with multiple single quotes
+    assertEquals("N'It''s a ''quoted'' test'", stmt.enquoteNCharLiteral("It's a 'quoted' test"));
+    // String with non-ASCII characters
+    assertEquals("N'こんにちは'", stmt.enquoteNCharLiteral("こんにちは"));
+  }
+
+  @Test
+  public void testIsSimpleIdentifier() throws Exception {
+    DatabricksConnection connection = getTestConnection();
+    DatabricksStatement stmt = new DatabricksStatement(connection);
+    // Valid identifier
+    assertTrue(stmt.isSimpleIdentifier("validName"));
+    // Valid identifier with underscores and numbers
+    assertTrue(stmt.isSimpleIdentifier("valid_name_123"));
+    // Invalid identifier starting with number
+    assertFalse(stmt.isSimpleIdentifier("123name"));
+    // Invalid identifier with special characters
+    assertFalse(stmt.isSimpleIdentifier("invalid-name"));
+    // Empty string
+    assertFalse(stmt.isSimpleIdentifier(""));
+    // Too long identifier
+    String longIdentifier = "a".repeat(129);
+    assertFalse(stmt.isSimpleIdentifier(longIdentifier));
   }
 
   @Test
@@ -531,5 +642,34 @@ public class DatabricksStatementTest {
     String query =
         "-- Single-line comment\n/* Multi-line comment */ SELECT * FROM table; /* Another comment */ -- End comment";
     assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_StartWithBegin() {
+    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN"));
+    assertTrue(DatabricksStatement.shouldReturnResultSet("   begin   "));
+    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN; WORK; END"));
+    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN; SELECT 1"));
+    // Not supporting for transaction statements
+    assertFalse(DatabricksStatement.shouldReturnResultSet("BEGIN TRANSACTION"));
+    assertFalse(DatabricksStatement.shouldReturnResultSet("   BeGiN    TRANSACTION"));
+    assertFalse(DatabricksStatement.shouldReturnResultSet("BEGIN    transaction "));
+  }
+
+  @Test
+  public void testIsSelectQuery() {
+    String query =
+        "-- Single-line comment\n/* Multi-line comment */ SELECT * FROM table; /* Another comment */ -- End comment";
+    assertTrue(DatabricksStatement.isSelectQuery(query));
+
+    query = "REMOVE some_data FROM table;";
+    assertFalse(DatabricksStatement.isSelectQuery(query));
+  }
+
+  private DatabricksConnection getTestConnection() throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    return connection;
   }
 }

@@ -23,15 +23,15 @@ public class DataSourceTest {
   @Test
   public void testGetUrl() {
     DataSource dataSource = new DataSource();
-    dataSource.setHost("e2-dogfood.staging.cloud.databricks.com");
+    dataSource.setHost("sample-host.cloud.databricks.com");
     dataSource.setPort(443);
-    dataSource.setHttpPath("/sql/1.0/warehouses/791ba2a31c7fd70a");
+    dataSource.setHttpPath("/sql/1.0/warehouses/9999999999999999");
     assertEquals(
-        "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443;httppath=/sql/1.0/warehouses/791ba2a31c7fd70a",
+        "jdbc:databricks://sample-host.cloud.databricks.com:443;httppath=/sql/1.0/warehouses/9999999999999999",
         dataSource.getUrl());
-    assertEquals("e2-dogfood.staging.cloud.databricks.com", dataSource.getHost());
+    assertEquals("sample-host.cloud.databricks.com", dataSource.getHost());
     assertEquals(443, dataSource.getPort());
-    assertEquals("/sql/1.0/warehouses/791ba2a31c7fd70a", dataSource.getHttpPath());
+    assertEquals("/sql/1.0/warehouses/9999999999999999", dataSource.getHttpPath());
   }
 
   @Test
@@ -40,9 +40,9 @@ public class DataSourceTest {
     properties.setProperty(AUTH_MECH.getParamName(), "3");
 
     DataSource dataSource = new DataSource(driverMock);
-    dataSource.setHost("e2-dogfood.staging.cloud.databricks.com");
+    dataSource.setHost("sample-host.cloud.databricks.com");
     dataSource.setPort(443);
-    dataSource.setHttpPath("/sql/1.0/warehouses/791ba2a31c7fd70a");
+    dataSource.setHttpPath("/sql/1.0/warehouses/9999999999999999");
     dataSource.setProperties(properties);
     dataSource.setUsername("user");
     dataSource.setPassword("password");

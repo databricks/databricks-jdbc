@@ -1,10 +1,10 @@
 package com.databricks.jdbc.api.impl.batch;
 
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
@@ -83,13 +83,13 @@ public class DatabricksBatchExecutor {
    * @throws DatabricksBatchUpdateException if a database access error occurs or batch execution
    *     fails
    */
-  public int[] executeBatch() throws DatabricksBatchUpdateException {
+  public long[] executeBatch() throws DatabricksBatchUpdateException {
     if (commands.isEmpty()) {
       LOGGER.warn("No commands to execute in the batch");
-      return new int[0];
+      return new long[0];
     }
 
-    int[] updateCounts = new int[commands.size()];
+    long[] updateCounts = new long[commands.size()];
     Instant batchStartTime = Instant.now();
 
     try {
@@ -98,10 +98,10 @@ public class DatabricksBatchExecutor {
         Instant commandStartTime = Instant.now();
 
         try {
-          LOGGER.debug(String.format("Executing batch command %d: %s", i, command.getSql()));
+          LOGGER.debug("Executing batch command {}: {}", i, command.getSql());
 
           boolean hasResultSet = parentStatement.execute(command.getSql());
-          int updateCount = parentStatement.getUpdateCount();
+          long updateCount = parentStatement.getLargeUpdateCount();
 
           logCommandExecutionTime(i, commandStartTime, true);
 
@@ -120,7 +120,7 @@ public class DatabricksBatchExecutor {
 
           logCommandExecutionTime(i, commandStartTime, false);
 
-          LOGGER.error(e, "Error executing batch command at index %d: %s", i, e.getMessage());
+          LOGGER.error(e, "Error executing batch command at index {}: {}", i, e.getMessage());
 
           String message =
               String.format("Batch execution failed at command %d: %s", i, e.getMessage());
@@ -131,11 +131,11 @@ public class DatabricksBatchExecutor {
       clearCommands();
 
       Duration batchDuration = Duration.between(batchStartTime, Instant.now());
-      LOGGER.debug(String.format("Total batch execution time: %d ms", batchDuration.toMillis()));
+      LOGGER.debug("Total batch execution time: {} ms", batchDuration.toMillis());
 
       return updateCounts;
     } catch (DatabricksBatchUpdateException e) {
-      LOGGER.error(e, "BatchUpdateException occurred: %s", e.getMessage());
+      LOGGER.error(e, "BatchUpdateException occurred: {}", e.getMessage());
       throw e;
     }
   }
@@ -151,8 +151,7 @@ public class DatabricksBatchExecutor {
     Instant commandEndTime = Instant.now();
     Duration commandDuration = Duration.between(commandStartTime, commandEndTime);
     String status = success ? "executed" : "failed after";
-    LOGGER.debug(
-        String.format("Command %d %s %d ms", commandIndex, status, commandDuration.toMillis()));
+    LOGGER.debug("Command {} {} {} ms", commandIndex, status, commandDuration.toMillis());
   }
 
   /**
@@ -168,18 +167,17 @@ public class DatabricksBatchExecutor {
    * @throws DatabricksBatchUpdateException always thrown to indicate batch execution failure
    */
   void handleBatchFailure(
-      int[] updateCounts,
+      long[] updateCounts,
       int commandIndex,
       Instant batchStartTime,
       String message,
       SQLException cause)
       throws DatabricksBatchUpdateException {
-    int[] countsSoFar = Arrays.copyOf(updateCounts, commandIndex);
+    long[] countsSoFar = Arrays.copyOf(updateCounts, commandIndex);
     clearCommands();
 
     Duration batchDuration = Duration.between(batchStartTime, Instant.now());
-    LOGGER.debug(
-        String.format("Total batch execution time until failure: %d ms", batchDuration.toMillis()));
+    LOGGER.debug("Total batch execution time until failure: {} ms", batchDuration.toMillis());
 
     DatabricksBatchUpdateException exception;
     if (cause != null) {
@@ -189,7 +187,7 @@ public class DatabricksBatchExecutor {
     } else {
       exception =
           new DatabricksBatchUpdateException(
-              message, countsSoFar, new DatabricksSQLException(message));
+              message, DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, countsSoFar);
     }
 
     throw exception;

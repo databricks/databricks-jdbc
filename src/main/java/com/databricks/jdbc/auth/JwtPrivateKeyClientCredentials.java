@@ -2,17 +2,19 @@ package com.databricks.jdbc.auth;
 
 import static com.nimbusds.jose.JWSAlgorithm.*;
 
+import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OAuthResponse;
-import com.databricks.sdk.core.oauth.RefreshableTokenSource;
 import com.databricks.sdk.core.oauth.Token;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.databricks.sdk.core.oauth.TokenSource;
 import com.google.common.annotations.VisibleForTesting;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.*;
@@ -23,10 +25,10 @@ import java.io.Reader;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
-import java.security.Security;
 import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -52,7 +54,7 @@ import org.bouncycastle.pkcs.PKCSException;
  * An implementation of RefreshableTokenSource implementing the JWT client_credentials OAuth grant
  * type.
  */
-public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
+public class JwtPrivateKeyClientCredentials implements TokenSource {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(JwtPrivateKeyClientCredentials.class);
@@ -116,7 +118,8 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
     }
   }
 
-  private final String BOUNCY_CASTLE_PROVIDER = "BC";
+  private static final BouncyCastleProvider bouncyCastleProvider = new BouncyCastleProvider();
+
   private IDatabricksHttpClient hc;
   private String clientId;
   private String tokenUrl;
@@ -147,7 +150,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
   }
 
   @Override
-  protected Token refresh() {
+  public Token getToken() {
     Map<String, String> params = new HashMap<>();
     params.put("grant_type", "client_credentials");
     if (scopes != null) {
@@ -155,6 +158,9 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
     }
     params.put("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
     params.put("client_assertion", getSerialisedSignedJWT());
+    if (DriverUtil.isRunningAgainstFake()) {
+      params.put("client_assertion", "my-private-key");
+    }
     return retrieveToken(hc, tokenUrl, params, new HashMap<>());
   }
 
@@ -176,8 +182,8 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
       headers.forEach(postRequest::setHeader);
       HttpResponse response = hc.execute(postRequest);
       OAuthResponse resp =
-          new ObjectMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
-      LocalDateTime expiry = LocalDateTime.now().plus(resp.getExpiresIn(), ChronoUnit.SECONDS);
+          JsonUtil.getMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
+      Instant expiry = Instant.now().plus(resp.getExpiresIn(), ChronoUnit.SECONDS);
       return new Token(resp.getAccessToken(), resp.getTokenType(), resp.getRefreshToken(), expiry);
     } catch (IOException | URISyntaxException | DatabricksHttpException e) {
       String errorMessage = "Failed to retrieve custom M2M token: " + e.getMessage();
@@ -230,13 +236,10 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
   }
 
   private PrivateKey getPrivateKey() {
-    try {
-      Security.addProvider(new BouncyCastleProvider());
-      try (Reader reader = new FileReader(jwtKeyFile);
-          PEMParser pemParser = new PEMParser(reader)) {
-        Object object = pemParser.readObject();
-        return convertPrivateKey(object);
-      }
+    try (Reader reader = new FileReader(jwtKeyFile);
+        PEMParser pemParser = new PEMParser(reader)) {
+      Object object = pemParser.readObject();
+      return convertPrivateKey(object);
     } catch (DatabricksSQLException | IOException e) {
       String errorMessage = "Failed to parse private key: " + e.getMessage();
       LOGGER.error(errorMessage);
@@ -252,7 +255,7 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
         PKCS8EncryptedPrivateKeyInfo encryptedKeyInfo = (PKCS8EncryptedPrivateKeyInfo) pemObject;
         JceOpenSSLPKCS8DecryptorProviderBuilder decryptorProviderBuilder =
             new JceOpenSSLPKCS8DecryptorProviderBuilder();
-        decryptorProviderBuilder.setProvider(BOUNCY_CASTLE_PROVIDER);
+        decryptorProviderBuilder.setProvider(bouncyCastleProvider);
         InputDecryptorProvider decryptorProvider =
             decryptorProviderBuilder.build(jwtKeyPassphrase.toCharArray());
         privateKeyInfo = encryptedKeyInfo.decryptPrivateKeyInfo(decryptorProvider);
@@ -264,13 +267,13 @@ public class JwtPrivateKeyClientCredentials extends RefreshableTokenSource {
           privateKeyInfo = (PrivateKeyInfo) pemObject;
         }
       }
-      JcaPEMKeyConverter keyConverter =
-          new JcaPEMKeyConverter().setProvider(BOUNCY_CASTLE_PROVIDER);
+      JcaPEMKeyConverter keyConverter = new JcaPEMKeyConverter().setProvider(bouncyCastleProvider);
       return keyConverter.getPrivateKey(privateKeyInfo);
     } catch (OperatorCreationException | PKCSException | PEMException e) {
       String errorMessage = "Cannot decrypt private JWT key " + e.getMessage();
       LOGGER.error(errorMessage);
-      throw new DatabricksParsingException(errorMessage);
+      throw new DatabricksParsingException(
+          errorMessage, DatabricksDriverErrorCode.VOLUME_OPERATION_PARSING_ERROR);
     }
   }
 

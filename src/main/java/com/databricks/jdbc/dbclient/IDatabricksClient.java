@@ -1,14 +1,17 @@
 package com.databricks.jdbc.dbclient;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimed;
+import com.databricks.sdk.core.DatabricksConfig;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Map;
@@ -25,6 +28,7 @@ public interface IDatabricksClient {
    * @param sessionConf session configuration
    * @return created session
    */
+  @DatabricksMetricsTimed
   ImmutableSessionInfo createSession(
       IDatabricksComputeResource computeResource,
       String catalog,
@@ -35,11 +39,10 @@ public interface IDatabricksClient {
   /**
    * Deletes a session for given session-Id
    *
-   * @param session for which the session should be deleted
-   * @param computeResource underlying SQL-warehouse or all-purpose cluster
+   * @param sessionInfo for which the session should be deleted
    */
-  void deleteSession(IDatabricksSession session, IDatabricksComputeResource computeResource)
-      throws DatabricksSQLException;
+  @DatabricksMetricsTimed
+  void deleteSession(ImmutableSessionInfo sessionInfo) throws DatabricksSQLException;
 
   /**
    * Executes a statement in Databricks server
@@ -52,6 +55,7 @@ public interface IDatabricksClient {
    * @param parentStatement statement instance if called from a statement
    * @return response for statement execution
    */
+  @DatabricksMetricsTimed
   DatabricksResultSet executeStatement(
       String sql,
       IDatabricksComputeResource computeResource,
@@ -71,6 +75,7 @@ public interface IDatabricksClient {
    * @param parentStatement statement instance if called from a statement
    * @return response for statement execution
    */
+  @DatabricksMetricsTimed
   DatabricksResultSet executeStatementAsync(
       String sql,
       IDatabricksComputeResource computeResource,
@@ -84,6 +89,7 @@ public interface IDatabricksClient {
    *
    * @param statementId statement which should be closed
    */
+  @DatabricksMetricsTimed
   void closeStatement(StatementId statementId) throws DatabricksSQLException;
 
   /**
@@ -91,6 +97,7 @@ public interface IDatabricksClient {
    *
    * @param statementId statement which should be aborted
    */
+  @DatabricksMetricsTimed
   void cancelStatement(StatementId statementId) throws DatabricksSQLException;
 
   /**
@@ -123,4 +130,10 @@ public interface IDatabricksClient {
    * @param newAccessToken new access token value
    */
   void resetAccessToken(String newAccessToken);
+
+  TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
+      throws DatabricksSQLException;
+
+  /** Retrieves underlying DatabricksConfig */
+  DatabricksConfig getDatabricksConfig();
 }

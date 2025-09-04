@@ -1,0 +1,33 @@
+{
+  "id" : "aab57112-a79a-448b-9b2b-2989e14c1127",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAQwAAQwAAQsAAQAAABApE0SxWwRCypr7v8/eKwZZCwACAAAAEDkdtlMj00fNuplWMSm750AAAAsAAgAAAAtTRUxFQ1QgTlVMTAoABQAAAAAAAAAADAUBCgABAAAAAAAehIAKAAIAAAAAGCGjAAACBQIBAgUDAQIFBAEMBQYCAAEBAgACAQIAAwECAAQBAgAFAQAPBQgMAAAAAAAA"
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEAcf3bd430KOpt7sp7OkeOgLAAIAAAAQhnZDZjAzTTSWQyCK7hr9qQYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAggNAgAAAAAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAQsAAQAAAAROVUxMDAACDwABDAAAAAEMAAEIAAEAAAAQAAAACAADAAAAAQsABAAAAAAAAAgFAQAAAAACBQIBCwUDAAABCP////8AAQAAEAAAAAAACgAOAAYADQAIAAoAAAAAAAQAEAAAAAABCgAMAAAACAAEAAoAAAAIAAAACAAAAAAAAAABAAAAGAAAAAAAEgAYABQAEwASAAwAAAAIAAQAEgAAABQAAACMAAAAkAAAAAAAAQGMAAAAAgAAAEQAAAAEAAAAzP///wgAAAAQAAAABgAAACJ2b2lkIgAAFwAAAFNwYXJrOkRhdGFUeXBlOkpzb25UeXBlAAgADAAIAAQACAAAAAgAAAAQAAAABAAAAFZPSUQAAAAAFgAAAFNwYXJrOkRhdGFUeXBlOlNxbE5hbWUAAAAAAAAEAAQABAAAAAQAAABOVUxMAAAAAAgFBAAAAAAKBQUAAAAAAAAAaAoFBgAAAAAAAABdAgUHAAgNAQAAAAUKDQUAAAAAAAAAAAINEQAADAADDAABCAABAAAAAAACAAIADAADCgABAAAAAAAAAAAPAAIMAAAAAA8FAQwAAAABCwABAAAAXQQiTRhgcHNOAAAApP////9gAAAAFAABALEKAA4ABgANAAgAChMAMAQAEAgAoQMKABgADAAIAAQYAAAwAFAYAAAAARwACwIAABQAAAQAAAIAgAEAAAAAAAAAAAAAAAoAAgAAAAAAAAABAAAADAAEDAABCAABAAAAAAAAAAAA",
+    "headers" : {
+      "x-request-id" : "44e5d4a1-009d-49ad-ab2a-7aa0403836c0",
+      "date" : "Tue, 01 Apr 2025 21:28:23 GMT,Tue, 01 Apr 2025 21:28:24 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : [ "max-age=31536000; includeSubDomains; preload", "max-age=31536000; includeSubDomains; preload" ],
+      "x-content-type-options" : [ "nosniff", "nosniff" ],
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "aab57112-a79a-448b-9b2b-2989e14c1127",
+  "insertionIndex" : 6
+}

@@ -6,6 +6,7 @@ import com.databricks.jdbc.common.LogLevel;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.log.JulLogger;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.logging.Level;
 
@@ -18,13 +19,14 @@ public class LoggingUtil {
       throws IOException {
     if (LOGGER instanceof JulLogger && System.getProperty(JAVA_UTIL_LOGGING_CONFIG_FILE) == null) {
       // Only configure JUL logger if it's not already configured via external properties file
-      LOGGER.info("Setting up JUL logger");
       JulLogger.initLogger(toJulLevel(level), logDir, logFileSizeMB * 1024 * 1024, logFileCount);
+      LOGGER.info("Setting up JUL logger");
     }
   }
 
   /** Converts a {@link LogLevel} to a {@link Level} for Java Util Logging. */
-  private static Level toJulLevel(LogLevel level) {
+  @VisibleForTesting
+  static Level toJulLevel(LogLevel level) {
     switch (level) {
       case DEBUG:
         return Level.FINE;

@@ -3,15 +3,17 @@ package com.databricks.jdbc.api.impl.arrow;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
-import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.core.ResultData;
+import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -31,8 +33,9 @@ public class InlineChunkProvider implements ChunkProvider {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(InlineChunkProvider.class);
   private long totalRows;
   private long currentChunkIndex;
-
-  ArrowResultChunk arrowResultChunk; // There is only one packet of data in case of inline arrow
+  private boolean isClosed;
+  private final ArrowResultChunk
+      arrowResultChunk; // There is only one packet of data in case of inline arrow
 
   InlineChunkProvider(
       TFetchResultsResp resultsResp,
@@ -42,7 +45,36 @@ public class InlineChunkProvider implements ChunkProvider {
     this.currentChunkIndex = -1;
     this.totalRows = 0;
     ByteArrayInputStream byteStream = initializeByteStream(resultsResp, session, parentStatement);
-    arrowResultChunk = ArrowResultChunk.builder().withInputStream(byteStream, totalRows).build();
+    arrowResultChunk =
+        ArrowResultChunk.builder()
+            .withInputStream(byteStream, totalRows)
+            .withStatementId(parentStatement.getStatementId())
+            .build();
+  }
+
+  /**
+   * Constructor for inline arrow chunk provider from {@link ResultData} and {@link ResultManifest}.
+   *
+   * @param resultData Data object containing the result data
+   * @param resultManifest Manifest object containing the result metadata
+   * @throws DatabricksSQLException if there is an error in processing the inline arrow data
+   */
+  InlineChunkProvider(ResultData resultData, ResultManifest resultManifest)
+      throws DatabricksSQLException {
+    this.currentChunkIndex = -1;
+    this.totalRows = resultManifest.getTotalRowCount();
+
+    // Decompress the inline data if applicable and create an ArrowResultChunk
+    CompressionCodec compressionType = resultManifest.getResultCompression();
+    byte[] decompressedBytes =
+        decompress(
+            resultData.getAttachment(),
+            compressionType,
+            "Data fetch for inline arrow batch with decompression algorithm : " + compressionType);
+    this.arrowResultChunk =
+        ArrowResultChunk.builder()
+            .withInputStream(new ByteArrayInputStream(decompressedBytes), totalRows)
+            .build();
   }
 
   /** {@inheritDoc} */
@@ -70,6 +102,7 @@ public class InlineChunkProvider implements ChunkProvider {
   /** {@inheritDoc} */
   @Override
   public void close() {
+    isClosed = true;
     arrowResultChunk.releaseChunk();
   }
 
@@ -81,6 +114,11 @@ public class InlineChunkProvider implements ChunkProvider {
   @Override
   public long getChunkCount() {
     return 0;
+  }
+
+  @Override
+  public boolean isClosed() {
+    return isClosed;
   }
 
   private ByteArrayInputStream initializeByteStream(
@@ -99,9 +137,7 @@ public class InlineChunkProvider implements ChunkProvider {
       writeToByteOutputStream(
           compressionType, parentStatement, resultsResp.getResults().getArrowBatches(), baos);
       while (resultsResp.hasMoreRows) {
-        resultsResp =
-            ((DatabricksThriftServiceClient) session.getDatabricksClient())
-                .getMoreResults(parentStatement);
+        resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
         writeToByteOutputStream(
             compressionType, parentStatement, resultsResp.getResults().getArrowBatches(), baos);
       }
@@ -112,7 +148,7 @@ public class InlineChunkProvider implements ChunkProvider {
     return null;
   }
 
-  void writeToByteOutputStream(
+  private void writeToByteOutputStream(
       CompressionCodec compressionCodec,
       IDatabricksStatementInternal parentStatement,
       List<TSparkArrowBatch> arrowBatchList,
@@ -146,7 +182,7 @@ public class InlineChunkProvider implements ChunkProvider {
     return null;
   }
 
-  private static Schema hiveSchemaToArrowSchema(TTableSchema hiveSchema)
+  private Schema hiveSchemaToArrowSchema(TTableSchema hiveSchema)
       throws DatabricksParsingException {
     List<Field> fields = new ArrayList<>();
     if (hiveSchema == null) {
@@ -169,17 +205,19 @@ public class InlineChunkProvider implements ChunkProvider {
     return new Schema(fields);
   }
 
-  private static Field getArrowField(TColumnDesc columnDesc) throws SQLException {
-    TTypeId thriftType = getThriftTypeFromTypeDesc(columnDesc.getTypeDesc());
-    ArrowType arrowType = mapThriftToArrowType(thriftType);
+  private Field getArrowField(TColumnDesc columnDesc) throws SQLException {
+    TPrimitiveTypeEntry primitiveTypeEntry = getTPrimitiveTypeOrDefault(columnDesc.getTypeDesc());
+    ArrowType arrowType = mapThriftToArrowType(primitiveTypeEntry.getType());
     FieldType fieldType = new FieldType(true, arrowType, null);
     return new Field(columnDesc.getColumnName(), fieldType, null);
   }
 
   @VisibleForTesting
-  static void handleError(Exception e) throws DatabricksParsingException {
-    String errorMessage = "Cannot process inline arrow format. Error: " + e.getMessage();
+  void handleError(Exception e) throws DatabricksParsingException {
+    String errorMessage =
+        String.format("Cannot process inline arrow format. Error: %s", e.getMessage());
     LOGGER.error(errorMessage);
-    throw new DatabricksParsingException(errorMessage, e);
+    throw new DatabricksParsingException(
+        errorMessage, e, DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
   }
 }

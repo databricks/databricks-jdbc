@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.util.Properties;
 
@@ -42,5 +42,9 @@ public class DatabricksConnectionContextFactory {
     }
 
     return create(url, info);
+  }
+
+  public static IDatabricksConnectionContext createWithoutError(String url, Properties properties) {
+    return DatabricksConnectionContext.parseWithoutError(url, properties);
   }
 }

@@ -1,21 +1,37 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.ARRAY;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
+
+import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.util.Text;
 
 public class ArrowToJavaObjectConverter {
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(ArrowToJavaObjectConverter.class);
   private static final List<DateTimeFormatter> DATE_FORMATTERS =
       Arrays.asList(
           DateTimeFormatter.ofPattern("yyyy-MM-dd"),
@@ -42,8 +58,35 @@ public class ArrowToJavaObjectConverter {
           DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.S"),
           DateTimeFormatter.RFC_1123_DATE_TIME);
 
-  public static Object convert(Object object, ColumnInfoTypeName requiredType)
+  public static Object convert(
+      ValueVector columnVector,
+      int vectorIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata,
+      ColumnInfo columnInfo)
       throws DatabricksSQLException {
+    // check isNull before getting the object from the vector
+    if (columnVector.isNull(vectorIndex)) {
+      return null;
+    }
+    Object object = columnVector.getObject(vectorIndex);
+    if (arrowMetadata != null) {
+      if (arrowMetadata.startsWith(ARRAY)) {
+        requiredType = ColumnInfoTypeName.ARRAY;
+      }
+      if (arrowMetadata.startsWith(STRUCT)) {
+        requiredType = ColumnInfoTypeName.STRUCT;
+      }
+      if (arrowMetadata.startsWith(MAP)) {
+        requiredType = ColumnInfoTypeName.MAP;
+      }
+      if (arrowMetadata.startsWith(VARIANT)) {
+        requiredType = ColumnInfoTypeName.STRING;
+      }
+      if (arrowMetadata.startsWith(TIMESTAMP)) { // for timestamp_ntz column
+        requiredType = ColumnInfoTypeName.TIMESTAMP;
+      }
+    }
     if (object == null) {
       return null;
     }
@@ -61,40 +104,114 @@ public class ArrowToJavaObjectConverter {
       case DOUBLE:
         return convertToNumber(object, Double::parseDouble, Number::doubleValue);
       case DECIMAL:
-        return convertToNumber(
-            object, BigDecimal::new, num -> BigDecimal.valueOf(num.doubleValue()));
+        return convertToDecimal(object, columnInfo);
       case BINARY:
         return convertToByteArray(object);
       case BOOLEAN:
         return convertToBoolean(object);
       case CHAR:
         return convertToChar(object);
-      case STRING:
-        // Struct and Array are present in Arrow data in the VARCHAR ValueVector format
       case STRUCT:
+        return convertToStruct(object, arrowMetadata);
       case ARRAY:
+        return convertToArray(object, arrowMetadata);
       case MAP:
+        return convertToMap(object, arrowMetadata);
+      case STRING:
         return convertToString(object);
       case DATE:
         return convertToDate(object);
       case TIMESTAMP:
-        return convertToTimestamp(object);
+        Optional<String> timeZone = Optional.empty();
+        if (columnVector instanceof TimeStampMicroTZVector) {
+          timeZone = Optional.of(((TimeStampMicroTZVector) columnVector).getTimeZone());
+        }
+        return convertToTimestamp(object, timeZone);
+      case INTERVAL:
+        if (arrowMetadata == null) {
+          String errorMessage =
+              String.format("Failed to read INTERVAL %s with null metadata.", object);
+          LOGGER.error(errorMessage);
+          throw new DatabricksValidationException(errorMessage);
+        }
+        IntervalConverter ic = new IntervalConverter(arrowMetadata);
+        return ic.toLiteral(object);
       case NULL:
         return null;
       default:
-        throw new DatabricksSQLException("Unsupported type");
+        String errorMessage = String.format("Unsupported conversion type %s", requiredType);
+        LOGGER.error(errorMessage);
+        throw new DatabricksValidationException(errorMessage);
     }
   }
 
-  private static Object convertToTimestamp(Object object) throws DatabricksSQLException {
+  private static DatabricksMap convertToMap(Object object, String arrowMetadata)
+      throws DatabricksParsingException {
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    return parser.parseJsonStringToDbMap(object.toString(), arrowMetadata);
+  }
+
+  private static DatabricksArray convertToArray(Object object, String arrowMetadata)
+      throws DatabricksParsingException {
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    return parser.parseJsonStringToDbArray(object.toString(), arrowMetadata);
+  }
+
+  private static Object convertToStruct(Object object, String arrowMetadata)
+      throws DatabricksParsingException {
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    return parser.parseJsonStringToDbStruct(object.toString(), arrowMetadata);
+  }
+
+  private static Object convertToTimestamp(Object object, Optional<String> timeZoneOpt)
+      throws DatabricksSQLException {
     if (object instanceof Text) {
       return convertArrowTextToTimestamp(object.toString());
+    }
+    if (object instanceof java.time.LocalDateTime) {
+      // timestamp_ntz result is returned as local date time
+      return Timestamp.valueOf((LocalDateTime) object);
     }
     // Divide by 1000 since we need to convert from microseconds to milliseconds.
     Instant instant =
         Instant.ofEpochMilli(
             object instanceof Integer ? ((int) object) / 1000 : ((long) object) / 1000);
-    return Timestamp.from(instant);
+    ZoneId zoneId = getZoneIdFromTimeZoneOpt(timeZoneOpt);
+    LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, zoneId);
+    return Timestamp.valueOf(localDateTime);
+  }
+
+  /**
+   * For TIMESTAMP columns, timeZone will be in the form 'Asia/Kolkata' or '+5:30'. For
+   * TIMESTAMP_NTZ columns, timeZoneOpt will be empty
+   *
+   * @param timeZoneOpt to fetch the zoneId for
+   * @return the zone ID for the timezone opt
+   */
+  static ZoneId getZoneIdFromTimeZoneOpt(Optional<String> timeZoneOpt) {
+    if (timeZoneOpt.isPresent()) {
+      String tz = timeZoneOpt.get();
+      try {
+        // Try standard parsing first
+        return ZoneId.of(tz);
+      } catch (DateTimeException e) {
+        if (tz.matches("[+-]\\d+:\\d+")) {
+          // Parse custom format like +4:15
+          boolean isNegative = tz.startsWith("-");
+          String[] parts = tz.substring(1).split(":");
+          int hours = Integer.parseInt(parts[0]);
+          int minutes = Integer.parseInt(parts[1]);
+
+          // Always pass positive values and use the sign parameter
+          return ZoneOffset.ofHoursMinutes(
+              isNegative ? -hours : hours, isNegative ? -minutes : minutes);
+        } else {
+          throw e;
+        }
+      }
+    }
+    // This will happen when reading timestamp_ntz columns
+    return ZoneId.systemDefault();
   }
 
   private static Object convertArrowTextToTimestamp(String arrowText)
@@ -111,7 +228,9 @@ public class ArrowToJavaObjectConverter {
         // Continue to try the next format
       }
     }
-    throw new DatabricksSQLException("Unsupported text for conversion: " + text);
+    String errorMessage = String.format("Unsupported text for date conversion: %s", text);
+    LOGGER.error(errorMessage);
+    throw new DatabricksValidationException(errorMessage);
   }
 
   private static Date convertToDate(Object object) throws DatabricksSQLException {
@@ -145,6 +264,24 @@ public class ArrowToJavaObjectConverter {
     return (byte[]) object;
   }
 
+  static BigDecimal convertToDecimal(Object object, ColumnInfo columnInfo)
+      throws DatabricksValidationException {
+    if (object instanceof Text || object instanceof Number) {
+      BigDecimal bigDecimal = new BigDecimal(object.toString());
+      Optional<Integer> bigDecimalScale =
+          columnInfo.getTypeScale() != null
+              ? Optional.of(columnInfo.getTypeScale().intValue())
+              : Optional.empty();
+      return bigDecimalScale
+          .map(scale -> bigDecimal.setScale(scale, RoundingMode.HALF_UP))
+          .orElse(bigDecimal);
+    }
+    String errorMessage =
+        String.format("Unsupported object type for decimal conversion: %s", object.getClass());
+    LOGGER.error(errorMessage);
+    throw new DatabricksValidationException(errorMessage);
+  }
+
   private static <T extends Number> T convertToNumber(
       Object object, Function<String, T> parseFunc, Function<Number, T> convertFunc)
       throws DatabricksSQLException {
@@ -154,7 +291,9 @@ public class ArrowToJavaObjectConverter {
     if (object instanceof Number) {
       return convertFunc.apply((Number) object);
     }
-    throw new DatabricksSQLException(
-        "Unsupported object type for number conversion: " + object.getClass());
+    String errorMessage =
+        String.format("Unsupported object type for number conversion: %s", object.getClass());
+    LOGGER.error(errorMessage);
+    throw new DatabricksValidationException(errorMessage);
   }
 }

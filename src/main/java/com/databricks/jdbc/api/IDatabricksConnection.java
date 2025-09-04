@@ -1,32 +1,32 @@
 package com.databricks.jdbc.api;
 
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-/** Interface providing Databricks specific Connection APIs. */
+/**
+ * Extends the standard JDBC {@link Connection} interface to provide Databricks-specific
+ * functionality. This interface adds methods to retrieve statement handles and connection
+ * identifiers.
+ */
 public interface IDatabricksConnection extends Connection {
 
-  /** Returns the underlying session for the connection. */
-  IDatabricksSession getSession();
+  /**
+   * Retrieves a statement handle for a given statement ID.
+   *
+   * @param statementId The unique identifier of the statement to retrieve
+   * @return A {@link Statement} object representing the statement
+   * @throws SQLException if a database access error occurs or this method is called on a closed
+   *     connection
+   */
+  Statement getStatement(String statementId) throws SQLException;
 
   /**
-   * Closes a statement from the connection's active set.
+   * Retrieves the unique identifier for this connection.
    *
-   * @param statement {@link IDatabricksStatement} to be closed
+   * @return A string representing the unique connection ID
+   * @throws SQLException if a database access error occurs or this method is called on a closed
+   *     connection
    */
-  void closeStatement(IDatabricksStatement statement);
-
-  /** Returns the corresponding sql connection object */
-  Connection getConnection();
-
-  /** Opens the connection and initiates the underlying session */
-  void open() throws DatabricksSQLException;
-
-  /** Returns the connection context associated with the connection. */
-  IDatabricksConnectionContext getConnectionContext();
-
-  /** Returns the statement handle for given statement-Id */
-  Statement getStatement(String statementId) throws SQLException;
+  String getConnectionId() throws SQLException;
 }

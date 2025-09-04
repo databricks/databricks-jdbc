@@ -5,8 +5,8 @@ import static java.sql.DatabaseMetaData.*;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.StatementState;
-import com.databricks.sdk.service.sql.StatementStatus;
 import java.sql.Types;
 import java.util.Arrays;
 
@@ -53,26 +53,28 @@ public class ResultConstants {
               "INTEGER",
               "INTEGER",
               "INTEGER"),
-          Arrays.asList(
-              Types.VARCHAR,
-              Types.INTEGER,
-              Types.INTEGER,
-              Types.VARCHAR,
-              Types.VARCHAR,
-              Types.VARCHAR,
-              Types.SMALLINT,
-              Types.BOOLEAN,
-              Types.SMALLINT,
-              Types.BOOLEAN,
-              Types.BOOLEAN,
-              Types.BOOLEAN,
-              Types.VARCHAR,
-              Types.SMALLINT,
-              Types.SMALLINT,
-              Types.INTEGER,
-              Types.INTEGER,
-              Types.INTEGER),
-          Arrays.asList(128, 10, 10, 128, 128, 128, 5, 1, 5, 1, 1, 1, 128, 5, 5, 10, 10, 10),
+          new int[] {
+            Types.VARCHAR,
+            Types.INTEGER,
+            Types.INTEGER,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.VARCHAR,
+            Types.SMALLINT,
+            Types.BIT,
+            Types.SMALLINT,
+            Types.BIT,
+            Types.BIT,
+            Types.BIT,
+            Types.VARCHAR,
+            Types.SMALLINT,
+            Types.SMALLINT,
+            Types.INTEGER,
+            Types.INTEGER,
+            Types.INTEGER
+          },
+          new int[] {128, 10, 10, 128, 128, 128, 5, 1, 5, 1, 1, 1, 128, 5, 5, 10, 10, 10},
+          new int[] {0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1},
           new Object[][] {
             {
               "TINYINT",
@@ -355,6 +357,26 @@ public class ResultConstants {
               null
             },
             {
+              "VARIANT",
+              Types.VARCHAR,
+              32767,
+              "'",
+              "'",
+              "max length",
+              typeNullable,
+              false,
+              typeSearchable,
+              null,
+              false,
+              null,
+              "VARIANT",
+              null,
+              null,
+              Types.VARCHAR,
+              null,
+              null
+            },
+            {
               "BOOLEAN",
               Types.BOOLEAN,
               1,
@@ -362,7 +384,7 @@ public class ResultConstants {
               null,
               null,
               typeNullable,
-              true,
+              false,
               typePredBasic,
               null,
               false,
@@ -391,7 +413,7 @@ public class ResultConstants {
               null,
               null,
               Types.DATE,
-              null,
+              1,
               null
             },
             {
@@ -410,9 +432,81 @@ public class ResultConstants {
               "TIMESTAMP",
               0,
               0,
-              Types.DATE,
+              Types.TIMESTAMP,
+              3,
+              null
+            },
+            {
+              "TIMESTAMP_NTZ",
+              Types.TIMESTAMP,
+              29,
+              "'",
+              "'",
+              null,
+              typeNullable,
+              false,
+              typeSearchable,
+              null,
+              false,
+              null,
+              "TIMESTAMP_NTZ",
+              0,
+              0,
+              Types.TIMESTAMP,
+              3,
+              null
+            },
+            {
+              "INTERVAL",
+              Types.VARCHAR,
+              40,
+              "'",
+              "'",
+              "Qualifier",
+              typeNullable,
+              false,
+              typeSearchable,
+              null,
+              false,
+              null,
+              "INTERVAL",
+              0,
+              6,
+              Types.VARCHAR,
               null,
               null
+            }
+          },
+          StatementType.METADATA);
+
+  /** The static result set for the client info properties metadata. */
+  public static final DatabricksResultSet CLIENT_INFO_PROPERTIES_RESULT =
+      new DatabricksResultSet(
+          new StatementStatus().setState(StatementState.SUCCEEDED),
+          new StatementId("client-info-properties-metadata"),
+          Arrays.asList("NAME", "MAX_LEN", "DEFAULT_VALUE", "DESCRIPTION"),
+          Arrays.asList("VARCHAR", "INTEGER", "VARCHAR", "VARCHAR"),
+          new int[] {Types.VARCHAR, Types.INTEGER, Types.VARCHAR, Types.VARCHAR},
+          new int[] {128, 10, 128, 128},
+          new int[] {0, 0, 1, 1},
+          new Object[][] {
+            {
+              "APPLICATIONNAME",
+              25,
+              null,
+              "The name of the application currently utilizing the connection."
+            },
+            {
+              "CLIENTHOSTNAME",
+              25,
+              null,
+              "The hostname of the computer the application using the connection is running on."
+            },
+            {
+              "CLIENTUSER",
+              25,
+              null,
+              "The name of the user that the application using the connection is performing work for."
             }
           },
           StatementType.METADATA);

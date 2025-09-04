@@ -4,7 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.util.ValidationUtil.throwErrorIfNull;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
 
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -12,6 +12,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 public class CommandBuilder {
 
@@ -26,7 +27,7 @@ public class CommandBuilder {
 
   private final String sessionContext;
 
-  public CommandBuilder(String catalogName, IDatabricksSession session) throws SQLException {
+  public CommandBuilder(String catalogName, IDatabricksSession session) {
     this.sessionContext = session.toString();
     this.catalogName = catalogName;
   }
@@ -47,26 +48,25 @@ public class CommandBuilder {
 
   public CommandBuilder setSchemaPattern(String pattern) {
     this.schemaPattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug(String.format("Schema pattern conversion {%s} -> {%s}", pattern, schemaPattern));
+    LOGGER.debug("Schema pattern conversion {} -> {}", pattern, schemaPattern);
     return this;
   }
 
   public CommandBuilder setTablePattern(String pattern) {
     this.tablePattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug(String.format("Table pattern conversion {%s} -> {%s}", pattern, tablePattern));
+    LOGGER.debug("Table pattern conversion {} -> {}", pattern, tablePattern);
     return this;
   }
 
   public CommandBuilder setColumnPattern(String pattern) {
     this.columnPattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug(String.format("Column pattern conversion {%s} -> {%s}", pattern, columnPattern));
+    LOGGER.debug("Column pattern conversion {} -> {}", pattern, columnPattern);
     return this;
   }
 
   public CommandBuilder setFunctionPattern(String pattern) {
     this.functionPattern = WildcardUtil.jdbcPatternToHive(pattern);
-    LOGGER.debug(
-        String.format("Function pattern conversion {%s} -> {%s}", pattern, functionPattern));
+    LOGGER.debug("Function pattern conversion {} -> {}", pattern, functionPattern);
     return this;
   }
 
@@ -75,27 +75,33 @@ public class CommandBuilder {
   }
 
   private String fetchSchemaSQL() throws SQLException {
-    String contextString =
-        String.format(
-            "Building command for fetching schema. Catalog %s, SchemaPattern %s and session context %s",
-            catalogName, schemaPattern, sessionContext);
-    LOGGER.debug(contextString);
-    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
-    String showSchemaSQL = String.format(SHOW_SCHEMA_IN_CATALOG_SQL, catalogName);
-    if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
-      showSchemaSQL += String.format(LIKE_SQL, schemaPattern);
+    LOGGER.debug(
+        "Building command for fetching schema. Catalog %s, SchemaPattern %s and session context %s",
+        catalogName, schemaPattern, sessionContext);
+    String showSchemasSQL;
+    if (WildcardUtil.isNullOrWildcard(catalogName)) {
+      // SHOW SCHEMAS IN ALL CATALOGS
+      showSchemasSQL = SHOW_SCHEMAS_IN_ALL_CATALOGS_SQL;
+    } else {
+      showSchemasSQL = String.format(SHOW_SCHEMAS_IN_CATALOG_SQL, catalogName);
     }
-    return showSchemaSQL;
+    if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
+      showSchemasSQL += String.format(LIKE_SQL, schemaPattern);
+    }
+    return showSchemasSQL;
   }
 
   private String fetchTablesSQL() throws SQLException {
-    String contextString =
-        String.format(
-            "Building command for fetching tables. Catalog %s, SchemaPattern %s, TablePattern %s and session context %s",
-            catalogName, schemaPattern, tablePattern, sessionContext);
-    LOGGER.debug(contextString);
-    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
-    String showTablesSQL = String.format(SHOW_TABLES_SQL, catalogName);
+    LOGGER.debug(
+        "Building command for fetching tables. Catalog %s, SchemaPattern %s, TablePattern %s and session context %s",
+        catalogName, schemaPattern, tablePattern, sessionContext);
+    String showTablesSQL;
+    if (WildcardUtil.isNullOrWildcard(catalogName)) {
+      // SHOW TABLES IN ALL CATALOGS
+      showTablesSQL = SHOW_TABLES_IN_ALL_CATALOGS_SQL;
+    } else {
+      showTablesSQL = String.format(SHOW_TABLES_SQL, catalogName);
+    }
     if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
       showTablesSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
     }
@@ -164,6 +170,20 @@ public class CommandBuilder {
     return String.format(SHOW_PRIMARY_KEYS_SQL, catalogName, schemaName, tableName);
   }
 
+  private String fetchForeignKeysSQL() throws SQLException {
+    String contextString =
+        String.format(
+            "Building command for fetching foreign keys. Catalog %s, Schema %s, Table %s. With session context: %s",
+            catalogName, schemaName, tableName, sessionContext);
+    LOGGER.debug(contextString);
+    Map<String, String> hashMap = new HashMap<>();
+    hashMap.put(CATALOG, catalogName);
+    hashMap.put(SCHEMA, schemaName);
+    hashMap.put(TABLE, tableName);
+    throwErrorIfNull(hashMap, contextString);
+    return String.format(SHOW_FOREIGN_KEYS_SQL, catalogName, schemaName, tableName);
+  }
+
   public String getSQLString(CommandName command) throws SQLException {
     switch (command) {
       case LIST_CATALOGS:
@@ -180,6 +200,8 @@ public class CommandBuilder {
         return fetchFunctionsSQL();
       case LIST_COLUMNS:
         return fetchColumnsSQL();
+      case LIST_FOREIGN_KEYS:
+        return fetchForeignKeysSQL();
     }
     throw new DatabricksSQLFeatureNotSupportedException(
         String.format("Invalid command issued %s. Context: %s", command, sessionContext));

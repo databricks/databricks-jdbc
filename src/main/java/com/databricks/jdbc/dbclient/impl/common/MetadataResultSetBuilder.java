@@ -1,26 +1,41 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.INTERVAL;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.TypeValConstants.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CommandName;
+import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultColumn;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.StatementState;
-import com.databricks.sdk.service.sql.StatementStatus;
 import com.google.common.annotations.VisibleForTesting;
-import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class MetadataResultSetBuilder {
-  public static DatabricksResultSet getFunctionsResult(ResultSet resultSet, String catalog)
+  private static final IDatabricksResultSetAdapter defaultAdapter =
+      new DefaultDatabricksResultSetAdapter();
+  private static final IDatabricksResultSetAdapter importedKeysAdapter =
+      new ImportedKeysDatabricksResultSetAdapter();
+  private final IDatabricksConnectionContext ctx;
+
+  public MetadataResultSetBuilder(IDatabricksConnectionContext ctx) {
+    this.ctx = ctx;
+  }
+
+  public DatabricksResultSet getFunctionsResult(DatabricksResultSet resultSet, String catalog)
       throws SQLException {
     List<List<Object>> rows = getRowsForFunctions(resultSet, FUNCTION_COLUMNS, catalog);
     return buildResultSet(
@@ -31,8 +46,8 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_FUNCTIONS);
   }
 
-  public static DatabricksResultSet getColumnsResult(ResultSet resultSet) throws SQLException {
-    List<List<Object>> rows = getRows(resultSet, COLUMN_COLUMNS);
+  public DatabricksResultSet getColumnsResult(DatabricksResultSet resultSet) throws SQLException {
+    List<List<Object>> rows = getRows(resultSet, COLUMN_COLUMNS, defaultAdapter);
     return buildResultSet(
         COLUMN_COLUMNS,
         rows,
@@ -41,8 +56,8 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_COLUMNS);
   }
 
-  public static DatabricksResultSet getCatalogsResult(ResultSet resultSet) throws SQLException {
-    List<List<Object>> rows = getRows(resultSet, CATALOG_COLUMNS);
+  public DatabricksResultSet getCatalogsResult(DatabricksResultSet resultSet) throws SQLException {
+    List<List<Object>> rows = getRows(resultSet, CATALOG_COLUMNS, defaultAdapter);
     return buildResultSet(
         CATALOG_COLUMNS,
         rows,
@@ -51,9 +66,11 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_CATALOGS);
   }
 
-  public static DatabricksResultSet getSchemasResult(ResultSet resultSet, String catalog)
+  public DatabricksResultSet getSchemasResult(DatabricksResultSet resultSet, String catalog)
       throws SQLException {
-    List<List<Object>> rows = getRowsForSchemas(resultSet, SCHEMA_COLUMNS, catalog);
+    List<List<Object>> rows =
+        getRowsForSchemas(
+            resultSet, SCHEMA_COLUMNS, catalog, new SchemasDatabricksResultSetAdapter());
     return buildResultSet(
         SCHEMA_COLUMNS,
         rows,
@@ -62,11 +79,11 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_SCHEMAS);
   }
 
-  public static DatabricksResultSet getTablesResult(ResultSet resultSet, String[] tableTypes)
+  public DatabricksResultSet getTablesResult(DatabricksResultSet resultSet, String[] tableTypes)
       throws SQLException {
-    List<String> allowedTableTypes = Arrays.asList(tableTypes);
+    List<String> allowedTableTypes = List.of(tableTypes);
     List<List<Object>> rows =
-        getRows(resultSet, TABLE_COLUMNS).stream()
+        getRows(resultSet, TABLE_COLUMNS, defaultAdapter).stream()
             .filter(row -> allowedTableTypes.contains(row.get(3))) // Filtering based on table type
             .collect(Collectors.toList());
     return buildResultSet(
@@ -77,16 +94,17 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_TABLES);
   }
 
-  public static DatabricksResultSet getTableTypesResult() {
-    return buildResultSet(TABLE_TYPE_COLUMNS, TABLE_TYPES_ROWS, GET_TABLE_TYPE_STATEMENT_ID);
+  public DatabricksResultSet getTableTypesResult() {
+    return buildResultSet(
+        TABLE_TYPE_COLUMNS,
+        TABLE_TYPES_ROWS,
+        GET_TABLE_TYPE_STATEMENT_ID,
+        CommandName.LIST_TABLE_TYPES);
   }
 
-  public static DatabricksResultSet getTypeInfoResult(List<List<Object>> rows) {
-    return buildResultSet(TYPE_INFO_COLUMNS, rows, GET_TYPE_INFO_STATEMENT_ID);
-  }
-
-  public static DatabricksResultSet getPrimaryKeysResult(ResultSet resultSet) throws SQLException {
-    List<List<Object>> rows = getRows(resultSet, PRIMARY_KEYS_COLUMNS);
+  public DatabricksResultSet getPrimaryKeysResult(DatabricksResultSet resultSet)
+      throws SQLException {
+    List<List<Object>> rows = getRows(resultSet, PRIMARY_KEYS_COLUMNS, defaultAdapter);
     return buildResultSet(
         PRIMARY_KEYS_COLUMNS,
         rows,
@@ -95,62 +113,129 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_PRIMARY_KEYS);
   }
 
-  private static boolean isTextType(String typeVal) {
+  public DatabricksResultSet getImportedKeysResult(DatabricksResultSet resultSet)
+      throws SQLException {
+    List<List<Object>> rows = getRows(resultSet, IMPORTED_KEYS_COLUMNS, importedKeysAdapter);
+    return buildResultSet(
+        IMPORTED_KEYS_COLUMNS,
+        rows,
+        METADATA_STATEMENT_ID,
+        resultSet.getMetaData(),
+        CommandName.GET_IMPORTED_KEYS);
+  }
+
+  public DatabricksResultSet getCrossReferenceKeysResult(
+      DatabricksResultSet resultSet,
+      String targetParentCatalogName,
+      String targetParentNamespaceName,
+      String targetParentTableName)
+      throws SQLException {
+    final CrossReferenceKeysDatabricksResultSetAdapter crossReferenceKeysResultSetAdapter =
+        new CrossReferenceKeysDatabricksResultSetAdapter(
+            targetParentCatalogName, targetParentNamespaceName, targetParentTableName);
+    List<List<Object>> rows =
+        getRows(resultSet, CROSS_REFERENCE_COLUMNS, crossReferenceKeysResultSetAdapter);
+
+    return buildResultSet(
+        CROSS_REFERENCE_COLUMNS,
+        rows,
+        METADATA_STATEMENT_ID,
+        resultSet.getMetaData(),
+        CommandName.GET_CROSS_REFERENCE);
+  }
+
+  private boolean isTextType(String typeVal) {
     return (typeVal.contains(TEXT_TYPE)
         || typeVal.contains(CHAR_TYPE)
         || typeVal.contains(VARCHAR_TYPE)
         || typeVal.contains(STRING_TYPE));
   }
 
-  static List<List<Object>> getRows(ResultSet resultSet, List<ResultColumn> columns)
+  List<List<Object>> getRows(
+      DatabricksResultSet resultSet,
+      List<ResultColumn> columns,
+      IDatabricksResultSetAdapter adapter)
       throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
-
+    resultSet.setSilenceNonTerminalExceptions();
     while (resultSet.next()) {
+      // Check if this row should be included based on the adapter's filter
+      if (!adapter.includeRow(resultSet, columns)) {
+        continue;
+      }
+
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
+        // Map the column using the adapter
+        ResultColumn mappedColumn = adapter.mapColumn(column);
+
+        // TODO: Put these transformations under IDatabricksResultSetAdapter#transformValue
         Object object;
-        switch (column.getColumnName()) {
+        String typeVal = null;
+        try {
+          typeVal =
+              resultSet.getString(
+                  COLUMN_TYPE_COLUMN
+                      .getResultSetColumnName()); // only valid for result set of getColumns
+        } catch (SQLException ignored) {
+        }
+        switch (mappedColumn.getColumnName()) {
           case "SQL_DATA_TYPE":
+            if (typeVal == null) { // safety check
+              object = null;
+            } else {
+              object = getCode(stripTypeName(typeVal));
+            }
+            break;
           case "SQL_DATETIME_SUB":
-            object = 0;
+            // check if typeVal is a date/time related field
+            if (typeVal != null
+                && (typeVal.contains(DATE_TYPE) || typeVal.contains(TIMESTAMP_TYPE))) {
+              object = getCode(stripTypeName(typeVal));
+            } else {
+              object = null;
+            }
             break;
           default:
             // If column does not match any of the special cases, try to get it from the ResultSet
             try {
-              object = resultSet.getObject(column.getResultSetColumnName());
-              if (column.getColumnName().equals(IS_NULLABLE_COLUMN.getColumnName())) {
+              object = resultSet.getObject(mappedColumn.getResultSetColumnName());
+              if (mappedColumn.getColumnName().equals(IS_NULLABLE_COLUMN.getColumnName())) {
                 if (object == null || object.equals("true")) {
                   object = "YES";
                 } else {
                   object = "NO";
                 }
-              } else if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
-                  || column.getColumnName().equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
+              } else if (mappedColumn.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
+                  || mappedColumn.getColumnName().equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
                 if (object == null) {
                   object = 0;
                 }
+              } else if (mappedColumn.getColumnName().equals(REMARKS_COLUMN.getColumnName())) {
+                if (object == null) {
+                  object = "";
+                }
               }
             } catch (SQLException e) {
-              if (column.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
-                String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
+              if (mappedColumn.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
                 object = getCode(stripTypeName(typeVal));
-              } else if (column.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
-                String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
+              } else if (mappedColumn
+                  .getColumnName()
+                  .equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
                 object = getCharOctetLength(typeVal);
-              } else if (column.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
-                String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
-                int columnSize =
-                    (resultSet.getObject(COLUMN_SIZE_COLUMN.getResultSetColumnName()) == null)
-                        ? 0
-                        : resultSet.getInt(COLUMN_SIZE_COLUMN.getResultSetColumnName());
-                object = getBufferLength(typeVal, columnSize);
+                if (object.equals(0)) {
+                  object = null;
+                }
+              } else if (mappedColumn
+                  .getColumnName()
+                  .equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
+                object = getBufferLength(typeVal);
               } else {
                 // Handle other cases where the result set does not contain the expected column
                 object = null;
               }
             }
-            if (column.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
+            if (mappedColumn.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
               object = resultSet.getObject(IS_NULLABLE_COLUMN.getResultSetColumnName());
               if (object == null || object.equals("true")) {
                 object = 1;
@@ -158,36 +243,39 @@ public class MetadataResultSetBuilder {
                 object = 0;
               }
             }
-            if (column.getColumnName().equals(TABLE_TYPE_COLUMN.getColumnName())
+            if (mappedColumn.getColumnName().equals(TABLE_TYPE_COLUMN.getColumnName())
                 && (object == null || object.equals(""))) {
               object = "TABLE";
             }
 
             // Handle TYPE_NAME separately for potential modifications
-            if (column.getColumnName().equals(COLUMN_TYPE_COLUMN.getColumnName())) {
-              object = stripTypeName((String) object);
+            if (mappedColumn.getColumnName().equals(COLUMN_TYPE_COLUMN.getColumnName())) {
+              if (typeVal != null
+                  && (typeVal.contains(ARRAY_TYPE)
+                      || typeVal.contains(
+                          MAP_TYPE))) { // for complex data types, do not strip type name
+                object = typeVal;
+              } else {
+                object = stripTypeName(typeVal);
+              }
             }
             // Set COLUMN_SIZE to 255 if it's not present
-            if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())
-                && object == null) {
-              // check if typeVal is a text related field
-              String typeVal = resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName());
-              if (typeVal == null) {
-                object = 0;
-              } else {
-                int columnSize = getSizeFromTypeVal(typeVal);
-                object = (columnSize != -1) ? columnSize : (isTextType(typeVal) ? 255 : 0);
-              }
+            if (mappedColumn.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())) {
+              object = getColumnSize(typeVal);
             }
 
             break;
         }
+
+        // Apply any transformations from the adapter
+        object = adapter.transformValue(mappedColumn, object);
 
         // Add the object to the current row
         row.add(object);
       }
       rows.add(row);
     }
+    resultSet.unsetSilenceNonTerminalExceptions();
     return rows;
   }
 
@@ -197,7 +285,7 @@ public class MetadataResultSetBuilder {
    * @param typeVal The SQL type string (e.g., "VARCHAR(5000)", "CHAR(100)").
    * @return The size as an integer, or -1 if the size cannot be determined.
    */
-  static int getSizeFromTypeVal(String typeVal) {
+  int getSizeFromTypeVal(String typeVal) {
     if (typeVal.isEmpty()) {
       return -1; // Return -1 for invalid input
     }
@@ -219,37 +307,110 @@ public class MetadataResultSetBuilder {
     return -1;
   }
 
-  static int getBufferLength(String typeVal, int columnSize) {
+  /*
+   * Extracts the precision from DECIMAL, NUMERIC types.
+   * @param typeVal The SQL type string
+   * Note: typeVal can be of format <data_type>, <data_type>(p), <data_type>(p,s)
+   */
+  int extractPrecision(String typeVal) {
+    String lowerType = typeVal.toLowerCase().trim();
+    Pattern pattern = Pattern.compile("\\((\\d+)(?:,\\s*\\d+)?\\)");
+    Matcher matcher = pattern.matcher(lowerType);
+    if (matcher.find()) {
+      try {
+        return Integer.parseInt(matcher.group(1));
+      } catch (NumberFormatException e) {
+        // In case of a parsing error, return default
+        return 10;
+      }
+    }
+    // If no parentheses with precision are found, return default
+    return 10;
+  }
+
+  int getColumnSize(String typeVal) {
+    if (typeVal == null || typeVal.isEmpty() || typeVal.contains(INTERVAL)) {
+      return 0;
+    }
+    int sizeFromTypeVal = getSizeFromTypeVal(typeVal);
+    if (sizeFromTypeVal != -1) {
+      return sizeFromTypeVal;
+    }
+    if (isTextType(typeVal)) {
+      return ctx.getDefaultStringColumnLength();
+    }
+    String typeName = stripTypeName(typeVal);
+    switch (typeName) {
+      case "DECIMAL":
+      case "NUMERIC":
+        return extractPrecision(typeVal);
+      case "SMALLINT":
+        return 5;
+      case "DATE":
+      case "INT":
+        return 10;
+      case "BIGINT":
+        return 19;
+      case "FLOAT":
+        return 7;
+      case "DOUBLE":
+        return 15;
+      case "TIMESTAMP":
+        return 29;
+      case "BOOLEAN":
+      case "BINARY":
+        return 1;
+      default:
+        return 255;
+    }
+  }
+
+  /*
+   * Extracts the size in bytes from a given SQL type.
+   * @param sqlType The SQL type
+   */
+  int getSizeInBytes(int sqlType) {
+    switch (sqlType) {
+      case Types.TIME:
+      case Types.DATE:
+        return 6;
+      case Types.TIMESTAMP:
+        return 16;
+      case Types.NUMERIC:
+      case Types.DECIMAL:
+        return 40;
+      case Types.REAL:
+      case Types.INTEGER:
+        return 4;
+      case Types.FLOAT:
+      case Types.DOUBLE:
+      case Types.BIGINT:
+        return 8;
+      case Types.BINARY:
+        return 32767;
+      case Types.BIT:
+      case Types.BOOLEAN:
+      case Types.TINYINT:
+        return 1;
+      case Types.SMALLINT:
+        return 2;
+      default:
+        return 0;
+    }
+  }
+
+  int getBufferLength(String typeVal) {
     if (typeVal == null || typeVal.isEmpty()) {
       return 0;
     }
-    if (!typeVal.contains("(")) {
-      if (typeVal.equals(DATE_TYPE)) {
-        return 6;
-      }
-      if (typeVal.equals(TIMESTAMP_TYPE)) {
-        return 16;
-      }
-      if (typeVal.equals(BINARY_TYPE)) {
-        return 32767;
-      }
-      if (isTextType(typeVal)) {
-        return 255;
-      }
-      return columnSize;
+    if (typeVal.contains("ARRAY") || typeVal.contains("MAP")) {
+      return 255;
     }
-
-    String[] lengthConstraints = typeVal.substring(typeVal.indexOf('(') + 1).split("[,)]");
-    if (lengthConstraints.length == 0) {
-      return 0;
+    if (isTextType(typeVal)) {
+      return getColumnSize(typeVal);
     }
-    String max_char_length = lengthConstraints[0].trim();
-    try {
-      if (isTextType(typeVal)) return Integer.parseInt(max_char_length);
-      else return 4 * Integer.parseInt(max_char_length);
-    } catch (NumberFormatException e) {
-      return 0;
-    }
+    int sqlType = getCode(stripTypeName(typeVal));
+    return getSizeInBytes(sqlType);
   }
 
   /**
@@ -260,13 +421,16 @@ public class MetadataResultSetBuilder {
    * @param typeVal the SQL type definition
    * @return the character octet length or 0 if not applicable
    */
-  static int getCharOctetLength(String typeVal) {
+  int getCharOctetLength(String typeVal) {
     if (typeVal == null || !(isTextType(typeVal) || typeVal.contains(BINARY_TYPE))) return 0;
 
     if (!typeVal.contains("(")) {
       if (typeVal.contains(BINARY_TYPE)) {
         return 32767;
       } else {
+        if (isTextType(typeVal)) {
+          return ctx.getDefaultStringColumnLength();
+        }
         return 255;
       }
     }
@@ -283,27 +447,40 @@ public class MetadataResultSetBuilder {
   }
 
   @VisibleForTesting
-  static String stripTypeName(String typeName) {
+  public String stripTypeName(String typeName) {
     if (typeName == null) {
       return null;
     }
     int typeArgumentIndex = typeName.indexOf('(');
-    int complexTypeIndex = typeName.indexOf('<');
-    // if both are present return the minimum of the two
-    if (typeArgumentIndex != -1 && complexTypeIndex != -1) {
-      return typeName.substring(0, Math.min(typeArgumentIndex, complexTypeIndex));
-    }
     if (typeArgumentIndex != -1) {
       return typeName.substring(0, typeArgumentIndex);
-    }
-    if (complexTypeIndex != -1) {
-      return typeName.substring(0, complexTypeIndex);
     }
 
     return typeName;
   }
 
-  static int getCode(String s) {
+  public String stripBaseTypeName(String typeName) {
+    if (typeName == null) {
+      return null;
+    }
+    // Checking '<' first and then '(' to handle cases like MAP<STRING,INT>(50)
+
+    // Checks for ARRAY<STRING> -> ARRAY
+    int typeArgumentIndex = typeName.indexOf('<');
+    if (typeArgumentIndex != -1) {
+      return typeName.substring(0, typeArgumentIndex);
+    }
+
+    // Checks for DECIMAL(10,2) -> DECIMAL
+    typeArgumentIndex = typeName.indexOf('(');
+    if (typeArgumentIndex != -1) {
+      return typeName.substring(0, typeArgumentIndex);
+    }
+
+    return typeName;
+  }
+
+  int getCode(String s) {
     switch (s) {
       case "STRING":
       case "VARCHAR":
@@ -319,10 +496,13 @@ public class MetadataResultSetBuilder {
         return 16;
       case "DATE":
         return 91;
+      case "TIMESTAMP_NTZ":
       case "TIMESTAMP":
         return 93;
       case "DECIMAL":
         return 3;
+      case "NUMERIC":
+        return 2;
       case "BINARY":
         return -2;
       case "ARRAY":
@@ -346,12 +526,18 @@ public class MetadataResultSetBuilder {
       case "CHAR":
       case "CHARACTER":
         return 1;
+      case "VARIANT":
+        return 1111;
+    }
+    if (s.startsWith(INTERVAL)) {
+      return 12;
     }
     return 0;
   }
 
-  private static List<List<Object>> getRowsForFunctions(
-      ResultSet resultSet, List<ResultColumn> columns, String catalog) throws SQLException {
+  private List<List<Object>> getRowsForFunctions(
+      DatabricksResultSet resultSet, List<ResultColumn> columns, String catalog)
+      throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>();
@@ -377,19 +563,40 @@ public class MetadataResultSetBuilder {
     return rows;
   }
 
-  private static List<List<Object>> getRowsForSchemas(
-      ResultSet resultSet, List<ResultColumn> columns, String catalog) throws SQLException {
+  private List<List<Object>> getRowsForSchemas(
+      DatabricksResultSet resultSet,
+      List<ResultColumn> columns,
+      String catalog,
+      IDatabricksResultSetAdapter adapter)
+      throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
     while (resultSet.next()) {
+      // Check if this row should be included based on the adapter's filter
+      if (!adapter.includeRow(resultSet, columns)) {
+        continue;
+      }
+
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
-        if (column.getColumnName().equals("TABLE_CATALOG")) {
-          row.add(catalog);
-          continue;
+        // Map the expected column on client to column in the result set using the adapter
+        ResultColumn mappedColumn = adapter.mapColumn(column);
+
+        if (mappedColumn
+            .getResultSetColumnName()
+            .equals(CATALOG_RESULT_COLUMN.getResultSetColumnName())) {
+          try {
+            resultSet.findColumn(mappedColumn.getResultSetColumnName());
+          } catch (SQLException e) {
+            // Result set does not have a catalog column
+            // Manually add the catalog and move to next column
+            row.add(catalog);
+            continue;
+          }
         }
+
         Object object;
         try {
-          object = resultSet.getObject(column.getResultSetColumnName());
+          object = resultSet.getObject(mappedColumn.getResultSetColumnName());
           if (object == null) {
             object = NULL_STRING;
           }
@@ -404,14 +611,23 @@ public class MetadataResultSetBuilder {
     return rows;
   }
 
-  private static DatabricksResultSet buildResultSet(
-      List<ResultColumn> columns, List<List<Object>> rows, String statementId) {
-    if (rows != null && !rows.isEmpty() && columns.size() > rows.get(0).size()) {
-      // Handle cases where the number of rows is less than expected columns, e.g., missing
-      // isGenerated column.
-      int colSize = columns.size();
-      rows.forEach(row -> row.addAll(Collections.nCopies(colSize - row.size(), null)));
+  private DatabricksResultSet buildResultSet(
+      List<ResultColumn> columns,
+      List<List<Object>> rows,
+      String statementId,
+      CommandName commandName) {
+    List<ResultColumn> nonNullableColumns =
+        NON_NULLABLE_COLUMNS_MAP.getOrDefault(
+            commandName, new ArrayList<>()); // Get non-nullable columns
+    List<Nullable> nullableList = new ArrayList<>();
+    for (ResultColumn column : columns) {
+      if (nonNullableColumns.contains(column)) {
+        nullableList.add(Nullable.NO_NULLS);
+      } else {
+        nullableList.add(Nullable.NULLABLE);
+      }
     }
+
     return new DatabricksResultSet(
         new StatementStatus().setState(StatementState.SUCCEEDED),
         new StatementId(statementId),
@@ -419,11 +635,12 @@ public class MetadataResultSetBuilder {
         columns.stream().map(ResultColumn::getColumnTypeString).collect(Collectors.toList()),
         columns.stream().map(ResultColumn::getColumnTypeInt).collect(Collectors.toList()),
         columns.stream().map(ResultColumn::getColumnPrecision).collect(Collectors.toList()),
+        nullableList,
         rows,
         StatementType.METADATA);
   }
 
-  private static DatabricksResultSet buildResultSet(
+  private DatabricksResultSet buildResultSet(
       List<ResultColumn> columns,
       List<List<Object>> rows,
       String statementId,
@@ -457,12 +674,16 @@ public class MetadataResultSetBuilder {
 
       // Fetch metadata from ResultSetMetaData or use default values from the ResultColumn
       int precision =
-          metaColumnIndex != null && metaData.getPrecision(metaColumnIndex) != 0
+          metaColumnIndex != null
+                  && metaData.getPrecision(metaColumnIndex) != 0
+                  && (typeInt == Types.DECIMAL || typeInt == Types.NUMERIC)
               ? metaData.getPrecision(metaColumnIndex)
               : column.getColumnPrecision();
 
       int scale =
-          metaColumnIndex != null && metaData.getScale(metaColumnIndex) != 0
+          metaColumnIndex != null
+                  && metaData.getScale(metaColumnIndex) != 0
+                  && (typeInt == Types.DECIMAL || typeInt == Types.NUMERIC)
               ? metaData.getScale(metaColumnIndex)
               : column.getColumnScale();
 
@@ -487,71 +708,226 @@ public class MetadataResultSetBuilder {
         StatementType.METADATA);
   }
 
-  public static DatabricksResultSet getCatalogsResult(List<List<Object>> rows) {
+  public DatabricksResultSet getCatalogsResult(List<List<Object>> rows) {
     return buildResultSet(
-        CATALOG_COLUMNS, buildRows(rows, CATALOG_COLUMNS), GET_CATALOGS_STATEMENT_ID);
+        CATALOG_COLUMNS,
+        getThriftRows(rows, CATALOG_COLUMNS),
+        GET_CATALOGS_STATEMENT_ID,
+        CommandName.LIST_CATALOGS);
   }
 
-  public static DatabricksResultSet getSchemasResult(List<List<Object>> rows) {
-    return buildResultSet(SCHEMA_COLUMNS, buildRows(rows, SCHEMA_COLUMNS), METADATA_STATEMENT_ID);
+  public DatabricksResultSet getSchemasResult(List<List<Object>> rows) {
+    return buildResultSet(
+        SCHEMA_COLUMNS,
+        getThriftRows(rows, SCHEMA_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.LIST_SCHEMAS);
   }
 
-  public static DatabricksResultSet getTablesResult(String catalog, List<List<Object>> rows) {
+  public DatabricksResultSet getCrossRefsResult(List<List<Object>> rows) {
+    return buildResultSet(
+        CROSS_REFERENCE_COLUMNS,
+        getThriftRows(rows, CROSS_REFERENCE_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_CROSS_REFERENCE);
+  }
+
+  public DatabricksResultSet getImportedKeys(List<List<Object>> rows) {
+    return buildResultSet(
+        IMPORTED_KEYS_COLUMNS,
+        getThriftRows(rows, IMPORTED_KEYS_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_IMPORTED_KEYS);
+  }
+
+  public DatabricksResultSet getExportedKeys(List<List<Object>> rows) {
+    return buildResultSet(
+        EXPORTED_KEYS_COLUMNS,
+        getThriftRows(rows, EXPORTED_KEYS_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.GET_EXPORTED_KEYS);
+  }
+
+  public DatabricksResultSet getResultSetWithGivenRowsAndColumns(
+      List<ResultColumn> columns,
+      List<List<Object>> rows,
+      String statementId,
+      CommandName commandName) {
+    return buildResultSet(columns, rows, statementId, commandName);
+  }
+
+  public DatabricksResultSet getTablesResult(
+      String catalog, String[] tableTypes, List<List<Object>> rows) {
     List<List<Object>> updatedRows = new ArrayList<>();
     for (List<Object> row : rows) {
-      // If the table type is empty, set it to "TABLE"
-      if (row.get(3).equals("")) {
-        row.set(3, "TABLE");
-      }
       // If the catalog is not null and the catalog does not match, skip the row
       if (catalog != null && !row.get(0).toString().equals(catalog)) {
         continue;
       }
-      updatedRows.add(row);
-    }
-    return buildResultSet(
-        TABLE_COLUMNS, buildRows(updatedRows, TABLE_COLUMNS), GET_TABLES_STATEMENT_ID);
-  }
 
-  public static DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
-    return buildResultSet(
-        COLUMN_COLUMNS,
-        buildRows(buildRows(rows, COLUMN_COLUMNS), COLUMN_COLUMNS),
-        METADATA_STATEMENT_ID);
-  }
+      // If the table type is empty or null, set it to "TABLE"
+      Object tableType = row.get(3);
+      if (tableType == null || tableType.equals("")) {
+        row.set(3, "TABLE");
+      }
 
-  static List<List<Object>> buildRows(List<List<Object>> rows, List<ResultColumn> columns) {
-    if (rows == null) {
-      return new ArrayList<>();
-    }
-    List<List<Object>> updatedRows = new ArrayList<>(rows.size());
-
-    int ordinalPositionIndex = columns.indexOf(ORDINAL_POSITION_COLUMN);
-    boolean hasOrdinalPosition = ordinalPositionIndex != -1;
-
-    for (List<Object> row : rows) {
-      if (hasOrdinalPosition) {
-        incrementValueAtIndex(row, ordinalPositionIndex);
+      if (tableTypes != null && tableTypes.length > 0) {
+        // If the table type is not in the list of allowed table types, skip the row
+        if (!Arrays.asList(tableTypes).contains(row.get(3).toString())) {
+          continue;
+        }
       }
       updatedRows.add(row);
     }
+    // sort in order TABLE_TYPE, CATALOG_NAME, SCHEMA_NAME, TABLE_NAME
+    updatedRows.sort(
+        Comparator.comparing((List<Object> r) -> (String) r.get(3))
+            .thenComparing(r -> (String) r.get(0))
+            .thenComparing(r -> (String) r.get(1))
+            .thenComparing(r -> (String) r.get(2)));
 
+    return buildResultSet(
+        TABLE_COLUMNS,
+        getThriftRows(updatedRows, TABLE_COLUMNS),
+        GET_TABLES_STATEMENT_ID,
+        CommandName.LIST_TABLES);
+  }
+
+  public DatabricksResultSet getColumnsResult(List<List<Object>> rows) {
+    return buildResultSet(
+        COLUMN_COLUMNS,
+        getThriftRows(rows, COLUMN_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.LIST_COLUMNS);
+  }
+
+  // process resultData from thrift to construct complete result set
+  List<List<Object>> getThriftRows(List<List<Object>> rows, List<ResultColumn> columns) {
+    if (rows == null || rows.isEmpty()) {
+      return new ArrayList<>();
+    }
+    List<List<Object>> updatedRows = new ArrayList<>();
+    for (List<Object> row : rows) {
+      List<Object> updatedRow = new ArrayList<>();
+      for (ResultColumn column : columns) {
+        if (NULL_COLUMN_COLUMNS.contains(column) || NULL_TABLE_COLUMNS.contains(column)) {
+          updatedRow.add(null);
+          continue;
+        }
+        Object object;
+        String typeVal = null;
+        int col_type_index = columns.indexOf(COLUMN_TYPE_COLUMN); // only relevant for getColumns
+        if (col_type_index != -1) {
+          typeVal = (String) row.get(col_type_index);
+        }
+        switch (column.getColumnName()) {
+          case "SQL_DATA_TYPE":
+            if (typeVal == null) { // safety check
+              object = null;
+            } else {
+              object = getCode(stripTypeName(typeVal));
+            }
+            break;
+          case "SQL_DATETIME_SUB":
+            // check if typeVal is a date/time related field
+            if (typeVal != null
+                && (typeVal.contains(DATE_TYPE) || typeVal.contains(TIMESTAMP_TYPE))) {
+              object = getCode(stripTypeName(typeVal));
+            } else {
+              object = null;
+            }
+            break;
+          case "ORDINAL_POSITION":
+            int ordinalPositionIndex = columns.indexOf(ORDINAL_POSITION_COLUMN);
+            object = (int) row.get(ordinalPositionIndex) + 1; // 1-based index
+            break;
+          case "COLUMN_DEF":
+            object = row.get(columns.indexOf(COLUMN_TYPE_COLUMN));
+            break;
+          default:
+            int index = columns.indexOf(column);
+            if (index >= row.size()) { // index out of bound (eg: IS_GENERATED_COL in getColumns)
+              object = null;
+            } else {
+              object = row.get(index);
+              if (column.getColumnName().equals(IS_NULLABLE_COLUMN.getColumnName())) {
+                object = row.get(columns.indexOf(NULLABLE_COLUMN));
+                if (object.equals(0)) {
+                  object = "NO";
+                } else {
+                  object = "YES";
+                }
+              }
+              if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())
+                  || column.getColumnName().equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
+                if (object == null) {
+                  object = 0;
+                }
+              }
+              if (column.getColumnName().equals(REMARKS_COLUMN.getColumnName())) {
+                if (object == null) {
+                  object = "";
+                }
+              }
+              if (column.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
+                object = getCode(stripTypeName(typeVal));
+              }
+              if (column.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
+                object = getCharOctetLength(typeVal);
+                if (object.equals(0)) {
+                  object = null;
+                }
+              }
+              if (column.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
+                object = getBufferLength(typeVal);
+              }
+              if (column.getColumnName().equals(TABLE_TYPE_COLUMN.getColumnName())
+                  && (object == null || object.equals(""))) {
+                object = "TABLE";
+              }
+
+              // Handle TYPE_NAME separately for potential modifications
+              if (column.getColumnName().equals(COLUMN_TYPE_COLUMN.getColumnName())) {
+                if (typeVal != null
+                    && (typeVal.contains(ARRAY_TYPE) || typeVal.contains(MAP_TYPE))) {
+                  object = typeVal;
+                } else {
+                  object = stripTypeName(typeVal);
+                }
+              }
+              // Set COLUMN_SIZE to 255 if it's not present
+              if (column.getColumnName().equals(COLUMN_SIZE_COLUMN.getColumnName())) {
+                object = getColumnSize(typeVal);
+              }
+            }
+            break;
+        }
+
+        // Add the object to the current row
+        updatedRow.add(object);
+      }
+      updatedRows.add(updatedRow);
+    }
     return updatedRows;
   }
 
-  private static void incrementValueAtIndex(List<Object> row, int index) {
-    if (row.size() > index) {
-      row.set(index, (int) row.get(index) + 1);
+  public DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {
+    return buildResultSet(
+        PRIMARY_KEYS_COLUMNS,
+        getThriftRows(rows, PRIMARY_KEYS_COLUMNS),
+        METADATA_STATEMENT_ID,
+        CommandName.LIST_PRIMARY_KEYS);
+  }
+
+  public DatabricksResultSet getFunctionsResult(String catalog, List<List<Object>> rows) {
+    // set FUNCTION_CAT col to be catalog for all rows
+    if (rows != null) { // check for EmptyMetadataClient result
+      rows.forEach(row -> row.set(FUNCTION_COLUMNS.indexOf(FUNCTION_CATALOG_COLUMN), catalog));
     }
-  }
-
-  public static DatabricksResultSet getPrimaryKeysResult(List<List<Object>> rows) {
     return buildResultSet(
-        PRIMARY_KEYS_COLUMNS, buildRows(rows, PRIMARY_KEYS_COLUMNS), METADATA_STATEMENT_ID);
-  }
-
-  public static DatabricksResultSet getFunctionsResult(List<List<Object>> rows) {
-    return buildResultSet(
-        FUNCTION_COLUMNS, buildRows(rows, FUNCTION_COLUMNS), GET_FUNCTIONS_STATEMENT_ID);
+        FUNCTION_COLUMNS,
+        getThriftRows(rows, FUNCTION_COLUMNS),
+        GET_FUNCTIONS_STATEMENT_ID,
+        CommandName.LIST_FUNCTIONS);
   }
 }

@@ -1,6 +1,10 @@
 package com.databricks.jdbc.dbclient;
 
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import java.util.concurrent.Future;
+import org.apache.hc.core5.concurrent.FutureCallback;
+import org.apache.hc.core5.http.nio.AsyncRequestProducer;
+import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 
@@ -24,4 +28,18 @@ public interface IDatabricksHttpClient {
    */
   CloseableHttpResponse execute(HttpUriRequest request, boolean supportGzipEncoding)
       throws DatabricksHttpException;
+
+  /**
+   * Executes the given http request asynchronously and returns the future
+   *
+   * @param requestProducer request producer
+   * @param responseConsumer response consumer
+   * @param callback future callback
+   * @return future
+   * @param <T> type of the response
+   */
+  <T> Future<T> executeAsync(
+      AsyncRequestProducer requestProducer,
+      AsyncResponseConsumer<T> responseConsumer,
+      FutureCallback<T> callback);
 }

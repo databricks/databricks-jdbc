@@ -1,7 +1,10 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.INVALID_SESSION_STATE_MSG;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.REDACTED_TOKEN;
+
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
@@ -12,12 +15,15 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksEmptyMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
+import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
-import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -51,10 +57,15 @@ public class DatabricksSession implements IDatabricksSession {
   public DatabricksSession(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
-      this.databricksClient = new DatabricksThriftServiceClient(connectionContext);
+      this.databricksClient =
+          DatabricksMetricsTimedProcessor.createProxy(
+              new DatabricksThriftServiceClient(connectionContext));
     } else {
-      this.databricksClient = new DatabricksSdkClient(connectionContext);
-      this.databricksMetadataClient = new DatabricksMetadataSdkClient(databricksClient);
+      this.databricksClient =
+          DatabricksMetricsTimedProcessor.createProxy(new DatabricksSdkClient(connectionContext));
+      this.databricksMetadataClient =
+          DatabricksMetricsTimedProcessor.createProxy(
+              new DatabricksMetadataSdkClient(databricksClient));
     }
     this.isSessionOpen = false;
     this.sessionInfo = null;
@@ -62,7 +73,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
-    this.clientInfoProperties = new HashMap<>();
+    this.clientInfoProperties = connectionContext.getClientInfoProperties();
     this.compressionCodec = connectionContext.getCompressionCodec();
     this.connectionContext = connectionContext;
   }
@@ -81,7 +92,7 @@ public class DatabricksSession implements IDatabricksSession {
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
     this.sessionConfigs = connectionContext.getSessionConfigs();
-    this.clientInfoProperties = new HashMap<>();
+    this.clientInfoProperties = connectionContext.getClientInfoProperties();
     this.compressionCodec = connectionContext.getCompressionCodec();
     this.connectionContext = connectionContext;
   }
@@ -124,9 +135,19 @@ public class DatabricksSession implements IDatabricksSession {
     LOGGER.debug("public void open()");
     synchronized (this) {
       if (!isSessionOpen) {
-        this.sessionInfo =
-            databricksClient.createSession(
-                this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+        try {
+          this.sessionInfo =
+              databricksClient.createSession(
+                  this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+        } catch (DatabricksTemporaryRedirectException e) {
+          this.connectionContext.setClientType(DatabricksClientType.THRIFT);
+          this.databricksClient =
+              DatabricksMetricsTimedProcessor.createProxy(
+                  new DatabricksThriftServiceClient(connectionContext));
+          this.sessionInfo =
+              this.databricksClient.createSession(
+                  this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+        }
         this.isSessionOpen = true;
       }
     }
@@ -137,9 +158,22 @@ public class DatabricksSession implements IDatabricksSession {
     LOGGER.debug("public void close()");
     synchronized (this) {
       if (isSessionOpen) {
-        databricksClient.deleteSession(this, computeResource);
-        this.sessionInfo = null;
-        this.isSessionOpen = false;
+        try {
+          databricksClient.deleteSession(sessionInfo);
+        } catch (DatabricksHttpException e) {
+          if (e.getMessage() != null
+              && e.getMessage().toLowerCase().contains(INVALID_SESSION_STATE_MSG)) {
+            LOGGER.warn(
+                "Session [{}] already expired/invalid on server – ignoring during close()",
+                sessionInfo.sessionId());
+          } else {
+            throw e;
+          }
+        } finally {
+          // Always clean up local state
+          this.sessionInfo = null;
+          this.isSessionOpen = false;
+        }
       }
     }
   }
@@ -167,7 +201,7 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public void setCatalog(String catalog) {
-    LOGGER.debug(String.format("public void setCatalog(String catalog = {%s})", catalog));
+    LOGGER.debug("public void setCatalog(String catalog = {})", catalog);
     this.catalog = catalog;
   }
 
@@ -179,7 +213,7 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public void setSchema(String schema) {
-    LOGGER.debug(String.format("public void setSchema(String schema = {%s})", schema));
+    LOGGER.debug("public void setSchema(String schema = {})", schema);
     this.schema = schema;
   }
 
@@ -201,9 +235,7 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public void setSessionConfig(String name, String value) {
-    LOGGER.debug(
-        String.format(
-            "public void setSessionConfig(String name = {%s}, String value = {%s})", name, value));
+    LOGGER.debug("public void setSessionConfig(String name = {}, String value = {})", name, value);
     sessionConfigs.put(name, value);
   }
 
@@ -211,6 +243,13 @@ public class DatabricksSession implements IDatabricksSession {
   public Map<String, String> getClientInfoProperties() {
     LOGGER.debug("public Map<String, String> getClientInfoProperties()");
     return clientInfoProperties;
+  }
+
+  @Override
+  public String getConfigValue(String name) {
+    LOGGER.debug("public String getConfigValue(String name = {})", name);
+    return sessionConfigs.getOrDefault(
+        name.toLowerCase(), clientInfoProperties.getOrDefault(name.toLowerCase(), null));
   }
 
   @Override
@@ -222,9 +261,15 @@ public class DatabricksSession implements IDatabricksSession {
     if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName())) {
       // refresh the access token if provided a new value in client info
       this.databricksClient.resetAccessToken(value);
-    } else {
-      clientInfoProperties.put(name, value);
+      value = REDACTED_TOKEN; // mask access token
     }
+
+    // If application name is being set, update both telemetry and user agent
+    if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName())) {
+      TelemetryHelper.updateTelemetryAppName(connectionContext, value);
+    }
+
+    clientInfoProperties.put(name, value);
   }
 
   @Override
@@ -234,6 +279,17 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public void setEmptyMetadataClient() {
-    databricksMetadataClient = new DatabricksEmptyMetadataClient();
+    databricksMetadataClient = new DatabricksEmptyMetadataClient(connectionContext);
+  }
+
+  @Override
+  public void forceClose() {
+    try {
+      this.close();
+    } catch (DatabricksSQLException e) {
+      LOGGER.error("Error closing session resources, but marking the session as closed.");
+    } finally {
+      this.isSessionOpen = false;
+    }
   }
 }

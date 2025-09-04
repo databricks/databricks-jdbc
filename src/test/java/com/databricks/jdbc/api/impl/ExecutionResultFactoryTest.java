@@ -4,12 +4,12 @@ import static com.databricks.jdbc.TestConstants.ARROW_BATCH_LIST;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ResultData;
@@ -34,7 +34,7 @@ public class ExecutionResultFactoryTest {
   @Mock TFetchResultsResp fetchResultsResp;
 
   @Test
-  public void testGetResultSet_jsonInline() throws DatabricksParsingException {
+  public void testGetResultSet_jsonInline() throws DatabricksSQLException {
     ResultManifest manifest = new ResultManifest();
     manifest.setFormat(Format.JSON_ARRAY);
     ResultData data = new ResultData();
@@ -45,8 +45,9 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_externalLink() throws DatabricksParsingException {
+  public void testGetResultSet_externalLink() throws DatabricksSQLException {
     when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+    when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     ResultManifest manifest = new ResultManifest();
@@ -62,7 +63,7 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_volumeOperation() throws DatabricksParsingException {
+  public void testGetResultSet_volumeOperation() throws DatabricksSQLException {
     when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
     when(session.getConnectionContext()).thenReturn(connectionContext);
     ResultData data = new ResultData();
@@ -81,6 +82,7 @@ public class ExecutionResultFactoryTest {
   @Test
   public void testGetResultSet_volumeOperationThriftResp() throws Exception {
     when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+    when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(session.getConnectionContext()).thenReturn(connectionContext);
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(resultSetMetadataResp);
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);

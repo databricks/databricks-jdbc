@@ -5,8 +5,9 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.sdk.core.ProxyConfig;
@@ -34,10 +35,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class DatabricksHttpClientTest {
-  private static final String CLUSTER_JDBC_URL =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/6051921418418893/1115-130834-ms4m0yv;AuthMech=3;UserAgentEntry=MyApp";
-  private static final String DBSQL_JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;UserAgentEntry=MyApp";
   @Mock CloseableHttpClient mockHttpClient;
   @Mock HttpUriRequest mockRequest;
   @Mock PoolingHttpClientConnectionManager mockConnectionManager;
@@ -104,7 +101,7 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
-  public void testSetFakeServiceRouteInHttpClientWithLocalhostTarget() throws HttpException {
+  public void testSetFakeServiceRouteInHttpClientWithLocalhostTarget() throws Exception {
     ArgumentCaptor<HttpRoutePlanner> routePlannerCaptor =
         ArgumentCaptor.forClass(HttpRoutePlanner.class);
 
@@ -113,13 +110,15 @@ public class DatabricksHttpClientTest {
     Mockito.verify(mockHttpClientBuilder).setRoutePlanner(routePlannerCaptor.capture());
     HttpRoutePlanner capturedRoutePlanner = routePlannerCaptor.getValue();
 
-    HttpGet request = new HttpGet("http://localhost:53423");
-    HttpRoute route =
-        capturedRoutePlanner.determineRoute(
-            HttpHost.create(request.getURI().toString()), request, null);
+    URI uri = new URI("http", null, "127.0.0.1", 53423, null, null, null);
 
-    // Verify the route has no proxy host set as the target URI directly points to fake service
-    assertNull(route.getProxyHost());
+    HttpGet request = new HttpGet(uri);
+
+    HttpHost targetHost = new HttpHost(uri.getHost(), uri.getPort(), uri.getScheme());
+
+    HttpRoute route = capturedRoutePlanner.determineRoute(targetHost, request, null);
+
+    assertNull(route.getProxyHost(), "Expected no proxy for localhost-based route");
   }
 
   @Test
@@ -163,7 +162,7 @@ public class DatabricksHttpClientTest {
 
     // Determine route should throw HTTP error as the target URI is invalid
     assertThrows(
-        HttpException.class,
+        DatabricksDriverException.class,
         () ->
             capturedRoutePlanner.determineRoute(
                 HttpHost.create(request.getURI().toString()), request, null));
@@ -217,11 +216,13 @@ public class DatabricksHttpClientTest {
     IDatabricksConnectionContext connectionContext1 =
         Mockito.mock(IDatabricksConnectionContext.class);
     when(connectionContext1.getConnectionUuid()).thenReturn("sample-uuid-1");
+    when(connectionContext1.getHttpMaxConnectionsPerRoute()).thenReturn(100);
 
     // Create the second mock connection context
     IDatabricksConnectionContext connectionContext2 =
         Mockito.mock(IDatabricksConnectionContext.class);
     when(connectionContext2.getConnectionUuid()).thenReturn("sample-uuid-2");
+    when(connectionContext2.getHttpMaxConnectionsPerRoute()).thenReturn(100);
 
     // Get instances of DatabricksHttpClient for each context
     IDatabricksHttpClient client1 =
@@ -270,6 +271,7 @@ public class DatabricksHttpClientTest {
                     mock(IDatabricksConnectionContext.class);
                 when(connectionContext.getConnectionUuid())
                     .thenReturn(UUID.randomUUID().toString());
+                when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
                 IDatabricksHttpClient client =
                     DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
                 clientSet.add(client);

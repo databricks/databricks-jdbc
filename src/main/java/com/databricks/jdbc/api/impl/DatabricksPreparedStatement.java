@@ -1,22 +1,24 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.NULL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDatabricksTypeFromSQLType;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.inferDatabricksType;
 import static com.databricks.jdbc.common.util.SQLInterpolator.interpolateSQL;
+import static com.databricks.jdbc.common.util.SQLInterpolator.surroundPlaceholdersWithQuotes;
+import static com.databricks.jdbc.common.util.ValidationUtil.throwErrorIfNull;
 
-import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
-import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -38,10 +40,20 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public DatabricksPreparedStatement(DatabricksConnection connection, String sql) {
     super(connection);
     this.sql = sql;
-    this.interpolateParameters =
-        connection.getConnectionContext().supportManyParameters()
-            || connection.getConnectionContext().getComputeResource() instanceof AllPurposeCluster;
-    this.databricksParameterMetaData = new DatabricksParameterMetaData();
+    this.interpolateParameters = connection.getConnectionContext().supportManyParameters();
+    this.databricksParameterMetaData = new DatabricksParameterMetaData(sql);
+    this.databricksBatchParameterMetaData = new ArrayList<>();
+  }
+
+  DatabricksPreparedStatement(
+      DatabricksConnection connection,
+      String sql,
+      boolean interpolateParameters,
+      DatabricksParameterMetaData databricksParameterMetaData) {
+    super(connection);
+    this.sql = sql;
+    this.interpolateParameters = interpolateParameters;
+    this.databricksParameterMetaData = databricksParameterMetaData;
     this.databricksBatchParameterMetaData = new ArrayList<>();
   }
 
@@ -61,23 +73,46 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public int[] executeBatch() {
+  public int[] executeBatch() throws DatabricksBatchUpdateException {
     LOGGER.debug("public int executeBatch()");
-    int[] updateCount = new int[databricksBatchParameterMetaData.size()];
+    long[] largeUpdateCount = executeLargeBatch();
+    int[] updateCount = new int[largeUpdateCount.length];
 
-    for (int i = 0; i < databricksBatchParameterMetaData.size(); i++) {
+    for (int i = 0; i < largeUpdateCount.length; i++) {
+      updateCount[i] = (int) largeUpdateCount[i];
+    }
+
+    return updateCount;
+  }
+
+  @Override
+  public long[] executeLargeBatch() throws DatabricksBatchUpdateException {
+    LOGGER.debug("public long executeLargeBatch()");
+    long[] largeUpdateCount = new long[databricksBatchParameterMetaData.size()];
+
+    for (int sqlQueryIndex = 0;
+        sqlQueryIndex < databricksBatchParameterMetaData.size();
+        sqlQueryIndex++) {
       DatabricksParameterMetaData databricksParameterMetaData =
-          databricksBatchParameterMetaData.get(i);
+          databricksBatchParameterMetaData.get(sqlQueryIndex);
       try {
         executeInternal(
             sql, databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE, false);
-        updateCount[i] = (int) resultSet.getUpdateCount();
-      } catch (SQLException e) {
-        LOGGER.error(e, e.getMessage());
-        updateCount[i] = -1;
+        largeUpdateCount[sqlQueryIndex] = resultSet.getUpdateCount();
+      } catch (Exception e) {
+        LOGGER.error(
+            "Error executing batch update for index {}: {}", sqlQueryIndex, e.getMessage(), e);
+        // Set the current failed statement's count
+        largeUpdateCount[sqlQueryIndex] = Statement.EXECUTE_FAILED;
+        // Set all remaining statements as failed
+        for (int i = sqlQueryIndex + 1; i < largeUpdateCount.length; i++) {
+          largeUpdateCount[i] = Statement.EXECUTE_FAILED;
+        }
+        throw new DatabricksBatchUpdateException(
+            e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, largeUpdateCount);
       }
     }
-    return updateCount;
+    return largeUpdateCount;
   }
 
   @Override
@@ -149,11 +184,53 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     setObject(parameterIndex, x, DatabricksTypeUtil.STRING);
   }
 
+  /*
+  * Sets the designated parameter to the given array of bytes. The driver converts this to hex literal in the format X'hex' and interpolate it into the SQL statement.
+  * Works only when supportManyParameters is enabled in the connection string.
+
+  * @param parameterIndex – the first parameter is 1, the second is 2, ...
+  * @param x – the parameter value
+  * @throws SQLException - if a database access error occurs or this method is called on a closed PreparedStatement
+  * @throws DatabricksSQLFeatureNotSupportedException - if parameter interpolation is not enabled
+  */
   @Override
   public void setBytes(int parameterIndex, byte[] x) throws SQLException {
     LOGGER.debug("public void setBytes(int parameterIndex, byte[] x)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setBytes(int parameterIndex, byte[] x)");
+    checkIfClosed();
+    if (x == null) {
+      setObject(parameterIndex, null);
+    } else {
+      if (this.interpolateParameters) {
+        setObject(parameterIndex, bytesToHex(x), Types.BINARY);
+      } else {
+        throw new DatabricksSQLFeatureNotSupportedException(
+            "setBytes(int parameterIndex, byte[] x) not supported with parametrised query. Enable supportManyParameters in the connection string to use this method.");
+      }
+    }
+  }
+
+  /**
+   * Converts a byte array to a hexadecimal literal in the format X'hex'.
+   *
+   * <p>Each byte in the array is converted to its hexadecimal representation and concatenated into
+   * a single string prefixed with "X'".
+   *
+   * @param bytes the byte array to convert; must not be null
+   * @return the hexadecimal literal as a string, or null if the input byte array is null
+   */
+  private static String bytesToHex(byte[] bytes) {
+    if (bytes == null) {
+      return null;
+    }
+    char[] hexArray = "0123456789ABCDEF".toCharArray();
+    char[] hexChars = new char[bytes.length * 2];
+    String hexLiteral = "X'";
+    for (int j = 0; j < bytes.length; j++) {
+      int v = bytes[j] & 0xFF;
+      hexChars[j * 2] = hexArray[v >>> 4];
+      hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+    }
+    return hexLiteral + new String(hexChars) + "'";
   }
 
   @Override
@@ -167,8 +244,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setTime(int parameterIndex, Time x) throws SQLException {
     LOGGER.debug("public void setTime(int parameterIndex, Time x)");
     checkIfClosed();
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setTime(int parameterIndex, Time x)");
+    throw new DatabricksSQLFeatureNotSupportedException("Unsupported data type TIME");
   }
 
   @Override
@@ -190,14 +266,14 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setUnicodeStream(int parameterIndex, InputStream x, int length) throws SQLException {
     LOGGER.debug("public void setUnicodeStream(int parameterIndex, InputStream x, int length)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setUnicodeStream(int parameterIndex, InputStream x, int length)");
   }
 
   @Override
   public void setBinaryStream(int parameterIndex, InputStream x, int length) throws SQLException {
     LOGGER.debug("public void setBinaryStream(int parameterIndex, InputStream x, int length)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setBinaryStream(int parameterIndex, InputStream x, int length)");
   }
 
@@ -209,16 +285,38 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
+  public void setObject(int parameterIndex, Object x, SQLType targetSqlType) throws SQLException {
+    throwErrorIfNull("Prepared statement SQL setObject targetSqlType", targetSqlType);
+    this.setObject(parameterIndex, x, targetSqlType.getVendorTypeNumber());
+  }
+
+  @Override
+  public void setObject(int parameterIndex, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    throwErrorIfNull("Prepared statement SQL setObject targetSqlType", targetSqlType);
+    this.setObject(parameterIndex, x, targetSqlType.getVendorTypeNumber(), scaleOrLength);
+  }
+
+  @Override
+  public long executeLargeUpdate() throws SQLException {
+    LOGGER.debug("public long executeLargeUpdate()");
+    checkIfBatchOperation();
+    interpolateIfRequiredAndExecute(StatementType.UPDATE);
+    return resultSet.getUpdateCount();
+  }
+
+  @Override
   public void setObject(int parameterIndex, Object x, int targetSqlType) throws SQLException {
     LOGGER.debug("public void setObject(int parameterIndex, Object x, int targetSqlType)");
     checkIfClosed();
     String databricksType = getDatabricksTypeFromSQLType(targetSqlType);
-    if (databricksType != null) {
+    if (!Objects.equals(databricksType, NULL)) {
       setObject(parameterIndex, x, databricksType);
       return;
     }
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x, int targetSqlType)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "setObject(int parameterIndex, Object x, int targetSqlType) Not supported SQL type: "
+            + targetSqlType);
   }
 
   @Override
@@ -230,8 +328,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       setObject(parameterIndex, x, type);
       return;
     }
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setObject(int parameterIndex, Object x)");
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "setObject(int parameterIndex, Object x) Not supported object type: " + x.getClass());
   }
 
   @Override
@@ -247,14 +345,14 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void addBatch() {
     LOGGER.debug("public void addBatch()");
     this.databricksBatchParameterMetaData.add(databricksParameterMetaData);
-    this.databricksParameterMetaData = new DatabricksParameterMetaData();
+    this.databricksParameterMetaData = new DatabricksParameterMetaData(sql);
   }
 
   @Override
   public void clearBatch() throws DatabricksSQLException {
     LOGGER.debug("public void clearBatch()");
     checkIfClosed();
-    this.databricksParameterMetaData = new DatabricksParameterMetaData();
+    this.databricksParameterMetaData = new DatabricksParameterMetaData(sql);
     this.databricksBatchParameterMetaData = new ArrayList<>();
   }
 
@@ -272,35 +370,36 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     } catch (IOException e) {
       String errorMessage = "Error reading from the Reader";
       LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
+      throw new DatabricksSQLException(
+          errorMessage, e, DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
   }
 
   @Override
   public void setRef(int parameterIndex, Ref x) throws SQLException {
     LOGGER.debug("public void setRef(int parameterIndex, Ref x)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setRef(int parameterIndex, Ref x)");
   }
 
   @Override
   public void setBlob(int parameterIndex, Blob x) throws SQLException {
     LOGGER.debug("public void setBlob(int parameterIndex, Blob x)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setBlob(int parameterIndex, Blob x)");
   }
 
   @Override
   public void setClob(int parameterIndex, Clob x) throws SQLException {
     LOGGER.debug("public void setClob(int parameterIndex, Clob x)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setClob(int parameterIndex, Clob x)");
   }
 
   @Override
   public void setArray(int parameterIndex, Array x) throws SQLException {
     LOGGER.debug("public void setArray(int parameterIndex, Array x)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setArray(int parameterIndex, Array x)");
   }
 
@@ -309,7 +408,14 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public ResultSetMetaData getMetaData()");
     checkIfClosed();
     if (resultSet == null) {
-      return null;
+
+      if (DatabricksStatement.isSelectQuery(sql)) {
+        LOGGER.info(
+            "Fetching metadata before executing the query, some values may not be available");
+        return getMetaDataFromDescribeQuery();
+      } else {
+        return null;
+      }
     }
     return resultSet.getMetaData();
   }
@@ -325,7 +431,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setTime(int parameterIndex, Time x, Calendar cal) throws SQLException {
     LOGGER.debug("public void setTime(int parameterIndex, Time x, Calendar cal)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setTime(int parameterIndex, Time x, Calendar cal)");
   }
 
@@ -353,7 +459,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setURL(int parameterIndex, URL x) throws SQLException {
     LOGGER.debug("public void setURL(int parameterIndex, URL x)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setURL(int parameterIndex, URL x)");
   }
 
@@ -366,14 +472,14 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setRowId(int parameterIndex, RowId x) throws SQLException {
     LOGGER.debug("public void setRowId(int parameterIndex, RowId x)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setRowId(int parameterIndex, RowId x)");
   }
 
   @Override
   public void setNString(int parameterIndex, String value) throws SQLException {
     LOGGER.debug("public void setNString(int parameterIndex, String value)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setNString(int parameterIndex, String value)");
   }
 
@@ -381,21 +487,21 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setNCharacterStream(int parameterIndex, Reader value, long length)
       throws SQLException {
     LOGGER.debug("public void setNCharacterStream(int parameterIndex, Reader value, long length)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setNCharacterStream(int parameterIndex, Reader value, long length)");
   }
 
   @Override
   public void setNClob(int parameterIndex, NClob value) throws SQLException {
     LOGGER.debug("public void setNClob(int parameterIndex, NClob value)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setNClob(int parameterIndex, NClob value)");
   }
 
   @Override
   public void setClob(int parameterIndex, Reader reader, long length) throws SQLException {
     LOGGER.debug("public void setClob(int parameterIndex, Reader reader, long length)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setClob(int parameterIndex, Reader reader, long length)");
   }
 
@@ -403,21 +509,21 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   public void setBlob(int parameterIndex, InputStream inputStream, long length)
       throws SQLException {
     LOGGER.debug("public void setBlob(int parameterIndex, InputStream inputStream, long length)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setBlob(int parameterIndex, InputStream inputStream, long length)");
   }
 
   @Override
   public void setNClob(int parameterIndex, Reader reader, long length) throws SQLException {
     LOGGER.debug("public void setNClob(int parameterIndex, Reader reader, long length)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setNClob(int parameterIndex, Reader reader, long length)");
   }
 
   @Override
   public void setSQLXML(int parameterIndex, SQLXML xmlObject) throws SQLException {
     LOGGER.debug("public void setSQLXML(int parameterIndex, SQLXML xmlObject)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setSQLXML(int parameterIndex, SQLXML xmlObject)");
   }
 
@@ -426,8 +532,36 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       throws SQLException {
     LOGGER.debug(
         "public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)");
-    throw new UnsupportedOperationException(
-        "Not implemented in DatabricksPreparedStatement - setCharacterStream(int parameterIndex, Reader reader)");
+    checkIfClosed();
+
+    if (x == null) {
+      setObject(parameterIndex, null, targetSqlType);
+      return;
+    }
+
+    String databricksType = getDatabricksTypeFromSQLType(targetSqlType);
+    if (Objects.equals(databricksType, NULL)) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength) Not supported SQL type: "
+              + targetSqlType);
+    }
+
+    if (targetSqlType == Types.DECIMAL || targetSqlType == Types.NUMERIC) {
+      BigDecimal bd;
+      if (x instanceof BigDecimal) {
+        bd = (BigDecimal) x;
+      } else if (x instanceof Number) {
+        // Convert Number to BigDecimal. Using valueOf preserves the value for double inputs.
+        bd = BigDecimal.valueOf(((Number) x).doubleValue());
+      } else {
+        throw new DatabricksSQLException(
+            "Invalid object type for DECIMAL/NUMERIC", DatabricksDriverErrorCode.INVALID_STATE);
+      }
+      bd = bd.setScale(scaleOrLength, RoundingMode.HALF_UP); // Round up to nearest value.
+      setObject(parameterIndex, bd, databricksType);
+    } else {
+      setObject(parameterIndex, x, databricksType);
+    }
   }
 
   @Override
@@ -443,7 +577,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setBinaryStream(int parameterIndex, InputStream x, long length) throws SQLException {
     LOGGER.debug("public void setBinaryStream(int parameterIndex, InputStream x, long length)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setBinaryStream(int parameterIndex, InputStream x, long length)");
   }
 
@@ -468,7 +602,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setBinaryStream(int parameterIndex, InputStream x) throws SQLException {
     LOGGER.debug("public void setBinaryStream(int parameterIndex, InputStream x)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setBinaryStream(int parameterIndex, InputStream x)");
   }
 
@@ -482,82 +616,91 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setNCharacterStream(int parameterIndex, Reader value) throws SQLException {
     LOGGER.debug("public void setNCharacterStream(int parameterIndex, Reader value)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setNCharacterStream(int parameterIndex, Reader value)");
   }
 
   @Override
   public void setClob(int parameterIndex, Reader reader) throws SQLException {
     LOGGER.debug("public void setClob(int parameterIndex, Reader reader)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setClob(int parameterIndex, Reader reader)");
   }
 
   @Override
   public void setBlob(int parameterIndex, InputStream inputStream) throws SQLException {
     LOGGER.debug("public void setBlob(int parameterIndex, InputStream inputStream)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setBlob(int parameterIndex, InputStream inputStream)");
   }
 
   @Override
   public void setNClob(int parameterIndex, Reader reader) throws SQLException {
     LOGGER.debug("public void setNClob(int parameterIndex, Reader reader)");
-    throw new UnsupportedOperationException(
+    throw new DatabricksSQLFeatureNotSupportedException(
         "Not implemented in DatabricksPreparedStatement - setNClob(int parameterIndex, Reader reader)");
   }
 
   @Override
   public int executeUpdate(String sql) throws SQLException {
-    throw new DatabricksSQLException("Method not supported in PreparedStatement");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Method not supported in PreparedStatement");
   }
 
   @Override
   public boolean execute(String sql) throws SQLException {
-    throw new DatabricksSQLException("Method not supported in PreparedStatement");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Method not supported in PreparedStatement");
   }
 
   @Override
   public ResultSet executeQuery(String sql) throws SQLException {
-    throw new DatabricksSQLException("Method not supported in PreparedStatement");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Method not supported in PreparedStatement");
   }
 
   @Override
   public int executeUpdate(String sql, int autoGeneratedKeys) throws SQLException {
-    throw new DatabricksSQLException("Method not supported in PreparedStatement");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Method not supported in PreparedStatement");
   }
 
   @Override
   public int executeUpdate(String sql, int[] columnIndexes) throws SQLException {
-    throw new DatabricksSQLException("Method not supported in PreparedStatement");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Method not supported in PreparedStatement");
   }
 
   @Override
   public int executeUpdate(String sql, String[] columnNames) throws SQLException {
-    throw new DatabricksSQLException("Method not supported in PreparedStatement");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Method not supported in PreparedStatement");
   }
 
   @Override
   public boolean execute(String sql, int autoGeneratedKeys) throws SQLException {
-    throw new DatabricksSQLException("Method not supported in PreparedStatement");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Method not supported in PreparedStatement");
   }
 
   @Override
   public boolean execute(String sql, int[] columnIndexes) throws SQLException {
-    throw new DatabricksSQLException("Method not supported in PreparedStatement");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Method not supported in PreparedStatement");
   }
 
   @Override
   public boolean execute(String sql, String[] columnNames) throws SQLException {
-    throw new DatabricksSQLException("Method not supported in PreparedStatement");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Method not supported in PreparedStatement");
   }
 
   /** {@inheritDoc} */
   @Override
   public void addBatch(String sql) throws SQLException {
-    LOGGER.debug(String.format("public void addBatch(String sql = {%s})", sql));
+    LOGGER.debug("public void addBatch(String sql = {})", sql);
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Method not supported: addBatch(String sql)");
   }
 
@@ -568,7 +711,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
               "Unexpected number of bytes read from the stream. Expected: %d, got: %d",
               targetLength, sourceLength);
       LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage);
+      throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.INVALID_STATE);
     }
   }
 
@@ -577,7 +720,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       String errorMessage =
           "Batch must either be executed with executeBatch() or cleared with clearBatch()";
       LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage);
+      throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.INVALID_STATE);
     }
   }
 
@@ -585,7 +728,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     if (x == null) {
       String errorMessage = "InputStream cannot be null";
       LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage);
+      throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.INVALID_STATE);
     }
     byte[] bytes = new byte[length];
     try {
@@ -594,7 +737,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     } catch (IOException e) {
       String errorMessage = "Error reading from the InputStream";
       LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
     return bytes;
   }
@@ -616,10 +759,9 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     if (inputStream == null) {
       String message = "InputStream cannot be null";
       LOGGER.error(message);
-      throw new DatabricksSQLException(message);
+      throw new DatabricksValidationException(message);
     }
-    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-    try {
+    try (ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
       byte[] chunk = new byte[CHUNK_SIZE];
       long bytesRead = 0;
       int nRead;
@@ -630,17 +772,11 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       if (length != -1) {
         checkLength(length, bytesRead);
       }
-      return new String(buffer.toByteArray(), charset);
+      return buffer.toString(charset);
     } catch (IOException e) {
       String message = "Error reading from the InputStream";
       LOGGER.error(message);
-      throw new DatabricksSQLException(message, e);
-    } finally {
-      try {
-        buffer.close();
-      } catch (IOException e) {
-        LOGGER.error("Error closing ByteArrayOutputStream", e);
-      }
+      throw new DatabricksSQLException(message, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
   }
 
@@ -657,7 +793,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     if (reader == null) {
       String message = "Reader cannot be null";
       LOGGER.error(message);
-      throw new DatabricksSQLException(message);
+      throw new DatabricksValidationException(message);
     }
     try {
       StringBuilder buffer = new StringBuilder();
@@ -693,10 +829,45 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         this.interpolateParameters
             ? interpolateSQL(sql, this.databricksParameterMetaData.getParameterBindings())
             : sql;
+
     Map<Integer, ImmutableSqlParameter> paramMap =
         this.interpolateParameters
             ? new HashMap<>()
             : this.databricksParameterMetaData.getParameterBindings();
     return executeInternal(interpolatedSql, paramMap, statementType);
+  }
+
+  /**
+   * Executes a DESCRIBE QUERY command to retrieve metadata about the SQL query.
+   *
+   * <p>This method is used when the result set is null
+   *
+   * @return a {@link ResultSetMetaData} object containing the metadata of the query.
+   * @throws DatabricksSQLException if there is an error executing the DESCRIBE QUERY command
+   */
+  private ResultSetMetaData getMetaDataFromDescribeQuery() throws DatabricksSQLException {
+    String describeQuerySQL = "DESCRIBE QUERY " + surroundPlaceholdersWithQuotes(sql);
+    try (DatabricksPreparedStatement preparedStatement =
+            new DatabricksPreparedStatement(
+                connection, describeQuerySQL, interpolateParameters, databricksParameterMetaData);
+        ResultSet metadataResultSet = preparedStatement.executeQuery(); ) {
+      ArrayList<String> columnNames = new ArrayList<>();
+      ArrayList<String> columnDataTypes = new ArrayList<>();
+
+      while (metadataResultSet.next()) {
+        columnNames.add(metadataResultSet.getString(1));
+        columnDataTypes.add(metadataResultSet.getString(2));
+      }
+      return new DatabricksResultSetMetaData(
+          preparedStatement.getStatementId(),
+          columnNames,
+          columnDataTypes,
+          this.connection.getConnectionContext());
+    } catch (SQLException e) {
+      String errorMessage = "Failed to get query metadata";
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksSQLException(
+          errorMessage, e, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
+    }
   }
 }

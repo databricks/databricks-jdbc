@@ -1,4 +1,4 @@
-Copyright (2024) Databricks, Inc.
+Copyright (2025) Databricks, Inc.
 
 This Software includes software developed at Databricks (https://www.databricks.com/) and its use is subject to the included LICENSE file.
 
@@ -10,7 +10,7 @@ Copyright (2023) Databricks, Inc.
 Notice - https://github.com/databricks/databricks-sdk-java/blob/main/NOTICE
 
 apache/arrow - https://github.com/apache/arrow/tree/main
-Copyright 2016-2024 The Apache Software Foundation
+Copyright 2016-2025 The Apache Software Foundation
 Notice - https://github.com/apache/arrow/blob/main/NOTICE.txt
 
 diffplug/spotless - https://github.com/diffplug/spotless/tree/main
@@ -25,14 +25,14 @@ Copyright (C) 2006 - 2019, The Apache Software Foundation
 Notice - https://github.com/apache/thrift/blob/master/NOTICE
 
 apache/commons-io - https://github.com/apache/commons-io
-Copyright 2002-2024 The Apache Software Foundation
+Copyright 2002-2025 The Apache Software Foundation
 Notice - https://github.com/apache/commons-io/blob/master/NOTICE.txt
 
 google/guava - https://github.com/google/guava
 Copyright guava authors
 
 apache/logging-log4j2 - https://github.com/apache/logging-log4j2
-Copyright 1999-2024 Apache Software Foundation
+Copyright 1999-2025 Apache Software Foundation
 Notice - https://github.com/apache/logging-log4j2/blob/2.x/NOTICE.txt
 
 FasterXML/jackson-databind - https://github.com/FasterXML/jackson-databind
@@ -45,7 +45,7 @@ FasterXML/jackson-core - https://github.com/FasterXML/jackson-core
 Copyright jackson-core authors
 
 immutables/immutable - https://github.com/immutables/immutables
-Copyright 2013-2024 Immutables Authors and Contributors
+Copyright 2013-2025 Immutables Authors and Contributors
 
 lz4/lz4-java - https://github.com/lz4/lz4-java
 Copyright lz4-java authors
@@ -55,7 +55,7 @@ Copyright wiremock authors
 Notice - https://github.com/wiremock/wiremock/blob/master/NOTICE.txt
 
 apache/commons-fileupload - https://github.com/apache/commons-fileupload
-Copyright 2002-2024 The Apache Software Foundation
+Copyright 2002-2025 The Apache Software Foundation
 Notice - https://github.com/apache/commons-fileupload/blob/master/NOTICE.txt
 
 ________________

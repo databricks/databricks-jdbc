@@ -1,0 +1,33 @@
+{
+  "id" : "d046f810-68d4-43a0-8289-84ed1657d444",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SELECT * FROM main.jdbc_test_schema.intervals_demo\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01f03748-13ca-1839-bf0c-b0ea5c9fa43a\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f03748-1a26-196b-a7b0-9620ef02496d\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":12,\"columns\":[{\"name\":\"iv_year\",\"type_text\":\"INTERVAL YEAR\",\"type_name\":\"INTERVAL\",\"position\":0,\"type_interval_type\":\"YEAR\"},{\"name\":\"iv_month\",\"type_text\":\"INTERVAL MONTH\",\"type_name\":\"INTERVAL\",\"position\":1,\"type_interval_type\":\"MONTH\"},{\"name\":\"iv_year_to_mon\",\"type_text\":\"INTERVAL YEAR TO MONTH\",\"type_name\":\"INTERVAL\",\"position\":2,\"type_interval_type\":\"YEAR TO MONTH\"},{\"name\":\"iv_day\",\"type_text\":\"INTERVAL DAY\",\"type_name\":\"INTERVAL\",\"position\":3,\"type_interval_type\":\"DAY\"},{\"name\":\"iv_day_to_hour\",\"type_text\":\"INTERVAL DAY TO HOUR\",\"type_name\":\"INTERVAL\",\"position\":4,\"type_interval_type\":\"DAY TO HOUR\"},{\"name\":\"iv_day_to_min\",\"type_text\":\"INTERVAL DAY TO MINUTE\",\"type_name\":\"INTERVAL\",\"position\":5,\"type_interval_type\":\"DAY TO MINUTE\"},{\"name\":\"iv_day_to_sec\",\"type_text\":\"INTERVAL DAY TO SECOND\",\"type_name\":\"INTERVAL\",\"position\":6,\"type_interval_type\":\"DAY TO SECOND\"},{\"name\":\"iv_hour\",\"type_text\":\"INTERVAL HOUR\",\"type_name\":\"INTERVAL\",\"position\":7,\"type_interval_type\":\"HOUR\"},{\"name\":\"iv_hour_to_min\",\"type_text\":\"INTERVAL HOUR TO MINUTE\",\"type_name\":\"INTERVAL\",\"position\":8,\"type_interval_type\":\"HOUR TO MINUTE\"},{\"name\":\"iv_hour_to_sec\",\"type_text\":\"INTERVAL HOUR TO SECOND\",\"type_name\":\"INTERVAL\",\"position\":9,\"type_interval_type\":\"HOUR TO SECOND\"},{\"name\":\"iv_min_to_sec\",\"type_text\":\"INTERVAL MINUTE TO SECOND\",\"type_name\":\"INTERVAL\",\"position\":10,\"type_interval_type\":\"MINUTE TO SECOND\"},{\"name\":\"iv_second\",\"type_text\":\"INTERVAL SECOND\",\"type_name\":\"INTERVAL\",\"position\":11,\"type_interval_type\":\"SECOND\"}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":1696}],\"total_row_count\":1,\"total_byte_count\":1696,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":839,\"external_link\":\"https://e2-dogfood-core.s3.us-west-2.amazonaws.com/oregon-staging/6051921418418893.jobs/sql/extended/results_2025-05-23T21%3A05%3A26Z_126ed936-13d4-4bc0-beac-f579e4b71dae?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250522T200527Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=d60a47b71d7d7bd06deffbdb6504a580bb836a8fc8feb3c0b8ec2a3c6809d7e8\",\"expiration\":\"2025-05-22T20:20:27.124Z\"}]}}",
+    "headers" : {
+      "x-request-id" : "4e69ceaf-bfde-4051-8f24-4ba42fdcfbd1",
+      "date" : "Thu, 22 May 2025 20:05:27 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "d046f810-68d4-43a0-8289-84ed1657d444",
+  "insertionIndex" : 9
+}

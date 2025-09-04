@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -14,7 +16,8 @@ public class DoubleConverter implements ObjectConverter {
       return ((Number) object).doubleValue();
     } else {
       throw new DatabricksSQLException(
-          "Unsupported type for DoubleObjectConverter: " + object.getClass());
+          "Unsupported type for DoubleObjectConverter: " + object.getClass(),
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
     }
   }
 
@@ -29,7 +32,7 @@ public class DoubleConverter implements ObjectConverter {
     if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
       return (byte) value;
     }
-    throw new DatabricksSQLException("Invalid conversion: Double value out of byte range");
+    throw new DatabricksValidationException("Invalid conversion: Double value out of byte range");
   }
 
   @Override
@@ -38,7 +41,7 @@ public class DoubleConverter implements ObjectConverter {
     if (value >= Short.MIN_VALUE && value <= Short.MAX_VALUE) {
       return (short) value;
     }
-    throw new DatabricksSQLException("Invalid conversion: Double value out of short range");
+    throw new DatabricksValidationException("Invalid conversion: Double value out of short range");
   }
 
   @Override
@@ -47,7 +50,7 @@ public class DoubleConverter implements ObjectConverter {
     if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
       return (int) value;
     }
-    throw new DatabricksSQLException("Invalid conversion: Double value out of int range");
+    throw new DatabricksValidationException("Invalid conversion: Double value out of int range");
   }
 
   @Override
@@ -56,7 +59,7 @@ public class DoubleConverter implements ObjectConverter {
     if (value >= Long.MIN_VALUE && value <= Long.MAX_VALUE) {
       return (long) value;
     }
-    throw new DatabricksSQLException("Invalid conversion: Double value out of long range");
+    throw new DatabricksValidationException("Invalid conversion: Double value out of long range");
   }
 
   @Override
@@ -65,7 +68,7 @@ public class DoubleConverter implements ObjectConverter {
     if (value >= -Float.MAX_VALUE && value <= Float.MAX_VALUE) {
       return (float) value;
     }
-    throw new DatabricksSQLException("Invalid conversion: Double value out of float range");
+    throw new DatabricksValidationException("Invalid conversion: Double value out of float range");
   }
 
   @Override

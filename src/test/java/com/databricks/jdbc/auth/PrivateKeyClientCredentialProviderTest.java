@@ -5,15 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import java.io.IOException;
-import org.apache.http.HttpEntity;
-import org.apache.http.StatusLine;
-import org.apache.http.client.methods.CloseableHttpResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -24,13 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class PrivateKeyClientCredentialProviderTest {
   @Mock DatabricksHttpClient httpClient;
 
-  @Mock CloseableHttpResponse httpResponse;
-
-  @Mock StatusLine statusLine;
-
   @Mock DatabricksConfig config;
-
-  @Mock HttpEntity entity;
 
   @Mock IDatabricksConnectionContext context;
 

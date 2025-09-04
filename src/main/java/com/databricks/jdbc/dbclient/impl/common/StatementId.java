@@ -1,10 +1,14 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR;
+
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
+import com.databricks.jdbc.model.client.thrift.generated.TOperationHandle;
 import java.util.Objects;
 
 /** A Statement-Id identifier to uniquely identify an executed statement */
@@ -23,7 +27,7 @@ public class StatementId {
 
   /** Constructs a StatementId identifier for a given SQl Exec statement-Id */
   public StatementId(String statementId) {
-    this(DatabricksClientType.SQL_EXEC, statementId, null);
+    this(DatabricksClientType.SEA, statementId, null);
   }
 
   /** Constructs a StatementId identifier for a given Thrift Server operation handle */
@@ -38,19 +42,20 @@ public class StatementId {
   public static StatementId deserialize(String serializedStatementId) {
     String[] idParts = serializedStatementId.split("\\|");
     if (idParts.length == 1) {
-      return new StatementId(DatabricksClientType.SQL_EXEC, serializedStatementId, null);
+      return new StatementId(DatabricksClientType.SEA, serializedStatementId, null);
     } else if (idParts.length == 2) {
       return new StatementId(DatabricksClientType.THRIFT, idParts[0], idParts[1]);
     } else {
-      LOGGER.error("Invalid statement-Id {%s}", serializedStatementId);
-      throw new IllegalArgumentException("Invalid statement-Id " + serializedStatementId);
+      LOGGER.error("Invalid statement-Id {}", serializedStatementId);
+      throw new DatabricksDriverException(
+          "Invalid statement-Id " + serializedStatementId, INPUT_VALIDATION_ERROR);
     }
   }
 
   @Override
   public String toString() {
     switch (clientType) {
-      case SQL_EXEC:
+      case SEA:
         return guid;
       case THRIFT:
         return String.format("%s|%s", guid, secret);
@@ -60,7 +65,7 @@ public class StatementId {
 
   /** Returns a Thrift operation handle for the given StatementId */
   public THandleIdentifier toOperationIdentifier() {
-    if (clientType.equals(DatabricksClientType.SQL_EXEC)) {
+    if (clientType.equals(DatabricksClientType.SEA)) {
       return null;
     }
     return new THandleIdentifier()
@@ -71,6 +76,14 @@ public class StatementId {
   /** Returns a SQL Exec statement handle for the given StatementId */
   public String toSQLExecStatementId() {
     return guid;
+  }
+
+  /**
+   * Returns a loggable statement Id for the given Thrift operation handle. This is used for logging
+   * purposes to avoid logging sensitive information.
+   */
+  public static String loggableStatementId(TOperationHandle operationHandle) {
+    return new StatementId(operationHandle.getOperationId()).toSQLExecStatementId();
   }
 
   @Override

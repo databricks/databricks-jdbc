@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
@@ -47,7 +46,7 @@ public class UCVolumeInputStreamTests {
 
     File file = new File(LOCAL_FILE);
     try {
-      Files.write(file.toPath(), FILE_CONTENT.getBytes());
+      Files.writeString(file.toPath(), FILE_CONTENT);
 
       System.out.println("File created");
       System.out.println(
@@ -63,14 +62,7 @@ public class UCVolumeInputStreamTests {
 
       InputStreamEntity inputStream =
           client.getObject(VOL_CATALOG, VOL_SCHEMA, VOL_ROOT, VOLUME_FILE);
-      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-      byte[] buffer = new byte[1024];
-      int length;
-      while ((length = inputStream.getContent().read(buffer)) != -1) {
-        byteArrayOutputStream.write(buffer, 0, length);
-      }
-      String content = new String(byteArrayOutputStream.toByteArray(), "UTF-8");
-      assertEquals(FILE_CONTENT, content);
+      assertEquals(FILE_CONTENT, new String(inputStream.getContent().readAllBytes()));
       inputStream.getContent().close();
 
       assertTrue(client.objectExists(VOL_CATALOG, VOL_SCHEMA, VOL_ROOT, VOLUME_FILE, false));

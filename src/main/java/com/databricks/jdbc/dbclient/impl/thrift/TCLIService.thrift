@@ -269,16 +269,6 @@ struct TSparkArrowResultLink {
   5: required i64 bytesNum
   6: optional map<string, string> httpHeaders
 }
-struct TDBSqlCloudResultFile {
-  1: optional string filePath
-  2: optional i64 startRowOffset
-  3: optional i64 rowCount
-  4: optional i64 uncompressedBytes
-  5: optional i64 compressedBytes
-  6: optional string fileLink
-  7: optional i64 linkExpiryTime
-  8: optional map<string, string> httpHeaders
-}
 struct TRowSet {
   1: required i64 startRowOffset
   2: required list<TRow> rows
@@ -287,59 +277,6 @@ struct TRowSet {
   5: optional i32 columnCount
   0x501: optional list<TSparkArrowBatch> arrowBatches;
   0x502: optional list<TSparkArrowResultLink> resultLinks;
-}
-struct TDBSqlTempView {
-  1: optional string name
-  2: optional string sqlStatement
-  3: optional map<string, string> properties
-  4: optional string viewSchema
-}
-struct TDBSqlSessionCapabilities {
-  1: optional bool supportsMultipleCatalogs
-}
-struct TExpressionInfo {
-    1: optional string className
-    2: optional string usage
-    3: optional string name
-    4: optional string extended
-    5: optional string db
-    6: optional string arguments
-    7: optional string examples
-    8: optional string note
-    9: optional string group
-    10: optional string since
-    11: optional string deprecated
-    12: optional string source
-}
-struct TDBSqlConfValue {
-  1: optional string value
-}
-struct TSQLVariable {
-  1: optional TIdentifier catalogName
-  2: optional TIdentifier schemaName
-  3: optional TIdentifier variableName
-  4: optional string defaultExpressionSQL
-  5: optional string variableDataType
-  6: optional string currentValue
-}
-struct TDBSqlSessionConf {
-  1: optional map<string, string> confs
-  2: optional list<TDBSqlTempView> tempViews
-  3: optional string currentDatabase
-  4: optional string currentCatalog
-  5: optional TDBSqlSessionCapabilities sessionCapabilities
-  6: optional list<TExpressionInfo> expressionsInfos
-  7: optional map<string, TDBSqlConfValue> internalConfs
-  8: optional list<TSQLVariable> tempVariables
-}
-enum TOperationIdempotencyType {
-  UNKNOWN,
-  NON_IDEMPOTENT,
-  IDEMPOTENT
-}
-enum TOperationTimeoutLevel {
-  CLUSTER,
-  SESSION
 }
 enum TStatusCode {
   SUCCESS_STATUS,
@@ -507,11 +444,6 @@ struct TSparkArrowTypes {
  4: optional bool intervalTypesAsArrow
  5: optional bool nullTypeAsArrow
 }
-enum TResultPersistenceMode {
-  ONLY_LARGE_RESULTS,
-  ALL_QUERY_RESULTS,
-  ALL_RESULTS
-}
 struct TExecuteStatementReq {
   1: required TSessionHandle sessionHandle
   2: required string statement
@@ -528,9 +460,6 @@ struct TExecuteStatementReq {
   0x508: optional TSparkParameterList parameters
   0x509: optional i64 maxBytesPerBatch
   0x510: optional TStatementConf statementConf
-}
-struct TDBSqlStatement {
-  1: optional string statement
 }
 union TSparkParameterValue {
   1: string stringValue
@@ -700,11 +629,6 @@ struct TCancelOperationReq {
 struct TCancelOperationResp {
   1: required TStatus status
 }
-enum TDBSqlCloseOperationReason {
-    NONE,
-    COMMAND_INACTIVITY_TIMEOUT,
-    CLOSE_SESSION
-}
 struct TCloseOperationReq {
   1: required TOperationHandle operationHandle
 }
@@ -731,20 +655,6 @@ enum TCacheLookupResult {
     REMOTE_CACHE_HIT,
     CACHE_MISS
 }
-enum TCloudFetchDisabledReason {
-    ARROW_SUPPORT,
-    CLOUD_FETCH_SUPPORT,
-    PROTOCOL_VERSION,
-    REGION_SUPPORT,
-    BLOCKLISTED_OPERATION,
-    SMALL_RESULT_SIZE,
-    CUSTOMER_STORAGE_SUPPORT,
-    UNKNOWN,
-    METADATA_OPERATION
-}
-enum TDBSqlManifestFileFormat {
-    THRIFT_GET_RESULT_SET_METADATA_RESP
-}
 enum TFetchOrientation {
   FETCH_NEXT,
   FETCH_PRIOR,
@@ -752,12 +662,6 @@ enum TFetchOrientation {
   FETCH_ABSOLUTE,
   FETCH_FIRST,
   FETCH_LAST
-}
-enum TDBSqlFetchDisposition {
-  DISPOSITION_UNSPECIFIED,
-  DISPOSITION_INLINE,
-  DISPOSITION_EXTERNAL_LINKS,
-  DISPOSITION_INTERNAL_DBFS
 }
 struct TFetchResultsReq {
   1: required TOperationHandle operationHandle

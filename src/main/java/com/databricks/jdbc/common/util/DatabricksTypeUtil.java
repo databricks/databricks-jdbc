@@ -1,5 +1,6 @@
 package com.databricks.jdbc.common.util;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -9,6 +10,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TTypeDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -30,6 +32,7 @@ public class DatabricksTypeUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksTypeUtil.class);
   public static final String BIGINT = "BIGINT";
+  public static final String LONG = "LONG";
   public static final String BINARY = "BINARY";
   public static final String BOOLEAN = "BOOLEAN";
   public static final String DATE = "DATE";
@@ -44,10 +47,14 @@ public class DatabricksTypeUtil {
   public static final String STRING = "STRING";
   public static final String TINYINT = "TINYINT";
   public static final String TIMESTAMP = "TIMESTAMP";
+  public static final String TIME = "TIME";
   public static final String TIMESTAMP_NTZ = "TIMESTAMP_NTZ";
   public static final String MAP = "MAP";
   public static final String ARRAY = "ARRAY";
   public static final String STRUCT = "STRUCT";
+  public static final String VARIANT = "VARIANT";
+  public static final String CHAR = "CHAR";
+  public static final String INTERVAL = "INTERVAL";
   private static final ArrayList<ColumnInfoTypeName> SIGNED_TYPES =
       new ArrayList<>(
           Arrays.asList(
@@ -58,10 +65,12 @@ public class DatabricksTypeUtil {
               ColumnInfoTypeName.LONG,
               ColumnInfoTypeName.SHORT));
 
+  // only used for PreparedStatement
   public static ColumnInfoTypeName getColumnInfoType(String typeName) {
     switch (typeName) {
+      case DatabricksTypeUtil.CHAR:
       case DatabricksTypeUtil.STRING:
-        return ColumnInfoTypeName.STRING;
+        return ColumnInfoTypeName.STRING; // both char, string passed as STRING param
       case DatabricksTypeUtil.DATE:
       case DatabricksTypeUtil.TIMESTAMP:
       case DatabricksTypeUtil.TIMESTAMP_NTZ:
@@ -74,6 +83,7 @@ public class DatabricksTypeUtil {
       case DatabricksTypeUtil.INT:
         return ColumnInfoTypeName.INT;
       case DatabricksTypeUtil.BIGINT:
+      case DatabricksTypeUtil.LONG:
         return ColumnInfoTypeName.LONG;
       case DatabricksTypeUtil.FLOAT:
         return ColumnInfoTypeName.FLOAT;
@@ -157,6 +167,7 @@ public class DatabricksTypeUtil {
       case LONG:
         return "java.lang.Long";
       case FLOAT:
+        return "java.lang.Float";
       case DOUBLE:
         return "java.lang.Double";
       case DECIMAL:
@@ -189,25 +200,48 @@ public class DatabricksTypeUtil {
     }
   }
 
-  public static int getDisplaySize(ColumnInfoTypeName typeName, int precision) {
+  /*
+   * Returns default precision and scale based on column type. For string columns, returns the default string col length in precision.
+   */
+  public static int[] getBasePrecisionAndScale(int columnType, IDatabricksConnectionContext ctx) {
+    if (columnType == Types.VARCHAR || columnType == Types.CHAR) {
+      return new int[] {ctx.getDefaultStringColumnLength(), 0};
+    }
+    return new int[] {
+      DatabricksTypeUtil.getPrecision(columnType), DatabricksTypeUtil.getScale(columnType)
+    };
+  }
+
+  private static int calculateDisplaySize(int scale, int precision) {
+    // scale = precision => only fractional digits. +3 for decimal point, sign and leading zero
+    // scale = 0 => only integral part. +1 for sign
+    // scale > 0 => both integral and fractional part. +2 for sign and decimal point
+    return scale == precision ? precision + 3 : scale == 0 ? precision + 1 : precision + 2;
+  }
+
+  public static int getDisplaySize(ColumnInfoTypeName typeName, int precision, int scale) {
     if (typeName == null) {
       return 255;
     }
     switch (typeName) {
       case BYTE:
+        return 4;
       case SHORT:
       case INT:
       case LONG:
       case BINARY:
         return precision + 1; // including negative sign
       case CHAR:
+      case STRING:
         return precision;
       case FLOAT:
+        return 14;
       case DOUBLE:
-      case DECIMAL:
         return 24;
+      case DECIMAL:
+        return calculateDisplaySize(scale, precision);
       case BOOLEAN:
-        return 5; // length of `false`
+        return 1; // 0 or 1
       case TIMESTAMP:
         return 29; // as per
         // https://docs.oracle.com/en/java/javase/21/docs/api/java.sql/java/sql/Timestamp.html#toString()
@@ -216,8 +250,50 @@ public class DatabricksTypeUtil {
       case NULL:
         return 4; // Length of `NULL`
       case ARRAY:
-      case STRING:
       case STRUCT:
+      default:
+        return 255;
+    }
+  }
+
+  /**
+   * Returns the display size for a given SQL type and precision. This method is used only in
+   * pre-defined result set metadata flow.
+   *
+   * @param sqlType the SQL type as defined in {@link java.sql.Types}
+   * @param precision the precision of the column
+   * @return the display size for the given SQL type and precision
+   */
+  public static int getDisplaySize(int sqlType, int precision) {
+    switch (sqlType) {
+      case Types.SMALLINT:
+      case Types.INTEGER:
+        return precision + 1;
+      case Types.CHAR:
+        return precision;
+      case Types.BOOLEAN:
+        return 5;
+      case Types.BIT:
+        return 1;
+      case Types.VARCHAR:
+        return 128;
+      default:
+        return 255; // Default size for unhandled types
+    }
+  }
+
+  public static int getMetadataColPrecision(Integer columnType) {
+    switch (columnType) {
+      case Types.SMALLINT:
+        return 5;
+      case Types.INTEGER:
+        return 10;
+      case Types.CHAR:
+      case Types.BOOLEAN:
+      case Types.BIT:
+        return 1;
+      case Types.VARCHAR:
+        return 128;
       default:
         return 255;
     }
@@ -229,6 +305,7 @@ public class DatabricksTypeUtil {
     }
     switch (columnType) {
       case Types.TINYINT:
+        return 3;
       case Types.SMALLINT:
         return 5;
       case Types.INTEGER:
@@ -287,10 +364,12 @@ public class DatabricksTypeUtil {
    */
   public static String getDatabricksTypeFromSQLType(int sqlType) {
     switch (sqlType) {
+      case Types.CHAR:
+        return DatabricksTypeUtil.CHAR;
       case Types.ARRAY:
         return ARRAY;
       case Types.BIGINT:
-        return BIGINT;
+        return LONG;
       case Types.BINARY:
       case Types.VARBINARY:
       case Types.LONGVARBINARY:
@@ -298,12 +377,15 @@ public class DatabricksTypeUtil {
       case Types.DATE:
         return DATE;
       case Types.DECIMAL:
-        return DECIMAL;
+      case Types.NUMERIC:
+        return DECIMAL; // Databricks treats NUMERIC as DECIMAL
+      case Types.BIT:
       case Types.BOOLEAN:
         return BOOLEAN;
       case Types.DOUBLE:
         return DOUBLE;
       case Types.FLOAT:
+      case Types.REAL: // REAL is float(24)
         return FLOAT;
       case Types.INTEGER:
         return INT;
@@ -362,13 +444,13 @@ public class DatabricksTypeUtil {
     return type;
   }
 
-  public static TTypeId getThriftTypeFromTypeDesc(TTypeDesc typeDesc) {
+  public static TPrimitiveTypeEntry getTPrimitiveTypeOrDefault(TTypeDesc typeDesc) {
+    TPrimitiveTypeEntry defaultPrimitiveTypeEntry = new TPrimitiveTypeEntry(TTypeId.STRING_TYPE);
     return Optional.ofNullable(typeDesc)
         .map(TTypeDesc::getTypes)
         .map(t -> t.get(0))
         .map(TTypeEntry::getPrimitiveEntry)
-        .map(TPrimitiveTypeEntry::getType)
-        .orElse(TTypeId.STRING_TYPE);
+        .orElse(defaultPrimitiveTypeEntry);
   }
 
   public static ArrowType mapThriftToArrowType(TTypeId typeId) throws SQLException {
@@ -408,7 +490,23 @@ public class DatabricksTypeUtil {
       case NULL_TYPE:
         return ArrowType.Null.INSTANCE;
       default:
-        throw new DatabricksSQLFeatureNotSupportedException("Unsupported Hive type: " + typeId);
+        throw new DatabricksSQLFeatureNotSupportedException(
+            "Unsupported mapping of Thrift to ArrowType: " + typeId);
     }
+  }
+
+  /*
+   * Returns the Databricks type string for a given BigDecimal object.
+   * Format: DECIMAL(p,s) where p is the precision and s is the scale.
+   * Note: precision cannot be less than scale.
+   */
+  public static String getDecimalTypeString(BigDecimal bd) {
+    int precision = bd.precision();
+    int scale = bd.scale();
+    if (precision < scale) {
+      // In type(p,q) -> p should not be less than q. case BigDecimal("0.00")
+      precision = scale;
+    }
+    return DECIMAL + "(" + precision + "," + scale + ")";
   }
 }

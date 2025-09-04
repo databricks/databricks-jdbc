@@ -2,7 +2,7 @@ package com.databricks.jdbc.model.client.sqlexec;
 
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
-import com.databricks.sdk.service.sql.StatementStatus;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;

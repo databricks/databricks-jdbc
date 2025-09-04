@@ -1,18 +1,27 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
+import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
+import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
+import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.ValidationUtil;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksEnvironment;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.utils.Cloud;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.util.*;
@@ -29,6 +38,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private final String schema;
   private final String connectionURL;
   private final IDatabricksComputeResource computeResource;
+  private final Map<String, String> customHeaders;
+  private DatabricksClientType clientType;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
   @VisibleForTesting final String connectionUuid;
 
@@ -44,8 +55,67 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.port = port;
     this.schema = schema;
     this.parameters = parameters;
+    this.customHeaders = parseCustomHeaders(parameters);
     this.computeResource = buildCompute();
     this.connectionUuid = UUID.randomUUID().toString();
+    this.clientType = getClientTypeFromContext();
+  }
+
+  private DatabricksConnectionContext(
+      String connectionURL, String host, ImmutableMap<String, String> parameters) {
+    this.connectionURL = connectionURL;
+    this.host = host;
+    this.port = DEFAULT_PORT;
+    this.schema = DEFAULT_SCHEMA;
+    this.parameters = parameters;
+    this.customHeaders = parseCustomHeaders(parameters);
+    this.computeResource = null;
+    this.connectionUuid = UUID.randomUUID().toString();
+  }
+
+  /**
+   * Builds a map of properties from the given connection parameter string and properties object.
+   *
+   * @param connectionParamString the connection parameter string
+   * @param properties the properties object
+   * @return an immutable map of properties
+   */
+  public static ImmutableMap<String, String> buildPropertiesMap(
+      String connectionParamString, Properties properties) {
+    ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
+    // check if connectionParamString is empty or null
+    if (!isNullOrEmpty(connectionParamString)) {
+      String[] urlParts = connectionParamString.split(DatabricksJdbcConstants.URL_DELIMITER);
+      for (String urlPart : urlParts) {
+        String[] pair = urlPart.split(DatabricksJdbcConstants.PAIR_DELIMITER);
+        if (pair.length == 1) {
+          pair = new String[] {pair[0], ""};
+        }
+        if (pair[0].startsWith(DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName())) {
+          parametersBuilder.put(pair[0], pair[1]);
+        } else {
+          parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
+        }
+      }
+    }
+    for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+      parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
+    }
+    return parametersBuilder.build();
+  }
+
+  static IDatabricksConnectionContext parseWithoutError(String url, Properties properties) {
+    Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
+    if (urlMatcher.find()) {
+      String host = urlMatcher.group(1).split(DatabricksJdbcConstants.PORT_DELIMITER)[0];
+      // Explicitly check for null before accessing. covers cases like "jdbc:databricks://test"
+      // (no <;> after host)
+      String connectionParamString = urlMatcher.group(3) != null ? urlMatcher.group(3) : "";
+      ImmutableMap<String, String> connectionPropertiesMap =
+          buildPropertiesMap(connectionParamString, properties);
+      return new DatabricksConnectionContext(url, host, connectionPropertiesMap);
+    }
+    return null;
   }
 
   /**
@@ -55,15 +125,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
    * @param properties connection properties
    * @return a connection context
    */
-  static IDatabricksConnectionContext parse(String url, Properties properties)
+  public static IDatabricksConnectionContext parse(String url, Properties properties)
       throws DatabricksSQLException {
     if (!ValidationUtil.isValidJdbcUrl(url)) {
-      throw new DatabricksParsingException("Invalid url " + url);
+      throw new DatabricksParsingException(
+          "Invalid url " + url, DatabricksDriverErrorCode.CONNECTION_ERROR);
     }
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
       String hostUrlVal = urlMatcher.group(1);
-      String urlMinusHost = urlMatcher.group(2);
+      String schema =
+          Objects.equals(urlMatcher.group(2), EMPTY_STRING) ? null : urlMatcher.group(2);
+      String urlMinusHost = urlMatcher.group(3);
       String[] hostAndPort = hostUrlVal.split(DatabricksJdbcConstants.PORT_DELIMITER);
       String hostValue = hostAndPort[0];
       int portValue =
@@ -71,34 +144,24 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
               ? Integer.parseInt(hostAndPort[1])
               : DatabricksJdbcConstants.DEFAULT_PORT;
 
-      ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
-      String[] urlParts = urlMinusHost.split(DatabricksJdbcConstants.URL_DELIMITER);
-      String schema = urlParts[0];
-      if (nullOrEmptyString(schema)) {
-        schema = DEFAULT_SCHEMA;
-      }
-      for (int urlPartIndex = 1; urlPartIndex < urlParts.length; urlPartIndex++) {
-        String[] pair = urlParts[urlPartIndex].split(DatabricksJdbcConstants.PAIR_DELIMITER);
-        if (pair.length == 1) {
-          pair = new String[] {pair[0], ""};
+      ImmutableMap<String, String> propertiesMap = buildPropertiesMap(urlMinusHost, properties);
+
+      // Validate all input properties
+      ValidationUtil.validateInputProperties(propertiesMap);
+
+      if (propertiesMap.containsKey(PORT)) {
+        try {
+          portValue = Integer.parseInt(propertiesMap.get(PORT));
+        } catch (NumberFormatException e) {
+          throw new DatabricksParsingException(
+              "Invalid port number " + propertiesMap.get(PORT),
+              DatabricksDriverErrorCode.CONNECTION_ERROR);
         }
-        if (pair[0].equalsIgnoreCase(PORT)) {
-          try {
-            portValue = Integer.parseInt(pair[1]);
-          } catch (NumberFormatException e) {
-            throw new DatabricksParsingException("Invalid port number " + pair[1]);
-          }
-        }
-        parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
       }
-      for (Map.Entry<Object, Object> entry : properties.entrySet()) {
-        parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
-      }
-      return new DatabricksConnectionContext(
-          url, hostValue, portValue, schema, parametersBuilder.build());
+      return new DatabricksConnectionContext(url, hostValue, portValue, schema, propertiesMap);
     } else {
       // Should never reach here, since we have already checked for url validity
-      throw new IllegalArgumentException("Invalid url " + "incorrect");
+      throw new DatabricksValidationException("Connection Context invalid state error");
     }
   }
 
@@ -116,6 +179,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         && Objects.equals(host, that.host)
         && Objects.equals(schema, that.schema)
         && Objects.equals(parameters, that.parameters);
+  }
+
+  @Override
+  public boolean isPropertyPresent(DatabricksJdbcUrlParams urlParam) {
+    return parameters.containsKey(urlParam.getParamName().toLowerCase());
   }
 
   @Override
@@ -141,7 +209,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return uriBuilder.build().toString();
     } catch (Exception e) {
       LOGGER.debug("URI Building failed with exception: " + e.getMessage());
-      throw new DatabricksParsingException("URI Building failed with exception: " + e.getMessage());
+      throw new DatabricksParsingException(
+          "URI Building failed with exception: " + e.getMessage(),
+          DatabricksDriverErrorCode.CONNECTION_ERROR);
     }
   }
 
@@ -153,6 +223,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public String getHttpPath() {
     LOGGER.debug("String getHttpPath()");
     return getParameter(DatabricksJdbcUrlParams.HTTP_PATH);
+  }
+
+  public boolean getEnableSQLValidationForIsValid() {
+    LOGGER.debug("String getEnableSQLValidationForIsValid()");
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_VALIDATION_FOR_IS_VALID, "0")
+        .equals("1");
   }
 
   @Override
@@ -196,17 +272,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         DatabricksJdbcUrlParams.GOOGLE_CREDENTIALS_FILE.getParamName().toLowerCase())) {
       return DatabricksJdbcConstants.GCP_GOOGLE_CREDENTIALS_AUTH_TYPE;
     }
-    if (parameters.containsKey(
-        DatabricksJdbcUrlParams.CLIENT_SECRET.getParamName().toLowerCase())) {
-      return DatabricksJdbcConstants.M2M_AUTH_TYPE;
-    }
-    throw new DatabricksParsingException(
-        "GCP Auth Type not found. Provide either Google Service Account or Google Credentials file path");
+    return DatabricksJdbcConstants.M2M_AUTH_TYPE;
   }
 
   @Override
   public String getClientId() throws DatabricksParsingException {
-    String clientId = getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
+    String clientId = getNullableClientId();
     if (nullOrEmptyString(clientId)) {
       Cloud cloud = getCloud();
       if (cloud == Cloud.AWS) {
@@ -218,6 +289,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       }
     }
     return clientId;
+  }
+
+  @Override
+  public String getNullableClientId() {
+    return getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
   }
 
   @Override
@@ -310,11 +386,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getClientUserAgent() {
-    return getClientType().equals(DatabricksClientType.SQL_EXEC)
-        ? DatabricksJdbcConstants.USER_AGENT_SEA_CLIENT
-        : DatabricksJdbcConstants.USER_AGENT_THRIFT_CLIENT;
+    return getClientType().equals(DatabricksClientType.SEA)
+        ? USER_AGENT_SEA_CLIENT
+        : USER_AGENT_THRIFT_CLIENT;
   }
 
+  @Override
   public String getCustomerUserAgent() {
     return getParameter(DatabricksJdbcUrlParams.USER_AGENT_ENTRY);
   }
@@ -328,8 +405,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return CompressionCodec.parseCompressionType(compressionType);
   }
 
-  @Override
-  public DatabricksClientType getClientType() {
+  public DatabricksClientType getClientTypeFromContext() {
     if (computeResource instanceof AllPurposeCluster) {
       return DatabricksClientType.THRIFT;
     }
@@ -337,7 +413,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     if (useThriftClient != null && useThriftClient.equals("1")) {
       return DatabricksClientType.THRIFT;
     }
-    return DatabricksClientType.SQL_EXEC;
+    return DatabricksClientType.SEA;
+  }
+
+  @Override
+  public DatabricksClientType getClientType() {
+    return clientType;
+  }
+
+  public void setClientType(DatabricksClientType clientType) {
+    this.clientType = clientType;
   }
 
   @Override
@@ -346,15 +431,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public double getCloudFetchSpeedThreshold() {
+    return Double.parseDouble(getParameter(DatabricksJdbcUrlParams.CLOUD_FETCH_SPEED_THRESHOLD));
+  }
+
+  @Override
   public String getCatalog() {
-    return getParameter(
-        DatabricksJdbcUrlParams.CATALOG, getParameter(DatabricksJdbcUrlParams.CONN_CATALOG));
+    return getParameter(DatabricksJdbcUrlParams.CONN_CATALOG);
   }
 
   @Override
   public String getSchema() {
-    return getParameter(
-        DatabricksJdbcUrlParams.CONN_SCHEMA, getParameter(DatabricksJdbcUrlParams.SCHEMA));
+    return getParameter(DatabricksJdbcUrlParams.CONN_SCHEMA, schema);
   }
 
   @Override
@@ -365,6 +453,28 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
                 ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
                     .anyMatch(allowedConf -> allowedConf.toLowerCase().equals(e.getKey())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  @Override
+  public Map<String, String> getClientInfoProperties() {
+    return ALLOWED_CLIENT_INFO_PROPERTIES.stream()
+        .map(String::toLowerCase)
+        .filter(parameters::containsKey)
+        .collect(
+            Collectors.toMap(
+                key -> key,
+                key ->
+                    isAccessToken(key)
+                        ? REDACTED_TOKEN
+                        : parameters.get(key))); // mask access token
+  }
+
+  public Map<String, String> getCustomHeaders() {
+    return this.customHeaders;
+  }
+
+  private boolean isAccessToken(String key) {
+    return key.equalsIgnoreCase(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName());
   }
 
   @Override
@@ -507,11 +617,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public boolean useFileSystemAPI() {
-    return getParameter(DatabricksJdbcUrlParams.USE_FILE_SYSTEM_API).equals("1");
-  }
-
-  @Override
   public String getConnectionURL() {
     return connectionURL;
   }
@@ -554,23 +659,37 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getTokenEndpoint() {
-    return getParameter(DatabricksJdbcUrlParams.TOKEN_ENDPOINT);
+    return getParameter(
+        DatabricksJdbcUrlParams.OAUTH_TOKEN_ENDPOINT,
+        getParameter(DatabricksJdbcUrlParams.TOKEN_ENDPOINT));
   }
 
   @Override
   public String getAuthEndpoint() {
-    return getParameter(DatabricksJdbcUrlParams.AUTH_ENDPOINT);
+    return getParameter(
+        DatabricksJdbcUrlParams.OAUTH_ENDPOINT,
+        getParameter(DatabricksJdbcUrlParams.AUTH_ENDPOINT));
   }
 
   @Override
   public boolean isOAuthDiscoveryModeEnabled() {
     // By default, set to true
-    return getParameter(DatabricksJdbcUrlParams.DISCOVERY_MODE).equals("1");
+    return getParameter(
+            DatabricksJdbcUrlParams.OIDC_DISCOVERY_MODE,
+            getParameter(DatabricksJdbcUrlParams.DISCOVERY_MODE))
+        .equals("1");
+  }
+
+  @Override
+  public String getIdentityFederationClientId() {
+    return getParameter(DatabricksJdbcUrlParams.IDENTITY_FEDERATION_CLIENT_ID);
   }
 
   @Override
   public String getOAuthDiscoveryURL() {
-    return getParameter(DatabricksJdbcUrlParams.DISCOVERY_URL);
+    return getParameter(
+        DatabricksJdbcUrlParams.OIDC_DISCOVERY_ENDPOINT,
+        getParameter(DatabricksJdbcUrlParams.DISCOVERY_URL));
   }
 
   @Override
@@ -580,7 +699,29 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getOAuthRefreshToken() {
-    return getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN);
+    return getParameter(
+        DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN,
+        getParameter(DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN_2));
+  }
+
+  @Override
+  public List<Integer> getOAuth2RedirectUrlPorts() {
+    String portsStr = getParameter(DatabricksJdbcUrlParams.OAUTH_REDIRECT_URL_PORT);
+
+    try {
+      // Parse comma-separated list of ports
+      return Arrays.stream(portsStr.split(","))
+          .map(String::trim)
+          .filter(s -> !s.isEmpty())
+          .map(Integer::parseInt)
+          .collect(Collectors.toList());
+    } catch (NumberFormatException e) {
+      String errorMessage =
+          String.format("Invalid port format in OAuth2RedirectUrlPort: %s.", portsStr);
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksDriverException(
+          errorMessage, DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+    }
   }
 
   @Override
@@ -609,6 +750,31 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public String getSSLTrustStoreProvider() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_TRUST_STORE_PROVIDER);
+  }
+
+  @Override
+  public String getSSLKeyStore() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_KEY_STORE);
+  }
+
+  @Override
+  public String getSSLKeyStorePassword() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_KEY_STORE_PASSWORD);
+  }
+
+  @Override
+  public String getSSLKeyStoreType() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_KEY_STORE_TYPE);
+  }
+
+  @Override
+  public String getSSLKeyStoreProvider() {
+    return getParameter(DatabricksJdbcUrlParams.SSL_KEY_STORE_PROVIDER);
+  }
+
+  @Override
   public int getMaxBatchSize() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.MAX_BATCH_SIZE));
   }
@@ -616,6 +782,186 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getConnectionUuid() {
     return connectionUuid;
+  }
+
+  @Override
+  public int getTelemetryBatchSize() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_BATCH_SIZE));
+  }
+
+  @Override
+  public boolean isTelemetryEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY, "0").equals("1");
+  }
+
+  @Override
+  public String getVolumeOperationAllowedPaths() {
+    return getParameter(
+        DatabricksJdbcUrlParams.ALLOWED_VOLUME_INGESTION_PATHS,
+        getParameter(DatabricksJdbcUrlParams.ALLOWED_STAGING_INGESTION_PATHS, ""));
+  }
+
+  @Override
+  public boolean isSqlExecHybridResultsEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS).equals("1");
+  }
+
+  @Override
+  public String getAzureTenantId() {
+    return getParameter(DatabricksJdbcUrlParams.AZURE_TENANT_ID);
+  }
+
+  @Override
+  public int getDefaultStringColumnLength() {
+    try {
+      int defaultStringColumnLength = Integer.parseInt(getParameter(DEFAULT_STRING_COLUMN_LENGTH));
+      if (defaultStringColumnLength < 0
+          || defaultStringColumnLength > MAX_DEFAULT_STRING_COLUMN_LENGTH) {
+        LOGGER.warn(
+            "DefaultStringColumnLength value {} is out of bounds (0 to 32767). Falling back to default value 255.",
+            defaultStringColumnLength);
+        return DEFUALT_STRING_COLUMN_LENGTH;
+      }
+      return defaultStringColumnLength;
+    } catch (NumberFormatException e) {
+      LOGGER.warn(
+          "Invalid number format for DefaultStringColumnLength. Falling back to default value 255.");
+      return DEFUALT_STRING_COLUMN_LENGTH;
+    }
+  }
+
+  @Override
+  public int getMaxDBFSConcurrentPresignedRequests() {
+    try {
+      return Integer.parseInt(
+          getParameter(DatabricksJdbcUrlParams.MAX_CONCURRENT_PRESIGNED_REQUESTS));
+    } catch (NumberFormatException e) {
+      LOGGER.warn(
+          "Invalid number format for MaxVolumeOperationConcurrentPresignedRequests. Falling back to default value 50.");
+      return DEFAULT_MAX_CONCURRENT_PRESIGNED_REQUESTS;
+    }
+  }
+
+  @Override
+  public boolean isComplexDatatypeSupportEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_COMPLEX_DATATYPE_SUPPORT).equals("1");
+  }
+
+  @Override
+  public boolean isRequestTracingEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_REQUEST_TRACING).equals("1");
+  }
+
+  @Override
+  public int getHttpConnectionPoolSize() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE));
+  }
+
+  @Override
+  public boolean allowSelfSignedCerts() {
+    return getParameter(DatabricksJdbcUrlParams.ALLOW_SELF_SIGNED_CERTS).equals("1");
+  }
+
+  @Override
+  public boolean useSystemTrustStore() {
+    return getParameter(DatabricksJdbcUrlParams.USE_SYSTEM_TRUST_STORE).equals("1");
+  }
+
+  @Override
+  public List<Integer> getUCIngestionRetriableHttpCodes() {
+    return Arrays.stream(
+            getParameter(
+                    DatabricksJdbcUrlParams.VOLUME_OPERATION_RETRYABLE_HTTP_CODE,
+                    getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRIABLE_HTTP_CODE))
+                .split(","))
+        .map(String::trim)
+        .filter(num -> num.matches("\\d+")) // Ensure only positive integers
+        .map(Integer::parseInt)
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  public int getUCIngestionRetryTimeoutSeconds() {
+    // The Url param takes value in minutes
+    return 60
+        * Integer.parseInt(
+            getParameter(
+                DatabricksJdbcUrlParams.VOLUME_OPERATION_RETRY_TIMEOUT,
+                getParameter(DatabricksJdbcUrlParams.UC_INGESTION_RETRY_TIMEOUT)));
+  }
+
+  @Override
+  public String getAzureWorkspaceResourceId() {
+    return getParameter(DatabricksJdbcUrlParams.AZURE_WORKSPACE_RESOURCE_ID);
+  }
+
+  @Override
+  public int getRowsFetchedPerBlock() {
+    int maxRows = DEFAULT_ROW_LIMIT_PER_BLOCK;
+    try {
+      maxRows = Integer.parseInt(getParameter(DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK));
+    } catch (NumberFormatException e) {
+      LOGGER.warn("Invalid value for RowsFetchedPerBlock, using default value");
+    }
+    return maxRows;
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public int getSocketTimeout() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.SOCKET_TIMEOUT));
+  }
+
+  @Override
+  public String getTokenCachePassPhrase() {
+    return getParameter(DatabricksJdbcUrlParams.TOKEN_CACHE_PASS_PHRASE);
+  }
+
+  @Override
+  public boolean isTokenCacheEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_TOKEN_CACHE).equals("1");
+  }
+
+  @Override
+  public String getApplicationName() {
+    return getParameter(DatabricksJdbcUrlParams.APPLICATION_NAME);
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public int getChunkReadyTimeoutSeconds() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.CHUNK_READY_TIMEOUT_SECONDS));
+  }
+
+  @Override
+  public boolean isTelemetryCircuitBreakerEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.TELEMETRY_CIRCUIT_BREAKER_ENABLED).equals("1");
+  }
+
+  @Override
+  public int getHttpMaxConnectionsPerRoute() {
+    int maxConnectionsPerRoute = DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE;
+    try {
+      maxConnectionsPerRoute =
+          Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HTTP_MAX_CONNECTIONS_PER_ROUTE));
+    } catch (NumberFormatException e) {
+      LOGGER.warn("Invalid value for HttpMaxConnectionsPerRoutes");
+    }
+    return maxConnectionsPerRoute;
+  }
+
+  @Override
+  public Integer getHttpConnectionRequestTimeout() {
+    String httpConnectionRequestTimeout =
+        getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_REQUEST_TIMEOUT);
+    if (!Strings.isNullOrEmpty(httpConnectionRequestTimeout)) {
+      try {
+        return Integer.parseInt(httpConnectionRequestTimeout);
+      } catch (NumberFormatException e) {
+        LOGGER.warn("Invalid value for HttpConnectionRequestTimeout");
+      }
+    }
+    return null;
   }
 
   private static boolean nullOrEmptyString(String s) {
@@ -645,7 +991,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return new AllPurposeCluster("default", "default");
     }
     // the control should never reach here, as the parsing already ensured the URL is valid
-    throw new DatabricksParsingException("Invalid HTTP Path provided " + this.getHttpPath());
+    throw new DatabricksParsingException(
+        "Invalid HTTP Path provided " + this.getHttpPath(),
+        DatabricksDriverErrorCode.CONNECTION_ERROR);
   }
 
   private String getParameter(DatabricksJdbcUrlParams key) {
@@ -654,5 +1002,27 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private String getParameter(DatabricksJdbcUrlParams key, String defaultValue) {
     return this.parameters.getOrDefault(key.getParamName().toLowerCase(), defaultValue);
+  }
+
+  private Map<String, String> parseCustomHeaders(ImmutableMap<String, String> parameters) {
+    String filterPrefix = DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName();
+
+    return parameters.entrySet().stream()
+        .filter(entry -> entry.getKey().startsWith(filterPrefix))
+        .collect(
+            Collectors.toMap(
+                entry -> entry.getKey().substring(filterPrefix.length()), Map.Entry::getValue));
+  }
+
+  @Override
+  public boolean forceEnableTelemetry() {
+    return getParameter(DatabricksJdbcUrlParams.FORCE_ENABLE_TELEMETRY).equals("1");
+  }
+
+  @Override
+  public int getTelemetryFlushIntervalInMilliseconds() {
+    // There is a minimum threshold of 1000ms for the flush interval
+    return Math.max(
+        1000, Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_FLUSH_INTERVAL)));
   }
 }

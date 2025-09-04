@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +21,7 @@ public class StatementIdTest {
   public void testConstructorWithString() {
     String statementId = "test-statement-id";
     StatementId stmtId = new StatementId(statementId);
-    assertEquals(DatabricksClientType.SQL_EXEC, stmtId.clientType);
+    assertEquals(DatabricksClientType.SEA, stmtId.clientType);
     assertEquals(statementId, stmtId.guid);
     assertNull(stmtId.secret);
   }
@@ -46,7 +47,7 @@ public class StatementIdTest {
   public void testDeserializeSqlExec() {
     String serializedStatementId = "test-statement-id";
     StatementId stmtId = StatementId.deserialize(serializedStatementId);
-    assertEquals(DatabricksClientType.SQL_EXEC, stmtId.clientType);
+    assertEquals(DatabricksClientType.SEA, stmtId.clientType);
     assertEquals(serializedStatementId, stmtId.guid);
     assertNull(stmtId.secret);
   }
@@ -68,7 +69,7 @@ public class StatementIdTest {
   public void testDeserializeInvalid() {
     String invalidSerializedStatementId = "part1|part2|part3";
     assertThrows(
-        IllegalArgumentException.class,
+        DatabricksDriverException.class,
         () -> StatementId.deserialize(invalidSerializedStatementId));
   }
 
@@ -147,7 +148,7 @@ public class StatementIdTest {
   public void testNotEqualsDifferentClientType() {
     String guid = "guid-base64-string";
     String secret = "secret-base64-string";
-    StatementId stmtId1 = new StatementId(DatabricksClientType.SQL_EXEC, guid, null);
+    StatementId stmtId1 = new StatementId(DatabricksClientType.SEA, guid, null);
     StatementId stmtId2 = new StatementId(DatabricksClientType.THRIFT, guid, secret);
     assertNotEquals(stmtId1, stmtId2);
   }
@@ -162,8 +163,8 @@ public class StatementIdTest {
   /** Test the equals method when secrets are null. */
   @Test
   public void testEqualsNullSecret() {
-    StatementId stmtId1 = new StatementId(DatabricksClientType.SQL_EXEC, "guid", null);
-    StatementId stmtId2 = new StatementId(DatabricksClientType.SQL_EXEC, "guid", null);
+    StatementId stmtId1 = new StatementId(DatabricksClientType.SEA, "guid", null);
+    StatementId stmtId2 = new StatementId(DatabricksClientType.SEA, "guid", null);
     assertEquals(stmtId1, stmtId2);
   }
 
@@ -179,7 +180,7 @@ public class StatementIdTest {
   @Test
   public void testNotEqualsDifferentClientTypesSameGuid() {
     String guid = "test-guid";
-    StatementId stmtId1 = new StatementId(DatabricksClientType.SQL_EXEC, guid, null);
+    StatementId stmtId1 = new StatementId(DatabricksClientType.SEA, guid, null);
     StatementId stmtId2 = new StatementId(DatabricksClientType.THRIFT, guid, "secret");
     assertNotEquals(stmtId1, stmtId2);
   }
@@ -200,7 +201,7 @@ public class StatementIdTest {
   public void testConstructorWithEmptyString() {
     String statementId = "";
     StatementId stmtId = new StatementId(statementId);
-    assertEquals(DatabricksClientType.SQL_EXEC, stmtId.clientType);
+    assertEquals(DatabricksClientType.SEA, stmtId.clientType);
     assertEquals(statementId, stmtId.guid);
     assertNull(stmtId.secret);
   }
@@ -216,15 +217,15 @@ public class StatementIdTest {
   /** Test the equals method when both StatementIds have null fields. */
   @Test
   public void testEqualsBothNullFields() {
-    StatementId stmtId1 = new StatementId(DatabricksClientType.SQL_EXEC, null, null);
-    StatementId stmtId2 = new StatementId(DatabricksClientType.SQL_EXEC, null, null);
+    StatementId stmtId1 = new StatementId(DatabricksClientType.SEA, null, null);
+    StatementId stmtId2 = new StatementId(DatabricksClientType.SEA, null, null);
     assertEquals(stmtId1, stmtId2);
   }
 
   /** Test the toString method when GUID and Secret are null. */
   @Test
   public void testToStringNullFields() {
-    StatementId stmtId = new StatementId(DatabricksClientType.SQL_EXEC, null, null);
+    StatementId stmtId = new StatementId(DatabricksClientType.SEA, null, null);
     String result = stmtId.toString();
     assertNull(result);
   }

@@ -1,37 +1,54 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
-import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDecimalTypeString;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
+import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.*;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.*;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksTimeoutException;
+import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
+import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
+import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
 import com.databricks.jdbc.model.client.sqlexec.GetStatementResponse;
+import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
+import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
+import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.DatabricksError;
+import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.net.URL;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.net.ssl.SSLHandshakeException;
 
 /** Implementation of IDatabricksClient interface using Databricks Java SDK. */
 public class DatabricksSdkClient implements IDatabricksClient {
@@ -42,12 +59,15 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private final IDatabricksConnectionContext connectionContext;
   private final ClientConfigurator clientConfigurator;
   private volatile WorkspaceClient workspaceClient;
+  private volatile ApiClient apiClient;
 
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)
-      throws DatabricksParsingException {
+      throws DatabricksParsingException, DatabricksHttpException {
     this.connectionContext = connectionContext;
-    this.clientConfigurator = new ClientConfigurator(connectionContext);
+    this.clientConfigurator =
+        DatabricksClientConfiguratorManager.getInstance().getConfigurator(connectionContext);
     this.workspaceClient = clientConfigurator.getWorkspaceClient();
+    this.apiClient = workspaceClient.apiClient();
   }
 
   @VisibleForTesting
@@ -55,12 +75,14 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksConnectionContext connectionContext,
       StatementExecutionService statementExecutionService,
       ApiClient apiClient)
-      throws DatabricksParsingException {
+      throws DatabricksParsingException, DatabricksHttpException {
     this.connectionContext = connectionContext;
-    this.clientConfigurator = new ClientConfigurator(connectionContext);
+    this.clientConfigurator =
+        DatabricksClientConfiguratorManager.getInstance().getConfigurator(connectionContext);
     this.workspaceClient =
         new WorkspaceClient(true /* mock */, apiClient)
             .withStatementExecutionImpl(statementExecutionService);
+    this.apiClient = apiClient;
   }
 
   @Override
@@ -73,12 +95,15 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksComputeResource warehouse,
       String catalog,
       String schema,
-      Map<String, String> sessionConf) {
+      Map<String, String> sessionConf)
+      throws DatabricksSQLException {
     // TODO (PECO-1460): Handle sessionConf in public session API
     LOGGER.debug(
-        String.format(
-            "public Session createSession(String warehouseId = {%s}, String catalog = {%s}, String schema = {%s}, Map<String, String> sessionConf = {%s})",
-            ((Warehouse) warehouse).getWarehouseId(), catalog, schema, sessionConf));
+        "public Session createSession(String warehouseId = {}, String catalog = {}, String schema = {}, Map<String, String> sessionConf = {})",
+        ((Warehouse) warehouse).getWarehouseId(),
+        catalog,
+        schema,
+        sessionConf);
     CreateSessionRequest request =
         new CreateSessionRequest().setWarehouseId(((Warehouse) warehouse).getWarehouseId());
     if (catalog != null) {
@@ -90,11 +115,23 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (sessionConf != null && !sessionConf.isEmpty()) {
       request.setSessionConfigs(sessionConf);
     }
-    CreateSessionResponse createSessionResponse =
-        workspaceClient
-            .apiClient()
-            .POST(SESSION_PATH, request, CreateSessionResponse.class, JSON_HTTP_HEADERS);
-
+    CreateSessionResponse createSessionResponse = null;
+    try {
+      Request req = new Request(Request.POST, SESSION_PATH, apiClient.serialize(request));
+      req.withHeaders(getHeaders("createSession"));
+      createSessionResponse = apiClient.execute(req, CreateSessionResponse.class);
+    } catch (DatabricksError e) {
+      if (e.getStatusCode() == TEMPORARY_REDIRECT_STATUS_CODE) {
+        throw new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION);
+      }
+      String errorReason = buildErrorMessage(e);
+      throw new DatabricksSQLException(errorReason, e, DatabricksDriverErrorCode.CONNECTION_ERROR);
+    } catch (IOException e) {
+      String errorMessage = "Error while processing the request via the sdk client";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    }
+    DatabricksThreadContextHolder.setSessionId(createSessionResponse.getSessionId());
     return ImmutableSessionInfo.builder()
         .computeResource(warehouse)
         .sessionId(createSessionResponse.getSessionId())
@@ -102,16 +139,24 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   @Override
-  public void deleteSession(IDatabricksSession session, IDatabricksComputeResource warehouse) {
-    LOGGER.debug(
-        String.format(
-            "public void deleteSession(String sessionId = {%s})", session.getSessionId()));
+  public void deleteSession(ImmutableSessionInfo sessionInfo) throws DatabricksSQLException {
+    LOGGER.debug("public void deleteSession(String sessionId = {})", sessionInfo.sessionId());
+    DatabricksThreadContextHolder.setSessionId(sessionInfo.sessionId());
     DeleteSessionRequest request =
         new DeleteSessionRequest()
-            .setSessionId(session.getSessionId())
-            .setWarehouseId(((Warehouse) warehouse).getWarehouseId());
+            .setSessionId(sessionInfo.sessionId())
+            .setWarehouseId(((Warehouse) sessionInfo.computeResource()).getWarehouseId());
     String path = String.format(SESSION_PATH_WITH_ID, request.getSessionId());
-    workspaceClient.apiClient().DELETE(path, request, Void.class, JSON_HTTP_HEADERS);
+    try {
+      Request req = new Request(Request.DELETE, path);
+      req.withHeaders(getHeaders("deleteSession"));
+      ApiClient.setQuery(req, request);
+      apiClient.execute(req, Void.class);
+    } catch (IOException e) {
+      String errorMessage = "Error while performing the deleting session operation";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    }
   }
 
   @Override
@@ -124,11 +169,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
     LOGGER.debug(
-        String.format(
-            "public DatabricksResultSet executeStatement(String sql = {%s}, compute resource = {%s}, Map<Integer, ImmutableSqlParameter> parameters, StatementType statementType = {%s}, IDatabricksSession session)",
-            sql, computeResource.toString(), statementType));
+        "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session = {}, parentStatement = {})",
+        sql,
+        computeResource.toString(),
+        parameters,
+        statementType,
+        session,
+        parentStatement);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
+    DatabricksThreadContextHolder.setStatementType(statementType);
     ExecuteStatementRequest request =
         getRequest(
             statementType,
@@ -138,27 +189,49 @@ public class DatabricksSdkClient implements IDatabricksClient {
             parameters,
             parentStatement,
             false);
-    ExecuteStatementResponse response =
-        workspaceClient
-            .apiClient()
-            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, JSON_HTTP_HEADERS);
+    ExecuteStatementResponse response;
+    try {
+      Request req = new Request(Request.POST, STATEMENT_PATH, apiClient.serialize(request));
+      req.withHeaders(getHeaders("executeStatement"));
+      response = apiClient.execute(req, ExecuteStatementResponse.class);
+    } catch (IOException e) {
+      String errorMessage = "Error while processing the execute statement request";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    }
     String statementId = response.getStatementId();
     if (statementId == null) {
       LOGGER.error(
-          "Empty Statement ID for sql %s, statementType %s, compute %s",
-          sql, statementType, computeResource);
+          "Empty Statement ID for sql {}, statementType {}, compute {}",
+          sql,
+          statementType,
+          computeResource);
       handleFailedExecution(response, "", sql);
     }
     LOGGER.debug(
-        String.format(
-            "Executing sql %s, statementType %s, compute %s, StatementID %s",
-            sql, statementType, computeResource, statementId));
+        "Executing sql = {}, statementType = {}, compute = {}, StatementID = {}",
+        sql,
+        statementType,
+        computeResource,
+        statementId);
     StatementId typedStatementId = new StatementId(statementId);
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
     if (parentStatement != null) {
       parentStatement.setStatementId(typedStatementId);
     }
+
+    int timeoutInSeconds =
+        parentStatement != null ? parentStatement.getStatement().getQueryTimeout() : 0;
+
+    // Create timeout handler
+    TimeoutHandler timeoutHandler =
+        TimeoutHandler.forStatement(timeoutInSeconds, typedStatementId, this);
+
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
+      // Check for timeout
+      timeoutHandler.checkTimeout();
+
       if (pollCount > 0) { // First poll happens without a delay
         try {
           Thread.sleep(connectionContext.getAsyncExecPollInterval());
@@ -171,23 +244,28 @@ public class DatabricksSdkClient implements IDatabricksClient {
         }
       }
       String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);
-      response =
-          wrapGetStatementResponse(
-              workspaceClient
-                  .apiClient()
-                  .GET(getStatusPath, request, GetStatementResponse.class, JSON_HTTP_HEADERS));
+      try {
+        Request req = new Request(Request.GET, getStatusPath, apiClient.serialize(request));
+        req.withHeaders(getHeaders("getStatement"));
+        response = wrapGetStatementResponse(apiClient.execute(req, GetStatementResponse.class));
+      } catch (IOException e) {
+        String errorMessage = "Error while processing the get statement response";
+        LOGGER.error(errorMessage, e);
+        throw new DatabricksSQLException(
+            errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+      }
       responseState = response.getStatus().getState();
       LOGGER.debug(
-          String.format(
-              "Executed sql [%s] with status [%s] with retry count [%d]",
-              sql, responseState, pollCount));
+          "Executed sql {} with status {} with retry count {}", sql, responseState, pollCount);
       pollCount++;
     }
     long executionEndTime = Instant.now().toEpochMilli();
     LOGGER.debug(
-        String.format(
-            "Executed sql [%s] with status [%s], total time taken [%s] and pollCount [%s]",
-            sql, responseState, (executionEndTime - executionStartTime), pollCount));
+        "Executed sql {} with status {}, total time taken {} and pollCount {}",
+        sql,
+        responseState,
+        (executionEndTime - executionStartTime),
+        pollCount);
     if (responseState != StatementState.SUCCEEDED) {
       handleFailedExecution(response, statementId, sql);
     }
@@ -210,8 +288,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
     LOGGER.debug(
-        "public DatabricksResultSet executeStatementAsync(String sql = {%s}, compute resource = {%s}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session)",
-        sql, computeResource.toString());
+        "public DatabricksResultSet executeStatementAsync(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters, IDatabricksSession session = {}, IDatabricksStatementInternal parentStatement = {})",
+        sql,
+        computeResource.toString(),
+        session,
+        parentStatement);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     ExecuteStatementRequest request =
         getRequest(
             StatementType.SQL,
@@ -221,20 +303,27 @@ public class DatabricksSdkClient implements IDatabricksClient {
             parameters,
             parentStatement,
             true);
-    ExecuteStatementResponse response =
-        workspaceClient
-            .apiClient()
-            .POST(STATEMENT_PATH, request, ExecuteStatementResponse.class, JSON_HTTP_HEADERS);
+    ExecuteStatementResponse response;
+    try {
+      Request req = new Request(Request.POST, STATEMENT_PATH, apiClient.serialize(request));
+      req.withHeaders(getHeaders("executeStatement"));
+      response = apiClient.execute(req, ExecuteStatementResponse.class);
+    } catch (IOException e) {
+      String errorMessage = "Error while processing the execute statement async request";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    }
     String statementId = response.getStatementId();
     if (statementId == null) {
-      LOGGER.error("Empty Statement ID for sql %s, compute %s", sql, computeResource.toString());
+      LOGGER.error("Empty Statement ID for sql {}, compute {}", sql, computeResource.toString());
       handleFailedExecution(response, "", sql);
     }
     StatementId typedStatementId = new StatementId(statementId);
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
     if (parentStatement != null) {
       parentStatement.setStatementId(typedStatementId);
     }
-    LOGGER.debug("Executed sql [%s] with status [%s]", sql, response.getStatus().getState());
+    LOGGER.debug("Executed sql [{}] with status [{}]", sql, response.getStatus().getState());
 
     return new DatabricksResultSet(
         response.getStatus(),
@@ -252,13 +341,21 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException {
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     String statementId = typedStatementId.toSQLExecStatementId();
     GetStatementRequest request = new GetStatementRequest().setStatementId(statementId);
     String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);
-    GetStatementResponse response =
-        workspaceClient
-            .apiClient()
-            .GET(getStatusPath, request, GetStatementResponse.class, JSON_HTTP_HEADERS);
+    GetStatementResponse response;
+    try {
+      Request req = new Request(Request.GET, getStatusPath, apiClient.serialize(request));
+      req.withHeaders(getHeaders("getStatement"));
+      response = apiClient.execute(req, GetStatementResponse.class);
+    } catch (IOException e) {
+      String errorMessage = "Error while processing the get statement result request";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    }
     return new DatabricksResultSet(
         response.getStatus(),
         typedStatementId,
@@ -270,50 +367,101 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   @Override
-  public void closeStatement(StatementId typedStatementId) {
+  public void closeStatement(StatementId typedStatementId) throws DatabricksSQLException {
     String statementId = typedStatementId.toSQLExecStatementId();
-    LOGGER.debug(
-        String.format("public void closeStatement(String statementId = {%s})", statementId));
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
+    LOGGER.debug(String.format("public void closeStatement(String statementId = {})", statementId));
     CloseStatementRequest request = new CloseStatementRequest().setStatementId(statementId);
     String path = String.format(STATEMENT_PATH_WITH_ID, request.getStatementId());
-    workspaceClient.apiClient().DELETE(path, request, Void.class, JSON_HTTP_HEADERS);
+    try {
+      Request req = new Request(Request.DELETE, path, apiClient.serialize(request));
+      req.withHeaders(getHeaders("closeStatement"));
+      apiClient.execute(req, Void.class);
+    } catch (IOException e) {
+      String errorMessage = "Error while processing the close statement request";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    }
   }
 
   @Override
-  public void cancelStatement(StatementId typedStatementId) {
+  public void cancelStatement(StatementId typedStatementId) throws DatabricksSQLException {
     String statementId = typedStatementId.toSQLExecStatementId();
-    LOGGER.debug(
-        String.format("public void cancelStatement(String statementId = {%s})", statementId));
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
+    LOGGER.debug("public void cancelStatement(String statementId = {})", statementId);
     CancelStatementRequest request = new CancelStatementRequest().setStatementId(statementId);
     String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, request.getStatementId());
-    workspaceClient.apiClient().POST(path, request, Void.class, JSON_HTTP_HEADERS);
+    try {
+      Request req = new Request(Request.POST, path, apiClient.serialize(request));
+      req.withHeaders(getHeaders("cancelStatement"));
+      apiClient.execute(req, Void.class);
+    } catch (IOException e) {
+      String errorMessage = "Error while processing the cancel statement request";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    }
   }
 
   @Override
-  public Collection<ExternalLink> getResultChunks(StatementId typedStatementId, long chunkIndex) {
+  public Collection<ExternalLink> getResultChunks(StatementId typedStatementId, long chunkIndex)
+      throws DatabricksSQLException {
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
     String statementId = typedStatementId.toSQLExecStatementId();
     LOGGER.debug(
-        String.format(
-            "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s})",
-            statementId, chunkIndex));
+        "public Optional<ExternalLink> getResultChunk(String statementId = {}, long chunkIndex = {})",
+        statementId,
+        chunkIndex);
     GetStatementResultChunkNRequest request =
         new GetStatementResultChunkNRequest().setStatementId(statementId).setChunkIndex(chunkIndex);
     String path = String.format(RESULT_CHUNK_PATH, statementId, chunkIndex);
-    return workspaceClient
-        .apiClient()
-        .GET(path, request, ResultData.class, JSON_HTTP_HEADERS)
-        .getExternalLinks();
+    try {
+      Request req = new Request(Request.GET, path, apiClient.serialize(request));
+      req.withHeaders(getHeaders("getStatementResultN"));
+      ResultData resultData = apiClient.execute(req, ResultData.class);
+      return resultData.getExternalLinks();
+    } catch (IOException e) {
+      String errorMessage = "Error while processing the get result chunk request";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    }
   }
 
   @Override
   public synchronized void resetAccessToken(String newAccessToken) {
     this.clientConfigurator.resetAccessTokenInConfig(newAccessToken);
     this.workspaceClient = clientConfigurator.getWorkspaceClient();
+    this.apiClient = workspaceClient.apiClient();
+  }
+
+  @Override
+  public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
+      throws DatabricksSQLException {
+    throw new DatabricksValidationException("Get more results cannot be called for SEA flow");
+  }
+
+  @Override
+  public DatabricksConfig getDatabricksConfig() {
+    return clientConfigurator.getDatabricksConfig();
   }
 
   private boolean useCloudFetchForResult(StatementType statementType) {
     return this.connectionContext.shouldEnableArrow()
-        && (statementType == StatementType.QUERY || statementType == StatementType.SQL);
+        && (statementType == StatementType.QUERY
+            || statementType == StatementType.SQL
+            || statementType == StatementType.METADATA);
+  }
+
+  private Map<String, String> getHeaders(String method) {
+    Map<String, String> headers = new HashMap<>(JSON_HTTP_HEADERS);
+    if (connectionContext.isRequestTracingEnabled()) {
+      String traceHeader = TracingUtil.getTraceHeader();
+      LOGGER.debug("Tracing header for method {}: [{}]", method, traceHeader);
+      headers.put(TracingUtil.TRACE_HEADER, traceHeader);
+    }
+
+    // Overriding with URL defined headers
+    headers.putAll(this.connectionContext.getCustomHeaders());
+    return headers;
   }
 
   private ExecuteStatementRequest getRequest(
@@ -326,12 +474,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
       boolean executeAsync)
       throws SQLException {
     Format format = useCloudFetchForResult(statementType) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
+    Disposition defaultDisposition =
+        connectionContext.isSqlExecHybridResultsEnabled()
+            ? Disposition.INLINE_OR_EXTERNAL_LINKS
+            : Disposition.EXTERNAL_LINKS;
     Disposition disposition =
-        useCloudFetchForResult(statementType) ? Disposition.EXTERNAL_LINKS : Disposition.INLINE;
-    long maxRows = (parentStatement == null) ? DEFAULT_ROW_LIMIT : parentStatement.getMaxRows();
+        useCloudFetchForResult(statementType) ? defaultDisposition : Disposition.INLINE;
+    long maxRows =
+        (parentStatement == null) ? DEFAULT_RESULT_ROW_LIMIT : parentStatement.getMaxRows();
     CompressionCodec compressionCodec = session.getCompressionCodec();
     if (disposition.equals(Disposition.INLINE)) {
-      // TODO: Evaluate if inline results need compression based on performance.
       LOGGER.debug("Results are inline, skipping compression.");
       compressionCodec = CompressionCodec.NONE;
     }
@@ -353,17 +505,23 @@ public class DatabricksSdkClient implements IDatabricksClient {
           .setWaitTimeout(SYNC_TIMEOUT_VALUE)
           .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE);
     }
-    if (maxRows != DEFAULT_ROW_LIMIT) {
+    if (maxRows > 0) {
       request.setRowLimit(maxRows);
     }
     return request;
   }
 
-  private StatementParameterListItem mapToParameterListItem(ImmutableSqlParameter parameter) {
+  @VisibleForTesting
+  StatementParameterListItem mapToParameterListItem(ImmutableSqlParameter parameter) {
+    Object value = parameter.value();
+    String typeString = parameter.type().name();
+    if (typeString.equals(DECIMAL) && value instanceof BigDecimal) {
+      typeString = getDecimalTypeString((BigDecimal) value);
+    }
     return new PositionalStatementParameterListItem()
         .setOrdinal(parameter.cardinal())
-        .setType(parameter.type().name())
-        .setValue(parameter.value() != null ? parameter.value().toString() : null);
+        .setType(typeString)
+        .setValue(value != null ? value.toString() : null);
   }
 
   /** Handles a failed execution and throws appropriate exception */
@@ -380,7 +538,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
               " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
     }
     LOGGER.debug(errorMessage);
-    throw new DatabricksSQLException(errorMessage);
+    throw new DatabricksSQLException(
+        errorMessage,
+        response.getStatus().getSqlState(),
+        DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
   }
 
   private ExecuteStatementResponse wrapGetStatementResponse(
@@ -390,5 +551,57 @@ public class DatabricksSdkClient implements IDatabricksClient {
         .setStatus(getStatementResponse.getStatus())
         .setManifest(getStatementResponse.getManifest())
         .setResult(getStatementResponse.getResult());
+  }
+
+  /**
+   * Builds actionable error messages for SSL handshake failures. Returns a generic message if the
+   * error is not SSL-related.
+   */
+  private String buildErrorMessage(DatabricksError e) {
+
+    boolean isSSLException =
+        Stream.iterate(e.getCause(), Objects::nonNull, Throwable::getCause)
+            .anyMatch(cause -> cause instanceof SSLHandshakeException);
+
+    boolean isCertificatePathError =
+        e.getMessage().contains("PKIX path building failed")
+            || e.getMessage().contains("unable to find valid certification path");
+
+    if (isSSLException && isCertificatePathError) {
+      return buildSSLCertificatePathErrorMessage(e);
+    }
+
+    return "Error while establishing a connection in databricks";
+  }
+
+  /** Builds the SSL certificate path error message with actionable steps. */
+  private String buildSSLCertificatePathErrorMessage(DatabricksError e) {
+
+    String customTruststorePathMessage = "";
+    if (connectionContext != null && connectionContext.getSSLTrustStore() != null) {
+      customTruststorePathMessage = " in truststore: " + connectionContext.getSSLTrustStore();
+    }
+
+    // Get the actual workspace hostname for the openssl command
+    // by removing protocol and port from host url
+    String workspaceHostname = "<workspace>";
+    try {
+      if (connectionContext != null && connectionContext.getHostUrl() != null) {
+        workspaceHostname = new URL(connectionContext.getHostUrl()).getHost();
+      }
+    } catch (Exception ex) {
+      LOGGER.debug("Could not retrieve workspace hostname for error message", ex);
+    }
+
+    return String.format(
+        "Unable to find certification path to requested target%s\n\n"
+            + "SSL Error: %s\n\n"
+            + "Details: TLS handshake failure due to TLS Certificate of server being connected is not in the configured truststore.\n\n"
+            + "Next steps:\n"
+            + "- Make sure that the connection string has the appropriate Databricks workspace FQDN.\n\n"
+            + "- Verify the configured truststore path and make sure the required certificates are imported.\n"
+            + "  .   PEM certificate chain of the warehouse endpoint can be fetched using \"openssl s_client -connect %s:443 -showcerts\"\n"
+            + "  .   Reference KB article with troubleshooting steps.\n",
+        customTruststorePathMessage, e.getMessage(), workspaceHostname);
   }
 }

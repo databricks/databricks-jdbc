@@ -1,0 +1,67 @@
+name: Update Version and Create PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      old_version:
+        description: 'Old version to replace'
+        required: true
+      new_version:
+        description: 'New version to update to'
+        required: true
+
+jobs:
+  update-version:
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Git configuration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create new branch for version update
+        id: create_branch
+        run: |
+          BRANCH_NAME="version-update-${{ github.event.inputs.new_version }}"
+          git checkout -b $BRANCH_NAME
+          echo "::set-output name=branch::$BRANCH_NAME"
+
+      - name: Replace old version with new version in repository
+        run: |
+          OLD_VERSION="${{ github.event.inputs.old_version }}"
+          NEW_VERSION="${{ github.event.inputs.new_version }}"
+          # Recursively search for files containing the old version and replace them.
+          # Adjust file patterns or directories as needed.
+          grep -rl "$OLD_VERSION" . | xargs sed -i "s/$OLD_VERSION/$NEW_VERSION/g" || echo "No occurrences found."
+
+      - name: Commit changes
+        run: |
+          # Stage all changes
+          git add .
+          # Commit if there are changes
+          if ! git diff --cached --quiet; then
+            git commit -m "Update version from ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}"
+          else
+            echo "No changes to commit."
+          fi
+
+      - name: Push branch
+        run: |
+          git push origin ${{ steps.create_branch.outputs.branch }}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.create_branch.outputs.branch }}
+          title: "Update version from ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}"
+          body: |
+            This PR updates all references from version `${{ github.event.inputs.old_version }}` to `${{ github.event.inputs.new_version }}`.
+          labels: version-update

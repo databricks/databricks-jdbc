@@ -25,7 +25,7 @@ public class AllPurposeCluster implements IDatabricksComputeResource {
       return false;
     }
     return Objects.equals(((AllPurposeCluster) obj).clusterId, this.clusterId)
-        && Objects.equals(((AllPurposeCluster) obj).clusterId, this.orgId);
+        && Objects.equals(((AllPurposeCluster) obj).orgId, this.orgId);
   }
 
   @Override
@@ -36,5 +36,10 @@ public class AllPurposeCluster implements IDatabricksComputeResource {
   @Override
   public String getWorkspaceId() {
     return this.orgId;
+  }
+
+  @Override
+  public String getUniqueIdentifier() {
+    return String.format("%s/%s", this.orgId, this.clusterId);
   }
 }

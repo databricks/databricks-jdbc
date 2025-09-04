@@ -3,20 +3,25 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
+import static com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.impl.common.CrossReferenceKeysDatabricksResultSetAdapter;
+import com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.service.sql.StatementState;
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -178,9 +183,7 @@ public class DatabricksMetadataSdkClientTest {
     setupCatalogMocks();
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     doReturn(1).when(mockedMetaData).getColumnCount();
-    doReturn(CATALOG_COLUMN_FOR_GET_CATALOGS.getResultSetColumnName())
-        .when(mockedMetaData)
-        .getColumnName(1);
+    doReturn(CATALOG_RESULT_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
     doReturn(255).when(mockedMetaData).getPrecision(1);
     doReturn(0).when(mockedMetaData).getScale(1);
     when(mockedCatalogResultSet.getMetaData()).thenReturn(mockedMetaData);
@@ -209,7 +212,7 @@ public class DatabricksMetadataSdkClientTest {
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
 
     // Mock the metadata to return for each column
-    // mockedMetaData represents resultManifest recieved from the server
+    // mockedMetaData represents resultManifest received from the server
     doReturn(7).when(mockedMetaData).getColumnCount();
 
     doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
@@ -275,27 +278,27 @@ public class DatabricksMetadataSdkClientTest {
     assertEquals(actualMetaData.getColumnCount(), 10);
     assertEquals(actualMetaData.getColumnName(1), "TABLE_CAT");
     assertEquals(actualMetaData.getColumnType(1), Types.VARCHAR);
-    assertEquals(actualMetaData.getPrecision(1), 255);
+    assertEquals(actualMetaData.getPrecision(1), 128);
     assertEquals(actualMetaData.isNullable(1), ResultSetMetaData.columnNullable);
 
     assertEquals(actualMetaData.getColumnName(2), "TABLE_SCHEM");
     assertEquals(actualMetaData.getColumnType(2), Types.VARCHAR);
-    assertEquals(actualMetaData.getPrecision(2), 255);
+    assertEquals(actualMetaData.getPrecision(2), 128);
     assertEquals(actualMetaData.isNullable(2), ResultSetMetaData.columnNullable);
 
     assertEquals(actualMetaData.getColumnName(3), "TABLE_NAME");
     assertEquals(actualMetaData.getColumnType(3), Types.VARCHAR);
-    assertEquals(actualMetaData.getPrecision(3), 255);
+    assertEquals(actualMetaData.getPrecision(3), 128);
     assertEquals(actualMetaData.isNullable(3), ResultSetMetaData.columnNoNulls);
 
     assertEquals(actualMetaData.getColumnName(4), "TABLE_TYPE");
     assertEquals(actualMetaData.getColumnType(4), Types.VARCHAR);
-    assertEquals(actualMetaData.getPrecision(4), 255);
-    assertEquals(actualMetaData.isNullable(4), ResultSetMetaData.columnNullable);
+    assertEquals(actualMetaData.getPrecision(4), 128);
+    assertEquals(actualMetaData.isNullable(4), ResultSetMetaData.columnNoNulls);
 
     assertEquals(actualMetaData.getColumnName(5), "REMARKS");
     assertEquals(actualMetaData.getColumnType(5), Types.VARCHAR);
-    assertEquals(actualMetaData.getPrecision(5), 255);
+    assertEquals(actualMetaData.getPrecision(5), 254);
     assertEquals(actualMetaData.isNullable(5), ResultSetMetaData.columnNullable);
   }
 
@@ -361,7 +364,12 @@ public class DatabricksMetadataSdkClientTest {
       assertEquals(actualMetaData.getColumnName(i + 1), resultColumn.getColumnName());
       assertEquals(actualMetaData.getColumnType(i + 1), resultColumn.getColumnTypeInt());
       assertEquals(actualMetaData.getColumnTypeName(i + 1), resultColumn.getColumnTypeString());
-      assertEquals(actualMetaData.getPrecision(i + 1), resultColumn.getColumnPrecision());
+      if (LARGE_DISPLAY_COLUMNS.contains(resultColumn)) {
+        assertEquals(actualMetaData.getPrecision(i + 1), 254);
+      } else {
+        assertEquals(actualMetaData.getPrecision(i + 1), resultColumn.getColumnPrecision());
+      }
+
       if (non_nullable_columns.contains(resultColumn)) {
         assertEquals(actualMetaData.isNullable(i + 1), ResultSetMetaData.columnNoNulls);
       } else {
@@ -378,7 +386,7 @@ public class DatabricksMetadataSdkClientTest {
     when(mockClient.executeStatement(
             sqlStatement,
             mockedComputeResource,
-            new HashMap<Integer, ImmutableSqlParameter>(),
+            new HashMap<>(),
             StatementType.METADATA,
             session,
             null))
@@ -389,12 +397,48 @@ public class DatabricksMetadataSdkClientTest {
     doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
     doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
     when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    when(mockedResultSet.findColumn(CATALOG_RESULT_COLUMN.getResultSetColumnName()))
+        .thenThrow(DatabricksSQLException.class);
     DatabricksResultSet actualResult = metadataClient.listSchemas(session, TEST_CATALOG, schema);
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
     assertEquals(actualResult.getStatementId(), METADATA_STATEMENT_ID, description);
     assertEquals(
         ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1, description);
+  }
+
+  @Test
+  void testListSchemasNullCatalog() throws SQLException {
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW SCHEMAS IN ALL CATALOGS LIKE 'a*'",
+            mockedComputeResource,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.next()).thenReturn(true, false);
+    when(mockedResultSet.getObject("databaseName")).thenReturn(TEST_COLUMN);
+    when(mockedResultSet.getObject("catalog")).thenReturn(TEST_CATALOG);
+    doReturn(2).when(mockedMetaData).getColumnCount();
+    doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
+    doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    when(mockedResultSet.findColumn(CATALOG_RESULT_COLUMN.getResultSetColumnName())).thenReturn(2);
+    DatabricksResultSet actualResult = metadataClient.listSchemas(session, null, "a*");
+    assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    assertEquals(actualResult.getStatementId(), METADATA_STATEMENT_ID);
+    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1);
+
+    // Check the first row of the result set
+    assertTrue(actualResult.next());
+    assertEquals(TEST_COLUMN, actualResult.getObject(1));
+    assertEquals(TEST_CATALOG, actualResult.getObject(2));
+
+    // Check that the result set is empty after the first row
+    assertFalse(actualResult.next());
   }
 
   @Test
@@ -429,6 +473,271 @@ public class DatabricksMetadataSdkClientTest {
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
     assertEquals(actualResult.getStatementId(), METADATA_STATEMENT_ID);
     assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1);
+  }
+
+  @Test
+  void testListImportedKeys() throws Exception {
+    ImportedKeysDatabricksResultSetAdapter resultSetAdapter =
+        new ImportedKeysDatabricksResultSetAdapter();
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW FOREIGN KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.next()).thenReturn(true, false);
+    for (ResultColumn resultColumn : IMPORTED_KEYS_COLUMNS) {
+      when(mockedResultSet.getObject(
+              resultSetAdapter.mapColumn(resultColumn).getResultSetColumnName()))
+          .thenReturn(TEST_COLUMN);
+    }
+    doReturn(14).when(mockedMetaData).getColumnCount();
+    doReturn(PKTABLE_CAT.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
+    doReturn(PKTABLE_SCHEM.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
+    doReturn(PKTABLE_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(3);
+    doReturn(PKCOLUMN_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(4);
+    doReturn(FKTABLE_CAT.getResultSetColumnName()).when(mockedMetaData).getColumnName(5);
+    doReturn(FKTABLE_SCHEM.getResultSetColumnName()).when(mockedMetaData).getColumnName(6);
+    doReturn(FKTABLE_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(7);
+    doReturn(FKCOLUMN_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(8);
+    doReturn(KEY_SEQUENCE_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(9);
+    doReturn(UPDATE_RULE.getResultSetColumnName()).when(mockedMetaData).getColumnName(10);
+    doReturn(DELETE_RULE.getResultSetColumnName()).when(mockedMetaData).getColumnName(11);
+    doReturn(FK_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(12);
+    doReturn(PK_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(13);
+    doReturn(DEFERRABILITY.getResultSetColumnName()).when(mockedMetaData).getColumnName(14);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    try (DatabricksResultSet actualResult =
+        metadataClient.listImportedKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE)) {
+      assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+      assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
+      assertEquals(1, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    }
+  }
+
+  @Test
+  void testImportedKeys_throwsParseSyntaxError() throws Exception {
+    DatabricksSQLException exception =
+        new DatabricksSQLException(
+            "syntax error at or near \"foreign\"", PARSE_SYNTAX_ERROR_SQL_STATE);
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW FOREIGN KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenThrow(exception);
+    try (DatabricksResultSet actualResult =
+        metadataClient.listImportedKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE)) {
+      assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+      assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
+      assertEquals(14, actualResult.getMetaData().getColumnCount());
+      // Parse syntax error is handled gracefully to return empty result set
+      assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    }
+  }
+
+  @Test
+  void testListExportedKeys() throws Exception {
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+
+    ResultSet resultSet = metadataClient.listExportedKeys(session, "catalog", "schema", "table");
+    assertNotNull(resultSet);
+
+    assertEquals(14, resultSet.getMetaData().getColumnCount());
+    assertSame("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("PKTABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("PKTABLE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("PKCOLUMN_NAME", resultSet.getMetaData().getColumnName(4));
+    assertEquals("FKTABLE_CAT", resultSet.getMetaData().getColumnName(5));
+    assertEquals("FKTABLE_SCHEM", resultSet.getMetaData().getColumnName(6));
+
+    assertEquals(1, resultSet.getMetaData().isNullable(1));
+    assertEquals(1, resultSet.getMetaData().isNullable(2));
+    assertEquals(0, resultSet.getMetaData().isNullable(3));
+    assertEquals(0, resultSet.getMetaData().isNullable(4));
+    assertEquals(1, resultSet.getMetaData().isNullable(5));
+    assertEquals(1, resultSet.getMetaData().isNullable(6));
+    assertEquals(0, resultSet.getMetaData().isNullable(7));
+    assertEquals(0, resultSet.getMetaData().isNullable(8));
+    assertEquals(0, resultSet.getMetaData().isNullable(9));
+    assertEquals(1, resultSet.getMetaData().isNullable(10));
+    assertEquals(1, resultSet.getMetaData().isNullable(11));
+    assertEquals(1, resultSet.getMetaData().isNullable(12));
+    assertEquals(1, resultSet.getMetaData().isNullable(13));
+    assertEquals(0, resultSet.getMetaData().isNullable(14));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @Test
+  void testListCrossReferences() throws Exception {
+    CrossReferenceKeysDatabricksResultSetAdapter resultSetAdapter =
+        new CrossReferenceKeysDatabricksResultSetAdapter(
+            "parentCatalog", "parentNamespace", "parentTable");
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW FOREIGN KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.next()).thenReturn(true, false);
+    when(mockedResultSet.getString(PARENT_CATALOG_NAME.getResultSetColumnName()))
+        .thenReturn("parentCatalog");
+    when(mockedResultSet.getString(PARENT_NAMESPACE_NAME.getResultSetColumnName()))
+        .thenReturn("parentNamespace");
+    when(mockedResultSet.getString(PARENT_TABLE_NAME.getResultSetColumnName()))
+        .thenReturn("parentTable");
+    for (ResultColumn resultColumn : CROSS_REFERENCE_COLUMNS) {
+      if (resultColumn.getResultSetColumnName().equals(PKTABLE_CAT.getResultSetColumnName())) {
+        when(mockedResultSet.getObject(
+                resultSetAdapter.mapColumn(resultColumn).getResultSetColumnName()))
+            .thenReturn("parentCatalog");
+      } else if (resultColumn
+          .getResultSetColumnName()
+          .equals(PKTABLE_SCHEM.getResultSetColumnName())) {
+        when(mockedResultSet.getObject(
+                resultSetAdapter.mapColumn(resultColumn).getResultSetColumnName()))
+            .thenReturn("parentNamespace");
+      } else if (resultColumn
+          .getResultSetColumnName()
+          .equals(PKTABLE_NAME.getResultSetColumnName())) {
+        // Foreign keys available for the required parent catalog, schema, and table
+        when(mockedResultSet.getObject(
+                resultSetAdapter.mapColumn(resultColumn).getResultSetColumnName()))
+            .thenReturn("parentTable");
+      } else {
+        when(mockedResultSet.getObject(
+                resultSetAdapter.mapColumn(resultColumn).getResultSetColumnName()))
+            .thenReturn(TEST_COLUMN);
+      }
+    }
+    doReturn(14).when(mockedMetaData).getColumnCount();
+    doReturn(PKTABLE_CAT.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
+    doReturn(PKTABLE_SCHEM.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
+    doReturn(PKTABLE_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(3);
+    doReturn(PKCOLUMN_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(4);
+    doReturn(FKTABLE_CAT.getResultSetColumnName()).when(mockedMetaData).getColumnName(5);
+    doReturn(FKTABLE_SCHEM.getResultSetColumnName()).when(mockedMetaData).getColumnName(6);
+    doReturn(FKTABLE_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(7);
+    doReturn(FKCOLUMN_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(8);
+    doReturn(KEY_SEQUENCE_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(9);
+    doReturn(UPDATE_RULE.getResultSetColumnName()).when(mockedMetaData).getColumnName(10);
+    doReturn(DELETE_RULE.getResultSetColumnName()).when(mockedMetaData).getColumnName(11);
+    doReturn(FK_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(12);
+    doReturn(PK_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(13);
+    doReturn(DEFERRABILITY.getResultSetColumnName()).when(mockedMetaData).getColumnName(14);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    try (DatabricksResultSet actualResult =
+        metadataClient.listCrossReferences(
+            session,
+            "parentCatalog",
+            "parentNamespace",
+            "parentTable",
+            TEST_CATALOG,
+            TEST_SCHEMA,
+            TEST_TABLE)) {
+      assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+      assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
+      assertEquals(1, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    }
+  }
+
+  @Test
+  void testListCrossReferences_throwsParseSyntaxError() throws Exception {
+    DatabricksSQLException exception =
+        new DatabricksSQLException(
+            "syntax error at or near \"foreign\"", PARSE_SYNTAX_ERROR_SQL_STATE);
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW FOREIGN KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenThrow(exception);
+    try (DatabricksResultSet actualResult =
+        metadataClient.listCrossReferences(
+            session,
+            "parentCatalog",
+            "parentSchema",
+            "parentTable",
+            TEST_CATALOG,
+            TEST_SCHEMA,
+            TEST_TABLE)) {
+      assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+      assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
+      assertEquals(14, actualResult.getMetaData().getColumnCount());
+      // Parse syntax error is handled gracefully to return empty result set
+      assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    }
+  }
+
+  @Test
+  void testListCrossReferences_notAvailable() throws Exception {
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW FOREIGN KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.next()).thenReturn(true, false);
+    when(mockedResultSet.getString(PARENT_CATALOG_NAME.getResultSetColumnName()))
+        .thenReturn("parentCatalog");
+    when(mockedResultSet.getString(PARENT_NAMESPACE_NAME.getResultSetColumnName()))
+        .thenReturn("parentSchema");
+    // Foreign keys from a different parent table while the requirement is `parentTable`
+    when(mockedResultSet.getString(PARENT_TABLE_NAME.getResultSetColumnName()))
+        .thenReturn("differentParentTable");
+    doReturn(14).when(mockedMetaData).getColumnCount();
+    doReturn(PKTABLE_CAT.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
+    doReturn(PKTABLE_SCHEM.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
+    doReturn(PKTABLE_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(3);
+    doReturn(PKCOLUMN_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(4);
+    doReturn(FKTABLE_CAT.getResultSetColumnName()).when(mockedMetaData).getColumnName(5);
+    doReturn(FKTABLE_SCHEM.getResultSetColumnName()).when(mockedMetaData).getColumnName(6);
+    doReturn(FKTABLE_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(7);
+    doReturn(FKCOLUMN_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(8);
+    doReturn(KEY_SEQUENCE_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(9);
+    doReturn(UPDATE_RULE.getResultSetColumnName()).when(mockedMetaData).getColumnName(10);
+    doReturn(DELETE_RULE.getResultSetColumnName()).when(mockedMetaData).getColumnName(11);
+    doReturn(FK_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(12);
+    doReturn(PK_NAME.getResultSetColumnName()).when(mockedMetaData).getColumnName(13);
+    doReturn(DEFERRABILITY.getResultSetColumnName()).when(mockedMetaData).getColumnName(14);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    try (DatabricksResultSet actualResult =
+        metadataClient.listCrossReferences(
+            session,
+            "parentCatalog",
+            "parentSchema",
+            "parentTable",
+            TEST_CATALOG,
+            TEST_SCHEMA,
+            TEST_TABLE)) {
+      assertEquals(14, actualResult.getMetaData().getColumnCount());
+      assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+      assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
+      // No foreign keys for the required parent table
+      assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    }
   }
 
   @ParameterizedTest
@@ -475,12 +784,6 @@ public class DatabricksMetadataSdkClientTest {
         () -> metadataClient.listColumns(session, null, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
     assertThrows(
         DatabricksValidationException.class,
-        () -> metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE, null));
-    assertThrows(
-        DatabricksValidationException.class,
-        () -> metadataClient.listSchemas(session, null, TEST_SCHEMA));
-    assertThrows(
-        DatabricksValidationException.class,
         () -> metadataClient.listPrimaryKeys(session, null, TEST_SCHEMA, TEST_TABLE));
     assertThrows(
         DatabricksValidationException.class,
@@ -491,5 +794,68 @@ public class DatabricksMetadataSdkClientTest {
   void testListTypeInfo() {
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     assertNotNull(metadataClient.listTypeInfo(session));
+  }
+
+  @Test
+  void testListTablesAllCatalogs() throws SQLException {
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW TABLES IN ALL CATALOGS SCHEMA LIKE 'testSchema' LIKE 'testTable'",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.next()).thenReturn(true, false);
+    for (ResultColumn resultColumn : TABLE_COLUMNS) {
+      when(mockedResultSet.getObject(resultColumn.getResultSetColumnName()))
+          .thenReturn(TEST_COLUMN);
+    }
+    when(mockedResultSet.getObject("tableType")).thenReturn("TABLE");
+    doReturn(10).when(mockedMetaData).getColumnCount();
+    doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
+    doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
+    doReturn(TABLE_NAME_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(3);
+    doReturn(TABLE_TYPE_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(4);
+    doReturn(REMARKS_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(5);
+    doReturn(TYPE_CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(6);
+    doReturn(TYPE_SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(7);
+    doReturn(TYPE_NAME_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(8);
+    doReturn(SELF_REFERENCING_COLUMN_NAME.getResultSetColumnName())
+        .when(mockedMetaData)
+        .getColumnName(9);
+    doReturn(REF_GENERATION_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(10);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    DatabricksResultSet actualResult =
+        metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE, null);
+    assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    assertEquals(actualResult.getStatementId(), GET_TABLES_STATEMENT_ID);
+    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1);
+  }
+
+  @Test
+  void testGetTablesAllCatalogs_throwsParseSyntaxError() throws Exception {
+    DatabricksSQLException exception =
+        new DatabricksSQLException("syntax error at or near \"IN\"", PARSE_SYNTAX_ERROR_SQL_STATE);
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW TABLES IN ALL CATALOGS SCHEMA LIKE 'testSchema' LIKE 'testTable'",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenThrow(exception);
+    try (DatabricksResultSet actualResult =
+        metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE, null)) {
+      assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+      assertEquals(GET_TABLES_STATEMENT_ID, actualResult.getStatementId());
+      assertEquals(10, actualResult.getMetaData().getColumnCount());
+      // Parse syntax error is handled gracefully to return empty result set
+      assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    }
   }
 }

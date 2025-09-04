@@ -1,10 +1,12 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
+import com.databricks.jdbc.api.IExecutionStatus;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.core.StatementStatus;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
-import com.databricks.sdk.service.sql.StatementStatus;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -25,7 +27,8 @@ public class EmptyResultSet
 
   private void checkIfClosed() throws SQLException {
     if (isClosed()) {
-      throw new DatabricksSQLException("Empty result set is closed");
+      throw new DatabricksSQLException(
+          "Empty result set is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
     }
   }
 
@@ -445,6 +448,29 @@ public class EmptyResultSet
   }
 
   @Override
+  public void updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    checkIfClosed();
+  }
+
+  @Override
+  public void updateObject(String columnLabel, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    checkIfClosed();
+  }
+
+  @Override
+  public void updateObject(int columnIndex, Object x, SQLType targetSqlType) throws SQLException {
+    checkIfClosed();
+  }
+
+  @Override
+  public void updateObject(String columnLabel, Object x, SQLType targetSqlType)
+      throws SQLException {
+    checkIfClosed();
+  }
+
+  @Override
   public void updateNull(String columnLabel) throws SQLException {
     checkIfClosed();
   }
@@ -608,6 +634,30 @@ public class EmptyResultSet
 
   @Override
   public Array getArray(int columnIndex) throws SQLException {
+    checkIfClosed();
+    return null;
+  }
+
+  @Override
+  public Struct getStruct(int columnIndex) throws SQLException {
+    checkIfClosed();
+    return null;
+  }
+
+  @Override
+  public Map<String, Object> getMap(int columnIndex) throws SQLException {
+    checkIfClosed();
+    return null;
+  }
+
+  @Override
+  public Struct getStruct(String columnLabel) throws SQLException {
+    checkIfClosed();
+    return null;
+  }
+
+  @Override
+  public Map<String, Object> getMap(String columbLabel) throws SQLException {
     checkIfClosed();
     return null;
   }
@@ -1063,7 +1113,8 @@ public class EmptyResultSet
   @Override
   public int findColumn(String columnLabel) throws SQLException {
     checkIfClosed();
-    return 0;
+    throw new DatabricksSQLException(
+        "Column not found: " + columnLabel, DatabricksDriverErrorCode.RESULT_SET_ERROR);
   }
 
   @Override
@@ -1101,6 +1152,11 @@ public class EmptyResultSet
   }
 
   @Override
+  public IExecutionStatus getExecutionStatus() {
+    return new ExecutionStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
+  }
+
+  @Override
   public long getUpdateCount() throws SQLException {
     return 0;
   }
@@ -1113,5 +1169,15 @@ public class EmptyResultSet
   @Override
   public InputStreamEntity getVolumeOperationInputStream() throws SQLException {
     return null;
+  }
+
+  @Override
+  public void setSilenceNonTerminalExceptions() {
+    // do nothing
+  }
+
+  @Override
+  public void unsetSilenceNonTerminalExceptions() {
+    // do nothing
   }
 }

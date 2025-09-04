@@ -1,0 +1,36 @@
+name: JDK 8 Build and Test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [jdk-8]
+
+jobs:
+  jdk8-test:
+    name: JDK 8 Unit Tests
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+
+    steps:
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          java-version: 8
+          distribution: 'adopt'
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-jdk8-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-jdk8-m2
+
+      - name: Run Unit Tests
+        run: mvn clean test

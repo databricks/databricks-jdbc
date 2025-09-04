@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -16,7 +18,8 @@ public class DateConverter implements ObjectConverter {
       return (Date) object;
     } else {
       throw new DatabricksSQLException(
-          "Unsupported type for DateObjectConverter: " + object.getClass());
+          "Unsupported type for DateObjectConverter: " + object.getClass(),
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
     }
   }
 
@@ -32,7 +35,7 @@ public class DateConverter implements ObjectConverter {
     if ((short) epochDays == epochDays) {
       return (short) epochDays;
     }
-    throw new DatabricksSQLException("Invalid conversion: Date value out of short range");
+    throw new DatabricksValidationException("Invalid conversion: Date value out of short range");
   }
 
   @Override

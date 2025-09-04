@@ -1,39 +1,42 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP;
+
 import com.databricks.jdbc.api.*;
-import com.databricks.jdbc.api.IDatabricksConnection;
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.impl.common.SessionId;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
-import com.databricks.jdbc.exception.DatabricksSQLClientInfoException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryClientFactory;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 /** Implementation for Databricks specific connection. */
-public class DatabricksConnection implements IDatabricksConnection {
+public class DatabricksConnection implements IDatabricksConnection, IDatabricksConnectionInternal {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksConnection.class);
   private final IDatabricksSession session;
   private final Set<IDatabricksStatementInternal> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
-  private volatile IDatabricksVolumeClient volumeClient = null;
   private final IDatabricksConnectionContext connectionContext;
 
   /**
@@ -44,6 +47,7 @@ public class DatabricksConnection implements IDatabricksConnection {
   public DatabricksConnection(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
     this.connectionContext = connectionContext;
+    DatabricksThreadContextHolder.setConnectionContext(connectionContext);
     this.session = new DatabricksSession(connectionContext);
   }
 
@@ -52,8 +56,10 @@ public class DatabricksConnection implements IDatabricksConnection {
       IDatabricksConnectionContext connectionContext, IDatabricksClient testDatabricksClient)
       throws DatabricksSQLException {
     this.connectionContext = connectionContext;
+    DatabricksThreadContextHolder.setConnectionContext(connectionContext);
     this.session = new DatabricksSession(connectionContext, testDatabricksClient);
     UserAgentManager.setUserAgent(connectionContext);
+    TelemetryHelper.updateTelemetryAppName(connectionContext, null);
   }
 
   @Override
@@ -64,6 +70,15 @@ public class DatabricksConnection implements IDatabricksConnection {
   @Override
   public Statement getStatement(String statementId) throws SQLException {
     return new DatabricksStatement(this, StatementId.deserialize(statementId));
+  }
+
+  @Override
+  public String getConnectionId() throws SQLException {
+    if (session.getSessionInfo() == null) {
+      LOGGER.error("Session not initialized");
+      throw new DatabricksValidationException("Session not initialized");
+    }
+    return SessionId.create(Objects.requireNonNull(session.getSessionInfo())).toString();
   }
 
   @Override
@@ -91,20 +106,24 @@ public class DatabricksConnection implements IDatabricksConnection {
   @Override
   public CallableStatement prepareCall(String sql) throws SQLException {
     LOGGER.debug(String.format("public CallableStatement prepareCall= {%s})", sql));
-    throw new DatabricksSQLFeatureNotSupportedException("Not Supported");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Callable statements are not implemented in OSS JDBC");
   }
 
   @Override
   public String nativeSQL(String sql) throws SQLException {
     LOGGER.debug(String.format("public String nativeSQL(String sql{%s})", sql));
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - nativeSQL(String sql)");
+        "Databricks OSS JDBC does not support conversion to native query.");
   }
 
   @Override
   public void setAutoCommit(boolean autoCommit) throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - setAutoCommit(boolean autoCommit)");
+    if (!autoCommit) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "In Databricks OSS JDBC, every SQL statement is committed immediately upon execution."
+              + " Setting autoCommit=false is not supported.");
+    }
   }
 
   @Override
@@ -117,14 +136,14 @@ public class DatabricksConnection implements IDatabricksConnection {
   @Override
   public void commit() throws SQLException {
     LOGGER.debug("public void commit()");
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksConnection - commit()");
   }
 
   @Override
   public void rollback() throws SQLException {
     LOGGER.debug("public void rollback()");
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksConnection - rollback()");
   }
 
@@ -136,7 +155,11 @@ public class DatabricksConnection implements IDatabricksConnection {
       statementSet.remove(statement);
     }
     this.session.close();
-    DatabricksHttpClientFactory.getInstance().removeClient(this.session.getConnectionContext());
+    TelemetryClientFactory.getInstance().closeTelemetryClient(connectionContext);
+    DatabricksHttpClientFactory.getInstance().removeClient(connectionContext);
+    DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext);
+    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
+    DatabricksThreadContextHolder.clearAllContext();
   }
 
   @Override
@@ -153,9 +176,12 @@ public class DatabricksConnection implements IDatabricksConnection {
 
   @Override
   public void setReadOnly(boolean readOnly) throws SQLException {
-    LOGGER.debug("public void setReadOnly(boolean readOnly = {})");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - setReadOnly(boolean readOnly)");
+    LOGGER.debug("public void setReadOnly(boolean readOnly)");
+    throwExceptionIfConnectionIsClosed();
+    if (readOnly) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Databricks OSS JDBC does not support readOnly mode.");
+    }
   }
 
   @Override
@@ -167,22 +193,28 @@ public class DatabricksConnection implements IDatabricksConnection {
 
   @Override
   public void setCatalog(String catalog) throws SQLException {
-    this.session.setCatalog(catalog);
     Statement statement = this.createStatement();
     statement.execute("SET CATALOG " + catalog);
+    this.session.setCatalog(catalog);
   }
 
   @Override
   public String getCatalog() throws SQLException {
     LOGGER.debug("public String getCatalog()");
+    if (session.getCatalog() == null) {
+      fetchCurrentSchemaAndCatalog();
+    }
     return this.session.getCatalog();
   }
 
   @Override
   public void setTransactionIsolation(int level) throws SQLException {
-    LOGGER.debug("public void setTransactionIsolation(int level = {})");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - setTransactionIsolation(int level)");
+    LOGGER.debug("public void setTransactionIsolation(int level = {})", level);
+    throwExceptionIfConnectionIsClosed();
+    if (level != Connection.TRANSACTION_READ_UNCOMMITTED) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Setting of the given transaction isolation is not supported");
+    }
   }
 
   @Override
@@ -233,188 +265,219 @@ public class DatabricksConnection implements IDatabricksConnection {
   @Override
   public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency)
       throws SQLException {
-
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - prepareCall(String sql, int resultSetType, int resultSetConcurrency)");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Callable statements are not implemented in OSS JDBC");
   }
 
   @Override
-  public Map<String, Class<?>> getTypeMap() throws SQLException {
+  public Map<String, Class<?>> getTypeMap() {
     LOGGER.debug("public Map<String, Class<?>> getTypeMap()");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - getTypeMap()");
+    return new HashMap<>();
   }
 
   @Override
   public void setTypeMap(Map<String, Class<?>> map) throws SQLException {
     LOGGER.debug("public void setTypeMap(Map<String, Class<?>> map)");
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - setTypeMap(Map<String, Class<?>> map)");
+        "Databricks OSS JDBC does not support setting of type map in connection");
   }
 
   @Override
   public void setHoldability(int holdability) throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - setHoldability(int holdability)");
+    if (holdability != ResultSet.CLOSE_CURSORS_AT_COMMIT) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Databricks OSS JDBC only supports holdability of CLOSE_CURSORS_AT_COMMIT");
+    }
   }
 
   @Override
   public int getHoldability() throws SQLException {
     LOGGER.debug("public int getHoldability()");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - getHoldability()");
+    return ResultSet.CLOSE_CURSORS_AT_COMMIT;
   }
 
   @Override
   public Savepoint setSavepoint() throws SQLException {
     LOGGER.debug("public Savepoint setSavepoint()");
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksConnection - setSavepoint()");
   }
 
   @Override
   public Savepoint setSavepoint(String name) throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksConnection - setSavepoint(String name)");
   }
 
   @Override
   public void rollback(Savepoint savepoint) throws SQLException {
     LOGGER.debug("public void rollback(Savepoint savepoint)");
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksConnection - rollback(Savepoint savepoint)");
   }
 
   @Override
   public void releaseSavepoint(Savepoint savepoint) throws SQLException {
     LOGGER.debug("public void releaseSavepoint(Savepoint savepoint)");
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksConnection - releaseSavepoint(Savepoint savepoint)");
   }
 
   @Override
   public Statement createStatement(
       int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
-
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)");
+    if (resultSetType != ResultSet.TYPE_FORWARD_ONLY
+        || resultSetConcurrency != ResultSet.CONCUR_READ_ONLY
+        || resultSetHoldability != ResultSet.CLOSE_CURSORS_AT_COMMIT) {
+      throw new DatabricksSQLFeatureNotImplementedException(
+          "Databricks OSS JDBC only supports resultSetType as ResultSet.TYPE_FORWARD_ONLY, resultSetConcurrency as ResultSet.CONCUR_READ_ONLY and resultSetHoldability as ResultSet.CLOSE_CURSORS_AT_COMMIT");
+    }
+    return createStatement();
   }
 
   @Override
   public PreparedStatement prepareStatement(
       String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
       throws SQLException {
-
+    if (isClosed()) {
+      throw new DatabricksSQLException(
+          "Connection is closed", DatabricksDriverErrorCode.CONNECTION_CLOSED);
+    }
+    if (resultSetHoldability == getHoldability()) {
+      return prepareStatement(sql, resultSetType, resultSetConcurrency);
+    }
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)");
+        "Databricks OSS JDBC only supports holdability of CLOSE_CURSORS_AT_COMMIT");
   }
 
   @Override
   public CallableStatement prepareCall(
       String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
       throws SQLException {
-
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)");
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Callable statements are not implemented in OSS JDBC");
   }
 
   @Override
   public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
-
+    if (isClosed()) {
+      throw new DatabricksSQLException(
+          "Connection is closed", DatabricksDriverErrorCode.CONNECTION_CLOSED);
+    }
+    if (autoGeneratedKeys == Statement.NO_GENERATED_KEYS) {
+      return prepareStatement(sql);
+    }
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - prepareStatement(String sql, int autoGeneratedKeys)");
+        "Databricks OSS JDBC does not support auto generated keys");
   }
 
   @Override
   public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
-
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - prepareStatement(String sql, int[] columnIndexes)");
+        "Not supported in DatabricksConnection - prepareStatement(String sql, int[] columnIndexes)");
   }
 
   @Override
   public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
-
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - prepareStatement(String sql, String[] columnNames)");
+        "Not supported in DatabricksConnection - prepareStatement(String sql, String[] columnNames)");
   }
 
   @Override
   public Clob createClob() throws SQLException {
     LOGGER.debug("public Clob createClob()");
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksConnection - createClob()");
   }
 
   @Override
   public Blob createBlob() throws SQLException {
     LOGGER.debug("public Blob createBlob()");
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksConnection - createBlob()");
   }
 
   @Override
   public NClob createNClob() throws SQLException {
     LOGGER.debug("public NClob createNClob()");
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksConnection - createNClob()");
   }
 
   @Override
   public SQLXML createSQLXML() throws SQLException {
     LOGGER.debug("public SQLXML createSQLXML()");
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksConnection - createSQLXML()");
   }
 
   @Override
   public boolean isValid(int timeout) throws SQLException {
     ValidationUtil.checkIfNonNegative(timeout, "timeout");
-    try (DatabricksStatement statement = new DatabricksStatement(this)) {
-      statement.setQueryTimeout(timeout);
-      // simple query to check whether connection is working
-      statement.execute("SELECT 1");
-      return true;
-    } catch (Exception e) {
+    if (isClosed()) {
       return false;
     }
+    if (connectionContext.getEnableSQLValidationForIsValid()) {
+      try (Statement stmt = createStatement()) {
+        stmt.setQueryTimeout(timeout);
+        // This is a lightweight query to check if the connection is valid
+        stmt.execute("SELECT VERSION()");
+        return true;
+      } catch (Exception e) {
+        LOGGER.debug("Validation failed for isValid(): {}", e.getMessage());
+        return false;
+      }
+    }
+    return true;
   }
 
+  /**
+   * Sets a client info property/session config
+   *
+   * @param name The name of the property to set
+   * @param value The value to set
+   * @throws SQLClientInfoException If the property cannot be set due to validation errors or if the
+   *     property name is not recognized
+   */
   @Override
   public void setClientInfo(String name, String value) throws SQLClientInfoException {
-    if (DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
+    if (ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
         .map(String::toLowerCase)
         .anyMatch(s -> s.equalsIgnoreCase(name))) {
       Map<String, ClientInfoStatus> failedProperties = new HashMap<>();
       setSessionConfig(name, value, failedProperties);
       if (!failedProperties.isEmpty()) {
+        String errorMessage = getFailedPropertiesExceptionMessage(failedProperties);
+        LOGGER.error(errorMessage);
         throw new DatabricksSQLClientInfoException(
-            getFailedPropertiesExceptionMessage(failedProperties), failedProperties);
+            errorMessage, failedProperties, DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
       }
     } else {
-      if (DatabricksJdbcConstants.ALLOWED_CLIENT_INFO_PROPERTIES != null) {
-        boolean found = false;
-        for (String property : DatabricksJdbcConstants.ALLOWED_CLIENT_INFO_PROPERTIES) {
-          if (property.equalsIgnoreCase(name)) {
-            found = true;
-            break;
-          }
-        }
-        if (found) {
-          this.session.setClientInfoProperty(name.toLowerCase(), value);
-        } else {
-          Map<String, ClientInfoStatus> failedProperties = new HashMap<String, ClientInfoStatus>();
-          failedProperties.put(name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY);
-          throw new DatabricksSQLClientInfoException(
-              String.format(
-                  "Setting client info for %s failed with %s",
-                  name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY),
-              failedProperties);
-        }
+      if (DatabricksJdbcConstants.ALLOWED_CLIENT_INFO_PROPERTIES.stream()
+          .map(String::toLowerCase)
+          .anyMatch(s -> s.equalsIgnoreCase(name))) {
+        this.session.setClientInfoProperty(
+            name.toLowerCase(), value); // insert properties in lower case
+      } else {
+        String errorMessage =
+            String.format(
+                "Setting client info for %s failed with %s",
+                name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY);
+        LOGGER.error(errorMessage);
+        throw new DatabricksSQLClientInfoException(
+            errorMessage,
+            Map.of(name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY),
+            DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
       }
     }
   }
 
+  /**
+   * Sets multiple client info properties from the provided Properties object.
+   *
+   * @param properties The properties containing client info to set
+   * @throws SQLClientInfoException If any property cannot be set
+   */
   @Override
   public void setClientInfo(Properties properties) throws SQLClientInfoException {
     LOGGER.debug("public void setClientInfo(Properties properties)");
@@ -423,79 +486,108 @@ public class DatabricksConnection implements IDatabricksConnection {
     }
   }
 
+  /**
+   * Retrieves the value of the specified client info property. case-insensitive
+   *
+   * @param name The name of the client info property to retrieve
+   * @return The value of the specified client info property, or null if not found
+   * @throws SQLException If a database access error occurs
+   */
   @Override
   public String getClientInfo(String name) throws SQLException {
-    // Return session conf if set
-    if (this.session.getSessionConfigs().containsKey(name)) {
-      return this.session.getSessionConfigs().get(name);
-    } else if (this.session.getClientInfoProperties().containsKey(name.toLowerCase())) {
-      return this.session.getClientInfoProperties().get(name.toLowerCase());
+    // Return session/client conf if set
+    String value = session.getConfigValue(name);
+    if (value != null) {
+      return value;
     }
-
-    // Else return default value or null if the conf name is invalid
-    return DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.getOrDefault(
-        name, null);
+    return ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.getOrDefault(
+        name.toUpperCase(), null); // Conf Map stores keys in upper case
   }
 
+  /**
+   * Retrieves all client and session properties as a Properties object. Keys are in lower case.
+   *
+   * <p>The returned Properties object contains default session configurations, user-defined session
+   * configurations, and client info properties.
+   *
+   * @return A Properties object containing all client info properties
+   * @throws SQLException If a database access error occurs
+   */
   @Override
   public Properties getClientInfo() throws SQLException {
     LOGGER.debug("public Properties getClientInfo()");
+
     Properties properties = new Properties();
-    // Put in default values first
-    properties.putAll(DatabricksJdbcConstants.ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP);
-    // Then override with session confs
-    properties.putAll(this.session.getSessionConfigs());
-    // Add all client info properties
-    properties.putAll(this.session.getClientInfoProperties());
+
+    // add default session configs
+    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.forEach(
+        (key, value) -> properties.setProperty(key.toLowerCase(), value));
+
+    // update session configs if set by user
+    properties.putAll(session.getSessionConfigs());
+    // add client info properties
+    properties.putAll(session.getClientInfoProperties());
+
     return properties;
   }
 
   @Override
   public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
     LOGGER.debug("public Array createArrayOf(String typeName, Object[] elements)");
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksConnection - createArrayOf(String typeName, Object[] elements)");
   }
 
   @Override
   public Struct createStruct(String typeName, Object[] attributes) throws SQLException {
     LOGGER.debug("public Struct createStruct(String typeName, Object[] attributes)");
-    throw new DatabricksSQLFeatureNotSupportedException(
+    throw new DatabricksSQLFeatureNotImplementedException(
         "Not implemented in DatabricksConnection - createStruct(String typeName, Object[] attributes)");
   }
 
   @Override
   public void setSchema(String schema) throws SQLException {
-    session.setSchema(schema);
     Statement statement = this.createStatement();
     statement.execute("USE SCHEMA " + schema);
+    session.setSchema(schema);
   }
 
   @Override
   public String getSchema() throws SQLException {
     LOGGER.debug("public String getSchema()");
+    if (session.getSchema() == null) {
+      fetchCurrentSchemaAndCatalog();
+    }
     return session.getSchema();
   }
 
   @Override
   public void abort(Executor executor) throws SQLException {
     LOGGER.debug("public void abort(Executor executor)");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - abort(Executor executor)");
+    executor.execute(
+        () -> {
+          try {
+            this.close();
+          } catch (Exception e) {
+            LOGGER.error(
+                "Error closing connection resources, but marking the connection as closed.", e);
+            this.session.forceClose();
+          }
+        });
   }
 
   @Override
   public void setNetworkTimeout(Executor executor, int milliseconds) throws SQLException {
     LOGGER.debug("public void setNetworkTimeout(Executor executor, int milliseconds)");
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - setNetworkTimeout(Executor executor, int milliseconds)");
+        "Not supported in DatabricksConnection - setNetworkTimeout(Executor executor, int milliseconds)");
   }
 
   @Override
   public int getNetworkTimeout() throws SQLException {
     LOGGER.debug("public int getNetworkTimeout()");
     throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksConnection - getNetworkTimeout()");
+        "Not supported in DatabricksConnection - getNetworkTimeout()");
   }
 
   @Override
@@ -504,9 +596,11 @@ public class DatabricksConnection implements IDatabricksConnection {
     if (iface.isInstance(this)) {
       return (T) this;
     }
-    throw new DatabricksSQLException(
+    String errorMessage =
         String.format(
-            "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()));
+            "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName());
+    LOGGER.error(errorMessage);
+    throw new DatabricksValidationException(errorMessage);
   }
 
   @Override
@@ -519,6 +613,61 @@ public class DatabricksConnection implements IDatabricksConnection {
   public void closeStatement(IDatabricksStatement statement) {
     LOGGER.debug("public void closeStatement(IDatabricksStatement statement)");
     this.statementSet.remove(statement);
+  }
+
+  @Override
+  public void beginRequest() {
+    LOGGER.debug("public void beginRequest()");
+    LOGGER.warn("public void beginRequest() is a no-op method");
+  }
+
+  @Override
+  public void endRequest() {
+    LOGGER.debug("public void endRequest()");
+    LOGGER.warn("public void endRequest() is a no-op method");
+  }
+
+  @Override
+  public boolean setShardingKeyIfValid(
+      ShardingKey shardingKey, ShardingKey superShardingKey, int timeout)
+      throws DatabricksSQLFeatureNotImplementedException {
+    LOGGER.debug(
+        "public boolean setShardingKeyIfValid(ShardingKey shardingKey = {},ShardingKey superShardingKey = {}, int timeout = {})",
+        shardingKey,
+        superShardingKey,
+        timeout);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Not implemented in DatabricksConnection - setShardingKeyIfValid(ShardingKey shardingKey, ShardingKey superShardingKey, int timeout)");
+  }
+
+  @Override
+  public boolean setShardingKeyIfValid(ShardingKey shardingKey, int timeout)
+      throws DatabricksSQLFeatureNotImplementedException {
+    LOGGER.debug(
+        "public boolean setShardingKeyIfValid(ShardingKey shardingKey = {}, int timeout = {})",
+        shardingKey,
+        timeout);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Not implemented in DatabricksConnection - setShardingKeyIfValid(ShardingKey shardingKey, int timeout)");
+  }
+
+  @Override
+  public void setShardingKey(ShardingKey shardingKey, ShardingKey superShardingKey)
+      throws DatabricksSQLFeatureNotImplementedException {
+    LOGGER.debug(
+        "public void setShardingKey(ShardingKey shardingKey = {}, ShardingKey superShardingKey = {})",
+        shardingKey,
+        superShardingKey);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Not implemented in DatabricksConnection - setShardingKey(ShardingKey shardingKey, ShardingKey superShardingKey)");
+  }
+
+  @Override
+  public void setShardingKey(ShardingKey shardingKey)
+      throws DatabricksSQLFeatureNotImplementedException {
+    LOGGER.debug("public void setShardingKey(ShardingKey shardingKey = {})", shardingKey);
+    throw new DatabricksSQLFeatureNotImplementedException(
+        "Not implemented in DatabricksConnection - setShardingKey(ShardingKey shardingKey)");
   }
 
   @Override
@@ -576,7 +725,7 @@ public class DatabricksConnection implements IDatabricksConnection {
       String key, String value, Map<String, ClientInfoStatus> failedProperties) {
     try {
       this.createStatement().execute(String.format("SET %s = %s", key, value));
-      this.session.setSessionConfig(key, value);
+      this.session.setSessionConfig(key.toLowerCase(), value); // insert properties in lower case
     } catch (SQLException e) {
       ClientInfoStatus status = determineClientInfoStatus(key, value, e);
       failedProperties.put(key, status);
@@ -585,7 +734,25 @@ public class DatabricksConnection implements IDatabricksConnection {
 
   private void throwExceptionIfConnectionIsClosed() throws SQLException {
     if (this.isClosed()) {
-      throw new DatabricksSQLException("Connection closed!");
+      throw new DatabricksSQLException(
+          "Connection closed!", DatabricksDriverErrorCode.CONNECTION_CLOSED);
+    }
+  }
+
+  private void fetchCurrentSchemaAndCatalog() throws DatabricksSQLException {
+    try {
+      DatabricksStatement statement = (DatabricksStatement) this.createStatement();
+      ResultSet rs = statement.executeQuery("SELECT CURRENT_CATALOG(), CURRENT_SCHEMA()");
+      if (rs.next()) {
+        session.setCatalog(rs.getString(1));
+        session.setSchema(rs.getString(2));
+      }
+    } catch (SQLException e) {
+      String errorMessage =
+          String.format("Error fetching current schema and catalog %s", e.getMessage());
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksSQLException(
+          errorMessage, DatabricksDriverErrorCode.CATALOG_OR_SCHEMA_FETCH_ERROR);
     }
   }
 }

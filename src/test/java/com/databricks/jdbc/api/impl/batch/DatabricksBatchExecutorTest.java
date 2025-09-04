@@ -3,23 +3,27 @@ package com.databricks.jdbc.api.impl.batch;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import java.sql.BatchUpdateException;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 public class DatabricksBatchExecutorTest {
-
-  private Statement mockStatement;
+  @Mock IDatabricksConnectionContext connectionContext;
+  @Mock private IDatabricksStatement mockStatement;
   private DatabricksBatchExecutor databricksBatchExecutor;
   private final int MAX_BATCH_SIZE = 5;
 
   @BeforeEach
   public void setUp() {
-    mockStatement = mock(Statement.class);
     databricksBatchExecutor = new DatabricksBatchExecutor(mockStatement, MAX_BATCH_SIZE);
   }
 
@@ -69,7 +73,7 @@ public class DatabricksBatchExecutorTest {
   /** Test executing an empty batch. */
   @Test
   public void testExecuteBatch_EmptyBatch() throws SQLException {
-    int[] updateCounts = databricksBatchExecutor.executeBatch();
+    long[] updateCounts = databricksBatchExecutor.executeBatch();
     assertEquals(0, updateCounts.length);
   }
 
@@ -81,15 +85,15 @@ public class DatabricksBatchExecutorTest {
     databricksBatchExecutor.addCommand("DELETE FROM table3 WHERE id=3");
 
     when(mockStatement.execute(anyString())).thenReturn(false);
-    when(mockStatement.getUpdateCount()).thenReturn(1);
+    when(mockStatement.getLargeUpdateCount()).thenReturn(1L);
 
-    int[] updateCounts = databricksBatchExecutor.executeBatch();
+    long[] updateCounts = databricksBatchExecutor.executeBatch();
 
     assertEquals(3, updateCounts.length);
-    assertArrayEquals(new int[] {1, 1, 1}, updateCounts);
+    assertArrayEquals(new long[] {1, 1, 1}, updateCounts);
 
     verify(mockStatement, times(3)).execute(anyString());
-    verify(mockStatement, times(3)).getUpdateCount();
+    verify(mockStatement, times(3)).getLargeUpdateCount();
     assertEquals(0, databricksBatchExecutor.commands.size());
   }
 
@@ -104,16 +108,16 @@ public class DatabricksBatchExecutorTest {
         .thenReturn(false)
         .thenThrow(new SQLException("Syntax error"))
         .thenReturn(false);
-    when(mockStatement.getUpdateCount()).thenReturn(1);
+    when(mockStatement.getLargeUpdateCount()).thenReturn(1L);
 
     BatchUpdateException exception =
         assertThrows(BatchUpdateException.class, () -> databricksBatchExecutor.executeBatch());
 
     assertEquals("Batch execution failed at command 1: Syntax error", exception.getMessage());
-    assertArrayEquals(new int[] {1}, exception.getUpdateCounts());
+    assertArrayEquals(new long[] {1}, exception.getLargeUpdateCounts());
 
     verify(mockStatement, times(2)).execute(anyString());
-    verify(mockStatement, times(1)).getUpdateCount();
+    verify(mockStatement, times(1)).getLargeUpdateCount();
     assertEquals(0, databricksBatchExecutor.commands.size());
   }
 
@@ -128,7 +132,7 @@ public class DatabricksBatchExecutorTest {
         .thenReturn(false)
         .thenReturn(true) // Returns ResultSet
         .thenReturn(false);
-    when(mockStatement.getUpdateCount()).thenReturn(1);
+    when(mockStatement.getLargeUpdateCount()).thenReturn(1L);
 
     BatchUpdateException exception =
         assertThrows(BatchUpdateException.class, () -> databricksBatchExecutor.executeBatch());
@@ -136,10 +140,10 @@ public class DatabricksBatchExecutorTest {
     assertEquals(
         "Batch execution failed at command 1: Command 1 in the batch attempted to return a ResultSet",
         exception.getMessage());
-    assertArrayEquals(new int[] {1}, exception.getUpdateCounts());
+    assertArrayEquals(new long[] {1}, exception.getLargeUpdateCounts());
 
     verify(mockStatement, times(2)).execute(anyString());
-    verify(mockStatement, times(2)).getUpdateCount();
+    verify(mockStatement, times(2)).getLargeUpdateCount();
     assertEquals(0, databricksBatchExecutor.commands.size());
   }
 
@@ -150,7 +154,7 @@ public class DatabricksBatchExecutorTest {
     databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (2)");
 
     when(mockStatement.execute(anyString())).thenReturn(false);
-    when(mockStatement.getUpdateCount()).thenReturn(1);
+    when(mockStatement.getLargeUpdateCount()).thenReturn(1L);
 
     databricksBatchExecutor.executeBatch();
 
@@ -163,7 +167,7 @@ public class DatabricksBatchExecutorTest {
     databricksBatchExecutor.addCommand("INSERT INTO table1 VALUES (1)");
 
     when(mockStatement.execute(anyString())).thenReturn(false);
-    when(mockStatement.getUpdateCount()).thenReturn(1);
+    when(mockStatement.getLargeUpdateCount()).thenReturn(1L);
 
     // Spy on the databricksBatchExecutor to verify method calls
     DatabricksBatchExecutor spyDatabricksBatchExecutor = Mockito.spy(databricksBatchExecutor);

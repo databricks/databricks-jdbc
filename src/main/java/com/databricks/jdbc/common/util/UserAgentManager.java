@@ -1,16 +1,21 @@
 package com.databricks.jdbc.common.util;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.CLIENT_USER_AGENT_PREFIX;
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.USER_AGENT_DELIMITER;
-import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
-
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.UserAgent;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 public class UserAgentManager {
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(UserAgentManager.class);
   private static final String SDK_USER_AGENT = "databricks-sdk-java";
   private static final String JDBC_HTTP_USER_AGENT = "databricks-jdbc-http";
+  private static final String DEFAULT_USER_AGENT = "DatabricksJDBCDriverOSS";
+  private static final String CLIENT_USER_AGENT_PREFIX = "Java";
+  public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient";
+  public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient";
+  private static final String VERSION_FILLER = "version";
 
   /**
    * Set the user agent for the Databricks JDBC driver.
@@ -18,14 +23,27 @@ public class UserAgentManager {
    * @param connectionContext The connection context.
    */
   public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
-    UserAgent.withProduct(DatabricksJdbcConstants.DEFAULT_USER_AGENT, DriverUtil.getVersion());
-    String customerUA = connectionContext.getCustomerUserAgent();
-    String userAgentInfo = connectionContext.getClientUserAgent();
-    if (!isNullOrEmpty(customerUA)) {
-      userAgentInfo += USER_AGENT_DELIMITER + customerUA.trim();
+    // Set the base product and client info
+    UserAgent.withProduct(DEFAULT_USER_AGENT, DriverUtil.getDriverVersion());
+    UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
+    if (connectionContext.getCustomerUserAgent() == null) {
+      return;
     }
-    String sanitisedUserAgentInfo = UserAgent.sanitize(userAgentInfo);
-    UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, sanitisedUserAgentInfo);
+    try {
+      String decodedUA =
+          URLDecoder.decode(
+              connectionContext.getCustomerUserAgent(),
+              StandardCharsets.UTF_8); // This is for encoded userAgentString
+      int i = decodedUA.indexOf('/');
+      String customerName = (i < 0) ? decodedUA : decodedUA.substring(0, i);
+      String customerVersion = (i < 0) ? VERSION_FILLER : decodedUA.substring(i + 1);
+      UserAgent.withOtherInfo(customerName, UserAgent.sanitize(customerVersion));
+    } catch (Exception e) {
+      LOGGER.debug(
+          "Failed to set user agent for customer userAgent entry {}, Error {}",
+          connectionContext.getCustomerUserAgent(),
+          e);
+    }
   }
 
   /** Gets the user agent string for Databricks Driver HTTP Client. */

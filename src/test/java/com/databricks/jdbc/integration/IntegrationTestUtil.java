@@ -1,10 +1,11 @@
 package com.databricks.jdbc.integration;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
-import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.TEST_CATALOG;
-import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.TEST_SCHEMA;
+import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.*;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
+import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants.FakeServiceType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -17,6 +18,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 /** Utility class to support integration tests * */
@@ -25,10 +27,7 @@ public class IntegrationTestUtil {
   /** Get the host of the embedded web server of fake service to be used in the tests. */
   public static String getFakeServiceHost() {
     // Target base URL of the fake service type
-    FakeServiceType databricksFakeServiceType =
-        FakeServiceConfigLoader.shouldUseThriftClient
-            ? FakeServiceType.SQL_GATEWAY
-            : FakeServiceType.SQL_EXEC;
+    FakeServiceType databricksFakeServiceType = FakeServiceConfigLoader.getFakeServiceType();
     String serviceURI =
         System.getProperty(databricksFakeServiceType.name().toLowerCase() + TARGET_URI_PROP_SUFFIX);
 
@@ -43,6 +42,27 @@ public class IntegrationTestUtil {
     return fakeServiceURI.getAuthority();
   }
 
+  public static String getFakeServiceM2MUrl() {
+    // SSL is disabled as embedded web server of fake service uses HTTP protocol.
+    // Note that in RECORD mode, the web server interacts with production services over HTTPS.
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s;usethriftclient=0;";
+    return String.format(template, getFakeServiceHost(), getM2MHTTPPath());
+  }
+
+  public static String getFakeServiceM2MPrivateKeyCredentialsUrl() {
+    // SSL is disabled as embedded web server of fake service uses HTTP protocol.
+    // Note that in RECORD mode, the web server interacts with production services over HTTPS.
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s;UseJWTAssertion=1;usethriftclient=0;";
+    return String.format(template, getFakeServiceHost(), getM2MPrivateKeyCredentialsHTTPPath());
+  }
+
+  public static String getJWTTokenEndpointHost() {
+    String tokenEndpoint = System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_TOKEN_ENDPOINT");
+    return tokenEndpoint.replaceAll("^(https?://[^/]+).*", "$1");
+  }
+
   public static String getFakeServiceJDBCUrl() {
     // The fake service client has SSL disabled, but SSL is enabled for its communication with
     // production services.
@@ -51,6 +71,10 @@ public class IntegrationTestUtil {
         jdbcUrlTemplate,
         getFakeServiceHost(),
         FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
+  }
+
+  public static String getFakeServiceHTTPPath() {
+    return FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName());
   }
 
   public static String getDatabricksHost() {
@@ -63,8 +87,65 @@ public class IntegrationTestUtil {
     return System.getenv("DATABRICKS_BENCHFOOD_HOST");
   }
 
-  public static String getDatabricksUrlForM2M() {
-    return System.getenv("DATABRICKS_JDBC_M2M_URL");
+  public static String getM2MHost() {
+    return System.getenv("DATABRICKS_JDBC_M2M_HOST");
+  }
+
+  public static String getSPTokenFedHost() {
+    return System.getenv("DATABRICKS_JDBC_SP_TOKEN_FED_HOST");
+  }
+
+  public static String getM2MPrivateKeyCredentialsHost() {
+    return System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HOST");
+  }
+
+  public static String getM2MHTTPPath() {
+    return System.getenv("DATABRICKS_JDBC_M2M_HTTP_PATH");
+  }
+
+  public static String getSPTokenFedHTTPPath() {
+    return System.getenv("DATABRICKS_JDBC_SP_TOKEN_FED_HTTP_PATH");
+  }
+
+  public static String getM2MPrivateKeyCredentialsHTTPPath() {
+    return System.getenv("DATABRICKS_JDBC_M2M_PRIVATE_KEY_CREDENTIALS_HTTP_PATH");
+  }
+
+  public static String getJdbcM2MUrl() {
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;authmech=11;auth_flow=1;httpPath=%s";
+    return String.format(template, getM2MHost(), getM2MHTTPPath());
+  }
+
+  public static String getSPTokenFedUrl() {
+    String template =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=1;authmech=11;auth_flow=1;httpPath=%s";
+    return String.format(template, getSPTokenFedHost(), getSPTokenFedHTTPPath());
+  }
+
+  public static Connection getValidM2MConnection() throws SQLException {
+    return DriverManager.getConnection(getJdbcM2MUrl(), createM2MConnectionProperties());
+  }
+
+  public static Connection getValidSPTokenFedConnection() throws SQLException {
+    return DriverManager.getConnection(getSPTokenFedUrl(), createSPTokenFedConnectionProperties());
+  }
+
+  public static Properties createM2MConnectionProperties() {
+    Properties connProps = new Properties();
+    connProps.put("OAuth2ClientId", System.getenv("DATABRICKS_JDBC_M2M_CLIENT_ID"));
+    connProps.put("OAuth2Secret", System.getenv("DATABRICKS_JDBC_M2M_CLIENT_SECRET"));
+    return connProps;
+  }
+
+  public static Properties createSPTokenFedConnectionProperties() {
+    Properties connProps = new Properties();
+    connProps.put("OAuth2ClientId", System.getenv("DATABRICKS_JDBC_SP_TOKEN_FED_CLIENT_ID"));
+    connProps.put("OAuth2Secret", System.getenv("DATABRICKS_JDBC_SP_TOKEN_FED_CLIENT_SECRET"));
+    connProps.put(
+        "Identity_Federation_Client_Id", System.getenv("DATABRICKS_SP_TOKEN_FED_FEDERATION_ID"));
+    connProps.put("AzureTenantId", System.getenv("DATABRICKS_SP_TOKEN_FED_AZURE_TENANT_ID"));
+    return connProps;
   }
 
   public static String getDatabricksDogfoodHost() {
@@ -72,7 +153,7 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksToken() {
-    return System.getenv("DATABRICKS_TOKEN");
+    return Optional.ofNullable(System.getenv("DATABRICKS_TOKEN")).orElse("token");
   }
 
   public static String getDatabricksDogfoodToken() {
@@ -108,21 +189,26 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksUser() {
-    return System.getenv("DATABRICKS_USER");
+    return Optional.ofNullable(System.getenv("DATABRICKS_USER")).orElse("token");
   }
 
   public static Connection getValidJDBCConnection() throws SQLException {
     Properties connectionProperties = new Properties();
-    connectionProperties.put(DatabricksJdbcUrlParams.USER.getParamName(), getDatabricksUser());
+    connectionProperties.put(DatabricksJdbcUrlParams.UID.getParamName(), getDatabricksUser());
     connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
+    connectionProperties.put(
+        DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
 
     if (DriverUtil.isRunningAgainstFake()) {
       connectionProperties.put(
-          DatabricksJdbcUrlParams.CATALOG.getParamName(),
-          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CATALOG.getParamName()));
+          DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
+          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));
       connectionProperties.put(
           DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
+      connectionProperties.put(
+          DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
+          FakeServiceConfigLoader.shouldUseThriftClient());
 
       return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
     }
@@ -139,9 +225,49 @@ public class IntegrationTestUtil {
     return DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
   }
 
+  public static Connection getValidJDBCConnection(Properties connectionProperties)
+      throws SQLException {
+    connectionProperties.put(DatabricksJdbcUrlParams.UID.getParamName(), getDatabricksUser());
+    connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
+    connectionProperties.put(
+        DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
+
+    if (DriverUtil.isRunningAgainstFake()) {
+      connectionProperties.put(
+          DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
+          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));
+      connectionProperties.put(
+          DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
+          FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
+      connectionProperties.put(
+          DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
+          FakeServiceConfigLoader.shouldUseThriftClient());
+
+      return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
+    }
+
+    return DriverManager.getConnection(getJDBCUrl(), connectionProperties);
+  }
+
   public static Connection getDogfoodJDBCConnection() throws SQLException {
     return DriverManager.getConnection(
         getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
+  }
+
+  /** Used by the DBFSVolumeClient to bypass creation of connection */
+  public static IDatabricksConnectionContext getDogfoodJDBCConnectionContext() throws SQLException {
+    return DatabricksConnectionContextFactory.create(
+        getDogfoodJDBCUrl(), getDatabricksUser(), getDatabricksDogfoodToken());
+  }
+
+  public static IDatabricksConnectionContext getDogfoodJDBCConnectionContext(
+      List<List<String>> extraArgs) throws SQLException {
+    String jdbcUrl = getDogfoodJDBCUrl();
+    for (List<String> args : extraArgs) {
+      jdbcUrl += ";" + args.get(0) + "=" + args.get(1);
+    }
+    return DatabricksConnectionContextFactory.create(
+        jdbcUrl, getDatabricksUser(), getDatabricksDogfoodToken());
   }
 
   public static Connection getDogfoodJDBCConnection(List<List<String>> extraArgs)

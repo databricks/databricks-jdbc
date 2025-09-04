@@ -2,8 +2,9 @@ package com.databricks.jdbc.auth;
 
 import static com.databricks.jdbc.auth.AuthConstants.GRANT_TYPE_KEY;
 import static com.databricks.jdbc.auth.AuthConstants.GRANT_TYPE_REFRESH_TOKEN_KEY;
+import static com.databricks.sdk.core.oauth.TokenEndpointClient.retrieveToken;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DatabricksAuthUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -15,22 +16,22 @@ import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.HeaderFactory;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.oauth.AuthParameterPosition;
-import com.databricks.sdk.core.oauth.RefreshableTokenSource;
 import com.databricks.sdk.core.oauth.Token;
-import java.time.LocalDateTime;
+import com.databricks.sdk.core.oauth.TokenSource;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.http.HttpHeaders;
 
-public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
-    implements CredentialsProvider {
-
+public class OAuthRefreshCredentialsProvider implements TokenSource, CredentialsProvider {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(OAuthRefreshCredentialsProvider.class);
   private HttpClient hc;
   private final String tokenEndpoint;
   private final String clientId;
   private final String clientSecret;
+  private final Token token;
 
   public OAuthRefreshCredentialsProvider(
       IDatabricksConnectionContext context, DatabricksConfig databricksConfig) {
@@ -49,7 +50,7 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
             DatabricksJdbcConstants.EMPTY_STRING,
             DatabricksJdbcConstants.EMPTY_STRING,
             context.getOAuthRefreshToken(),
-            LocalDateTime.now().minusMinutes(1));
+            Instant.now().minus(Duration.ofMinutes(1)));
   }
 
   @Override
@@ -72,7 +73,7 @@ public class OAuthRefreshCredentialsProvider extends RefreshableTokenSource
   }
 
   @Override
-  protected Token refresh() {
+  public Token getToken() {
     if (this.token == null) {
       String exceptionMessage = "oauth2: token is not set";
       LOGGER.error(exceptionMessage);

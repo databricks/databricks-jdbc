@@ -7,10 +7,10 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.impl.DatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -28,6 +28,7 @@ import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.ResultSchema;
+import com.google.common.collect.ImmutableList;
 import java.io.*;
 import java.time.Instant;
 import java.util.*;
@@ -65,7 +66,7 @@ public class ArrowStreamResultTest {
   private final Random random = new Random();
   private final long rowsInChunk = 110L;
   private static final String JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
   private static final String CHUNK_URL_PREFIX = "chunk.databricks.com/";
   private static final StatementId STATEMENT_ID = new StatementId("statement_id");
   @Mock DatabricksSdkClient mockedSdkClient;
@@ -183,7 +184,7 @@ public class ArrowStreamResultTest {
             .setSchema(
                 new ResultSchema()
                     .setColumns(
-                        Arrays.asList(
+                        ImmutableList.of(
                             new ColumnInfo().setTypeName(ColumnInfoTypeName.INT),
                             new ColumnInfo().setTypeName(ColumnInfoTypeName.DOUBLE)))
                     .setColumnCount(2L));
@@ -206,6 +207,20 @@ public class ArrowStreamResultTest {
 
     assertInstanceOf(Integer.class, objectInFirstColumn);
     assertInstanceOf(Double.class, objectInSecondColumn);
+  }
+
+  @Test
+  public void testComplexTypeHandling() {
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.ARRAY));
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.MAP));
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.STRUCT));
+
+    // Non-complex types should return false
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.INT));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.STRING));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.DOUBLE));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.BOOLEAN));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.TIMESTAMP));
   }
 
   private List<ExternalLink> getChunkLinks(long chunkIndex, boolean isLast) {
@@ -246,7 +261,7 @@ public class ArrowStreamResultTest {
     when(httpEntity.getContent()).thenAnswer(invocation -> new FileInputStream(arrowFile));
   }
 
-  private void setupResultChunkMocks() {
+  private void setupResultChunkMocks() throws DatabricksSQLException {
     for (int chunkIndex = 1; chunkIndex < numberOfChunks; chunkIndex++) {
       boolean isLastChunk = (chunkIndex == (numberOfChunks - 1));
       when(mockedSdkClient.getResultChunks(STATEMENT_ID, chunkIndex))

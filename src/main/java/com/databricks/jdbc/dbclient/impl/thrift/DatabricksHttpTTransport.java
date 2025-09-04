@@ -1,10 +1,15 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
+
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -26,18 +31,28 @@ public class DatabricksHttpTTransport extends TTransport {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksHttpTTransport.class);
   private static final Map<String, String> DEFAULT_HEADERS =
-      Collections.unmodifiableMap(getDefaultHeaders());
+      Map.of(
+          "Content-Type", "application/x-thrift",
+          "Accept", "application/x-thrift");
   private final IDatabricksHttpClient httpClient;
   private final String url;
   private Map<String, String> customHeaders = Collections.emptyMap();
   private final ByteArrayOutputStream requestBuffer;
   private ByteArrayInputStream responseBuffer;
+  private final IDatabricksConnectionContext connectionContext;
+  DatabricksConfig databricksConfig;
 
-  public DatabricksHttpTTransport(IDatabricksHttpClient httpClient, String url) {
+  public DatabricksHttpTTransport(
+      IDatabricksHttpClient httpClient,
+      String url,
+      DatabricksConfig databricksConfig,
+      IDatabricksConnectionContext connectionContext) {
     this.httpClient = httpClient;
     this.url = url;
     this.requestBuffer = new ByteArrayOutputStream();
     this.responseBuffer = null;
+    this.databricksConfig = databricksConfig;
+    this.connectionContext = connectionContext;
   }
 
   @Override
@@ -52,7 +67,9 @@ public class DatabricksHttpTTransport extends TTransport {
   }
 
   @Override
-  public void close() {}
+  public void close() {
+    // No-op
+  }
 
   @Override
   public int read(byte[] buf, int off, int len) throws TTransportException {
@@ -75,18 +92,37 @@ public class DatabricksHttpTTransport extends TTransport {
 
   @Override
   public void flush() throws TTransportException {
+    long refreshHeadersStartTime = System.currentTimeMillis();
+    refreshHeadersIfRequired();
+    long refreshHeadersEndTime = System.currentTimeMillis();
+    long refreshHeadersLatency = refreshHeadersEndTime - refreshHeadersStartTime;
+    LOGGER.trace(
+        "Connection ["
+            + connectionContext.getConnectionUuid()
+            + "] Header refresh latency: "
+            + refreshHeadersLatency
+            + "ms");
+
     HttpPost request = new HttpPost(this.url);
     DEFAULT_HEADERS.forEach(request::addHeader);
+    customHeaders.forEach(request::addHeader);
 
-    if (customHeaders != null) {
-      customHeaders.forEach(request::addHeader);
+    // Overriding with URL defined headers
+    this.connectionContext.getCustomHeaders().forEach(request::setHeader);
+
+    if (connectionContext.isRequestTracingEnabled()) {
+      String traceHeader = TracingUtil.getTraceHeader();
+      LOGGER.debug("Thrift tracing header: " + traceHeader);
+      request.addHeader(TracingUtil.TRACE_HEADER, traceHeader);
     }
 
     // Set the request entity
     request.setEntity(new ByteArrayEntity(requestBuffer.toByteArray()));
 
     // Execute the request and handle the response
+    long httpRequestStartTime = System.currentTimeMillis();
     try (CloseableHttpResponse response = httpClient.execute(request)) {
+
       ValidationUtil.checkHTTPError(response);
 
       // Read the response
@@ -96,9 +132,18 @@ public class DatabricksHttpTTransport extends TTransport {
         responseBuffer = new ByteArrayInputStream(responseBytes);
       }
     } catch (DatabricksHttpException | IOException e) {
+      long httpRequestEndTime = System.currentTimeMillis();
+      long httpRequestLatency = httpRequestEndTime - httpRequestStartTime;
+      LOGGER.debug(
+          "Connection ["
+              + connectionContext.getConnectionUuid()
+              + "] HTTP request latency (with error): "
+              + httpRequestLatency
+              + "ms");
+
       String errorMessage = "Failed to flush data to server: " + e.getMessage();
       LOGGER.error(e, errorMessage);
-      throw new TTransportException(TTransportException.UNKNOWN, errorMessage);
+      throw new TTransportException(TTransportException.UNKNOWN, errorMessage, e);
     }
 
     // Reset the request buffer
@@ -116,24 +161,16 @@ public class DatabricksHttpTTransport extends TTransport {
   @Override
   public void checkReadBytesAvailable(long numBytes) throws TTransportException {}
 
-  public void setCustomHeaders(Map<String, String> headers) {
-    if (headers != null) {
-      customHeaders = new HashMap<>(headers);
-    } else {
-      customHeaders = Collections.emptyMap();
-    }
+  /** Refreshes the custom headers by re-authenticating if necessary. */
+  private void refreshHeadersIfRequired() {
+    Map<String, String> refreshedHeaders = databricksConfig.authenticate();
+    customHeaders =
+        refreshedHeaders != null ? new HashMap<>(refreshedHeaders) : Collections.emptyMap();
   }
 
-  private static Map<String, String> getDefaultHeaders() {
-    Map<String, String> headers = new HashMap<>();
-    headers.put("Content-Type", "application/x-thrift");
-    headers.put("Accept", "application/x-thrift");
-    return headers;
-  }
-
-  @VisibleForTesting
-  Map<String, String> getCustomHeaders() {
-    return customHeaders;
+  void resetAccessToken(String newAccessToken) {
+    this.databricksConfig = initializeConfigWithToken(newAccessToken, databricksConfig);
+    this.databricksConfig.resolve();
   }
 
   @VisibleForTesting

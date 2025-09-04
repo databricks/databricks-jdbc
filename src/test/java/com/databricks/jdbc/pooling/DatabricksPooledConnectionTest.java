@@ -1,5 +1,7 @@
 package com.databricks.jdbc.pooling;
 
+import static com.databricks.jdbc.TestConstants.TEST_PASSWORD;
+import static com.databricks.jdbc.TestConstants.TEST_USER;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -7,10 +9,10 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.client.jdbc.DataSource;
 import com.databricks.client.jdbc.Driver;
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
@@ -18,7 +20,6 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
 import javax.sql.PooledConnection;
@@ -33,8 +34,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class DatabricksPooledConnectionTest {
 
   private static final String JDBC_URL =
-      "jdbc:databricks://e2-dogfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;";
-  private static final String WAREHOUSE_ID = "791ba2a31c7fd70a";
+      "jdbc:databricks://sample-host.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/9999999999999999;";
+  private static final String WAREHOUSE_ID = "9999999999999999";
   private static final IDatabricksComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
   private static final String SESSION_ID = "session_id";
   @Mock private static DatabricksSdkClient databricksClient;
@@ -42,7 +43,9 @@ public class DatabricksPooledConnectionTest {
 
   @BeforeAll
   public static void setUp() throws DatabricksSQLException {
-    connectionContext = DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    DatabricksConnectionContextFactory connectionContextFactory =
+        new DatabricksConnectionContextFactory();
+    connectionContext = connectionContextFactory.create(JDBC_URL, TEST_USER, TEST_PASSWORD);
   }
 
   @Test
@@ -202,7 +205,7 @@ public class DatabricksPooledConnectionTest {
     assertNotEquals(0, statement.hashCode());
     assertTrue(statement.toString().startsWith("Pooled statement wrapping physical statement "));
     // Check delegated invoke
-    assertEquals(300, statement.getQueryTimeout());
+    assertEquals(0, statement.getQueryTimeout());
     statement.close();
     assertThrows(DatabricksSQLException.class, statement::getConnection);
     assertTrue(statement.isClosed());

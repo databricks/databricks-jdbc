@@ -3,9 +3,13 @@ package com.databricks.jdbc.integration.fakeservice.tests;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.impl.DatabricksConnection;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
+import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
+import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
 import java.sql.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,7 +28,14 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
   @AfterEach
   void cleanUp() throws SQLException {
     if (connection != null) {
-      connection.close();
+      if (((DatabricksConnection) connection).getConnectionContext().getClientType()
+              == DatabricksClientType.THRIFT
+          && getFakeServiceMode() == FakeServiceExtension.FakeServiceMode.REPLAY) {
+        // Hacky fix
+        // Wiremock has error in stub matching for close operation in THRIFT + REPLAY mode
+      } else {
+        connection.close();
+      }
     }
   }
 
@@ -49,7 +60,9 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
             SQLException.class,
             () ->
                 getConnection(
-                    "jdbc:databricks://e2-wrongfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/791ba2a31c7fd70a;"));
+                    "jdbc:databricks://e2-wrongfood.staging.cloud.databricks.com:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath="
+                        + FakeServiceConfigLoader.getProperty(
+                            FakeServiceConfigLoader.HTTP_PATH_PROP)));
     assertTrue(
         e.getMessage().contains("Connection failure while using the OSS Databricks JDBC driver."));
   }
@@ -70,7 +83,17 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
                       + " (id, col1, col2) VALUES (1, 'value1', 'value2')";
               statement.executeQuery(sql);
             });
-    assertTrue(e.getMessage().contains("Syntax error"));
+    if (((DatabricksConnection) connection).getConnectionContext().getClientType()
+        == DatabricksClientType.THRIFT) {
+
+      // In thrift mode: for invalid syntax error, error is thrown as
+      // Operation handle is not provided
+      // @see
+      // com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftAccessor#checkResponseForErrors(TBase)
+      assertTrue(e.getMessage().contains("Error running query"));
+    } else {
+      assertTrue(e.getMessage().contains("Syntax error"));
+    }
     deleteTable(connection, tableName);
   }
 

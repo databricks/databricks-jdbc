@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -48,15 +49,18 @@ public class InlineJsonResult implements IExecutionResult {
   @Override
   public Object getObject(int columnIndex) throws DatabricksSQLException {
     if (isClosed()) {
-      throw new DatabricksSQLException("Result is already closed");
+      throw new DatabricksSQLException(
+          "Result is already closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
     }
     if (currentRow == -1) {
-      throw new DatabricksSQLException("Cursor is before first row");
+      throw new DatabricksSQLException(
+          "Cursor is before first row", DatabricksDriverErrorCode.INVALID_STATE);
     }
     if (columnIndex < data.get((int) currentRow).size()) {
       return data.get((int) currentRow).get(columnIndex);
     }
-    throw new DatabricksSQLException("Column index out of bounds " + columnIndex);
+    throw new DatabricksSQLException(
+        "Column index out of bounds " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE);
   }
 
   @Override

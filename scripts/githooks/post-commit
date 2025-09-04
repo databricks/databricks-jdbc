@@ -1,0 +1,34 @@
+#!/bin/sh
+
+# Run Maven spotless to auto-format (if needed)
+mvn spotless:apply
+
+# Check if there are any changes after formatting
+if ! git diff --quiet; then
+    echo
+    echo "========================================================================"
+    echo "✨ Spotless applied formatting changes after your commit."
+    echo "There are uncommitted changes in your working directory."
+    echo "Please 'git add' and 'git commit' these to include formatting changes."
+    echo "========================================================================"
+    echo
+    git status --short
+else
+    echo
+    echo "✓ Spotless checked: No further formatting changes needed after commit."
+    echo
+fi
+
+# Check if the latest commit message contains a Signed-off-by: line
+if ! git log -1 --pretty=%B | grep -q "Signed-off-by:"; then
+    echo
+    echo "========================================================================"
+    echo "❗ WARNING: Your last commit is missing a Signed-off-by line."
+    echo "Please amend your commit with 'git commit -s --amend' to add it."
+    echo "========================================================================"
+    echo
+else
+    echo
+    echo "✓ DCO check: Last commit includes a Signed-off-by line."
+    echo
+fi

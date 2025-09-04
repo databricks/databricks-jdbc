@@ -4,7 +4,6 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.*;
 
@@ -29,7 +28,7 @@ public class UCMetadataTests {
   @BeforeAll
   static void setUp() throws SQLException {
     // Change connection to actual test warehouse once it supports latest runtime
-    connection = getDogfoodJDBCConnection(Arrays.asList(Arrays.asList("useLegacyMetadata", "0")));
+    connection = getDogfoodJDBCConnection(List.of(List.of("useLegacyMetadata", "0")));
 
     executeSQL(connection, "CREATE CATALOG IF NOT EXISTS " + catA);
     executeSQL(connection, "USE CATALOG " + catA);
@@ -140,8 +139,7 @@ public class UCMetadataTests {
   @Test
   void testGetCatalogs() throws SQLException {
     ResultSet r = connection.getMetaData().getCatalogs();
-    verifyContainsCatalogs(
-        r, Arrays.asList("main", "hive_metastore", "samples", catA.toLowerCase()));
+    verifyContainsCatalogs(r, List.of("main", "hive_metastore", "samples", catA.toLowerCase()));
   }
 
   @Test
@@ -150,17 +148,16 @@ public class UCMetadataTests {
     ResultSet r = connection.getMetaData().getSchemas("hive_metastore", "%");
     verifyContainsSchemas(
         r,
-        Arrays.asList(
-            Arrays.asList("hive_metastore", "default"),
-            Arrays.asList("hive_metastore", db2.toLowerCase())));
+        List.of(
+            List.of("hive_metastore", "default"), List.of("hive_metastore", db2.toLowerCase())));
 
     r = connection.getMetaData().getSchemas(catA.toLowerCase(), "%");
     verifyContainsSchemas(
         r,
-        Arrays.asList(
-            Arrays.asList(catA.toLowerCase(), db1.toLowerCase()),
-            Arrays.asList(catA.toLowerCase(), db2.toLowerCase()),
-            Arrays.asList(catA.toLowerCase(), "default")));
+        List.of(
+            List.of(catA.toLowerCase(), db1.toLowerCase()),
+            List.of(catA.toLowerCase(), db2.toLowerCase()),
+            List.of(catA.toLowerCase(), "default")));
   }
 
   @Test
@@ -168,10 +165,10 @@ public class UCMetadataTests {
     ResultSet r = connection.getMetaData().getTables(catA.toLowerCase(), "%", "%", null);
     verifyContainsTables(
         r,
-        Arrays.asList(
-            Arrays.asList(catA.toLowerCase(), db1.toLowerCase(), "a_1", "TABLE"),
-            Arrays.asList(catA.toLowerCase(), db1.toLowerCase(), "a_2", "TABLE"),
-            Arrays.asList(catA.toLowerCase(), db2.toLowerCase(), "a_1", "TABLE")));
+        List.of(
+            List.of(catA.toLowerCase(), db1.toLowerCase(), "a_1", "TABLE"),
+            List.of(catA.toLowerCase(), db1.toLowerCase(), "a_2", "TABLE"),
+            List.of(catA.toLowerCase(), db2.toLowerCase(), "a_1", "TABLE")));
   }
 
   @Test
@@ -179,21 +176,20 @@ public class UCMetadataTests {
     ResultSet r = connection.getMetaData().getColumns(catA.toLowerCase(), "%", "%", "%");
     verifyContainsColumns(
         r,
-        Arrays.asList(
-            Arrays.asList(catA.toLowerCase(), db1.toLowerCase(), "a_1", "col_1", "INT"),
-            Arrays.asList(catA.toLowerCase(), db1.toLowerCase(), "a_1", "col_2", "STRING"),
-            Arrays.asList(catA.toLowerCase(), db1.toLowerCase(), "a_2", "col_1", "INT"),
-            Arrays.asList(catA.toLowerCase(), db1.toLowerCase(), "a_2", "col_2", "STRING"),
-            Arrays.asList(catA.toLowerCase(), db2.toLowerCase(), "a_1", "col_1", "INT"),
-            Arrays.asList(catA.toLowerCase(), db2.toLowerCase(), "a_1", "col_2", "STRING")));
+        List.of(
+            List.of(catA.toLowerCase(), db1.toLowerCase(), "a_1", "col_1", "INT"),
+            List.of(catA.toLowerCase(), db1.toLowerCase(), "a_1", "col_2", "STRING"),
+            List.of(catA.toLowerCase(), db1.toLowerCase(), "a_2", "col_1", "INT"),
+            List.of(catA.toLowerCase(), db1.toLowerCase(), "a_2", "col_2", "STRING"),
+            List.of(catA.toLowerCase(), db2.toLowerCase(), "a_1", "col_1", "INT"),
+            List.of(catA.toLowerCase(), db2.toLowerCase(), "a_1", "col_2", "STRING")));
   }
 
   @Test
   void testGetCurrentCatalogAndSchema() throws SQLException {
     connection =
         getDogfoodJDBCConnection(
-            Arrays.asList(
-                Arrays.asList("useLegacyMetadata", "0"), Arrays.asList("connCatalog", catA)));
+            List.of(List.of("useLegacyMetadata", "0"), List.of("connCatalog", catA)));
     ResultSet r =
         connection.createStatement().executeQuery("SELECT current_catalog(), current_database()");
     r.next();
@@ -202,8 +198,7 @@ public class UCMetadataTests {
 
     connection =
         getDogfoodJDBCConnection(
-            Arrays.asList(
-                Arrays.asList("useLegacyMetadata", "0"), Arrays.asList("connCatalog", "samples")));
+            List.of(List.of("useLegacyMetadata", "0"), List.of("connCatalog", "samples")));
     r = connection.createStatement().executeQuery("SELECT current_catalog(), current_database()");
     r.next();
     assert (r.getString(1).equals("samples"));
@@ -211,9 +206,7 @@ public class UCMetadataTests {
 
     connection =
         getDogfoodJDBCConnection(
-            Arrays.asList(
-                Arrays.asList("useLegacyMetadata", "0"),
-                Arrays.asList("connSchema", db2.toLowerCase())));
+            List.of(List.of("useLegacyMetadata", "0"), List.of("connSchema", db2.toLowerCase())));
     r = connection.createStatement().executeQuery("SELECT current_catalog(), current_database()");
     r.next();
     assert (r.getString(1).equals(sparkCatalog));
@@ -221,10 +214,10 @@ public class UCMetadataTests {
 
     connection =
         getDogfoodJDBCConnection(
-            Arrays.asList(
-                Arrays.asList("useLegacyMetadata", "0"),
-                Arrays.asList("connCatalog", "fake_catalog"),
-                Arrays.asList("connSchema", "fake_schema")));
+            List.of(
+                List.of("useLegacyMetadata", "0"),
+                List.of("connCatalog", "fake_catalog"),
+                List.of("connSchema", "fake_schema")));
     r = connection.createStatement().executeQuery("SELECT current_catalog(), current_database()");
     r.next();
     assert (r.getString(1).equals("fake_catalog"));
@@ -236,7 +229,7 @@ public class UCMetadataTests {
     try {
       while (r.next()) {
         allColumns.add(
-            Arrays.asList(
+            List.of(
                 r.getString("TABLE_CAT"),
                 r.getString("TABLE_SCHEM"),
                 r.getString("TABLE_NAME"),
@@ -254,7 +247,7 @@ public class UCMetadataTests {
     try {
       while (r.next()) {
         allTables.add(
-            Arrays.asList(
+            List.of(
                 r.getString("TABLE_CAT"),
                 r.getString("TABLE_SCHEM"),
                 r.getString("TABLE_NAME"),
@@ -271,7 +264,7 @@ public class UCMetadataTests {
     ArrayList<List<String>> allSchemas = new ArrayList<>();
     try {
       while (r.next()) {
-        allSchemas.add(Arrays.asList(r.getString("TABLE_CAT"), r.getString("TABLE_SCHEM")));
+        allSchemas.add(List.of(r.getString("TABLE_CAT"), r.getString("TABLE_SCHEM")));
       }
     } catch (SQLException e) {
       e.printStackTrace();

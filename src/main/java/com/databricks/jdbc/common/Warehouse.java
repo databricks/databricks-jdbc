@@ -31,4 +31,9 @@ public class Warehouse implements IDatabricksComputeResource {
     // TODO: Return workspace ID instead of warehouse ID
     return this.warehouseId;
   }
+
+  @Override
+  public String getUniqueIdentifier() {
+    return warehouseId;
+  }
 }

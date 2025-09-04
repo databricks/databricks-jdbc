@@ -6,7 +6,10 @@ import static com.github.tomakehurst.wiremock.common.AbstractFileSource.byFileEx
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants.FakeServiceType;
 import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
-import com.github.tomakehurst.wiremock.common.*;
+import com.github.tomakehurst.wiremock.common.BinaryFile;
+import com.github.tomakehurst.wiremock.common.ContentTypes;
+import com.github.tomakehurst.wiremock.common.SingleRootFileSource;
+import com.github.tomakehurst.wiremock.common.TextFile;
 import com.github.tomakehurst.wiremock.http.ContentTypeHeader;
 import com.github.tomakehurst.wiremock.http.HttpHeaders;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
@@ -92,6 +95,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   /** Path to the stubbing directory for SQL Execution API. */
   public static final String SQL_EXEC_API_STUBBING_FILE_PATH = "src/test/resources/sqlexecapi";
 
+  public static final String JWT_TOKEN_ENDPOINT_STUBBING_FILE_PATH =
+      "src/test/resources/jwttokenendpoint";
+
   /** Path to the stubbing directory for Cloud Fetch API. */
   public static final String CLOUD_FETCH_API_STUBBING_FILE_PATH =
       "src/test/resources/cloudfetchapi";
@@ -100,9 +106,20 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
   public static final String SQL_GATEWAY_API_STUBBING_FILE_PATH =
       "src/test/resources/sqlgatewayapi";
 
+  /** Path to the stubbing directory for SQL Gateway API using warehouses. */
+  public static final String THRIFT_SERVER_API_STUBBING_FILE_PATH =
+      "src/test/resources/thriftserverapi";
+
   /** Path to the stubbing directory for Cloud Fetch when using SQL Gateway API. */
   public static final String CLOUD_FETCH_SQL_GATEWAY_API_STUBBING_FILE_PATH =
       "src/test/resources/cloudfetchsqlgatewayapi";
+
+  public static final String CLOUD_FETCH_UC_VOLUME_API_STUBBING_FILE_PATH =
+      "src/test/resources/cloudfetchucvolume";
+
+  /** Path to the stubbing directory for Cloud Fetch when using SQL Gateway API with warehouses. */
+  public static final String CLOUD_FETCH_THRIFT_SERVER_API_STUBBING_FILE_PATH =
+      "src/test/resources/cloudfetchthriftserverapi";
 
   /** Fake service to manage. */
   private final FakeServiceType fakeServiceType;
@@ -180,6 +197,9 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
 
     if (fakeServiceMode == FakeServiceMode.RECORD) {
       saveStubMappings(wireMockRuntimeInfo, context);
+    } else if (fakeServiceMode == FakeServiceMode.DRY) {
+      // Stop recording without saving stub mappings
+      wireMockRuntimeInfo.getWireMock().stopStubRecording();
     }
 
     super.onAfterEach(wireMockRuntimeInfo, context);
@@ -204,23 +224,19 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
 
   /** Gets the stubbing directory for the current test class and method. */
   private String getStubbingDir(ExtensionContext context) {
-    String testClassName =
-        context
-            .getTestClass()
-            .orElseThrow(() -> new IllegalStateException("Test class not found"))
-            .getSimpleName()
-            .toLowerCase();
-    String testMethodName =
-        context
-            .getTestMethod()
-            .orElseThrow(() -> new IllegalStateException("Test method not found"))
-            .getName()
-            .toLowerCase();
+    String testClassName = context.getTestClass().orElseThrow().getSimpleName().toLowerCase();
+    String testMethodName = context.getTestMethod().orElseThrow().getName().toLowerCase();
 
     String basePath;
     switch (fakeServiceType) {
+      case JWT_TOKEN_ENDPOINT:
+        basePath = JWT_TOKEN_ENDPOINT_STUBBING_FILE_PATH;
+        break;
       case SQL_EXEC:
         basePath = SQL_EXEC_API_STUBBING_FILE_PATH;
+        break;
+      case THRIFT_SERVER:
+        basePath = THRIFT_SERVER_API_STUBBING_FILE_PATH;
         break;
       case CLOUD_FETCH:
         basePath = CLOUD_FETCH_API_STUBBING_FILE_PATH;
@@ -231,8 +247,11 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
       case CLOUD_FETCH_SQL_GATEWAY:
         basePath = CLOUD_FETCH_SQL_GATEWAY_API_STUBBING_FILE_PATH;
         break;
+      case CLOUD_FETCH_THRIFT_SERVER:
+        basePath = CLOUD_FETCH_THRIFT_SERVER_API_STUBBING_FILE_PATH;
+        break;
       case CLOUD_FETCH_UC_VOLUME:
-        basePath = "src/test/resources/cloudfetchucvolume";
+        basePath = CLOUD_FETCH_UC_VOLUME_API_STUBBING_FILE_PATH;
         break;
       default:
         throw new IllegalStateException("Unsupported fake service type: " + fakeServiceType);
@@ -244,6 +263,7 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
       uniqueID =
           uniqueID.substring(
               uniqueID.lastIndexOf(TEST_INVOCATION_INDEX_KEY), uniqueID.length() - 1);
+      uniqueID = uniqueID.replace(":#", "");
       return String.format("%s/%s/%s.%s", basePath, testClassName, testMethodName, uniqueID);
     } else {
       return String.format("%s/%s/%s", basePath, testClassName, testMethodName);
@@ -299,9 +319,7 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
         wireMockRuntimeInfo.getWireMock().stopStubRecording().getStubMappings();
     String stubbingDir = getStubbingDir(context) + "/mappings";
     deleteFilesInDir(stubbingDir);
-    new JsonFileMappingsSource(new SingleRootFileSource(stubbingDir)).save(stubMappingList);
-    //    new JsonFileMappingsSource(new SingleRootFileSource(stubbingDir),
-    // null).save(stubMappingList);
+    new JsonFileMappingsSource(new SingleRootFileSource(stubbingDir), null).save(stubMappingList);
   }
 
   private void setFakeServiceProperties(int wireMockServerHttpPort) {

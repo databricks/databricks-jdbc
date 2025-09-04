@@ -1,19 +1,23 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static java.sql.JDBCType.DECIMAL;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
+import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Reader;
@@ -32,15 +36,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class DatabricksPreparedStatementTest {
 
-  private static final String WAREHOUSE_ID = "erg6767gg";
+  private static final String WAREHOUSE_ID = "99999999";
   private static final String STATEMENT =
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String BATCH_STATEMENT =
       "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?)";
   private static final String JDBC_URL =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;";
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
   private static final String JDBC_URL_WITH_MANY_PARAMETERS =
-      "jdbc:databricks://adb-565757575.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/erg6767gg;supportManyParameters=1;";
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;supportManyParameters=1;";
   private static final String JDBC_CLUSTER_URL_WITH_MANY_PARAMETERS =
       VALID_CLUSTER_URL + ";supportManyParameters=1;";
   @Mock DatabricksResultSet resultSet;
@@ -49,9 +53,11 @@ public class DatabricksPreparedStatementTest {
   @Mock DatabricksConnection connection;
   @Mock DatabricksSession session;
   private static final String INTERPOLATED_INITIAL_STATEMENT =
-      "SELECT * FROM orders WHERE user_id = ? AND name = ?";
+      "SELECT * FROM orders WHERE user_id = ? AND data = ?";
   private static final String INTERPOLATED_PROCESSED_STATEMENT =
-      "SELECT * FROM orders WHERE user_id = 1 AND name = 'test'";
+      "SELECT * FROM orders WHERE user_id = 1 AND data = 'test'";
+  private static final String INTERPOLATED_PROCESSED_STATEMENT_WITH_BYTES =
+      "SELECT * FROM orders WHERE user_id = 1 AND data = X'01020304'";
 
   void setupMocks() throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext =
@@ -96,6 +102,31 @@ public class DatabricksPreparedStatementTest {
     statement.setString(2, TEST_STRING);
     when(client.executeStatement(
             eq(INTERPOLATED_PROCESSED_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    DatabricksResultSet newResultSet = (DatabricksResultSet) statement.executeQuery();
+    assertFalse(statement.isClosed());
+    assertEquals(resultSet, newResultSet);
+    statement.close();
+    assertTrue(statement.isClosed());
+  }
+
+  @Test
+  public void testExecuteStatementWithManyParametersAndSetBytes() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_MANY_PARAMETERS, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, INTERPOLATED_INITIAL_STATEMENT);
+    statement.setInt(1, 1);
+    statement.setBytes(2, new byte[] {0x01, 0x02, 0x03, 0x04});
+    when(client.executeStatement(
+            eq(INTERPOLATED_PROCESSED_STATEMENT_WITH_BYTES),
             eq(new Warehouse(WAREHOUSE_ID)),
             any(HashMap.class),
             eq(StatementType.QUERY),
@@ -159,6 +190,29 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testExecuteLargeUpdateStatement() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
+    when(resultSet.getUpdateCount()).thenReturn(2L);
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<Integer, ImmutableSqlParameter>()),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    long updateCount = statement.executeLargeUpdate();
+    assertEquals(2L, updateCount);
+    assertFalse(statement.isClosed());
+    statement.close();
+    assertTrue(statement.isClosed());
+  }
+
+  @Test
   public void testExecuteBatchStatement() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -189,6 +243,138 @@ public class DatabricksPreparedStatementTest {
     assertFalse(statement.isClosed());
     statement.close();
     assertTrue(statement.isClosed());
+  }
+
+  @Test
+  public void testGetMetaData_NoResultSet_NonSelectQuery_ReturnNull() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+    // Setting to execute a batch of 4 statements
+    for (int i = 1; i <= 4; i++) {
+      statement.setLong(1, 100);
+      statement.setShort(2, (short) 10);
+      statement.setByte(3, (byte) 15);
+      statement.setString(4, "value");
+      statement.addBatch();
+    }
+
+    assertNull(statement.getMetaData());
+  }
+
+  @Test
+  public void testExecuteBatchStatementThrowsError() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+    // Setting to execute a batch of 4 statements
+    for (int i = 1; i <= 4; i++) {
+      statement.setLong(1, 100);
+      statement.setShort(2, (short) 10);
+      statement.setByte(3, (byte) 15);
+      statement.setString(4, "value");
+      statement.addBatch();
+    }
+
+    // First call succeeds, subsequent calls fail
+    when(client.executeStatement(
+            eq(BATCH_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet)
+        .thenThrow(new SQLException());
+    when(resultSet.getUpdateCount()).thenReturn(1L);
+
+    DatabricksBatchUpdateException exception =
+        assertThrows(DatabricksBatchUpdateException.class, statement::executeBatch);
+    int[] updateCounts = exception.getUpdateCounts();
+    assertEquals(4, updateCounts.length);
+    // First statement should succeed
+    assertEquals(1, updateCounts[0]);
+    // Remaining statements should fail
+    for (int i = 1; i < 4; i++) {
+      assertEquals(Statement.EXECUTE_FAILED, updateCounts[i]);
+    }
+  }
+
+  @Test
+  public void testExecuteLargeBatchStatement() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+    // Setting to execute a batch of 4 statements
+    for (int i = 1; i <= 4; i++) {
+      statement.setLong(1, 100);
+      statement.setShort(2, (short) 10);
+      statement.setByte(3, (byte) 15);
+      statement.setString(4, "value");
+      statement.addBatch();
+    }
+    when(client.executeStatement(
+            eq(BATCH_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    when(resultSet.getUpdateCount()).thenReturn(1L);
+
+    long[] expectedCountsResult = {1, 1, 1, 1};
+    long[] updateCounts = statement.executeLargeBatch();
+    assertArrayEquals(expectedCountsResult, updateCounts);
+    assertFalse(statement.isClosed());
+    statement.close();
+    assertTrue(statement.isClosed());
+  }
+
+  @Test
+  public void testExecuteLargeBatchStatementThrowsError() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+    // Setting to execute a batch of 4 statements
+    for (int i = 1; i <= 4; i++) {
+      statement.setLong(1, 100);
+      statement.setShort(2, (short) 10);
+      statement.setByte(3, (byte) 15);
+      statement.setString(4, "value");
+      statement.addBatch();
+    }
+
+    // First call succeeds, subsequent calls fail
+    when(client.executeStatement(
+            eq(BATCH_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet)
+        .thenThrow(new SQLException());
+    when(resultSet.getUpdateCount()).thenReturn(1L);
+
+    DatabricksBatchUpdateException exception =
+        assertThrows(DatabricksBatchUpdateException.class, statement::executeLargeBatch);
+    long[] updateCounts = exception.getLargeUpdateCounts();
+    assertEquals(4, updateCounts.length);
+    // First statement should succeed
+    assertEquals(1, updateCounts[0]);
+    // Remaining statements should fail
+    for (int i = 1; i < 4; i++) {
+      assertEquals(Statement.EXECUTE_FAILED, updateCounts[i]);
+    }
   }
 
   public static ImmutableSqlParameter getSqlParam(
@@ -278,6 +464,37 @@ public class DatabricksPreparedStatementTest {
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
     assertDoesNotThrow(() -> preparedStatement.setDate(1, new Date(System.currentTimeMillis())));
+  }
+
+  @Test
+  public void testSetObject() throws SQLException {
+    setupMocks();
+
+    // setObject(int parameterIndex, Object x, int targetSqlType)
+    // setObject(int parameterIndex, Object x)
+    // setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)
+
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, DECIMAL));
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, Types.INTEGER, 1));
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 1, Types.INTEGER));
+    assertEquals(Types.INTEGER, preparedStatement.getParameterMetaData().getParameterType(1));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setObject(1, 1, Types.ROWID)); // Unsupported type
+
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, "1"));
+    assertEquals(Types.VARCHAR, preparedStatement.getParameterMetaData().getParameterType(1));
+
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () ->
+            preparedStatement.setObject(
+                1, new Time(System.currentTimeMillis()))); // Unsupported type
+
+    assertDoesNotThrow(() -> preparedStatement.setObject(1, 2.567, Types.DECIMAL, 2));
+    assertEquals(Types.DECIMAL, preparedStatement.getParameterMetaData().getParameterType(1));
   }
 
   @Test
@@ -385,6 +602,28 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testSetBytes() throws DatabricksSQLException {
+    setupMocks();
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+
+    byte[] bytes = {0x01, 0x02, 0x03, 0x04};
+
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBytes(1, bytes));
+
+    DatabricksConnectionContext connectionContext = mock(DatabricksConnectionContext.class);
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.supportManyParameters()).thenReturn(true);
+
+    DatabricksPreparedStatement preparedStatementWithManyParameters =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+
+    assertDoesNotThrow(() -> preparedStatementWithManyParameters.setBytes(1, bytes));
+  }
+
+  @Test
   public void testSetCharacterStreamWithoutLength() throws DatabricksSQLException {
     setupMocks();
     DatabricksPreparedStatement preparedStatement =
@@ -404,56 +643,73 @@ public class DatabricksPreparedStatementTest {
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
     // Unsupported methods
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setArray(1, null));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setBlob(1, (Blob) null));
+        DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setArray(1, null));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setClob(1, (Clob) null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setRef(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setURL(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setRowId(1, null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setNString(1, null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBlob(1, (Blob) null));
     assertThrows(
-        UnsupportedOperationException.class,
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setClob(1, (Clob) null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setRef(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setURL(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setRowId(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setNString(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setNCharacterStream(1, null, 1));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setNClob(1, (NClob) null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setClob(1, null, 1));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setBlob(1, null, 1));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setNClob(1, null, 1));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setSQLXML(1, null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setNClob(1, (NClob) null));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setBinaryStream(1, null, 1));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setClob(1, null, 1));
     assertThrows(
-        UnsupportedOperationException.class,
-        () -> preparedStatement.setBinaryStream(1, (InputStream) null, 1));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBlob(1, null, 1));
     assertThrows(
-        UnsupportedOperationException.class,
-        () -> preparedStatement.setBinaryStream(1, (InputStream) null, 1L));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setNClob(1, null, 1));
     assertThrows(
-        UnsupportedOperationException.class,
-        () -> preparedStatement.setBinaryStream(1, (InputStream) null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setSQLXML(1, null));
     assertThrows(
-        UnsupportedOperationException.class,
-        () -> preparedStatement.setNCharacterStream(1, (Reader) null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBinaryStream(1, null, 1));
     assertThrows(
-        UnsupportedOperationException.class,
-        () -> preparedStatement.setUnicodeStream(1, (InputStream) null, 1));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setClob(1, (Reader) null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1L));
     assertThrows(
-        UnsupportedOperationException.class,
-        () -> preparedStatement.setBlob(1, (InputStream) null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBinaryStream(1, null));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setNClob(1, (Reader) null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setNCharacterStream(1, null));
     assertThrows(
-        UnsupportedOperationException.class, () -> preparedStatement.setTime(1, null, null));
-    assertThrows(UnsupportedOperationException.class, () -> preparedStatement.setBytes(1, null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setUnicodeStream(1, InputStream.nullInputStream(), 1));
     assertThrows(
-        SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setClob(1, Reader.nullReader()));
     assertThrows(
-        SQLFeatureNotSupportedException.class, () -> preparedStatement.setObject(1, null, null, 1));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setBlob(1, InputStream.nullInputStream()));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setNClob(1, Reader.nullReader()));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setTime(1, null));
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () -> preparedStatement.setTime(1, null, null));
     assertThrows(
         DatabricksSQLException.class, () -> preparedStatement.executeUpdate("SELECT * from table"));
     assertThrows(

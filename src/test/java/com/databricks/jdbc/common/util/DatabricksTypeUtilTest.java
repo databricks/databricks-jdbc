@@ -1,9 +1,13 @@
 package com.databricks.jdbc.common.util;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -77,6 +81,10 @@ class DatabricksTypeUtilTest {
     assertEquals(
         "java.lang.Long", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.LONG));
     assertEquals(
+        "java.lang.Float", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.FLOAT));
+    assertEquals(
+        "java.lang.Double", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.DOUBLE));
+    assertEquals(
         "java.math.BigDecimal",
         DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.DECIMAL));
     assertEquals("[B", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.BINARY));
@@ -96,25 +104,46 @@ class DatabricksTypeUtilTest {
 
   @Test
   void testGetDisplaySize() {
-    assertEquals(24, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.FLOAT, 0));
-    assertEquals(29, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.TIMESTAMP, 0));
-    assertEquals(1, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.CHAR, 1));
-    assertEquals(4, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.NULL, 1));
-    assertEquals(10, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.DATE, 1));
+    assertEquals(14, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.FLOAT, 0, 0));
+    assertEquals(24, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.DOUBLE, 0, 0));
+    assertEquals(29, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.TIMESTAMP, 0, 0));
+    assertEquals(1, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.CHAR, 1, 0));
+    assertEquals(4, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.NULL, 1, 0));
+    assertEquals(4, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.BYTE, 1, 0));
+    assertEquals(1, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.BOOLEAN, 1, 0));
+    assertEquals(10, DatabricksTypeUtil.getDisplaySize(ColumnInfoTypeName.DATE, 1, 0));
+    assertEquals(6, DatabricksTypeUtil.getDisplaySize(Types.SMALLINT, 5));
+    assertEquals(11, DatabricksTypeUtil.getDisplaySize(Types.INTEGER, 10));
+    assertEquals(5, DatabricksTypeUtil.getDisplaySize(Types.BOOLEAN, 0));
+    assertEquals(1, DatabricksTypeUtil.getDisplaySize(Types.BIT, 0));
+    assertEquals(128, DatabricksTypeUtil.getDisplaySize(Types.VARCHAR, 0));
+    assertEquals(255, DatabricksTypeUtil.getDisplaySize(Types.OTHER, 0)); // Default case
   }
 
   @Test
   void testGetPrecision() {
     assertEquals(15, DatabricksTypeUtil.getPrecision(Types.DOUBLE));
     assertEquals(19, DatabricksTypeUtil.getPrecision(Types.BIGINT));
+    assertEquals(3, DatabricksTypeUtil.getPrecision(Types.TINYINT));
     assertEquals(1, DatabricksTypeUtil.getPrecision(Types.BOOLEAN));
     assertEquals(7, DatabricksTypeUtil.getPrecision(Types.FLOAT));
     assertEquals(29, DatabricksTypeUtil.getPrecision(Types.TIMESTAMP));
     assertEquals(255, DatabricksTypeUtil.getPrecision(Types.STRUCT));
     assertEquals(255, DatabricksTypeUtil.getPrecision(Types.ARRAY));
-    assertEquals(5, DatabricksTypeUtil.getPrecision(Types.TINYINT));
+    assertEquals(3, DatabricksTypeUtil.getPrecision(Types.TINYINT));
     assertEquals(5, DatabricksTypeUtil.getPrecision(Types.SMALLINT));
     assertEquals(10, DatabricksTypeUtil.getPrecision(Types.INTEGER));
+  }
+
+  @Test
+  void testGetMetadataColPrecision() {
+    assertEquals(5, DatabricksTypeUtil.getMetadataColPrecision(Types.SMALLINT));
+    assertEquals(10, DatabricksTypeUtil.getMetadataColPrecision(Types.INTEGER));
+    assertEquals(1, DatabricksTypeUtil.getMetadataColPrecision(Types.CHAR));
+    assertEquals(1, DatabricksTypeUtil.getMetadataColPrecision(Types.BOOLEAN));
+    assertEquals(1, DatabricksTypeUtil.getMetadataColPrecision(Types.BIT));
+    assertEquals(128, DatabricksTypeUtil.getMetadataColPrecision(Types.VARCHAR));
+    assertEquals(255, DatabricksTypeUtil.getMetadataColPrecision(Types.OTHER));
   }
 
   @Test
@@ -130,6 +159,8 @@ class DatabricksTypeUtilTest {
     assertEquals(
         DatabricksTypeUtil.STRING, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.VARCHAR));
     assertEquals(
+        DatabricksTypeUtil.CHAR, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.CHAR));
+    assertEquals(
         DatabricksTypeUtil.STRING,
         DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.LONGVARCHAR));
     assertEquals(
@@ -140,7 +171,7 @@ class DatabricksTypeUtilTest {
     assertEquals(
         DatabricksTypeUtil.ARRAY, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.ARRAY));
     assertEquals(
-        DatabricksTypeUtil.BIGINT, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.BIGINT));
+        DatabricksTypeUtil.LONG, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.BIGINT));
     assertEquals(
         DatabricksTypeUtil.BINARY, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.BINARY));
     assertEquals(
@@ -149,6 +180,8 @@ class DatabricksTypeUtilTest {
     assertEquals(
         DatabricksTypeUtil.BINARY,
         DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.LONGVARBINARY));
+    assertEquals(
+        DatabricksTypeUtil.DECIMAL, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.NUMERIC));
     assertEquals(
         DatabricksTypeUtil.DATE, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.DATE));
     assertEquals(
@@ -159,6 +192,8 @@ class DatabricksTypeUtilTest {
         DatabricksTypeUtil.DOUBLE, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.DOUBLE));
     assertEquals(
         DatabricksTypeUtil.FLOAT, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.FLOAT));
+    assertEquals(
+        DatabricksTypeUtil.FLOAT, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.REAL));
     assertEquals(
         DatabricksTypeUtil.TIMESTAMP_NTZ,
         DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.TIMESTAMP));
@@ -205,6 +240,7 @@ class DatabricksTypeUtilTest {
     "BYTE, BYTE",
     "INT, INT",
     "BIGINT, LONG",
+    "LONG, LONG",
     "FLOAT, FLOAT",
     "DOUBLE, DOUBLE",
     "BINARY, BINARY",
@@ -215,6 +251,7 @@ class DatabricksTypeUtilTest {
     "VOID, NULL",
     "NULL, NULL",
     "MAP, MAP",
+    "CHAR, STRING",
     "UNKNOWN, USER_DEFINED_TYPE"
   })
   public void testGetColumnInfoType(String inputTypeName, String expectedTypeName) {
@@ -234,5 +271,83 @@ class DatabricksTypeUtilTest {
     assertEquals(0, DatabricksTypeUtil.getScale(Types.DECIMAL));
     assertEquals(0, DatabricksTypeUtil.getScale(Types.VARCHAR));
     assertEquals(0, DatabricksTypeUtil.getScale(null));
+  }
+
+  @Test
+  void testGetBasePrecisionAndScale() {
+    // Mock the connection context
+    final int defaultStringLength = 128;
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getDefaultStringColumnLength()).thenReturn(defaultStringLength);
+
+    // Set the mock context in thread local
+    DatabricksThreadContextHolder.setConnectionContext(mockContext);
+
+    try {
+      // Test string types (should return default string length)
+      int[] varcharResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.VARCHAR, mockContext);
+      assertEquals(defaultStringLength, varcharResult[0]);
+      assertEquals(0, varcharResult[1]);
+
+      int[] charResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.CHAR, mockContext);
+      assertEquals(defaultStringLength, charResult[0]);
+      assertEquals(0, charResult[1]);
+
+      // Test numeric types
+      int[] decimalResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.DECIMAL, mockContext);
+      assertEquals(10, decimalResult[0]); // Precision for DECIMAL
+      assertEquals(0, decimalResult[1]); // Scale for DECIMAL
+
+      int[] integerResult = DatabricksTypeUtil.getBasePrecisionAndScale(Types.INTEGER, mockContext);
+      assertEquals(10, integerResult[0]); // Precision for INTEGER
+      assertEquals(0, integerResult[1]); // Scale for INTEGER
+
+      int[] timestampResult =
+          DatabricksTypeUtil.getBasePrecisionAndScale(Types.TIMESTAMP, mockContext);
+      assertEquals(29, timestampResult[0]); // Precision for TIMESTAMP
+      assertEquals(9, timestampResult[1]); // Scale for TIMESTAMP
+    } finally {
+      // Clean up thread local
+      DatabricksThreadContextHolder.clearAllContext();
+    }
+  }
+
+  @Test
+  void testGetDecimalTypeString() {
+    // Regular case - precision > scale
+    assertEquals("DECIMAL(5,2)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("123.45")));
+
+    // Edge case - precision = scale (all decimal digits, no integer part except 0)
+    assertEquals("DECIMAL(2,2)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("0.12")));
+
+    // Special case - precision < scale (e.g., 0.00)
+    assertEquals("DECIMAL(2,2)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("0.00")));
+
+    // Zero value
+    assertEquals("DECIMAL(1,0)", DatabricksTypeUtil.getDecimalTypeString(BigDecimal.ZERO));
+
+    // Large precision
+    assertEquals(
+        "DECIMAL(22,5)",
+        DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("12345678901234567.12345")));
+
+    // Large scale
+    assertEquals(
+        "DECIMAL(10,10)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("0.0123456789")));
+
+    // Negative values
+    assertEquals(
+        "DECIMAL(5,2)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("-123.45")));
+
+    // Zero scale
+    assertEquals("DECIMAL(3,0)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("123")));
+
+    // Scientific notation
+    BigDecimal scientificNotation = new BigDecimal("1.23E-4");
+    assertEquals("DECIMAL(6,6)", DatabricksTypeUtil.getDecimalTypeString(scientificNotation));
+
+    // Very small value with trailing zeros (ensures scale is preserved)
+    assertEquals(
+        "DECIMAL(8,8)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("0.00000123")));
   }
 }

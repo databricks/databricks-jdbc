@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.Token;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -15,10 +16,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.SecureRandom;
-import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.RSAPrivateKey;
-import java.security.spec.ECParameterSpec;
-import java.util.HashMap;
+import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.junit.jupiter.api.Test;
@@ -37,9 +36,6 @@ public class JwtPrivateKeyClientCredentialsTest {
   @Mock HttpEntity httpEntity;
 
   @Mock RSAPrivateKey rsaPrivateKey;
-  @Mock ECPrivateKey ecPrivateKey;
-
-  @Mock ECParameterSpec parameterSpec;
 
   private JwtPrivateKeyClientCredentials clientCredentials =
       new JwtPrivateKeyClientCredentials.Builder()
@@ -72,13 +68,13 @@ public class JwtPrivateKeyClientCredentialsTest {
 
   @Test
   public void testRetrieveTokenExceptionHandling() throws DatabricksHttpException {
-    when(httpClient.execute(any())).thenThrow(new DatabricksHttpException("Network error"));
+    when(httpClient.execute(any()))
+        .thenThrow(
+            new DatabricksHttpException("Network error", DatabricksDriverErrorCode.INVALID_STATE));
     Exception exception =
         assertThrows(
             DatabricksException.class,
-            () ->
-                clientCredentials.retrieveToken(
-                    httpClient, TEST_TOKEN_URL, new HashMap<>(), new HashMap<>()));
+            () -> clientCredentials.retrieveToken(httpClient, TEST_TOKEN_URL, Map.of(), Map.of()));
     assertTrue(exception.getMessage().contains("Failed to retrieve custom M2M token"));
   }
 
@@ -88,9 +84,7 @@ public class JwtPrivateKeyClientCredentialsTest {
     when(httpResponse.getEntity()).thenReturn(httpEntity);
     when(httpEntity.getContent())
         .thenReturn(new ByteArrayInputStream(TEST_OAUTH_RESPONSE.getBytes()));
-    Token token =
-        clientCredentials.retrieveToken(
-            httpClient, TEST_TOKEN_URL, new HashMap<>(), new HashMap<>());
+    Token token = clientCredentials.retrieveToken(httpClient, TEST_TOKEN_URL, Map.of(), Map.of());
     assertEquals(token.getAccessToken(), TEST_ACCESS_TOKEN);
     assertEquals(token.getTokenType(), "Bearer");
   }

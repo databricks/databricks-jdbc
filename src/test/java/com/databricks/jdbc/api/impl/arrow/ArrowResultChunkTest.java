@@ -5,13 +5,19 @@ import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
+import com.databricks.sdk.service.sql.ColumnInfo;
+import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -24,8 +30,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Test;
 
 public class ArrowResultChunkTest {
-
-  private static final String STATEMENT_ID = "statement_id";
   private final Random random = new Random();
   private final int rowsInRecordBatch = 20;
   private final long totalRows = 110;
@@ -40,7 +44,10 @@ public class ArrowResultChunkTest {
             .setRowOffset(0L)
             .setRowCount(totalRows);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
+        ArrowResultChunk.builder()
+            .withStatementId(TEST_STATEMENT_ID)
+            .withChunkInfo(chunkInfo)
+            .build();
 
     // Assert
     assert (arrowResultChunk.getRecordBatchCountInChunk() == 0);
@@ -57,7 +64,11 @@ public class ArrowResultChunkTest {
             .setRowOffset(0L)
             .setRowCount(totalRows);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
+        ArrowResultChunk.builder()
+            .withStatementId(TEST_STATEMENT_ID)
+            .withChunkInfo(chunkInfo)
+            .withChunkStatus(ChunkStatus.PROCESSING_SUCCEEDED)
+            .build();
     Schema schema = createTestSchema();
     Object[][] testData = createTestData(schema, (int) totalRows);
     File arrowFile =
@@ -83,11 +94,11 @@ public class ArrowResultChunkTest {
             .setBytesNum(200L);
     ArrowResultChunk arrowResultChunk =
         ArrowResultChunk.builder()
-            .statementId(TEST_STATEMENT_ID)
+            .withStatementId(TEST_STATEMENT_ID)
             .withThriftChunkInfo(0, chunkInfo)
             .build();
-    assertNull(arrowResultChunk.getErrorMessage());
-    assertEquals(arrowResultChunk.getChunkUrl(), TEST_STRING);
+    assertNull(arrowResultChunk.errorMessage);
+    assertEquals(arrowResultChunk.chunkLink.getExternalLink(), TEST_STRING);
     assertEquals(arrowResultChunk.getChunkIndex(), 0);
   }
 
@@ -158,20 +169,26 @@ public class ArrowResultChunkTest {
   }
 
   @Test
-  public void testHasNextRow() throws DatabricksParsingException {
+  public void testHasNextRow() throws DatabricksSQLException {
     BaseChunkInfo emptyChunkInfo =
         new BaseChunkInfo().setChunkIndex(0L).setByteCount(200L).setRowOffset(0L).setRowCount(0L);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(emptyChunkInfo).build();
-    arrowResultChunk.setIsDataInitialized(true);
+        ArrowResultChunk.builder()
+            .withStatementId(TEST_STATEMENT_ID)
+            .withChunkInfo(emptyChunkInfo)
+            .withChunkStatus(ChunkStatus.PROCESSING_SUCCEEDED)
+            .build();
     arrowResultChunk.recordBatchList = Collections.nCopies(3, new ArrayList<>());
     assertFalse(arrowResultChunk.getChunkIterator().hasNextRow());
 
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
     arrowResultChunk =
-        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
-    arrowResultChunk.setIsDataInitialized(true);
+        ArrowResultChunk.builder()
+            .withStatementId(TEST_STATEMENT_ID)
+            .withChunkInfo(chunkInfo)
+            .withChunkStatus(ChunkStatus.PROCESSING_SUCCEEDED)
+            .build();
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
     dummyVector.allocateNew(size);
@@ -180,30 +197,38 @@ public class ArrowResultChunkTest {
       dummyVector.set(i, i * 10);
     }
     arrowResultChunk.recordBatchList =
-        Arrays.asList(Arrays.asList(dummyVector), Arrays.asList(dummyVector), new ArrayList<>());
-    ArrowResultChunk.ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
+        List.of(List.of(dummyVector), List.of(dummyVector), new ArrayList<>());
+    ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
+    ColumnInfo intColumnInfo = new ColumnInfo();
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(
+        0, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(
+        10, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(
+        0, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(
+        10, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
     assertFalse(iterator.hasNextRow());
   }
 
   @Test
-  public void testEmptyRecordBatches() throws DatabricksParsingException {
+  public void testEmptyRecordBatches() throws DatabricksSQLException {
     BaseChunkInfo chunkInfo =
         new BaseChunkInfo().setChunkIndex(18L).setByteCount(200L).setRowOffset(0L).setRowCount(4L);
     ArrowResultChunk arrowResultChunk =
-        ArrowResultChunk.builder().statementId(STATEMENT_ID).withChunkInfo(chunkInfo).build();
-    arrowResultChunk.setIsDataInitialized(true);
+        ArrowResultChunk.builder()
+            .withStatementId(TEST_STATEMENT_ID)
+            .withChunkInfo(chunkInfo)
+            .withChunkStatus(ChunkStatus.PROCESSING_SUCCEEDED)
+            .build();
     int size = 2;
     IntVector dummyVector = new IntVector("dummy_vector", new RootAllocator());
     dummyVector.allocateNew(size);
@@ -215,21 +240,25 @@ public class ArrowResultChunkTest {
     emptyVector.allocateNew(0);
     emptyVector.setValueCount(0);
     arrowResultChunk.recordBatchList =
-        Arrays.asList(
-            Arrays.asList(dummyVector), Arrays.asList(emptyVector), Arrays.asList(dummyVector));
-    ArrowResultChunk.ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
+        List.of(List.of(dummyVector), List.of(emptyVector), List.of(dummyVector));
+    ColumnInfo intColumnInfo = new ColumnInfo();
+    ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(
+        0, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(
+        10, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(0, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(
+        0, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
     assertTrue(iterator.hasNextRow());
     iterator.nextRow();
-    assertEquals(10, iterator.getColumnObjectAtCurrentRow(0));
+    assertEquals(
+        10, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
     assertFalse(iterator.hasNextRow());
   }
 }

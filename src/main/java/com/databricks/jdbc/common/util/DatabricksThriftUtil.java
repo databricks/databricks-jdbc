@@ -1,31 +1,55 @@
 package com.databricks.jdbc.common.util;
 
-import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
+import static com.databricks.jdbc.model.client.thrift.generated.TTypeId.*;
 
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.StatementStatus;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.service.sql.ColumnInfo;
 import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.StatementState;
-import com.databricks.sdk.service.sql.StatementStatus;
 import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public class DatabricksThriftUtil {
 
+  private static final Map<TTypeId, ColumnInfoTypeName> T_TYPE_ID_COLUMN_INFO_TYPE_NAME_MAP =
+      Map.ofEntries(
+          Map.entry(BOOLEAN_TYPE, ColumnInfoTypeName.BOOLEAN),
+          Map.entry(TINYINT_TYPE, ColumnInfoTypeName.BYTE),
+          Map.entry(SMALLINT_TYPE, ColumnInfoTypeName.SHORT),
+          Map.entry(INT_TYPE, ColumnInfoTypeName.INT),
+          Map.entry(BIGINT_TYPE, ColumnInfoTypeName.LONG),
+          Map.entry(FLOAT_TYPE, ColumnInfoTypeName.FLOAT),
+          Map.entry(DOUBLE_TYPE, ColumnInfoTypeName.DOUBLE),
+          Map.entry(STRING_TYPE, ColumnInfoTypeName.STRING),
+          Map.entry(VARCHAR_TYPE, ColumnInfoTypeName.STRING),
+          Map.entry(TIMESTAMP_TYPE, ColumnInfoTypeName.TIMESTAMP),
+          Map.entry(BINARY_TYPE, ColumnInfoTypeName.BINARY),
+          Map.entry(DECIMAL_TYPE, ColumnInfoTypeName.DECIMAL),
+          Map.entry(DATE_TYPE, ColumnInfoTypeName.DATE),
+          Map.entry(CHAR_TYPE, ColumnInfoTypeName.CHAR),
+          Map.entry(INTERVAL_YEAR_MONTH_TYPE, ColumnInfoTypeName.INTERVAL),
+          Map.entry(INTERVAL_DAY_TIME_TYPE, ColumnInfoTypeName.INTERVAL),
+          Map.entry(ARRAY_TYPE, ColumnInfoTypeName.ARRAY),
+          Map.entry(MAP_TYPE, ColumnInfoTypeName.MAP),
+          Map.entry(NULL_TYPE, ColumnInfoTypeName.STRING),
+          Map.entry(STRUCT_TYPE, ColumnInfoTypeName.STRUCT));
+
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
-  public static final List<TStatusCode> SUCCESS_STATUS_LIST =
-      Arrays.asList(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
+  private static final List<TStatusCode> SUCCESS_STATUS_LIST =
+      List.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 
   public static TNamespace getNamespace(String catalog, String schema) {
     return new TNamespace().setCatalogName(catalog).setSchemaName(schema);
@@ -33,8 +57,15 @@ public class DatabricksThriftUtil {
 
   public static String byteBufferToString(ByteBuffer buffer) {
     ByteBuffer newBuffer = buffer.duplicate(); // This is to avoid a BufferUnderflowException
-    long sigBits = newBuffer.getLong();
-    return new UUID(sigBits, sigBits).toString();
+    // sessionId and statementID have guid which are 16 bytes long
+    if (newBuffer.remaining() >= DatabricksJdbcConstants.UUID_LENGTH) {
+      long mostSigBits = newBuffer.getLong();
+      long leastSigBits = newBuffer.getLong();
+      return new UUID(mostSigBits, leastSigBits).toString();
+    } else {
+      long sigBits = newBuffer.getLong();
+      return new UUID(sigBits, sigBits).toString();
+    }
   }
 
   public static ExternalLink createExternalLink(TSparkArrowResultLink chunkInfo, long chunkIndex) {
@@ -46,8 +77,18 @@ public class DatabricksThriftUtil {
 
   public static void verifySuccessStatus(TStatus status, String errorContext)
       throws DatabricksHttpException {
+    verifySuccessStatus(status, errorContext, null);
+  }
+
+  public static void verifySuccessStatus(TStatus status, String errorContext, String statementId)
+      throws DatabricksHttpException {
     if (!SUCCESS_STATUS_LIST.contains(status.getStatusCode())) {
-      String errorMessage = "Error thrift response received. " + errorContext;
+      String errorMessage =
+          statementId != null
+              ? String.format(
+                  "Error thrift response received [%s] for statementId [%s]",
+                  errorContext, statementId)
+              : String.format("Error thrift response received [%s]", errorContext);
       LOGGER.error(errorMessage);
       throw new DatabricksHttpException(errorMessage, status.getSqlState());
     }
@@ -61,43 +102,27 @@ public class DatabricksThriftUtil {
   }
 
   /**
-   * In metadata operations, a list of singleton lists is obtained. This function extracts metadata
-   * values from these TColumn lists based on the data type set in the column.
+   * This functions extracts columnar data from a RowSet into rows
    *
-   * @param columnList the TColumn from which to extract values
-   * @return a singleton list of metadata result
+   * @param rowSet that contains columnar data
+   * @return a list of rows
    */
-  public static List<List<Object>> extractValues(List<TColumn> columnList) {
-    if (columnList == null) {
-      return new ArrayList<>(Arrays.asList(new ArrayList<>()));
+  public static List<List<Object>> extractRowsFromColumnar(TRowSet rowSet)
+      throws DatabricksSQLException {
+    if (rowSet == null || rowSet.getColumns() == null || rowSet.getColumns().isEmpty()) {
+      return Collections.emptyList();
     }
-    List<Object> obj =
-        columnList.stream()
-            .map(
-                column -> {
-                  try {
-                    return getColumnFirstValue(column);
-                  } catch (Exception e) {
-                    // In case a column doesn't have an object, add the default null value
-                    return NULL_STRING;
-                  }
-                })
-            .collect(Collectors.toList());
-    return new ArrayList<>(Collections.singletonList(obj));
-  }
-
-  public static List<List<Object>> extractValuesColumnar(List<TColumn> columnList) {
-    if (columnList == null || columnList.isEmpty()) {
-      return new ArrayList<>(Arrays.asList(new ArrayList<>()));
+    List<List<Object>> rows = new ArrayList<>();
+    List<Iterator<?>> columnIterators = new ArrayList<>();
+    for (TColumn column : rowSet.getColumns()) {
+      columnIterators.add(getColumnValues(column).iterator());
     }
-    int numberOfItems = columnList.get(0).getStringVal().getValuesSize();
-    return IntStream.range(0, numberOfItems)
-        .mapToObj(
-            i ->
-                columnList.stream()
-                    .map(column -> getObjectInColumn(column, i))
-                    .collect(Collectors.toList()))
-        .collect(Collectors.toList());
+    while (columnIterators.get(0).hasNext()) {
+      List<Object> row = new ArrayList<>();
+      columnIterators.forEach(columnIterator -> row.add(columnIterator.next()));
+      rows.add(row);
+    }
+    return rows;
   }
 
   /** Returns statement status for given operation status response */
@@ -165,71 +190,35 @@ public class DatabricksThriftUtil {
     return new StatementStatus().setState(state);
   }
 
-  private static Object getObjectInColumn(TColumn column, int index) {
-    if (column == null) {
-      return NULL_STRING;
-    }
-    if (column.isSetStringVal()) {
-      return column.getStringVal().getValues().get(index);
-    } else if (column.isSetBoolVal()) {
-      return column.getBoolVal().getValues().get(index);
-    } else if (column.isSetDoubleVal()) {
-      return column.getDoubleVal().getValues().get(index);
-    } else if (column.isSetI16Val()) {
-      return column.getI16Val().getValues().get(index);
-    } else if (column.isSetI32Val()) {
-      return column.getI32Val().getValues().get(index);
-    } else if (column.isSetI64Val()) {
-      return column.getI64Val().getValues().get(index);
-    } else if (column.isSetBinaryVal()) {
-      return column.getBinaryVal().getValues().get(index);
-    } else if (column.isSetByteVal()) {
-      return column.getByteVal().getValues().get(index);
-    }
-    return NULL_STRING;
+  public static String getTypeTextFromTypeDesc(TTypeDesc typeDesc) {
+    TPrimitiveTypeEntry primitiveTypeEntry = getTPrimitiveTypeOrDefault(typeDesc);
+    return primitiveTypeEntry.getType().name().replace("_TYPE", "");
   }
 
-  private static Object getColumnFirstValue(TColumn column) {
-    return getColumnValues(column).get(0);
-  }
-
-  public static ColumnInfoTypeName getTypeFromTypeDesc(TTypeDesc typeDesc) {
-    TTypeId type = getThriftTypeFromTypeDesc(typeDesc);
-    switch (type) {
-      case BOOLEAN_TYPE:
-        return ColumnInfoTypeName.BOOLEAN;
-      case TINYINT_TYPE:
-        return ColumnInfoTypeName.BYTE;
-      case SMALLINT_TYPE:
-        return ColumnInfoTypeName.SHORT;
-      case INT_TYPE:
-        return ColumnInfoTypeName.INT;
-      case BIGINT_TYPE:
-        return ColumnInfoTypeName.LONG;
-      case FLOAT_TYPE:
-        return ColumnInfoTypeName.FLOAT;
-      case DOUBLE_TYPE:
-        return ColumnInfoTypeName.DOUBLE;
-      case VARCHAR_TYPE:
-      case STRING_TYPE:
-        return ColumnInfoTypeName.STRING;
-      case TIMESTAMP_TYPE:
-        return ColumnInfoTypeName.TIMESTAMP;
-      case BINARY_TYPE:
-        return ColumnInfoTypeName.BINARY;
-      case DECIMAL_TYPE:
-        return ColumnInfoTypeName.DECIMAL;
-      case NULL_TYPE:
-        return ColumnInfoTypeName.STRING;
-      case DATE_TYPE:
-        return ColumnInfoTypeName.DATE;
-      case CHAR_TYPE:
-        return ColumnInfoTypeName.CHAR;
-      case INTERVAL_YEAR_MONTH_TYPE:
-      case INTERVAL_DAY_TIME_TYPE:
-        return ColumnInfoTypeName.INTERVAL;
+  public static ColumnInfo getColumnInfoFromTColumnDesc(TColumnDesc columnDesc) {
+    TPrimitiveTypeEntry primitiveTypeEntry = getTPrimitiveTypeOrDefault(columnDesc.getTypeDesc());
+    ColumnInfoTypeName columnInfoTypeName =
+        T_TYPE_ID_COLUMN_INFO_TYPE_NAME_MAP.get(primitiveTypeEntry.getType());
+    ColumnInfo columnInfo =
+        new ColumnInfo()
+            .setName(columnDesc.getColumnName())
+            .setPosition((long) columnDesc.getPosition())
+            .setTypeName(columnInfoTypeName)
+            .setTypeText(getTypeTextFromTypeDesc(columnDesc.getTypeDesc()));
+    if (primitiveTypeEntry.isSetTypeQualifiers()) {
+      TTypeQualifiers typeQualifiers = primitiveTypeEntry.getTypeQualifiers();
+      String scaleQualifierKey = TCLIServiceConstants.SCALE,
+          precisionQualifierKey = TCLIServiceConstants.PRECISION;
+      if (typeQualifiers.getQualifiers().get(scaleQualifierKey) != null) {
+        columnInfo.setTypeScale(
+            (long) typeQualifiers.getQualifiers().get(scaleQualifierKey).getI32Value());
+      }
+      if (typeQualifiers.getQualifiers().get(precisionQualifierKey) != null) {
+        columnInfo.setTypePrecision(
+            (long) typeQualifiers.getQualifiers().get(precisionQualifierKey).getI32Value());
+      }
     }
-    return ColumnInfoTypeName.STRING; // by default return string
+    return columnInfo;
   }
 
   /**
@@ -238,7 +227,7 @@ public class DatabricksThriftUtil {
    * @param column the TColumn from which to extract values
    * @return a list of values from the specified column
    */
-  private static List<?> getColumnValues(TColumn column) {
+  private static List<?> getColumnValues(TColumn column) throws DatabricksSQLException {
     if (column.isSetBinaryVal())
       return getColumnValuesWithNulls(
           column.getBinaryVal().getValues(), column.getBinaryVal().getNulls());
@@ -260,9 +249,15 @@ public class DatabricksThriftUtil {
     if (column.isSetI64Val())
       return getColumnValuesWithNulls(
           column.getI64Val().getValues(), column.getI64Val().getNulls());
+    if (column.isSetDoubleVal())
+      return getColumnValuesWithNulls(
+          column.getDoubleVal().getValues(), column.getDoubleVal().getNulls());
+    if (column.isSetStringVal())
+      return getColumnValuesWithNulls(
+          column.getStringVal().getValues(), column.getStringVal().getNulls());
 
-    return getColumnValuesWithNulls(
-        column.getStringVal().getValues(), column.getStringVal().getNulls()); // default to string
+    throw new DatabricksSQLException(
+        "Unsupported column type: " + column, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
   private static <T> List<T> getColumnValuesWithNulls(List<T> values, byte[] nulls) {
@@ -282,81 +277,40 @@ public class DatabricksThriftUtil {
     return result;
   }
 
-  /**
-   * Converts columnar data from a TRowSet to a row-based list format.
-   *
-   * @param rowSet the TRowSet containing the data
-   * @return a list where each sublist represents a row with column values, or an empty list if
-   *     rowSet is empty
-   */
-  private static List<List<Object>> convertRowSetToList(TRowSet rowSet) {
-    List<List<Object>> columnarData = extractValuesFromRowSet(rowSet);
-    if (columnarData.isEmpty()) {
-      return Collections.emptyList();
-    }
-    int numRows =
-        columnarData.get(0).size(); // Number of rows (if the data was displayed in row format)
-    List<List<Object>> rowBasedData =
-        IntStream.range(0, numRows)
-            .mapToObj(i -> new ArrayList<>(columnarData.size()))
-            .collect(Collectors.toList());
-    for (List<Object> column : columnarData) {
-      for (int rowIndex = 0; rowIndex < numRows; rowIndex++) {
-        rowBasedData.get(rowIndex).add(column.get(rowIndex));
-      }
-    }
-    return rowBasedData;
-  }
-
   public static List<List<Object>> convertColumnarToRowBased(
       TFetchResultsResp resultsResp,
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws DatabricksSQLException {
-    List<List<Object>> columnarData = convertRowSetToList(resultsResp.getResults());
+    int statementMaxRows =
+        parentStatement != null ? parentStatement.getMaxRows() : DEFAULT_RESULT_ROW_LIMIT;
+    boolean hasRowLimit = statementMaxRows > 0;
+    List<List<Object>> rows = extractRowsFromColumnar(resultsResp.getResults());
     while (resultsResp.hasMoreRows) {
-      resultsResp =
-          ((DatabricksThriftServiceClient) session.getDatabricksClient())
-              .getMoreResults(parentStatement);
-      columnarData.addAll(convertRowSetToList(resultsResp.getResults()));
+      resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
+      rows.addAll(extractRowsFromColumnar(resultsResp.getResults()));
+      if (hasRowLimit
+          && rows.size() >= statementMaxRows) { // check if we have reached requested row limit
+        break;
+      }
     }
-    return columnarData;
+    if (hasRowLimit
+        && rows.size() > statementMaxRows) { // truncate rows to get exact number of rows requested
+      rows = rows.subList(0, statementMaxRows);
+    }
+    return rows;
   }
 
   public static TOperationHandle getOperationHandle(StatementId statementId) {
     THandleIdentifier identifier = statementId.toOperationIdentifier();
     // This will help logging the statement-Id in readable format for debugging purposes
-    LOGGER.debug(
-        "getOperationHandle {%s} for statementId {%s}",
-        statementId, byteBufferToString(identifier.guid));
+    LOGGER.debug("getOperationHandle for statementId {%s}", byteBufferToString(identifier.guid));
     return new TOperationHandle()
         .setOperationId(identifier)
         .setOperationType(TOperationType.UNKNOWN);
   }
 
-  /**
-   * Extracts and returns the values from each column of a TRowSet as a list of lists. Each sublist
-   * represents a column of values. Returns an empty list if the input is null or contains no
-   * columns.
-   *
-   * @param rowSet the TRowSet to extract values from
-   * @return a list of lists, each containing the values of a column, or an empty list if the input
-   *     is invalid
-   */
-  public static List<List<Object>> extractValuesFromRowSet(TRowSet rowSet) {
-    if (rowSet == null || rowSet.getColumns() == null) {
-      return Collections.emptyList();
-    }
-    List<List<Object>> result = new ArrayList<List<Object>>();
-    for (TColumn column : rowSet.getColumns()) {
-      List<Object> columnValues =
-          new ArrayList<Object>(DatabricksThriftUtil.getColumnValues(column));
-      result.add(Collections.unmodifiableList(columnValues));
-    }
-    return Collections.unmodifiableList(result);
-  }
-
-  public static long getRowCount(TRowSet resultData) {
+  public static long getRowCount(TRowSet resultData) throws DatabricksSQLException {
     if (resultData == null) {
       return 0;
     } else if (resultData.isSetColumns()) {
@@ -376,25 +330,31 @@ public class DatabricksThriftUtil {
   }
 
   public static void checkDirectResultsForErrorStatus(
-      TSparkDirectResults directResults, String context) throws DatabricksHttpException {
+      TSparkDirectResults directResults, String context, String statementId)
+      throws DatabricksHttpException {
     if (directResults.isSetOperationStatus()) {
-      LOGGER.debug("direct result operation status being verified for success response");
-      if (directResults.getOperationStatus().getOperationState() == TOperationState.ERROR_STATE) {
-        throw new DatabricksHttpException(directResults.getOperationStatus().errorMessage);
-      }
-      verifySuccessStatus(directResults.getOperationStatus().getStatus(), context);
+      LOGGER.debug(
+          "direct result operation status being verified for success response for statementId {%s}",
+          statementId);
+      verifySuccessStatus(directResults.getOperationStatus().getStatus(), context, statementId);
     }
     if (directResults.isSetResultSetMetadata()) {
-      LOGGER.debug("direct results metadata being verified for success response");
-      verifySuccessStatus(directResults.getResultSetMetadata().getStatus(), context);
+      LOGGER.debug(
+          "direct results metadata being verified for success response for statementId {%s}",
+          statementId);
+      verifySuccessStatus(directResults.getResultSetMetadata().getStatus(), context, statementId);
     }
     if (directResults.isSetCloseOperation()) {
-      LOGGER.debug("direct results close operation verified for success response");
-      verifySuccessStatus(directResults.getCloseOperation().getStatus(), context);
+      LOGGER.debug(
+          "direct results close operation verified for success response for statementId {%s}",
+          statementId);
+      verifySuccessStatus(directResults.getCloseOperation().getStatus(), context, statementId);
     }
     if (directResults.isSetResultSet()) {
-      LOGGER.debug("direct result set being verified for success response");
-      verifySuccessStatus(directResults.getResultSet().getStatus(), context);
+      LOGGER.debug(
+          "direct result set being verified for success response for statementId {%s}",
+          statementId);
+      verifySuccessStatus(directResults.getResultSet().getStatus(), context, statementId);
     }
   }
 }

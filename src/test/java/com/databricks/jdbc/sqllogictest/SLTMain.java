@@ -5,8 +5,6 @@ package com.databricks.jdbc.sqllogictest;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import net.hydromatic.sqllogictest.OptionsParser;
@@ -35,11 +33,10 @@ public class SLTMain {
     }
     // TODO: Add these files once getTables allows fetching VIEW(s)
     Set<String> testFilesToSkip =
-        new HashSet<>(
-            Arrays.asList(
-                "sqllogictest/evidence/slt_lang_createview.test",
-                "sqllogictest/evidence/slt_lang_dropview.test",
-                "sqllogictest/index/view/100/slt_good_2.test"));
+        Set.of(
+            "sqllogictest/evidence/slt_lang_createview.test",
+            "sqllogictest/evidence/slt_lang_dropview.test",
+            "sqllogictest/index/view/100/slt_good_2.test");
     Set<String> testFiles =
         FileUtils.listFiles(directory, new String[] {"test"}, true).stream()
             .map(File::getPath)

@@ -1,0 +1,31 @@
+{
+  "id" : "db89d2d4-bbf0-4d96-8424-f2342f2575ce",
+  "name" : "api_2.0_sql_statements_01f06d18-fb61-1ca2-ac92-ddc4e1ead19c",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/01f06d18-fb61-1ca2-ac92-ddc4e1ead19c",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f06d18-fb61-1ca2-ac92-ddc4e1ead19c\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":2,\"columns\":[{\"name\":\"x\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":0},{\"name\":\"y\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":1}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":10,\"byte_count\":1832}],\"total_row_count\":10,\"total_byte_count\":1832,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":10,\"byte_count\":477,\"external_link\":\"https://e2-dogfood-core.s3.us-west-2.amazonaws.com/oregon-staging/6051921418418893.jobs/sql/extended/results_2025-07-31T08%3A44%3A11Z_f0ac5cd3-b2ad-434d-9ca6-c9ecc1699d4d?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250730T074417Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=72e19edd311acb2462a07b68ffbf6b47ccc76696ed7fc9ad8a0c9113d7698afc\",\"expiration\":\"2025-07-30T07:59:17.029Z\"}]}}",
+    "headers" : {
+      "x-request-id" : "7adb361f-3703-4607-b144-61ca1659f3cb",
+      "date" : "Wed, 30 Jul 2025 07:44:17 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "db89d2d4-bbf0-4d96-8424-f2342f2575ce",
+  "scenarioName" : "scenario-1-api-2.0-sql-statements-01f06d18-fb61-1ca2-ac92-ddc4e1ead19c",
+  "requiredScenarioState" : "scenario-1-api-2.0-sql-statements-01f06d18-fb61-1ca2-ac92-ddc4e1ead19c-2",
+  "insertionIndex" : 3
+}

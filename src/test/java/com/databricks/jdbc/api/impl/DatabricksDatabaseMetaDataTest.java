@@ -1,33 +1,35 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL;
-import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL_WITH_THRIFT;
+import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import com.databricks.jdbc.api.IDatabricksConnection;
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.Callable;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mockito;
 
 public class DatabricksDatabaseMetaDataTest {
 
-  private IDatabricksConnection connection;
+  private IDatabricksConnectionInternal connection;
   private IDatabricksSession session;
   private DatabricksDatabaseMetaData metaData;
   private IDatabricksMetadataClient metadataClient;
 
   @BeforeEach
   public void setup() throws SQLException {
-    connection = Mockito.mock(IDatabricksConnection.class);
+    connection = Mockito.mock(IDatabricksConnectionInternal.class);
     session = Mockito.mock(IDatabricksSession.class);
     when(connection.getSession()).thenReturn(session);
     metaData = new DatabricksDatabaseMetaData(connection);
@@ -47,6 +49,12 @@ public class DatabricksDatabaseMetaDataTest {
     when(metadataClient.listFunctions(any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listColumns(any(), any(), any(), any(), any()))
+        .thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listImportedKeys(any(), any(), any(), any()))
+        .thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listExportedKeys(any(), any(), any(), any()))
+        .thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listCrossReferences(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(connection.getConnection()).thenReturn(Mockito.mock(Connection.class));
     when(session.isOpen()).thenReturn(true);
@@ -89,13 +97,13 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void getJDBCMajorVersion_returnsCorrectVersion() throws Exception {
     int majorVersion = metaData.getJDBCMajorVersion();
-    assertEquals(0, majorVersion);
+    assertEquals(4, majorVersion);
   }
 
   @Test
   public void getJDBCMinorVersion_returnsCorrectVersion() throws Exception {
     int minorVersion = metaData.getJDBCMinorVersion();
-    assertEquals(9, minorVersion);
+    assertEquals(3, minorVersion);
   }
 
   @Test
@@ -422,7 +430,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void getDefaultTransactionIsolation_returnsExpectedIsolationLevel() throws Exception {
     int defaultTransactionIsolation = metaData.getDefaultTransactionIsolation();
-    assertEquals(Connection.TRANSACTION_READ_COMMITTED, defaultTransactionIsolation);
+    assertEquals(Connection.TRANSACTION_READ_UNCOMMITTED, defaultTransactionIsolation);
   }
 
   @Test
@@ -558,6 +566,14 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
+  public void getFunctions_returnsEmptyResultSetWhenExceptionIsThrown() throws Exception {
+    when(metadataClient.listFunctions(session, null, "%", "%")).thenThrow(new SQLException());
+    ResultSet resultSet = metaData.getFunctions(null, "%", "%");
+    assertNotNull(resultSet);
+    assertFalse(resultSet.next());
+  }
+
+  @Test
   public void supportsGroupBy_returnsTrue() throws Exception {
     assertTrue(metaData.supportsGroupBy());
   }
@@ -662,16 +678,11 @@ public class DatabricksDatabaseMetaDataTest {
 
   @Test
   public void testGetSchemas_SqlExec() throws SQLException {
+    when(session.getConnectionContext())
+        .thenReturn(
+            DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL_WITH_SEA, new Properties()));
     ResultSet resultSet = metaData.getSchemas();
     assertNotNull(resultSet);
-
-    // Result set should have 2 columns; TABLE_SCHEM and TABLE_CATALOG
-    assertEquals(2, resultSet.getMetaData().getColumnCount());
-    assertSame("TABLE_SCHEM", resultSet.getMetaData().getColumnName(1));
-    assertSame("TABLE_CATALOG", resultSet.getMetaData().getColumnName(2));
-
-    // For SQL_EXEC execution, result set data should be empty
-    assertFalse(resultSet.next());
   }
 
   @Test
@@ -782,7 +793,19 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetDriverVersion() throws SQLException {
     String result = metaData.getDriverVersion();
-    assertEquals("0.9.8-oss", result);
+    assertEquals("1.0.9-oss", result);
+  }
+
+  @Test
+  public void testGetDriverMajorVersion() {
+    int result = metaData.getDriverMajorVersion();
+    assertEquals(1, result);
+  }
+
+  @Test
+  public void testGetDriverMinorVersion() {
+    int result = metaData.getDriverMinorVersion();
+    assertEquals(0, result);
   }
 
   @Test
@@ -926,6 +949,7 @@ public class DatabricksDatabaseMetaDataTest {
   public void testSupportsConvert() throws SQLException {
     boolean result = metaData.supportsConvert();
     assertTrue(result);
+    assertTrue(metaData.supportsConvert(Types.INTEGER, Types.INTEGER));
   }
 
   @Test
@@ -995,39 +1019,625 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
-  public void testUnsupportedOperations() {
-    List<Callable<Object>> tasks =
-        Arrays.asList(
-            () -> metaData.supportsTransactionIsolationLevel(0),
-            () -> metaData.getSearchStringEscape(),
-            () -> metaData.getProcedureColumns(null, null, null, null),
-            () -> metaData.getBestRowIdentifier(null, null, null, 0, false),
-            () -> metaData.getVersionColumns(null, null, null),
-            () -> metaData.getCrossReference(null, null, null, null, null, null),
-            () -> metaData.getIndexInfo(null, null, null, false, false),
-            () -> metaData.supportsConvert(0, 0),
-            () -> metaData.getProcedureColumns(null, null, null, null),
-            () -> metaData.getColumnPrivileges(null, null, null, null),
-            () -> metaData.getTablePrivileges(null, null, null),
-            () -> metaData.getSuperTypes(null, null, null),
-            () -> metaData.getSuperTables(null, null, null),
-            () -> metaData.getAttributes(null, null, null, null),
-            () -> metaData.getClientInfoProperties(),
-            () -> metaData.getFunctionColumns(null, null, null, null),
-            () -> metaData.getPseudoColumns(null, null, null, null),
-            () -> metaData.deletesAreDetected(ResultSet.TYPE_FORWARD_ONLY),
-            () -> metaData.isWrapperFor(DatabricksDatabaseMetaData.class),
-            () -> metaData.unwrap(DatabricksDatabaseMetaData.class));
+  public void testGetSearchStringEscape() throws SQLException {
+    String result = metaData.getSearchStringEscape();
+    assertEquals(DatabricksJdbcConstants.BACKWARD_SLASH, result);
+  }
 
-    for (Callable<Object> task : tasks) {
-      try {
-        task.call();
-        fail("Expected UnsupportedOperationException for " + task);
-      } catch (UnsupportedOperationException e) {
-        // This is expected
-      } catch (Exception e) {
-        fail("Unexpected exception type thrown: " + e);
-      }
-    }
+  @ParameterizedTest
+  @MethodSource("resultSetTypes")
+  public void testDeletesAreDetected(int resultSetType, String typeName) {
+    assertFalse(metaData.deletesAreDetected(resultSetType));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideAttributeParameters")
+  public void testGetAttributes(
+      String catalog,
+      String schemaPattern,
+      String typeNamePattern,
+      String attributeNamePattern,
+      String testDescription)
+      throws SQLException {
+    ResultSet resultSet =
+        metaData.getAttributes(catalog, schemaPattern, typeNamePattern, attributeNamePattern);
+    assertNotNull(resultSet);
+
+    assertEquals(21, resultSet.getMetaData().getColumnCount());
+    assertSame("TYPE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("TYPE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("TYPE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("ATTR_NAME", resultSet.getMetaData().getColumnName(4));
+    assertEquals("DATA_TYPE", resultSet.getMetaData().getColumnName(5));
+    assertEquals("ATTR_TYPE_NAME", resultSet.getMetaData().getColumnName(6));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideGetBestRowIdentifierParameters")
+  public void testGetBestRowIdentifier(
+      String catalog,
+      String schema,
+      String table,
+      int scope,
+      boolean nullable,
+      String testDescription)
+      throws SQLException {
+    ResultSet resultSet = metaData.getBestRowIdentifier(catalog, schema, table, scope, nullable);
+    assertNotNull(resultSet);
+
+    assertEquals(8, resultSet.getMetaData().getColumnCount());
+    assertSame("SCOPE", resultSet.getMetaData().getColumnName(1));
+    assertSame("COLUMN_NAME", resultSet.getMetaData().getColumnName(2));
+    assertSame("DATA_TYPE", resultSet.getMetaData().getColumnName(3));
+    assertSame("TYPE_NAME", resultSet.getMetaData().getColumnName(4));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @Test
+  public void testGetBestRowIdentifier_throwsExceptionWhenInvalidScope() throws SQLException {
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> metaData.getBestRowIdentifier(null, null, null, 3, false));
+  }
+
+  @Test
+  public void testGetColumnPrivileges() throws SQLException {
+    ResultSet resultSet =
+        metaData.getColumnPrivileges("sample_catalog", "sample_schema", "sample_table", "%");
+    assertNotNull(resultSet);
+
+    assertEquals(8, resultSet.getMetaData().getColumnCount());
+    assertSame("TABLE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("TABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("TABLE_NAME", resultSet.getMetaData().getColumnName(3));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @Test
+  public void testGetClientInfoProperties() throws SQLException {
+    ResultSet resultSet = metaData.getClientInfoProperties();
+    assertNotNull(resultSet);
+
+    assertEquals(4, resultSet.getMetaData().getColumnCount());
+    assertEquals("NAME", resultSet.getMetaData().getColumnName(1));
+    assertEquals("MAX_LEN", resultSet.getMetaData().getColumnName(2));
+    assertEquals("DEFAULT_VALUE", resultSet.getMetaData().getColumnName(3));
+    assertEquals("DESCRIPTION", resultSet.getMetaData().getColumnName(4));
+
+    // Verify the first row
+    assertTrue(resultSet.next());
+    assertEquals("APPLICATIONNAME", resultSet.getString(1));
+    assertEquals(25, resultSet.getInt(2));
+    assertNull(resultSet.getString(3));
+
+    assertTrue(resultSet.next());
+    assertTrue(resultSet.next());
+
+    // No more than 3 rows
+    assertFalse(resultSet.next());
+  }
+
+  @Test
+  public void testGetCrossReference() throws SQLException {
+    ResultSet resultSet =
+        metaData.getCrossReference(
+            "primary_catalog",
+            "primary_schema",
+            "primary_table",
+            "foreign_catalog",
+            "foreign_schema",
+            "foreign_table");
+    assertNotNull(resultSet);
+  }
+
+  @Test
+  public void testGetCrossReferenceThrowsExceptionWhenPrimaryForeignTableNull() {
+    assertThrows(
+        DatabricksSQLException.class,
+        () ->
+            metaData.getCrossReference(
+                "primary_catalog",
+                "primary_schema",
+                null,
+                "primary_catalog",
+                "primary_schema",
+                null));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideCatalogSchemaTableParameters")
+  public void testGetTablePrivileges(
+      String catalog, String schemaPattern, String tableNamePattern, String testDesc)
+      throws SQLException {
+    ResultSet resultSet = metaData.getTablePrivileges(catalog, schemaPattern, tableNamePattern);
+    assertNotNull(resultSet);
+
+    assertEquals(7, resultSet.getMetaData().getColumnCount());
+    assertSame("TABLE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("TABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("TABLE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("GRANTOR", resultSet.getMetaData().getColumnName(4));
+    assertEquals("GRANTEE", resultSet.getMetaData().getColumnName(5));
+    assertEquals("PRIVILEGE", resultSet.getMetaData().getColumnName(6));
+    assertEquals("IS_GRANTABLE", resultSet.getMetaData().getColumnName(7));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideCatalogSchemaTableParameters")
+  public void testGetVersionColumns(
+      String catalog, String schemaPattern, String tableNamePattern, String testDesc)
+      throws SQLException {
+    ResultSet resultSet = metaData.getVersionColumns(catalog, schemaPattern, tableNamePattern);
+    assertNotNull(resultSet);
+
+    assertEquals(8, resultSet.getMetaData().getColumnCount());
+    assertSame("SCOPE", resultSet.getMetaData().getColumnName(1));
+    assertSame("COLUMN_NAME", resultSet.getMetaData().getColumnName(2));
+    assertSame("DATA_TYPE", resultSet.getMetaData().getColumnName(3));
+    assertSame("TYPE_NAME", resultSet.getMetaData().getColumnName(4));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideCatalogSchemaTableParameters")
+  public void testGetSuperTypes(
+      String catalog, String schemaPattern, String typeNamePattern, String testDesc)
+      throws SQLException {
+    ResultSet resultSet = metaData.getSuperTypes(catalog, schemaPattern, typeNamePattern);
+    assertNotNull(resultSet);
+
+    assertEquals(6, resultSet.getMetaData().getColumnCount());
+    assertSame("TYPE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("TYPE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("TYPE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("SUPERTYPE_CAT", resultSet.getMetaData().getColumnName(4));
+    assertEquals("SUPERTYPE_SCHEM", resultSet.getMetaData().getColumnName(5));
+    assertEquals("SUPERTYPE_NAME", resultSet.getMetaData().getColumnName(6));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideCatalogSchemaEntityPatternParams")
+  public void testGetProcedureColumns(
+      String catalog,
+      String schemaPattern,
+      String procedureNamePattern,
+      String columnNamePattern,
+      String testDesc)
+      throws SQLException {
+    ResultSet resultSet =
+        metaData.getProcedureColumns(
+            catalog, schemaPattern, procedureNamePattern, columnNamePattern);
+    assertNotNull(resultSet);
+
+    assertEquals(20, resultSet.getMetaData().getColumnCount());
+    assertSame("PROCEDURE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("PROCEDURE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("PROCEDURE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("COLUMN_NAME", resultSet.getMetaData().getColumnName(4));
+    assertEquals("COLUMN_TYPE", resultSet.getMetaData().getColumnName(5));
+    assertEquals("DATA_TYPE", resultSet.getMetaData().getColumnName(6));
+    assertEquals("TYPE_NAME", resultSet.getMetaData().getColumnName(7));
+    assertEquals("PRECISION", resultSet.getMetaData().getColumnName(8));
+    assertEquals("LENGTH", resultSet.getMetaData().getColumnName(9));
+    assertEquals("SCALE", resultSet.getMetaData().getColumnName(10));
+    assertEquals("RADIX", resultSet.getMetaData().getColumnName(11));
+    assertEquals("NULLABLE", resultSet.getMetaData().getColumnName(12));
+    assertEquals("REMARKS", resultSet.getMetaData().getColumnName(13));
+
+    assertEquals(1, resultSet.getMetaData().isNullable(1));
+    assertEquals(1, resultSet.getMetaData().isNullable(2));
+    assertEquals(0, resultSet.getMetaData().isNullable(3));
+    assertEquals(0, resultSet.getMetaData().isNullable(4));
+    assertEquals(0, resultSet.getMetaData().isNullable(5));
+    assertEquals(0, resultSet.getMetaData().isNullable(6));
+    assertEquals(0, resultSet.getMetaData().isNullable(7));
+    assertEquals(1, resultSet.getMetaData().isNullable(8));
+    assertEquals(1, resultSet.getMetaData().isNullable(9));
+    assertEquals(1, resultSet.getMetaData().isNullable(10));
+    assertEquals(1, resultSet.getMetaData().isNullable(11));
+    assertEquals(0, resultSet.getMetaData().isNullable(12));
+    assertEquals(1, resultSet.getMetaData().isNullable(13));
+    assertEquals(1, resultSet.getMetaData().isNullable(14));
+    assertEquals(0, resultSet.getMetaData().isNullable(15));
+    assertEquals(1, resultSet.getMetaData().isNullable(16));
+    assertEquals(1, resultSet.getMetaData().isNullable(17));
+    assertEquals(0, resultSet.getMetaData().isNullable(18));
+    assertEquals(0, resultSet.getMetaData().isNullable(19));
+    assertEquals(0, resultSet.getMetaData().isNullable(20));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideGetIndexInfoParameters")
+  public void testGetIndexInfo(
+      String catalog,
+      String schema,
+      String table,
+      boolean unique,
+      boolean approximate,
+      String testDesc)
+      throws SQLException {
+    ResultSet resultSet = metaData.getIndexInfo(catalog, schema, table, unique, approximate);
+    assertNotNull(resultSet);
+
+    assertEquals(13, resultSet.getMetaData().getColumnCount());
+    assertSame("TABLE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("TABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("TABLE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("NON_UNIQUE", resultSet.getMetaData().getColumnName(4));
+    assertEquals("INDEX_QUALIFIER", resultSet.getMetaData().getColumnName(5));
+    assertEquals("INDEX_NAME", resultSet.getMetaData().getColumnName(6));
+    assertEquals("TYPE", resultSet.getMetaData().getColumnName(7));
+    assertEquals("ORDINAL_POSITION", resultSet.getMetaData().getColumnName(8));
+    assertEquals("COLUMN_NAME", resultSet.getMetaData().getColumnName(9));
+    assertEquals("ASC_OR_DESC", resultSet.getMetaData().getColumnName(10));
+    assertEquals("CARDINALITY", resultSet.getMetaData().getColumnName(11));
+    assertEquals("PAGES", resultSet.getMetaData().getColumnName(12));
+    assertEquals("FILTER_CONDITION", resultSet.getMetaData().getColumnName(13));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideCatalogSchemaTableParameters")
+  public void testGetSuperTables(
+      String catalog, String schemaPattern, String tableNamePattern, String testDesc)
+      throws SQLException {
+    ResultSet resultSet = metaData.getSuperTables(catalog, schemaPattern, tableNamePattern);
+    assertNotNull(resultSet);
+
+    assertEquals(4, resultSet.getMetaData().getColumnCount());
+    assertSame("TABLE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("TABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("TABLE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("SUPERTABLE_NAME", resultSet.getMetaData().getColumnName(4));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideCatalogSchemaEntityPatternParams")
+  public void testGetFunctionColumns(
+      String catalog,
+      String schemaPattern,
+      String functionNamePattern,
+      String columnNamePattern,
+      String testDesc)
+      throws SQLException {
+    ResultSet resultSet =
+        metaData.getFunctionColumns(catalog, schemaPattern, functionNamePattern, columnNamePattern);
+    assertNotNull(resultSet);
+
+    assertEquals(17, resultSet.getMetaData().getColumnCount());
+    assertSame("FUNCTION_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("FUNCTION_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("FUNCTION_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("COLUMN_NAME", resultSet.getMetaData().getColumnName(4));
+    assertEquals("COLUMN_TYPE", resultSet.getMetaData().getColumnName(5));
+    assertEquals("DATA_TYPE", resultSet.getMetaData().getColumnName(6));
+    assertEquals("TYPE_NAME", resultSet.getMetaData().getColumnName(7));
+    assertEquals("PRECISION", resultSet.getMetaData().getColumnName(8));
+    assertEquals("LENGTH", resultSet.getMetaData().getColumnName(9));
+    assertEquals("SCALE", resultSet.getMetaData().getColumnName(10));
+    assertEquals("RADIX", resultSet.getMetaData().getColumnName(11));
+    assertEquals("NULLABLE", resultSet.getMetaData().getColumnName(12));
+    assertEquals("REMARKS", resultSet.getMetaData().getColumnName(13));
+    assertEquals("CHAR_OCTET_LENGTH", resultSet.getMetaData().getColumnName(14));
+    assertEquals("ORDINAL_POSITION", resultSet.getMetaData().getColumnName(15));
+    assertEquals("IS_NULLABLE", resultSet.getMetaData().getColumnName(16));
+    assertEquals("SPECIFIC_NAME", resultSet.getMetaData().getColumnName(17));
+
+    assertEquals(1, resultSet.getMetaData().isNullable(1));
+    assertEquals(1, resultSet.getMetaData().isNullable(2));
+    assertEquals(0, resultSet.getMetaData().isNullable(3));
+    assertEquals(0, resultSet.getMetaData().isNullable(4));
+    assertEquals(0, resultSet.getMetaData().isNullable(5));
+    assertEquals(0, resultSet.getMetaData().isNullable(6));
+    assertEquals(0, resultSet.getMetaData().isNullable(7));
+    assertEquals(1, resultSet.getMetaData().isNullable(8));
+    assertEquals(1, resultSet.getMetaData().isNullable(9));
+    assertEquals(1, resultSet.getMetaData().isNullable(10));
+    assertEquals(1, resultSet.getMetaData().isNullable(11));
+    assertEquals(0, resultSet.getMetaData().isNullable(12));
+    assertEquals(1, resultSet.getMetaData().isNullable(13));
+    assertEquals(1, resultSet.getMetaData().isNullable(14));
+    assertEquals(0, resultSet.getMetaData().isNullable(15));
+    assertEquals(0, resultSet.getMetaData().isNullable(16));
+    assertEquals(0, resultSet.getMetaData().isNullable(17));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideCatalogSchemaEntityPatternParams")
+  public void testGetPseudoColumns(
+      String catalog,
+      String schemaPattern,
+      String tableNamePattern,
+      String columnNamePattern,
+      String testDesc)
+      throws SQLException {
+    ResultSet resultSet =
+        metaData.getPseudoColumns(catalog, schemaPattern, tableNamePattern, columnNamePattern);
+    assertNotNull(resultSet);
+
+    assertEquals(12, resultSet.getMetaData().getColumnCount());
+    assertSame("TABLE_CAT", resultSet.getMetaData().getColumnName(1));
+    assertSame("TABLE_SCHEM", resultSet.getMetaData().getColumnName(2));
+    assertEquals("TABLE_NAME", resultSet.getMetaData().getColumnName(3));
+    assertEquals("COLUMN_NAME", resultSet.getMetaData().getColumnName(4));
+    assertEquals("DATA_TYPE", resultSet.getMetaData().getColumnName(5));
+    assertEquals("COLUMN_SIZE", resultSet.getMetaData().getColumnName(6));
+    assertEquals("DECIMAL_DIGITS", resultSet.getMetaData().getColumnName(7));
+    assertEquals("NUM_PREC_RADIX", resultSet.getMetaData().getColumnName(8));
+    assertEquals("COLUMN_USAGE", resultSet.getMetaData().getColumnName(9));
+    assertEquals("REMARKS", resultSet.getMetaData().getColumnName(10));
+    assertEquals("CHAR_OCTET_LENGTH", resultSet.getMetaData().getColumnName(11));
+    assertEquals("IS_NULLABLE", resultSet.getMetaData().getColumnName(12));
+
+    assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(1));
+    assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(2));
+    assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(3));
+    assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(4));
+    assertEquals(Types.INTEGER, resultSet.getMetaData().getColumnType(5));
+    assertEquals(Types.INTEGER, resultSet.getMetaData().getColumnType(6));
+    assertEquals(Types.INTEGER, resultSet.getMetaData().getColumnType(7));
+    assertEquals(Types.INTEGER, resultSet.getMetaData().getColumnType(8));
+    assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(9));
+    assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(10));
+    assertEquals(Types.INTEGER, resultSet.getMetaData().getColumnType(11));
+    assertEquals(Types.VARCHAR, resultSet.getMetaData().getColumnType(12));
+
+    assertEquals(1, resultSet.getMetaData().isNullable(1));
+    assertEquals(1, resultSet.getMetaData().isNullable(2));
+    assertEquals(0, resultSet.getMetaData().isNullable(3));
+    assertEquals(0, resultSet.getMetaData().isNullable(4));
+    assertEquals(0, resultSet.getMetaData().isNullable(5));
+    assertEquals(1, resultSet.getMetaData().isNullable(6));
+    assertEquals(1, resultSet.getMetaData().isNullable(7));
+    assertEquals(1, resultSet.getMetaData().isNullable(8));
+    assertEquals(0, resultSet.getMetaData().isNullable(9));
+    assertEquals(1, resultSet.getMetaData().isNullable(10));
+    assertEquals(1, resultSet.getMetaData().isNullable(11));
+    assertEquals(0, resultSet.getMetaData().isNullable(12));
+
+    // Result set is empty
+    assertFalse(resultSet.next());
+  }
+
+  @Test
+  public void testGetImportedKeys() throws SQLException {
+    ResultSet resultSet = metaData.getImportedKeys("catalog", "schema", "table");
+    assertNotNull(resultSet);
+  }
+
+  @Test
+  public void testGetExportedKeys() throws SQLException {
+    ResultSet resultSet = metaData.getExportedKeys("catalog", "schema", "table");
+    assertNotNull(resultSet);
+  }
+
+  @Test
+  public void testSupportsTransactionIsolationLevel() throws SQLException {
+    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE));
+    assertTrue(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED));
+    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_COMMITTED));
+    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ));
+    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE));
+  }
+
+  @Test
+  public void testIsWrapperFor_ReturnsTrueForDatabaseMetaData() throws SQLException {
+    // Test that it returns true for DatabaseMetaData interface
+    assertTrue(metaData.isWrapperFor(DatabaseMetaData.class));
+  }
+
+  @Test
+  public void testIsWrapperFor_ReturnsTrueForSameClass() throws SQLException {
+    // Test that it returns true for its own class
+    assertTrue(metaData.isWrapperFor(DatabricksDatabaseMetaData.class));
+  }
+
+  @Test
+  public void testIsWrapperFor_ReturnsFalseForUnrelatedInterface() throws SQLException {
+    // Test that it returns false for unrelated interfaces
+    assertFalse(metaData.isWrapperFor(Runnable.class));
+  }
+
+  @Test
+  public void testUnwrap_SuccessfullyUnwrapsDatabaseMetaData() throws SQLException {
+    // Test unwrapping to DatabaseMetaData interface
+    DatabaseMetaData unwrapped = metaData.unwrap(DatabaseMetaData.class);
+    assertNotNull(unwrapped);
+    assertSame(metaData, unwrapped);
+  }
+
+  @Test
+  public void testUnwrap_SuccessfullyUnwrapsSameClass() throws SQLException {
+    // Test unwrapping to its own class
+    DatabricksDatabaseMetaData unwrapped = metaData.unwrap(DatabricksDatabaseMetaData.class);
+    assertNotNull(unwrapped);
+    assertSame(metaData, unwrapped);
+  }
+
+  @Test
+  public void testUnwrap_ThrowsExceptionForUnrelatedInterface() throws SQLException {
+    // Test that unwrapping to an unrelated interface throws exception
+    assertThrows(DatabricksSQLException.class, () -> metaData.unwrap(Runnable.class));
+  }
+
+  private static Stream<Arguments> provideAttributeParameters() {
+    return Stream.of(
+        // Test case 1: All nulls (should return empty result set)
+        Arguments.of(null, null, null, null, "All parameters null"),
+
+        // Test case 2: Valid catalog, others null
+        Arguments.of("test_catalog", null, null, null, "Only catalog specified"),
+
+        // Test case 3: Valid schema pattern, others null
+        Arguments.of(null, "test_schema%", null, null, "Only schema pattern specified"),
+
+        // Test case 4: Valid type name pattern, others null
+        Arguments.of(null, null, "TEST_TYPE%", null, "Only type name pattern specified"),
+
+        // Test case 5: Valid attribute name pattern, others null
+        Arguments.of(null, null, null, "attr%", "Only attribute name pattern specified"),
+
+        // Test case 6: All parameters specified with wildcards
+        Arguments.of(
+            "test_catalog",
+            "test_schema%",
+            "TEST_TYPE%",
+            "attr%",
+            "All parameters specified with wildcards"),
+
+        // Test case 7: Exact match patterns
+        Arguments.of(
+            "test_catalog", "test_schema", "TEST_TYPE", "attribute_name", "Exact match patterns"),
+
+        // Test case 8: Invalid patterns (should return empty result set)
+        Arguments.of(
+            "invalid_catalog",
+            "invalid_schema",
+            "INVALID_TYPE",
+            "invalid_attr",
+            "Invalid patterns"),
+
+        // Test case 9: Special characters in patterns
+        Arguments.of(null, "_test%", "%TYPE_", "_attr%", "Special characters in patterns"));
+  }
+
+  private static Stream<Arguments> provideGetBestRowIdentifierParameters() {
+    return Stream.of(
+        // Test case 1: All nulls (should return empty result set)
+        Arguments.of(null, null, null, 0, false, "All parameters null"),
+
+        // Test case 2: Valid catalog, others null
+        Arguments.of("test_catalog", null, null, 0, false, "Only catalog specified"),
+
+        // Test case 3: Valid schema, others null
+        Arguments.of(null, "test_schema", null, 0, false, "Only schema specified"),
+
+        // Test case 4: Valid table, others null
+        Arguments.of(null, null, "test_table", 0, false, "Only table specified"),
+
+        // Test case 5: Valid scope, others null
+        Arguments.of(null, null, null, 1, false, "Only scope specified"),
+
+        // Test case 6: Valid nullable, others null
+        Arguments.of(null, null, null, 0, true, "Only nullable specified"),
+
+        // Test case 7: All parameters specified
+        Arguments.of(
+            "test_catalog", "test_schema", "test_table", 1, true, "All parameters specified"));
+  }
+
+  private static Stream<Arguments> resultSetTypes() {
+    return Stream.of(
+        Arguments.of(ResultSet.TYPE_FORWARD_ONLY, "TYPE_FORWARD_ONLY"),
+        Arguments.of(ResultSet.TYPE_SCROLL_INSENSITIVE, "TYPE_SCROLL_INSENSITIVE"),
+        Arguments.of(ResultSet.TYPE_SCROLL_SENSITIVE, "TYPE_SCROLL_SENSITIVE"));
+  }
+
+  private static Stream<Arguments> provideCatalogSchemaTableParameters() {
+    return Stream.of(
+        // Test case 1: All nulls (should return empty result set)
+        Arguments.of(null, null, null, "All parameters null"),
+
+        // Test case 2: Valid catalog, others null
+        Arguments.of("test_catalog", null, null, "Only catalog specified"),
+
+        // Test case 3: Valid schema, others null
+        Arguments.of(null, "test_schema", null, "Only schema specified"),
+
+        // Test case 4: Valid table, others null
+        Arguments.of(null, null, "test_table", "Only table specified"),
+
+        // Test case 5: All parameters specified
+        Arguments.of("test_catalog", "test_schema", "test_table", "All parameters specified"));
+  }
+
+  private static Stream<Arguments> provideGetIndexInfoParameters() {
+    return Stream.of(
+        // Test case 1: All nulls (should return empty result set)
+        Arguments.of(null, null, null, false, false, "All parameters null"),
+
+        // Test case 2: Valid catalog, others null
+        Arguments.of("test_catalog", null, null, false, false, "Only catalog specified"),
+
+        // Test case 3: Valid schema, others null
+        Arguments.of(null, "test_schema", null, false, false, "Only schema specified"),
+
+        // Test case 4: Valid table, others null
+        Arguments.of(null, null, "test_table", false, false, "Only table specified"),
+
+        // Test case 5: All parameters specified
+        Arguments.of(
+            "test_catalog", "test_schema", "test_table", false, true, "All parameters specified"));
+  }
+
+  /**
+   * Provides parameters for testing {@link DatabaseMetaData} methods with catalog, schema pattern,
+   * entity pattern, and column name pattern. Entity could be a table, function, procedure, etc.
+   */
+  private static Stream<Arguments> provideCatalogSchemaEntityPatternParams() {
+    return Stream.of(
+        // Test case 1: All nulls (should return empty result set)
+        Arguments.of(null, null, null, null, "All parameters null"),
+
+        // Test case 2: Valid catalog, others null
+        Arguments.of("test_catalog", null, null, null, "Only catalog specified"),
+
+        // Test case 3: Valid schema pattern, others null
+        Arguments.of(null, "test_schema%", null, null, "Only schema pattern specified"),
+
+        // Test case 4: Valid entity name pattern, others null
+        Arguments.of(null, null, "TEST_ENTITY%", null, "Only function name pattern specified"),
+
+        // Test case 5: Valid column name, others null
+        Arguments.of(null, null, null, "column_name", "Only column name specified"),
+
+        // Test case 6: All parameters specified with wildcards
+        Arguments.of(
+            "test_catalog",
+            "test_schema%",
+            "TEST_ENTITY%",
+            "column_name",
+            "All parameters specified with wildcards"),
+
+        // Test case 7: Exact match patterns
+        Arguments.of(
+            "test_catalog", "test_schema", "TEST_ENTITY", "column_name", "Exact match patterns"),
+
+        // Test case 8: Invalid patterns (should return empty result set)
+        Arguments.of(
+            "invalid_catalog",
+            "invalid_schema",
+            "INVALID_ENTITY",
+            "invalid_column",
+            "Invalid patterns"),
+
+        // Test case 9: Special characters in patterns
+        Arguments.of(null, "_test%", "%ENTITY_", "_column%", "Special characters in patterns"));
   }
 }

@@ -1,5 +1,6 @@
 package com.databricks.jdbc.integration.fakeservice;
 
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
@@ -10,12 +11,21 @@ public class FakeServiceConfigLoader {
 
   public static final String CLOUD_FETCH_HOST_PROP = "host.cloudfetch";
 
+  public static final String PRESIGNED_URL_HOST = "host.presignedurl";
+
+  public static final String JWT_TOKEN_ENDPOINT_HOST_PROP = "host.jwt.token.endpoint";
+
   public static final String TEST_CATALOG = "testcatalog";
 
   public static final String TEST_SCHEMA = "testschema";
 
-  public static final boolean shouldUseThriftClient =
-      Boolean.parseBoolean(System.getenv("USE_THRIFT_CLIENT"));
+  public static final String HTTP_PATH_PROP = "httppath";
+
+  private static final DatabricksJdbcConstants.FakeServiceType fakeServiceType =
+      System.getenv("FAKE_SERVICE_TYPE") != null
+          ? DatabricksJdbcConstants.FakeServiceType.valueOf(
+              System.getenv("FAKE_SERVICE_TYPE").toUpperCase())
+          : DatabricksJdbcConstants.FakeServiceType.SQL_EXEC;
 
   private static final String SQL_EXEC_FAKE_SERVICE_TEST_PROPS =
       "sqlexecfakeservicetest.properties";
@@ -23,13 +33,15 @@ public class FakeServiceConfigLoader {
   private static final String SQL_GATEWAY_FAKE_SERVICE_TEST_PROPS =
       "sqlgatewayfakeservicetest.properties";
 
+  private static final String FAKE_SERVICE_USER_AGENT = "DatabricksJdbcDriverOss-FakeService";
+
+  private static final String THRIFT_SERVER_FAKE_SERVICE_TEST_PROPS =
+      "thriftserverfakeservicetest.properties";
+
   private static final Properties properties = new Properties();
 
   static {
-    final String propsFileName =
-        shouldUseThriftClient
-            ? SQL_GATEWAY_FAKE_SERVICE_TEST_PROPS
-            : SQL_EXEC_FAKE_SERVICE_TEST_PROPS;
+    final String propsFileName = getPropsFileName();
 
     try (InputStream input =
         FakeServiceConfigLoader.class.getClassLoader().getResourceAsStream(propsFileName)) {
@@ -39,11 +51,45 @@ public class FakeServiceConfigLoader {
     }
   }
 
+  public static DatabricksJdbcConstants.FakeServiceType getCloudFetchFakeServiceType() {
+    switch (fakeServiceType) {
+      case THRIFT_SERVER:
+        return DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_THRIFT_SERVER;
+      case SQL_GATEWAY:
+        return DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_SQL_GATEWAY;
+      default:
+        return DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH;
+    }
+  }
+
+  public static DatabricksJdbcConstants.FakeServiceType getFakeServiceType() {
+    return fakeServiceType;
+  }
+
   public static String getProperty(String key) {
     return properties.getProperty(key);
   }
 
   public static Properties getProperties() {
     return properties;
+  }
+
+  public static String getFakeServiceUserAgent() {
+    return FAKE_SERVICE_USER_AGENT;
+  }
+
+  public static boolean shouldUseThriftClient() {
+    return !fakeServiceType.equals(DatabricksJdbcConstants.FakeServiceType.SQL_EXEC);
+  }
+
+  private static String getPropsFileName() {
+    switch (fakeServiceType) {
+      case THRIFT_SERVER:
+        return THRIFT_SERVER_FAKE_SERVICE_TEST_PROPS;
+      case SQL_GATEWAY:
+        return SQL_GATEWAY_FAKE_SERVICE_TEST_PROPS;
+      default:
+        return SQL_EXEC_FAKE_SERVICE_TEST_PROPS;
+    }
   }
 }

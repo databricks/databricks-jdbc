@@ -1,0 +1,33 @@
+{
+  "id" : "de01c7f8-ca7b-4f5f-83ee-914fb873b785",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAQwAAQwAAQsAAQAAABC97cYSG+pDuLt4nC9NXQraCwACAAAAEFYwSI3Z6E46jyIfuGpLXuQAAAsAAgAAAElTRUxFQ1QgaWQsIHRzIEZST00gbWFpbi5qZGJjX3Rlc3Rfc2NoZW1hLnRpbWVzdGFtcF90ZXN0X3RhYmxlIE9SREVSIEJZIGlkCgAFAAAAAAAAAAAMBQEKAAEAAAAAAB6EgAoAAgAAAAAYIaMAAAIFAgACBQMBAgUEAQwFBgIAAQECAAIBAgADAQIABAECAAUBAA8FCAwAAAAAAAA="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEDTm0ewaAk3kmOkM/78/jC0LAAIAAAAQhO+IF4veQxi64h4BFbYmAgYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAggNAgAAAAAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAgsAAQAAAAJpZAwAAg8AAQwAAAABDAABCAABAAAAAwAAAAgAAwAAAAELAAQAAAAAAAsAAQAAAAJ0cwwAAg8AAQwAAAABDAABCAABAAAACAAAAAgAAwAAAAILAAQAAAAAAAAIBQEAAAABAgUCAAgFBAAAAAAKBQUAAAAAAAAAYwoFBgAAAAAAAABjAgUHAAgNAQAAAAAKDQUAAAAAAAAAAAINEQAADAADDAABCAABAAAAAAACAAIADAADCgABAAAAAAAAAAAPAAIMAAAAAA8AAwwAAAACDAAEDwABCAAAAAMAAAABAAAAAgAAAAMLAAIAAAABAAAADAAHDwABCwAAAAMAAAATMjAyMS0wMS0wMSAxMDowMDowMAAAABcyMDIxLTA2LTE1IDEyOjM0OjU2Ljc4OQAAAAALAAIAAAABBAAAAAAMAAQMAAEIAAEAAAAAAAAAAAA=",
+    "headers" : {
+      "x-request-id" : "906aa980-f646-4159-bbcc-41443cecb104",
+      "date" : "Tue, 01 Apr 2025 22:29:13 GMT,Tue, 01 Apr 2025 22:29:13 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : [ "max-age=31536000; includeSubDomains; preload", "max-age=31536000; includeSubDomains; preload" ],
+      "x-content-type-options" : [ "nosniff", "nosniff" ],
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "de01c7f8-ca7b-4f5f-83ee-914fb873b785",
+  "insertionIndex" : 10
+}

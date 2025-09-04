@@ -1,0 +1,8 @@
+package com.databricks.jdbc.common;
+
+public enum AuthFlow {
+  TOKEN_PASSTHROUGH,
+  CLIENT_CREDENTIALS,
+  BROWSER_BASED_AUTHENTICATION,
+  AZURE_MANAGED_IDENTITIES
+}

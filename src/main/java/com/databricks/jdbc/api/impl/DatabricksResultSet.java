@@ -1,27 +1,37 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.ARRAY;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
-import com.databricks.jdbc.api.IDatabricksSession;
+import com.databricks.jdbc.api.IExecutionStatus;
+import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WarningUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
-import com.databricks.sdk.service.sql.StatementStatus;
+import com.databricks.jdbc.model.core.StatementStatus;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
 import java.io.Reader;
@@ -29,6 +39,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.sql.*;
+import java.time.*;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
@@ -37,9 +48,17 @@ import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksResultSetInternal {
 
+  enum ResultSetType {
+    SEA_ARROW_ENABLED,
+    SEA_INLINE,
+    THRIFT_ARROW_ENABLED,
+    THRIFT_INLINE,
+    UNASSIGNED
+  }
+
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
-  private final StatementStatus statementStatus;
+  private final ExecutionStatus executionStatus;
   private final StatementId statementId;
   private final IExecutionResult executionResult;
   private final DatabricksResultSetMetaData resultSetMetaData;
@@ -49,7 +68,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private boolean isClosed;
   private SQLWarning warnings = null;
   private boolean wasNull;
-  private boolean isResultInitialized = true;
+  private boolean silenceNonTerminalExceptions = false;
+
+  private ResultSetType resultSetType = ResultSetType.UNASSIGNED;
+
+  private boolean complexDatatypeSupport = false;
 
   // Constructor for SEA result set
   public DatabricksResultSet(
@@ -60,19 +83,32 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       StatementType statementType,
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
-      throws DatabricksParsingException {
-    this.statementStatus = statementStatus;
+      throws DatabricksSQLException {
+    this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     if (resultData != null) {
       this.executionResult =
           ExecutionResultFactory.getResultSet(
               resultData, resultManifest, statementId, session, parentStatement);
-      this.resultSetMetaData = new DatabricksResultSetMetaData(statementId, resultManifest);
+      this.resultSetMetaData =
+          new DatabricksResultSetMetaData(
+              statementId,
+              resultManifest,
+              resultData.getExternalLinks() != null,
+              session.getConnectionContext());
+      switch (resultManifest.getFormat()) {
+        case ARROW_STREAM:
+          this.resultSetType = ResultSetType.SEA_ARROW_ENABLED;
+          break;
+        case JSON_ARRAY:
+          this.resultSetType = ResultSetType.SEA_INLINE;
+          break;
+      }
     } else {
       executionResult = null;
       resultSetMetaData = null;
-      isResultInitialized = false;
     }
+    this.complexDatatypeSupport = session.getConnectionContext().isComplexDatatypeSupportEnabled();
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -87,8 +123,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       StatementType statementType,
       IDatabricksStatementInternal parentStatement,
       IExecutionResult executionResult,
-      DatabricksResultSetMetaData resultSetMetaData) {
-    this.statementStatus = statementStatus;
+      DatabricksResultSetMetaData resultSetMetaData,
+      boolean complexDatatypeSupport) {
+    this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     this.executionResult = executionResult;
     this.resultSetMetaData = resultSetMetaData;
@@ -97,6 +134,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.parentStatement = parentStatement;
     this.isClosed = false;
     this.wasNull = false;
+    this.complexDatatypeSupport = complexDatatypeSupport;
   }
 
   // Constructor for thrift result set
@@ -108,23 +146,38 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-    this.statementStatus = statementStatus;
+    this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     if (resultsResp != null) {
       this.executionResult =
           ExecutionResultFactory.getResultSet(resultsResp, session, parentStatement);
       long rowSize = executionResult.getRowCount();
+      List<String> arrowMetadata = null;
+      if (executionResult instanceof ArrowStreamResult) {
+        arrowMetadata = ((ArrowStreamResult) executionResult).getArrowMetadata();
+      }
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
               statementId,
               resultsResp.getResultSetMetadata(),
               rowSize,
-              executionResult.getChunkCount());
+              executionResult.getChunkCount(),
+              arrowMetadata,
+              session.getConnectionContext());
+      switch (resultsResp.getResultSetMetadata().getResultFormat()) {
+        case COLUMN_BASED_SET:
+          this.resultSetType = ResultSetType.THRIFT_INLINE;
+          break;
+        case URL_BASED_SET:
+        case ARROW_BASED_SET:
+          this.resultSetType = ResultSetType.THRIFT_ARROW_ENABLED;
+          break;
+      }
     } else {
       this.executionResult = null;
       this.resultSetMetaData = null;
-      this.isResultInitialized = false;
     }
+    this.complexDatatypeSupport = session.getConnectionContext().isComplexDatatypeSupportEnabled();
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -132,17 +185,18 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.wasNull = false;
   }
 
-  // Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls
+  /* Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls */
   public DatabricksResultSet(
       StatementStatus statementStatus,
       StatementId statementId,
       List<String> columnNames,
       List<String> columnTypeText,
-      List<Integer> columnTypes,
-      List<Integer> columnTypePrecisions,
+      int[] columnTypes,
+      int[] columnTypePrecisions,
+      int[] isNullables,
       Object[][] rows,
       StatementType statementType) {
-    this.statementStatus = statementStatus;
+    this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
     this.resultSetMetaData =
@@ -152,6 +206,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
             columnTypeText,
             columnTypes,
             columnTypePrecisions,
+            isNullables,
             rows.length);
     this.statementType = statementType;
     this.updateCount = null;
@@ -168,9 +223,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<String> columnTypeText,
       List<Integer> columnTypes,
       List<Integer> columnTypePrecisions,
+      List<Nullable> columnNullables,
       List<List<Object>> rows,
       StatementType statementType) {
-    this.statementStatus = statementStatus;
+    this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
     this.resultSetMetaData =
@@ -180,6 +236,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
             columnTypeText,
             columnTypes,
             columnTypePrecisions,
+            columnNullables,
             rows.size());
     this.statementType = statementType;
     this.updateCount = null;
@@ -195,7 +252,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<ColumnMetadata> columnMetadataList,
       List<List<Object>> rows,
       StatementType statementType) {
-    this.statementStatus = statementStatus;
+    this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
     this.resultSetMetaData =
@@ -210,7 +267,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean next() throws SQLException {
     checkIfClosed();
-    return this.executionResult.next();
+    boolean hasNext = this.executionResult.next();
+    TelemetryCollector.getInstance()
+        .recordResultSetIteration(
+            statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), hasNext);
+    return hasNext;
   }
 
   @Override
@@ -260,7 +321,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public float getFloat(int columnIndex) throws SQLException {
-    return getConvertedObject(columnIndex, ObjectConverter::toLong, () -> 0L);
+    return getConvertedObject(columnIndex, ObjectConverter::toFloat, () -> 0.0f);
   }
 
   @Override
@@ -274,9 +335,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         columnIndex,
         (converter, object) -> {
           BigDecimal bd = converter.toBigDecimal(object);
-          return (bd != null) ? bd.setScale(scale, RoundingMode.HALF_UP) : null;
+          return applyScaleToBigDecimal(bd, columnIndex, scale);
         },
-        () -> BigDecimal.ZERO.setScale(scale, RoundingMode.HALF_UP));
+        () -> null);
   }
 
   @Override
@@ -291,9 +352,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Time getTime(int columnIndex) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTime(int columnIndex)");
+    return getConvertedObject(columnIndex, ObjectConverter::toTime, () -> null);
   }
 
   @Override
@@ -411,13 +470,22 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public String getCursorName() throws SQLException {
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not supported in DatabricksResultSet - getCursorName()");
+    return EMPTY_STRING;
   }
 
   @Override
   public ResultSetMetaData getMetaData() throws SQLException {
     return resultSetMetaData;
+  }
+
+  /**
+   * Checks if the given type name represents a complex type (ARRAY, MAP, or STRUCT).
+   *
+   * @param typeName The type name to check
+   * @return true if the type name starts with ARRAY, MAP, or STRUCT, false otherwise
+   */
+  private static boolean isComplexType(String typeName) {
+    return typeName.startsWith(ARRAY) || typeName.startsWith(MAP) || typeName.startsWith(STRUCT);
   }
 
   @Override
@@ -428,7 +496,38 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return null;
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
+    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
+    // separate handling for complex data types
+    if (isComplexType(columnTypeName)) {
+      return handleComplexDataTypes(obj, columnTypeName);
+    }
+    // TODO: Add separate handling for INTERVAL JSON_ARRAY result format.
     return ConverterHelper.convertSqlTypeToJavaType(columnType, obj);
+  }
+
+  private Object handleComplexDataTypes(Object obj, String columnName)
+      throws DatabricksParsingException {
+    if (complexDatatypeSupport) return obj;
+    if (resultSetType == ResultSetType.SEA_INLINE) {
+      return handleComplexDataTypesForSEAInline(obj, columnName);
+    }
+    return obj.toString();
+  }
+
+  private Object handleComplexDataTypesForSEAInline(Object obj, String columnName)
+      throws DatabricksParsingException {
+    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    if (columnName.startsWith(ARRAY)) {
+      return parser.parseJsonStringToDbArray(obj.toString(), columnName).toString();
+    } else if (columnName.startsWith(MAP)) {
+      return parser.parseJsonStringToDbMap(obj.toString(), columnName).toString();
+    } else if (columnName.startsWith(STRUCT)) {
+      return parser.parseJsonStringToDbStruct(obj.toString(), columnName).toString();
+    }
+    throw new DatabricksParsingException(
+        "Unexpected metadata format. Type is not a COMPLEX: " + columnName,
+        DatabricksDriverErrorCode.JSON_PARSING_ERROR,
+        silenceNonTerminalExceptions);
   }
 
   @Override
@@ -440,7 +539,15 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public int findColumn(String columnLabel) throws SQLException {
     checkIfClosed();
-    return getColumnNameIndex(columnLabel);
+    int columnIndex = getColumnNameIndex(columnLabel);
+    if (columnIndex == -1) {
+      LOGGER.error("Column not found: {}", columnLabel);
+      throw new DatabricksSQLException(
+          "Column not found: " + columnLabel,
+          DatabricksDriverErrorCode.RESULT_SET_ERROR,
+          silenceNonTerminalExceptions);
+    }
+    return columnIndex;
   }
 
   @Override
@@ -531,8 +638,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean absolute(int row) throws SQLException {
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Databricks JDBC does not support random access (absolute)");
+    if (row < 1 || row < executionResult.getCurrentRow()) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Invalid operation for forward only ResultSets");
+    }
+    while (executionResult.getCurrentRow() < row - 1) {
+      if (!next()) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override
@@ -570,7 +685,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     /* As we fetch chunks of data together,
     setting fetchSize is an overkill.
     Hence, we don't support it.*/
-    LOGGER.debug(String.format("public void setFetchSize(int rows = {%s})", rows));
+    LOGGER.debug("public void setFetchSize(int rows = {})", rows);
     checkIfClosed();
     addWarningAndLog("As FetchSize is not supported in the Databricks JDBC, ignoring it");
   }
@@ -747,6 +862,57 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     checkIfClosed();
     throw new DatabricksSQLFeatureNotSupportedException(
         "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject");
+  }
+
+  @Override
+  public void updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    LOGGER.debug(
+        "public void updateObject(int columnIndex = {}, Object x = {}, SQLType targetSqlType = {}, int scaleOrLength = {})",
+        columnIndex,
+        x,
+        targetSqlType,
+        scaleOrLength);
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength)");
+  }
+
+  @Override
+  public void updateObject(String columnLabel, Object x, SQLType targetSqlType, int scaleOrLength)
+      throws SQLException {
+    LOGGER.debug(
+        "public void updateObject(String columnLabel = {}, Object x = {}, SQLType targetSqlType = {}, int scaleOrLength = {})",
+        columnLabel,
+        x,
+        targetSqlType,
+        scaleOrLength);
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject(String columnLabel, Object x, SQLType targetSqlType, int scaleOrLength)");
+  }
+
+  public void updateObject(int columnIndex, Object x, SQLType targetSqlType) throws SQLException {
+    LOGGER.debug(
+        "public void updateObject(int columnIndex = {}, Object x = {}, SQLType targetSqlType = {})",
+        columnIndex,
+        x,
+        targetSqlType);
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject(int columnIndex, Object x, SQLType targetSqlType)");
+  }
+
+  public void updateObject(String columnLabel, Object x, SQLType targetSqlType)
+      throws SQLException {
+    LOGGER.debug(
+        "public void updateObject(String columnLabel = {}, Object x = {}, SQLType targetSqlType = {})",
+        columnLabel,
+        x,
+        targetSqlType);
+    checkIfClosed();
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks JDBC has ResultSet as CONCUR_READ_ONLY. Doesn't support update function : updateObject(String columnLabel, Object x, SQLType targetSqlType)");
   }
 
   @Override
@@ -992,10 +1158,99 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   @Override
+  /**
+   * Retrieves the SQL `Array` from the specified column index in the result set.
+   *
+   * @param columnIndex the index of the column in the result set (1-based)
+   * @return an `Array` object if the column contains an array; `null` if the value is SQL `NULL`
+   * @throws SQLException if the column is not of `ARRAY` type or if any SQL error occurs
+   */
   public Array getArray(int columnIndex) throws SQLException {
+    LOGGER.debug("Getting Array from column index: {}", columnIndex);
+    if (!complexDatatypeSupport) {
+      LOGGER.error(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
+      throw new DatabricksSQLException(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
+    }
+    if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
+        || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
+      LOGGER.error("Complex data types are not supported in inline mode");
+      throw new DatabricksSQLException(
+          "Complex data types are not supported in inline mode",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
+    }
     checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getArray(int columnIndex)");
+    Object obj = getObjectInternal(columnIndex);
+
+    return (DatabricksArray) obj;
+  }
+
+  /**
+   * Retrieves the SQL `Struct` from the specified column index in the result set.
+   *
+   * @param columnIndex the index of the column in the result set (1-based)
+   * @return a `Struct` object if the column contains a struct; `null` if the value is SQL `NULL`
+   * @throws SQLException if the column is not of `STRUCT` type or if any SQL error occurs
+   */
+  @Override
+  public Struct getStruct(int columnIndex) throws SQLException {
+    LOGGER.debug("Getting Struct from column index: {}", columnIndex);
+    if (!complexDatatypeSupport) {
+      LOGGER.error(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
+      throw new DatabricksSQLException(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
+    }
+    if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
+        || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
+      LOGGER.error("Complex data types are not supported in inline mode");
+      throw new DatabricksSQLException(
+          "Complex data types are not supported in inline mode",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
+    }
+    checkIfClosed();
+    Object obj = getObjectInternal(columnIndex);
+
+    return (DatabricksStruct) obj;
+  }
+
+  /**
+   * Retrieves the SQL `Map` from the specified column index in the result set.
+   *
+   * @param columnIndex the index of the column in the result set (1-based)
+   * @return a `Map<String, Object>` if the column contains a map; `null` if the value is SQL `NULL`
+   * @throws SQLException if the column is not of `MAP` type or if any SQL error occurs
+   */
+  @Override
+  public Map getMap(int columnIndex) throws SQLException {
+    LOGGER.debug("Getting Map from column index: {}", columnIndex);
+    if (!complexDatatypeSupport) {
+      LOGGER.error(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.");
+      throw new DatabricksSQLException(
+          "Complex datatype support support is disabled. Use connection parameter `EnableComplexDatatypeSupport=1` to enable it.",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
+    }
+    if (this.resultSetType.equals(ResultSetType.THRIFT_INLINE)
+        || this.resultSetType.equals(ResultSetType.SEA_INLINE)) {
+      LOGGER.error("Complex data types are not supported in inline mode");
+      throw new DatabricksSQLException(
+          "Complex data types are not supported in inline mode",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
+    }
+    checkIfClosed();
+    Object obj = getObjectInternal(columnIndex);
+
+    return (Map<String, Object>) obj;
   }
 
   @Override
@@ -1027,11 +1282,37 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     return getArray(getColumnNameIndex(columnLabel));
   }
 
+  public Struct getStruct(String columnLabel) throws SQLException {
+    checkIfClosed();
+    return getStruct(getColumnNameIndex(columnLabel));
+  }
+
+  public Map getMap(String columnLabel) throws SQLException {
+    checkIfClosed();
+    return getMap(getColumnNameIndex(columnLabel));
+  }
+
   @Override
   public Date getDate(int columnIndex, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getDate(int columnIndex, Calendar cal)");
+    Date date = getDate(columnIndex);
+    if (date != null && cal != null) {
+      Calendar useCal = (Calendar) cal.clone();
+
+      // Convert Date to LocalDate
+      LocalDate ld = date.toLocalDate();
+
+      // Set date fields in calendar (set time to midnight)
+      useCal.set(Calendar.YEAR, ld.getYear());
+      useCal.set(Calendar.MONTH, ld.getMonthValue() - 1); // Calendar months are 0-based
+      useCal.set(Calendar.DAY_OF_MONTH, ld.getDayOfMonth());
+      useCal.set(Calendar.HOUR_OF_DAY, 0);
+      useCal.set(Calendar.MINUTE, 0);
+      useCal.set(Calendar.SECOND, 0);
+      useCal.set(Calendar.MILLISECOND, 0);
+
+      return new Date(useCal.getTimeInMillis());
+    }
+    return date;
   }
 
   @Override
@@ -1042,9 +1323,26 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Time getTime(int columnIndex, Calendar cal) throws SQLException {
-    checkIfClosed();
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getTime(int columnIndex, Calendar cal)");
+    Time time = getTime(columnIndex);
+    if (time != null && cal != null) {
+      Calendar useCal = (Calendar) cal.clone();
+
+      // Convert Time to LocalTime
+      LocalTime lt = time.toLocalTime();
+
+      // Reset date to epoch (1970-01-01)
+      useCal.set(Calendar.YEAR, 1970);
+      useCal.set(Calendar.MONTH, Calendar.JANUARY);
+      useCal.set(Calendar.DAY_OF_MONTH, 1);
+      // Set time fields in calendar (keeping current date)
+      useCal.set(Calendar.HOUR_OF_DAY, lt.getHour());
+      useCal.set(Calendar.MINUTE, lt.getMinute());
+      useCal.set(Calendar.SECOND, lt.getSecond());
+      useCal.set(Calendar.MILLISECOND, (int) time.getTime() % 1_000);
+
+      return new Time(useCal.getTimeInMillis());
+    }
+    return time;
   }
 
   @Override
@@ -1055,16 +1353,24 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public Timestamp getTimestamp(int columnIndex, Calendar cal) throws SQLException {
-    Timestamp defaultTimestamp = getTimestamp(columnIndex);
+    Timestamp timestamp = getTimestamp(columnIndex);
+    if (timestamp != null && cal != null) {
+      Calendar useCal = (Calendar) cal.clone();
+      // Convert timestamp to LocalDateTime
+      LocalDateTime ldt = timestamp.toLocalDateTime();
 
-    if (defaultTimestamp != null && cal != null) {
-      // Clone the calendar to avoid modifying the passed instance
-      Calendar tempCal = (Calendar) cal.clone();
-      tempCal.setTimeInMillis(defaultTimestamp.getTime());
-      return new Timestamp(tempCal.getTimeInMillis());
+      // Set the calendar fields using LocalDateTime components
+      useCal.set(Calendar.YEAR, ldt.getYear());
+      useCal.set(Calendar.MONTH, ldt.getMonthValue() - 1); // Calendar months are 0-based
+      useCal.set(Calendar.DAY_OF_MONTH, ldt.getDayOfMonth());
+      useCal.set(Calendar.HOUR_OF_DAY, ldt.getHour());
+      useCal.set(Calendar.MINUTE, ldt.getMinute());
+      useCal.set(Calendar.SECOND, ldt.getSecond());
+      useCal.set(Calendar.MILLISECOND, timestamp.getNanos() / 1_000_000);
+
+      return new Timestamp(useCal.getTimeInMillis());
     }
-
-    return defaultTimestamp;
+    return timestamp;
   }
 
   @Override
@@ -1170,8 +1476,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public int getHoldability() throws SQLException {
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksResultSet - getHoldability()");
+    checkIfClosed();
+    return ResultSet.CLOSE_CURSORS_AT_COMMIT;
   }
 
   @Override
@@ -1492,7 +1798,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Class<T> type). ErrorMessage: %s",
               e.getMessage());
       LOGGER.error(errorMessage);
-      throw new DatabricksSQLException(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
   }
 
@@ -1507,7 +1813,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (iface.isInstance(this)) {
       return (T) this;
     }
-    throw new DatabricksSQLException(
+    throw new DatabricksValidationException(
         String.format(
             "Class {%s} cannot be wrapped from {%s}", this.getClass().getName(), iface.getName()));
   }
@@ -1525,7 +1831,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public StatementStatus getStatementStatus() {
-    return statementStatus;
+    return executionStatus.getSdkStatus();
+  }
+
+  @Override
+  public IExecutionStatus getExecutionStatus() {
+    return executionStatus;
   }
 
   @Override
@@ -1564,7 +1875,17 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (executionResult instanceof VolumeOperationResult) {
       return ((VolumeOperationResult) executionResult).getVolumeOperationInputStream();
     }
-    throw new DatabricksSQLException("Invalid volume operation");
+    throw new DatabricksValidationException("Invalid volume operation");
+  }
+
+  @Override
+  public void setSilenceNonTerminalExceptions() {
+    silenceNonTerminalExceptions = true;
+  }
+
+  @Override
+  public void unsetSilenceNonTerminalExceptions() {
+    silenceNonTerminalExceptions = false;
   }
 
   private void addWarningAndLog(String warningMessage) {
@@ -1574,7 +1895,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private Object getObjectInternal(int columnIndex) throws SQLException {
     if (columnIndex <= 0) {
-      throw new DatabricksSQLException("Invalid column index");
+      throw new DatabricksSQLException(
+          "Invalid column index",
+          DatabricksDriverErrorCode.INVALID_STATE,
+          silenceNonTerminalExceptions);
     }
     Object object = executionResult.getObject(columnIndex - 1);
     this.wasNull = object == null;
@@ -1587,7 +1911,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private void checkIfClosed() throws SQLException {
     if (this.isClosed) {
-      throw new DatabricksSQLException("Operation not allowed - ResultSet is closed");
+      throw new DatabricksSQLException(
+          "Operation not allowed - ResultSet is closed",
+          DatabricksDriverErrorCode.RESULT_SET_CLOSED);
     }
   }
 
@@ -1607,5 +1933,31 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
     return convertMethod.apply(converter, obj);
+  }
+
+  private BigDecimal applyScaleToBigDecimal(BigDecimal bigDecimal, int columnIndex, int scale)
+      throws SQLException {
+    if (bigDecimal == null) {
+      return null;
+    }
+    // Double/Float columns do not have scale defined, hence, return them at full scale
+    if (resultSetMetaData.getColumnType(columnIndex) == Types.DOUBLE
+        || resultSetMetaData.getColumnType(columnIndex) == Types.FLOAT) {
+      return bigDecimal;
+    }
+    return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
+  }
+
+  @Override
+  public String toString() {
+    return (new ToStringer(DatabricksResultSet.class))
+        .add("statementStatus", this.executionStatus)
+        .add("statementId", this.statementId)
+        .add("statementType", this.statementType)
+        .add("updateCount", this.updateCount)
+        .add("isClosed", this.isClosed)
+        .add("wasNull", this.wasNull)
+        .add("resultSetType", this.resultSetType)
+        .toString();
   }
 }

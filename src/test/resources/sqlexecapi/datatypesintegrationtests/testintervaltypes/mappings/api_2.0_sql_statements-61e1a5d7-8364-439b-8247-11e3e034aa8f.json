@@ -1,0 +1,33 @@
+{
+  "id" : "61e1a5d7-8364-439b-8247-11e3e034aa8f",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"CREATE TABLE IF NOT EXISTS main.jdbc_test_schema.intervals_demo (iv_year INTERVAL YEAR, iv_month INTERVAL MONTH, iv_year_to_mon INTERVAL YEAR TO MONTH, iv_day INTERVAL DAY, iv_day_to_hour INTERVAL DAY TO HOUR, iv_day_to_min INTERVAL DAY TO MINUTE, iv_day_to_sec INTERVAL DAY TO SECOND, iv_hour INTERVAL HOUR, iv_hour_to_min INTERVAL HOUR TO MINUTE, iv_hour_to_sec INTERVAL HOUR TO SECOND, iv_min_to_sec INTERVAL MINUTE TO SECOND, iv_second INTERVAL SECOND)\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01f03748-13ca-1839-bf0c-b0ea5c9fa43a\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f03748-1682-1ad4-a53d-2ec4dfb65451\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":0},\"total_chunk_count\":0,\"total_row_count\":0,\"total_byte_count\":0,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{}}",
+    "headers" : {
+      "x-request-id" : "173e72ac-3980-41f5-a43a-ccaf4471102b",
+      "date" : "Thu, 22 May 2025 20:05:21 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "61e1a5d7-8364-439b-8247-11e3e034aa8f",
+  "insertionIndex" : 11
+}

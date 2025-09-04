@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
@@ -12,7 +13,9 @@ public class BooleanConverter implements ObjectConverter {
     } else if (object instanceof String) {
       return Boolean.parseBoolean((String) object);
     } else {
-      throw new DatabricksSQLException("Unsupported object type for BooleanObjectConverter");
+      throw new DatabricksSQLException(
+          "Unsupported object type for BooleanObjectConverter",
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
     }
   }
 

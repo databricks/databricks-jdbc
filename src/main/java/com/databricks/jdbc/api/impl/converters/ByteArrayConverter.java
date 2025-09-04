@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.nio.ByteBuffer;
 import java.util.Base64;
 
@@ -22,7 +24,8 @@ public class ByteArrayConverter implements ObjectConverter {
       }
     } else {
       throw new DatabricksSQLException(
-          "Unsupported type for ByteArrayObjectConverter : " + object.getClass());
+          "Unsupported type for ByteArrayObjectConverter : " + object.getClass(),
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
     }
   }
 
@@ -32,17 +35,7 @@ public class ByteArrayConverter implements ObjectConverter {
     if (byteArray.length > 0) {
       return byteArray[0];
     } else {
-      throw new DatabricksSQLException("ByteArray is empty, cannot convert to single byte");
-    }
-  }
-
-  @Override
-  public boolean toBoolean(Object object) throws DatabricksSQLException {
-    byte[] byteArray = toByteArray(object);
-    if (byteArray.length > 0) {
-      return byteArray[0] != 0;
-    } else {
-      return false;
+      throw new DatabricksValidationException("ByteArray is empty, cannot convert to single byte");
     }
   }
 

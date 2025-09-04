@@ -29,8 +29,8 @@ public class Slf4jFormatterTest {
     record.setSourceMethodName("testMethod");
 
     // Set a specific timestamp for testing
-    Date date = new Date(Instant.parse("2021-07-01T00:00:00Z").toEpochMilli());
-    record.setMillis(date.getTime());
+    Instant instant = Instant.parse("2021-07-01T00:00:00Z");
+    record.setInstant(instant);
 
     // Format the log record
     String formattedLog = formatter.format(record);
@@ -38,7 +38,7 @@ public class Slf4jFormatterTest {
     // Expected format: "yyyy-MM-dd HH:mm:ss LEVEL ClassName#methodName - message"
     SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
     dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-    String expectedTimestamp = dateFormat.format(date);
+    String expectedTimestamp = dateFormat.format(Date.from(instant));
     String expected =
         String.format("%s INFO TestClass#testMethod - Test message%n", expectedTimestamp);
 

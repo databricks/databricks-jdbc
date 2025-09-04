@@ -1,0 +1,59 @@
+name: Concurrency Execution Tests
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to checkout'
+        required: false
+        default: 'main'
+      repository:
+        description: 'Repository to checkout (e.g., user/repo)'
+        required: false
+        default: 'databricks/databricks-jdbc'
+
+jobs:
+  concurrency-tests:
+    name: Run Concurrency Execution Tests
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+    environment: azure-prod
+    strategy:
+      fail-fast: false
+      matrix:
+        java-version: [21]
+
+    steps:
+      - name: Checkout PR or Manual Dispatch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || inputs.branch || github.ref_name }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || inputs.repository || github.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'adopt'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Run Concurrency Execution Tests
+        run: mvn -B test -Dtest=com.databricks.jdbc.integration.e2e.ConcurrentExecutionTests -DargLine="-ea"
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.JDBC_PAT_TEST_TOKEN }}
+          DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+          DATABRICKS_HOST: ${{ secrets.JDBC_PAT_TEST_HOST_NAME }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.JDBC_PAT_TEST_HTTP_PATH }}
+          DATABRICKS_DOGFOOD_HTTP_PATH: ${{ secrets.DATABRICKS_DOGFOOD_HTTP_PATH }}
+          DATABRICKS_CATALOG: main
+          DATABRICKS_SCHEMA: oss_jdbc_tests

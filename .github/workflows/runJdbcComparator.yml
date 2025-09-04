@@ -1,0 +1,90 @@
+name: JDBC Driver Comparison
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # Run at 00:00 UTC on Monday (1)
+  workflow_dispatch:    # Allow manual trigger
+
+jobs:
+  comparator:
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Merge main into jdbc-comparator
+        run: |
+          git checkout jdbc-comparator
+          git merge main --no-edit || {
+            echo "Merge conflict occurred"
+            git merge --abort
+            exit 1
+          }
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Set up PAT
+        env:
+          DATABRICKS_COMPARATOR_TOKEN: ${{ secrets.DATABRICKS_COMPARATOR_TOKEN }}
+        run: |
+          echo "DATABRICKS_COMPARATOR_TOKEN=${DATABRICKS_COMPARATOR_TOKEN}" >> $GITHUB_ENV
+
+      - name: Run Tests
+        run: mvn test -Dtest=JDBCDriverComparisonTest
+
+      - name: Format Email Content
+        run: |
+          chmod +x bin/format-comparator-email.sh
+          ./bin/format-comparator-email.sh
+
+      - name: Check for Report and Differences
+        id: check_differences
+        run: |
+          if [ -f "jdbc-comparison-report.txt" ]; then
+            if grep -q "No differences found" "jdbc-comparison-report.txt"; then
+              echo "has_differences=false" >> $GITHUB_OUTPUT
+            else
+              echo "has_differences=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Report file not found"
+            exit 1
+          fi
+
+      - name: Send Email
+        if: steps.check_differences.outputs.has_differences == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: JDBC Driver Comparison Results - 🚨Differences Found
+          html_body: file://jdbc-comparison-report.html
+          to: ${{ secrets.EMAIL_RECIPIENTS }}
+          from: JDBC Comparator Runner
+          content_type: text/html
+
+      - name: Upload Report as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jdbc-comparison-report
+          path: |
+            jdbc-comparison-report.txt
+            jdbc-comparison-report.html

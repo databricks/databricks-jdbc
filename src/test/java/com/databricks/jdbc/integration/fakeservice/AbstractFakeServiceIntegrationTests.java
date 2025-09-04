@@ -2,6 +2,7 @@ package com.databricks.jdbc.integration.fakeservice;
 
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.CLOUD_FETCH_HOST_PROP;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.DATABRICKS_HOST_PROP;
+import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.JWT_TOKEN_ENDPOINT_HOST_PROP;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
@@ -18,33 +19,61 @@ public abstract class AbstractFakeServiceIntegrationTests {
 
   /**
    * {@link FakeServiceExtension} for {@link DatabricksJdbcConstants.FakeServiceType#SQL_EXEC}.
-   * Intercepts all requests to SQL Execution API.
+   * Intercepts all requests to SQL Execution API and uses a custom user agent.
    */
   @RegisterExtension
   private static final FakeServiceExtension databricksApiExtension =
       new FakeServiceExtension(
           new DatabricksWireMockExtension.Builder()
               .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          FakeServiceConfigLoader.shouldUseThriftClient
-              ? DatabricksJdbcConstants.FakeServiceType.SQL_GATEWAY
-              : DatabricksJdbcConstants.FakeServiceType.SQL_EXEC,
+                  wireMockConfig()
+                      .dynamicPort()
+                      .dynamicHttpsPort()
+                      .extensions(getExtensions())
+                      .httpClientFactory(
+                          new FakeServiceHttpClientFactory(
+                              FakeServiceConfigLoader.getFakeServiceUserAgent()))),
+          FakeServiceConfigLoader.getFakeServiceType(),
           FakeServiceConfigLoader.getProperty(DATABRICKS_HOST_PROP));
 
   /**
    * {@link FakeServiceExtension} for {@link DatabricksJdbcConstants.FakeServiceType#CLOUD_FETCH}.
-   * Intercepts all requests to Cloud Fetch API.
+   * Intercepts all requests to Cloud Fetch API and uses a custom user agent.
    */
   @RegisterExtension
   private static final FakeServiceExtension cloudFetchApiExtension =
       new FakeServiceExtension(
           new DatabricksWireMockExtension.Builder()
               .options(
-                  wireMockConfig().dynamicPort().dynamicHttpsPort().extensions(getExtensions())),
-          FakeServiceConfigLoader.shouldUseThriftClient
-              ? DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH_SQL_GATEWAY
-              : DatabricksJdbcConstants.FakeServiceType.CLOUD_FETCH,
+                  wireMockConfig()
+                      .dynamicPort()
+                      .dynamicHttpsPort()
+                      .extensions(getExtensions())
+                      .httpClientFactory(
+                          new FakeServiceHttpClientFactory(
+                              FakeServiceConfigLoader.getFakeServiceUserAgent()))),
+          FakeServiceConfigLoader.getCloudFetchFakeServiceType(),
           FakeServiceConfigLoader.getProperty(CLOUD_FETCH_HOST_PROP));
+
+  /**
+   * {@link FakeServiceExtension} for {@link
+   * DatabricksJdbcConstants.FakeServiceType#JWT_TOKEN_ENDPOINT}. Iy uses a custom user agent for
+   * all its interactions with the endpoint in the record mode.
+   */
+  @RegisterExtension
+  private static final FakeServiceExtension tokenEndpointApiExtension =
+      new FakeServiceExtension(
+          new DatabricksWireMockExtension.Builder()
+              .options(
+                  wireMockConfig()
+                      .dynamicPort()
+                      .dynamicHttpsPort()
+                      .extensions(getExtensions())
+                      .httpClientFactory(
+                          new FakeServiceHttpClientFactory(
+                              FakeServiceConfigLoader.getFakeServiceUserAgent()))),
+          DatabricksJdbcConstants.FakeServiceType.JWT_TOKEN_ENDPOINT,
+          FakeServiceConfigLoader.getProperty(JWT_TOKEN_ENDPOINT_HOST_PROP));
 
   /**
    * Resets the potential mutations (e.g., URLs set by {@link #setDatabricksApiTargetUrl}, {@link
@@ -79,7 +108,8 @@ public abstract class AbstractFakeServiceIntegrationTests {
    * com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient}.
    */
   protected boolean isSqlExecSdkClient() {
-    return !FakeServiceConfigLoader.shouldUseThriftClient;
+    return FakeServiceConfigLoader.getFakeServiceType()
+        .equals(DatabricksJdbcConstants.FakeServiceType.SQL_EXEC);
   }
 
   /** Returns the extensions to be used for stubbing. */
