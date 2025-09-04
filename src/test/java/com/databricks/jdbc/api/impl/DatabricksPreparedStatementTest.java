@@ -5,6 +5,7 @@ import static java.sql.JDBCType.DECIMAL;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -43,6 +44,8 @@ public class DatabricksPreparedStatementTest {
       "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?)";
   private static final String JDBC_URL =
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
+  private static final String JDBC_URL_WITH_BATCHED_INSERTS =
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;EnableBatchedInserts=1;";
   private static final String JDBC_URL_WITH_MANY_PARAMETERS =
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;supportManyParameters=1;";
   private static final String JDBC_CLUSTER_URL_WITH_MANY_PARAMETERS =
@@ -215,7 +218,7 @@ public class DatabricksPreparedStatementTest {
   @Test
   public void testExecuteBatchStatement() throws Exception {
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_BATCHED_INSERTS, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement =
         new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
@@ -238,7 +241,9 @@ public class DatabricksPreparedStatementTest {
             any(IDatabricksSession.class),
             eq(statement)))
         .thenReturn(resultSet);
-    when(resultSet.getUpdateCount()).thenReturn(4L); // Multi-row INSERT returns total rows affected
+    lenient()
+        .when(resultSet.getUpdateCount())
+        .thenReturn(4L); // Multi-row INSERT returns total rows affected
 
     int[] expectedCountsResult = {1, 1, 1, 1};
     int[] updateCounts = statement.executeBatch();
@@ -270,7 +275,7 @@ public class DatabricksPreparedStatementTest {
   @Test
   public void testExecuteBatchStatementThrowsError() throws Exception {
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_BATCHED_INSERTS, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement =
         new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
@@ -308,7 +313,7 @@ public class DatabricksPreparedStatementTest {
   @Test
   public void testExecuteLargeBatchStatement() throws Exception {
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_BATCHED_INSERTS, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement =
         new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
@@ -331,7 +336,9 @@ public class DatabricksPreparedStatementTest {
             any(IDatabricksSession.class),
             eq(statement)))
         .thenReturn(resultSet);
-    when(resultSet.getUpdateCount()).thenReturn(4L); // Multi-row INSERT returns total rows affected
+    lenient()
+        .when(resultSet.getUpdateCount())
+        .thenReturn(4L); // Multi-row INSERT returns total rows affected
 
     long[] expectedCountsResult = {1, 1, 1, 1};
     long[] updateCounts = statement.executeLargeBatch();
@@ -344,7 +351,7 @@ public class DatabricksPreparedStatementTest {
   @Test
   public void testExecuteLargeBatchStatementThrowsError() throws Exception {
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_BATCHED_INSERTS, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement =
         new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
@@ -647,7 +654,7 @@ public class DatabricksPreparedStatementTest {
     String largeBatchStatement =
         "INSERT INTO products (id, name, price, category, description) VALUES (?, ?, ?, ?, ?)";
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_BATCHED_INSERTS, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement =
         new DatabricksPreparedStatement(connection, largeBatchStatement);
@@ -674,7 +681,8 @@ public class DatabricksPreparedStatementTest {
             any(IDatabricksSession.class),
             eq(statement)))
         .thenReturn(resultSet);
-    when(resultSet.getUpdateCount())
+    lenient()
+        .when(resultSet.getUpdateCount())
         .thenReturn(51L) // First chunk: 51 rows
         .thenReturn(9L); // Second chunk: 9 rows
 
@@ -715,7 +723,7 @@ public class DatabricksPreparedStatementTest {
 
     String wideTableStatement = largeSqlBuilder.toString();
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_BATCHED_INSERTS, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement =
         new DatabricksPreparedStatement(connection, wideTableStatement);
@@ -739,7 +747,7 @@ public class DatabricksPreparedStatementTest {
             any(IDatabricksSession.class),
             eq(statement)))
         .thenReturn(resultSet);
-    when(resultSet.getUpdateCount()).thenReturn(1L); // Each execution affects 1 row
+    lenient().when(resultSet.getUpdateCount()).thenReturn(1L); // Each execution affects 1 row
 
     long[] updateCounts = statement.executeLargeBatch();
 
@@ -762,7 +770,7 @@ public class DatabricksPreparedStatementTest {
 
     String simpleStatement = "INSERT INTO users (id, name) VALUES (?, ?)";
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_BATCHED_INSERTS, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     DatabricksPreparedStatement statement =
         new DatabricksPreparedStatement(connection, simpleStatement);
@@ -784,7 +792,10 @@ public class DatabricksPreparedStatementTest {
             any(IDatabricksSession.class),
             eq(statement)))
         .thenReturn(resultSet);
-    when(resultSet.getUpdateCount()).thenReturn(128L).thenReturn(72L); // Two chunks: 128 + 72
+    lenient()
+        .when(resultSet.getUpdateCount())
+        .thenReturn(128L)
+        .thenReturn(72L); // Two chunks: 128 + 72
 
     long[] updateCounts = statement.executeLargeBatch();
 
