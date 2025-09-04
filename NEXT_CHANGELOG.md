@@ -9,6 +9,7 @@
 - Added a client property `enableVolumeOperations` to enable  GET/PUT/REMOVE volume operations on a stream. For backward compatibility, allowedVolumeIngestionPaths can also be used for REMOVE operation.
 - Support for fetching schemas across all catalogs (when catalog is specified as null or a wildcard) in `DatabaseMetaData#getSchemas` API in SQL Execution mode.
 - **Configurable SQL validation in isValid()**: Added `EnableSQLValidationForIsValid` connection property to control whether `isValid()` method executes an actual SQL query for server-side validation. Default value is 0.
+- Implement multi-row INSERT batching optimization for prepared statements to improve performance when executing large batches of INSERT operations.
 
 ### Updated
 - Databricks SDK dependency upgraded to latest version 0.60.0
