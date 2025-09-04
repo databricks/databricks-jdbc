@@ -631,48 +631,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     LOGGER.warn("public void endRequest() is a no-op method");
   }
 
-  @Override
-  public boolean setShardingKeyIfValid(
-      ShardingKey shardingKey, ShardingKey superShardingKey, int timeout)
-      throws DatabricksSQLFeatureNotImplementedException {
-    LOGGER.debug(
-        "public boolean setShardingKeyIfValid(ShardingKey shardingKey = {},ShardingKey superShardingKey = {}, int timeout = {})",
-        shardingKey,
-        superShardingKey,
-        timeout);
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setShardingKeyIfValid(ShardingKey shardingKey, ShardingKey superShardingKey, int timeout)");
-  }
-
-  @Override
-  public boolean setShardingKeyIfValid(ShardingKey shardingKey, int timeout)
-      throws DatabricksSQLFeatureNotImplementedException {
-    LOGGER.debug(
-        "public boolean setShardingKeyIfValid(ShardingKey shardingKey = {}, int timeout = {})",
-        shardingKey,
-        timeout);
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setShardingKeyIfValid(ShardingKey shardingKey, int timeout)");
-  }
-
-  @Override
-  public void setShardingKey(ShardingKey shardingKey, ShardingKey superShardingKey)
-      throws DatabricksSQLFeatureNotImplementedException {
-    LOGGER.debug(
-        "public void setShardingKey(ShardingKey shardingKey = {}, ShardingKey superShardingKey = {})",
-        shardingKey,
-        superShardingKey);
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setShardingKey(ShardingKey shardingKey, ShardingKey superShardingKey)");
-  }
-
-  @Override
-  public void setShardingKey(ShardingKey shardingKey)
-      throws DatabricksSQLFeatureNotImplementedException {
-    LOGGER.debug("public void setShardingKey(ShardingKey shardingKey = {})", shardingKey);
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setShardingKey(ShardingKey shardingKey)");
-  }
+  // JDBC 4.3 (Java 9+) ShardingKey APIs are intentionally omitted for JDK 8 compatibility.
 
   @Override
   public Connection getConnection() {
