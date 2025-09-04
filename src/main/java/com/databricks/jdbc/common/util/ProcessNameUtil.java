@@ -43,19 +43,6 @@ public class ProcessNameUtil {
         String[] parts = command.split(" ");
         return getSimpleClassName(parts[0]);
       }
-
-      // Try to get application name from process command
-      var cmdOptional = ProcessHandle.current().info().command();
-      if (cmdOptional.isPresent()) {
-        String cmd = cmdOptional.get();
-        // Handle both Windows and Unix paths
-        String filename = cmd.substring(Math.max(cmd.lastIndexOf('/'), cmd.lastIndexOf('\\')) + 1);
-        int dotIndex = filename.lastIndexOf('.');
-        if (dotIndex > 0) {
-          filename = filename.substring(0, dotIndex);
-        }
-        return filename;
-      }
       return null;
     } catch (Exception e) {
       return null;

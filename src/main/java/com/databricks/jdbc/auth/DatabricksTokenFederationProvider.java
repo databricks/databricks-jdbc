@@ -46,16 +46,17 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksTokenFederationProvider.class);
   private Token token;
-  private static final Map<String, String> TOKEN_EXCHANGE_PARAMS =
-      Map.of(
-          "grant_type",
-          "urn:ietf:params:oauth:grant-type:token-exchange",
-          "scope",
-          "sql",
-          "subject_token_type",
-          "urn:ietf:params:oauth:token-type:jwt",
-          "return_original_token_if_authenticated",
-          "true");
+  private static final Map<String, String> TOKEN_EXCHANGE_PARAMS;
+
+  static {
+    java.util.HashMap<String, String> m = new java.util.HashMap<String, String>();
+    m.put("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange");
+    m.put("scope", "sql");
+    m.put("subject_token_type", "urn:ietf:params:oauth:token-type:jwt");
+    m.put("return_original_token_if_authenticated", "true");
+    TOKEN_EXCHANGE_PARAMS = java.util.Collections.unmodifiableMap(m);
+  }
+
   private static final String TOKEN_EXCHANGE_ENDPOINT = "/oidc/v1/token";
   private final IDatabricksConnectionContext connectionContext;
   private final CredentialsProvider credentialsProvider;

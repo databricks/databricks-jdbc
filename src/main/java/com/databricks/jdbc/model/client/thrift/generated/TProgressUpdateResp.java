@@ -49,9 +49,7 @@ public class TProgressUpdateResp
       rows; // required
   public double progressedPercentage; // required
 
-  /**
-   * @see TJobExecutionStatus
-   */
+  /** @see TJobExecutionStatus */
   public @org.apache.thrift.annotation.Nullable TJobExecutionStatus status; // required
 
   public @org.apache.thrift.annotation.Nullable java.lang.String footerSummary; // required
@@ -65,9 +63,7 @@ public class TProgressUpdateResp
     HEADER_NAMES((short) 1, "headerNames"),
     ROWS((short) 2, "rows"),
     PROGRESSED_PERCENTAGE((short) 3, "progressedPercentage"),
-    /**
-     * @see TJobExecutionStatus
-     */
+    /** @see TJobExecutionStatus */
     STATUS((short) 4, "status"),
     FOOTER_SUMMARY((short) 5, "footerSummary"),
     START_TIME((short) 6, "startTime");
@@ -377,17 +373,13 @@ public class TProgressUpdateResp
             __isset_bitfield, __PROGRESSEDPERCENTAGE_ISSET_ID, value);
   }
 
-  /**
-   * @see TJobExecutionStatus
-   */
+  /** @see TJobExecutionStatus */
   @org.apache.thrift.annotation.Nullable
   public TJobExecutionStatus getStatus() {
     return this.status;
   }
 
-  /**
-   * @see TJobExecutionStatus
-   */
+  /** @see TJobExecutionStatus */
   public TProgressUpdateResp setStatus(
       @org.apache.thrift.annotation.Nullable TJobExecutionStatus status) {
     this.status = status;

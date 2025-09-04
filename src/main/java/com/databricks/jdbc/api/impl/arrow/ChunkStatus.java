@@ -77,18 +77,51 @@ public enum ChunkStatus {
 
   // Initialize valid state transitions
   static {
-    VALID_TRANSITIONS.put(PENDING, Set.of(URL_FETCHED, CHUNK_RELEASED, DOWNLOAD_FAILED));
-    VALID_TRANSITIONS.put(
-        URL_FETCHED, Set.of(DOWNLOAD_SUCCEEDED, DOWNLOAD_FAILED, CANCELLED, CHUNK_RELEASED));
-    VALID_TRANSITIONS.put(
-        DOWNLOAD_SUCCEEDED, Set.of(PROCESSING_SUCCEEDED, PROCESSING_FAILED, CHUNK_RELEASED));
-    VALID_TRANSITIONS.put(PROCESSING_SUCCEEDED, Set.of(CHUNK_RELEASED));
-    VALID_TRANSITIONS.put(DOWNLOAD_FAILED, Set.of(DOWNLOAD_RETRY, CHUNK_RELEASED));
-    VALID_TRANSITIONS.put(PROCESSING_FAILED, Set.of(CHUNK_RELEASED));
-    VALID_TRANSITIONS.put(CANCELLED, Set.of(CHUNK_RELEASED));
-    VALID_TRANSITIONS.put(CHUNK_RELEASED, Collections.emptySet());
-    VALID_TRANSITIONS.put(
-        DOWNLOAD_RETRY, Set.of(URL_FETCHED, DOWNLOAD_SUCCEEDED, DOWNLOAD_FAILED, CHUNK_RELEASED));
+    java.util.HashSet<ChunkStatus> set;
+    set = new java.util.HashSet<ChunkStatus>();
+    set.add(URL_FETCHED);
+    set.add(CHUNK_RELEASED);
+    set.add(DOWNLOAD_FAILED);
+    VALID_TRANSITIONS.put(PENDING, java.util.Collections.unmodifiableSet(set));
+
+    set = new java.util.HashSet<ChunkStatus>();
+    set.add(DOWNLOAD_SUCCEEDED);
+    set.add(DOWNLOAD_FAILED);
+    set.add(CANCELLED);
+    set.add(CHUNK_RELEASED);
+    VALID_TRANSITIONS.put(URL_FETCHED, java.util.Collections.unmodifiableSet(set));
+
+    set = new java.util.HashSet<ChunkStatus>();
+    set.add(PROCESSING_SUCCEEDED);
+    set.add(PROCESSING_FAILED);
+    set.add(CHUNK_RELEASED);
+    VALID_TRANSITIONS.put(DOWNLOAD_SUCCEEDED, java.util.Collections.unmodifiableSet(set));
+
+    set = new java.util.HashSet<ChunkStatus>();
+    set.add(CHUNK_RELEASED);
+    VALID_TRANSITIONS.put(PROCESSING_SUCCEEDED, java.util.Collections.unmodifiableSet(set));
+
+    set = new java.util.HashSet<ChunkStatus>();
+    set.add(DOWNLOAD_RETRY);
+    set.add(CHUNK_RELEASED);
+    VALID_TRANSITIONS.put(DOWNLOAD_FAILED, java.util.Collections.unmodifiableSet(set));
+
+    set = new java.util.HashSet<ChunkStatus>();
+    set.add(CHUNK_RELEASED);
+    VALID_TRANSITIONS.put(PROCESSING_FAILED, java.util.Collections.unmodifiableSet(set));
+
+    set = new java.util.HashSet<ChunkStatus>();
+    set.add(CHUNK_RELEASED);
+    VALID_TRANSITIONS.put(CANCELLED, java.util.Collections.unmodifiableSet(set));
+
+    VALID_TRANSITIONS.put(CHUNK_RELEASED, java.util.Collections.<ChunkStatus>emptySet());
+
+    set = new java.util.HashSet<ChunkStatus>();
+    set.add(URL_FETCHED);
+    set.add(DOWNLOAD_SUCCEEDED);
+    set.add(DOWNLOAD_FAILED);
+    set.add(CHUNK_RELEASED);
+    VALID_TRANSITIONS.put(DOWNLOAD_RETRY, java.util.Collections.unmodifiableSet(set));
   }
 
   /**

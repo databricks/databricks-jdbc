@@ -92,7 +92,7 @@ public class ClientConfigurator {
     // Normalize inputs to handle null values
     host = (host != null) ? host : EMPTY_STRING;
     clientId = (clientId != null) ? clientId : EMPTY_STRING;
-    scopes = (scopes != null) ? scopes : List.of();
+    scopes = (scopes != null) ? scopes : new java.util.ArrayList<String>();
 
     // Combine all parameters
     String combined = host + URL_DELIMITER + clientId + URL_DELIMITER + String.join(COMMA, scopes);

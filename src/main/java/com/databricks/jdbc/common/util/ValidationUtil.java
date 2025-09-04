@@ -11,7 +11,6 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.apache.http.HttpResponse;
@@ -92,8 +91,8 @@ public class ValidationUtil {
    * @return true if the URL is valid, false otherwise
    */
   public static boolean isValidJdbcUrl(String url) {
-    final List<Pattern> PATH_PATTERNS =
-        List.of(
+    final java.util.List<Pattern> PATH_PATTERNS =
+        java.util.Arrays.asList(
             HTTP_CLUSTER_PATH_PATTERN,
             HTTP_WAREHOUSE_PATH_PATTERN,
             HTTP_ENDPOINT_PATH_PATTERN,

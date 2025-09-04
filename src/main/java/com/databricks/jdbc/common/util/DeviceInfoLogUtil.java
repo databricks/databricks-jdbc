@@ -19,7 +19,7 @@ public class DeviceInfoLogUtil {
   private static final String CHARSET_ENCODING = Charset.defaultCharset().displayName();
 
   public static void logProperties() {
-    LOGGER.info(String.format("JDBC Driver Version: %s", DriverUtil.getVersion()));
+    LOGGER.info(String.format("JDBC Driver Version: %s", DriverUtil.getDriverVersion()));
     LOGGER.info(
         String.format(
             "JVM Name: %s, Vendor: %s, Specification Version: %s, Version: %s",

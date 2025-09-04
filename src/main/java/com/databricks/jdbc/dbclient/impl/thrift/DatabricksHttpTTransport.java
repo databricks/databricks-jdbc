@@ -30,10 +30,15 @@ public class DatabricksHttpTTransport extends TTransport {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksHttpTTransport.class);
-  private static final Map<String, String> DEFAULT_HEADERS =
-      Map.of(
-          "Content-Type", "application/x-thrift",
-          "Accept", "application/x-thrift");
+  private static final Map<String, String> DEFAULT_HEADERS;
+
+  static {
+    java.util.Map<String, String> m = new java.util.HashMap<String, String>();
+    m.put("Content-Type", "application/x-thrift");
+    m.put("Accept", "application/x-thrift");
+    DEFAULT_HEADERS = java.util.Collections.unmodifiableMap(m);
+  }
+
   private final IDatabricksHttpClient httpClient;
   private final String url;
   private Map<String, String> customHeaders = Collections.emptyMap();

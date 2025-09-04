@@ -31,14 +31,10 @@ public class TDBSqlArrowFormat
   private static final org.apache.thrift.scheme.SchemeFactory TUPLE_SCHEME_FACTORY =
       new TDBSqlArrowFormatTupleSchemeFactory();
 
-  /**
-   * @see TDBSqlArrowLayout
-   */
+  /** @see TDBSqlArrowLayout */
   public @org.apache.thrift.annotation.Nullable TDBSqlArrowLayout arrowLayout; // optional
 
-  /**
-   * @see TDBSqlCompressionCodec
-   */
+  /** @see TDBSqlCompressionCodec */
   public @org.apache.thrift.annotation.Nullable TDBSqlCompressionCodec compressionCodec; // optional
 
   /**
@@ -46,13 +42,9 @@ public class TDBSqlArrowFormat
    * manipulating them.
    */
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
-    /**
-     * @see TDBSqlArrowLayout
-     */
+    /** @see TDBSqlArrowLayout */
     ARROW_LAYOUT((short) 1, "arrowLayout"),
-    /**
-     * @see TDBSqlCompressionCodec
-     */
+    /** @see TDBSqlCompressionCodec */
     COMPRESSION_CODEC((short) 2, "compressionCodec");
 
     private static final java.util.Map<java.lang.String, _Fields> byName =
@@ -159,17 +151,13 @@ public class TDBSqlArrowFormat
     this.compressionCodec = null;
   }
 
-  /**
-   * @see TDBSqlArrowLayout
-   */
+  /** @see TDBSqlArrowLayout */
   @org.apache.thrift.annotation.Nullable
   public TDBSqlArrowLayout getArrowLayout() {
     return this.arrowLayout;
   }
 
-  /**
-   * @see TDBSqlArrowLayout
-   */
+  /** @see TDBSqlArrowLayout */
   public TDBSqlArrowFormat setArrowLayout(
       @org.apache.thrift.annotation.Nullable TDBSqlArrowLayout arrowLayout) {
     this.arrowLayout = arrowLayout;
@@ -191,17 +179,13 @@ public class TDBSqlArrowFormat
     }
   }
 
-  /**
-   * @see TDBSqlCompressionCodec
-   */
+  /** @see TDBSqlCompressionCodec */
   @org.apache.thrift.annotation.Nullable
   public TDBSqlCompressionCodec getCompressionCodec() {
     return this.compressionCodec;
   }
 
-  /**
-   * @see TDBSqlCompressionCodec
-   */
+  /** @see TDBSqlCompressionCodec */
   public TDBSqlArrowFormat setCompressionCodec(
       @org.apache.thrift.annotation.Nullable TDBSqlCompressionCodec compressionCodec) {
     this.compressionCodec = compressionCodec;

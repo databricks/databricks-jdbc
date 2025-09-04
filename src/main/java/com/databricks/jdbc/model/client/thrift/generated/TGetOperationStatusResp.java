@@ -69,9 +69,7 @@ public class TGetOperationStatusResp
 
   public @org.apache.thrift.annotation.Nullable TStatus status; // required
 
-  /**
-   * @see TOperationState
-   */
+  /** @see TOperationState */
   public @org.apache.thrift.annotation.Nullable TOperationState operationState; // optional
 
   public @org.apache.thrift.annotation.Nullable java.lang.String sqlState; // optional
@@ -94,9 +92,7 @@ public class TGetOperationStatusResp
    */
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
     STATUS((short) 1, "status"),
-    /**
-     * @see TOperationState
-     */
+    /** @see TOperationState */
     OPERATION_STATE((short) 2, "operationState"),
     SQL_STATE((short) 3, "sqlState"),
     ERROR_CODE((short) 4, "errorCode"),
@@ -417,17 +413,13 @@ public class TGetOperationStatusResp
     }
   }
 
-  /**
-   * @see TOperationState
-   */
+  /** @see TOperationState */
   @org.apache.thrift.annotation.Nullable
   public TOperationState getOperationState() {
     return this.operationState;
   }
 
-  /**
-   * @see TOperationState
-   */
+  /** @see TOperationState */
   public TGetOperationStatusResp setOperationState(
       @org.apache.thrift.annotation.Nullable TOperationState operationState) {
     this.operationState = operationState;

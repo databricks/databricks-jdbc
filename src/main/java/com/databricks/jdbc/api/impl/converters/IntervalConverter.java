@@ -36,9 +36,7 @@ public class IntervalConverter {
 
   private final boolean isYearMonth;
 
-  /**
-   * @param arrowMetadata e.g. "INTERVAL YEAR TO MONTH" or "INTERVAL HOUR TO SECOND"
-   */
+  /** @param arrowMetadata e.g. "INTERVAL YEAR TO MONTH" or "INTERVAL HOUR TO SECOND" */
   public IntervalConverter(String arrowMetadata) {
     Matcher m = INTERVAL_PATTERN.matcher(arrowMetadata.trim());
     if (!m.matches()) {

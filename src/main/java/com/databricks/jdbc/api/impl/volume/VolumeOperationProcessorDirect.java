@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api.impl.volume;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.HttpUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -49,7 +49,10 @@ public class VolumeOperationProcessorDirect {
       String errorMessage =
           String.format("Local file already exists for GET operation {%s}", localFilePath);
       LOGGER.error(errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage);
+      throw new DatabricksVolumeOperationException(
+          errorMessage,
+          com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode
+              .VOLUME_OPERATION_LOCAL_FILE_EXISTS_ERROR);
     }
 
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpGet)) {
@@ -59,7 +62,10 @@ public class VolumeOperationProcessorDirect {
                 "Failed to fetch content from volume with error {%s} for local file {%s}",
                 response.getStatusLine().getStatusCode(), localFilePath);
         LOGGER.error(errorMessage);
-        throw new DatabricksHttpException(errorMessage);
+        throw new DatabricksHttpException(
+            errorMessage,
+            com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode
+                .VOLUME_OPERATION_FILE_DOWNLOAD_ERROR);
       }
 
       entity = response.getEntity();
@@ -92,7 +98,11 @@ public class VolumeOperationProcessorDirect {
     } catch (IOException | DatabricksHttpException e) {
       String errorMessage = String.format("Failed to download file : {%s} ", e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage, e);
+      throw new DatabricksVolumeOperationException(
+          errorMessage,
+          e,
+          com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode
+              .VOLUME_OPERATION_FILE_DOWNLOAD_ERROR);
     }
   }
 
@@ -118,7 +128,11 @@ public class VolumeOperationProcessorDirect {
           String.format(
               "Failed to upload file {%s} with error {%s}", localFilePath, e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage, e);
+      throw new DatabricksVolumeOperationException(
+          errorMessage,
+          e,
+          com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode
+              .VOLUME_OPERATION_PUT_OPERATION_EXCEPTION);
     }
   }
 
@@ -134,13 +148,20 @@ public class VolumeOperationProcessorDirect {
                 "Failed to delete object with error code: {%s}",
                 response.getStatusLine().getStatusCode());
         LOGGER.error(errorMessage);
-        throw new DatabricksHttpException(errorMessage);
+        throw new DatabricksHttpException(
+            errorMessage,
+            com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode
+                .VOLUME_OPERATION_DELETE_OPERATION_EXCEPTION);
       }
     } catch (DatabricksHttpException | IOException e) {
       String errorMessage =
           String.format("Failed to delete volume with error {%s}", e.getMessage());
       LOGGER.error(e, errorMessage);
-      throw new DatabricksVolumeOperationException(errorMessage, e);
+      throw new DatabricksVolumeOperationException(
+          errorMessage,
+          e,
+          com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode
+              .VOLUME_OPERATION_DELETE_OPERATION_EXCEPTION);
     }
   }
 }

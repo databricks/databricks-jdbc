@@ -634,11 +634,12 @@ public class ConfiguratorUtils {
             (PKIXRevocationChecker) certPathValidator.getRevocationChecker();
 
         if (acceptUndeterminedCertificateRevocation) {
-          revocationChecker.setOptions(
-              Set.of(
-                  PKIXRevocationChecker.Option.SOFT_FAIL,
-                  PKIXRevocationChecker.Option.NO_FALLBACK,
-                  PKIXRevocationChecker.Option.PREFER_CRLS));
+          java.util.Set<PKIXRevocationChecker.Option> opts =
+              new java.util.HashSet<PKIXRevocationChecker.Option>();
+          opts.add(PKIXRevocationChecker.Option.SOFT_FAIL);
+          opts.add(PKIXRevocationChecker.Option.NO_FALLBACK);
+          opts.add(PKIXRevocationChecker.Option.PREFER_CRLS);
+          revocationChecker.setOptions(opts);
         }
         LOGGER.info(
             "Certificate revocation enabled. Undetermined revocation accepted: "

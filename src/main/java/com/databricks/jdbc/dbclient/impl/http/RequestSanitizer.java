@@ -7,7 +7,7 @@ import org.apache.http.client.methods.HttpUriRequest;
 
 public class RequestSanitizer {
   private static final List<String> SENSITIVE_QUERY_PARAMS =
-      List.of("X-Amz-Security-Token", "X-Amz-Signature", "X-Amz-Credential");
+      java.util.Arrays.asList("X-Amz-Security-Token", "X-Amz-Signature", "X-Amz-Credential");
 
   public static String sanitizeRequest(HttpUriRequest request) {
     try {

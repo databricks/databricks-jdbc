@@ -17,7 +17,7 @@ public class ConverterHelper {
     // Numeric Types
     SUPPORTED_CONVERSIONS.put(
         Types.TINYINT,
-        List.of(
+        java.util.Arrays.asList(
             Types.TINYINT,
             Types.SMALLINT,
             Types.INTEGER,
@@ -36,7 +36,7 @@ public class ConverterHelper {
             Types.LONGVARCHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.SMALLINT,
-        List.of(
+        java.util.Arrays.asList(
             Types.SMALLINT,
             Types.INTEGER,
             Types.BIGINT,
@@ -58,7 +58,7 @@ public class ConverterHelper {
             Types.LONGVARCHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.INTEGER,
-        List.of(
+        java.util.Arrays.asList(
             Types.INTEGER,
             Types.BIGINT,
             Types.DECIMAL,
@@ -77,7 +77,7 @@ public class ConverterHelper {
             Types.NUMERIC));
     SUPPORTED_CONVERSIONS.put(
         Types.BIGINT,
-        List.of(
+        java.util.Arrays.asList(
             Types.BIGINT,
             Types.DECIMAL,
             Types.DOUBLE,
@@ -96,7 +96,7 @@ public class ConverterHelper {
             Types.BIT));
     SUPPORTED_CONVERSIONS.put(
         Types.FLOAT,
-        List.of(
+        java.util.Arrays.asList(
             Types.DOUBLE,
             Types.DECIMAL,
             Types.REAL,
@@ -115,7 +115,7 @@ public class ConverterHelper {
             Types.BIGINT));
     SUPPORTED_CONVERSIONS.put(
         Types.REAL,
-        List.of(
+        java.util.Arrays.asList(
             Types.REAL,
             Types.DOUBLE,
             Types.DECIMAL,
@@ -134,7 +134,7 @@ public class ConverterHelper {
             Types.FLOAT));
     SUPPORTED_CONVERSIONS.put(
         Types.DOUBLE,
-        List.of(
+        java.util.Arrays.asList(
             Types.DOUBLE,
             Types.DECIMAL,
             Types.REAL,
@@ -153,7 +153,7 @@ public class ConverterHelper {
             Types.BIGINT));
     SUPPORTED_CONVERSIONS.put(
         Types.DECIMAL,
-        List.of(
+        java.util.Arrays.asList(
             Types.DECIMAL,
             Types.NUMERIC,
             Types.DOUBLE,
@@ -168,7 +168,7 @@ public class ConverterHelper {
             Types.FLOAT));
     SUPPORTED_CONVERSIONS.put(
         Types.NUMERIC,
-        List.of(
+        java.util.Arrays.asList(
             Types.NUMERIC,
             Types.DECIMAL,
             Types.DOUBLE,
@@ -185,7 +185,7 @@ public class ConverterHelper {
     // Boolean/Bit Types
     SUPPORTED_CONVERSIONS.put(
         Types.BOOLEAN,
-        List.of(
+        java.util.Arrays.asList(
             Types.BOOLEAN,
             Types.BIT,
             Types.INTEGER,
@@ -207,7 +207,7 @@ public class ConverterHelper {
             Types.LONGVARBINARY));
     SUPPORTED_CONVERSIONS.put(
         Types.BIT,
-        List.of(
+        java.util.Arrays.asList(
             Types.BIT,
             Types.INTEGER,
             Types.VARCHAR,
@@ -229,7 +229,7 @@ public class ConverterHelper {
     // Date/Time TypesT
     SUPPORTED_CONVERSIONS.put(
         Types.DATE,
-        List.of(
+        java.util.Arrays.asList(
             Types.DATE,
             Types.TIMESTAMP,
             Types.VARCHAR,
@@ -240,7 +240,7 @@ public class ConverterHelper {
             Types.CHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.TIME,
-        List.of(
+        java.util.Arrays.asList(
             Types.TIME,
             Types.TIMESTAMP,
             Types.VARCHAR,
@@ -251,7 +251,7 @@ public class ConverterHelper {
             Types.BINARY));
     SUPPORTED_CONVERSIONS.put(
         Types.TIMESTAMP,
-        List.of(
+        java.util.Arrays.asList(
             Types.TIMESTAMP,
             Types.DATE,
             Types.TIME,
@@ -265,7 +265,7 @@ public class ConverterHelper {
     // Binary Types
     SUPPORTED_CONVERSIONS.put(
         Types.BINARY,
-        List.of(
+        java.util.Arrays.asList(
             Types.BINARY,
             Types.VARBINARY,
             Types.LONGVARBINARY,
@@ -275,7 +275,7 @@ public class ConverterHelper {
             Types.CHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.VARBINARY,
-        List.of(
+        java.util.Arrays.asList(
             Types.VARBINARY,
             Types.LONGVARBINARY,
             Types.CHAR,
@@ -285,7 +285,7 @@ public class ConverterHelper {
             Types.VARCHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.LONGVARBINARY,
-        List.of(
+        java.util.Arrays.asList(
             Types.LONGVARBINARY,
             Types.BINARY,
             Types.VARBINARY,
@@ -297,7 +297,7 @@ public class ConverterHelper {
     // Character Types
     SUPPORTED_CONVERSIONS.put(
         Types.CHAR,
-        List.of(
+        java.util.Arrays.asList(
             Types.CHAR,
             Types.VARCHAR,
             Types.LONGVARCHAR,
@@ -320,7 +320,7 @@ public class ConverterHelper {
             Types.TIME));
     SUPPORTED_CONVERSIONS.put(
         Types.VARCHAR,
-        List.of(
+        java.util.Arrays.asList(
             Types.VARCHAR,
             Types.CHAR,
             Types.LONGVARCHAR,
@@ -343,7 +343,7 @@ public class ConverterHelper {
             Types.DOUBLE));
     SUPPORTED_CONVERSIONS.put(
         Types.LONGVARCHAR,
-        List.of(
+        java.util.Arrays.asList(
             Types.LONGVARCHAR,
             Types.VARCHAR,
             Types.NVARCHAR,
@@ -363,7 +363,7 @@ public class ConverterHelper {
             Types.TIMESTAMP));
     SUPPORTED_CONVERSIONS.put(
         Types.NVARCHAR,
-        List.of(
+        java.util.Arrays.asList(
             Types.NVARCHAR,
             Types.VARCHAR,
             Types.TIMESTAMP,
@@ -386,9 +386,9 @@ public class ConverterHelper {
             Types.LONGVARBINARY));
 
     // Complex types
-    SUPPORTED_CONVERSIONS.put(Types.OTHER, List.of(Types.OTHER));
-    SUPPORTED_CONVERSIONS.put(Types.STRUCT, List.of(Types.STRUCT, Types.VARCHAR));
-    SUPPORTED_CONVERSIONS.put(Types.ARRAY, List.of(Types.ARRAY, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.OTHER, java.util.Arrays.asList(Types.OTHER));
+    SUPPORTED_CONVERSIONS.put(Types.STRUCT, java.util.Arrays.asList(Types.STRUCT, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.ARRAY, java.util.Arrays.asList(Types.ARRAY, Types.VARCHAR));
   }
 
   static {

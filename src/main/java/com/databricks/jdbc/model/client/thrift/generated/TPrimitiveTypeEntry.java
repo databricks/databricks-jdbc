@@ -31,9 +31,7 @@ public class TPrimitiveTypeEntry
   private static final org.apache.thrift.scheme.SchemeFactory TUPLE_SCHEME_FACTORY =
       new TPrimitiveTypeEntryTupleSchemeFactory();
 
-  /**
-   * @see TTypeId
-   */
+  /** @see TTypeId */
   public @org.apache.thrift.annotation.Nullable TTypeId type; // required
 
   public @org.apache.thrift.annotation.Nullable TTypeQualifiers typeQualifiers; // optional
@@ -43,9 +41,7 @@ public class TPrimitiveTypeEntry
    * manipulating them.
    */
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
-    /**
-     * @see TTypeId
-     */
+    /** @see TTypeId */
     TYPE((short) 1, "type"),
     TYPE_QUALIFIERS((short) 2, "typeQualifiers");
 
@@ -158,17 +154,13 @@ public class TPrimitiveTypeEntry
     this.typeQualifiers = null;
   }
 
-  /**
-   * @see TTypeId
-   */
+  /** @see TTypeId */
   @org.apache.thrift.annotation.Nullable
   public TTypeId getType() {
     return this.type;
   }
 
-  /**
-   * @see TTypeId
-   */
+  /** @see TTypeId */
   public TPrimitiveTypeEntry setType(@org.apache.thrift.annotation.Nullable TTypeId type) {
     this.type = type;
     return this;

@@ -68,7 +68,7 @@ public class DatabricksDriverFeatureFlagsContext {
                     - REFRESH_BEFORE_EXPIRY_SECONDS), // refresh time should be minimum 5 minutes
             TimeUnit.SECONDS)
         .build(
-            new CacheLoader<>() {
+            new CacheLoader<String, String>() {
               @Override
               public String load(String key) {
                 refreshAllFeatureFlags();

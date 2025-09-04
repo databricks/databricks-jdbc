@@ -466,7 +466,11 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
         LOGGER.error(errorMessage);
         throw new DatabricksSQLClientInfoException(
             errorMessage,
-            Map.of(name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY),
+            new java.util.HashMap<String, ClientInfoStatus>() {
+              {
+                put(name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY);
+              }
+            },
             DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
       }
     }

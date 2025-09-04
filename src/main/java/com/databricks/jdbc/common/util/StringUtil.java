@@ -47,7 +47,7 @@ public class StringUtil {
     if (value == null) {
       return Collections.emptyList();
     }
-    return List.of(value.split(","));
+    return java.util.Arrays.asList(value.split(","));
   }
 
   /** Function to return the folder name from the path */

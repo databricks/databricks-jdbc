@@ -28,9 +28,7 @@ public class TDBSqlJsonArrayFormat
   private static final org.apache.thrift.scheme.SchemeFactory TUPLE_SCHEME_FACTORY =
       new TDBSqlJsonArrayFormatTupleSchemeFactory();
 
-  /**
-   * @see TDBSqlCompressionCodec
-   */
+  /** @see TDBSqlCompressionCodec */
   public @org.apache.thrift.annotation.Nullable TDBSqlCompressionCodec compressionCodec; // optional
 
   /**
@@ -38,9 +36,7 @@ public class TDBSqlJsonArrayFormat
    * manipulating them.
    */
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
-    /**
-     * @see TDBSqlCompressionCodec
-     */
+    /** @see TDBSqlCompressionCodec */
     COMPRESSION_CODEC((short) 1, "compressionCodec");
 
     private static final java.util.Map<java.lang.String, _Fields> byName =
@@ -134,17 +130,13 @@ public class TDBSqlJsonArrayFormat
     this.compressionCodec = null;
   }
 
-  /**
-   * @see TDBSqlCompressionCodec
-   */
+  /** @see TDBSqlCompressionCodec */
   @org.apache.thrift.annotation.Nullable
   public TDBSqlCompressionCodec getCompressionCodec() {
     return this.compressionCodec;
   }
 
-  /**
-   * @see TDBSqlCompressionCodec
-   */
+  /** @see TDBSqlCompressionCodec */
   public TDBSqlJsonArrayFormat setCompressionCodec(
       @org.apache.thrift.annotation.Nullable TDBSqlCompressionCodec compressionCodec) {
     this.compressionCodec = compressionCodec;

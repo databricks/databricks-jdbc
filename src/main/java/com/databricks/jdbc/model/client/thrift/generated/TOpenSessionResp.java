@@ -48,9 +48,7 @@ public class TOpenSessionResp
 
   public @org.apache.thrift.annotation.Nullable TStatus status; // required
 
-  /**
-   * @see TProtocolVersion
-   */
+  /** @see TProtocolVersion */
   public @org.apache.thrift.annotation.Nullable TProtocolVersion serverProtocolVersion; // required
 
   public @org.apache.thrift.annotation.Nullable TSessionHandle sessionHandle; // optional
@@ -66,9 +64,7 @@ public class TOpenSessionResp
    */
   public enum _Fields implements org.apache.thrift.TFieldIdEnum {
     STATUS((short) 1, "status"),
-    /**
-     * @see TProtocolVersion
-     */
+    /** @see TProtocolVersion */
     SERVER_PROTOCOL_VERSION((short) 2, "serverProtocolVersion"),
     SESSION_HANDLE((short) 3, "sessionHandle"),
     CONFIGURATION((short) 4, "configuration"),
@@ -297,17 +293,13 @@ public class TOpenSessionResp
     }
   }
 
-  /**
-   * @see TProtocolVersion
-   */
+  /** @see TProtocolVersion */
   @org.apache.thrift.annotation.Nullable
   public TProtocolVersion getServerProtocolVersion() {
     return this.serverProtocolVersion;
   }
 
-  /**
-   * @see TProtocolVersion
-   */
+  /** @see TProtocolVersion */
   public TOpenSessionResp setServerProtocolVersion(
       @org.apache.thrift.annotation.Nullable TProtocolVersion serverProtocolVersion) {
     this.serverProtocolVersion = serverProtocolVersion;

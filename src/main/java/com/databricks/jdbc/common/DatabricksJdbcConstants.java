@@ -74,27 +74,36 @@ public final class DatabricksJdbcConstants {
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
       // This map comes from
       // https://docs.databricks.com/en/sql/language-manual/sql-ref-parameters.html
-      Map.of(
-          "ANSI_MODE", "true",
-          "ENABLE_PHOTON", "true",
-          "LEGACY_TIME_PARSER_POLICY", "Exception",
-          "MAX_FILE_PARTITION_BYTES", "128m",
-          "READ_ONLY_EXTERNAL_METASTORE", "false",
-          "STATEMENT_TIMEOUT", "0",
-          "TIMEZONE", "UTC",
-          "USE_CACHED_RESULT", "true",
-          "QUERY_TAGS", "");
+      new java.util.HashMap<String, String>() {
+        {
+          put("ANSI_MODE", "true");
+          put("ENABLE_PHOTON", "true");
+          put("LEGACY_TIME_PARSER_POLICY", "Exception");
+          put("MAX_FILE_PARTITION_BYTES", "128m");
+          put("READ_ONLY_EXTERNAL_METASTORE", "false");
+          put("STATEMENT_TIMEOUT", "0");
+          put("TIMEZONE", "UTC");
+          put("USE_CACHED_RESULT", "true");
+          put("QUERY_TAGS", "");
+        }
+      };
   public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES =
-      Set.of(
-          ALLOWED_VOLUME_INGESTION_PATHS,
-          ENABLE_VOLUME_OPERATIONS,
-          ALLOWED_STAGING_INGESTION_PATHS,
-          DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName(),
-          DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName());
+      new java.util.HashSet<String>() {
+        {
+          add(ALLOWED_VOLUME_INGESTION_PATHS);
+          add(ENABLE_VOLUME_OPERATIONS);
+          add(ALLOWED_STAGING_INGESTION_PATHS);
+          add(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName());
+          add(DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName());
+        }
+      };
   public static final Map<String, String> JSON_HTTP_HEADERS =
-      Map.of(
-          "Accept", "application/json",
-          "Content-Type", "application/json");
+      new java.util.HashMap<String, String>() {
+        {
+          put("Accept", "application/json");
+          put("Content-Type", "application/json");
+        }
+      };
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
   @VisibleForTesting public static final String FAKE_SERVICE_URI_PROP_SUFFIX = ".fakeServiceURI";
   public static final String IS_JDBC_TEST_ENV = "IS_JDBC_TEST_ENV";

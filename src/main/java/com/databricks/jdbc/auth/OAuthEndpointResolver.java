@@ -1,6 +1,6 @@
 package com.databricks.jdbc.auth;
 
-import com.databricks.jdbc.api.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -82,7 +82,9 @@ public class OAuthEndpointResolver {
               "Error while calling discovery endpoint to fetch token endpoint. Response: "
                   + response;
           LOGGER.debug(exceptionMessage);
-          throw new DatabricksHttpException(exceptionMessage);
+          throw new DatabricksHttpException(
+              exceptionMessage,
+              com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.AUTH_ERROR);
         }
         OpenIDConnectEndpoints openIDConnectEndpoints =
             new ObjectMapper()
