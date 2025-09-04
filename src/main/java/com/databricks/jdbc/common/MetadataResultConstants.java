@@ -13,9 +13,9 @@ public class MetadataResultConstants {
   public static final String[] DEFAULT_TABLE_TYPES = {"TABLE", "VIEW", "SYSTEM TABLE"};
   public static final ResultColumn CATALOG_COLUMN =
       new ResultColumn("TABLE_CAT", "catalogName", Types.VARCHAR);
-  private static final ResultColumn CATALOG_FULL_COLUMN =
+  public static final ResultColumn CATALOG_FULL_COLUMN =
       new ResultColumn("TABLE_CATALOG", "catalogName", Types.VARCHAR);
-  public static final ResultColumn CATALOG_COLUMN_FOR_GET_CATALOGS =
+  public static final ResultColumn CATALOG_RESULT_COLUMN =
       new ResultColumn("TABLE_CAT", "catalog", Types.VARCHAR);
   public static final ResultColumn TYPE_CATALOG_COLUMN =
       new ResultColumn("TYPE_CAT", "TYPE_CATALOG_COLUMN", Types.VARCHAR);
@@ -216,7 +216,7 @@ public class MetadataResultConstants {
           IS_AUTO_INCREMENT_COLUMN,
           IS_GENERATED_COLUMN);
 
-  public static List<ResultColumn> CATALOG_COLUMNS = List.of(CATALOG_COLUMN_FOR_GET_CATALOGS);
+  public static List<ResultColumn> CATALOG_COLUMNS = List.of(CATALOG_RESULT_COLUMN);
 
   public static List<ResultColumn> SCHEMA_COLUMNS =
       List.of(SCHEMA_COLUMN_FOR_GET_SCHEMA, CATALOG_FULL_COLUMN);
@@ -491,9 +491,7 @@ public class MetadataResultConstants {
                   MetadataResultConstants.TYPE_NAME_COLUMN,
                   MetadataResultConstants.DATA_TYPE_COLUMN,
                   MetadataResultConstants.PRECISION_COLUMN));
-          put(
-              CommandName.LIST_CATALOGS,
-              List.of(MetadataResultConstants.CATALOG_COLUMN_FOR_GET_CATALOGS));
+          put(CommandName.LIST_CATALOGS, List.of(MetadataResultConstants.CATALOG_RESULT_COLUMN));
           put(
               CommandName.LIST_TABLES,
               List.of(MetadataResultConstants.TABLE_NAME_COLUMN, TABLE_TYPE_COLUMN));

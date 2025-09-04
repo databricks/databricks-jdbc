@@ -155,6 +155,10 @@ public enum DatabricksJdbcUrlParams {
   CLOUD_FETCH_SPEED_THRESHOLD(
       "CloudFetchSpeedThreshold", "Minimum expected download speed in MB/s", "0.1"),
   ENABLE_BATCHED_INSERTS("EnableBatchedInserts", "Enable batched INSERT optimization", "1");
+  ENABLE_SQL_VALIDATION_FOR_IS_VALID(
+      "EnableSQLValidationForIsValid",
+      "Enable SQL query execution for connection validation in isValid() method",
+      "0");
 
   private final String paramName;
   private final String defaultValue;

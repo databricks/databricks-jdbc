@@ -75,27 +75,28 @@ public class CommandBuilder {
   }
 
   private String fetchSchemaSQL() throws SQLException {
-    String contextString =
-        String.format(
-            "Building command for fetching schema. Catalog %s, SchemaPattern %s and session context %s",
-            catalogName, schemaPattern, sessionContext);
-    LOGGER.debug(contextString);
-    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
-    String showSchemaSQL = String.format(SHOW_SCHEMA_IN_CATALOG_SQL, catalogName);
-    if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
-      showSchemaSQL += String.format(LIKE_SQL, schemaPattern);
+    LOGGER.debug(
+        "Building command for fetching schema. Catalog %s, SchemaPattern %s and session context %s",
+        catalogName, schemaPattern, sessionContext);
+    String showSchemasSQL;
+    if (WildcardUtil.isNullOrWildcard(catalogName)) {
+      // SHOW SCHEMAS IN ALL CATALOGS
+      showSchemasSQL = SHOW_SCHEMAS_IN_ALL_CATALOGS_SQL;
+    } else {
+      showSchemasSQL = String.format(SHOW_SCHEMAS_IN_CATALOG_SQL, catalogName);
     }
-    return showSchemaSQL;
+    if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
+      showSchemasSQL += String.format(LIKE_SQL, schemaPattern);
+    }
+    return showSchemasSQL;
   }
 
   private String fetchTablesSQL() throws SQLException {
-    String contextString =
-        String.format(
-            "Building command for fetching tables. Catalog %s, SchemaPattern %s, TablePattern %s and session context %s",
-            catalogName, schemaPattern, tablePattern, sessionContext);
-    LOGGER.debug(contextString);
+    LOGGER.debug(
+        "Building command for fetching tables. Catalog %s, SchemaPattern %s, TablePattern %s and session context %s",
+        catalogName, schemaPattern, tablePattern, sessionContext);
     String showTablesSQL;
-    if (catalogName == null || catalogName.equals("*") || catalogName.equals("%")) {
+    if (WildcardUtil.isNullOrWildcard(catalogName)) {
       // SHOW TABLES IN ALL CATALOGS
       showTablesSQL = SHOW_TABLES_IN_ALL_CATALOGS_SQL;
     } else {
