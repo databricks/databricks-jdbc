@@ -9,7 +9,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TPrimitiveTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
-import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;

@@ -9,7 +9,6 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.DriverUtil;
-import com.databricks.jdbc.common.util.JdbcThreadUtils;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -20,8 +19,6 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.*;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class DatabricksDatabaseMetaData implements DatabaseMetaData {
 
@@ -40,9 +37,6 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public static final String SYSTEM_FUNCTIONS = "DATABASE,IFNULL,USER";
   public static final String TIME_DATE_FUNCTIONS =
       "CURDATE,CURRENT_DATE,CURRENT_TIME,CURRENT_TIMESTAMP,CURTIME,DAYNAME,DAYOFMONTH,DAYOFWEEK,DAYOFYEAR,HOUR,MINUTE,MONTH,MONTHNAME,NOW,QUARTER,SECOND,TIMESTAMPADD,TIMESTAMPDIFF,WEEK,YEAR";
-  private static final Object THREAD_POOL_LOCK = new Object();
-  private static ExecutorService schemasThreadPool = null;
-  private static final int DEFAULT_MAX_THREADS = 10;
   private final IDatabricksConnectionInternal connection;
   private final IDatabricksSession session;
   private final MetadataResultSetBuilder metadataResultSetBuilder;
@@ -1505,48 +1499,6 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         catalog, schemaPattern);
     throwExceptionIfConnectionIsClosed();
 
-    if (session.getConnectionContext().getClientType() == DatabricksClientType.SEA
-        && (catalog == null || catalog.equals("*") || catalog.equals("%"))) {
-      // Fetch catalogs from the metadata client
-      List<String> catalogList = new ArrayList<>();
-      try (ResultSet catalogs = getCatalogs()) {
-        while (catalogs.next()) {
-          String c = catalogs.getString(1);
-          if (c != null && !c.isEmpty()) {
-            catalogList.add(c);
-          }
-        }
-      }
-
-      // Process catalogs in parallel, gathering schema information
-      List<List<Object>> schemaRows =
-          JdbcThreadUtils.parallelFlatMap(
-              catalogList,
-              session.getConnectionContext(),
-              DEFAULT_MAX_THREADS, // Not significant since the executor is provided as a parameter
-              90, // 90 seconds timeout
-              c -> {
-                List<List<Object>> rows = new ArrayList<>();
-                try (ResultSet catalogSchemas =
-                    session.getDatabricksMetadataClient().listSchemas(session, c, schemaPattern)) {
-                  while (catalogSchemas.next()) {
-                    List<Object> schemaRow = new ArrayList<>();
-                    schemaRow.add(catalogSchemas.getString(1)); // TABLE_SCHEM
-                    schemaRow.add(catalogSchemas.getString(2)); // TABLE_CATALOG
-                    rows.add(schemaRow);
-                  }
-                } catch (SQLException e) {
-                  LOGGER.warn("Error fetching schemas for catalog %s %s", c, e.getMessage());
-                }
-                return rows;
-              },
-              getOrCreateSchemasThreadPool());
-
-      // Convert combined data into a result set
-      return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-          SCHEMA_COLUMNS, schemaRows, METADATA_STATEMENT_ID, CommandName.LIST_SCHEMAS);
-    }
-
     return session.getDatabricksMetadataClient().listSchemas(session, catalog, schemaPattern);
   }
 
@@ -1657,23 +1609,6 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     LOGGER.debug("public boolean isWrapperFor(Class<?> iface = {})", iface);
 
     return iface != null && iface.isAssignableFrom(this.getClass());
-  }
-
-  private static ExecutorService getOrCreateSchemasThreadPool() {
-    synchronized (THREAD_POOL_LOCK) {
-      if (schemasThreadPool == null || schemasThreadPool.isShutdown()) {
-        // Could read max threads from a configuration property
-        schemasThreadPool =
-            Executors.newFixedThreadPool(
-                DEFAULT_MAX_THREADS,
-                r -> {
-                  Thread t = new Thread(r, "jdbc-schemas-fetcher");
-                  t.setDaemon(true);
-                  return t;
-                });
-      }
-      return schemasThreadPool;
-    }
   }
 
   private void throwExceptionIfConnectionIsClosed() throws SQLException {

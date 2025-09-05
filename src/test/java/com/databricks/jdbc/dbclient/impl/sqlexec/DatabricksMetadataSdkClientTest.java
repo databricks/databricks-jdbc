@@ -183,9 +183,7 @@ public class DatabricksMetadataSdkClientTest {
     setupCatalogMocks();
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     doReturn(1).when(mockedMetaData).getColumnCount();
-    doReturn(CATALOG_COLUMN_FOR_GET_CATALOGS.getResultSetColumnName())
-        .when(mockedMetaData)
-        .getColumnName(1);
+    doReturn(CATALOG_RESULT_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
     doReturn(255).when(mockedMetaData).getPrecision(1);
     doReturn(0).when(mockedMetaData).getScale(1);
     when(mockedCatalogResultSet.getMetaData()).thenReturn(mockedMetaData);
@@ -388,7 +386,7 @@ public class DatabricksMetadataSdkClientTest {
     when(mockClient.executeStatement(
             sqlStatement,
             mockedComputeResource,
-            new HashMap<Integer, ImmutableSqlParameter>(),
+            new HashMap<>(),
             StatementType.METADATA,
             session,
             null))
@@ -399,12 +397,48 @@ public class DatabricksMetadataSdkClientTest {
     doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
     doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
     when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    when(mockedResultSet.findColumn(CATALOG_RESULT_COLUMN.getResultSetColumnName()))
+        .thenThrow(DatabricksSQLException.class);
     DatabricksResultSet actualResult = metadataClient.listSchemas(session, TEST_CATALOG, schema);
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
     assertEquals(actualResult.getStatementId(), METADATA_STATEMENT_ID, description);
     assertEquals(
         ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1, description);
+  }
+
+  @Test
+  void testListSchemasNullCatalog() throws SQLException {
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW SCHEMAS IN ALL CATALOGS LIKE 'a*'",
+            mockedComputeResource,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.next()).thenReturn(true, false);
+    when(mockedResultSet.getObject("databaseName")).thenReturn(TEST_COLUMN);
+    when(mockedResultSet.getObject("catalog")).thenReturn(TEST_CATALOG);
+    doReturn(2).when(mockedMetaData).getColumnCount();
+    doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
+    doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    when(mockedResultSet.findColumn(CATALOG_RESULT_COLUMN.getResultSetColumnName())).thenReturn(2);
+    DatabricksResultSet actualResult = metadataClient.listSchemas(session, null, "a*");
+    assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
+    assertEquals(actualResult.getStatementId(), METADATA_STATEMENT_ID);
+    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 1);
+
+    // Check the first row of the result set
+    assertTrue(actualResult.next());
+    assertEquals(TEST_COLUMN, actualResult.getObject(1));
+    assertEquals(TEST_CATALOG, actualResult.getObject(2));
+
+    // Check that the result set is empty after the first row
+    assertFalse(actualResult.next());
   }
 
   @Test
@@ -748,9 +782,6 @@ public class DatabricksMetadataSdkClientTest {
     assertThrows(
         DatabricksValidationException.class,
         () -> metadataClient.listColumns(session, null, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
-    assertThrows(
-        DatabricksValidationException.class,
-        () -> metadataClient.listSchemas(session, null, TEST_SCHEMA));
     assertThrows(
         DatabricksValidationException.class,
         () -> metadataClient.listPrimaryKeys(session, null, TEST_SCHEMA, TEST_TABLE));

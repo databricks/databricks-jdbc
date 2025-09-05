@@ -166,6 +166,12 @@ public final class DatabricksJdbcConstants {
       Pattern.compile("^(\\s*\\()*\\s*REMOVE", Pattern.CASE_INSENSITIVE);
   public static final Pattern LIST_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*LIST", Pattern.CASE_INSENSITIVE);
+  public static final Pattern INSERT_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*INSERT\\s+INTO", Pattern.CASE_INSENSITIVE);
+
+  /** Maximum number of parameters allowed in a single Databricks query */
+  public static final int MAX_QUERY_PARAMETERS = 256;
+
   // Regex: match queries starting with "BEGIN" but not followed by "TRANSACTION"
   // (?i)         -> case-insensitive
   // ^\s*BEGIN    -> string starts with BEGIN (allow leading whitespace)

@@ -7,7 +7,7 @@ import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSIO
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getNamespace;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.GET_TABLE_TYPE_STATEMENT_ID;
-import static com.databricks.sdk.service.sql.ColumnInfoTypeName.*;
+import static com.databricks.jdbc.model.core.ColumnInfoTypeName.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;

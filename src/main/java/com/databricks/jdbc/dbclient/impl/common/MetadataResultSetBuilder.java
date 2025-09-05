@@ -68,7 +68,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getSchemasResult(DatabricksResultSet resultSet, String catalog)
       throws SQLException {
-    List<List<Object>> rows = getRowsForSchemas(resultSet, SCHEMA_COLUMNS, catalog);
+    List<List<Object>> rows =
+        getRowsForSchemas(
+            resultSet, SCHEMA_COLUMNS, catalog, new SchemasDatabricksResultSetAdapter());
     return buildResultSet(
         SCHEMA_COLUMNS,
         rows,
@@ -562,19 +564,39 @@ public class MetadataResultSetBuilder {
   }
 
   private List<List<Object>> getRowsForSchemas(
-      DatabricksResultSet resultSet, List<ResultColumn> columns, String catalog)
+      DatabricksResultSet resultSet,
+      List<ResultColumn> columns,
+      String catalog,
+      IDatabricksResultSetAdapter adapter)
       throws SQLException {
     List<List<Object>> rows = new ArrayList<>();
     while (resultSet.next()) {
+      // Check if this row should be included based on the adapter's filter
+      if (!adapter.includeRow(resultSet, columns)) {
+        continue;
+      }
+
       List<Object> row = new ArrayList<>();
       for (ResultColumn column : columns) {
-        if (column.getColumnName().equals("TABLE_CATALOG")) {
-          row.add(catalog);
-          continue;
+        // Map the expected column on client to column in the result set using the adapter
+        ResultColumn mappedColumn = adapter.mapColumn(column);
+
+        if (mappedColumn
+            .getResultSetColumnName()
+            .equals(CATALOG_RESULT_COLUMN.getResultSetColumnName())) {
+          try {
+            resultSet.findColumn(mappedColumn.getResultSetColumnName());
+          } catch (SQLException e) {
+            // Result set does not have a catalog column
+            // Manually add the catalog and move to next column
+            row.add(catalog);
+            continue;
+          }
         }
+
         Object object;
         try {
-          object = resultSet.getObject(column.getResultSetColumnName());
+          object = resultSet.getObject(mappedColumn.getResultSetColumnName());
           if (object == null) {
             object = NULL_STRING;
           }
