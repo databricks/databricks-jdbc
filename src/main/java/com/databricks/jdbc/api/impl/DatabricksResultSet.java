@@ -624,7 +624,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public boolean isLast() throws SQLException {
     checkIfClosed();
     if (executionResult instanceof LazyThriftResult) {
-      return !executionResult.hasNext();
+      return executionResult.getCurrentRow() >= 0 && !executionResult.hasNext();
     }
     return executionResult.getCurrentRow() == resultSetMetaData.getTotalRows() - 1;
   }

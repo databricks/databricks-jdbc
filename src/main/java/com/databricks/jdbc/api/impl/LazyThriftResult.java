@@ -210,6 +210,11 @@ public class LazyThriftResult implements IExecutionResult {
     return 0;
   }
 
+  /**
+   * Loads the current response data into memory as a batch of rows.
+   *
+   * @throws DatabricksSQLException if the response data cannot be processed
+   */
   private void loadCurrentBatch() throws DatabricksSQLException {
     currentBatch = extractRowsFromColumnar(currentResponse.getResults());
     currentBatchIndex = -1; // Reset batch index
@@ -218,6 +223,11 @@ public class LazyThriftResult implements IExecutionResult {
         "Loaded batch with {} rows, total fetched: {}", currentBatch.size(), totalRowsFetched);
   }
 
+  /**
+   * Fetches the next batch of data from the server and loads it into memory.
+   *
+   * @throws DatabricksSQLException if the fetch operation fails
+   */
   private void fetchNextBatch() throws DatabricksSQLException {
     try {
       LOGGER.debug("Fetching next batch, current total rows fetched: {}", totalRowsFetched);
