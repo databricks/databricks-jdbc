@@ -1,7 +1,6 @@
 package com.databricks.client.jdbc;
 
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.HTTP_PATH;
-import static com.databricks.jdbc.integration.IntegrationTestUtil.getFullyQualifiedTableName;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -32,7 +31,6 @@ import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.StringJoiner;
-import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -615,67 +613,6 @@ public class DatabricksDriverExamples {
     con.close();
   }
 
-  /**
-   * Demonstrates Unity Catalog (UC) volume operations (PUT, GET, DELETE) using InputStream. Assumes
-   * the user has privileges to ingest to UC volumes, and the volume path is valid and
-   * enableVolumeOperations is set true in client properties
-   */
-  @Test
-  void exampleUCVolumeUsingInputStream() throws Exception {
-    DriverManager.registerDriver(new Driver());
-    System.out.println("Starting UC volume test...");
-
-    String jdbcUrl = JDBC_URL_WAREHOUSE;
-
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
-    // Example setting an allowed ingestion path
-    con.setClientInfo(DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS, "delete");
-    con.setClientInfo(DatabricksJdbcConstants.ENABLE_VOLUME_OPERATIONS, "1");
-    System.out.println("Connection created.");
-
-    var client = DatabricksVolumeClientFactory.getVolumeClient(con);
-
-    File file = new File("/tmp/put.txt");
-    try {
-      java.nio.file.Files.write(file.toPath(), "test-put".getBytes());
-      System.out.println("File created at /tmp/put.txt");
-
-      // Put object
-      System.out.println(
-          "Object inserted: "
-              + client.putObject(
-                  "main",
-                  "jdbc_test_schema",
-                  "jdbc_test_volume",
-                  "test-stream.csv",
-                  new FileInputStream(file),
-                  file.length(),
-                  true));
-
-      // Get object
-      InputStreamEntity inputStream =
-          client.getObject("main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv");
-      System.out.println("Got data: " + new String(inputStream.getContent().readAllBytes()));
-      inputStream.getContent().close();
-
-      // Check existence
-      System.out.println(
-          "Object exists? "
-              + client.objectExists(
-                  "main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv", false));
-
-      // Delete object
-      client.deleteObject("main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv");
-      System.out.println(
-          "Object exists after deletion? "
-              + client.objectExists(
-                  "main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv", false));
-    } finally {
-      file.delete();
-      con.close();
-    }
-  }
-
   @Test
   void examplePutFiles() throws Exception {
 
@@ -684,7 +621,8 @@ public class DatabricksDriverExamples {
     p.setProperty("PWD", DATABRICKS_TOKEN);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(JDBC_URL_WAREHOUSE, p);
-    var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
+    com.databricks.jdbc.api.IDatabricksVolumeClient client =
+        DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
     int numFiles = 2;
     List<String> objectPaths = new ArrayList<>();
     List<String> localPaths = new ArrayList<>();
@@ -725,58 +663,6 @@ public class DatabricksDriverExamples {
   }
 
   /**
-   * Demonstrates DBFS volume operations (PUT, GET, LIST, DELETE) using streams. Replace the
-   * relevant path or volume name if you use a different setup. Enable enableVolumeOperations client
-   * property to perform these operations
-   */
-  @Test
-  void exampleDBFSVolumeOperationUsingStream() throws Exception {
-    System.out.println("Starting DBFS volume test...");
-
-    // You can replace the token if using a different workspace/token
-    String jdbcUrl = JDBC_URL_WAREHOUSE + "Loglevel=debug;";
-    Properties p = new Properties();
-    p.setProperty(DatabricksJdbcConstants.ENABLE_VOLUME_OPERATIONS, "1");
-    p.setProperty("PWD", DATABRICKS_TOKEN);
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(jdbcUrl, p);
-    var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
-
-    File file = new File("/tmp/put.txt");
-    try {
-      java.nio.file.Files.write(file.toPath(), "test-put".getBytes());
-      System.out.println("File created at /tmp/put.txt");
-
-      System.out.println(
-          "Object inserted: "
-              + client.putObject(
-                  "main",
-                  "jdbc_test_schema",
-                  "jdbc_test_volume",
-                  "test-stream.csv",
-                  new FileInputStream(file),
-                  file.length(),
-                  true));
-
-      InputStreamEntity inputStream =
-          client.getObject("main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv");
-      System.out.println("Got data: " + new String(inputStream.getContent().readAllBytes()));
-      inputStream.getContent().close();
-
-      System.out.println(
-          "Listed objects: "
-              + client.listObjects("main", "jdbc_test_schema", "jdbc_test_volume", "test", false));
-
-      System.out.println(
-          "Delete object result: "
-              + client.deleteObject(
-                  "main", "jdbc_test_schema", "jdbc_test_volume", "test-stream.csv"));
-    } finally {
-      file.delete();
-    }
-  }
-
-  /**
    * Demonstrates DBFS volume operations with local file paths instead of streams. (PUT, GET, LIST,
    * DELETE) Enable enableVolumeOperations client property to perform these operations
    */
@@ -790,7 +676,8 @@ public class DatabricksDriverExamples {
     p.setProperty("PWD", DATABRICKS_TOKEN);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(jdbcUrl, p);
-    var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
+    com.databricks.jdbc.api.IDatabricksVolumeClient client =
+        DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
     File file = new File("/tmp/put.txt");
     File fileGet = new File("/tmp/dbfs.txt");
@@ -844,7 +731,8 @@ public class DatabricksDriverExamples {
     String jdbcUrl = JDBC_URL_WAREHOUSE + "Loglevel=debug;enableVolumeOperations=1";
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(jdbcUrl, "TOKEN", DATABRICKS_TOKEN);
-    var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
+    com.databricks.jdbc.api.IDatabricksVolumeClient client =
+        DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
     File file = new File("/tmp/put.txt");
     try {
@@ -1171,123 +1059,5 @@ public class DatabricksDriverExamples {
 
     // Any statement on 'con' should now fail
     assertThrows(DatabricksSQLException.class, () -> s.executeQuery("Select 1"));
-  }
-
-  /**
-   * Demonstrates batch statement execution (with addBatch/executeBatch) on an all-purpose cluster.
-   * The 'MaxBatchSize=4' parameter in the JDBC URL indicates how many statements can be grouped at
-   * once on the server side.
-   */
-  @Test
-  void exampleBatchAllPurposeClusters() throws Exception {
-    String jdbcUrl = JDBC_URL_CLUSTER + "MaxBatchSize=4";
-    String tableName = "batch_test_table";
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
-    System.out.println("Connection established......");
-
-    Statement s = con.createStatement();
-    s.addBatch("DROP TABLE IF EXISTS " + getFullyQualifiedTableName(tableName));
-    s.addBatch(
-        "CREATE TABLE IF NOT EXISTS "
-            + getFullyQualifiedTableName(tableName)
-            + " (id INT PRIMARY KEY, col1 VARCHAR(255), col2 VARCHAR(255))");
-    s.executeBatch();
-    s.clearBatch();
-
-    s.addBatch(
-        "INSERT INTO "
-            + getFullyQualifiedTableName(tableName)
-            + " (id, col1, col2) VALUES (1, 'value1', 'value2')");
-    s.addBatch(
-        "INSERT INTO "
-            + getFullyQualifiedTableName(tableName)
-            + " (id, col1, col2) VALUES (2, 'value3', 'value4')");
-    s.addBatch(
-        "INSERT INTO "
-            + getFullyQualifiedTableName(tableName)
-            + " (id, col1, col2) VALUES (3, 'value5', 'value6')");
-    s.addBatch(
-        "UPDATE "
-            + getFullyQualifiedTableName(tableName)
-            + " SET col1 = 'updatedValue1' WHERE id = 1");
-
-    System.out.println("Batch result: " + Arrays.toString(s.executeBatch()));
-    s.clearBatch();
-    con.close();
-    System.out.println("Connection closed successfully......");
-  }
-
-  /**
-   * Demonstrates batch inserts using a PreparedStatement. The logic shows how to accumulate
-   * multiple parameter sets in one batch.
-   */
-  @Test
-  void exampleBatchFunction() throws Exception {
-    String jdbcUrl = JDBC_URL_WAREHOUSE;
-    Connection con = DriverManager.getConnection(jdbcUrl, "token", DATABRICKS_TOKEN);
-    System.out.println("Connection established......");
-
-    String sqlStatement =
-        "INSERT INTO main.jdbc_test_schema.diamonds (carat, cut, color, clarity) VALUES (?, ?, ?, ?)";
-    PreparedStatement pstmt = con.prepareStatement(sqlStatement);
-
-    // Add several parameter sets to the batch
-    for (int i = 1; i <= 3; i++) {
-      pstmt.setFloat(1, 0.23f);
-      pstmt.setString(2, "OK");
-      pstmt.setString(3, "E");
-      pstmt.setString(4, "SI2");
-      pstmt.addBatch();
-    }
-
-    // Example of a different data type that might fail if schema doesn't allow strings for 'carat'
-    pstmt.setString(1, "malformed");
-    pstmt.setString(2, "Bad");
-    pstmt.setString(3, "F");
-    pstmt.setString(4, "SI6");
-    pstmt.addBatch();
-
-    // Add more parameter sets
-    for (int i = 1; i <= 3; i++) {
-      pstmt.setFloat(1, 0.23f);
-      pstmt.setString(2, "Bad");
-      pstmt.setString(3, "F");
-      pstmt.setString(4, "SI6");
-      pstmt.addBatch();
-    }
-
-    // Execute the batch
-    int[] updateCounts = pstmt.executeBatch();
-    for (int count : updateCounts) {
-      System.out.println("Update count: " + count);
-    }
-    con.close();
-  }
-
-  /**
-   * Demonstrates JWT-based M2M flow using a private key and passphrase (for instance with Okta as
-   * the OAuth provider). The parameters in the JDBC URL can be adapted for your OAuth2 provider, if
-   * needed.
-   */
-  @Test
-  void exampleM2MJWT() throws SQLException {
-    String jdbcUrl =
-        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;"
-            + "httpPath=sql/1.0/warehouses/999999999999;"
-            + "AuthMech=11;ssl=1;Auth_Flow=1;"
-            + "OAuth2TokenEndpoint=https://dev-591123.oktapreview.com/oauth2/aus1mzu4zk5TWwMvx0h8/v1/token;"
-            + "Auth_Scope=sql;OAuth2ClientId=0oa25wnir4ehnKDj10h8;"
-            + "Auth_KID=EbKQzTAVP1_3E59Bq5P3Uv8krHCpj3hIWTodcmDwQ5k;"
-            + "UseJWTAssertion=1;"
-            + "Auth_JWT_Key_File=jdbc-testing-enc.pem;"
-            + "Auth_JWT_Key_Passphrase=s3cr3t";
-
-    Connection con = DriverManager.getConnection(jdbcUrl);
-    System.out.println("Connection established via JWT M2M OAuth...");
-
-    ResultSet rs = con.createStatement().executeQuery("SELECT 1");
-    printResultSet(rs);
-    rs.close();
-    con.close();
   }
 }

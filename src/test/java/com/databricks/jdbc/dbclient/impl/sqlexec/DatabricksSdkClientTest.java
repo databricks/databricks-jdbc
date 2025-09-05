@@ -59,15 +59,8 @@ public class DatabricksSdkClientTest {
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
   private static final String DEFAULT_KEYSTORE_PASSWORD = "changeit";
 
-  private static final Map<String, String> headers =
-      new HashMap<>() {
-        {
-          put("Accept", "application/json");
-          put("Content-Type", "application/json");
-        }
-      };
-  private static final Map<Integer, ImmutableSqlParameter> sqlParams =
-      new HashMap<>() {
+  private static final HashMap sqlParams =
+      new HashMap<Integer, ImmutableSqlParameter>() {
         {
           put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
           put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
@@ -84,7 +77,7 @@ public class DatabricksSdkClientTest {
 
   private void setupClientMocks(boolean includeResults, boolean async) throws IOException {
     List<StatementParameterListItem> params =
-        new ArrayList<>() {
+        new ArrayList<StatementParameterListItem>() {
           {
             add(getParam("LONG", "100", 1));
             add(getParam("SHORT", "10", 2));
