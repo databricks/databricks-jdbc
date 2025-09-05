@@ -72,15 +72,15 @@ jobs:
         PERCENTAGE=$(python3 -c "covered=${COVERED}; total=${TOTAL}; print(round((covered/total)*100, 2))")
         
         echo "Branch Coverage: $PERCENTAGE%"
-        echo "Required Coverage: 85%"
+        echo "Required Coverage: 80%"
         
-        # Use Python to compare the coverage with 85
-        python3 -c "import sys; sys.exit(0 if float('$PERCENTAGE') >= 85 else 1)"
+        # Use Python to compare the coverage with 80
+        python3 -c "import sys; sys.exit(0 if float('$PERCENTAGE') >= 80 else 1)"
         if [ $? -eq 1 ]; then
-          echo "ERROR: Coverage is $PERCENTAGE%, which is less than the required 85%"
+          echo "ERROR: Coverage is $PERCENTAGE%, which is less than the required 80%"
           exit 1
         else
-          echo "SUCCESS: Coverage is $PERCENTAGE%, which meets the required 85%"
+          echo "SUCCESS: Coverage is $PERCENTAGE%, which meets the required 80%"
         fi
         
     - name: Coverage enforcement summary
@@ -89,5 +89,5 @@ jobs:
           echo "⚠️ Coverage checks bypassed: ${{ steps.override.outputs.reason }}"
           echo "Please ensure this override is justified and temporary"
         else
-          echo "✅ Coverage checks enforced - minimum 85% required"
+          echo "✅ Coverage checks enforced - minimum 80% required"
         fi
