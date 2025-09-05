@@ -12,7 +12,6 @@ import com.databricks.sdk.core.error.details.ErrorDetails;
 import com.databricks.sdk.core.error.platform.NotFound;
 import java.io.File;
 import java.io.FileInputStream;
-import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.*;
@@ -294,7 +293,8 @@ class DBFSVolumeClientTest {
           .thenReturn(processorBuilder);
 
       File file = new File(tempFolder, "dbfs_test_put.txt");
-      Files.writeString(file.toPath(), "test-put-stream");
+      java.nio.file.Files.write(
+          file.toPath(), "test-put-stream".getBytes(java.nio.charset.StandardCharsets.UTF_8));
       System.out.println("File created");
 
       boolean result;

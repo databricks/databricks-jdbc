@@ -218,7 +218,7 @@ public class DBFSVolumeClientUploadTest {
     // Setup connectionContext mock for retry logic
     lenient()
         .when(connectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(408, 429, 500, 502, 503, 504));
+        .thenReturn(java.util.Arrays.asList(408, 429, 500, 502, 503, 504));
     lenient().when(connectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(900);
 
     // Prepare test file
@@ -348,7 +348,7 @@ public class DBFSVolumeClientUploadTest {
         results.get(1).getMessage().contains("File not found"),
         "Invalid file result should have the appropriate error message");
 
-    // Verify HTTP client was called only once (for the valid file)
+    // Verify HTTP client was only once (for the valid file)
     verify(httpClient, times(1)).executeAsync(any(), any(), any());
   }
 
@@ -412,7 +412,7 @@ public class DBFSVolumeClientUploadTest {
     // Setup connectionContext mock for retry logic
     lenient()
         .when(connectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(408, 429, 500, 502, 503, 504));
+        .thenReturn(java.util.Arrays.asList(408, 429, 500, 502, 503, 504));
     lenient().when(connectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(900);
 
     // Prepare test file

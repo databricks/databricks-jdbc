@@ -28,9 +28,9 @@ public class Slf4jFormatterTest {
     record.setSourceClassName("TestClass");
     record.setSourceMethodName("testMethod");
 
-    // Set a specific timestamp for testing
+    // Set a specific timestamp for testing (JDK8-compatible)
     Instant instant = Instant.parse("2021-07-01T00:00:00Z");
-    record.setInstant(instant);
+    record.setMillis(Date.from(instant).getTime());
 
     // Format the log record
     String formattedLog = formatter.format(record);

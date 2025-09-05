@@ -411,23 +411,6 @@ public class DatabricksConnectionTest {
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.createStruct(null, null));
-    Exception e1 =
-        assertThrows(Exception.class, () -> connection.setShardingKeyIfValid(null, null, 0));
-    assertTrue(
-        e1 instanceof DatabricksSQLFeatureNotImplementedException
-            || e1 instanceof java.sql.SQLFeatureNotSupportedException);
-    Exception e2 = assertThrows(Exception.class, () -> connection.setShardingKeyIfValid(null, 0));
-    assertTrue(
-        e2 instanceof DatabricksSQLFeatureNotImplementedException
-            || e2 instanceof java.sql.SQLFeatureNotSupportedException);
-    Exception e3 = assertThrows(Exception.class, () -> connection.setShardingKey(null, null));
-    assertTrue(
-        e3 instanceof DatabricksSQLFeatureNotImplementedException
-            || e3 instanceof java.sql.SQLFeatureNotSupportedException);
-    Exception e4 = assertThrows(Exception.class, () -> connection.setShardingKey(null));
-    assertTrue(
-        e4 instanceof DatabricksSQLFeatureNotImplementedException
-            || e4 instanceof java.sql.SQLFeatureNotSupportedException);
   }
 
   @Test

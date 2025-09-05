@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import java.sql.*;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -25,9 +24,10 @@ public class ComplexTypeQueryTests {
   private void setupConnection(int thriftVal, int complexSupport) throws SQLException {
     connection =
         getValidJDBCConnection(
-            List.of(
-                List.of("EnableComplexDatatypeSupport", String.valueOf(complexSupport)),
-                List.of("usethriftclient", String.valueOf(thriftVal))));
+            java.util.Arrays.asList(
+                java.util.Arrays.asList(
+                    "EnableComplexDatatypeSupport", String.valueOf(complexSupport)),
+                java.util.Arrays.asList("usethriftclient", String.valueOf(thriftVal))));
   }
 
   @ParameterizedTest

@@ -512,7 +512,13 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.getObject(2))
         .thenReturn(
             new DatabricksStruct(
-                Map.of("id", 1, "name", "Alice"), "STRUCT<id: INT, name: STRING>"));
+                new java.util.LinkedHashMap<String, Object>() {
+                  {
+                    put("id", 1);
+                    put("name", "Alice");
+                  }
+                },
+                "STRUCT<id: INT, name: STRING>"));
     when(mockedResultSetMetadata.getColumnNameIndex("user_struct")).thenReturn(3);
 
     // Instantiate result set
@@ -898,10 +904,10 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateByte("column", (byte) 100));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateCharacterStream(1, Reader.nullReader(), 1));
+        () -> resultSet.updateCharacterStream(1, new StringReader(""), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateCharacterStream("column", Reader.nullReader(), 1));
+        () -> resultSet.updateCharacterStream("column", new StringReader(""), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateSQLXML(1, null));
     assertThrows(

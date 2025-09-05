@@ -27,7 +27,8 @@ public class DBFSVolumeTests {
   void setUp() throws SQLException {
     IDatabricksConnectionContext connectionContext =
         getDogfoodJDBCConnectionContext(
-            List.of(List.of("VolumeOperationAllowedLocalPaths", "/tmp")));
+            java.util.Arrays.asList(
+                java.util.Arrays.asList("VolumeOperationAllowedLocalPaths", "/tmp")));
     System.out.println("ConnectionContext parsed .....");
     client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
   }
@@ -250,7 +251,8 @@ public class DBFSVolumeTests {
           client.putObject(catalog, schema, volume, objectPath, localPathForUpload, toOverwrite));
       assertTrue(client.getObject(catalog, schema, volume, objectPath, localPathForDownload));
 
-      String actualContent = Files.readString(downloadedFile.toPath(), StandardCharsets.UTF_8);
+      String actualContent =
+          new String(Files.readAllBytes(downloadedFile.toPath()), StandardCharsets.UTF_8);
       assertEquals(expectedContent, actualContent);
     } catch (Exception e) {
       throw e;

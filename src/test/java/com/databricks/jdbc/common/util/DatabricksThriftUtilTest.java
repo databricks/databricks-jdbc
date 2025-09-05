@@ -196,8 +196,9 @@ public class DatabricksThriftUtilTest {
 
   private static Stream<Arguments> resultDataTypesForGetColumnValue() {
     return Stream.of(
-        Arguments.of(new TRowSet(), List.of()),
-        Arguments.of(new TRowSet().setColumns(Collections.emptyList()), List.of()),
+        Arguments.of(new TRowSet(), java.util.Collections.emptyList()),
+        Arguments.of(
+            new TRowSet().setColumns(Collections.emptyList()), java.util.Collections.emptyList()),
         Arguments.of(BOOL_ROW_SET, getExpectedResults(BOOL_ROW_SET_VALUES)),
         Arguments.of(BYTE_ROW_SET, getExpectedResults(BYTE_ROW_SET_VALUES)),
         Arguments.of(DOUBLE_ROW_SET, getExpectedResults(DOUBLE_ROW_SET_VALUES)),

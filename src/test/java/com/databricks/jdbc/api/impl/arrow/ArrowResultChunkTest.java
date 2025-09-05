@@ -197,7 +197,10 @@ public class ArrowResultChunkTest {
       dummyVector.set(i, i * 10);
     }
     arrowResultChunk.recordBatchList =
-        List.of(List.of(dummyVector), List.of(dummyVector), new ArrayList<>());
+        java.util.Arrays.asList(
+            java.util.Arrays.asList(dummyVector),
+            java.util.Arrays.asList(dummyVector),
+            new ArrayList<>());
     ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
     ColumnInfo intColumnInfo = new ColumnInfo();
     assertTrue(iterator.hasNextRow());
@@ -240,7 +243,10 @@ public class ArrowResultChunkTest {
     emptyVector.allocateNew(0);
     emptyVector.setValueCount(0);
     arrowResultChunk.recordBatchList =
-        List.of(List.of(dummyVector), List.of(emptyVector), List.of(dummyVector));
+        java.util.Arrays.asList(
+            java.util.Arrays.asList(dummyVector),
+            java.util.Arrays.asList(emptyVector),
+            java.util.Arrays.asList(dummyVector));
     ColumnInfo intColumnInfo = new ColumnInfo();
     ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
     assertTrue(iterator.hasNextRow());
