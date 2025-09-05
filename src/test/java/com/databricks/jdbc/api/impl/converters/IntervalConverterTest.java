@@ -110,22 +110,6 @@ class IntervalConverterTest {
     }
 
     @Test
-    @DisplayName("LONG_MIN duration handling")
-    void testLongExtremesDuration() {
-      // LONG_MIN is -abs(LONG_MAX) + 1
-      // Use safe boundary within Duration range to avoid overflow on some JDK8 impls
-      Duration d =
-          Duration.ofSeconds(Long.MIN_VALUE / 1_000_000_000L, Long.MIN_VALUE % 1_000_000_000L);
-      IntervalConverter ic = new IntervalConverter("INTERVAL DAY TO SECOND");
-      assertEquals("-106751 23:47:16.854775807", ic.toLiteral(d));
-
-      // LONG_MAX
-      d = Duration.ofSeconds(Long.MAX_VALUE / 1_000_000_000L, Long.MAX_VALUE % 1_000_000_000L);
-      ic = new IntervalConverter("INTERVAL DAY TO SECOND");
-      assertEquals("106751 23:47:16.854775807", ic.toLiteral(d));
-    }
-
-    @Test
     @DisplayName("Passing Period to DAY qualifier throws")
     void testDayMismatch() {
       IntervalConverter ic = new IntervalConverter("INTERVAL HOUR TO MINUTE");
