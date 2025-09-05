@@ -11,7 +11,6 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.ExecutionState;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IExecutionStatus;
-import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -47,20 +46,7 @@ public class DatabricksResultSetTest {
 
   @Mock InlineJsonResult mockedExecutionResult;
   @Mock TFetchResultsResp fetchResultsResp;
-  // Use a lightweight stub instead of mocking final class on JDK8
-  private static class StubVolumeOperationResult extends VolumeOperationResult {
-    private final org.apache.http.entity.InputStreamEntity entity;
-
-    StubVolumeOperationResult(org.apache.http.entity.InputStreamEntity entity) {
-      super(null, null, null, null, null);
-      this.entity = entity;
-    }
-
-    @Override
-    public org.apache.http.entity.InputStreamEntity getVolumeOperationInputStream() {
-      return entity;
-    }
-  }
+  // (removed custom supplier; we'll stub mockedExecutionResult instead)
 
   @Mock DatabricksResultSetMetaData mockedResultSetMetadata;
   @Mock IDatabricksSession session;
@@ -1119,16 +1105,16 @@ public class DatabricksResultSetTest {
   @Test
   void testVolumeOperationInputStream() throws Exception {
     String fakeInput = "Hello World\n42\n";
-    StubVolumeOperationResult stub =
-        new StubVolumeOperationResult(
-            new InputStreamEntity(new ByteArrayInputStream(fakeInput.getBytes()), 10L));
+    InputStreamEntity entity =
+        new InputStreamEntity(new ByteArrayInputStream(fakeInput.getBytes()), 10L);
+    when(mockedExecutionResult.getVolumeOperationInputStream()).thenReturn(entity);
     DatabricksResultSet resultSet =
         new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),
             STATEMENT_ID,
             StatementType.METADATA,
             mockedDatabricksStatement,
-            stub,
+            mockedExecutionResult,
             mockedResultSetMetadata,
             false);
     assertNotNull(resultSet.getVolumeOperationInputStream());
