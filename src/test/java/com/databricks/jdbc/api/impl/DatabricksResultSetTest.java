@@ -30,7 +30,6 @@ import java.sql.*;
 import java.sql.Date;
 import java.time.*;
 import java.util.*;
-import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -1104,10 +1103,6 @@ public class DatabricksResultSetTest {
 
   @Test
   void testVolumeOperationInputStream() throws Exception {
-    String fakeInput = "Hello World\n42\n";
-    InputStreamEntity entity =
-        new InputStreamEntity(new ByteArrayInputStream(fakeInput.getBytes()), 10L);
-    when(mockedExecutionResult.getVolumeOperationInputStream()).thenReturn(entity);
     DatabricksResultSet resultSet =
         new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),
@@ -1117,8 +1112,10 @@ public class DatabricksResultSetTest {
             mockedExecutionResult,
             mockedResultSetMetadata,
             false);
-    assertNotNull(resultSet.getVolumeOperationInputStream());
-    assertEquals(10L, resultSet.getVolumeOperationInputStream().getContentLength());
+    assertThrows(
+        DatabricksSQLException.class,
+        resultSet::getVolumeOperationInputStream,
+        "Expected validation error when executionResult is not a VolumeOperationResult");
   }
 
   @Test
