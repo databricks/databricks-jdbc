@@ -47,7 +47,21 @@ public class DatabricksResultSetTest {
 
   @Mock InlineJsonResult mockedExecutionResult;
   @Mock TFetchResultsResp fetchResultsResp;
-  @Mock VolumeOperationResult mockedVolumeResult;
+  // Use a lightweight stub instead of mocking final class on JDK8
+  private static class StubVolumeOperationResult extends VolumeOperationResult {
+    private final org.apache.http.entity.InputStreamEntity entity;
+
+    StubVolumeOperationResult(org.apache.http.entity.InputStreamEntity entity) {
+      super(null, null, null, null, null);
+      this.entity = entity;
+    }
+
+    @Override
+    public org.apache.http.entity.InputStreamEntity getVolumeOperationInputStream() {
+      return entity;
+    }
+  }
+
   @Mock DatabricksResultSetMetaData mockedResultSetMetadata;
   @Mock IDatabricksSession session;
   @Mock DatabricksStatement mockedDatabricksStatement;
@@ -1104,19 +1118,19 @@ public class DatabricksResultSetTest {
 
   @Test
   void testVolumeOperationInputStream() throws Exception {
+    String fakeInput = "Hello World\n42\n";
+    StubVolumeOperationResult stub =
+        new StubVolumeOperationResult(
+            new InputStreamEntity(new ByteArrayInputStream(fakeInput.getBytes()), 10L));
     DatabricksResultSet resultSet =
         new DatabricksResultSet(
             new StatementStatus().setState(StatementState.SUCCEEDED),
             STATEMENT_ID,
             StatementType.METADATA,
             mockedDatabricksStatement,
-            mockedVolumeResult,
+            stub,
             mockedResultSetMetadata,
             false);
-    String fakeInput = "Hello World\n42\n";
-
-    when(mockedVolumeResult.getVolumeOperationInputStream())
-        .thenReturn(new InputStreamEntity(new ByteArrayInputStream(fakeInput.getBytes()), 10L));
     assertNotNull(resultSet.getVolumeOperationInputStream());
     assertEquals(10L, resultSet.getVolumeOperationInputStream().getContentLength());
   }

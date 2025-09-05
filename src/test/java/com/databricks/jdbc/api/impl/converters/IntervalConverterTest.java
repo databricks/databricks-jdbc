@@ -113,12 +113,14 @@ class IntervalConverterTest {
     @DisplayName("LONG_MIN duration handling")
     void testLongExtremesDuration() {
       // LONG_MIN is -abs(LONG_MAX) + 1
-      Duration d = Duration.ofNanos(Long.MIN_VALUE);
+      // Use safe boundary within Duration range to avoid overflow on some JDK8 impls
+      Duration d =
+          Duration.ofSeconds(Long.MIN_VALUE / 1_000_000_000L, Long.MIN_VALUE % 1_000_000_000L);
       IntervalConverter ic = new IntervalConverter("INTERVAL DAY TO SECOND");
       assertEquals("-106751 23:47:16.854775807", ic.toLiteral(d));
 
       // LONG_MAX
-      d = Duration.ofNanos(Long.MAX_VALUE);
+      d = Duration.ofSeconds(Long.MAX_VALUE / 1_000_000_000L, Long.MAX_VALUE % 1_000_000_000L);
       ic = new IntervalConverter("INTERVAL DAY TO SECOND");
       assertEquals("106751 23:47:16.854775807", ic.toLiteral(d));
     }
