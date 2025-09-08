@@ -18,5 +18,6 @@
 ### Fixed
 - Integrated Azure U2M flow into driver for improved stability.
 - Fixed `ResultSet.getString` for Boolean columns in Metadata result set.
+- Fixed volume operations not completing unless the ResultSet is fully iterated.
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 
