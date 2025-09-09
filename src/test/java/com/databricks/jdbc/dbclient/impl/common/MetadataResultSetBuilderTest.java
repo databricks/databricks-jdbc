@@ -467,4 +467,68 @@ public class MetadataResultSetBuilderTest {
     }
     assertEquals(2, rowCount);
   }
+
+  @Test
+  void testComplexTypesReturnVarcharWhenSupportDisabled() throws SQLException {
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
+
+    List<ResultColumn> columns =
+        Arrays.asList(DATA_TYPE_COLUMN, COLUMN_TYPE_COLUMN, SQL_DATA_TYPE_COLUMN);
+    List<List<Object>> rows =
+        Arrays.asList(
+            Arrays.asList(2003, "ARRAY<DATE>", 2003),
+            Arrays.asList(2002, "MAP<STRING,INT>", 2002),
+            Arrays.asList(2002, "STRUCT<name:STRING,age:INT>", 2002),
+            Arrays.asList(1111, "VARIANT", 1111));
+
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(rows, columns);
+
+    List<Object> arrayRow = updatedRows.get(0);
+    assertEquals(12, arrayRow.get(0));
+    assertEquals(12, arrayRow.get(2));
+
+    List<Object> mapRow = updatedRows.get(1);
+    assertEquals(12, mapRow.get(0));
+    assertEquals(12, mapRow.get(2));
+
+    List<Object> structRow = updatedRows.get(2);
+    assertEquals(12, structRow.get(0));
+    assertEquals(12, structRow.get(2));
+
+    List<Object> variantRow = updatedRows.get(3);
+    assertEquals(1111, variantRow.get(0));
+    assertEquals(1111, variantRow.get(2));
+  }
+
+  @Test
+  void testComplexTypesReturnActualCodesWhenSupportEnabled() throws SQLException {
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(true);
+
+    List<ResultColumn> columns =
+        Arrays.asList(DATA_TYPE_COLUMN, COLUMN_TYPE_COLUMN, SQL_DATA_TYPE_COLUMN);
+    List<List<Object>> rows =
+        Arrays.asList(
+            Arrays.asList(2003, "ARRAY<DATE>", 2003),
+            Arrays.asList(2002, "MAP<STRING,INT>", 2002),
+            Arrays.asList(2002, "STRUCT<name:STRING,age:INT>", 2002),
+            Arrays.asList(1111, "VARIANT", 1111));
+
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(rows, columns);
+
+    List<Object> arrayRow = updatedRows.get(0);
+    assertEquals(2003, arrayRow.get(0));
+    assertEquals(2003, arrayRow.get(2));
+
+    List<Object> mapRow = updatedRows.get(1);
+    assertEquals(2002, mapRow.get(0));
+    assertEquals(2002, mapRow.get(2));
+
+    List<Object> structRow = updatedRows.get(2);
+    assertEquals(2002, structRow.get(0));
+    assertEquals(2002, structRow.get(2));
+
+    List<Object> variantRow = updatedRows.get(3);
+    assertEquals(1111, variantRow.get(0));
+    assertEquals(1111, variantRow.get(2));
+  }
 }

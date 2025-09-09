@@ -147,7 +147,7 @@ public enum DatabricksJdbcUrlParams {
       "Maximum number of concurrent presigned requests",
       "50"),
   TELEMETRY_CIRCUIT_BREAKER_ENABLED(
-      "TelemetryCircuitBreakerEnabled", "Enable circuit breaker for telemetry", "0"),
+      "TelemetryCircuitBreakerEnabled", "Enable circuit breaker for telemetry", "1"),
   HTTP_MAX_CONNECTIONS_PER_ROUTE(
       "HttpMaxConnectionsPerRoute", "Maximum connections per route for HTTP client", "1000"),
   HTTP_CONNECTION_REQUEST_TIMEOUT(
