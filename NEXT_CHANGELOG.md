@@ -20,5 +20,6 @@
 - Fixed `ResultSet.getString` for Boolean columns in Metadata result set.
 - Fixed volume operations not completing unless the ResultSet is fully iterated.
 - Fixed `connection.getMetadata().getColumns()` to return the correct SQL data type code for complex type columns.
+- Fixed a bug in the JDBC driver's metadata parsing for nested decimal fields within struct types.
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 
