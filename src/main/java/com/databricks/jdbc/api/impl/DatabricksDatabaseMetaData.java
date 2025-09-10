@@ -2,7 +2,6 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
-import static com.databricks.jdbc.dbclient.impl.sqlexec.CommandName.LIST_FUNCTIONS;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.CLIENT_INFO_PROPERTIES_RESULT;
 
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
@@ -13,7 +12,6 @@ import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.dbclient.impl.sqlexec.CommandBuilder;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -1530,29 +1528,21 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getFunctions(String catalog, String schemaPattern, String functionNamePattern)
       throws SQLException {
     LOGGER.debug(
-        String.format(
-            "public ResultSet getFunctions(String catalog = {}, String schemaPattern = {}, String functionNamePattern = {})",
-            catalog,
-            schemaPattern,
-            functionNamePattern));
+        "public ResultSet getFunctions(String catalog = {}, String schemaPattern = {}, String functionNamePattern = {})",
+        catalog,
+        schemaPattern,
+        functionNamePattern);
     throwExceptionIfConnectionIsClosed();
     try {
-      if (connection.getConnectionContext().enableShowCommandsForGetFunctions()) {
-        return getFunctionsFromCommand(
-            catalog,
-            schemaPattern,
-            functionNamePattern); // TODO : remove this once thrift implementation is fixed.
-      } else {
-        if (WildcardUtil.isNullOrEmpty(functionNamePattern)) {
-          functionNamePattern =
-              "%"; // This is because functionName is a required parameter in thrift flow.
-        }
-        return session
-            .getDatabricksMetadataClient()
-            .listFunctions(session, catalog, schemaPattern, functionNamePattern);
+      if (WildcardUtil.isNullOrEmpty(functionNamePattern)) {
+        functionNamePattern =
+            "%"; // This is because functionName is a required parameter in thrift flow.
       }
+      return session
+          .getDatabricksMetadataClient()
+          .listFunctions(session, catalog, schemaPattern, functionNamePattern);
     } catch (Exception e) {
-      LOGGER.error(e, "Unable to fetch functions with error {}, returning empty result set", e);
+      LOGGER.error(e, "Unable to fetch functions, returning empty result set");
       return metadataResultSetBuilder.getFunctionsResult(catalog, List.of());
     }
   }
@@ -1631,19 +1621,5 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throw new DatabricksSQLException(
           "Connection closed!", DatabricksDriverErrorCode.CONNECTION_CLOSED);
     }
-  }
-
-  private ResultSet getFunctionsFromCommand(
-      String catalog, String schemaPattern, String functionNamePattern) throws SQLException {
-    Statement internalStatement = connection.createStatement();
-    String showFunctionsSqlCommand =
-        new CommandBuilder(catalog, session)
-            .setSchemaPattern(schemaPattern)
-            .setFunctionPattern(functionNamePattern)
-            .getSQLString(LIST_FUNCTIONS);
-    DatabricksResultSet rs =
-        (DatabricksResultSet) internalStatement.executeQuery(showFunctionsSqlCommand);
-    return new MetadataResultSetBuilder(connection.getConnectionContext())
-        .getFunctionsResult(rs, catalog);
   }
 }

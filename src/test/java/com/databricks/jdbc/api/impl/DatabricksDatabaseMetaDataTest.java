@@ -23,11 +23,9 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
+/*@MockitoSettings(strictness = Strictness.LENIENT)*/
 public class DatabricksDatabaseMetaDataTest {
   @Mock IDatabricksConnectionInternal connection;
   @Mock IDatabricksSession session;
@@ -1656,12 +1654,12 @@ public class DatabricksDatabaseMetaDataTest {
 
   @Test
   void testGetTablesFunctionsWithShowCommandEnabled() throws SQLException {
+    when(connectionContext.enableShowCommandsForGetFunctions()).thenReturn(true);
     when(connection.getSession()).thenReturn(session);
     when(connection.getConnectionContext()).thenReturn(connectionContext);
     when(session.getConnectionContext()).thenReturn(connectionContext);
-    metaData = new DatabricksDatabaseMetaData(connection);
     when(session.isOpen()).thenReturn(true);
-    when(connectionContext.enableShowCommandsForGetFunctions()).thenReturn(true);
+    metaData = new DatabricksDatabaseMetaData(connection);
     when(resultSetMetaData.getColumnCount()).thenReturn(6);
     when(resultSetMetaData.getColumnName(1)).thenReturn("functionName");
     when(resultSetMetaData.getColumnName(2)).thenReturn("namespace");

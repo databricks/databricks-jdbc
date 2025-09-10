@@ -26,5 +26,4 @@ public class CommandConstants {
       "SHOW KEYS" + IN_CATALOG_SQL + IN_ABSOLUTE_SCHEMA_SQL + IN_ABSOLUTE_TABLE_SQL;
   public static final String SHOW_FOREIGN_KEYS_SQL =
       "SHOW FOREIGN KEYS" + IN_CATALOG_SQL + IN_ABSOLUTE_SCHEMA_SQL + IN_ABSOLUTE_TABLE_SQL;
-  public static final String USE_CATALOG_SQL = "USE CATALOG %s";
 }
