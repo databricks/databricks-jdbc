@@ -362,6 +362,7 @@ public interface IDatabricksConnectionContext {
   Integer getHttpConnectionRequestTimeout();
 
   boolean enableShowCommandsForGetFunctions();
+
   /** Returns whether batched INSERT optimization is enabled */
   boolean isBatchedInsertsEnabled();
 }
