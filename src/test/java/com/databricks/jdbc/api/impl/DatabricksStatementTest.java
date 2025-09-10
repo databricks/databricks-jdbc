@@ -666,6 +666,35 @@ public class DatabricksStatementTest {
     assertFalse(DatabricksStatement.isSelectQuery(query));
   }
 
+  @Test
+  public void testIsInsertQuery() {
+    // Test basic INSERT statements
+    assertTrue(DatabricksStatement.isInsertQuery("INSERT INTO users (id, name) VALUES (?, ?)"));
+    assertTrue(DatabricksStatement.isInsertQuery("insert into users (id, name) values (?, ?)"));
+    assertTrue(
+        DatabricksStatement.isInsertQuery(
+            "   INSERT   INTO   users   (id, name)   VALUES   (?, ?)"));
+
+    // Test INSERT with comments
+    String queryWithComments =
+        "-- Comment\n/* Multi-line */ INSERT INTO users (id) VALUES (?); -- End";
+    assertTrue(DatabricksStatement.isInsertQuery(queryWithComments));
+
+    // Test non-INSERT statements
+    assertFalse(DatabricksStatement.isInsertQuery("SELECT * FROM users"));
+    assertFalse(DatabricksStatement.isInsertQuery("UPDATE users SET name = ?"));
+    assertFalse(DatabricksStatement.isInsertQuery("DELETE FROM users"));
+    assertFalse(DatabricksStatement.isInsertQuery("CREATE TABLE users (id INT)"));
+    assertFalse(DatabricksStatement.isInsertQuery(""));
+    assertFalse(DatabricksStatement.isInsertQuery(null));
+
+    // Test INSERT with schema prefix
+    assertTrue(DatabricksStatement.isInsertQuery("INSERT INTO schema.users (id) VALUES (?)"));
+
+    // Test with parentheses at the beginning
+    assertTrue(DatabricksStatement.isInsertQuery("(INSERT INTO users (id) VALUES (?))"));
+  }
+
   private DatabricksConnection getTestConnection() throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());

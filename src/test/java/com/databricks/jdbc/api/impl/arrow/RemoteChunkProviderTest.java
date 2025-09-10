@@ -10,7 +10,7 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
-import com.databricks.sdk.service.sql.ResultSchema;
+import com.databricks.jdbc.model.core.ResultSchema;
 import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

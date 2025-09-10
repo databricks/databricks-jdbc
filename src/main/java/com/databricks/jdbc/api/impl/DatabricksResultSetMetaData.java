@@ -20,10 +20,10 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.core.ColumnInfo;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
-import com.databricks.sdk.service.sql.ColumnInfo;
-import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.google.common.collect.ImmutableList;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -108,7 +108,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
               .columnType(columnType)
               .columnTypeText(
-                  metadataResultSetBuilder.stripTypeName(
+                  metadataResultSetBuilder.stripBaseTypeName(
                       columnInfo
                           .getTypeText())) // store base type eg. DECIMAL instead of DECIMAL(7,2)
               .typePrecision(precision)

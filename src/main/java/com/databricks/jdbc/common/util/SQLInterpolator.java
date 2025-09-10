@@ -4,7 +4,7 @@ import static com.databricks.jdbc.common.MetadataResultConstants.NULL_STRING;
 
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.exception.DatabricksValidationException;
-import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
