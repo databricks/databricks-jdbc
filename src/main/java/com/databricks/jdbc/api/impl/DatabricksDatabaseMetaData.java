@@ -1542,7 +1542,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
           .getDatabricksMetadataClient()
           .listFunctions(session, catalog, schemaPattern, functionNamePattern);
     } catch (Exception e) {
-      LOGGER.error(e, "Unable to fetch functions, returning empty result set");
+      LOGGER.error(e, "Unable to fetch functions, returning empty result set {}", e);
       return metadataResultSetBuilder.getFunctionsResult(catalog, List.of());
     }
   }
