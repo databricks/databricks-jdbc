@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_STATEMENT_TIMEOUT_SECONDS;
 import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSION;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
@@ -202,11 +203,14 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         parameters.values().stream()
             .map(this::mapToSparkParameterListItem)
             .collect(Collectors.toList());
-
+    int timeout = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
+    if (parentStatement != null && parentStatement.getStatement() != null) {
+      timeout = parentStatement.getStatement().getQueryTimeout();
+    }
     TExecuteStatementReq request =
         new TExecuteStatementReq()
             .setStatement(sql)
-            .setQueryTimeout(parentStatement.getStatement().getQueryTimeout())
+            .setQueryTimeout(timeout)
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
             .setUseArrowNativeTypes(arrowNativeTypes);
@@ -230,7 +234,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setUseArrowNativeTypes(arrowNativeTypes);
     }
 
-    int maxRows = parentStatement.getMaxRows();
+    int maxRows = (parentStatement == null) ? 0 : parentStatement.getMaxRows();
     if (maxRows > 0) { // set request param only if user has set maxRows.
       // Similar
       // behavior
