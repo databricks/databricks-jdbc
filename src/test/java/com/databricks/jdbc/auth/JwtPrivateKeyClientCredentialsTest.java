@@ -3,8 +3,10 @@ package com.databricks.jdbc.auth;
 import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -68,7 +70,7 @@ public class JwtPrivateKeyClientCredentialsTest {
 
   @Test
   public void testRetrieveTokenExceptionHandling() throws DatabricksHttpException {
-    when(httpClient.execute(any()))
+    when(httpClient.executeWithRetry(any(), eq(HTTPRequestType.AUTH)))
         .thenThrow(
             new DatabricksHttpException("Network error", DatabricksDriverErrorCode.INVALID_STATE));
     Exception exception =
@@ -80,7 +82,7 @@ public class JwtPrivateKeyClientCredentialsTest {
 
   @Test
   public void testRetrieveToken() throws DatabricksHttpException, IOException {
-    when(httpClient.execute(any())).thenReturn(httpResponse);
+    when(httpClient.executeWithRetry(any(), eq(HTTPRequestType.AUTH))).thenReturn(httpResponse);
     when(httpResponse.getEntity()).thenReturn(httpEntity);
     when(httpEntity.getContent())
         .thenReturn(new ByteArrayInputStream(TEST_OAUTH_RESPONSE.getBytes()));

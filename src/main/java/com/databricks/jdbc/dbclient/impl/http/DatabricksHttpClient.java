@@ -6,6 +6,7 @@ import static com.databricks.jdbc.dbclient.impl.common.ClientConfigurator.conver
 import static io.netty.util.NetUtil.LOCALHOST;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.UserAgentManager;
@@ -50,6 +51,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private final CloseableHttpClient httpClient;
   private IdleConnectionEvictor idleConnectionEvictor;
   private CloseableHttpAsyncClient asyncClient;
+  private IDatabricksConnectionContext connectionContext;
 
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type) {
     connectionManager = initializeConnectionManager(connectionContext);
@@ -59,6 +61,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
     idleConnectionEvictor.start();
     asyncClient = GlobalAsyncHttpClient.getClient();
+    this.connectionContext = connectionContext;
   }
 
   @VisibleForTesting
@@ -95,7 +98,14 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   }
 
   @Override
-  public CloseableHttpResponse executeWithRetry(HttpUriRequest request, boolean supportGzipEncoding)
+  public CloseableHttpResponse executeWithRetry(HttpUriRequest request, HTTPRequestType requestType)
+      throws DatabricksHttpException {
+    return executeWithRetry(request, requestType, false);
+  }
+
+  @Override
+  public CloseableHttpResponse executeWithRetry(
+      HttpUriRequest request, HTTPRequestType requestType, boolean supportGzipEncoding)
       throws DatabricksHttpException {
     LOGGER.debug("Executing HTTP request {}", RequestSanitizer.sanitizeRequest(request));
     if (!DriverUtil.isRunningAgainstFake() && supportGzipEncoding) {
@@ -108,12 +118,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       request.setHeader("User-Agent", userAgentString);
     }
 
-    try {
-      return httpClient.execute(request);
-    } catch (IOException e) {
-      throwHttpException(e, request);
-    }
-    return null;
+    return HttpRequestTypeBasedRetryHandler.executeWithRetry(
+        httpClient, request, requestType, connectionContext);
   }
 
   /**

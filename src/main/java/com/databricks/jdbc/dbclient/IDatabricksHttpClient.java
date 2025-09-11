@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient;
 
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import java.util.concurrent.Future;
 import org.apache.hc.core5.concurrent.FutureCallback;
@@ -27,6 +28,28 @@ public interface IDatabricksHttpClient {
    * @return http response
    */
   CloseableHttpResponse execute(HttpUriRequest request, boolean supportGzipEncoding)
+      throws DatabricksHttpException;
+
+  /**
+   * Executes the given http request with retry logic based on request type
+   *
+   * @param request underlying http request
+   * @param requestType the type of request for retry strategy
+   * @return http response
+   */
+  CloseableHttpResponse executeWithRetry(HttpUriRequest request, HTTPRequestType requestType)
+      throws DatabricksHttpException;
+
+  /**
+   * Executes the given http request with retry logic based on request type
+   *
+   * @param request underlying http request
+   * @param requestType the type of request for retry strategy
+   * @param supportGzipEncoding whether to support gzip encoding header
+   * @return http response
+   */
+  CloseableHttpResponse executeWithRetry(
+      HttpUriRequest request, HTTPRequestType requestType, boolean supportGzipEncoding)
       throws DatabricksHttpException;
 
   /**

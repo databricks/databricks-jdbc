@@ -2,9 +2,11 @@ package com.databricks.jdbc.api.impl.volume;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -36,7 +38,8 @@ public class VolumeOperationProcessorTest {
             .getStreamReceiver((entity) -> {})
             .build();
 
-    when(databricksHttpClient.execute(any())).thenReturn(mockStream);
+    when(databricksHttpClient.executeWithRetry(any(), eq(HTTPRequestType.VOLUME_GET)))
+        .thenReturn(mockStream);
     when(mockStream.getStatusLine()).thenReturn(mockStatusLine);
     when(mockStatusLine.getStatusCode()).thenReturn(400);
     volumeOperationProcessor.executeGetOperation();
@@ -56,7 +59,7 @@ public class VolumeOperationProcessorTest {
 
     DatabricksHttpException mockException =
         new DatabricksHttpException("Test Exeception", DatabricksDriverErrorCode.INVALID_STATE);
-    doThrow(mockException).when(databricksHttpClient).execute(any());
+    doThrow(mockException).when(databricksHttpClient).executeWithRetry(any(), any());
 
     volumeOperationProcessor.executeGetOperation();
     assertEquals(volumeOperationProcessor.getStatus(), VolumeOperationStatus.FAILED);
@@ -74,7 +77,7 @@ public class VolumeOperationProcessorTest {
 
     DatabricksHttpException mockException =
         new DatabricksHttpException("Test Exeception", DatabricksDriverErrorCode.INVALID_STATE);
-    doThrow(mockException).when(databricksHttpClient).execute(any());
+    doThrow(mockException).when(databricksHttpClient).executeWithRetry(any(), any());
 
     volumeOperationProcessor.executePutOperation();
     assertEquals(volumeOperationProcessor.getStatus(), VolumeOperationStatus.FAILED);

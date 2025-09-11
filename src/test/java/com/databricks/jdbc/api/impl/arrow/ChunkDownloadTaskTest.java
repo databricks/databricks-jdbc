@@ -1,9 +1,11 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.HTTPRequestType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -156,7 +158,7 @@ public class ChunkDownloadTaskTest {
 
     // Mock HTTP client to fail twice, then succeed
     AtomicInteger httpCallCount = new AtomicInteger(0);
-    when(httpClient.execute(any(HttpGet.class), eq(true)))
+    when(httpClient.executeWithRetry(any(HttpGet.class), eq(HTTPRequestType.CLOUD_FETCH), eq(true)))
         .thenAnswer(
             invocation -> {
               int callNumber = httpCallCount.incrementAndGet();
@@ -181,7 +183,8 @@ public class ChunkDownloadTaskTest {
     assertDoesNotThrow(task::call);
 
     // Verify HTTP client was called 3 times (2 failures + 1 success)
-    verify(httpClient, times(3)).execute(any(HttpGet.class), eq(true));
+    verify(httpClient, times(3))
+        .executeWithRetry(any(HttpGet.class), eq(HTTPRequestType.CLOUD_FETCH), eq(true));
 
     // Verify status progression: DOWNLOAD_FAILED -> DOWNLOAD_RETRY -> DOWNLOAD_FAILED ->
     // DOWNLOAD_RETRY -> DOWNLOAD_SUCCEEDED -> PROCESSING_SUCCEEDED
