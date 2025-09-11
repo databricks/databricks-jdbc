@@ -742,7 +742,7 @@ public class DatabricksMetadataSdkClientTest {
 
   @ParameterizedTest
   @MethodSource("listFunctionsTestParams")
-  void testTestFunctions(
+  void testGetFunctions(
       String sql, String catalog, String schema, String functionPattern, String description)
       throws SQLException {
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
@@ -768,7 +768,6 @@ public class DatabricksMetadataSdkClientTest {
     when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
     DatabricksResultSet actualResult =
         metadataClient.listFunctions(session, catalog, schema, functionPattern);
-
     assertEquals(
         actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED, description);
     assertEquals(actualResult.getStatementId(), GET_FUNCTIONS_STATEMENT_ID, description);

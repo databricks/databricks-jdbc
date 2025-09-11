@@ -154,6 +154,8 @@ public enum DatabricksJdbcUrlParams {
       "HttpConnectionRequestTimeout", "HTTP connection request timeout in seconds"),
   CLOUD_FETCH_SPEED_THRESHOLD(
       "CloudFetchSpeedThreshold", "Minimum expected download speed in MB/s", "0.1"),
+  ENABLE_SHOW_COMMAND_FOR_GET_FUNCTIONS(
+      "EnableShowCommandForGetFunctions", "Use SQL command to fetch function list", "0"),
   ENABLE_BATCHED_INSERTS("EnableBatchedInserts", "Enable batched INSERT optimization", "0"),
   ENABLE_SQL_VALIDATION_FOR_IS_VALID(
       "EnableSQLValidationForIsValid",

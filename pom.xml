@@ -671,9 +671,6 @@
               <pomFile>${project.basedir}/uber-minimal-pom.xml</pomFile>
               <sources>${project.build.directory}/${project.build.finalName}-sources.jar</sources>
               <javadoc>${project.build.directory}/${project.build.finalName}-javadoc.jar</javadoc>
-              <files>${project.build.directory}/${project.build.finalName}-thin.jar</files>
-              <types>jar</types>
-              <classifiers>thin</classifiers>
             </configuration>
             <executions>
               <execution>

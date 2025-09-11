@@ -24,6 +24,21 @@ Add the following dependency to your `pom.xml`:
 </dependency>
 ```
 
+#### Thin JAR
+
+For applications requiring explicit dependency management, use the thin JAR variant:
+
+```xml
+<!-- Note: Available from version 1.0.10-oss onwards -->
+<dependency>
+  <groupId>com.databricks</groupId>
+  <artifactId>databricks-jdbc-thin</artifactId>
+  <version>1.0.10-oss</version>
+</dependency>
+```
+
+The thin JAR contains only the driver code and declares all dependencies in its POM, enabling dependency introspection and version management.
+
 ### Build from Source
 
 1. Clone the repository
@@ -31,8 +46,16 @@ Add the following dependency to your `pom.xml`:
    ```bash
    mvn clean package
    ```
-3. The jar file is generated as `target/databricks-jdbc-<version>.jar`
+3. The following JAR files are generated:
+   - `target/databricks-jdbc-<version>.jar` (standard JAR with bundled dependencies)
+   - `target/databricks-jdbc-<version>-thin.jar` (thin JAR without dependencies)
 4. The test coverage report is generated in `target/site/jacoco/index.html`
+
+To install the thin JAR locally with dependency metadata:
+```bash
+VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+mvn install:install-file -Dfile="target/databricks-jdbc-${VERSION}-thin.jar" -DpomFile=thin_public_pom.xml
+```
 
 ## Usage
 

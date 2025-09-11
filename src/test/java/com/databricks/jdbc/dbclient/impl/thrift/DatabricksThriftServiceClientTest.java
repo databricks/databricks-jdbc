@@ -27,6 +27,8 @@ import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Stream;
@@ -57,6 +59,7 @@ public class DatabricksThriftServiceClientTest {
   @Mock IDatabricksStatementInternal parentStatement;
   @Mock DatabricksStatement statement;
   @Mock DatabricksConfig databricksConfig;
+  @Mock ResultSetMetaData mockedMetaData;
 
   @Test
   void testCreateSession() throws DatabricksSQLException {
@@ -578,6 +581,112 @@ public class DatabricksThriftServiceClientTest {
     DatabricksResultSet resultSet =
         client.listFunctions(session, TEST_CATALOG, TEST_SCHEMA, TEST_STRING);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+  }
+
+  @Test
+  void testListFunctionsWithSQLEnabled() throws SQLException {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(connectionContext.enableShowCommandsForGetFunctions()).thenReturn(true);
+    when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    TSparkArrowTypes arrowNativeTypes =
+        new TSparkArrowTypes()
+            .setComplexTypesAsArrow(true)
+            .setIntervalTypesAsArrow(true)
+            .setNullTypeAsArrow(true)
+            .setDecimalAsArrow(true)
+            .setTimestampAsArrow(true);
+    TExecuteStatementReq executeStatementReq =
+        new TExecuteStatementReq()
+            .setStatement("SHOW FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema' LIKE 'test'")
+            .setSessionHandle(SESSION_HANDLE)
+            .setCanReadArrowResult(true)
+            .setCanDecompressLZ4Result(true)
+            .setCanDownloadResult(true)
+            .setQueryTimeout(0)
+            .setParameters(Collections.emptyList())
+            .setRunAsync(true)
+            .setUseArrowNativeTypes(arrowNativeTypes);
+    when(thriftAccessor.execute(executeStatementReq, null, session, StatementType.METADATA))
+        .thenReturn(resultSet);
+    when(resultSet.getMetaData()).thenReturn(mockedMetaData);
+    when(mockedMetaData.getColumnCount()).thenReturn(6);
+    when(mockedMetaData.getColumnName(1)).thenReturn("functionName");
+    when(mockedMetaData.getColumnName(2)).thenReturn("namespace");
+    when(mockedMetaData.getColumnName(3)).thenReturn("catalogName");
+    when(mockedMetaData.getColumnName(4)).thenReturn("remarks");
+    when(mockedMetaData.getColumnName(5)).thenReturn("functionType");
+    when(mockedMetaData.getColumnName(6)).thenReturn("specificName");
+    when(resultSet.next()).thenReturn(true, false);
+    when(resultSet.getObject("functionName")).thenReturn("my_fn");
+    when(resultSet.getObject("namespace")).thenReturn(TEST_SCHEMA);
+    when(resultSet.getObject("remarks")).thenReturn("remark");
+    when(resultSet.getObject("functionType")).thenReturn(1);
+    when(resultSet.getObject("specificName")).thenReturn("my_fn");
+
+    ResultSet actualResultSet =
+        client.listFunctions(session, TEST_CATALOG, TEST_SCHEMA, TEST_STRING);
+    assertNotNull(actualResultSet);
+    assertTrue(actualResultSet.next());
+    assertEquals(TEST_CATALOG, actualResultSet.getString("FUNCTION_CAT"));
+    assertEquals("my_fn", actualResultSet.getString("FUNCTION_NAME"));
+  }
+
+  @Test
+  void testGetRequest_DefaultTimeoutAndNoRowLimit_WhenParentStatementNull() throws SQLException {
+    when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+
+    when(thriftAccessor.execute(
+            any(TExecuteStatementReq.class), eq(null), eq(session), eq(StatementType.SQL)))
+        .thenReturn(resultSet);
+
+    client.executeStatement(
+        TEST_STRING, CLUSTER_COMPUTE, Collections.emptyMap(), StatementType.SQL, session, null);
+
+    ArgumentCaptor<TExecuteStatementReq> requestCaptor =
+        ArgumentCaptor.forClass(TExecuteStatementReq.class);
+    verify(thriftAccessor)
+        .execute(requestCaptor.capture(), eq(null), eq(session), eq(StatementType.SQL));
+    TExecuteStatementReq request = requestCaptor.getValue();
+    assertEquals(0, request.getQueryTimeout());
+    assertFalse(request.isSetResultRowLimit());
+  }
+
+  @Test
+  void testGetRequest_DefaultTimeout_WhenStatementNull() throws SQLException {
+    when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    when(parentStatement.getStatement()).thenReturn(null);
+    when(parentStatement.getMaxRows()).thenReturn(0);
+
+    when(thriftAccessor.execute(
+            any(TExecuteStatementReq.class),
+            eq(parentStatement),
+            eq(session),
+            eq(StatementType.SQL)))
+        .thenReturn(resultSet);
+
+    client.executeStatement(
+        TEST_STRING,
+        CLUSTER_COMPUTE,
+        Collections.emptyMap(),
+        StatementType.SQL,
+        session,
+        parentStatement);
+
+    ArgumentCaptor<TExecuteStatementReq> requestCaptor =
+        ArgumentCaptor.forClass(TExecuteStatementReq.class);
+    verify(thriftAccessor)
+        .execute(requestCaptor.capture(), eq(parentStatement), eq(session), eq(StatementType.SQL));
+    TExecuteStatementReq request = requestCaptor.getValue();
+    assertEquals(0, request.getQueryTimeout());
+    assertFalse(request.isSetResultRowLimit());
   }
 
   @Test
