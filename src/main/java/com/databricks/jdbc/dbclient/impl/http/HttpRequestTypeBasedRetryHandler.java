@@ -64,7 +64,7 @@ public class HttpRequestTypeBasedRetryHandler {
     REQUEST_IDEMPOTENCY_MAP.put(
         HTTPRequestType.THRIFT_EXECUTE_STATEMENT, RequestIdempotency.NON_IDEMPOTENT);
     REQUEST_IDEMPOTENCY_MAP.put(HTTPRequestType.VOLUME_PUT, RequestIdempotency.NON_IDEMPOTENT);
-    REQUEST_IDEMPOTENCY_MAP.put(HTTPRequestType.NOT_SET, RequestIdempotency.NON_IDEMPOTENT);
+    REQUEST_IDEMPOTENCY_MAP.put(HTTPRequestType.UNKNOWN, RequestIdempotency.NON_IDEMPOTENT);
   }
 
   private static final IRetryStrategy IDEMPOTENT_STRATEGY = new IdempotentRetryStrategy();

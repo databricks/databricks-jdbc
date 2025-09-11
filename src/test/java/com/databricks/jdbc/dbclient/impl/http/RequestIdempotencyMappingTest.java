@@ -60,7 +60,7 @@ public class RequestIdempotencyMappingTest {
         RequestIdempotency.NON_IDEMPOTENT,
         getIdempotency(HTTPRequestType.THRIFT_EXECUTE_STATEMENT));
     assertEquals(RequestIdempotency.NON_IDEMPOTENT, getIdempotency(HTTPRequestType.VOLUME_PUT));
-    assertEquals(RequestIdempotency.NON_IDEMPOTENT, getIdempotency(HTTPRequestType.NOT_SET));
+    assertEquals(RequestIdempotency.NON_IDEMPOTENT, getIdempotency(HTTPRequestType.UNKNOWN));
   }
 
   @Test
@@ -108,8 +108,8 @@ public class RequestIdempotencyMappingTest {
     // File/volume PUT operations should be non-idempotent (may overwrite data)
     assertEquals(RequestIdempotency.NON_IDEMPOTENT, getIdempotency(HTTPRequestType.VOLUME_PUT));
 
-    // NOT_SET should be conservative (non-idempotent)
-    assertEquals(RequestIdempotency.NON_IDEMPOTENT, getIdempotency(HTTPRequestType.NOT_SET));
+    // UNKNOWN should be conservative (non-idempotent)
+    assertEquals(RequestIdempotency.NON_IDEMPOTENT, getIdempotency(HTTPRequestType.UNKNOWN));
   }
 
   @Test
@@ -118,8 +118,8 @@ public class RequestIdempotencyMappingTest {
     // This tests the getOrDefault behavior in the actual handler
 
     // We can't directly test with a non-existent enum value, but we can test
-    // that NOT_SET (which represents unknown/unset) defaults to non-idempotent
-    assertEquals(RequestIdempotency.NON_IDEMPOTENT, getIdempotency(HTTPRequestType.NOT_SET));
+    // that UNKNOWN defaults to non-idempotent
+    assertEquals(RequestIdempotency.NON_IDEMPOTENT, getIdempotency(HTTPRequestType.UNKNOWN));
   }
 
   @Test
@@ -155,7 +155,7 @@ public class RequestIdempotencyMappingTest {
 
     // Based on current mapping:
     // Idempotent: 14 types (most operations)
-    // Non-idempotent: 3 types (THRIFT_EXECUTE_STATEMENT, VOLUME_PUT, NOT_SET)
+    // Non-idempotent: 3 types (THRIFT_EXECUTE_STATEMENT, VOLUME_PUT, UNKNOWN)
     assertEquals(14, idempotentCount, "Expected 14 idempotent request types");
     assertEquals(3, nonIdempotentCount, "Expected 3 non-idempotent request types");
   }

@@ -1,7 +1,7 @@
 package com.databricks.jdbc.common;
 
 public enum HTTPRequestType {
-  NOT_SET,
+  UNKNOWN,
   THRIFT_OPEN_SESSION,
   THRIFT_CLOSE_SESSION,
   THRIFT_METADATA,

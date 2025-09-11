@@ -363,7 +363,7 @@ public class HttpRequestTypeBasedRetryHandlerTest {
         TestableHttpRequestTypeBasedRetryHandler.getIdempotency(HTTPRequestType.VOLUME_PUT));
     assertEquals(
         HttpRequestTypeBasedRetryHandler.RequestIdempotency.NON_IDEMPOTENT,
-        TestableHttpRequestTypeBasedRetryHandler.getIdempotency(HTTPRequestType.NOT_SET));
+        TestableHttpRequestTypeBasedRetryHandler.getIdempotency(HTTPRequestType.UNKNOWN));
   }
 
   @Test
