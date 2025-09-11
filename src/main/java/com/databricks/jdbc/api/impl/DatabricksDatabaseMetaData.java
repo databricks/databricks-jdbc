@@ -981,7 +981,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
       throws SQLException {
 
     if (tableNamePattern != null) {
-      tableNamePattern = tableNamePattern.toLowerCase(); // Making tableNamePattern case-insensitive
+      // Making tableNamePattern case-insensitive because the table name is stored as lower case in
+      // information schema
+      tableNamePattern = tableNamePattern.toLowerCase();
     }
 
     LOGGER.debug(

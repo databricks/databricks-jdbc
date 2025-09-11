@@ -678,8 +678,8 @@ public class DatabricksDatabaseMetaDataTest {
   public void testGetTables_tableNamePatternLowercaseConversion() throws SQLException {
     ArgumentCaptor<String> patternCaptor = ArgumentCaptor.forClass(String.class);
 
-    metaData.getTables(null, null, "MY_TABLE", null);
-    metaData.getTables(null, null, "my_table", null);
+    metaData.getTables(null, null, "MY\\_TABLE", null);
+    metaData.getTables(null, null, "my\\_table", null);
 
     verify(metadataClient, times(2))
         .listTables(any(), any(), any(), patternCaptor.capture(), any());
