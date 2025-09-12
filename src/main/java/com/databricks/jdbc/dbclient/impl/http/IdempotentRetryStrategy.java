@@ -36,14 +36,20 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
           HttpStatus.SC_UNSUPPORTED_MEDIA_TYPE,
           HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
 
-  private static final int DEFAULT_BACKOFF_FACTOR = 2;
-  private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
-  private static final int MAX_RETRY_INTERVAL = 10000; // 10s
-
   @Override
   public boolean isStatusCodeRetriable(
       int statusCode, IDatabricksConnectionContext connectionContext) {
-    return !NON_RETRYABLE_CLIENT_ERRORS.contains(statusCode);
+    if (connectionContext == null) {
+      return false; // Default to no retry if connection context is null
+    }
+    switch (statusCode) {
+      case HttpStatus.SC_SERVICE_UNAVAILABLE:
+        return connectionContext.shouldRetryTemporarilyUnavailableError();
+      case HttpStatus.SC_TOO_MANY_REQUESTS:
+        return connectionContext.shouldRetryRateLimitError();
+      default:
+        return !NON_RETRYABLE_CLIENT_ERRORS.contains(statusCode);
+    }
   }
 
   @Override
@@ -51,17 +57,22 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
       CloseableHttpResponse response,
       int executionAttempt,
       IDatabricksConnectionContext connectionContext) {
+    int statusCode = response.getStatusLine().getStatusCode();
+
+    if (!isStatusCodeRetriable(statusCode, connectionContext)) {
+      return -1;
+    }
+
+    int retryInterval = RetryHandlingHelperFunctions.extractRetryInterval(response);
+
+    if (retryInterval != -1) {
+      return retryInterval;
+    }
+
     if (executionAttempt <= 0) {
-      return MIN_BACKOFF_INTERVAL;
+      return RetryHandlingHelperFunctions.getMinBackoffInterval();
     }
     // For idempotent requests: always use exponential backoff (ignore Retry-After header)
-    return calculateExponentialBackoff(executionAttempt - 1);
-  }
-
-  private static int calculateExponentialBackoff(int executionCount) {
-    return (int)
-        Math.min(
-            MIN_BACKOFF_INTERVAL * Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount),
-            MAX_RETRY_INTERVAL);
+    return RetryHandlingHelperFunctions.calculateExponentialBackoff(executionAttempt);
   }
 }

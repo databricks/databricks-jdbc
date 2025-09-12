@@ -83,6 +83,7 @@ public class NonIdempotentRetryStrategyTest {
     when(mockResponse.containsHeader("Retry-After")).thenReturn(true);
     when(mockResponse.getFirstHeader("Retry-After"))
         .thenReturn(new BasicHeader("Retry-After", "30"));
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
 
     int retryDelay = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
 
@@ -96,6 +97,7 @@ public class NonIdempotentRetryStrategyTest {
     when(mockResponse.containsHeader("Retry-After")).thenReturn(true);
     when(mockResponse.getFirstHeader("Retry-After"))
         .thenReturn(new BasicHeader("Retry-After", "15"));
+    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
 
     int retryDelay = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
 
@@ -107,6 +109,7 @@ public class NonIdempotentRetryStrategyTest {
     when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
     when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_SERVICE_UNAVAILABLE);
     when(mockResponse.containsHeader("Retry-After")).thenReturn(false);
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
 
     int retryDelay = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
 
@@ -118,6 +121,7 @@ public class NonIdempotentRetryStrategyTest {
     when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
     when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_TOO_MANY_REQUESTS);
     when(mockResponse.containsHeader("Retry-After")).thenReturn(false);
+    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
 
     int retryDelay = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
 
@@ -131,6 +135,7 @@ public class NonIdempotentRetryStrategyTest {
     when(mockResponse.containsHeader("Retry-After")).thenReturn(true);
     when(mockResponse.getFirstHeader("Retry-After"))
         .thenReturn(new BasicHeader("Retry-After", "invalid-number"));
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
 
     int retryDelay = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
 
@@ -144,6 +149,7 @@ public class NonIdempotentRetryStrategyTest {
     when(mockResponse.containsHeader("Retry-After")).thenReturn(true);
     when(mockResponse.getFirstHeader("Retry-After"))
         .thenReturn(new BasicHeader("Retry-After", "0"));
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
 
     int retryDelay = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
 
@@ -157,6 +163,7 @@ public class NonIdempotentRetryStrategyTest {
     when(mockResponse.containsHeader("Retry-After")).thenReturn(true);
     when(mockResponse.getFirstHeader("Retry-After"))
         .thenReturn(new BasicHeader("Retry-After", "-5"));
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
 
     int retryDelay = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
 
@@ -183,6 +190,7 @@ public class NonIdempotentRetryStrategyTest {
     when(mockResponse.containsHeader("Retry-After")).thenReturn(true);
     when(mockResponse.getFirstHeader("Retry-After"))
         .thenReturn(new BasicHeader("Retry-After", "45"));
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
 
     int retryDelay1 = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
     int retryDelay10 = strategy.retryRequestAfter(mockResponse, 10, mockConnectionContext);
@@ -198,6 +206,7 @@ public class NonIdempotentRetryStrategyTest {
     when(mockResponse.containsHeader("Retry-After")).thenReturn(true);
     when(mockResponse.getFirstHeader("Retry-After"))
         .thenReturn(new BasicHeader("Retry-After", "3600")); // 1 hour
+    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
 
     int retryDelay = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
 
@@ -220,6 +229,7 @@ public class NonIdempotentRetryStrategyTest {
     when(mockResponse.containsHeader("Retry-After")).thenReturn(true);
     when(mockResponse.getFirstHeader("Retry-After"))
         .thenReturn(new BasicHeader("Retry-After", " 25 "));
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
 
     int retryDelay = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
 
@@ -234,6 +244,7 @@ public class NonIdempotentRetryStrategyTest {
     when(mockResponse.containsHeader("Retry-After")).thenReturn(true);
     when(mockResponse.getFirstHeader("Retry-After"))
         .thenReturn(new BasicHeader("Retry-After", "30.5"));
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
 
     int retryDelay = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
 

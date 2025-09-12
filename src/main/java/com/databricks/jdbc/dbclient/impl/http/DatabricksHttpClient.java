@@ -14,7 +14,6 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtils;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
-import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.exception.DatabricksSSLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -92,7 +91,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       }
       return httpClient.execute(request);
     } catch (IOException e) {
-      throwHttpException(e, request);
+      RetryHandlingHelperFunctions.throwHttpException(e, request);
     }
     return null;
   }
@@ -203,24 +202,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       setFakeServiceRouteInHttpClient(builder);
     }
     return builder.build();
-  }
-
-  private static void throwHttpException(Exception e, HttpUriRequest request)
-      throws DatabricksHttpException {
-    Throwable cause = e;
-    while (cause != null) {
-      if (cause instanceof DatabricksRetryHandlerException) {
-        throw new DatabricksHttpException(
-            cause.getMessage(), cause, DatabricksDriverErrorCode.INVALID_STATE);
-      }
-      cause = cause.getCause();
-    }
-    String errorMsg =
-        String.format(
-            "Caught error while executing http request: [%s]. Error Message: [%s]",
-            RequestSanitizer.sanitizeRequest(request), e);
-    LOGGER.error(e, errorMsg);
-    throw new DatabricksHttpException(errorMsg, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
   @VisibleForTesting

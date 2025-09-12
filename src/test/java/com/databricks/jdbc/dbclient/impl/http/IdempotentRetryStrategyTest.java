@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import org.apache.http.Header;
 import org.apache.http.HttpStatus;
+import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,10 @@ public class IdempotentRetryStrategyTest {
 
   @Test
   public void testRetriableStatusCodes() {
+    // Set up mock connection context to allow retries for 503 and 429 status codes
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
+    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
+
     // Retriable codes (all except non-retryable client errors and successful 2xx codes)
     assertTrue(
         strategy.isStatusCodeRetriable(HttpStatus.SC_INTERNAL_SERVER_ERROR, mockConnectionContext));
@@ -79,6 +85,12 @@ public class IdempotentRetryStrategyTest {
 
   @Test
   public void testExponentialBackoffCalculation() {
+    // Set up mock response with retriable status code
+    StatusLine mockStatusLine = mock(StatusLine.class);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockResponse.containsHeader("Retry-After")).thenReturn(false);
+
     // Test that each attempt increases the delay exponentially
     int delay1 = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
     int delay2 = strategy.retryRequestAfter(mockResponse, 2, mockConnectionContext);
@@ -100,31 +112,66 @@ public class IdempotentRetryStrategyTest {
   }
 
   @Test
-  public void testIgnoresRetryAfterHeader() {
-    // and use exponential backoff (no need to mock headers since they're ignored)
+  public void testUsesRetryAfterHeaderWhenPresent() {
+    // Set up mock response with retriable status code and retry-after header
+    StatusLine mockStatusLine = mock(StatusLine.class);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+
+    Header retryAfterHeader = mock(Header.class);
+    when(retryAfterHeader.getValue()).thenReturn("30");
+    when(mockResponse.containsHeader("Retry-After")).thenReturn(true);
+    when(mockResponse.getFirstHeader("Retry-After")).thenReturn(retryAfterHeader);
 
     int delay = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
 
-    // Should still use exponential backoff, not the header
+    // Should use the retry-after header value (30 seconds)
+    assertEquals(30, delay);
+  }
+
+  @Test
+  public void testFallsBackToExponentialBackoffWhenNoRetryAfterHeader() {
+    // Set up mock response with retriable status code but no retry-after header
+    StatusLine mockStatusLine = mock(StatusLine.class);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockResponse.containsHeader("Retry-After")).thenReturn(false);
+
+    int delay = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
+
+    // Should use exponential backoff (minimum 1 second)
     assertEquals(1000, delay);
   }
 
   @Test
-  public void testConnectionContextNotUsed() {
-    // Idempotent strategy should not depend on connection context for status code decisions
-    // (except for the parameter requirement)
+  public void testNullConnectionContext() {
+    // With null connection context, strategy should return false (no retry) for safety
     IDatabricksConnectionContext nullContext = null;
 
-    // Should not throw NPE and should behave the same
-    assertTrue(strategy.isStatusCodeRetriable(HttpStatus.SC_INTERNAL_SERVER_ERROR, nullContext));
+    // Should not throw NPE and should return false for all status codes when context is null
+    assertFalse(strategy.isStatusCodeRetriable(HttpStatus.SC_INTERNAL_SERVER_ERROR, nullContext));
+    assertFalse(strategy.isStatusCodeRetriable(HttpStatus.SC_SERVICE_UNAVAILABLE, nullContext));
+    assertFalse(strategy.isStatusCodeRetriable(HttpStatus.SC_TOO_MANY_REQUESTS, nullContext));
     assertFalse(strategy.isStatusCodeRetriable(HttpStatus.SC_BAD_REQUEST, nullContext));
 
+    // Set up mock response for delay calculation test
+    StatusLine mockStatusLine = mock(StatusLine.class);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+
+    // Delay calculation should return -1 for null context (no retry)
     int delay = strategy.retryRequestAfter(mockResponse, 1, nullContext);
-    assertEquals(1000, delay);
+    assertEquals(-1, delay);
   }
 
   @Test
   public void testHighAttemptNumber() {
+    // Set up mock response with retriable status code
+    StatusLine mockStatusLine = mock(StatusLine.class);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockResponse.containsHeader("Retry-After")).thenReturn(false);
+
     // Test with very high attempt numbers to ensure no overflow/unexpected behavior
     int delay10 = strategy.retryRequestAfter(mockResponse, 10, mockConnectionContext);
     int delay20 = strategy.retryRequestAfter(mockResponse, 20, mockConnectionContext);
@@ -136,6 +183,12 @@ public class IdempotentRetryStrategyTest {
 
   @Test
   public void testZeroAndNegativeAttempts() {
+    // Set up mock response with retriable status code
+    StatusLine mockStatusLine = mock(StatusLine.class);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockResponse.containsHeader("Retry-After")).thenReturn(false);
+
     // Test edge cases with zero and negative attempt numbers
     int delay0 = strategy.retryRequestAfter(mockResponse, 0, mockConnectionContext);
     int delayNegative = strategy.retryRequestAfter(mockResponse, -1, mockConnectionContext);

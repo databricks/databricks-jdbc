@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestRetryability;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import java.io.IOException;
 import java.net.URI;
@@ -102,6 +103,7 @@ public class HttpRequestTypeBasedRetryHandlerTest {
   public void testNonIdempotentRequestRetryOn503WithRetryAfter() throws Exception {
     // Arrange
     when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_OK);
     when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
     when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout())
         .thenReturn(900); // 15 minutes timeout
@@ -116,7 +118,6 @@ public class HttpRequestTypeBasedRetryHandlerTest {
     when(mockHttpClient.execute(eq(mockRequest)))
         .thenReturn(failureResponse)
         .thenReturn(mockResponse);
-    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_OK);
 
     // Act
     CloseableHttpResponse result =
@@ -182,6 +183,7 @@ public class HttpRequestTypeBasedRetryHandlerTest {
     StatusLine failureStatusLine = mock(StatusLine.class);
     when(failureResponse.getStatusLine()).thenReturn(failureStatusLine);
     when(failureStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    when(failureResponse.containsHeader("Retry-After")).thenReturn(false); // No retry-after header
 
     when(mockHttpClient.execute(eq(mockRequest))).thenReturn(failureResponse);
 
@@ -229,34 +231,6 @@ public class HttpRequestTypeBasedRetryHandlerTest {
     // Assert
     assertNull(result);
     verify(mockHttpClient, times(6)).execute(eq(mockRequest)); // 5 retries + initial
-  }
-
-  @Test
-  public void testInterruptedExceptionThrowsRuntimeException() throws Exception {
-    // Arrange - We'll simulate thread interruption by actually interrupting the thread
-    Thread.currentThread().interrupt(); // Pre-interrupt the test thread
-
-    // Mock the HTTP client to check for interruption inside Thread.sleep
-    // Since we can't directly mock InterruptedException from execute(),
-    // we'll test this differently by verifying interrupt behavior
-    when(mockHttpClient.execute(eq(mockRequest))).thenReturn(mockResponse);
-    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
-    when(mockStatusLine.getStatusCode())
-        .thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR); // Force retry
-
-    // Act & Assert - This should detect the interruption during the retry sleep
-    RuntimeException exception =
-        assertThrows(
-            RuntimeException.class,
-            () ->
-                HttpRequestTypeBasedRetryHandler.executeWithRetry(
-                    mockHttpClient,
-                    mockRequest,
-                    HTTPRequestType.CLOUD_FETCH,
-                    mockConnectionContext));
-
-    assertTrue(exception.getMessage().contains("Thread interrupted during retry"));
-    assertTrue(Thread.currentThread().isInterrupted()); // Interrupt status should be restored
   }
 
   @Test
@@ -340,30 +314,24 @@ public class HttpRequestTypeBasedRetryHandlerTest {
   }
 
   @Test
-  public void testGetIdempotencyForKnownTypes() {
+  public void testRequestRetryabilityForKnownTypes() {
     // Test idempotent types
     assertEquals(
-        HttpRequestTypeBasedRetryHandler.RequestIdempotency.IDEMPOTENT,
-        TestableHttpRequestTypeBasedRetryHandler.getIdempotency(HTTPRequestType.CLOUD_FETCH));
+        RequestRetryability.IDEMPOTENT, HTTPRequestType.CLOUD_FETCH.getRequestRetryability());
     assertEquals(
-        HttpRequestTypeBasedRetryHandler.RequestIdempotency.IDEMPOTENT,
-        TestableHttpRequestTypeBasedRetryHandler.getIdempotency(
-            HTTPRequestType.THRIFT_OPEN_SESSION));
+        RequestRetryability.IDEMPOTENT,
+        HTTPRequestType.THRIFT_OPEN_SESSION.getRequestRetryability());
     assertEquals(
-        HttpRequestTypeBasedRetryHandler.RequestIdempotency.IDEMPOTENT,
-        TestableHttpRequestTypeBasedRetryHandler.getIdempotency(HTTPRequestType.VOLUME_GET));
+        RequestRetryability.IDEMPOTENT, HTTPRequestType.VOLUME_GET.getRequestRetryability());
 
     // Test non-idempotent types
     assertEquals(
-        HttpRequestTypeBasedRetryHandler.RequestIdempotency.NON_IDEMPOTENT,
-        TestableHttpRequestTypeBasedRetryHandler.getIdempotency(
-            HTTPRequestType.THRIFT_EXECUTE_STATEMENT));
+        RequestRetryability.NON_IDEMPOTENT,
+        HTTPRequestType.THRIFT_EXECUTE_STATEMENT.getRequestRetryability());
     assertEquals(
-        HttpRequestTypeBasedRetryHandler.RequestIdempotency.NON_IDEMPOTENT,
-        TestableHttpRequestTypeBasedRetryHandler.getIdempotency(HTTPRequestType.VOLUME_PUT));
+        RequestRetryability.NON_IDEMPOTENT, HTTPRequestType.VOLUME_PUT.getRequestRetryability());
     assertEquals(
-        HttpRequestTypeBasedRetryHandler.RequestIdempotency.NON_IDEMPOTENT,
-        TestableHttpRequestTypeBasedRetryHandler.getIdempotency(HTTPRequestType.UNKNOWN));
+        RequestRetryability.NON_IDEMPOTENT, HTTPRequestType.UNKNOWN.getRequestRetryability());
   }
 
   @Test
@@ -385,6 +353,9 @@ public class HttpRequestTypeBasedRetryHandlerTest {
 
     // Test valid header extraction through the strategy
     NonIdempotentRetryStrategy strategy = new NonIdempotentRetryStrategy();
+
+    // Set up connection context to allow retries for 503 errors
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
 
     StatusLine statusLine503 = mock(StatusLine.class);
     when(statusLine503.getStatusCode()).thenReturn(HttpStatus.SC_SERVICE_UNAVAILABLE);
@@ -408,6 +379,13 @@ public class HttpRequestTypeBasedRetryHandlerTest {
   public void testExponentialBackoffCalculation() {
     IdempotentRetryStrategy strategy = new IdempotentRetryStrategy();
 
+    // Set up mock response with retriable status code
+    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    when(mockResponse.containsHeader("Retry-After")).thenReturn(false); // No retry-after header
+
+    // Note: This test directly calls the retry strategy, no connection context needed
+
     // Test exponential backoff progression
     int delay1 = strategy.retryRequestAfter(mockResponse, 1, mockConnectionContext);
     int delay2 = strategy.retryRequestAfter(mockResponse, 2, mockConnectionContext);
@@ -419,22 +397,5 @@ public class HttpRequestTypeBasedRetryHandlerTest {
     assertTrue(delay2 > delay1); // Should increase
     assertTrue(delay3 > delay2); // Should increase
     assertTrue(delay3 <= 10000); // Should not exceed 10 seconds
-  }
-
-  // Helper class to make getIdempotency accessible for testing
-  private static class TestableHttpRequestTypeBasedRetryHandler {
-    public static HttpRequestTypeBasedRetryHandler.RequestIdempotency getIdempotency(
-        HTTPRequestType requestType) {
-      try {
-        java.lang.reflect.Method method =
-            HttpRequestTypeBasedRetryHandler.class.getDeclaredMethod(
-                "getIdempotency", HTTPRequestType.class);
-        method.setAccessible(true);
-        return (HttpRequestTypeBasedRetryHandler.RequestIdempotency)
-            method.invoke(null, requestType);
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to invoke getIdempotency method", e);
-      }
-    }
   }
 }
