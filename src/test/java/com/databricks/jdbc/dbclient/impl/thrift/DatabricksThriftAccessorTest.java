@@ -69,9 +69,12 @@ public class DatabricksThriftAccessorTest {
           .setOperationState(TOperationState.RUNNING_STATE);
 
   void setup(Boolean directResultsEnabled) {
-    when(connectionContext.getDirectResultMode()).thenReturn(directResultsEnabled);
-    when(connectionContext.getRowsFetchedPerBlock()).thenReturn(DEFAULT_ROW_LIMIT_PER_BLOCK);
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
+    lenient().when(connectionContext.getDirectResultMode()).thenReturn(directResultsEnabled);
+    lenient()
+        .when(connectionContext.getRowsFetchedPerBlock())
+        .thenReturn(DEFAULT_ROW_LIMIT_PER_BLOCK);
+    accessor = spy(new DatabricksThriftAccessor(thriftClient, connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
   }
 
   @Test
@@ -161,7 +164,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecuteThrowsThriftError() throws TException {
     setup(true);
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
     TExecuteStatementReq request = new TExecuteStatementReq();
     when(thriftClient.ExecuteStatement(request)).thenThrow(TException.class);
     assertThrows(
@@ -172,7 +174,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecuteWithParentStatement() throws TException, SQLException {
     setup(true);
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
         new TExecuteStatementResp()
@@ -193,7 +194,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testExecuteWithDirectResults() throws TException, SQLException {
     setup(true);
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
         new TExecuteStatementResp()
@@ -209,8 +209,12 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testExecuteWithoutDirectResults() throws TException, SQLException {
-    setup(false);
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
+    lenient().when(connectionContext.getDirectResultMode()).thenReturn(false);
+    lenient()
+        .when(connectionContext.getRowsFetchedPerBlock())
+        .thenReturn(DEFAULT_ROW_LIMIT_PER_BLOCK);
+    accessor = spy(new DatabricksThriftAccessor(thriftClient, connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
         new TExecuteStatementResp()
@@ -226,9 +230,10 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testExecute_throwsException() throws TException {
-    setup(true);
-
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
+    when(connectionContext.getDirectResultMode()).thenReturn(false);
+    when(connectionContext.getRowsFetchedPerBlock()).thenReturn(DEFAULT_ROW_LIMIT_PER_BLOCK);
+    accessor = spy(new DatabricksThriftAccessor(thriftClient, connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
         new TExecuteStatementResp()
@@ -333,7 +338,8 @@ public class DatabricksThriftAccessorTest {
   void testIncludeResultSetMetadataNotSetForOldProtocol()
       throws TException, DatabricksHttpException {
     DatabricksThriftAccessor accessor =
-        new DatabricksThriftAccessor(thriftClient, connectionContext);
+        spy(new DatabricksThriftAccessor(thriftClient, connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
     accessor.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V4);
     TFetchResultsReq expectedReq = getFetchResultsRequest(false);
     when(thriftClient.FetchResults(expectedReq))
@@ -360,7 +366,8 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testGetStatementResult_success() throws Exception {
     when(connectionContext.getDirectResultMode()).thenReturn(false);
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
+    accessor = spy(new DatabricksThriftAccessor(thriftClient, connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
     when(thriftClient.GetOperationStatus(operationStatusReq))
         .thenReturn(operationStatusFinishedResp);
     TFetchResultsReq fetchReq =
@@ -381,7 +388,8 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testGetStatementResult_pending() throws Exception {
     when(connectionContext.getDirectResultMode()).thenReturn(false);
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
+    accessor = spy(new DatabricksThriftAccessor(thriftClient, connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
     TGetOperationStatusResp resp =
         new TGetOperationStatusResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.STILL_EXECUTING_STATUS))
@@ -713,7 +721,8 @@ public class DatabricksThriftAccessorTest {
     // Set the async poll interval to 200 ms
     when(connectionContext.getAsyncExecPollInterval()).thenReturn(200);
 
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
+    accessor = spy(new DatabricksThriftAccessor(thriftClient, connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
 
     // Create statement execution mocks
     TExecuteStatementReq request = new TExecuteStatementReq();
@@ -751,7 +760,8 @@ public class DatabricksThriftAccessorTest {
     // Set the async poll interval to 1 second to facilitate testing
     when(connectionContext.getAsyncExecPollInterval()).thenReturn(1000);
 
-    accessor = new DatabricksThriftAccessor(thriftClient, connectionContext);
+    accessor = spy(new DatabricksThriftAccessor(thriftClient, connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
 
     // Create statement execution mocks
     TExecuteStatementReq request = new TExecuteStatementReq();
@@ -796,7 +806,8 @@ public class DatabricksThriftAccessorTest {
     IDatabricksConnectionContext mockConnectionContext = mock(IDatabricksConnectionContext.class);
     when(mockConnectionContext.getDirectResultMode()).thenReturn(true);
     when(mockConnectionContext.getRowsFetchedPerBlock()).thenReturn(customMaxRows);
-    accessor = new DatabricksThriftAccessor(thriftClient, mockConnectionContext);
+    accessor = spy(new DatabricksThriftAccessor(thriftClient, mockConnectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
 
     TExecuteStatementReq executeRequest = new TExecuteStatementReq();
     TExecuteStatementResp executeResponse =

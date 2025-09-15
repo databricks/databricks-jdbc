@@ -16,7 +16,6 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -254,7 +253,7 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public void setClientInfoProperty(String name, String value)  {
+  public void setClientInfoProperty(String name, String value) {
     LOGGER.debug(
         String.format(
             "public void setClientInfoProperty(String name = {%s}, String value = {%s})",

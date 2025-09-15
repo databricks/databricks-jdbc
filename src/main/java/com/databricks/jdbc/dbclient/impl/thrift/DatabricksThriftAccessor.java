@@ -10,7 +10,6 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
-import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
@@ -65,14 +64,14 @@ final class DatabricksThriftAccessor {
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
     this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
     this.connectionUuid = connectionContext.getConnectionUuid();
-    this.connectionContext=connectionContext;
+    this.connectionContext = connectionContext;
   }
 
   @VisibleForTesting
   DatabricksThriftAccessor(
       TCLIService.Client client, IDatabricksConnectionContext connectionContext) {
     this.databricksConfig = null;
-    this.connectionContext=connectionContext;
+    this.connectionContext = connectionContext;
     this.enableDirectResults = connectionContext.getDirectResultMode();
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
     this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
@@ -475,11 +474,14 @@ final class DatabricksThriftAccessor {
         executionStatus, statementId, resultSet, StatementType.SQL, parentStatement, session);
   }
 
-  TCLIService.Client getThriftClient()  {
+  TCLIService.Client getThriftClient() {
     try {
       return createThriftClient(databricksConfig, connectionContext);
-    }catch (DatabricksParsingException e) {
-      String errorMessage = String.format( "Can't create thrift client as Endpoint URL cannot be parsed. Error: %s", e.getMessage());
+    } catch (DatabricksParsingException e) {
+      String errorMessage =
+          String.format(
+              "Can't create thrift client as Endpoint URL cannot be parsed. Error: %s",
+              e.getMessage());
       throw new DatabricksDriverException(errorMessage, DatabricksDriverErrorCode.INVALID_STATE);
     }
   }
@@ -598,8 +600,8 @@ final class DatabricksThriftAccessor {
    * @param connectionContext connection configuration of the driver
    */
   private TCLIService.Client createThriftClient(
-      DatabricksConfig databricksConfig,
-      IDatabricksConnectionContext connectionContext) throws DatabricksParsingException {
+      DatabricksConfig databricksConfig, IDatabricksConnectionContext connectionContext)
+      throws DatabricksParsingException {
     String endPointUrl = connectionContext.getEndpointURL();
     DatabricksHttpTTransport transport =
         new DatabricksHttpTTransport(
