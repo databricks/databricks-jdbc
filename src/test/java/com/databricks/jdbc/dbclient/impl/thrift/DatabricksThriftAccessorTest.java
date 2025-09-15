@@ -12,6 +12,7 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksHttpException;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -68,7 +69,7 @@ public class DatabricksThriftAccessorTest {
           .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
           .setOperationState(TOperationState.RUNNING_STATE);
 
-  void setup(Boolean directResultsEnabled) {
+  void setup(Boolean directResultsEnabled) throws DatabricksParsingException {
     lenient().when(connectionContext.getDirectResultMode()).thenReturn(directResultsEnabled);
     lenient()
         .when(connectionContext.getRowsFetchedPerBlock())
@@ -134,7 +135,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testExecuteAsync_error() throws TException {
+  void testExecuteAsync_error() throws TException, DatabricksParsingException {
     setup(true);
 
     TExecuteStatementReq request = new TExecuteStatementReq();
@@ -145,7 +146,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testExecuteAsync_SQLState() throws TException {
+  void testExecuteAsync_SQLState() throws TException, DatabricksParsingException {
     setup(true);
 
     TExecuteStatementReq request = new TExecuteStatementReq();
@@ -162,7 +163,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testExecuteThrowsThriftError() throws TException {
+  void testExecuteThrowsThriftError() throws TException, DatabricksParsingException {
     setup(true);
     TExecuteStatementReq request = new TExecuteStatementReq();
     when(thriftClient.ExecuteStatement(request)).thenThrow(TException.class);
@@ -229,7 +230,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testExecute_throwsException() throws TException {
+  void testExecute_throwsException() throws TException, DatabricksParsingException {
     when(connectionContext.getDirectResultMode()).thenReturn(false);
     when(connectionContext.getRowsFetchedPerBlock()).thenReturn(DEFAULT_ROW_LIMIT_PER_BLOCK);
     accessor = spy(new DatabricksThriftAccessor(thriftClient, connectionContext));
@@ -251,7 +252,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testExecuteThrowsSQLExceptionWithSqlState() throws TException {
+  void testExecuteThrowsSQLExceptionWithSqlState() throws TException, DatabricksParsingException {
     setup(true);
     TExecuteStatementReq request = new TExecuteStatementReq();
     TExecuteStatementResp tExecuteStatementResp =
@@ -307,7 +308,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testCancelOperation_error() throws TException {
+  void testCancelOperation_error() throws TException, DatabricksParsingException {
     setup(true);
 
     TCancelOperationReq request =
@@ -321,7 +322,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testCloseOperation_error() throws TException {
+  void testCloseOperation_error() throws TException, DatabricksParsingException {
     setup(true);
 
     TCloseOperationReq request =
@@ -336,7 +337,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testIncludeResultSetMetadataNotSetForOldProtocol()
-      throws TException, DatabricksHttpException {
+      throws TException, DatabricksHttpException, DatabricksParsingException {
     DatabricksThriftAccessor accessor =
         spy(new DatabricksThriftAccessor(thriftClient, connectionContext));
     doReturn(thriftClient).when(accessor).getThriftClient();
@@ -643,7 +644,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testAccessorWhenFetchResultsThrowsError() throws TException {
+  void testAccessorWhenFetchResultsThrowsError() throws TException, DatabricksParsingException {
     setup(false);
 
     TGetTablesReq request = new TGetTablesReq();
@@ -659,7 +660,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testAccessorDuringThriftError() throws TException {
+  void testAccessorDuringThriftError() throws TException, DatabricksParsingException {
     setup(true);
 
     TGetTablesReq request = new TGetTablesReq();
@@ -668,7 +669,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testAccessorDuringHTTPError() throws TException {
+  void testAccessorDuringHTTPError() throws TException, DatabricksParsingException {
     setup(true);
 
     TGetTablesReq request = new TGetTablesReq();
