@@ -34,84 +34,57 @@ public class HttpRequestTypeBasedRetryHandler {
       IDatabricksConnectionContext connectionContext)
       throws DatabricksHttpException {
 
-    long[] accumulatedTimes = {0L, 0L}; // [tempUnavailable, rateLimit]
+    long accumulatedTimeTempUnavailable = connectionContext.getTemporarilyUnavailableRetryTimeout();
+    long accumulatedTimeRateLimit = connectionContext.getRateLimitRetryTimeout();
 
     IRetryStrategy strategy = getRetryStrategy(requestType);
 
     for (int attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+      // follow exponential backoff if executing the request throws IOException
+      int retryDelayMillis = RetryHandlingHelperFunctions.calculateExponentialBackoff(attempt);
       try {
         CloseableHttpResponse response = httpClient.execute(request);
         int statusCode = response.getStatusLine().getStatusCode();
 
-        if (!strategy.isStatusCodeRetriable(statusCode, connectionContext)) {
+        // Get retry delay from strategy
+        retryDelayMillis = strategy.retryRequestAfter(response, attempt, connectionContext);
+        if (retryDelayMillis == -1) {
+          return response; // Strategy says don't retry
+        }
+
+        switch (statusCode) {
+          case HttpStatus.SC_SERVICE_UNAVAILABLE:
+            accumulatedTimeTempUnavailable -= retryDelayMillis;
+          case HttpStatus.SC_GATEWAY_TIMEOUT:
+            accumulatedTimeRateLimit -= retryDelayMillis;
+        }
+
+        // Check whether the connection context allows to wait until next attempt
+        if (accumulatedTimeTempUnavailable <= 0 || accumulatedTimeRateLimit <= 0) {
           return response;
         }
 
-        updateAccumulatedTime(statusCode, response, accumulatedTimes);
-
-        if (!isRetryAllowedByTimeout(statusCode, accumulatedTimes, connectionContext)) {
-          return response;
-        }
-
+        // Last attempt check
         if (attempt > MAX_RETRIES) {
           return response;
         }
 
-        int retryDelayMillis = strategy.retryRequestAfter(response, attempt, connectionContext);
-        if (retryDelayMillis == -1) {
-          return response;
-        }
         response.close();
-
-        try {
-          Thread.sleep(retryDelayMillis);
-        } catch (InterruptedException e) {
-          Thread.currentThread().interrupt();
-          throw new RuntimeException("Thread interrupted during retry", e);
-        }
       } catch (RuntimeException e) {
         RetryHandlingHelperFunctions.throwHttpException(e, request);
       } catch (IOException e) {
         // Continue retry loop for IOException
-        if (attempt > MAX_RETRIES) {
-          break;
-        }
-        try {
-          Thread.sleep(RetryHandlingHelperFunctions.calculateExponentialBackoff(attempt));
-        } catch (InterruptedException ie) {
-          Thread.currentThread().interrupt();
-          throw new RuntimeException("Thread interrupted during retry", ie);
-        }
+      }
+
+      try {
+        Thread.sleep(retryDelayMillis);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException("Thread interrupted during retry", e);
       }
     }
 
     return null;
-  }
-
-  private static void updateAccumulatedTime(
-      int statusCode, CloseableHttpResponse response, long[] accumulatedTimes) {
-    int retryInterval = RetryHandlingHelperFunctions.extractRetryInterval(response);
-    if (retryInterval <= 0) return;
-
-    if (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE) {
-      accumulatedTimes[0] += retryInterval; // tempUnavailable
-    } else if (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS) {
-      accumulatedTimes[1] += retryInterval; // rateLimit
-    }
-  }
-
-  private static boolean isRetryAllowedByTimeout(
-      int statusCode, long[] accumulatedTimes, IDatabricksConnectionContext connectionContext) {
-    if (connectionContext == null) {
-      return true;
-    }
-
-    if (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE) {
-      return accumulatedTimes[0] <= connectionContext.getTemporarilyUnavailableRetryTimeout();
-    } else if (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS) {
-      return accumulatedTimes[1] <= connectionContext.getRateLimitRetryTimeout();
-    }
-    return true;
   }
 
   // Helper method to get retry strategy based on request type idempotency
