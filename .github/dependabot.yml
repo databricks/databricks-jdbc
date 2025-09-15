@@ -1,0 +1,45 @@
+version: 2
+updates:
+  # Enable version updates for Maven dependencies
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "maven"
+    ignore:
+      # Ignore major version updates for critical dependencies
+      # to avoid breaking changes without manual review
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    # Group related dependencies together
+    groups:
+      testing:
+        patterns:
+          - "junit*"
+          - "mockito*"
+          - "testcontainers*"
+          - "*test*"
+      logging:
+        patterns:
+          - "log4j*"
+          - "slf4j*"
+          - "logback*"
+      databricks:
+        patterns:
+          - "databricks*"
+          - "com.databricks*"
+      security:
+        patterns:
+          - "*security*"
+          - "*crypto*"
+          - "*ssl*"
+          - "*tls*"
