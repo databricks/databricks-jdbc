@@ -5,6 +5,7 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.util.Map;
 import javax.annotation.Nullable;

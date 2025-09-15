@@ -15,10 +15,7 @@ import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
-import com.databricks.jdbc.exception.DatabricksHttpException;
-import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -51,44 +48,31 @@ final class DatabricksThriftAccessor {
       TExecuteStatementResp._Fields.OPERATION_HANDLE.getThriftFieldId();
   private static final short statusFieldId =
       TExecuteStatementResp._Fields.STATUS.getThriftFieldId();
-  private final ThreadLocal<TCLIService.Client> thriftClient;
   private final DatabricksConfig databricksConfig;
   private final boolean enableDirectResults;
   private final int asyncPollIntervalMillis;
   private final int maxRowsPerBlock;
   private final String connectionUuid;
+  private final IDatabricksConnectionContext connectionContext;
   private TProtocolVersion serverProtocolVersion = JDBC_THRIFT_VERSION;
 
-  DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
-      throws DatabricksParsingException {
+  DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext) {
     this.enableDirectResults = connectionContext.getDirectResultMode();
     this.databricksConfig =
         DatabricksClientConfiguratorManager.getInstance()
             .getConfigurator(connectionContext)
             .getDatabricksConfig();
-    String endPointUrl = connectionContext.getEndpointURL();
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
     this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
     this.connectionUuid = connectionContext.getConnectionUuid();
-
-    if (!DriverUtil.isRunningAgainstFake()) {
-      // Create a new thrift client for each thread as client state is not thread safe. Note that
-      // the underlying protocol uses the same http client which is thread safe
-      this.thriftClient =
-          ThreadLocal.withInitial(
-              () -> createThriftClient(endPointUrl, databricksConfig, connectionContext));
-    } else {
-      TCLIService.Client client =
-          createThriftClient(endPointUrl, databricksConfig, connectionContext);
-      this.thriftClient = ThreadLocal.withInitial(() -> client);
-    }
+    this.connectionContext=connectionContext;
   }
 
   @VisibleForTesting
   DatabricksThriftAccessor(
       TCLIService.Client client, IDatabricksConnectionContext connectionContext) {
     this.databricksConfig = null;
-    this.thriftClient = ThreadLocal.withInitial(() -> client);
+    this.connectionContext=connectionContext;
     this.enableDirectResults = connectionContext.getDirectResultMode();
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
     this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
@@ -491,8 +475,13 @@ final class DatabricksThriftAccessor {
         executionStatus, statementId, resultSet, StatementType.SQL, parentStatement, session);
   }
 
-  TCLIService.Client getThriftClient() {
-    return thriftClient.get();
+  TCLIService.Client getThriftClient()  {
+    try {
+      return createThriftClient(databricksConfig, connectionContext);
+    }catch (DatabricksParsingException e) {
+      String errorMessage = String.format( "Can't create thrift client as Endpoint URL cannot be parsed. Error: %s", e.getMessage());
+      throw new DatabricksDriverException(errorMessage, DatabricksDriverErrorCode.INVALID_STATE);
+    }
   }
 
   DatabricksConfig getDatabricksConfig() {
@@ -605,13 +594,13 @@ final class DatabricksThriftAccessor {
   /**
    * Creates a new thrift client for the given endpoint URL and authentication headers.
    *
-   * @param endPointUrl endpoint URL
    * @param databricksConfig SDK config object required for authentication headers
+   * @param connectionContext connection configuration of the driver
    */
   private TCLIService.Client createThriftClient(
-      String endPointUrl,
       DatabricksConfig databricksConfig,
-      IDatabricksConnectionContext connectionContext) {
+      IDatabricksConnectionContext connectionContext) throws DatabricksParsingException {
+    String endPointUrl = connectionContext.getEndpointURL();
     DatabricksHttpTTransport transport =
         new DatabricksHttpTTransport(
             DatabricksHttpClientFactory.getInstance().getClient(connectionContext),
