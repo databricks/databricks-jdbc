@@ -14,13 +14,6 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
   // Non-retryable codes for idempotent requests (client errors + success codes)
   private static final Set<Integer> NON_RETRYABLE_CLIENT_ERRORS =
       Set.of(
-          // Success codes - no need to retry
-          HttpStatus.SC_OK,
-          HttpStatus.SC_CREATED,
-          HttpStatus.SC_ACCEPTED,
-          HttpStatus.SC_NO_CONTENT,
-          HttpStatus.SC_RESET_CONTENT,
-          HttpStatus.SC_PARTIAL_CONTENT,
           // Client errors - should not retry
           HttpStatus.SC_BAD_REQUEST,
           HttpStatus.SC_UNAUTHORIZED,
@@ -42,6 +35,11 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
     if (connectionContext == null) {
       return false; // Default to no retry if connection context is null
     }
+
+    if (statusCode >= 200 && statusCode < 300) {
+      return false;
+    }
+
     switch (statusCode) {
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
         return connectionContext.shouldRetryTemporarilyUnavailableError();
@@ -66,13 +64,11 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
     int retryInterval = RetryHandlingHelperFunctions.extractRetryInterval(response);
 
     if (retryInterval != -1) {
+      // Use Retry-After header if it is present in response
       return retryInterval;
     }
 
-    if (executionAttempt <= 0) {
-      return RetryHandlingHelperFunctions.getMinBackoffInterval();
-    }
-    // For idempotent requests: always use exponential backoff (ignore Retry-After header)
+    // Use exponential backoff if Retry-After header is not present in response
     return RetryHandlingHelperFunctions.calculateExponentialBackoff(executionAttempt);
   }
 }

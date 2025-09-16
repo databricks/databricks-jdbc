@@ -20,9 +20,6 @@ public class HttpRequestTypeBasedRetryHandler {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(HttpRequestTypeBasedRetryHandler.class);
 
-  private static final int MAX_RETRIES = 5;
-  private static final String RETRY_AFTER_HEADER = "Retry-After";
-
   private static final IRetryStrategy IDEMPOTENT_STRATEGY = new IdempotentRetryStrategy();
   private static final IRetryStrategy NON_IDEMPOTENT_STRATEGY = new NonIdempotentRetryStrategy();
 
@@ -34,12 +31,19 @@ public class HttpRequestTypeBasedRetryHandler {
       IDatabricksConnectionContext connectionContext)
       throws DatabricksHttpException {
 
-    long accumulatedTimeTempUnavailable = connectionContext.getTemporarilyUnavailableRetryTimeout();
-    long accumulatedTimeRateLimit = connectionContext.getRateLimitRetryTimeout();
+    long tempUnavailableTimeout =
+        connectionContext.getTemporarilyUnavailableRetryTimeout(); // Default Value is 900
+    long rateLimitTimeout = connectionContext.getRateLimitRetryTimeout(); // Default value is 120
+    int maxRetries = connectionContext.getMaxRetries(); // Default value is 5
 
     IRetryStrategy strategy = getRetryStrategy(requestType);
+    LOGGER.debug(
+        "Starting retry handler for {} with {} strategy, maxRetries={}",
+        requestType,
+        strategy.getClass().getSimpleName(),
+        maxRetries);
 
-    for (int attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+    for (int attempt = 1; attempt <= maxRetries + 1; attempt++) {
       // follow exponential backoff if executing the request throws IOException
       int retryDelayMillis = RetryHandlingHelperFunctions.calculateExponentialBackoff(attempt);
       try {
@@ -54,26 +58,71 @@ public class HttpRequestTypeBasedRetryHandler {
 
         switch (statusCode) {
           case HttpStatus.SC_SERVICE_UNAVAILABLE:
-            accumulatedTimeTempUnavailable -= retryDelayMillis;
+            tempUnavailableTimeout -= retryDelayMillis;
           case HttpStatus.SC_GATEWAY_TIMEOUT:
-            accumulatedTimeRateLimit -= retryDelayMillis;
+            rateLimitTimeout -= retryDelayMillis;
         }
 
         // Check whether the connection context allows to wait until next attempt
-        if (accumulatedTimeTempUnavailable <= 0 || accumulatedTimeRateLimit <= 0) {
+        if (tempUnavailableTimeout <= 0 || rateLimitTimeout <= 0) {
+          LOGGER.debug(
+              "Retry timeout exceeded for {} on attempt {}, received HTTP status code {}. Returning response",
+              requestType,
+              attempt,
+              statusCode);
           return response;
         }
 
         // Last attempt check
-        if (attempt > MAX_RETRIES) {
+        if (attempt > maxRetries) {
+          LOGGER.debug(
+              "Max retries ({}) reached for {} on attempt {}, returning response",
+              maxRetries,
+              requestType,
+              attempt);
           return response;
         }
 
+        String errorReason = response.getStatusLine().getReasonPhrase();
+        String errorMessage =
+            String.format(
+                "Retry failure. HTTP response code: %s, Error Message: %s",
+                statusCode, errorReason);
+        LOGGER.debug(errorMessage);
+
         response.close();
       } catch (RuntimeException e) {
+        /* These include
+          IllegalArgumentException
+          IllegalStateException
+          UnsupportedOperationException
+          IndexOutOfBoundsException
+          NullPointerException
+          ClassCastException
+          NumberFormatException
+          ArrayIndexOutOfBoundsException
+          ArrayStoreException
+          ArithmeticException
+          NegativeArraySizeException
+        */
+        LOGGER.error(
+            "Runtime exception on attempt {} for {}: error message {}",
+            attempt,
+            requestType,
+            e.getMessage());
         RetryHandlingHelperFunctions.throwHttpException(e, request);
       } catch (IOException e) {
-        // Continue retry loop for IOException
+        /* Continue retry loop for IOException which include
+           ConnectException
+           UnknownHostException
+           NoRouteToHostException
+           PortUnreachableException
+        */
+        LOGGER.warn(
+            "IOException on attempt {} for {}, error message: {}",
+            attempt,
+            requestType,
+            e.getMessage());
       }
 
       try {

@@ -39,6 +39,13 @@ public class HttpRequestTypeBasedRetryHandlerTest {
     }
   }
 
+  private void setupMockConnectionContextForErrorHandling() {
+    // Mock connection context - needed for retry logic to work
+    when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(60000);
+    when(mockConnectionContext.getRateLimitRetryTimeout()).thenReturn(60000);
+    when(mockConnectionContext.getMaxRetries()).thenReturn(5);
+  }
+
   @Test
   public void testSuccessfulRequestWithoutRetry() throws Exception {
     // Arrange
@@ -65,9 +72,7 @@ public class HttpRequestTypeBasedRetryHandlerTest {
     when(failureResponse.getStatusLine()).thenReturn(failureStatusLine);
     when(failureStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
 
-    // Mock connection context - needed for retry logic to work
-    when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(60000);
-    when(mockConnectionContext.getRateLimitRetryTimeout()).thenReturn(60000);
+    setupMockConnectionContextForErrorHandling();
 
     when(mockHttpClient.execute(eq(mockRequest)))
         .thenReturn(failureResponse)
@@ -111,9 +116,7 @@ public class HttpRequestTypeBasedRetryHandlerTest {
     when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
     when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout())
         .thenReturn(900); // 15 minutes timeout
-    // Mock connection context - needed for retry logic to work
-    when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(60000);
-    when(mockConnectionContext.getRateLimitRetryTimeout()).thenReturn(60000);
+    setupMockConnectionContextForErrorHandling();
     CloseableHttpResponse failureResponse = mock(CloseableHttpResponse.class);
     StatusLine failureStatusLine = mock(StatusLine.class);
     when(failureResponse.getStatusLine()).thenReturn(failureStatusLine);
@@ -192,9 +195,7 @@ public class HttpRequestTypeBasedRetryHandlerTest {
     when(failureStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
     when(failureResponse.containsHeader("Retry-After")).thenReturn(false); // No retry-after header
 
-    // Mock connection context - needed for retry logic to work
-    when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(60000);
-    when(mockConnectionContext.getRateLimitRetryTimeout()).thenReturn(60000);
+    setupMockConnectionContextForErrorHandling();
 
     when(mockHttpClient.execute(eq(mockRequest))).thenReturn(failureResponse);
 
@@ -218,6 +219,7 @@ public class HttpRequestTypeBasedRetryHandlerTest {
         .thenThrow(new IOException("Network error"))
         .thenReturn(mockResponse);
     when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_OK);
+    setupMockConnectionContextForErrorHandling();
 
     // Act
     CloseableHttpResponse result =
@@ -233,6 +235,8 @@ public class HttpRequestTypeBasedRetryHandlerTest {
   public void testIOExceptionMaxRetriesExceeded() throws Exception {
     // Arrange
     when(mockHttpClient.execute(eq(mockRequest))).thenThrow(new IOException("Network error"));
+
+    setupMockConnectionContextForErrorHandling();
 
     // Act
     CloseableHttpResponse result =

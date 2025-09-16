@@ -180,21 +180,4 @@ public class IdempotentRetryStrategyTest {
     assertEquals(10000, delay10);
     assertEquals(10000, delay20);
   }
-
-  @Test
-  public void testZeroAndNegativeAttempts() {
-    // Set up mock response with retriable status code
-    StatusLine mockStatusLine = mock(StatusLine.class);
-    when(mockStatusLine.getStatusCode()).thenReturn(HttpStatus.SC_INTERNAL_SERVER_ERROR);
-    when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
-    when(mockResponse.containsHeader("Retry-After")).thenReturn(false);
-
-    // Test edge cases with zero and negative attempt numbers
-    int delay0 = strategy.retryRequestAfter(mockResponse, 0, mockConnectionContext);
-    int delayNegative = strategy.retryRequestAfter(mockResponse, -1, mockConnectionContext);
-
-    // Should handle gracefully (0^0 = 1, negative powers are handled by Math.pow)
-    assertTrue(delay0 >= 1000);
-    assertTrue(delayNegative >= 1000);
-  }
 }
