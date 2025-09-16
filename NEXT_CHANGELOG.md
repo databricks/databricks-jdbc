@@ -16,6 +16,7 @@
 
 ### Updated
 - Databricks SDK dependency upgraded to latest version 0.60.0
+- Updated the default value of RowsFetchedPerBlock to 100K from 2M to capture typical cases and balance memory usage.
 
 ### Fixed
 - Integrated Azure U2M flow into driver for improved stability.
