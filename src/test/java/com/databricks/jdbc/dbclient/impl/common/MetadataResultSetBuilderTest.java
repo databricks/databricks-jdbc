@@ -467,4 +467,130 @@ public class MetadataResultSetBuilderTest {
     }
     assertEquals(2, rowCount);
   }
+
+  @Test
+  void testComplexTypesReturnVarcharWhenSupportDisabled() throws SQLException {
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
+
+    List<ResultColumn> columns =
+        Arrays.asList(DATA_TYPE_COLUMN, COLUMN_TYPE_COLUMN, SQL_DATA_TYPE_COLUMN);
+    List<List<Object>> rows =
+        Arrays.asList(
+            Arrays.asList(2003, "ARRAY<DATE>", 2003),
+            Arrays.asList(2002, "MAP<STRING,INT>", 2002),
+            Arrays.asList(2002, "STRUCT<name:STRING,age:INT>", 2002),
+            Arrays.asList(1111, "VARIANT", 1111));
+
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(rows, columns);
+
+    List<Object> arrayRow = updatedRows.get(0);
+    assertEquals(12, arrayRow.get(0));
+    assertEquals(12, arrayRow.get(2));
+
+    List<Object> mapRow = updatedRows.get(1);
+    assertEquals(12, mapRow.get(0));
+    assertEquals(12, mapRow.get(2));
+
+    List<Object> structRow = updatedRows.get(2);
+    assertEquals(12, structRow.get(0));
+    assertEquals(12, structRow.get(2));
+
+    List<Object> variantRow = updatedRows.get(3);
+    assertEquals(1111, variantRow.get(0));
+    assertEquals(1111, variantRow.get(2));
+  }
+
+  @Test
+  void testComplexTypesReturnActualCodesWhenSupportEnabled() throws SQLException {
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(true);
+
+    List<ResultColumn> columns =
+        Arrays.asList(DATA_TYPE_COLUMN, COLUMN_TYPE_COLUMN, SQL_DATA_TYPE_COLUMN);
+    List<List<Object>> rows =
+        Arrays.asList(
+            Arrays.asList(2003, "ARRAY<DATE>", 2003),
+            Arrays.asList(2002, "MAP<STRING,INT>", 2002),
+            Arrays.asList(2002, "STRUCT<name:STRING,age:INT>", 2002),
+            Arrays.asList(1111, "VARIANT", 1111));
+
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(rows, columns);
+
+    List<Object> arrayRow = updatedRows.get(0);
+    assertEquals(2003, arrayRow.get(0));
+    assertEquals(2003, arrayRow.get(2));
+
+    List<Object> mapRow = updatedRows.get(1);
+    assertEquals(2002, mapRow.get(0));
+    assertEquals(2002, mapRow.get(2));
+
+    List<Object> structRow = updatedRows.get(2);
+    assertEquals(2002, structRow.get(0));
+    assertEquals(2002, structRow.get(2));
+
+    List<Object> variantRow = updatedRows.get(3);
+    assertEquals(1111, variantRow.get(0));
+    assertEquals(1111, variantRow.get(2));
+  }
+
+  @Test
+  void testDecimalDigitsColumnInGetThriftRows() {
+    List<ResultColumn> columns = Arrays.asList(COLUMN_TYPE_COLUMN, DECIMAL_DIGITS_COLUMN);
+
+    List<List<Object>> rows =
+        Arrays.asList(
+            Arrays.asList("DECIMAL(10,2)", 2),
+            Arrays.asList("TIMESTAMP", 6),
+            Arrays.asList("INT", 0),
+            Arrays.asList("VARCHAR(100)", 0),
+            Arrays.asList("DECIMAL(15,5)", 5),
+            Arrays.asList("TIMESTAMP_NTZ", 6),
+            Arrays.asList("DECIMAL", 0));
+
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(rows, columns);
+
+    assertEquals(2, updatedRows.get(0).get(1), "DECIMAL(10,2) should have scale 2");
+    assertEquals(9, updatedRows.get(1).get(1), "TIMESTAMP should have scale 9");
+    assertEquals(0, updatedRows.get(2).get(1), "INT should have scale 0");
+    assertEquals(0, updatedRows.get(3).get(1), "VARCHAR should have scale 0");
+    assertEquals(5, updatedRows.get(4).get(1), "DECIMAL(15,5) should have scale 5");
+    assertEquals(9, updatedRows.get(5).get(1), "TIMESTAMP_NTZ should have scale 9");
+    assertEquals(0, updatedRows.get(6).get(1), "DECIMAL should have scale 0");
+  }
+
+  private static Stream<Arguments> provideDecimalDigitsArguments() {
+    return Stream.of(
+        Arguments.of("DECIMAL(10,2)", 2, 2, "DECIMAL(10,2) should have scale 2"),
+        Arguments.of("TIMESTAMP", 6, 9, "TIMESTAMP should have scale 9"),
+        Arguments.of("INT", 0, 0, "INT should have scale 0"),
+        Arguments.of("VARCHAR(100)", 0, 0, "VARCHAR should have scale 0"),
+        Arguments.of("DECIMAL(15,5)", 5, 5, "DECIMAL(15,5) should have scale 5"),
+        Arguments.of("TIMESTAMP_NTZ", 6, 9, "TIMESTAMP_NTZ should have scale 9"),
+        Arguments.of("DECIMAL", 0, 0, "DECIMAL should have scale 0"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideDecimalDigitsArguments")
+  void testDecimalDigitsColumnInGetRows(
+      String typeName, int inputScale, int expectedScale, String message) throws SQLException {
+    DatabricksResultSet resultSet = mock(DatabricksResultSet.class);
+    when(resultSet.next()).thenReturn(true).thenReturn(false);
+
+    for (ResultColumn resultColumn : COLUMN_COLUMNS) {
+      if (resultColumn.getResultSetColumnName().equals("SQLDataType")) {
+        // Special handling begins from SQLDataType columns onward; getObject is no longer invoked.
+        break;
+      }
+      when(resultSet.getObject(resultColumn.getResultSetColumnName())).thenReturn(null);
+    }
+    when(resultSet.getObject(IS_NULLABLE_COLUMN.getResultSetColumnName())).thenReturn("true");
+    when(resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName())).thenReturn(typeName);
+    when(resultSet.getObject(DECIMAL_DIGITS_COLUMN.getResultSetColumnName()))
+        .thenReturn(inputScale);
+
+    List<List<Object>> rows =
+        metadataResultSetBuilder.getRows(
+            resultSet, COLUMN_COLUMNS, new DefaultDatabricksResultSetAdapter());
+
+    assertEquals(expectedScale, rows.get(0).get(8), message);
+  }
 }

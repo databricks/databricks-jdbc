@@ -32,7 +32,25 @@ jobs:
           gpg-connect-agent reloadagent /bye
 
       - name: Publish to the Maven Central Repository
-        run: mvn -Prelease --batch-mode deploy -Dnvd.api.key=${{ secrets.NVD_API_KEY }}
+        run: |
+          # Deploy main artifacts (uber JAR, sources, javadoc)
+          mvn -Prelease --batch-mode deploy -Dnvd.api.key=${{ secrets.NVD_API_KEY }}
+          
+      - name: Publish Thin JAR as Separate Artifact
+        run: |
+          # Sign and deploy thin JAR with full dependency metadata
+          # Uses GPG signing to ensure artifact integrity
+          VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+          mvn -Prelease gpg:sign-and-deploy-file \
+            -Dfile="target/databricks-jdbc-${VERSION}-thin.jar" \
+            -DpomFile=thin_public_pom.xml \
+            -DrepositoryId=central \
+            -DgroupId=com.databricks \
+            -DartifactId=databricks-jdbc-thin \
+            -Dversion="${VERSION}" \
+            -Dpackaging=jar \
+            -DgeneratePom=false \
+            -Dgpg.passphrase="${GPG_PASSPHRASE}"
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}

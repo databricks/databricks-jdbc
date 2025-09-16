@@ -969,6 +969,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return null;
   }
 
+  @Override
+  public boolean enableShowCommandsForGetFunctions() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SHOW_COMMAND_FOR_GET_FUNCTIONS).equals("1");
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }

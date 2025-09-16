@@ -8,6 +8,7 @@ public class TypeValConstants {
   static final String BOOLEAN_TYPE = "BOOLEAN";
   static final String DATE_TYPE = "DATE";
   static final String TIMESTAMP_TYPE = "TIMESTAMP";
+  static final String TIMESTAMP_NTZ_TYPE = "TIMESTAMP_NTZ";
   static final String DECIMAL_TYPE = "DECIMAL";
   static final String BINARY_TYPE = "BINARY";
   static final String ARRAY_TYPE = "ARRAY";

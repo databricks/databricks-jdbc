@@ -3,6 +3,8 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
@@ -11,6 +13,7 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
+import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 public class DatabricksDatabaseMetaDataTest {
@@ -668,6 +672,22 @@ public class DatabricksDatabaseMetaDataTest {
   public void testGetTables() throws SQLException {
     ResultSet resultSet = metaData.getTables(null, null, null, null);
     assertNotNull(resultSet);
+  }
+
+  @Test
+  public void testGetTables_tableNamePatternLowercaseConversion() throws SQLException {
+    ArgumentCaptor<String> patternCaptor = ArgumentCaptor.forClass(String.class);
+
+    metaData.getTables(null, null, "MY\\_TABLE", null);
+    metaData.getTables(null, null, "my\\_table", null);
+
+    verify(metadataClient, times(2))
+        .listTables(any(), any(), any(), patternCaptor.capture(), any());
+    List<String> patterns = patternCaptor.getAllValues();
+
+    // Verify both uppercase and lowercase inputs are converted to the same lowercase pattern
+    assertEquals(
+        patterns.get(0), patterns.get(1), "Both patterns should be converted to lowercase");
   }
 
   @Test

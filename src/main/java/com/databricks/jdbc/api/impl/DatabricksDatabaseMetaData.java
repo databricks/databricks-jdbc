@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -979,6 +980,13 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getTables(
       String catalog, String schemaPattern, String tableNamePattern, String[] types)
       throws SQLException {
+
+    if (tableNamePattern != null) {
+      // Making tableNamePattern case-insensitive because the table name is stored as lower case in
+      // information schema
+      tableNamePattern = tableNamePattern.toLowerCase();
+    }
+
     LOGGER.debug(
         "public ResultSet getTables(String catalog = {}, String schemaPattern = {}, String tableNamePattern = {}, String[] types = {})",
         catalog,
@@ -1527,18 +1535,21 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getFunctions(String catalog, String schemaPattern, String functionNamePattern)
       throws SQLException {
     LOGGER.debug(
-        String.format(
-            "public ResultSet getFunctions(String catalog = {}, String schemaPattern = {}, String functionNamePattern = {})",
-            catalog,
-            schemaPattern,
-            functionNamePattern));
+        "public ResultSet getFunctions(String catalog = {}, String schemaPattern = {}, String functionNamePattern = {})",
+        catalog,
+        schemaPattern,
+        functionNamePattern);
     throwExceptionIfConnectionIsClosed();
     try {
+      if (WildcardUtil.isNullOrEmpty(functionNamePattern)) {
+        functionNamePattern =
+            "%"; // This is because functionName is a required parameter in thrift flow.
+      }
       return session
           .getDatabricksMetadataClient()
           .listFunctions(session, catalog, schemaPattern, functionNamePattern);
     } catch (Exception e) {
-      LOGGER.error(e, "Unable to fetch functions, returning empty result set");
+      LOGGER.error(e, "Unable to fetch functions, returning empty result set {}", e);
       return metadataResultSetBuilder.getFunctionsResult(catalog, List.of());
     }
   }

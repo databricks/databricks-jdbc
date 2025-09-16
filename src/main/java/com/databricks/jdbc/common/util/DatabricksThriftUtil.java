@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.model.client.thrift.generated.TTypeId.*;
 
+import com.databricks.jdbc.api.impl.ColumnarRowView;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
@@ -123,6 +124,17 @@ public class DatabricksThriftUtil {
       rows.add(row);
     }
     return rows;
+  }
+
+  /**
+   * Memory-efficient alternative that creates a columnar view instead of materializing all rows.
+   * Use this method to significantly reduce memory allocations when accessing row data.
+   *
+   * @param rowSet that contains columnar data
+   * @return a columnar view that provides row-based access without full materialization
+   */
+  public static ColumnarRowView createColumnarView(TRowSet rowSet) throws DatabricksSQLException {
+    return new ColumnarRowView(rowSet);
   }
 
   /** Returns statement status for given operation status response */

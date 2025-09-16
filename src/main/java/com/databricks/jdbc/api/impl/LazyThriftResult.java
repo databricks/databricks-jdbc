@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.extractRowsFromColumnar;
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createColumnarView;
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -10,13 +10,12 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import java.util.List;
 
 public class LazyThriftResult implements IExecutionResult {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(LazyThriftResult.class);
 
   private TFetchResultsResp currentResponse;
-  private List<List<Object>> currentBatch;
+  private ColumnarRowView currentBatch;
   private int currentBatchIndex;
   private long globalRowIndex;
   private final IDatabricksSession session;
@@ -53,7 +52,7 @@ public class LazyThriftResult implements IExecutionResult {
     loadCurrentBatch();
     LOGGER.debug(
         "LazyThriftResult initialized with {} rows in first batch, hasMoreRows: {}",
-        currentBatch.size(),
+        currentBatch.getRowCount(),
         currentResponse.hasMoreRows);
   }
 
@@ -75,16 +74,15 @@ public class LazyThriftResult implements IExecutionResult {
       throw new DatabricksSQLException(
           "Cursor is before first row", DatabricksDriverErrorCode.INVALID_STATE);
     }
-    if (currentBatchIndex < 0 || currentBatchIndex >= currentBatch.size()) {
+    if (currentBatchIndex < 0 || currentBatchIndex >= currentBatch.getRowCount()) {
       throw new DatabricksSQLException(
           "Invalid cursor position", DatabricksDriverErrorCode.INVALID_STATE);
     }
-    List<Object> currentRowData = currentBatch.get(currentBatchIndex);
-    if (columnIndex < 0 || columnIndex >= currentRowData.size()) {
+    if (columnIndex < 0 || columnIndex >= currentBatch.getColumnCount()) {
       throw new DatabricksSQLException(
           "Column index out of bounds " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE);
     }
-    return currentRowData.get(columnIndex);
+    return currentBatch.getValue(currentBatchIndex, columnIndex);
   }
 
   /**
@@ -128,13 +126,13 @@ public class LazyThriftResult implements IExecutionResult {
     globalRowIndex++;
 
     // Check if we need to fetch the next batch
-    if (currentBatchIndex >= currentBatch.size()) {
+    if (currentBatchIndex >= currentBatch.getRowCount()) {
       // Keep fetching until we get a non-empty batch or no more rows
       while (currentResponse.hasMoreRows) {
         fetchNextBatch();
 
         // If we got a non-empty batch, we can proceed
-        if (!currentBatch.isEmpty()) {
+        if (currentBatch.getRowCount() > 0) {
           currentBatchIndex = 0; // Reset to first row of new batch
           break;
         }
@@ -143,7 +141,7 @@ public class LazyThriftResult implements IExecutionResult {
       }
 
       // If we exited the loop and still have an empty batch, we've reached the end
-      if (currentBatch.isEmpty()) {
+      if (currentBatch.getRowCount() == 0) {
         hasReachedEnd = true;
         globalRowIndex--; // Revert the increment since we didn't actually move to a new row
         return false;
@@ -171,7 +169,7 @@ public class LazyThriftResult implements IExecutionResult {
     }
 
     // Check if there are more rows in current batch
-    if (currentBatchIndex + 1 < currentBatch.size()) {
+    if (currentBatchIndex + 1 < currentBatch.getRowCount()) {
       return true;
     }
 
@@ -196,7 +194,7 @@ public class LazyThriftResult implements IExecutionResult {
   @Override
   public long getRowCount() {
     // Return the number of rows in the current batch
-    return currentBatch != null ? currentBatch.size() : 0;
+    return currentBatch != null ? currentBatch.getRowCount() : 0;
   }
 
   /**
@@ -210,21 +208,18 @@ public class LazyThriftResult implements IExecutionResult {
     return 0;
   }
 
-  /**
-   * Loads the current response data into memory as a batch of rows.
-   *
-   * @throws DatabricksSQLException if the response data cannot be processed
-   */
   private void loadCurrentBatch() throws DatabricksSQLException {
-    currentBatch = extractRowsFromColumnar(currentResponse.getResults());
+    currentBatch = createColumnarView(currentResponse.getResults());
     currentBatchIndex = -1; // Reset batch index
-    totalRowsFetched += currentBatch.size();
+    totalRowsFetched += currentBatch.getRowCount();
     LOGGER.debug(
-        "Loaded batch with {} rows, total fetched: {}", currentBatch.size(), totalRowsFetched);
+        "Loaded batch with {} rows, total fetched: {}",
+        currentBatch.getRowCount(),
+        totalRowsFetched);
   }
 
   /**
-   * Fetches the next batch of data from the server and loads it into memory.
+   * Fetches the next batch of data from the server and creates columnar views.
    *
    * @throws DatabricksSQLException if the fetch operation fails
    */
@@ -236,7 +231,7 @@ public class LazyThriftResult implements IExecutionResult {
 
       LOGGER.debug(
           "Fetched batch with {} rows, hasMoreRows: {}",
-          currentBatch.size(),
+          currentBatch.getRowCount(),
           currentResponse.hasMoreRows);
     } catch (DatabricksSQLException e) {
       LOGGER.error("Failed to fetch next batch: {}", e.getMessage());
