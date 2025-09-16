@@ -25,5 +25,6 @@
 - Fixed a bug in the JDBC driver's metadata parsing for nested decimal fields within struct types.
 - Fixed case sensitive table search in `connection.getMetadata().getTables()`
 - Fixed `connection.getMetadata().getColumns()` to return the correct scale.
+- Fixed state leaking issue in thrift client.
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 

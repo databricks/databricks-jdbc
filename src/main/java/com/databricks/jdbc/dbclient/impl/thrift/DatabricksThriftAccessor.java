@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
@@ -55,6 +56,7 @@ final class DatabricksThriftAccessor {
   private final String endpointUrl;
   private final IDatabricksConnectionContext connectionContext;
   private TProtocolVersion serverProtocolVersion = JDBC_THRIFT_VERSION;
+  private static TCLIService.Client FAKE_SHARED_CLIENT;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
@@ -588,15 +590,25 @@ final class DatabricksThriftAccessor {
 
   /** Creates a new thrift client for the given endpoint URL and authentication headers. */
   TCLIService.Client getThriftClient() {
+    if (DriverUtil.isRunningAgainstFake()) {
+      synchronized (DatabricksThriftAccessor.class) {
+        if (FAKE_SHARED_CLIENT == null) {
+          FAKE_SHARED_CLIENT = newThriftClient();
+        }
+        return FAKE_SHARED_CLIENT;
+      }
+    }
+    return newThriftClient();
+  }
+
+  private TCLIService.Client newThriftClient() {
     DatabricksHttpTTransport transport =
         new DatabricksHttpTTransport(
             DatabricksHttpClientFactory.getInstance().getClient(connectionContext),
             endpointUrl,
             databricksConfig,
             connectionContext);
-    TBinaryProtocol protocol = new TBinaryProtocol(transport);
-
-    return new TCLIService.Client(protocol);
+    return new TCLIService.Client(new TBinaryProtocol(transport));
   }
 
   /**
