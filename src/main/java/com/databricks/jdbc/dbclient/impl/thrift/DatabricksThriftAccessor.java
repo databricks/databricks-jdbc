@@ -24,7 +24,6 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
-import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -70,19 +69,9 @@ final class DatabricksThriftAccessor {
     this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
     this.connectionUuid = connectionContext.getConnectionUuid();
     this.connectionContext = connectionContext;
-  }
-
-  @VisibleForTesting
-  DatabricksThriftAccessor(
-      TCLIService.Client client, IDatabricksConnectionContext connectionContext)
-      throws DatabricksParsingException {
-    this.databricksConfig = null;
-    this.endpointUrl = connectionContext.getEndpointURL();
-    this.connectionContext = connectionContext;
-    this.enableDirectResults = connectionContext.getDirectResultMode();
-    this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
-    this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
-    this.connectionUuid = connectionContext.getConnectionUuid();
+    if (DriverUtil.isRunningAgainstFake()) {
+      FAKE_SHARED_CLIENT = newThriftClient();
+    }
   }
 
   @SuppressWarnings("rawtypes")
@@ -591,12 +580,7 @@ final class DatabricksThriftAccessor {
   /** Creates a new thrift client for the given endpoint URL and authentication headers. */
   TCLIService.Client getThriftClient() {
     if (DriverUtil.isRunningAgainstFake()) {
-      synchronized (DatabricksThriftAccessor.class) {
-        if (FAKE_SHARED_CLIENT == null) {
-          FAKE_SHARED_CLIENT = newThriftClient();
-        }
-        return FAKE_SHARED_CLIENT;
-      }
+      return FAKE_SHARED_CLIENT;
     }
     return newThriftClient();
   }
