@@ -7,6 +7,7 @@ import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.util.Random;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 
@@ -22,6 +23,7 @@ public class RetryHandlingHelperFunctions {
   private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
   private static final int MAX_RETRY_INTERVAL = 10000; // 10s
   private static final String RETRY_AFTER_HEADER = "Retry-After";
+  private static final Random RANDOM = new Random();
 
   /**
    * Calculates exponential backoff delay based on execution count.
@@ -78,6 +80,17 @@ public class RetryHandlingHelperFunctions {
    */
   public static int getDefaultBackoffFactor() {
     return DEFAULT_BACKOFF_FACTOR;
+  }
+
+  /**
+   * Adds jitter to a delay value to avoid thundering herd problem. Returns a random value between
+   * the original value and value * 1.2 (20% jitter).
+   *
+   * @param value the base delay value in milliseconds
+   * @return a jittered delay value between value and value * 1.2
+   */
+  public static int addJitter(int value) {
+    return (int) (value * (1.0 + (RANDOM.nextDouble() * 0.2)));
   }
 
   /**

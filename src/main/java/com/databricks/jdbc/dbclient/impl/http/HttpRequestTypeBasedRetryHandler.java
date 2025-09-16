@@ -46,6 +46,7 @@ public class HttpRequestTypeBasedRetryHandler {
     for (int attempt = 1; attempt <= maxRetries + 1; attempt++) {
       // follow exponential backoff if executing the request throws IOException
       int retryDelayMillis = RetryHandlingHelperFunctions.calculateExponentialBackoff(attempt);
+      retryDelayMillis = RetryHandlingHelperFunctions.addJitter(retryDelayMillis);
       try {
         CloseableHttpResponse response = httpClient.execute(request);
         int statusCode = response.getStatusLine().getStatusCode();
@@ -55,6 +56,8 @@ public class HttpRequestTypeBasedRetryHandler {
         if (retryDelayMillis == -1) {
           return response; // Strategy says don't retry
         }
+        // apply jitter if strategy says to retry
+        retryDelayMillis = RetryHandlingHelperFunctions.addJitter(retryDelayMillis);
 
         switch (statusCode) {
           case HttpStatus.SC_SERVICE_UNAVAILABLE:
