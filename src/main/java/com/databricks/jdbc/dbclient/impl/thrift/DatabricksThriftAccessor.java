@@ -55,7 +55,7 @@ final class DatabricksThriftAccessor {
   private final String endpointUrl;
   private final IDatabricksConnectionContext connectionContext;
   private TProtocolVersion serverProtocolVersion = JDBC_THRIFT_VERSION;
-  private static TCLIService.Client FAKE_SHARED_CLIENT;
+  private ThreadLocal<TCLIService.Client> FAKE_SHARED_CLIENT;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
@@ -70,7 +70,8 @@ final class DatabricksThriftAccessor {
     this.connectionUuid = connectionContext.getConnectionUuid();
     this.connectionContext = connectionContext;
     if (DriverUtil.isRunningAgainstFake()) {
-      FAKE_SHARED_CLIENT = newThriftClient();
+      TCLIService.Client client = newThriftClient();
+      this.FAKE_SHARED_CLIENT = ThreadLocal.withInitial(() -> client);
     }
   }
 
@@ -580,7 +581,7 @@ final class DatabricksThriftAccessor {
   /** Creates a new thrift client for the given endpoint URL and authentication headers. */
   TCLIService.Client getThriftClient() {
     if (DriverUtil.isRunningAgainstFake()) {
-      return FAKE_SHARED_CLIENT;
+      return FAKE_SHARED_CLIENT.get();
     }
     return newThriftClient();
   }
