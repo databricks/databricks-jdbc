@@ -22,16 +22,18 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
 /** Databricks JDBC driver. */
-public class Driver implements IDatabricksDriver, java.sql.Driver {
+public class Driver implements IDatabricksDriver {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 
   static {
     try {
       DriverManager.registerDriver(INSTANCE = new Driver());
+      CompletableFuture.runAsync(() -> LOGGER.info(getDriverSystemConfiguration().toString()));
     } catch (SQLException e) {
       throw new IllegalStateException("Unable to register " + Driver.class, e);
     }
@@ -58,7 +60,6 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
         DatabricksConnectionContextFactory.create(url, info);
     DriverUtil.setUpLogging(connectionContext);
     UserAgentManager.setUserAgent(connectionContext);
-    LOGGER.info(getDriverSystemConfiguration().toString());
     DatabricksConnection connection = new DatabricksConnection(connectionContext);
     boolean isConnectionOpen = false;
     try {
