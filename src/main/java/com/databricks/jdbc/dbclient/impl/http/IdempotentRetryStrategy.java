@@ -1,6 +1,8 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -11,23 +13,23 @@ import org.apache.http.client.methods.CloseableHttpResponse;
  */
 public class IdempotentRetryStrategy implements IRetryStrategy {
 
-  // Non-retryable codes for idempotent requests (client errors + success codes)
-  private static final Set<Integer> NON_RETRYABLE_CLIENT_ERRORS =
-      Set.of(
-          // Client errors - should not retry
-          HttpStatus.SC_BAD_REQUEST,
-          HttpStatus.SC_UNAUTHORIZED,
-          HttpStatus.SC_FORBIDDEN,
-          HttpStatus.SC_NOT_FOUND,
-          HttpStatus.SC_METHOD_NOT_ALLOWED,
-          HttpStatus.SC_CONFLICT,
-          HttpStatus.SC_GONE,
-          HttpStatus.SC_LENGTH_REQUIRED,
-          HttpStatus.SC_PRECONDITION_FAILED,
-          HttpStatus.SC_REQUEST_TOO_LONG,
-          HttpStatus.SC_REQUEST_URI_TOO_LONG,
-          HttpStatus.SC_UNSUPPORTED_MEDIA_TYPE,
-          HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+  private static final Set<Class<? extends RuntimeException>> NON_RETRIABLE_EXCEPTIONS =
+      new HashSet<>(
+          Arrays.asList(
+              IllegalArgumentException.class,
+              IllegalStateException.class,
+              UnsupportedOperationException.class,
+              IndexOutOfBoundsException.class,
+              NullPointerException.class,
+              ClassCastException.class,
+              NumberFormatException.class,
+              ArrayIndexOutOfBoundsException.class,
+              ArrayStoreException.class,
+              ArithmeticException.class,
+              NegativeArraySizeException.class));
+
+  private static final Set<Integer> NON_RETRIABLE_HTTP_CODES =
+      new HashSet<>(Arrays.asList(400, 401, 403, 404, 405, 409, 410, 411, 412, 413, 414, 415, 416));
 
   @Override
   public boolean isStatusCodeRetriable(
@@ -46,7 +48,7 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
       case HttpStatus.SC_TOO_MANY_REQUESTS:
         return connectionContext.shouldRetryRateLimitError();
       default:
-        return !NON_RETRYABLE_CLIENT_ERRORS.contains(statusCode);
+        return !NON_RETRIABLE_HTTP_CODES.contains(statusCode);
     }
   }
 
@@ -70,5 +72,10 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
 
     // Use exponential backoff if Retry-After header is not present in response
     return RetryHandlingHelperFunctions.calculateExponentialBackoff(executionAttempt);
+  }
+
+  @Override
+  public boolean isExceptionRetryable(Exception e) {
+    return !NON_RETRIABLE_EXCEPTIONS.contains(e.getClass());
   }
 }

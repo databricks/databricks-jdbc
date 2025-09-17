@@ -1,6 +1,9 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import java.net.*;
+import java.util.Arrays;
+import java.util.List;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 
@@ -9,6 +12,13 @@ import org.apache.http.client.methods.CloseableHttpResponse;
  * header. Does not retry if Retry-After header is missing.
  */
 public class NonIdempotentRetryStrategy implements IRetryStrategy {
+
+  private static final List<Class<? extends Throwable>> RETRIABLE_EXCEPTIONS =
+      Arrays.asList(
+          ConnectException.class,
+          UnknownHostException.class,
+          NoRouteToHostException.class,
+          PortUnreachableException.class);
 
   @Override
   public boolean isStatusCodeRetriable(
@@ -47,5 +57,10 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
     }
 
     return -1; // Should not reach here based on isStatusCodeRetriable logic
+  }
+
+  @Override
+  public boolean isExceptionRetryable(Exception e) {
+    return RETRIABLE_EXCEPTIONS.contains(e.getClass());
   }
 }

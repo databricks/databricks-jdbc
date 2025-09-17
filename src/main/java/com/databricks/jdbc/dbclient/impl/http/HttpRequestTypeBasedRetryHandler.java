@@ -6,7 +6,6 @@ import com.databricks.jdbc.common.RequestRetryability;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import java.io.IOException;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -94,38 +93,30 @@ public class HttpRequestTypeBasedRetryHandler {
         LOGGER.debug(errorMessage);
 
         response.close();
-      } catch (RuntimeException e) {
-        /* These include
-          IllegalArgumentException
-          IllegalStateException
-          UnsupportedOperationException
-          IndexOutOfBoundsException
-          NullPointerException
-          ClassCastException
-          NumberFormatException
-          ArrayIndexOutOfBoundsException
-          ArrayStoreException
-          ArithmeticException
-          NegativeArraySizeException
-        */
-        LOGGER.error(
-            "Runtime exception on attempt {} for {}: error message {}",
-            attempt,
-            requestType,
-            e.getMessage());
-        RetryHandlingHelperFunctions.throwHttpException(e, request);
-      } catch (IOException e) {
-        /* Continue retry loop for IOException which include
-           ConnectException
-           UnknownHostException
-           NoRouteToHostException
-           PortUnreachableException
-        */
-        LOGGER.warn(
-            "IOException on attempt {} for {}, error message: {}",
-            attempt,
-            requestType,
-            e.getMessage());
+      } catch (Exception e) {
+        if (strategy.isExceptionRetryable(e)) {
+          LOGGER.warn(
+              "Retriable exception on attempt {} for {}: error message {}",
+              attempt,
+              requestType,
+              e.getMessage());
+          // If we've exhausted retries, throw the exception
+          if (attempt > maxRetries) {
+            LOGGER.error(
+                "Max retries ({}) reached for {} on attempt {}, throwing final exception",
+                maxRetries,
+                requestType,
+                attempt);
+            RetryHandlingHelperFunctions.throwHttpException(e, request);
+          }
+        } else {
+          LOGGER.error(
+              "Non-retriable Exception on attempt {} for {}: error message {}",
+              attempt,
+              requestType,
+              e.getMessage());
+          RetryHandlingHelperFunctions.throwHttpException(e, request);
+        }
       }
 
       try {

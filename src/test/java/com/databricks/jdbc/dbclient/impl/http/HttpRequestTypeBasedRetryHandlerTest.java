@@ -234,26 +234,10 @@ public class HttpRequestTypeBasedRetryHandlerTest {
   @Test
   public void testIOExceptionMaxRetriesExceeded() throws Exception {
     // Arrange
+    setupRequestURIForErrorHandling();
     when(mockHttpClient.execute(eq(mockRequest))).thenThrow(new IOException("Network error"));
 
     setupMockConnectionContextForErrorHandling();
-
-    // Act
-    CloseableHttpResponse result =
-        HttpRequestTypeBasedRetryHandler.executeWithRetry(
-            mockHttpClient, mockRequest, HTTPRequestType.CLOUD_FETCH, mockConnectionContext);
-
-    // Assert
-    assertNull(result);
-    verify(mockHttpClient, times(6)).execute(eq(mockRequest)); // 5 retries + initial
-  }
-
-  @Test
-  public void testRuntimeExceptionThrowsDatabricksHttpException() throws Exception {
-    // Arrange
-    setupRequestURIForErrorHandling();
-    RuntimeException runtimeException = new RuntimeException("Test runtime exception");
-    when(mockHttpClient.execute(eq(mockRequest))).thenThrow(runtimeException);
 
     // Act & Assert
     DatabricksHttpException exception =
@@ -267,6 +251,35 @@ public class HttpRequestTypeBasedRetryHandlerTest {
                     mockConnectionContext));
 
     assertTrue(exception.getMessage().contains("Caught error while executing http request"));
+    assertTrue(exception.getMessage().contains("Network error"));
+    verify(mockHttpClient, times(6)).execute(eq(mockRequest)); // 5 retries + initial
+  }
+
+  @Test
+  public void testNonRetriableExceptionThrowsImmediately() throws Exception {
+    // Arrange
+    setupRequestURIForErrorHandling();
+    setupMockConnectionContextForErrorHandling();
+    IllegalArgumentException nonRetriableException =
+        new IllegalArgumentException("Invalid argument");
+    when(mockHttpClient.execute(eq(mockRequest))).thenThrow(nonRetriableException);
+
+    // Act & Assert
+    DatabricksHttpException exception =
+        assertThrows(
+            DatabricksHttpException.class,
+            () ->
+                HttpRequestTypeBasedRetryHandler.executeWithRetry(
+                    mockHttpClient,
+                    mockRequest,
+                    HTTPRequestType.CLOUD_FETCH,
+                    mockConnectionContext));
+
+    assertTrue(exception.getMessage().contains("Caught error while executing http request"));
+    assertTrue(exception.getMessage().contains("Invalid argument"));
+
+    // Verify execute was called only once (no retries for non-retriable exceptions)
+    verify(mockHttpClient, times(1)).execute(eq(mockRequest));
   }
 
   @Test

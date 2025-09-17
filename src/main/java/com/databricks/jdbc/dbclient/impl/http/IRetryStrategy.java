@@ -12,4 +12,6 @@ public interface IRetryStrategy {
       CloseableHttpResponse response,
       int executionAttempt,
       IDatabricksConnectionContext connectionContext);
+
+  boolean isExceptionRetryable(Exception e);
 }
