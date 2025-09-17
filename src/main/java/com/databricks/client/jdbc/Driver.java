@@ -33,7 +33,6 @@ public class Driver implements IDatabricksDriver {
   static {
     try {
       DriverManager.registerDriver(INSTANCE = new Driver());
-      CompletableFuture.runAsync(() -> LOGGER.info(getDriverSystemConfiguration().toString()));
     } catch (SQLException e) {
       throw new IllegalStateException("Unable to register " + Driver.class, e);
     }
@@ -59,6 +58,7 @@ public class Driver implements IDatabricksDriver {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(url, info);
     DriverUtil.setUpLogging(connectionContext);
+    CompletableFuture.runAsync(() -> LOGGER.info(getDriverSystemConfiguration().toString()));
     UserAgentManager.setUserAgent(connectionContext);
     DatabricksConnection connection = new DatabricksConnection(connectionContext);
     boolean isConnectionOpen = false;
