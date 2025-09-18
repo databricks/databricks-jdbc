@@ -413,6 +413,37 @@ public class DatabricksResultSetMetaDataTest {
     assertFalse(metaData.getIsCloudFetchUsed());
   }
 
+  @Test
+  public void testSEAInlineComplexType() throws SQLException {
+    ResultManifest resultManifest = new ResultManifest();
+    resultManifest.setTotalRowCount(1L);
+    ResultSchema schema = new ResultSchema();
+    schema.setColumnCount(3L);
+
+    ColumnInfo arrayColumn = getColumn("array_col", ColumnInfoTypeName.ARRAY, "ARRAY<INT>");
+    ColumnInfo structColumn =
+        getColumn("struct_col", ColumnInfoTypeName.STRUCT, "STRUCT<field1:INT,field2:STRING>");
+    ColumnInfo mapColumn = getColumn("map_col", ColumnInfoTypeName.MAP, "MAP<STRING,INT>");
+
+    schema.setColumns(List.of(arrayColumn, structColumn, mapColumn));
+    resultManifest.setSchema(schema);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+
+    assertEquals("ARRAY<INT>", metaData.getColumnTypeName(1));
+    assertEquals("STRUCT<field1:INT,field2:STRING>", metaData.getColumnTypeName(2));
+    assertEquals("MAP<STRING,INT>", metaData.getColumnTypeName(3));
+
+    assertEquals("array_col", metaData.getColumnName(1));
+    assertEquals("struct_col", metaData.getColumnName(2));
+    assertEquals("map_col", metaData.getColumnName(3));
+
+    assertEquals(Types.ARRAY, metaData.getColumnType(1));
+    assertEquals(Types.STRUCT, metaData.getColumnType(2));
+    assertEquals(Types.VARCHAR, metaData.getColumnType(3));
+  }
+
   private void verifyDefaultMetadataProperties(
       DatabricksResultSetMetaData metaData, StatementType type) throws SQLException {
     for (int i = 1; i <= metaData.getColumnCount(); i++) {

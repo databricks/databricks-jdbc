@@ -121,7 +121,7 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("VARCHAR", "VARCHAR"),
         Arguments.of("CHAR(255)", "CHAR"),
         Arguments.of("TEXT", "TEXT"),
-        Arguments.of("VARCHAR(", "VARCHAR"),
+        Arguments.of("VARCHAR()", "VARCHAR"),
         Arguments.of("VARCHAR(100,200)", "VARCHAR"),
         Arguments.of("CHAR(123)", "CHAR"),
         Arguments.of("ARRAY<DOUBLE>", "ARRAY<DOUBLE>"),
@@ -131,7 +131,8 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("MAP<STRING,INT>(50)", "MAP<STRING,INT>"),
         Arguments.of(null, null),
         Arguments.of("", ""),
-        Arguments.of("INTEGER(10,5)", "INTEGER"));
+        Arguments.of("INTEGER(10,5)", "INTEGER"),
+        Arguments.of("ARRAY<DECIMAL(10,2)>", "ARRAY<DECIMAL(10,2)>"));
   }
 
   private static Stream<Arguments> stripBaseTypeNameArguments() {

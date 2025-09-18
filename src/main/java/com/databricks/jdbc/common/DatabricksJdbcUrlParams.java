@@ -123,7 +123,7 @@ public enum DatabricksJdbcUrlParams {
   ROWS_FETCHED_PER_BLOCK(
       "RowsFetchedPerBlock",
       "The maximum number of rows that a query returns at a time.",
-      "2000000"), // works only for inline results.
+      "100000"), // works only for inline results.
   AZURE_WORKSPACE_RESOURCE_ID(
       "azure_workspace_resource_id", "Resource ID of Azure Databricks workspace"),
   AZURE_TENANT_ID("AzureTenantId", "Azure tenant ID"),

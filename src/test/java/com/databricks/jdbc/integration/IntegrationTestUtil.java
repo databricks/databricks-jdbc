@@ -1,6 +1,7 @@
 package com.databricks.jdbc.integration;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.*;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
@@ -200,15 +201,18 @@ public class IntegrationTestUtil {
         DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
 
     if (DriverUtil.isRunningAgainstFake()) {
-      connectionProperties.put(
+      connectionProperties.putIfAbsent(
           DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));
-      connectionProperties.put(
+      connectionProperties.putIfAbsent(
           DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
-      connectionProperties.put(
+      connectionProperties.putIfAbsent(
           DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
           FakeServiceConfigLoader.shouldUseThriftClient());
+      connectionProperties.putIfAbsent(
+          DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK.getParamName(),
+          DEFAULT_ROW_LIMIT_PER_BLOCK);
 
       return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
     }
@@ -233,15 +237,18 @@ public class IntegrationTestUtil {
         DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
 
     if (DriverUtil.isRunningAgainstFake()) {
-      connectionProperties.put(
+      connectionProperties.putIfAbsent(
           DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));
-      connectionProperties.put(
+      connectionProperties.putIfAbsent(
           DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
           FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
-      connectionProperties.put(
+      connectionProperties.putIfAbsent(
           DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
           FakeServiceConfigLoader.shouldUseThriftClient());
+      connectionProperties.putIfAbsent(
+          DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK.getParamName(),
+          DEFAULT_ROW_LIMIT_PER_BLOCK);
 
       return DriverManager.getConnection(getFakeServiceJDBCUrl(), connectionProperties);
     }
