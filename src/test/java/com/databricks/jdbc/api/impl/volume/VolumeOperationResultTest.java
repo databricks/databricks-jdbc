@@ -11,7 +11,7 @@ import com.databricks.jdbc.api.impl.DatabricksSession;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
-import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestType;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -88,7 +88,7 @@ public class VolumeOperationResultTest {
       pre.delete();
     }
     when(resultHandler.getObject(3)).thenReturn(localGet);
-    when(mockHttpClient.executeWithRetry(isA(HttpGet.class), eq(HTTPRequestType.VOLUME_GET)))
+    when(mockHttpClient.executeWithRetry(isA(HttpGet.class), eq(RequestType.VOLUME_GET)))
         .thenReturn(httpResponse);
     when(httpResponse.getEntity()).thenReturn(new StringEntity("test"));
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
@@ -126,7 +126,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("__input_stream__");
     if (expected) {
-      when(mockHttpClient.executeWithRetry(isA(HttpGet.class), eq(HTTPRequestType.VOLUME_GET)))
+      when(mockHttpClient.executeWithRetry(isA(HttpGet.class), eq(RequestType.VOLUME_GET)))
           .thenReturn(httpResponse);
       when(httpResponse.getEntity()).thenReturn(new StringEntity("test"));
       when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
@@ -295,7 +295,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     String localGet = "getVolFile_" + UUID.randomUUID() + ".csv";
     when(resultHandler.getObject(3)).thenReturn(localGet);
-    when(mockHttpClient.executeWithRetry(isA(HttpGet.class), eq(HTTPRequestType.VOLUME_GET)))
+    when(mockHttpClient.executeWithRetry(isA(HttpGet.class), eq(RequestType.VOLUME_GET)))
         .thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
@@ -316,7 +316,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("PUT");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
-    when(mockHttpClient.executeWithRetry(isA(HttpPut.class), eq(HTTPRequestType.VOLUME_PUT)))
+    when(mockHttpClient.executeWithRetry(isA(HttpPut.class), eq(RequestType.VOLUME_PUT)))
         .thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
@@ -348,7 +348,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("__input_stream__");
     if (expected) {
-      when(mockHttpClient.executeWithRetry(isA(HttpPut.class), eq(HTTPRequestType.VOLUME_PUT)))
+      when(mockHttpClient.executeWithRetry(isA(HttpPut.class), eq(RequestType.VOLUME_PUT)))
           .thenReturn(httpResponse);
       when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
       when(mockedStatusLine.getStatusCode()).thenReturn(200);
@@ -421,7 +421,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("PUT");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
-    when(mockHttpClient.executeWithRetry(isA(HttpPut.class), eq(HTTPRequestType.VOLUME_PUT)))
+    when(mockHttpClient.executeWithRetry(isA(HttpPut.class), eq(RequestType.VOLUME_PUT)))
         .thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
@@ -503,7 +503,7 @@ public class VolumeOperationResultTest {
     buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "1"));
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
-    when(mockHttpClient.executeWithRetry(isA(HttpDelete.class), eq(HTTPRequestType.VOLUME_DELETE)))
+    when(mockHttpClient.executeWithRetry(isA(HttpDelete.class), eq(RequestType.VOLUME_DELETE)))
         .thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
@@ -547,8 +547,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
     if (expected) {
-      when(mockHttpClient.executeWithRetry(
-              isA(HttpDelete.class), eq(HTTPRequestType.VOLUME_DELETE)))
+      when(mockHttpClient.executeWithRetry(isA(HttpDelete.class), eq(RequestType.VOLUME_DELETE)))
           .thenReturn(httpResponse);
       when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
       when(mockedStatusLine.getStatusCode()).thenReturn(200);
@@ -593,7 +592,7 @@ public class VolumeOperationResultTest {
     buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "1"));
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
-    when(mockHttpClient.executeWithRetry(isA(HttpDelete.class), eq(HTTPRequestType.VOLUME_DELETE)))
+    when(mockHttpClient.executeWithRetry(isA(HttpDelete.class), eq(RequestType.VOLUME_DELETE)))
         .thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
@@ -614,7 +613,7 @@ public class VolumeOperationResultTest {
     buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "1"));
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
-    when(mockHttpClient.executeWithRetry(isA(HttpDelete.class), eq(HTTPRequestType.VOLUME_DELETE)))
+    when(mockHttpClient.executeWithRetry(isA(HttpDelete.class), eq(RequestType.VOLUME_DELETE)))
         .thenThrow(
             new DatabricksHttpException("exception", DatabricksDriverErrorCode.INVALID_STATE));
 

@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
-import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestType;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -38,7 +38,7 @@ public class VolumeOperationProcessorTest {
             .getStreamReceiver((entity) -> {})
             .build();
 
-    when(databricksHttpClient.executeWithRetry(any(), eq(HTTPRequestType.VOLUME_GET)))
+    when(databricksHttpClient.executeWithRetry(any(), eq(RequestType.VOLUME_GET)))
         .thenReturn(mockStream);
     when(mockStream.getStatusLine()).thenReturn(mockStatusLine);
     when(mockStatusLine.getStatusCode()).thenReturn(400);

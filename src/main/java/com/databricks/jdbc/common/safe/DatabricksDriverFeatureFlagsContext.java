@@ -4,7 +4,7 @@ import static java.lang.Math.max;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
-import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -109,7 +109,7 @@ public class DatabricksDriverFeatureFlagsContext {
   void fetchAndSetFlagsFromServer(IDatabricksHttpClient httpClient, HttpGet request)
       throws DatabricksHttpException, IOException {
     try (CloseableHttpResponse response =
-        httpClient.executeWithRetry(request, HTTPRequestType.FEATURE_FLAGS)) {
+        httpClient.executeWithRetry(request, RequestType.FETCH_FEATURE_FLAGS)) {
       if (response.getStatusLine().getStatusCode() == 200) {
         String responseBody = EntityUtils.toString(response.getEntity());
         FeatureFlagsResponse featureFlagsResponse =

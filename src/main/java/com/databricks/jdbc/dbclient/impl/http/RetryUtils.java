@@ -2,11 +2,14 @@ package com.databricks.jdbc.dbclient.impl.http;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.DEFAULT_HTTP_EXCEPTION_SQLSTATE;
 
+import com.databricks.jdbc.common.RequestType;
+import com.databricks.jdbc.common.RetryPolicy;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.util.Optional;
 import java.util.Random;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -15,15 +18,18 @@ import org.apache.http.client.methods.HttpUriRequest;
  * Utility class containing common retry handling helper functions used across different retry
  * strategies and handlers.
  */
-public class RetryHandlingHelperFunctions {
-  private static final JdbcLogger LOGGER =
-      JdbcLoggerFactory.getLogger(RetryHandlingHelperFunctions.class);
+public class RetryUtils {
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(RetryUtils.class);
 
   private static final int DEFAULT_BACKOFF_FACTOR = 2;
   private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
   private static final int MAX_RETRY_INTERVAL = 10000; // 10s
   private static final String RETRY_AFTER_HEADER = "Retry-After";
   private static final Random RANDOM = new Random();
+  private static final IRetryStrategy IDEMPOTENT_STRATEGY = new IdempotentRetryStrategy();
+  private static final IRetryStrategy NON_IDEMPOTENT_STRATEGY = new NonIdempotentRetryStrategy();
+  public static final long requestTimeout = 10;
+  public static final long requestExceptionTimeout = 10;
 
   /**
    * Calculates exponential backoff delay based on execution count.
@@ -32,54 +38,32 @@ public class RetryHandlingHelperFunctions {
    * @return the backoff delay in milliseconds, capped at MAX_RETRY_INTERVAL
    */
   public static int calculateExponentialBackoff(int executionCount) {
-    return (int)
-        Math.min(
-            MIN_BACKOFF_INTERVAL * Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount - 1),
-            MAX_RETRY_INTERVAL);
+    return addJitter(
+        (int)
+            Math.min(
+                MIN_BACKOFF_INTERVAL * Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount),
+                MAX_RETRY_INTERVAL));
   }
 
   /**
    * Extracts the retry interval from the Retry-After header in an HTTP response.
    *
    * @param response the HTTP response to extract the header from
-   * @return the retry interval in seconds, or -1 if header is missing or invalid
+   * @return Optional containing the retry interval in milliseconds, or empty if header is missing
+   *     or invalid
    */
-  public static int extractRetryInterval(CloseableHttpResponse response) {
+  public static Optional<Integer> extractRetryAfterHeader(CloseableHttpResponse response) {
     if (response.containsHeader(RETRY_AFTER_HEADER)) {
       try {
-        return Integer.parseInt(response.getFirstHeader(RETRY_AFTER_HEADER).getValue().trim());
+        int retryAfterSeconds =
+            Integer.parseInt(response.getFirstHeader(RETRY_AFTER_HEADER).getValue().trim());
+        int retryAfterMillis = retryAfterSeconds * 1000;
+        return Optional.of(retryAfterMillis);
       } catch (NumberFormatException e) {
         // Invalid header value
       }
     }
-    return -1;
-  }
-
-  /**
-   * Gets the minimum backoff interval used in exponential backoff calculations.
-   *
-   * @return the minimum backoff interval in milliseconds
-   */
-  public static int getMinBackoffInterval() {
-    return MIN_BACKOFF_INTERVAL;
-  }
-
-  /**
-   * Gets the maximum retry interval cap used in exponential backoff calculations.
-   *
-   * @return the maximum retry interval in milliseconds
-   */
-  public static int getMaxRetryInterval() {
-    return MAX_RETRY_INTERVAL;
-  }
-
-  /**
-   * Gets the default backoff factor used in exponential backoff calculations.
-   *
-   * @return the backoff factor
-   */
-  public static int getDefaultBackoffFactor() {
-    return DEFAULT_BACKOFF_FACTOR;
+    return Optional.empty();
   }
 
   /**
@@ -118,5 +102,11 @@ public class RetryHandlingHelperFunctions {
             RequestSanitizer.sanitizeRequest(request), e);
     LOGGER.error(e, errorMsg);
     throw new DatabricksHttpException(errorMsg, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
+  }
+
+  // Helper method to get retry strategy based on request type idempotency
+  public static IRetryStrategy getRetryStrategy(RequestType requestType) {
+    RetryPolicy retryability = requestType.getRequestRetryability();
+    return (retryability == RetryPolicy.IDEMPOTENT) ? IDEMPOTENT_STRATEGY : NON_IDEMPOTENT_STRATEGY;
   }
 }

@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl.volume;
 
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
-import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestType;
 import com.databricks.jdbc.common.util.HttpUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -259,7 +259,7 @@ class VolumeOperationProcessor {
     try {
       // We return the input stream directly to clients, if they want to consume as input stream
       if (isAllowedInputStreamForVolumeOperation) {
-        responseStream = databricksHttpClient.executeWithRetry(httpGet, HTTPRequestType.VOLUME_GET);
+        responseStream = databricksHttpClient.executeWithRetry(httpGet, RequestType.VOLUME_GET);
         if (!HttpUtil.isSuccessfulHttpResponse(responseStream)) {
           status = VolumeOperationStatus.FAILED;
           errorMessage =
@@ -293,7 +293,7 @@ class VolumeOperationProcessor {
     }
 
     try (CloseableHttpResponse response =
-        databricksHttpClient.executeWithRetry(httpGet, HTTPRequestType.VOLUME_GET)) {
+        databricksHttpClient.executeWithRetry(httpGet, RequestType.VOLUME_GET)) {
       if (!HttpUtil.isSuccessfulHttpResponse(response)) {
         LOGGER.error(
             "Failed to fetch content from volume with error {%s} for local file {%s}",
@@ -364,7 +364,7 @@ class VolumeOperationProcessor {
 
     // Execute the request
     try (CloseableHttpResponse response =
-        databricksHttpClient.executeWithRetry(httpPut, HTTPRequestType.VOLUME_PUT)) {
+        databricksHttpClient.executeWithRetry(httpPut, RequestType.VOLUME_PUT)) {
       // Process the response
       if (HttpUtil.isSuccessfulHttpResponse(response)) {
         status = VolumeOperationStatus.SUCCEEDED;
@@ -412,7 +412,7 @@ class VolumeOperationProcessor {
     HttpDelete httpDelete = new HttpDelete(operationUrl);
     headers.forEach(httpDelete::addHeader);
     try (CloseableHttpResponse response =
-        databricksHttpClient.executeWithRetry(httpDelete, HTTPRequestType.VOLUME_DELETE)) {
+        databricksHttpClient.executeWithRetry(httpDelete, RequestType.VOLUME_DELETE)) {
       if (HttpUtil.isSuccessfulHttpResponse(response)) {
         status = VolumeOperationStatus.SUCCEEDED;
       } else {

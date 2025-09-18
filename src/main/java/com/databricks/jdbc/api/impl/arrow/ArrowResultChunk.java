@@ -6,7 +6,7 @@ import static com.databricks.jdbc.telemetry.TelemetryHelper.getStatementIdString
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
-import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestType;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -77,7 +77,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
-      response = httpClient.executeWithRetry(getRequest, HTTPRequestType.CLOUD_FETCH, true);
+      response = httpClient.executeWithRetry(getRequest, RequestType.CLOUD_FETCH, true);
       checkHTTPError(response);
 
       long downloadTimeMs = (System.nanoTime() - startTime) / 1_000_000;

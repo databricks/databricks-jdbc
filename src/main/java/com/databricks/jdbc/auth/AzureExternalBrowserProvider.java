@@ -1,7 +1,7 @@
 package com.databricks.jdbc.auth;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -161,8 +161,7 @@ public class AzureExternalBrowserProvider implements CredentialsProvider {
 
     request.setEntity(new UrlEncodedFormEntity(params));
 
-    try (CloseableHttpResponse response =
-        httpClient.executeWithRetry(request, HTTPRequestType.AUTH)) {
+    try (CloseableHttpResponse response = httpClient.executeWithRetry(request, RequestType.AUTH)) {
       String responseBody = EntityUtils.toString(response.getEntity());
       JsonNode tokenResponse = OBJECT_MAPPER.readTree(responseBody);
 
@@ -250,8 +249,7 @@ public class AzureExternalBrowserProvider implements CredentialsProvider {
     HttpGet request = new HttpGet(configUrl);
     request.setHeader(HttpHeaders.ACCEPT, ACCEPT_JSON);
 
-    try (CloseableHttpResponse response =
-        httpClient.executeWithRetry(request, HTTPRequestType.AUTH)) {
+    try (CloseableHttpResponse response = httpClient.executeWithRetry(request, RequestType.AUTH)) {
       String responseBody = EntityUtils.toString(response.getEntity());
 
       JsonNode config = OBJECT_MAPPER.readTree(responseBody);
@@ -359,8 +357,7 @@ public class AzureExternalBrowserProvider implements CredentialsProvider {
 
     request.setEntity(new UrlEncodedFormEntity(params));
 
-    try (CloseableHttpResponse response =
-        httpClient.executeWithRetry(request, HTTPRequestType.AUTH)) {
+    try (CloseableHttpResponse response = httpClient.executeWithRetry(request, RequestType.AUTH)) {
       String responseBody = EntityUtils.toString(response.getEntity());
       JsonNode tokenResponse = OBJECT_MAPPER.readTree(responseBody);
 

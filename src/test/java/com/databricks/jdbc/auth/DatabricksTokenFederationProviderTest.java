@@ -5,7 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -104,7 +104,7 @@ public class DatabricksTokenFederationProviderTest {
   @Test
   public void testRetrieveTokensFailure() throws Exception {
 
-    when(mockHttpClient.executeWithRetry(any(HttpPost.class), eq(HTTPRequestType.AUTH)))
+    when(mockHttpClient.executeWithRetry(any(HttpPost.class), eq(RequestType.AUTH)))
         .thenThrow(
             new DatabricksHttpException(
                 "Connection error", DatabricksDriverErrorCode.CONNECTION_ERROR));

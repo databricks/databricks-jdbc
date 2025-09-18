@@ -2,7 +2,7 @@ package com.databricks.jdbc.auth;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
-import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -205,7 +205,7 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
                   .collect(Collectors.toList()),
               StandardCharsets.UTF_8));
       headers.forEach(postRequest::setHeader);
-      HttpResponse response = hc.executeWithRetry(postRequest, HTTPRequestType.AUTH);
+      HttpResponse response = hc.executeWithRetry(postRequest, RequestType.AUTH);
       OAuthResponse resp =
           JsonUtil.getMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
       return createToken(resp.getAccessToken(), resp.getTokenType());

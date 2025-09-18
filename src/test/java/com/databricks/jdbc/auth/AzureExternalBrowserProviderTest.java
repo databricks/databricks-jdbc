@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -84,7 +84,7 @@ public class AzureExternalBrowserProviderTest {
       when(mockTokenResponse.getEntity())
           .thenReturn(new StringEntity(tokenJson, StandardCharsets.UTF_8));
 
-      when(mockHttpClient.executeWithRetry(any(), eq(HTTPRequestType.AUTH)))
+      when(mockHttpClient.executeWithRetry(any(), eq(RequestType.AUTH)))
           .thenReturn(mockConfigResponse)
           .thenReturn(mockTokenResponse);
 
@@ -106,7 +106,7 @@ public class AzureExternalBrowserProviderTest {
       String rt = (String) getPrivateField(provider, "refreshToken");
       assertEquals(expectedRefreshToken, rt);
 
-      verify(mockHttpClient, times(2)).executeWithRetry(any(), eq(HTTPRequestType.AUTH));
+      verify(mockHttpClient, times(2)).executeWithRetry(any(), eq(RequestType.AUTH));
     }
   }
 
@@ -134,7 +134,7 @@ public class AzureExternalBrowserProviderTest {
       when(mockTokenResponse.getEntity())
           .thenReturn(new StringEntity(errorJson, StandardCharsets.UTF_8));
 
-      when(mockHttpClient.executeWithRetry(any(), eq(HTTPRequestType.AUTH)))
+      when(mockHttpClient.executeWithRetry(any(), eq(RequestType.AUTH)))
           .thenReturn(mockConfigResponse)
           .thenReturn(mockTokenResponse);
 
@@ -165,7 +165,7 @@ public class AzureExternalBrowserProviderTest {
 
       Map<String, String> headers = provider.configure(mockDatabricksConfig).headers();
       assertEquals("Bearer " + jwt, headers.get(HttpHeaders.AUTHORIZATION));
-      verify(mockHttpClient, never()).executeWithRetry(any(), eq(HTTPRequestType.AUTH));
+      verify(mockHttpClient, never()).executeWithRetry(any(), eq(RequestType.AUTH));
     }
   }
 
@@ -188,7 +188,7 @@ public class AzureExternalBrowserProviderTest {
       when(mockConfigResponse.getEntity())
           .thenReturn(new StringEntity(configJson, StandardCharsets.UTF_8));
 
-      when(mockHttpClient.executeWithRetry(any(), eq(HTTPRequestType.AUTH)))
+      when(mockHttpClient.executeWithRetry(any(), eq(RequestType.AUTH)))
           .thenReturn(mockConfigResponse);
 
       AzureExternalBrowserProvider provider = new AzureExternalBrowserProvider(mockContext, 8020);
@@ -246,7 +246,7 @@ public class AzureExternalBrowserProviderTest {
                 + "}";
         when(mockConfigResponse.getEntity())
             .thenReturn(new StringEntity(configJson, StandardCharsets.UTF_8));
-        when(mockHttpClient.executeWithRetry(any(), eq(HTTPRequestType.AUTH)))
+        when(mockHttpClient.executeWithRetry(any(), eq(RequestType.AUTH)))
             .thenReturn(mockConfigResponse);
 
         AzureExternalBrowserProvider provider = new AzureExternalBrowserProvider(mockContext, 0);
@@ -314,7 +314,7 @@ public class AzureExternalBrowserProviderTest {
                 + "}";
         when(mockConfigResponse.getEntity())
             .thenReturn(new StringEntity(configJson, StandardCharsets.UTF_8));
-        when(mockHttpClient.executeWithRetry(any(), eq(HTTPRequestType.AUTH)))
+        when(mockHttpClient.executeWithRetry(any(), eq(RequestType.AUTH)))
             .thenReturn(mockConfigResponse);
 
         AzureExternalBrowserProvider provider = new AzureExternalBrowserProvider(mockContext, 0);
@@ -414,7 +414,7 @@ public class AzureExternalBrowserProviderTest {
 
       when(mockTokenResponse.getEntity())
           .thenReturn(new StringEntity(responseJson, StandardCharsets.UTF_8));
-      when(mockHttpClient.executeWithRetry(any(), eq(HTTPRequestType.AUTH)))
+      when(mockHttpClient.executeWithRetry(any(), eq(RequestType.AUTH)))
           .thenReturn(mockTokenResponse);
 
       Executable call =

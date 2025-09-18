@@ -13,7 +13,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
-import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
@@ -118,7 +118,7 @@ public class ArrowStreamResultTest {
     setupMockResponse();
     setupResultChunkMocks();
     when(mockHttpClient.executeWithRetry(
-            isA(HttpUriRequest.class), eq(HTTPRequestType.CLOUD_FETCH), eq(true)))
+            isA(HttpUriRequest.class), eq(RequestType.CLOUD_FETCH), eq(true)))
         .thenReturn(httpResponse);
 
     ArrowStreamResult result =
@@ -200,7 +200,7 @@ public class ArrowStreamResultTest {
 
     setupMockResponse();
     when(mockHttpClient.executeWithRetry(
-            isA(HttpUriRequest.class), eq(HTTPRequestType.CLOUD_FETCH), eq(true)))
+            isA(HttpUriRequest.class), eq(RequestType.CLOUD_FETCH), eq(true)))
         .thenReturn(httpResponse);
 
     ArrowStreamResult result =

@@ -612,11 +612,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getMaxRetries() {
-    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.MAX_RETRIES));
-  }
-
-  @Override
   public int getIdleHttpConnectionExpiry() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.IDLE_HTTP_CONNECTION_EXPIRY));
   }

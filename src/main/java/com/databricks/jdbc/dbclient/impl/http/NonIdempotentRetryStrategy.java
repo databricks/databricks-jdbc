@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import java.net.*;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 
@@ -38,7 +39,7 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
   }
 
   @Override
-  public int retryRequestAfter(
+  public Optional<Integer> retryRequestAfter(
       CloseableHttpResponse response,
       int executionAttempt,
       IDatabricksConnectionContext connectionContext) {
@@ -46,17 +47,16 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
     int statusCode = response.getStatusLine().getStatusCode();
 
     if (!isStatusCodeRetriable(statusCode, connectionContext)) {
-      return -1;
+      return Optional.empty();
     }
 
-    // For non-idempotent requests: respect Retry-After header, return -1 if not present
+    // For non-idempotent requests: respect Retry-After header, return empty if not present
     if (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
         || statusCode == HttpStatus.SC_TOO_MANY_REQUESTS) {
-      int retryIntervalSeconds = RetryHandlingHelperFunctions.extractRetryInterval(response);
-      return retryIntervalSeconds > 0 ? retryIntervalSeconds * 1000 : -1; // Convert to milliseconds
+      return RetryUtils.extractRetryAfterHeader(response);
     }
 
-    return -1; // Should not reach here based on isStatusCodeRetriable logic
+    return Optional.empty(); // Should not reach here based on isStatusCodeRetriable logic
   }
 
   @Override

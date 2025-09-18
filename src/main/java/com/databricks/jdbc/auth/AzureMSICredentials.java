@@ -1,6 +1,6 @@
 package com.databricks.jdbc.auth;
 
-import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestType;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -138,7 +138,7 @@ public class AzureMSICredentials implements TokenSource {
       HttpGet getRequest = new HttpGet(uriBuilder.build());
       headers.forEach(getRequest::setHeader);
       LOGGER.debug("Executing GET request to retrieve Azure MSI token");
-      HttpResponse response = hc.executeWithRetry(getRequest, HTTPRequestType.AUTH);
+      HttpResponse response = hc.executeWithRetry(getRequest, RequestType.AUTH);
       OAuthResponse resp =
           JsonUtil.getMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
       Instant expiry = Instant.now().plus(resp.getExpiresIn(), ChronoUnit.SECONDS);

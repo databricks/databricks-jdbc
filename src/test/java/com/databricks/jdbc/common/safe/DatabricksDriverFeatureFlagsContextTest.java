@@ -5,7 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.HTTPRequestType;
+import com.databricks.jdbc.common.RequestType;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -95,7 +95,7 @@ class DatabricksDriverFeatureFlagsContextTest {
       when(httpResponseMock.getEntity()).thenReturn(httpEntityMock);
       when(httpEntityMock.getContent())
           .thenReturn(new ByteArrayInputStream(responseJson.getBytes()));
-      when(httpClientMock.executeWithRetry(any(HttpGet.class), eq(HTTPRequestType.FEATURE_FLAGS)))
+      when(httpClientMock.executeWithRetry(any(HttpGet.class), eq(RequestType.FETCH_FEATURE_FLAGS)))
           .thenReturn(httpResponseMock);
       FeatureFlagsResponse response =
           new ObjectMapper()
@@ -108,7 +108,7 @@ class DatabricksDriverFeatureFlagsContextTest {
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
       assertTrue(context.isFeatureEnabled(FEATURE_FLAG_NAME));
-      verify(httpClientMock).executeWithRetry(request, HTTPRequestType.FEATURE_FLAGS);
+      verify(httpClientMock).executeWithRetry(request, RequestType.FETCH_FEATURE_FLAGS);
     }
   }
 
@@ -122,7 +122,7 @@ class DatabricksDriverFeatureFlagsContextTest {
       when(httpResponseMock.getEntity()).thenReturn(httpEntityMock);
       when(httpEntityMock.getContent())
           .thenReturn(new ByteArrayInputStream(responseJson.getBytes()));
-      when(httpClientMock.executeWithRetry(any(HttpGet.class), eq(HTTPRequestType.FEATURE_FLAGS)))
+      when(httpClientMock.executeWithRetry(any(HttpGet.class), eq(RequestType.FETCH_FEATURE_FLAGS)))
           .thenReturn(httpResponseMock);
       FeatureFlagsResponse response = createFeatureFlagsResponse(FEATURE_FLAG_NAME, "true", 60);
       jsonUtilMocked.when(JsonUtil::getMapper).thenReturn(objectMapperMock);
@@ -131,7 +131,7 @@ class DatabricksDriverFeatureFlagsContextTest {
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
       assertTrue(context.isFeatureEnabled(FEATURE_FLAG_NAME));
-      verify(httpClientMock).executeWithRetry(request, HTTPRequestType.FEATURE_FLAGS);
+      verify(httpClientMock).executeWithRetry(request, RequestType.FETCH_FEATURE_FLAGS);
     }
   }
 
@@ -139,12 +139,12 @@ class DatabricksDriverFeatureFlagsContextTest {
   void testFetchAndSetFlagsFromServer_HttpError() throws IOException, DatabricksHttpException {
     when(httpResponseMock.getStatusLine()).thenReturn(statusLineMock);
     when(statusLineMock.getStatusCode()).thenReturn(500);
-    when(httpClientMock.executeWithRetry(any(HttpGet.class), eq(HTTPRequestType.FEATURE_FLAGS)))
+    when(httpClientMock.executeWithRetry(any(HttpGet.class), eq(RequestType.FETCH_FEATURE_FLAGS)))
         .thenReturn(httpResponseMock);
     HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
     context.fetchAndSetFlagsFromServer(httpClientMock, request);
     assertFalse(context.isFeatureEnabled(FEATURE_FLAG_NAME));
-    verify(httpClientMock).executeWithRetry(request, HTTPRequestType.FEATURE_FLAGS);
+    verify(httpClientMock).executeWithRetry(request, RequestType.FETCH_FEATURE_FLAGS);
   }
 
   @Test
@@ -156,7 +156,7 @@ class DatabricksDriverFeatureFlagsContextTest {
       when(httpResponseMock.getEntity()).thenReturn(httpEntityMock);
       when(httpEntityMock.getContent())
           .thenReturn(new ByteArrayInputStream(responseJson.getBytes()));
-      when(httpClientMock.executeWithRetry(any(HttpGet.class), eq(HTTPRequestType.FEATURE_FLAGS)))
+      when(httpClientMock.executeWithRetry(any(HttpGet.class), eq(RequestType.FETCH_FEATURE_FLAGS)))
           .thenReturn(httpResponseMock);
       FeatureFlagsResponse response = createFeatureFlagsResponseWithNoFlags(300);
       jsonUtilMocked.when(JsonUtil::getMapper).thenReturn(objectMapperMock);
@@ -165,7 +165,7 @@ class DatabricksDriverFeatureFlagsContextTest {
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
       assertFalse(context.isFeatureEnabled(FEATURE_FLAG_NAME));
-      verify(httpClientMock).executeWithRetry(request, HTTPRequestType.FEATURE_FLAGS);
+      verify(httpClientMock).executeWithRetry(request, RequestType.FETCH_FEATURE_FLAGS);
     }
   }
 
@@ -178,7 +178,7 @@ class DatabricksDriverFeatureFlagsContextTest {
       when(httpResponseMock.getEntity()).thenReturn(httpEntityMock);
       when(httpEntityMock.getContent())
           .thenReturn(new ByteArrayInputStream(responseJson.getBytes()));
-      when(httpClientMock.executeWithRetry(any(HttpGet.class), eq(HTTPRequestType.FEATURE_FLAGS)))
+      when(httpClientMock.executeWithRetry(any(HttpGet.class), eq(RequestType.FETCH_FEATURE_FLAGS)))
           .thenReturn(httpResponseMock);
       FeatureFlagsResponse response = createFeatureFlagsResponseNullFlags(300);
       jsonUtilMocked.when(JsonUtil::getMapper).thenReturn(objectMapperMock);
@@ -187,7 +187,7 @@ class DatabricksDriverFeatureFlagsContextTest {
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
       assertFalse(context.isFeatureEnabled(FEATURE_FLAG_NAME));
-      verify(httpClientMock).executeWithRetry(request, HTTPRequestType.FEATURE_FLAGS);
+      verify(httpClientMock).executeWithRetry(request, RequestType.FETCH_FEATURE_FLAGS);
     }
   }
 

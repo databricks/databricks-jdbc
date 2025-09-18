@@ -64,7 +64,6 @@ public enum DatabricksJdbcUrlParams {
   TEMPORARILY_UNAVAILABLE_RETRY_TIMEOUT(
       "TemporarilyUnavailableRetryTimeout", "Retry timeout for temporarily unavailable", "900"),
   RATE_LIMIT_RETRY("RateLimitRetry", "Retry on rate limit", "1"),
-  MAX_RETRIES("MaxRetries", "Maximum number of retry attempts", "5"),
   IDLE_HTTP_CONNECTION_EXPIRY("IdleHttpConnectionExpiry", "Idle HTTP connection expiry", "60"),
   SUPPORT_MANY_PARAMETERS("supportManyParameters", "Support many parameters", "0"),
   CLOUD_FETCH_THREAD_POOL_SIZE("cloudFetchThreadPoolSize", "Cloud fetch thread pool size", "16"),

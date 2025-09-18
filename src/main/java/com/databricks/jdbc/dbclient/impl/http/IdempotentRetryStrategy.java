@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.http;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -53,25 +54,26 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
   }
 
   @Override
-  public int retryRequestAfter(
+  public Optional<Integer> retryRequestAfter(
       CloseableHttpResponse response,
       int executionAttempt,
       IDatabricksConnectionContext connectionContext) {
     int statusCode = response.getStatusLine().getStatusCode();
 
     if (!isStatusCodeRetriable(statusCode, connectionContext)) {
-      return -1;
+      return Optional.empty();
     }
 
-    int retryInterval = RetryHandlingHelperFunctions.extractRetryInterval(response);
+    Optional<Integer> retryAfterHeader = RetryUtils.extractRetryAfterHeader(response);
 
-    if (retryInterval != -1) {
+    if (retryAfterHeader.isPresent()) {
       // Use Retry-After header if it is present in response
-      return retryInterval;
+      return retryAfterHeader;
     }
 
     // Use exponential backoff if Retry-After header is not present in response
-    return RetryHandlingHelperFunctions.calculateExponentialBackoff(executionAttempt);
+    int delay = RetryUtils.calculateExponentialBackoff(executionAttempt);
+    return Optional.of(delay);
   }
 
   @Override
