@@ -1,5 +1,5 @@
 {
   "freeze": true,
   "reason": "Releasing JDBC - 16th Sep",
-  "allow_list": ["samikshya-chand_data/upgradesdk","bump-v1.1.0"]
+  "allow_list": ["samikshya-chand_data/upgradesdk","bump-v1.1.0","shivam2680/release-fix"]
 }
