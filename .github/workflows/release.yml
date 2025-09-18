@@ -35,6 +35,10 @@ jobs:
         run: |
           # Deploy main artifacts (uber JAR, sources, javadoc)
           mvn -Prelease --batch-mode deploy -Dnvd.api.key=${{ secrets.NVD_API_KEY }}
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
           
       - name: Publish Thin JAR as Separate Artifact
         run: |
