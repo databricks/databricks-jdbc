@@ -148,8 +148,6 @@ public class TelemetryClient implements ITelemetryClient {
       if (!forceFlush ? isBatchFull() : !eventsBatch.isEmpty()) {
         List<TelemetryFrontendLog> logsToBeFlushed = eventsBatch;
         try {
-          System.out.println("Flushing " + logsToBeFlushed.size() + " telemetry events");
-          System.out.println("Flushing " + logsToBeFlushed.toString() + " telemetry events");
           // Submit the task to the executor service and return the Future.
           Future<?> future =
               executorService.submit(new TelemetryPushTask(logsToBeFlushed, telemetryPushClient));
