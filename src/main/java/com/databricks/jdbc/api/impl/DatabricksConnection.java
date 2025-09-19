@@ -156,9 +156,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     }
     this.session.close();
     TelemetryClientFactory.getInstance().closeTelemetryClient(connectionContext);
-    DatabricksHttpClientFactory.getInstance().removeClient(connectionContext);
     DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext);
     DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
+    DatabricksHttpClientFactory.getInstance().removeClient(connectionContext);
     DatabricksThreadContextHolder.clearAllContext();
   }
 
