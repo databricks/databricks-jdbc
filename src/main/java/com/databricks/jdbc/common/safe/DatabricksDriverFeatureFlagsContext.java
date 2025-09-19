@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -37,13 +36,10 @@ public class DatabricksDriverFeatureFlagsContext {
   private final Cache<String, String> featureFlags;
   private final ScheduledExecutorService scheduler =
       Executors.newSingleThreadScheduledExecutor(
-          new ThreadFactory() {
-            @Override
-            public Thread newThread(Runnable r) {
-              Thread t = new Thread(r, "databricks-jdbc-feature-flags-refresh");
-              t.setDaemon(true);
-              return t;
-            }
+          r -> {
+            Thread t = new Thread(r, "databricks-jdbc-feature-flags-refresh");
+            t.setDaemon(true);
+            return t;
           });
   private ScheduledFuture<?> scheduledRefreshTask;
   private volatile int refreshIntervalSeconds = DEFAULT_TTL_SECONDS;
@@ -54,6 +50,9 @@ public class DatabricksDriverFeatureFlagsContext {
     this.featureFlagEndpoint =
         String.format(
             "https://%s%s", connectionContext.getHostForOAuth(), FEATURE_FLAGS_ENDPOINT_SUFFIX);
+    // Make an initial blocking call to fetch featureFlags
+    refreshAllFeatureFlags();
+    // Async fetch eventually
     scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
   }
 
@@ -77,10 +76,13 @@ public class DatabricksDriverFeatureFlagsContext {
     if (scheduledRefreshTask != null && !scheduledRefreshTask.isCancelled()) {
       scheduledRefreshTask.cancel(false);
     }
-    // Schedule an immediate refresh, then run at fixed rate.
+    // Schedule refresh at a fixed rate.
     scheduledRefreshTask =
         scheduler.scheduleAtFixedRate(
-            this::refreshAllFeatureFlags, 0, this.refreshIntervalSeconds, TimeUnit.SECONDS);
+            this::refreshAllFeatureFlags,
+            this.refreshIntervalSeconds,
+            this.refreshIntervalSeconds,
+            TimeUnit.SECONDS);
   }
 
   private void refreshAllFeatureFlags() {
