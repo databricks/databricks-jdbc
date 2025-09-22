@@ -1,5 +1,4 @@
 {
-  "freeze": true,
-  "reason": "Releasing JDBC - 16th Sep",
-  "allow_list": ["samikshya-chand_data/n"]
+  "freeze": false,
+  "reason": ""
 }
