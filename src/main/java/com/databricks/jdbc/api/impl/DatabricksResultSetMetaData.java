@@ -108,7 +108,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
               .columnType(columnType)
               .columnTypeText(
-                  metadataResultSetBuilder.stripBaseTypeName(
+                  metadataResultSetBuilder.stripTypeName(
                       columnInfo
                           .getTypeText())) // store base type eg. DECIMAL instead of DECIMAL(7,2)
               .typePrecision(precision)

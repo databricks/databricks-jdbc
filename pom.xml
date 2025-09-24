@@ -5,7 +5,7 @@
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
   <!-- This value may be modified by a release script to reflect the current version of the driver. -->
-  <version>1.0.9-oss</version>
+  <version>1.0.10-oss</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver</name>
   <description>Databricks JDBC Driver.</description>
@@ -51,11 +51,12 @@
     <google.guava.version>33.0.0-jre</google.guava.version>
     <junit.jupiter.version>5.9.2</junit.jupiter.version>
     <google.findbugs.annotations.version>3.0.1</google.findbugs.annotations.version>
+    <gson.version>2.13.2</gson.version>
     <immutables.value.version>2.9.2</immutables.value.version>
     <httpclient.version>4.5.14</httpclient.version>
     <commons-configuration.version>2.10.1</commons-configuration.version>
     <commons-io.version>2.14.0</commons-io.version>
-    <databricks-sdk.version>0.60.0</databricks-sdk.version>
+    <databricks-sdk.version>0.64.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
     <lz4-compression.version>1.8.0</lz4-compression.version>
@@ -65,9 +66,9 @@
     <slt.token>dummy-token</slt.token>
     <wiremock.version>3.5.4</wiremock.version>
     <nimbusjose.version>10.0.2</nimbusjose.version>
-    <bouncycastle.version>1.78.1</bouncycastle.version>
+    <bouncycastle.version>1.79</bouncycastle.version>
     <async-httpclient.version>5.3.1</async-httpclient.version>
-    <netty.version>4.2.0.Final</netty.version>
+    <netty.version>4.2.6.Final</netty.version>
     <grpc.version>1.71.0</grpc.version>
     <resilience4j.version>1.7.0</resilience4j.version>
   </properties>
@@ -78,6 +79,12 @@
         <groupId>org.apache.commons</groupId>
         <artifactId>commons-lang3</artifactId>
         <version>${commons-lang3.version}</version>
+      </dependency>
+      <!-- Force safe version of Gson to fix CVE-2025-53864 -->
+      <dependency>
+        <groupId>com.google.code.gson</groupId>
+        <artifactId>gson</artifactId>
+        <version>${gson.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -696,5 +703,7 @@
         </plugins>
       </build>
     </profile>
+    
   </profiles>
+  
 </project>

@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc-thin</artifactId>
-  <version>1.0.9-oss</version>
+  <version>1.0.10-oss</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver Thin</name>
   <description>Databricks JDBC Driver Thin JAR - requires external dependencies.</description>
@@ -136,15 +136,15 @@
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcprov-jdk18on</artifactId>
-      <version>1.78.1</version>
+      <version>1.79</version>
     </dependency>
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcpkix-jdk18on</artifactId>
-      <version>1.78.1</version>
+      <version>1.79</version>
     </dependency>
     
-    <!-- Jackson JSON processing -->
+    <!-- JSON processing -->
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
@@ -160,7 +160,12 @@
       <artifactId>jackson-core</artifactId>
       <version>2.18.3</version>
     </dependency>
-    
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>2.13.2</version>
+    </dependency>
+
     <!-- Compression -->
     <dependency>
       <groupId>org.lz4</groupId>
@@ -179,12 +184,12 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-common</artifactId>
-      <version>4.2.0.Final</version>
+      <version>4.2.6.Final</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-buffer</artifactId>
-      <version>4.2.0.Final</version>
+      <version>4.2.6.Final</version>
     </dependency>
     
     <!-- Jakarta Annotations -->

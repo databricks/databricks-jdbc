@@ -148,6 +148,9 @@ public class ArrowStreamResult implements IExecutionResult {
       Object result =
           chunkIterator.getColumnObjectAtCurrentRow(
               columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfos.get(columnIndex));
+      if (result == null) {
+        return null;
+      }
       ComplexDataTypeParser parser = new ComplexDataTypeParser();
       return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
     }

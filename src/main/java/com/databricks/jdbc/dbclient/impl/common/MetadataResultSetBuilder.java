@@ -499,11 +499,10 @@ public class MetadataResultSetBuilder {
     if (typeName == null) {
       return null;
     }
-    int typeArgumentIndex = typeName.indexOf('(');
-    if (typeArgumentIndex != -1) {
-      return typeName.substring(0, typeArgumentIndex);
+    boolean endsWithClosingBracket = typeName.endsWith(")");
+    if (endsWithClosingBracket) {
+      typeName = typeName.substring(0, typeName.lastIndexOf('('));
     }
-
     return typeName;
   }
 

@@ -318,6 +318,37 @@ public class ArrowStreamResultTest {
     return new Schema(fieldList);
   }
 
+  @Test
+  public void testNullComplexTypeWithComplexDatatypeSupportDisabled() throws Exception {
+    // Setup connection context with complex datatype support disabled
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    // Complex datatype support is disabled by default
+
+    // Create result manifest with a struct column
+    List<ColumnInfo> columnInfos = new ArrayList<>();
+    columnInfos.add(
+        new ColumnInfo()
+            .setPosition(0L)
+            .setName("struct_col")
+            .setTypeName(ColumnInfoTypeName.STRUCT));
+
+    ResultSchema schema = new ResultSchema().setColumns(columnInfos).setColumnCount(1L);
+
+    ResultManifest resultManifest =
+        new ResultManifest().setTotalChunkCount(0L).setTotalRowCount(1L).setSchema(schema);
+
+    ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
+
+    // Create the ArrowStreamResult
+    ArrowStreamResult result =
+        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
+
+    // Verify no exception is thrown when closing
+    assertDoesNotThrow(result::close);
+  }
+
   private Object[][] createTestData(Schema schema, int rows) {
     int cols = schema.getFields().size();
     Object[][] data = new Object[cols][rows];

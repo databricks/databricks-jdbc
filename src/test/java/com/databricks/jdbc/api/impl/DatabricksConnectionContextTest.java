@@ -342,7 +342,7 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
-    assertEquals(2000000, connectionContext.getRowsFetchedPerBlock());
+    assertEquals(100000, connectionContext.getRowsFetchedPerBlock());
 
     // Test with custom value
     Properties properties = new Properties();
