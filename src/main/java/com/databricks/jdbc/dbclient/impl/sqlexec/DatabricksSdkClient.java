@@ -464,7 +464,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     return headers;
   }
 
-  protected ExecuteStatementRequest getRequest(
+  private ExecuteStatementRequest getRequest(
       StatementType statementType,
       String sql,
       String warehouseId,
