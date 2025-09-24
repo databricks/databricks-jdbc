@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
-
+- Added support for direct results in SEA mode (used by default)
 ### Updated
 
 ### Fixed
