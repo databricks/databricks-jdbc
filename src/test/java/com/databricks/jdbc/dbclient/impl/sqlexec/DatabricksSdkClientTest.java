@@ -595,4 +595,70 @@ public class DatabricksSdkClientTest {
         .setType(type)
         .setValue(value);
   }
+
+  @Test
+  public void testGetRequestWithDirectResultsEnabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
+    when(connectionContext.isSqlExecDirectResultsEnabled()).thenReturn(true);
+
+    DatabricksSdkClient client = new DatabricksSdkClient(
+        connectionContext,
+        statementExecutionService,
+        apiClient);
+
+    // Test that when direct results is enabled, no wait timeout is set for sync execution
+    ExecuteStatementRequest request = client.getRequest(
+        "SELECT 1",
+        Collections.emptyList(),
+        0,
+        false); // executeAsync = false
+
+    // When direct results is enabled, wait timeout should not be set
+    assertNull(request.getWaitTimeout());
+    assertEquals(ExecuteStatementRequestOnWaitTimeout.CONTINUE, request.getOnWaitTimeout());
+  }
+
+  @Test
+  public void testGetRequestWithDirectResultsDisabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
+    when(connectionContext.isSqlExecDirectResultsEnabled()).thenReturn(false);
+
+    DatabricksSdkClient client = new DatabricksSdkClient(
+        connectionContext,
+        statementExecutionService,
+        apiClient);
+
+    // Test that when direct results is disabled, wait timeout is set for sync execution
+    ExecuteStatementRequest request = client.getRequest(
+        "SELECT 1",
+        Collections.emptyList(),
+        0,
+        false); // executeAsync = false
+
+    // When direct results is disabled, wait timeout should be set
+    assertEquals("5000ms", request.getWaitTimeout());
+    assertEquals(ExecuteStatementRequestOnWaitTimeout.CONTINUE, request.getOnWaitTimeout());
+  }
+
+  @Test
+  public void testGetRequestAsyncExecution() throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
+    when(connectionContext.isSqlExecDirectResultsEnabled()).thenReturn(true);
+
+    DatabricksSdkClient client = new DatabricksSdkClient(
+        connectionContext,
+        statementExecutionService,
+        apiClient);
+
+    // Test that async execution always sets wait timeout regardless of direct results setting
+    ExecuteStatementRequest request = client.getRequest(
+        "SELECT 1",
+        Collections.emptyList(),
+        0,
+        true); // executeAsync = true
+
+    // For async execution, wait timeout should always be set to "0ms"
+    assertEquals("0ms", request.getWaitTimeout());
+    assertNull(request.getOnWaitTimeout());
+  }
 }
