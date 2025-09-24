@@ -483,4 +483,28 @@ public class DatabricksConnectionTest {
     assertTrue(sessionConfigs.containsKey("query_tags"));
     assertEquals("team:marketing,dashboard:abc123", sessionConfigs.get("query_tags"));
   }
+
+  @Test
+  public void testMetricViewMetadataInSessionConfigs() throws SQLException {
+    String metricViewEnabledUrl = JDBC_URL + ";EnableMetricViewMetadata=1";
+    IDatabricksConnectionContext connectionContextEnabled =
+        DatabricksConnectionContext.parse(metricViewEnabledUrl, new Properties());
+
+    Map<String, String> sessionConfigsEnabled = connectionContextEnabled.getSessionConfigs();
+    assertTrue(sessionConfigsEnabled.containsKey("spark.databricks.metadata.metricview.enabled"));
+    assertEquals("true", sessionConfigsEnabled.get("spark.databricks.metadata.metricview.enabled"));
+
+    String metricViewDisabledUrl = JDBC_URL + ";EnableMetricViewMetadata=0";
+    IDatabricksConnectionContext connectionContextDisabled =
+        DatabricksConnectionContext.parse(metricViewDisabledUrl, new Properties());
+
+    Map<String, String> sessionConfigsDisabled = connectionContextDisabled.getSessionConfigs();
+    assertFalse(sessionConfigsDisabled.containsKey("spark.databricks.metadata.metricview.enabled"));
+
+    IDatabricksConnectionContext connectionContextDefault =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+
+    Map<String, String> sessionConfigsDefault = connectionContextDefault.getSessionConfigs();
+    assertFalse(sessionConfigsDefault.containsKey("spark.databricks.metadata.metricview.enabled"));
+  }
 }

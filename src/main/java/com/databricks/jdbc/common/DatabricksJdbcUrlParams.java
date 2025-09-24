@@ -153,7 +153,8 @@ public enum DatabricksJdbcUrlParams {
   HTTP_CONNECTION_REQUEST_TIMEOUT(
       "HttpConnectionRequestTimeout", "HTTP connection request timeout in seconds"),
   CLOUD_FETCH_SPEED_THRESHOLD(
-      "CloudFetchSpeedThreshold", "Minimum expected download speed in MB/s", "0.1");
+      "CloudFetchSpeedThreshold", "Minimum expected download speed in MB/s", "0.1"),
+  ENABLE_METRIC_VIEW_METADATA("EnableMetricViewMetadata", "Enable metric view metadata", "0");
 
   private final String paramName;
   private final String defaultValue;

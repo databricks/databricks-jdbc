@@ -441,12 +441,20 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public Map<String, String> getSessionConfigs() {
-    return this.parameters.entrySet().stream()
-        .filter(
-            e ->
-                ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
-                    .anyMatch(allowedConf -> allowedConf.toLowerCase().equals(e.getKey())))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    Map<String, String> sessionConfigs =
+        this.parameters.entrySet().stream()
+            .filter(
+                e ->
+                    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
+                        .anyMatch(allowedConf -> allowedConf.toLowerCase().equals(e.getKey())))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    // Add metric view metadata configuration if enabled
+    if (getEnableMetricViewMetadata()) {
+      sessionConfigs.put("spark.databricks.metadata.metricview.enabled", "true");
+    }
+
+    return sessionConfigs;
   }
 
   @Override
@@ -956,6 +964,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       }
     }
     return null;
+  }
+
+  @Override
+  public boolean getEnableMetricViewMetadata() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_METRIC_VIEW_METADATA).equals("1");
   }
 
   private static boolean nullOrEmptyString(String s) {

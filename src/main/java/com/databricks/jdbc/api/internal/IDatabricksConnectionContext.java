@@ -350,4 +350,7 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the HTTP connection request timeout in seconds */
   Integer getHttpConnectionRequestTimeout();
+
+  /* Returns whether metric view metadata is enabled */
+  boolean getEnableMetricViewMetadata();
 }
