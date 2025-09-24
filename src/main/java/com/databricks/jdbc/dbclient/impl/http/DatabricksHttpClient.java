@@ -31,7 +31,6 @@ import org.apache.hc.core5.concurrent.FutureCallback;
 import org.apache.hc.core5.http.nio.AsyncRequestProducer;
 import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
 import org.apache.http.HttpHost;
-import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -103,11 +102,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       throws DatabricksHttpException {
     prepareRequestHeaders(request, supportGzipEncoding);
 
-    long tempUnavailableTimeout = connectionContext.getTemporarilyUnavailableRetryTimeout() * 1000L;
-    long rateLimitTimeout = connectionContext.getRateLimitRetryTimeout() * 1000L;
-    long otherErrorCodesTimeout = RetryUtils.requestTimeout * 1000L;
-    long exceptionTimeout = RetryUtils.requestExceptionTimeout * 1000L;
-
     IRetryStrategy strategy = RetryUtils.getRetryStrategy(requestType);
     LOGGER.debug(
         "Executing HTTP request : {}, request type : {},  retryStrategy : {}",
@@ -115,62 +109,37 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         requestType,
         strategy.getClass().getSimpleName());
 
+    RetryTimeoutManager retryTimeoutManager = new RetryTimeoutManager(connectionContext);
+
     for (int attempt = 0; ; attempt++) {
       // follow exponential backoff if executing the request throws IOException
       int retryDelayMillis = RetryUtils.calculateExponentialBackoff(attempt);
       try {
         CloseableHttpResponse response = httpClient.execute(request);
         int statusCode = response.getStatusLine().getStatusCode();
-
+        Optional<Integer> retryAfterHeader = RetryUtils.extractRetryAfterHeader(response);
         // Get retry delay from strategy
         Optional<Integer> retryDelay =
-            strategy.retryRequestAfter(response, attempt, connectionContext);
-        if (retryDelay.isEmpty()) {
-          return response; // Strategy says don't retry
-        }
-        retryDelayMillis = retryDelay.get();
-
-        switch (statusCode) {
-          case HttpStatus.SC_SERVICE_UNAVAILABLE:
-            tempUnavailableTimeout -= retryDelayMillis;
-            break;
-          case HttpStatus.SC_TOO_MANY_REQUESTS:
-            rateLimitTimeout -= retryDelayMillis;
-            break;
-          default:
-            otherErrorCodesTimeout -= retryDelayMillis;
-            break;
-        }
-
-        // Check whether timeout has been reached
-        if (tempUnavailableTimeout <= 0 || rateLimitTimeout <= 0 || otherErrorCodesTimeout <= 0) {
-          LOGGER.error(
-              "Retry timeout exceeded for {} on attempt {}, received HTTP status code {}. Returning response",
-              requestType,
-              attempt,
-              statusCode);
+            strategy.retryRequestAfter(statusCode, retryAfterHeader, attempt, connectionContext);
+        if (!retryTimeoutManager.evaluateRetryDecisionForResponse(statusCode, retryDelay)) {
           return response;
         }
-
+        retryDelayMillis = retryDelay.get();
         String errorReason = response.getStatusLine().getReasonPhrase();
         LOGGER.error(
-            "Retry failure. HTTP response code: {}, Error Message: {}", statusCode, errorReason);
+            "Retry failure on attempt {}. HTTP response code: {}, Error Message: {}",
+            attempt,
+            statusCode,
+            errorReason);
 
         response.close();
       } catch (Exception e) {
-        exceptionTimeout -= retryDelayMillis;
-        if (strategy.isExceptionRetryable(e) && exceptionTimeout > 0) {
-          LOGGER.error(
-              "Retriable exception on attempt {} for {}: error message {}",
-              attempt,
-              requestType,
-              e.getMessage());
-        } else {
-          LOGGER.error(
-              "Non-retriable Exception on attempt {} for {}: error message {}",
-              attempt,
-              requestType,
-              e.getMessage());
+        LOGGER.error(
+            "Exception on attempt {} for {}: error message {}",
+            attempt,
+            requestType,
+            e.getMessage());
+        if (!retryTimeoutManager.evaluateRetryDecisionForException(strategy, e, retryDelayMillis)) {
           RetryUtils.throwHttpException(e, request);
         }
       }

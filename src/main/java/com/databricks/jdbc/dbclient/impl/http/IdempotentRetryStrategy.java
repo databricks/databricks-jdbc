@@ -6,7 +6,6 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.http.HttpStatus;
-import org.apache.http.client.methods.CloseableHttpResponse;
 
 /**
  * Retry strategy for idempotent requests - retries all codes except specific client errors. Always
@@ -35,9 +34,6 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
   @Override
   public boolean isStatusCodeRetriable(
       int statusCode, IDatabricksConnectionContext connectionContext) {
-    if (connectionContext == null) {
-      return false; // Default to no retry if connection context is null
-    }
 
     if (statusCode >= 200 && statusCode < 300) {
       return false;
@@ -55,16 +51,14 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
 
   @Override
   public Optional<Integer> retryRequestAfter(
-      CloseableHttpResponse response,
+      int statusCode,
+      Optional<Integer> retryAfterHeader,
       int executionAttempt,
       IDatabricksConnectionContext connectionContext) {
-    int statusCode = response.getStatusLine().getStatusCode();
 
     if (!isStatusCodeRetriable(statusCode, connectionContext)) {
       return Optional.empty();
     }
-
-    Optional<Integer> retryAfterHeader = RetryUtils.extractRetryAfterHeader(response);
 
     if (retryAfterHeader.isPresent()) {
       // Use Retry-After header if it is present in response
