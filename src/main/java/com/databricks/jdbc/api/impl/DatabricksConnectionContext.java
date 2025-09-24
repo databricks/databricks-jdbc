@@ -462,7 +462,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
     // Add metric view metadata configuration if enabled
     if (getEnableMetricViewMetadata()) {
-      sessionConfigs.put("spark.databricks.metadata.metricview.enabled", "true");
+      sessionConfigs.put("spark.sql.thriftserver.metadata.metricview.enabled", "true");
     }
 
     return sessionConfigs;
