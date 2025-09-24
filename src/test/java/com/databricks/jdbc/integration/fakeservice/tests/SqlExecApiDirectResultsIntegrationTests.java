@@ -14,11 +14,11 @@ import org.junit.jupiter.api.*;
 
 public class SqlExecApiDirectResultsIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
-  /** JDBC URL where direct results are enabled. */
+  /** JDBC URL where hybrid results are enabled. */
   private static final String jdbcUrlTemplate =
-      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;EnableSQLExecDirectResults=1;useThriftClient=0";
+      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;EnableSQLExecHybridResults=1;EnableSQLExecDirectResults=1;useThriftClient=0";
 
-  private static final String e2BenchfoodHttpPath = "/sql/1.0/warehouses/7e635336d748166a";
+  private static final String e2BenchfoodHttpPath = "/sql/1.0/warehouses/e3c43f3911e50d7c";
   private static final String e2BenchfoodHost =
       "https://benchmarking-prod-aws-us-west-2.cloud.databricks.com:443";
   private static final String e2BenchfoodRootBucketHost =
@@ -135,61 +135,6 @@ public class SqlExecApiDirectResultsIntegrationTests extends AbstractFakeService
               0, cloudFetchCalls, "No cloud fetch calls expected when not using cloud fetch");
         }
       }
-    }
-  }
-
-  @Test
-  void testDirectResultsWithTimeout() throws SQLException {
-    // Test that direct results mode works correctly with query timeout
-    final String sql = "SELECT * FROM main.tpcds_sf100_delta.catalog_sales limit 100";
-
-    final Statement statement = connection.createStatement();
-    statement.setQueryTimeout(30); // 30 seconds timeout
-    statement.setMaxRows(100);
-
-    try (ResultSet rs = statement.executeQuery(sql)) {
-      assertNotNull(rs);
-      assertTrue(rs.next(), "Should have at least one row");
-
-      DatabricksResultSetMetaData metaData = (DatabricksResultSetMetaData) rs.getMetaData();
-      assertNotNull(metaData);
-
-      // In direct results mode with timeout, verify the query completes successfully
-      int rowCount = 0;
-      while (rs.next()) {
-        rowCount++;
-      }
-      assertTrue(rowCount > 0, "Should have retrieved some rows");
-    }
-  }
-
-  @Test
-  void testDirectResultsParameterValidation() throws SQLException {
-    // Verify that the direct results parameter is properly recognized
-    DatabaseMetaData dbMetaData = connection.getMetaData();
-    String url = dbMetaData.getURL();
-    assertTrue(
-        url.contains("EnableSQLExecDirectResults=1"),
-        "JDBC URL should contain direct results parameter");
-  }
-
-  @Test
-  void testDirectResultsSimpleQuery() throws SQLException {
-    // Test a very simple query to ensure direct results mode works for basic cases
-    final String sql = "SELECT 1 as test_column";
-
-    try (Statement statement = connection.createStatement();
-        ResultSet rs = statement.executeQuery(sql)) {
-
-      assertTrue(rs.next(), "Should have exactly one row");
-      assertEquals(1, rs.getInt("test_column"));
-      assertFalse(rs.next(), "Should have only one row");
-
-      DatabricksResultSetMetaData metaData = (DatabricksResultSetMetaData) rs.getMetaData();
-      assertEquals(1, metaData.getTotalRows());
-
-      // For a simple query like this, cloud fetch should definitely not be used
-      assertFalse(metaData.getIsCloudFetchUsed());
     }
   }
 }

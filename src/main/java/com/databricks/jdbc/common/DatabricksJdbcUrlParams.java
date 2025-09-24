@@ -117,7 +117,7 @@ public enum DatabricksJdbcUrlParams {
   ENABLE_SQL_EXEC_HYBRID_RESULTS(
       "EnableSQLExecHybridResults", "flag to enable hybrid results", "1"),
   ENABLE_SQL_EXEC_DIRECT_RESULTS(
-      "EnableSQLExecDirectResults", "flag to enable direct results", "0"),
+      "EnableSQLExecDirectResults", "flag to enable direct results", "1"),
   ENABLE_COMPLEX_DATATYPE_SUPPORT(
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",

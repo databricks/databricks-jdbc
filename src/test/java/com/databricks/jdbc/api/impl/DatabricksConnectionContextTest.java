@@ -712,11 +712,11 @@ class DatabricksConnectionContextTest {
 
   @Test
   public void testSqlExecDirectResultsEnabled() throws DatabricksSQLException {
-    // Test default value (should be false)
+    // Test default value (should be true)
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
-    assertFalse(connectionContext.isSqlExecDirectResultsEnabled());
+    assertTrue(connectionContext.isSqlExecDirectResultsEnabled());
 
     // Test when EnableSQLExecDirectResults=1
     String urlWithDirectResults =
@@ -736,22 +736,22 @@ class DatabricksConnectionContextTest {
             DatabricksConnectionContext.parse(urlWithoutDirectResults, properties);
     assertFalse(connectionContext.isSqlExecDirectResultsEnabled());
 
-    // Test with invalid value - should default to false
+    // Test with invalid value - should default to true
     String urlWithInvalidValue =
         "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableSQLExecDirectResults=invalid";
     connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(urlWithInvalidValue, properties);
-    assertFalse(connectionContext.isSqlExecDirectResultsEnabled());
+    assertTrue(connectionContext.isSqlExecDirectResultsEnabled());
 
-    // Test with empty value - should default to false
+    // Test with empty value - should default to true
     String urlWithEmptyValue =
         "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableSQLExecDirectResults=";
     connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(urlWithEmptyValue, properties);
-    assertFalse(connectionContext.isSqlExecDirectResultsEnabled());
+    assertTrue(connectionContext.isSqlExecDirectResultsEnabled());
   }
 }
