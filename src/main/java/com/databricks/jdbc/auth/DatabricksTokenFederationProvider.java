@@ -12,8 +12,8 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.*;
 import com.databricks.sdk.core.oauth.OAuthResponse;
-import com.databricks.sdk.core.oauth.RefreshableTokenSource;
 import com.databricks.sdk.core.oauth.Token;
+import com.databricks.sdk.core.oauth.TokenSource;
 import com.google.common.annotations.VisibleForTesting;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
@@ -21,9 +21,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
+import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -42,11 +41,11 @@ import org.apache.http.message.BasicNameValuePair;
  *
  * <p>Note: In future this class will be replaced with the Databricks SDK implementation
  */
-public class DatabricksTokenFederationProvider extends RefreshableTokenSource
-    implements CredentialsProvider {
+public class DatabricksTokenFederationProvider implements CredentialsProvider, TokenSource {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksTokenFederationProvider.class);
+  private Token token;
   private static final Map<String, String> TOKEN_EXCHANGE_PARAMS =
       Map.of(
           "grant_type",
@@ -75,7 +74,7 @@ public class DatabricksTokenFederationProvider extends RefreshableTokenSource
             DatabricksJdbcConstants.EMPTY_STRING,
             DatabricksJdbcConstants.EMPTY_STRING,
             DatabricksJdbcConstants.EMPTY_STRING,
-            LocalDateTime.now().minusMinutes(1));
+            Instant.now().minus(Duration.ofMinutes(1)));
   }
 
   @VisibleForTesting
@@ -92,7 +91,7 @@ public class DatabricksTokenFederationProvider extends RefreshableTokenSource
             DatabricksJdbcConstants.EMPTY_STRING,
             DatabricksJdbcConstants.EMPTY_STRING,
             DatabricksJdbcConstants.EMPTY_STRING,
-            LocalDateTime.now().minusMinutes(1));
+            Instant.now().minus(Duration.ofMinutes(1)));
   }
 
   public String authType() {
@@ -124,7 +123,7 @@ public class DatabricksTokenFederationProvider extends RefreshableTokenSource
     };
   }
 
-  protected Token refresh() {
+  public Token getToken() {
     this.externalProviderHeaders = this.credentialsProvider.configure(this.config).headers();
     String[] tokenInfo = extractTokenInfoFromHeader(this.externalProviderHeaders);
     String accessTokenType = tokenInfo[0];
@@ -166,9 +165,7 @@ public class DatabricksTokenFederationProvider extends RefreshableTokenSource
     SignedJWT signedJWT = SignedJWT.parse(accessToken);
     JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
 
-    Instant expirationTimeInstant = Instant.ofEpochMilli(claims.getExpirationTime().getTime());
-    ZoneId zoneId = ZoneId.systemDefault();
-    LocalDateTime expiry = expirationTimeInstant.atZone(zoneId).toLocalDateTime();
+    Instant expiry = Instant.ofEpochMilli(claims.getExpirationTime().getTime());
     return new Token(accessToken, accessTokenType, DatabricksJdbcConstants.EMPTY_STRING, expiry);
   }
 

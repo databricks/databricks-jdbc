@@ -1,5 +1,22 @@
 # Version Changelog
 
+## [v1.0.9-oss] - 2025-08-19
+### Added
+- Added support for providing custom HTTP options: `HttpMaxConnectionsPerRoute` and `HttpConnectionRequestTimeout`.
+- Add V2 of chunk download using async http client with corresponding implementations of AbstractRemoteChunkProvider and
+  AbstractArrowResultChunk
+- Telemetry is enabled by default, subject to server-side rollout.
+
+### Updated
+
+### Fixed
+- Fixed Statement.getUpdateCount to return -1 for non-DML queries.
+- Fixed Statement.setMaxRows(0) to be interepeted as no limit.
+- Fixed retry behaviour to not throw an exception when there is no retry-after header for 503 and 429 status codes.
+- Fixed encoded UserAgent parsing in BI tools.
+- Fixed setting empty schema as the default schema in the spark session.
+---
+
 ## [v1.0.8-oss] - 2025-07-25
 
 ### Added

@@ -583,6 +583,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     return executionResult.getCurrentRow() == -1;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p><b>Limitation:</b> For lazy-loaded result sets ({@link LazyThriftResult}), particularly
+   * those using {@link
+   * com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType#COLUMN_BASED_SET}, this
+   * method cannot reliably determine the cursor position. The total row count remains unknown until
+   * all rows are fetched, preventing accurate detection of whether the cursor is after the last
+   * row. This is specific to Databricks JDBC dialect.
+   */
   @Override
   public boolean isAfterLast() throws SQLException {
     checkIfClosed();
@@ -595,9 +605,27 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     return executionResult.getCurrentRow() == 0;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>This method uses different strategies based on the result set type:
+   *
+   * <ul>
+   *   <li>For {@link LazyThriftResult} instances: Checks if there are no more rows available (using
+   *       {@code hasNext()}), since the total row count is unknown until all rows are fetched.
+   *   <li>For other result types: Compares the current row position against the known total row
+   *       count.
+   * </ul>
+   *
+   * @return {@code true} if the cursor is on the last row, {@code false} otherwise
+   * @throws SQLException if the result set is closed or an error occurs
+   */
   @Override
   public boolean isLast() throws SQLException {
     checkIfClosed();
+    if (executionResult instanceof LazyThriftResult) {
+      return executionResult.getCurrentRow() >= 0 && !executionResult.hasNext();
+    }
     return executionResult.getCurrentRow() == resultSetMetaData.getTotalRows() - 1;
   }
 

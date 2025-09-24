@@ -2,6 +2,7 @@ package com.databricks.jdbc.telemetry;
 
 import static com.databricks.jdbc.TestConstants.*;
 import static com.databricks.jdbc.common.safe.FeatureFlagTestUtil.enableFeatureFlagForTesting;
+import static com.databricks.jdbc.telemetry.TelemetryHelper.determineApplicationName;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.isTelemetryAllowedForConnection;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -25,6 +26,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -142,9 +144,10 @@ public class TelemetryHelperTest {
 
   @ParameterizedTest
   @NullAndEmptySource
-  @ValueSource(strings = {"test-app", "my-application", "databricks-jdbc"})
+  @ValueSource(
+      strings = {"test-app", "my-application", "databricks-jdbc", "DBeaver 25.1.4.202508031529"})
   void testUpdateClientAppName(String appName) {
-    assertDoesNotThrow(() -> TelemetryHelper.updateClientAppName(appName));
+    assertDoesNotThrow(() -> TelemetryHelper.updateTelemetryAppName(connectionContext, appName));
   }
 
   @Test
@@ -161,16 +164,11 @@ public class TelemetryHelperTest {
   }
 
   @Test
-  void testExportFailureLogWithNullContext() {
+  void testExportFailureLogWithNullContextAndNullStatementId() {
     // Clear thread context to test with null context
     DatabricksThreadContextHolder.clearConnectionContext();
+    DatabricksThreadContextHolder.clearStatementInfo();
     assertDoesNotThrow(() -> TelemetryHelper.exportFailureLog(null, "err", "msg"));
-  }
-
-  @Test
-  void testExportFailureLogWithNullStatementId() {
-    // Skip this test as it causes infinite recursion
-    // The test would verify that exportFailureLog handles null statement ID
   }
 
   @Test
@@ -215,5 +213,63 @@ public class TelemetryHelperTest {
         new Object[] {"test-statement-id", 5L},
         new Object[] {null, null},
         new Object[] {null, 1L});
+  }
+
+  @Test
+  public void testDetermineApplicationName_WithSystemProperty() {
+    // When falling back to system property
+    when(connectionContext.getCustomerUserAgent()).thenReturn(null);
+    when(connectionContext.getApplicationName()).thenReturn(null);
+
+    System.setProperty("app.name", "SystemPropApp");
+    try {
+      String result = determineApplicationName(connectionContext, null);
+      assertEquals("SystemPropApp", result);
+    } finally {
+      System.clearProperty("app.name");
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideApplicationNameTestCases")
+  public void testDetermineApplicationName(
+      String customerUserAgent,
+      String applicationName,
+      String clientInfoApp,
+      String expectedResult) {
+    // Setup only necessary stubs
+    Mockito.lenient().when(connectionContext.getCustomerUserAgent()).thenReturn(customerUserAgent);
+    Mockito.lenient().when(connectionContext.getApplicationName()).thenReturn(applicationName);
+
+    // Execute
+    String result = determineApplicationName(connectionContext, clientInfoApp);
+
+    // Verify
+    assertEquals(expectedResult, result);
+  }
+
+  private static Stream<Arguments> provideApplicationNameTestCases() {
+    return Stream.of(
+        // Test case 1: UserAgentEntry takes precedence
+        Arguments.of(
+            "MyUserAgent",
+            "AppNameValue",
+            "ClientInfoApp",
+            "MyUserAgent",
+            "When useragententry is set"),
+        // Test case 2: ApplicationName is used when UserAgentEntry is null
+        Arguments.of(
+            null,
+            "AppNameValue",
+            "ClientInfoApp",
+            "AppNameValue",
+            "When useragententry is not set but applicationname is"),
+        // Test case 3: ClientInfo is used when both UserAgentEntry and ApplicationName are null
+        Arguments.of(
+            null,
+            null, // applicationName
+            "ClientInfoApp",
+            "ClientInfoApp",
+            "When URL params are not set but client info is provided"));
   }
 }

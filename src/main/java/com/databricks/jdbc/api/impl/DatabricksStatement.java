@@ -681,7 +681,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         || PUT_PATTERN.matcher(trimmedQuery).find()
         || GET_PATTERN.matcher(trimmedQuery).find()
         || REMOVE_PATTERN.matcher(trimmedQuery).find()
-        || LIST_PATTERN.matcher(trimmedQuery).find();
+        || LIST_PATTERN.matcher(trimmedQuery).find()
+        || BEGIN_PATTERN_FOR_SQL_SCRIPT.matcher(trimmedQuery).find();
 
     // Otherwise, it should not return a ResultSet
   }
@@ -689,6 +690,14 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   static boolean isSelectQuery(String query) {
     String trimmedQuery = trimCommentsAndWhitespaces(query);
     return SELECT_PATTERN.matcher(trimmedQuery).find();
+  }
+
+  static boolean isInsertQuery(String query) {
+    if (query == null || query.trim().isEmpty()) {
+      return false;
+    }
+    String trimmedQuery = trimCommentsAndWhitespaces(query);
+    return INSERT_PATTERN.matcher(trimmedQuery).find();
   }
 
   DatabricksResultSet executeInternal(

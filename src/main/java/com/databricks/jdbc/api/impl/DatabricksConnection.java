@@ -23,6 +23,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryClientFactory;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.*;
 import java.util.*;
@@ -58,6 +59,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     DatabricksThreadContextHolder.setConnectionContext(connectionContext);
     this.session = new DatabricksSession(connectionContext, testDatabricksClient);
     UserAgentManager.setUserAgent(connectionContext);
+    TelemetryHelper.updateTelemetryAppName(connectionContext, null);
   }
 
   @Override
@@ -412,7 +414,21 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public boolean isValid(int timeout) throws SQLException {
     ValidationUtil.checkIfNonNegative(timeout, "timeout");
-    return !isClosed();
+    if (isClosed()) {
+      return false;
+    }
+    if (connectionContext.getEnableSQLValidationForIsValid()) {
+      try (Statement stmt = createStatement()) {
+        stmt.setQueryTimeout(timeout);
+        // This is a lightweight query to check if the connection is valid
+        stmt.execute("SELECT VERSION()");
+        return true;
+      } catch (Exception e) {
+        LOGGER.debug("Validation failed for isValid(): {}", e.getMessage());
+        return false;
+      }
+    }
+    return true;
   }
 
   /**

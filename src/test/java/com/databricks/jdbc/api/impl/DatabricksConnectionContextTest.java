@@ -154,6 +154,17 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void testEmptySchemaConvertedToNull() throws DatabricksSQLException {
+    String urlWithEmptySchema =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/999999999;LogLevel=debug;LogPath=./test1;auth_flow=2";
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithEmptySchema, properties);
+    assertNull(connectionContext.getSchema());
+  }
+
+  @Test
   public void testParseValidBasicUrl() throws DatabricksSQLException {
     // test default AuthMech
     Properties props = new Properties();

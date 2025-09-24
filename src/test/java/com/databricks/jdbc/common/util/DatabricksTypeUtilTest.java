@@ -6,7 +6,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
-import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;

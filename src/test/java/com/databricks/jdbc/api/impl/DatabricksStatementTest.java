@@ -645,6 +645,18 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  public void testShouldReturnResultSet_StartWithBegin() {
+    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN"));
+    assertTrue(DatabricksStatement.shouldReturnResultSet("   begin   "));
+    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN; WORK; END"));
+    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN; SELECT 1"));
+    // Not supporting for transaction statements
+    assertFalse(DatabricksStatement.shouldReturnResultSet("BEGIN TRANSACTION"));
+    assertFalse(DatabricksStatement.shouldReturnResultSet("   BeGiN    TRANSACTION"));
+    assertFalse(DatabricksStatement.shouldReturnResultSet("BEGIN    transaction "));
+  }
+
+  @Test
   public void testIsSelectQuery() {
     String query =
         "-- Single-line comment\n/* Multi-line comment */ SELECT * FROM table; /* Another comment */ -- End comment";
@@ -652,6 +664,35 @@ public class DatabricksStatementTest {
 
     query = "REMOVE some_data FROM table;";
     assertFalse(DatabricksStatement.isSelectQuery(query));
+  }
+
+  @Test
+  public void testIsInsertQuery() {
+    // Test basic INSERT statements
+    assertTrue(DatabricksStatement.isInsertQuery("INSERT INTO users (id, name) VALUES (?, ?)"));
+    assertTrue(DatabricksStatement.isInsertQuery("insert into users (id, name) values (?, ?)"));
+    assertTrue(
+        DatabricksStatement.isInsertQuery(
+            "   INSERT   INTO   users   (id, name)   VALUES   (?, ?)"));
+
+    // Test INSERT with comments
+    String queryWithComments =
+        "-- Comment\n/* Multi-line */ INSERT INTO users (id) VALUES (?); -- End";
+    assertTrue(DatabricksStatement.isInsertQuery(queryWithComments));
+
+    // Test non-INSERT statements
+    assertFalse(DatabricksStatement.isInsertQuery("SELECT * FROM users"));
+    assertFalse(DatabricksStatement.isInsertQuery("UPDATE users SET name = ?"));
+    assertFalse(DatabricksStatement.isInsertQuery("DELETE FROM users"));
+    assertFalse(DatabricksStatement.isInsertQuery("CREATE TABLE users (id INT)"));
+    assertFalse(DatabricksStatement.isInsertQuery(""));
+    assertFalse(DatabricksStatement.isInsertQuery(null));
+
+    // Test INSERT with schema prefix
+    assertTrue(DatabricksStatement.isInsertQuery("INSERT INTO schema.users (id) VALUES (?)"));
+
+    // Test with parentheses at the beginning
+    assertTrue(DatabricksStatement.isInsertQuery("(INSERT INTO users (id) VALUES (?))"));
   }
 
   private DatabricksConnection getTestConnection() throws DatabricksSQLException {

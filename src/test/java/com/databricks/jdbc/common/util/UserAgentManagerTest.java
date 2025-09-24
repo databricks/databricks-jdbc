@@ -1,9 +1,8 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static com.databricks.jdbc.common.util.UserAgentManager.determineApplicationName;
+import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.getUserAgentString;
-import static com.databricks.jdbc.common.util.UserAgentManager.updateUserAgentAndTelemetry;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
@@ -12,14 +11,10 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.util.Properties;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -42,88 +37,44 @@ public class UserAgentManagerTest {
     telemetryHelperMock.close();
   }
 
-  private static Stream<Arguments> provideApplicationNameTestCases() {
-    return Stream.of(
-        // Test case 1: UserAgentEntry takes precedence
-        Arguments.of(
-            "MyUserAgent",
-            "AppNameValue",
-            "ClientInfoApp",
-            "MyUserAgent",
-            "When useragententry is set"),
-        // Test case 2: ApplicationName is used when UserAgentEntry is null
-        Arguments.of(
-            null,
-            "AppNameValue",
-            "ClientInfoApp",
-            "AppNameValue",
-            "When useragententry is not set but applicationname is"),
-        // Test case 3: ClientInfo is used when both UserAgentEntry and ApplicationName are null
-        Arguments.of(
-            null,
-            null, // applicationName
-            "ClientInfoApp",
-            "ClientInfoApp",
-            "When URL params are not set but client info is provided"));
-  }
-
-  @ParameterizedTest
-  @MethodSource("provideApplicationNameTestCases")
-  public void testDetermineApplicationName(
-      String customerUserAgent,
-      String applicationName,
-      String clientInfoApp,
-      String expectedResult) {
-    // Setup only necessary stubs
-    Mockito.lenient().when(connectionContext.getCustomerUserAgent()).thenReturn(customerUserAgent);
-    Mockito.lenient().when(connectionContext.getApplicationName()).thenReturn(applicationName);
-
-    // Execute
-    String result = determineApplicationName(connectionContext, clientInfoApp);
-
-    // Verify
-    assertEquals(expectedResult, result);
-  }
-
   @Test
-  public void testDetermineApplicationName_WithSystemProperty() {
-    // When falling back to system property
-    when(connectionContext.getCustomerUserAgent()).thenReturn(null);
-    when(connectionContext.getApplicationName()).thenReturn(null);
-
-    System.setProperty("app.name", "SystemPropApp");
-    try {
-      String result = determineApplicationName(connectionContext, null);
-      assertEquals("SystemPropApp", result);
-    } finally {
-      System.clearProperty("app.name");
-    }
-  }
-
-  @Test
-  public void testUpdateUserAgentAndTelemetry() {
-    // Test that both telemetry and user agent are updated
+  public void testUpdateUserAgent() {
+    // Test that user agent is updated even without a version
     when(connectionContext.getCustomerUserAgent()).thenReturn("TestApp");
-    //    when(UserAgent.sanitize("version")).thenReturn("version");
-
-    updateUserAgentAndTelemetry(connectionContext, null);
-
-    telemetryHelperMock.verify(() -> TelemetryHelper.updateClientAppName("TestApp"));
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
+    UserAgentManager.setUserAgent(connectionContext);
     String userAgent = getUserAgentString();
     assertTrue(userAgent.contains("TestApp/version"));
   }
 
   @Test
-  public void testUpdateUserAgentAndTelemetry_WithVersion() {
-    // Test with app name containing version
-    when(connectionContext.getCustomerUserAgent()).thenReturn("MyApp/1.2.3");
-    //    when(UserAgent.sanitize("1.2.3")).thenReturn("1.2.3");
-
-    updateUserAgentAndTelemetry(connectionContext, null);
-
-    telemetryHelperMock.verify(() -> TelemetryHelper.updateClientAppName("MyApp/1.2.3"));
+  public void testEncodedUserAgent() {
+    // Test that user agent is updated even if it is encoded
+    when(connectionContext.getCustomerUserAgent())
+        .thenReturn("DBeaverEncoded%2F25.1.4.202508031529");
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
+    UserAgentManager.setUserAgent(connectionContext);
     String userAgent = getUserAgentString();
-    assertTrue(userAgent.contains("MyApp/1.2.3"));
+    assertTrue(userAgent.contains("DBeaverEncoded/25.1.4.202508031529"));
+  }
+
+  @Test
+  public void testIncorrectUserAgentDoesNotThrowException() {
+    when(connectionContext.getCustomerUserAgent()).thenReturn("DBeaverInvalid~25.1.4.202508031529");
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
+    UserAgentManager.setUserAgent(connectionContext);
+    String userAgent = getUserAgentString();
+    assertFalse(userAgent.contains("DBeaverInvalid"));
+  }
+
+  @Test
+  public void testUserAgentWithSlash() {
+    // Test that user agent with added version is updated
+    when(connectionContext.getCustomerUserAgent()).thenReturn("MyAppSlash/25.1.4.202508031529");
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
+    UserAgentManager.setUserAgent(connectionContext);
+    String userAgent = getUserAgentString();
+    assertTrue(userAgent.contains("MyAppSlash/25.1.4.202508031529"));
   }
 
   @Test
@@ -133,7 +84,7 @@ public class UserAgentManagerTest {
         DatabricksConnectionContextFactory.create(CLUSTER_JDBC_URL, new Properties());
     UserAgentManager.setUserAgent(connectionContext);
     String userAgent = getUserAgentString();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/1.0.8-oss"));
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/1.0.9-oss"));
     assertTrue(userAgent.contains(" Java/THttpClient"));
     assertTrue(userAgent.contains(" MyApp/version"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
@@ -144,7 +95,7 @@ public class UserAgentManagerTest {
         DatabricksConnectionContextFactory.create(WAREHOUSE_JDBC_URL, new Properties());
     UserAgentManager.setUserAgent(connectionContext);
     userAgent = getUserAgentString();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/1.0.8-oss"));
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/1.0.9-oss"));
     assertTrue(userAgent.contains(" Java/THttpClient"));
     assertTrue(userAgent.contains(" MyApp/version"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
@@ -155,7 +106,7 @@ public class UserAgentManagerTest {
         DatabricksConnectionContextFactory.create(WAREHOUSE_JDBC_URL_WITH_SEA, new Properties());
     UserAgentManager.setUserAgent(connectionContext);
     userAgent = getUserAgentString();
-    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/1.0.8-oss"));
+    assertTrue(userAgent.contains("DatabricksJDBCDriverOSS/1.0.9-oss"));
     assertTrue(userAgent.contains(" Java/SQLExecHttpClient"));
     assertTrue(userAgent.contains(" databricks-jdbc-http "));
     assertFalse(userAgent.contains("databricks-sdk-java"));

@@ -18,6 +18,13 @@ public interface IDatabricksConnectionContext {
   String getHostUrl() throws DatabricksParsingException;
 
   /**
+   * Returns just the host parsed from JDBC connection. Note : this is not the url.
+   *
+   * @return Databricks host
+   */
+  String getHost();
+
+  /**
    * Returns warehouse-Id as parsed from JDBC connection Url
    *
    * @return warehouse-Id
@@ -88,6 +95,9 @@ public interface IDatabricksConnectionContext {
   boolean isAllPurposeCluster();
 
   String getHttpPath();
+
+  /** Returns the value of the EnableSQLValidationForIsValid connection property. */
+  boolean getEnableSQLValidationForIsValid();
 
   String getProxyHost();
 
@@ -345,9 +355,17 @@ public interface IDatabricksConnectionContext {
   /** Returns the flush interval in milliseconds for telemetry */
   int getTelemetryFlushIntervalInMilliseconds();
 
+  /** Returns whether circuit breaker is enabled for telemetry */
+  boolean isTelemetryCircuitBreakerEnabled();
+
   /** Returns the maximum number of HTTP connections per route */
   int getHttpMaxConnectionsPerRoute();
 
   /** Returns the HTTP connection request timeout in seconds */
   Integer getHttpConnectionRequestTimeout();
+
+  boolean enableShowCommandsForGetFunctions();
+
+  /** Returns whether batched INSERT optimization is enabled */
+  boolean isBatchedInsertsEnabled();
 }

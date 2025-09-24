@@ -6,7 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.util.WildcardUtil;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.sql.SQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -147,11 +147,6 @@ class CommandBuilderTest {
       CommandBuilder builder1 = new CommandBuilder("*", mockSession);
       String sql1 = builder1.getSQLString(CommandName.LIST_TABLES);
       assertEquals(SHOW_TABLES_IN_ALL_CATALOGS_SQL, sql1);
-
-      // Test with '%' wildcard
-      CommandBuilder builder2 = new CommandBuilder("%", mockSession);
-      String sql2 = builder2.getSQLString(CommandName.LIST_TABLES);
-      assertEquals(SHOW_TABLES_IN_ALL_CATALOGS_SQL, sql2);
     }
   }
 
@@ -205,7 +200,6 @@ class CommandBuilderTest {
 
     CommandName mockCommand = mock(CommandName.class);
 
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> builder.getSQLString(mockCommand));
+    assertThrows(DatabricksValidationException.class, () -> builder.getSQLString(mockCommand));
   }
 }

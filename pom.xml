@@ -5,7 +5,7 @@
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
   <!-- This value may be modified by a release script to reflect the current version of the driver. -->
-  <version>1.0.8-oss</version>
+  <version>1.0.9-oss</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver</name>
   <description>Databricks JDBC Driver.</description>
@@ -55,7 +55,7 @@
     <httpclient.version>4.5.14</httpclient.version>
     <commons-configuration.version>2.10.1</commons-configuration.version>
     <commons-io.version>2.14.0</commons-io.version>
-    <databricks-sdk.version>0.52.0</databricks-sdk.version>
+    <databricks-sdk.version>0.60.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
     <lz4-compression.version>1.8.0</lz4-compression.version>
@@ -69,6 +69,7 @@
     <async-httpclient.version>5.3.1</async-httpclient.version>
     <netty.version>4.2.0.Final</netty.version>
     <grpc.version>1.71.0</grpc.version>
+    <resilience4j.version>1.7.0</resilience4j.version>
   </properties>
   <dependencyManagement>
     <!-- Force safe version of commons-lang3 https://nvd.nist.gov/vuln/detail/CVE-2025-48924 -->
@@ -268,6 +269,16 @@
       <groupId>org.apache.httpcomponents.core5</groupId>
       <artifactId>httpcore5</artifactId>
       <version>${async-httpclient.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.github.resilience4j</groupId>
+      <artifactId>resilience4j-circuitbreaker</artifactId>
+      <version>${resilience4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.github.resilience4j</groupId>
+      <artifactId>resilience4j-core</artifactId>
+      <version>${resilience4j.version}</version>
     </dependency>
   </dependencies>
 
@@ -660,9 +671,6 @@
               <pomFile>${project.basedir}/uber-minimal-pom.xml</pomFile>
               <sources>${project.build.directory}/${project.build.finalName}-sources.jar</sources>
               <javadoc>${project.build.directory}/${project.build.finalName}-javadoc.jar</javadoc>
-              <files>${project.build.directory}/${project.build.finalName}-thin.jar</files>
-              <types>jar</types>
-              <classifiers>thin</classifiers>
             </configuration>
             <executions>
               <execution>

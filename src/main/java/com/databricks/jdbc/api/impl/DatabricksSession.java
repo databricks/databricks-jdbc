@@ -9,7 +9,6 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
-import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksEmptyMetadataClient;
@@ -21,6 +20,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
@@ -266,7 +266,7 @@ public class DatabricksSession implements IDatabricksSession {
 
     // If application name is being set, update both telemetry and user agent
     if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName())) {
-      UserAgentManager.updateUserAgentAndTelemetry(connectionContext, value);
+      TelemetryHelper.updateTelemetryAppName(connectionContext, value);
     }
 
     clientInfoProperties.put(name, value);

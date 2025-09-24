@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.volume;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.ENABLE_VOLUME_OPERATIONS;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.when;
@@ -14,14 +15,17 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.databricks.sdk.service.sql.ResultSchema;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Stream;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
@@ -31,6 +35,9 @@ import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.StringEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -55,12 +62,30 @@ public class VolumeOperationResultTest {
           .setTotalRowCount(1L)
           .setSchema(new ResultSchema().setColumnCount(4L));
 
+  static Stream<Arguments> enableVolumeOperations() {
+    return Stream.of(
+        Arguments.of("true", true),
+        Arguments.of("1", true),
+        Arguments.of("0", false),
+        Arguments.of("True", true),
+        Arguments.of("TrUe", true),
+        Arguments.of("null", false),
+        Arguments.of("false", false),
+        Arguments.of("random_Value", false));
+  }
+
   @Test
   public void testGetResult_Get() throws Exception {
     setupCommonInteractions();
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
-    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
+    String localGet = "getVolFile_" + UUID.randomUUID() + ".csv";
+    // Ensure no leftover from previous runs
+    File pre = new File(localGet);
+    if (pre.exists()) {
+      pre.delete();
+    }
+    when(resultHandler.getObject(3)).thenReturn(localGet);
     when(mockHttpClient.execute(isA(HttpGet.class))).thenReturn(httpResponse);
     when(httpResponse.getEntity()).thenReturn(new StringEntity("test"));
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
@@ -78,7 +103,7 @@ public class VolumeOperationResultTest {
     assertFalse(volumeOperationResult.hasNext());
     assertFalse(volumeOperationResult.next());
 
-    File file = new File(LOCAL_FILE_GET);
+    File file = new File(localGet);
     assertTrue(file.exists());
     try (FileInputStream fis = new FileInputStream(file)) {
       String fileContent = new String(fis.readAllBytes());
@@ -88,35 +113,41 @@ public class VolumeOperationResultTest {
     }
   }
 
-  @Test
-  public void testGetResult_InputStream_Get() throws Exception {
+  @ParameterizedTest
+  @MethodSource("enableVolumeOperations")
+  public void testGetResult_InputStream_Get(String propertyValue, boolean expected)
+      throws Exception {
     setupCommonInteractions();
+    buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), propertyValue));
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("__input_stream__");
-    when(mockHttpClient.execute(isA(HttpGet.class))).thenReturn(httpResponse);
-    when(httpResponse.getEntity()).thenReturn(new StringEntity("test"));
-    when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
-    when(mockedStatusLine.getStatusCode()).thenReturn(200);
-    when(statement.isAllowedInputStreamForVolumeOperation()).thenReturn(true);
+    if (expected) {
+      when(mockHttpClient.execute(isA(HttpGet.class))).thenReturn(httpResponse);
+      when(httpResponse.getEntity()).thenReturn(new StringEntity("test"));
+      when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
+      when(mockedStatusLine.getStatusCode()).thenReturn(200);
+    }
 
-    VolumeOperationResult volumeOperationResult =
+    when(statement.isAllowedInputStreamForVolumeOperation()).thenReturn(true);
+    if (expected) {
+      VolumeOperationResult volumeOperationResult =
+          new VolumeOperationResult(
+              RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
+      assertTrue(volumeOperationResult.hasNext());
+      assertEquals(-1, volumeOperationResult.getCurrentRow());
+      assertSuccessVolumeGetOperations(volumeOperationResult);
+    } else {
+      try {
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
-    assertTrue(volumeOperationResult.next());
-    assertEquals(0, volumeOperationResult.getCurrentRow());
-    assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
-    assertFalse(volumeOperationResult.hasNext());
-    assertFalse(volumeOperationResult.next());
-
-    assertNotNull(volumeOperationResult.getVolumeOperationInputStream());
-    assertEquals(
-        "test",
-        new String(
-            volumeOperationResult.getVolumeOperationInputStream().getContent().readAllBytes()));
+        fail("Should throw DatabricksSQLException");
+      } catch (DatabricksSQLException e) {
+        assertEquals(
+            "Volume operation status : ABORTED, Error message: enableVolumeOperations property mandatory for Volume operations on stream",
+            e.getMessage());
+      }
+    }
   }
 
   @Test
@@ -130,14 +161,8 @@ public class VolumeOperationResultTest {
             new DatabricksSQLException(
                 "statement closed", DatabricksDriverErrorCode.INVALID_STATE));
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals("statement closed", e.getMessage());
@@ -161,14 +186,8 @@ public class VolumeOperationResultTest {
     when(session.getConnectionContext()).thenReturn(context);
     when(context.getVolumeOperationAllowedPaths()).thenReturn("");
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -183,14 +202,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("localFileOther");
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -205,14 +218,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("getvolfile.csv");
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -227,14 +234,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("");
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -248,19 +249,14 @@ public class VolumeOperationResultTest {
     setupCommonInteractions();
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
-    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
+    String localGet = "getVolFile_" + UUID.randomUUID() + ".csv";
+    when(resultHandler.getObject(3)).thenReturn(localGet);
 
-    File file = new File(LOCAL_FILE_GET);
+    File file = new File(localGet);
     Files.writeString(file.toPath(), "test-put");
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -278,14 +274,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("../newFile.csv");
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -299,19 +289,14 @@ public class VolumeOperationResultTest {
     setupCommonInteractions();
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
-    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
+    String localGet = "getVolFile_" + UUID.randomUUID() + ".csv";
+    when(resultHandler.getObject(3)).thenReturn(localGet);
     when(mockHttpClient.execute(isA(HttpGet.class))).thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -347,50 +332,54 @@ public class VolumeOperationResultTest {
     assertTrue(file.delete());
   }
 
-  @Test
-  public void testGetResult_Put_withInputStream() throws Exception {
+  @ParameterizedTest
+  @MethodSource("enableVolumeOperations")
+  public void testGetResult_Put_withInputStream(String propertyValue, boolean expected)
+      throws Exception {
     setupCommonInteractions();
+    buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), propertyValue));
     when(resultHandler.getObject(0)).thenReturn("PUT");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("__input_stream__");
-    when(mockHttpClient.execute(isA(HttpPut.class))).thenReturn(httpResponse);
-    when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
-    when(mockedStatusLine.getStatusCode()).thenReturn(200);
+    if (expected) {
+      when(mockHttpClient.execute(isA(HttpPut.class))).thenReturn(httpResponse);
+      when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
+      when(mockedStatusLine.getStatusCode()).thenReturn(200);
+    }
     when(statement.isAllowedInputStreamForVolumeOperation()).thenReturn(true);
     when(statement.getInputStreamForUCVolume())
         .thenReturn(new InputStreamEntity(new ByteArrayInputStream("test-put".getBytes()), 10L));
 
-    VolumeOperationResult volumeOperationResult =
+    if (expected) {
+      VolumeOperationResult volumeOperationResult =
+          new VolumeOperationResult(
+              RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
+      assertSuccessVolumePutOperations(volumeOperationResult);
+    } else {
+      try {
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
-    assertTrue(volumeOperationResult.next());
-    assertEquals(0, volumeOperationResult.getCurrentRow());
-    assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
-    assertFalse(volumeOperationResult.hasNext());
-    assertFalse(volumeOperationResult.next());
+        fail("Should throw DatabricksSQLException");
+      } catch (DatabricksSQLException e) {
+        assertEquals(
+            "Volume operation status : ABORTED, Error message: enableVolumeOperations property mandatory for Volume operations on stream",
+            e.getMessage());
+      }
+    }
   }
 
   @Test
   public void testGetResult_Put_withNullInputStream() throws Exception {
     setupCommonInteractions();
+    buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "True"));
     when(resultHandler.getObject(0)).thenReturn("PUT");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("__input_stream__");
     when(statement.isAllowedInputStreamForVolumeOperation()).thenReturn(true);
     when(statement.getInputStreamForUCVolume()).thenReturn(null);
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
-
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -411,15 +400,8 @@ public class VolumeOperationResultTest {
             new DatabricksSQLException(
                 "statement closed", DatabricksDriverErrorCode.INVALID_STATE));
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
-
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals("statement closed", e.getMessage());
@@ -439,14 +421,8 @@ public class VolumeOperationResultTest {
     File file = new File(LOCAL_FILE_PUT);
     Files.writeString(file.toPath(), "test-put");
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -467,14 +443,8 @@ public class VolumeOperationResultTest {
     File file = new File(LOCAL_FILE_PUT);
     Files.writeString(file.toPath(), "");
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -491,14 +461,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -514,14 +478,8 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -534,6 +492,7 @@ public class VolumeOperationResultTest {
   public void testGetResult_Remove() throws Exception {
     setupCommonInteractions();
     when(resultHandler.getObject(0)).thenReturn("REMOVE");
+    buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "1"));
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
     when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
@@ -555,12 +514,15 @@ public class VolumeOperationResultTest {
       volumeOperationResult.getObject(2);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Invalid column access", e.getMessage());
+      assertTrue(e.getMessage().contains("Invalid column access"));
     }
   }
 
-  @Test
-  public void testGetResult_RemoveWithConnectionUrlPath() throws Exception {
+  @ParameterizedTest
+  @MethodSource("enableVolumeOperations")
+  void testGetResult_RemoveWithoutEitherPropertySet(String propertyValue, boolean expected)
+      throws Exception {
+    // Mocks as per your original test
     when(resultHandler.hasNext())
         .thenReturn(true)
         .thenReturn(true)
@@ -568,34 +530,48 @@ public class VolumeOperationResultTest {
         .thenReturn(false);
     when(resultHandler.next()).thenReturn(true).thenReturn(false);
     when(resultHandler.getObject(2)).thenReturn(HEADERS);
-    when(session.getClientInfoProperties()).thenReturn(new HashMap<>());
+    Map<String, String> clientProps = new HashMap<>();
+    clientProps.put(ENABLE_VOLUME_OPERATIONS.toLowerCase(), propertyValue);
+    when(session.getClientInfoProperties()).thenReturn(clientProps);
     when(session.getConnectionContext()).thenReturn(context);
-    when(context.getVolumeOperationAllowedPaths()).thenReturn(ALLOWED_PATHS);
     when(resultHandler.getObject(0)).thenReturn("REMOVE");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
-    when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
-    when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
-    when(mockedStatusLine.getStatusCode()).thenReturn(200);
+    if (expected) {
+      when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
+      when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
+      when(mockedStatusLine.getStatusCode()).thenReturn(200);
+      when(context.getVolumeOperationAllowedPaths()).thenReturn(ALLOWED_PATHS);
+    }
 
     when(session.getConnectionContext()).thenReturn(context);
-
-    VolumeOperationResult volumeOperationResult =
+    if (expected) {
+      VolumeOperationResult volumeOperationResult =
+          new VolumeOperationResult(
+              RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
+      assertTrue(volumeOperationResult.hasNext());
+      assertEquals(-1, volumeOperationResult.getCurrentRow());
+      assertTrue(volumeOperationResult.next());
+      assertEquals(0, volumeOperationResult.getCurrentRow());
+      assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
+      assertFalse(volumeOperationResult.hasNext());
+      assertFalse(volumeOperationResult.next());
+      try {
+        volumeOperationResult.getObject(2);
+        fail("Should throw DatabricksSQLException");
+      } catch (DatabricksSQLException e) {
+        assertTrue(e.getMessage().contains("Invalid column access"));
+      }
+    } else {
+      try {
         new VolumeOperationResult(
             RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
-    assertTrue(volumeOperationResult.next());
-    assertEquals(0, volumeOperationResult.getCurrentRow());
-    assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
-    assertFalse(volumeOperationResult.hasNext());
-    assertFalse(volumeOperationResult.next());
-    try {
-      volumeOperationResult.getObject(2);
-      fail("Should throw DatabricksSQLException");
-    } catch (DatabricksSQLException e) {
-      assertEquals("Invalid column access", e.getMessage());
+        fail("Should throw DatabricksSQLException");
+      } catch (DatabricksSQLException e) {
+        assertEquals(
+            "Volume operation status : ABORTED, Error message: enableVolumeOperations property or Volume ingestion paths required for remove operation on Volume",
+            e.getMessage());
+      }
     }
   }
 
@@ -603,48 +579,35 @@ public class VolumeOperationResultTest {
   public void testGetResult_RemoveFailed() throws Exception {
     setupCommonInteractions();
     when(resultHandler.getObject(0)).thenReturn("REMOVE");
+    buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "1"));
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
     when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
     when(httpResponse.getStatusLine()).thenReturn(mockedStatusLine);
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
-
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
           "Volume operation status : FAILED, Error message: Failed to delete volume",
           e.getMessage());
     }
-    assertDoesNotThrow(volumeOperationResult::close);
   }
 
   @Test
   public void testGetResult_RemoveFailedWithException() throws Exception {
     setupCommonInteractions();
     when(resultHandler.getObject(0)).thenReturn("REMOVE");
+    buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "1"));
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
     when(mockHttpClient.execute(isA(HttpDelete.class)))
         .thenThrow(
             new DatabricksHttpException("exception", DatabricksDriverErrorCode.INVALID_STATE));
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
-
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -663,7 +626,7 @@ public class VolumeOperationResultTest {
       volumeOperationResult.getObject(2);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
-      assertEquals("Invalid row access", e.getMessage());
+      assertTrue(e.getMessage().contains("Invalid row access"));
     }
   }
 
@@ -672,16 +635,11 @@ public class VolumeOperationResultTest {
     setupCommonInteractions();
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn("");
-    when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
+    String localGet = "getVolFile_" + UUID.randomUUID() + ".csv";
+    when(resultHandler.getObject(3)).thenReturn(localGet);
 
-    VolumeOperationResult volumeOperationResult =
-        new VolumeOperationResult(
-            RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
-
-    assertTrue(volumeOperationResult.hasNext());
-    assertEquals(-1, volumeOperationResult.getCurrentRow());
     try {
-      volumeOperationResult.next();
+      new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertEquals(
@@ -690,15 +648,61 @@ public class VolumeOperationResultTest {
     }
   }
 
+  private void assertSuccessVolumePutOperations(VolumeOperationResult volumeOperationResult)
+      throws Exception {
+    assertTrue(volumeOperationResult.hasNext());
+    assertEquals(-1, volumeOperationResult.getCurrentRow());
+    assertTrue(volumeOperationResult.next());
+    assertEquals(0, volumeOperationResult.getCurrentRow());
+    assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
+    assertFalse(volumeOperationResult.hasNext());
+    assertFalse(volumeOperationResult.next());
+  }
+
+  private void assertSuccessVolumeGetOperations(VolumeOperationResult volumeOperationResult)
+      throws Exception {
+    assertTrue(volumeOperationResult.next());
+    assertEquals(0, volumeOperationResult.getCurrentRow());
+    assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
+    assertFalse(volumeOperationResult.hasNext());
+    assertFalse(volumeOperationResult.next());
+
+    assertNotNull(volumeOperationResult.getVolumeOperationInputStream());
+    assertEquals(
+        "test",
+        new String(
+            volumeOperationResult.getVolumeOperationInputStream().getContent().readAllBytes()));
+  }
+
+  private void assertFailedStreamVolumeOperations(VolumeOperationResult volumeOperationResult) {
+    try {
+      volumeOperationResult.next();
+      fail("Should throw DatabricksSQLException");
+    } catch (DatabricksSQLException e) {
+      assertEquals(
+          "Volume operation status : ABORTED, Error message: enableVolumeOperations property mandatory for Volume operations on stream",
+          e.getMessage());
+    }
+  }
+
   private void setupCommonInteractions() throws Exception {
     when(resultHandler.hasNext())
         .thenReturn(true)
-        .thenReturn(true)
+        .thenReturn(false)
         .thenReturn(false)
         .thenReturn(false);
     when(resultHandler.next()).thenReturn(true).thenReturn(false);
     when(resultHandler.getObject(2)).thenReturn(HEADERS);
-    when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS));
+    buildClientInfoProperties(Collections.emptyMap());
+  }
+
+  private void buildClientInfoProperties(Map<String, String> overrides) {
+    Map<String, String> clientInfoProperties = new HashMap<>();
+    clientInfoProperties.put(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ALLOWED_PATHS);
+
+    if (overrides != null) {
+      clientInfoProperties.putAll(overrides); // add or override test-specific keys
+    }
+    when(session.getClientInfoProperties()).thenReturn(clientInfoProperties);
   }
 }

@@ -134,7 +134,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
       String hostUrlVal = urlMatcher.group(1);
-      String schema = urlMatcher.group(2);
+      String schema =
+          Objects.equals(urlMatcher.group(2), EMPTY_STRING) ? null : urlMatcher.group(2);
       String urlMinusHost = urlMatcher.group(3);
       String[] hostAndPort = hostUrlVal.split(DatabricksJdbcConstants.PORT_DELIMITER);
       String hostValue = hostAndPort[0];
@@ -215,6 +216,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public String getHost() {
+    return this.host;
+  }
+
+  @Override
   public IDatabricksComputeResource getComputeResource() {
     return computeResource;
   }
@@ -222,6 +228,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public String getHttpPath() {
     LOGGER.debug("String getHttpPath()");
     return getParameter(DatabricksJdbcUrlParams.HTTP_PATH);
+  }
+
+  public boolean getEnableSQLValidationForIsValid() {
+    LOGGER.debug("String getEnableSQLValidationForIsValid()");
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_VALIDATION_FOR_IS_VALID, "0")
+        .equals("1");
   }
 
   @Override
@@ -932,6 +944,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean isTelemetryCircuitBreakerEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.TELEMETRY_CIRCUIT_BREAKER_ENABLED).equals("1");
+  }
+
+  @Override
   public int getHttpMaxConnectionsPerRoute() {
     int maxConnectionsPerRoute = DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE;
     try {
@@ -955,6 +972,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       }
     }
     return null;
+  }
+
+  @Override
+  public boolean enableShowCommandsForGetFunctions() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SHOW_COMMAND_FOR_GET_FUNCTIONS).equals("1");
   }
 
   private static boolean nullOrEmptyString(String s) {
@@ -1017,5 +1039,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     // There is a minimum threshold of 1000ms for the flush interval
     return Math.max(
         1000, Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_FLUSH_INTERVAL)));
+  }
+
+  @Override
+  public boolean isBatchedInsertsEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_BATCHED_INSERTS).equals("1");
   }
 }

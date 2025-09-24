@@ -3,6 +3,7 @@ package com.databricks.jdbc.telemetry;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.isTelemetryAllowedForConnection;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -17,6 +18,7 @@ public class TelemetryClientFactory {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(TelemetryClientFactory.class);
+  private static final String DEFAULT_HOST = "unknown-host";
 
   private static final TelemetryClientFactory INSTANCE = new TelemetryClientFactory();
 
@@ -35,7 +37,8 @@ public class TelemetryClientFactory {
       @Override
       public Thread newThread(Runnable r) {
         Thread thread = new Thread(r, "Telemetry-Thread-" + threadNumber.getAndIncrement());
-        thread.setDaemon(false);
+        // TODO : https://databricks.atlassian.net/browse/PECO-2716
+        thread.setDaemon(true);
         return thread;
       }
     };
@@ -78,6 +81,29 @@ public class TelemetryClientFactory {
 
   public ExecutorService getTelemetryExecutorService() {
     return telemetryExecutorService;
+  }
+
+  static ITelemetryPushClient getTelemetryPushClient(
+      Boolean isAuthenticated,
+      IDatabricksConnectionContext connectionContext,
+      DatabricksConfig databricksConfig) {
+    ITelemetryPushClient pushClient =
+        new TelemetryPushClient(isAuthenticated, connectionContext, databricksConfig);
+    if (connectionContext.isTelemetryCircuitBreakerEnabled()) {
+      // If circuit breaker is enabled, use the circuit breaker client
+      String host = null;
+      try {
+        host = connectionContext.getHostUrl();
+      } catch (DatabricksParsingException e) {
+        // Even though Telemetry logs should be trace or debug, we are treating this as error,
+        // since host parsing is fundamental to JDBC.
+        LOGGER.error(e, "Error parsing host url");
+        // Fallback to a default value, we don't want to throw any exception from Telemetry
+        host = DEFAULT_HOST;
+      }
+      pushClient = new CircuitBreakerTelemetryPushClient(pushClient, host);
+    }
+    return pushClient;
   }
 
   @VisibleForTesting

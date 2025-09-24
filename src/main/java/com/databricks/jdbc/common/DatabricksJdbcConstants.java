@@ -63,6 +63,7 @@ public final class DatabricksJdbcConstants {
   public static final int DEFAULT_PORT = 443;
   public static final String THRIFT_ERROR_MESSAGE_HEADER = "X-Thriftserver-Error-Message";
   public static final String ALLOWED_VOLUME_INGESTION_PATHS = "VolumeOperationAllowedLocalPaths";
+  public static final String ENABLE_VOLUME_OPERATIONS = "enableVolumeOperations";
   public static final String ALLOWED_STAGING_INGESTION_PATHS = "StagingAllowedLocalPaths";
   public static final String VOLUME_OPERATION_STATUS_COLUMN_NAME = "operation_status";
   public static final String VOLUME_OPERATION_STATUS_SUCCEEDED = "SUCCEEDED";
@@ -81,10 +82,12 @@ public final class DatabricksJdbcConstants {
           "READ_ONLY_EXTERNAL_METASTORE", "false",
           "STATEMENT_TIMEOUT", "0",
           "TIMEZONE", "UTC",
-          "USE_CACHED_RESULT", "true");
+          "USE_CACHED_RESULT", "true",
+          "QUERY_TAGS", "");
   public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES =
       Set.of(
           ALLOWED_VOLUME_INGESTION_PATHS,
+          ENABLE_VOLUME_OPERATIONS,
           ALLOWED_STAGING_INGESTION_PATHS,
           DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName(),
           DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName());
@@ -163,6 +166,18 @@ public final class DatabricksJdbcConstants {
       Pattern.compile("^(\\s*\\()*\\s*REMOVE", Pattern.CASE_INSENSITIVE);
   public static final Pattern LIST_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*LIST", Pattern.CASE_INSENSITIVE);
+  public static final Pattern INSERT_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*INSERT\\s+INTO", Pattern.CASE_INSENSITIVE);
+
+  /** Maximum number of parameters allowed in a single Databricks query */
+  public static final int MAX_QUERY_PARAMETERS = 256;
+
+  // Regex: match queries starting with "BEGIN" but not followed by "TRANSACTION"
+  // (?i)         -> case-insensitive
+  // ^\s*BEGIN    -> string starts with BEGIN (allow leading whitespace)
+  // (?!\s*TRANSACTION\b) -> negative lookahead: not followed by optional spaces + "TRANSACTION"
+  public static final Pattern BEGIN_PATTERN_FOR_SQL_SCRIPT =
+      Pattern.compile("(?i)^\\s*BEGIN(?!\\s*TRANSACTION\\b)");
   public static final String DEFAULT_USERNAME =
       "token"; // This is for PAT. We do not support Basic Auth.
   public static final int DEFAULT_MAX_HTTP_CONNECTIONS_PER_ROUTE = 1000;

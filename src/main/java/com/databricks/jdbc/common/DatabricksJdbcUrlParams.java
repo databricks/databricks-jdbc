@@ -91,7 +91,7 @@ public enum DatabricksJdbcUrlParams {
   ENABLE_TELEMETRY(
       "EnableTelemetry",
       "flag to enable telemetry",
-      "0"), // Note : telemetry enablement also depends on the server flag.
+      "1"), // Note : telemetry enablement also depends on the server flag.
   TELEMETRY_BATCH_SIZE("TelemetryBatchSize", "Batch size for telemetry", "200"),
   MAX_BATCH_SIZE("MaxBatchSize", "Maximum batch size", "500"),
   ALLOWED_VOLUME_INGESTION_PATHS("VolumeOperationAllowedLocalPaths", ""),
@@ -148,12 +148,21 @@ public enum DatabricksJdbcUrlParams {
       "MaxVolumeOperationConcurrentPresignedRequests",
       "Maximum number of concurrent presigned requests",
       "50"),
+  TELEMETRY_CIRCUIT_BREAKER_ENABLED(
+      "TelemetryCircuitBreakerEnabled", "Enable circuit breaker for telemetry", "1"),
   HTTP_MAX_CONNECTIONS_PER_ROUTE(
       "HttpMaxConnectionsPerRoute", "Maximum connections per route for HTTP client", "1000"),
   HTTP_CONNECTION_REQUEST_TIMEOUT(
       "HttpConnectionRequestTimeout", "HTTP connection request timeout in seconds"),
   CLOUD_FETCH_SPEED_THRESHOLD(
-      "CloudFetchSpeedThreshold", "Minimum expected download speed in MB/s", "0.1");
+      "CloudFetchSpeedThreshold", "Minimum expected download speed in MB/s", "0.1"),
+  ENABLE_SHOW_COMMAND_FOR_GET_FUNCTIONS(
+      "EnableShowCommandForGetFunctions", "Use SQL command to fetch function list", "0"),
+  ENABLE_BATCHED_INSERTS("EnableBatchedInserts", "Enable batched INSERT optimization", "0"),
+  ENABLE_SQL_VALIDATION_FOR_IS_VALID(
+      "EnableSQLValidationForIsValid",
+      "Enable SQL query execution for connection validation in isValid() method",
+      "0");
 
   private final String paramName;
   private final String defaultValue;
