@@ -59,13 +59,6 @@ public class DatabricksSdkClientTest {
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
   private static final String DEFAULT_KEYSTORE_PASSWORD = "changeit";
 
-  private static final Map<String, String> headers =
-      new HashMap<>() {
-        {
-          put("Accept", "application/json");
-          put("Content-Type", "application/json");
-        }
-      };
   private static final Map<Integer, ImmutableSqlParameter> sqlParams =
       new HashMap<>() {
         {
@@ -601,8 +594,8 @@ public class DatabricksSdkClientTest {
     IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
     when(connectionContext.isSqlExecDirectResultsEnabled()).thenReturn(true);
 
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    // Create client to ensure constructor works with direct results enabled
+    new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
     // Verify that the connection context is properly configured for direct results
     assertTrue(connectionContext.isSqlExecDirectResultsEnabled());
@@ -613,8 +606,8 @@ public class DatabricksSdkClientTest {
     IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
     when(connectionContext.isSqlExecDirectResultsEnabled()).thenReturn(false);
 
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    // Create client to ensure constructor works with direct results disabled
+    new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
     // Verify that the connection context is properly configured for non-direct results
     assertFalse(connectionContext.isSqlExecDirectResultsEnabled());
@@ -626,8 +619,8 @@ public class DatabricksSdkClientTest {
     when(connectionContext.isSqlExecDirectResultsEnabled()).thenReturn(true);
     when(connectionContext.isSqlExecHybridResultsEnabled()).thenReturn(false);
 
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    // Create client to ensure constructor works with mixed feature settings
+    new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
     // Verify that direct results and hybrid results can have independent settings
     assertTrue(connectionContext.isSqlExecDirectResultsEnabled());
@@ -640,8 +633,8 @@ public class DatabricksSdkClientTest {
     when(connectionContext.isSqlExecDirectResultsEnabled()).thenReturn(true);
     when(connectionContext.isSqlExecHybridResultsEnabled()).thenReturn(true);
 
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    // Create client to ensure constructor works with both features enabled
+    new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
     // Verify that both features can be enabled simultaneously
     assertTrue(connectionContext.isSqlExecDirectResultsEnabled());
