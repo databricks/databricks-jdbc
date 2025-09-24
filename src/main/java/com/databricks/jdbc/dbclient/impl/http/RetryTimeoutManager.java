@@ -10,10 +10,10 @@ import org.apache.http.HttpStatus;
  * timeouts accordingly.
  */
 public class RetryTimeoutManager {
-  private long tempUnavailableTimeout;
-  private long rateLimitTimeout;
-  private long otherErrorCodesTimeout;
-  private long exceptionTimeout;
+  private long tempUnavailableTimeoutMillis;
+  private long rateLimitTimeoutMillis;
+  private long otherErrorCodesTimeoutMillis;
+  private long exceptionTimeoutMillis;
 
   /**
    * Creates a new RetryTimeoutManager with connection context.
@@ -22,10 +22,11 @@ public class RetryTimeoutManager {
    */
   public RetryTimeoutManager(IDatabricksConnectionContext connectionContext) {
     // Initialize timeouts
-    this.tempUnavailableTimeout = connectionContext.getTemporarilyUnavailableRetryTimeout() * 1000L;
-    this.rateLimitTimeout = connectionContext.getRateLimitRetryTimeout() * 1000L;
-    this.otherErrorCodesTimeout = RetryUtils.REQUEST_TIMEOUT * 1000L;
-    this.exceptionTimeout = RetryUtils.REQUEST_EXCEPTION_TIMEOUT * 1000L;
+    this.tempUnavailableTimeoutMillis =
+        connectionContext.getTemporarilyUnavailableRetryTimeout() * 1000L;
+    this.rateLimitTimeoutMillis = connectionContext.getRateLimitRetryTimeout() * 1000L;
+    this.otherErrorCodesTimeoutMillis = RetryUtils.REQUEST_TIMEOUT_SECONDS * 1000L;
+    this.exceptionTimeoutMillis = RetryUtils.REQUEST_EXCEPTION_TIMEOUT_SECONDS * 1000L;
   }
 
   /**
@@ -44,18 +45,20 @@ public class RetryTimeoutManager {
     // Update the appropriate timeout based on status code, following executeWithRetry logic
     switch (statusCode) {
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
-        tempUnavailableTimeout -= retryDelayMillis.get();
+        tempUnavailableTimeoutMillis -= retryDelayMillis.get();
         break;
       case HttpStatus.SC_TOO_MANY_REQUESTS:
-        rateLimitTimeout -= retryDelayMillis.get();
+        rateLimitTimeoutMillis -= retryDelayMillis.get();
         break;
       default:
-        otherErrorCodesTimeout -= retryDelayMillis.get();
+        otherErrorCodesTimeoutMillis -= retryDelayMillis.get();
         break;
     }
 
     // Check if any timeout has been exceeded
-    return tempUnavailableTimeout > 0 && rateLimitTimeout > 0 && otherErrorCodesTimeout > 0;
+    return tempUnavailableTimeoutMillis > 0
+        && rateLimitTimeoutMillis > 0
+        && otherErrorCodesTimeoutMillis > 0;
   }
 
   /**
@@ -72,9 +75,9 @@ public class RetryTimeoutManager {
     }
 
     // Update exception timeout by subtracting the retry delay
-    exceptionTimeout -= retryDelayMillis;
+    exceptionTimeoutMillis -= retryDelayMillis;
 
     // Check if exception timeout has been exceeded
-    return exceptionTimeout > 0;
+    return exceptionTimeoutMillis > 0;
   }
 }

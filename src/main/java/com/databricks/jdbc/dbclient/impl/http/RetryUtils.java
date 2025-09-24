@@ -22,14 +22,14 @@ public class RetryUtils {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(RetryUtils.class);
 
   private static final int DEFAULT_BACKOFF_FACTOR = 2;
-  private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
-  private static final int MAX_RETRY_INTERVAL = 10000; // 10s
+  private static final int MIN_BACKOFF_INTERVAL_MILLISECONDS = 1000; // 1s
+  private static final int MAX_BACKOFF_INTERVAL_MILLISECONDS = 10000; // 10s
   private static final String RETRY_AFTER_HEADER = "Retry-After";
   private static final Random RANDOM = new Random();
   private static final IRetryStrategy IDEMPOTENT_STRATEGY = new IdempotentRetryStrategy();
   private static final IRetryStrategy NON_IDEMPOTENT_STRATEGY = new NonIdempotentRetryStrategy();
-  public static final long REQUEST_TIMEOUT = 10;
-  public static final long REQUEST_EXCEPTION_TIMEOUT = 10;
+  public static final long REQUEST_TIMEOUT_SECONDS = 10;
+  public static final long REQUEST_EXCEPTION_TIMEOUT_SECONDS = 10;
 
   /**
    * Calculates exponential backoff delay based on execution count.
@@ -41,8 +41,9 @@ public class RetryUtils {
     return addJitter(
         (int)
             Math.min(
-                MIN_BACKOFF_INTERVAL * Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount),
-                MAX_RETRY_INTERVAL));
+                MIN_BACKOFF_INTERVAL_MILLISECONDS
+                    * Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount),
+                MAX_BACKOFF_INTERVAL_MILLISECONDS));
   }
 
   /**

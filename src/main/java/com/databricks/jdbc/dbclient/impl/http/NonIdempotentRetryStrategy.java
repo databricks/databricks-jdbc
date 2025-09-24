@@ -39,7 +39,6 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
       Optional<Integer> retryAfterHeader,
       int executionAttempt,
       IDatabricksConnectionContext connectionContext) {
-
     if (!isStatusCodeRetriable(statusCode, connectionContext)) {
       return Optional.empty();
     }
