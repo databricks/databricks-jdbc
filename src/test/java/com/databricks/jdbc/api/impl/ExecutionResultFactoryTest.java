@@ -14,8 +14,8 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.sdk.service.sql.Format;
-import com.databricks.sdk.service.sql.ResultSchema;
 import java.sql.SQLException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -101,7 +101,7 @@ public class ExecutionResultFactoryTest {
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(resultSetMetadataResp);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(fetchResultsResp, session, parentStatement);
-    assertInstanceOf(InlineJsonResult.class, result);
+    assertInstanceOf(LazyThriftResult.class, result);
   }
 
   @Test

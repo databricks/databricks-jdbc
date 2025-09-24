@@ -123,7 +123,7 @@ public enum DatabricksJdbcUrlParams {
   ROWS_FETCHED_PER_BLOCK(
       "RowsFetchedPerBlock",
       "The maximum number of rows that a query returns at a time.",
-      "2000000"), // works only for inline results.
+      "100000"), // works only for inline results.
   AZURE_WORKSPACE_RESOURCE_ID(
       "azure_workspace_resource_id", "Resource ID of Azure Databricks workspace"),
   AZURE_TENANT_ID("AzureTenantId", "Azure tenant ID"),
@@ -147,13 +147,20 @@ public enum DatabricksJdbcUrlParams {
       "Maximum number of concurrent presigned requests",
       "50"),
   TELEMETRY_CIRCUIT_BREAKER_ENABLED(
-      "TelemetryCircuitBreakerEnabled", "Enable circuit breaker for telemetry", "0"),
+      "TelemetryCircuitBreakerEnabled", "Enable circuit breaker for telemetry", "1"),
   HTTP_MAX_CONNECTIONS_PER_ROUTE(
       "HttpMaxConnectionsPerRoute", "Maximum connections per route for HTTP client", "1000"),
   HTTP_CONNECTION_REQUEST_TIMEOUT(
       "HttpConnectionRequestTimeout", "HTTP connection request timeout in seconds"),
   CLOUD_FETCH_SPEED_THRESHOLD(
       "CloudFetchSpeedThreshold", "Minimum expected download speed in MB/s", "0.1"),
+  ENABLE_SHOW_COMMAND_FOR_GET_FUNCTIONS(
+      "EnableShowCommandForGetFunctions", "Use SQL command to fetch function list", "0"),
+  ENABLE_BATCHED_INSERTS("EnableBatchedInserts", "Enable batched INSERT optimization", "0"),
+  ENABLE_SQL_VALIDATION_FOR_IS_VALID(
+      "EnableSQLValidationForIsValid",
+      "Enable SQL query execution for connection validation in isValid() method",
+      "0"),
   ENABLE_METRIC_VIEW_METADATA("EnableMetricViewMetadata", "Enable metric view metadata", "0");
 
   private final String paramName;

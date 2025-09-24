@@ -21,13 +21,13 @@ import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
+import com.databricks.jdbc.model.core.ColumnInfo;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
-import com.databricks.sdk.service.sql.ColumnInfo;
-import com.databricks.sdk.service.sql.ColumnInfoTypeName;
-import com.databricks.sdk.service.sql.ResultSchema;
 import com.google.common.collect.ImmutableList;
 import java.io.*;
 import java.time.Instant;
@@ -316,6 +316,37 @@ public class ArrowStreamResultTest {
     fieldList.add(new Field("Field1", fieldType1, null));
     fieldList.add(new Field("Field2", fieldType2, null));
     return new Schema(fieldList);
+  }
+
+  @Test
+  public void testNullComplexTypeWithComplexDatatypeSupportDisabled() throws Exception {
+    // Setup connection context with complex datatype support disabled
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    // Complex datatype support is disabled by default
+
+    // Create result manifest with a struct column
+    List<ColumnInfo> columnInfos = new ArrayList<>();
+    columnInfos.add(
+        new ColumnInfo()
+            .setPosition(0L)
+            .setName("struct_col")
+            .setTypeName(ColumnInfoTypeName.STRUCT));
+
+    ResultSchema schema = new ResultSchema().setColumns(columnInfos).setColumnCount(1L);
+
+    ResultManifest resultManifest =
+        new ResultManifest().setTotalChunkCount(0L).setTotalRowCount(1L).setSchema(schema);
+
+    ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
+
+    // Create the ArrowStreamResult
+    ArrowStreamResult result =
+        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
+
+    // Verify no exception is thrown when closing
+    assertDoesNotThrow(result::close);
   }
 
   private Object[][] createTestData(Schema schema, int rows) {

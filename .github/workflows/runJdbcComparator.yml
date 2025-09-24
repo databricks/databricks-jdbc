@@ -26,10 +26,11 @@ jobs:
       - name: Merge main into jdbc-comparator
         run: |
           git checkout jdbc-comparator
-          git merge main --no-edit || {
-            echo "Merge conflict occurred"
-            git merge --abort
-            exit 1
+          git merge main --allow-unrelated-histories --no-edit -X theirs || {
+            echo "Force merging by accepting all changes from main"
+            git checkout --theirs .
+            git add .
+            git commit --no-edit
           }
 
       - name: Set up JDK 11

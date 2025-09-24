@@ -1,9 +1,11 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_STATEMENT_TIMEOUT_SECONDS;
 import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSION;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDecimalTypeString;
+import static com.databricks.jdbc.dbclient.impl.sqlexec.CommandName.LIST_FUNCTIONS;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
 
 import com.databricks.jdbc.api.impl.*;
@@ -19,6 +21,7 @@ import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.sqlexec.CommandBuilder;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -144,7 +147,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     LOGGER.debug(
         String.format(
             "public DatabricksResultSet executeStatement(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s}, StatementType statementType = {%s}, IDatabricksSession session)",
-            sql, computeResource.toString(), parameters.toString(), statementType));
+            sql, computeResource, parameters.toString(), statementType));
 
     DatabricksThreadContextHolder.setStatementType(statementType);
 
@@ -200,11 +203,14 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         parameters.values().stream()
             .map(this::mapToSparkParameterListItem)
             .collect(Collectors.toList());
-
+    int timeout = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
+    if (parentStatement != null && parentStatement.getStatement() != null) {
+      timeout = parentStatement.getStatement().getQueryTimeout();
+    }
     TExecuteStatementReq request =
         new TExecuteStatementReq()
             .setStatement(sql)
-            .setQueryTimeout(parentStatement.getStatement().getQueryTimeout())
+            .setQueryTimeout(timeout)
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
             .setCanReadArrowResult(this.connectionContext.shouldEnableArrow())
             .setUseArrowNativeTypes(arrowNativeTypes);
@@ -228,7 +234,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setUseArrowNativeTypes(arrowNativeTypes);
     }
 
-    int maxRows = parentStatement.getMaxRows();
+    int maxRows = (parentStatement == null) ? 0 : parentStatement.getMaxRows();
     if (maxRows > 0) { // set request param only if user has set maxRows.
       // Similar
       // behavior
@@ -436,13 +442,34 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       String catalog,
       String schemaNamePattern,
       String functionNamePattern)
-      throws DatabricksSQLException {
+      throws SQLException {
     String context =
         String.format(
             "Fetching functions using Thrift client. Session {%s}, catalog {%s}, schemaNamePattern {%s}, functionNamePattern {%s}.",
             session.toString(), catalog, schemaNamePattern, functionNamePattern);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     LOGGER.debug(context);
+    if (connectionContext.enableShowCommandsForGetFunctions()) {
+      String showFunctionsSqlCommand =
+          new CommandBuilder(catalog, session)
+              .setSchemaPattern(schemaNamePattern)
+              .setFunctionPattern(functionNamePattern)
+              .getSQLString(LIST_FUNCTIONS);
+      LOGGER.debug(
+          "Fetching functions using SQL Command {{}}. Session {{}}",
+          showFunctionsSqlCommand,
+          session.toString());
+      try (DatabricksResultSet rs =
+          executeStatement(
+              showFunctionsSqlCommand,
+              session.getComputeResource(),
+              Collections.emptyMap(),
+              StatementType.METADATA,
+              session,
+              null)) {
+        return metadataResultSetBuilder.getFunctionsResult(rs, catalog);
+      }
+    }
     TGetFunctionsReq request =
         new TGetFunctionsReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())

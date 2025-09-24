@@ -2,8 +2,8 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.sdk.service.sql.ColumnInfo;
-import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ColumnInfo;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import org.apache.arrow.vector.ValueVector;
 
 public class ArrowResultChunkIterator {

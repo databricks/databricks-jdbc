@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.exception.DatabricksDriverException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Time;
@@ -777,5 +779,118 @@ public class DatabricksStructTest {
         expected,
         actual,
         "Struct toString() must produce JSON-like output with int unquoted, array of quoted strings, and map with string keys/ int values");
+  }
+
+  /**
+   * Test VARIANT fields with JsonNode objects to verify double-escaping fix. This test ensures that
+   * VARIANT fields containing JsonNode objects are serialized correctly without double-escaping,
+   * while preserving JSON structure.
+   */
+  @Test
+  public void constructor_ShouldHandleVariantFieldsCorrectly() throws Exception {
+    // Arrange
+    String structMetadata =
+        "STRUCT<id:INT,simple_str:STRING,variant_obj:VARIANT,variant_arr:VARIANT,variant_null:VARIANT,variant_primitive:VARIANT>";
+
+    Map<String, String> typeMap = new LinkedHashMap<>();
+    typeMap.put("id", "INT");
+    typeMap.put("simple_str", "STRING");
+    typeMap.put("variant_obj", "VARIANT");
+    typeMap.put("variant_arr", "VARIANT");
+    typeMap.put("variant_null", "VARIANT");
+    typeMap.put("variant_primitive", "VARIANT");
+    mockParseStructMetadata(structMetadata, typeMap);
+
+    // Create JsonNode objects representing VARIANT data (as would come from ComplexDataTypeParser)
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode variantObj = mapper.readTree("{\"nested\":{\"key\":\"value\",\"number\":42}}");
+    JsonNode variantArr = mapper.readTree("[{\"item\":\"first\"},{\"item\":\"second\"}]");
+    JsonNode variantNull = mapper.readTree("null");
+    JsonNode variantPrimitive = mapper.readTree("\"simple_string\"");
+
+    Map<String, Object> attributes = new LinkedHashMap<>();
+    attributes.put("id", 123);
+    attributes.put("simple_str", "regular_string");
+    attributes.put("variant_obj", variantObj); // JsonNode object
+    attributes.put("variant_arr", variantArr); // JsonNode array
+    attributes.put("variant_null", variantNull); // JsonNode null
+    attributes.put("variant_primitive", variantPrimitive); // JsonNode primitive
+
+    // Act
+    DatabricksStruct databricksStruct = new DatabricksStruct(attributes, structMetadata);
+    String actual = databricksStruct.toString();
+
+    // Verify that regular fields are correctly formatted
+    assertTrue(actual.contains("\"id\":123"), "ID field should be unquoted integer");
+    assertTrue(
+        actual.contains("\"simple_str\":\"regular_string\""), "String field should be quoted");
+
+    // Verify that VARIANT fields preserve JSON structure without double-escaping
+    assertTrue(
+        actual.contains("\"variant_obj\":{\"nested\":{\"key\":\"value\",\"number\":42}}"),
+        "VARIANT object should preserve JSON structure without double-escaping");
+    assertTrue(
+        actual.contains("\"variant_arr\":[{\"item\":\"first\"},{\"item\":\"second\"}]"),
+        "VARIANT array should preserve JSON structure without double-escaping");
+    assertTrue(
+        actual.contains("\"variant_null\":null"), "VARIANT null should be serialized as null");
+    assertTrue(
+        actual.contains("\"variant_primitive\":\"simple_string\""),
+        "VARIANT primitive should preserve quotes for string values");
+
+    // Verify NO double-escaping patterns exist
+    assertFalse(actual.contains("\\\"{"), "Should not contain double-escaped opening braces");
+    assertFalse(actual.contains("}\\\""), "Should not contain double-escaped closing braces");
+    assertFalse(actual.contains("\\\"["), "Should not contain double-escaped opening brackets");
+    assertFalse(actual.contains("]\\\""), "Should not contain double-escaped closing brackets");
+
+    // Verify the complete expected structure
+    String expectedStructure =
+        "{\"id\":123,"
+            + "\"simple_str\":\"regular_string\","
+            + "\"variant_obj\":{\"nested\":{\"key\":\"value\",\"number\":42}},"
+            + "\"variant_arr\":[{\"item\":\"first\"},{\"item\":\"second\"}],"
+            + "\"variant_null\":null,"
+            + "\"variant_primitive\":\"simple_string\"}";
+
+    assertEquals(
+        expectedStructure,
+        actual,
+        "Complete struct should match expected format with properly serialized VARIANT fields");
+  }
+
+  /**
+   * Test VARIANT field conversion in convertSimpleValue to ensure JsonNode objects are preserved.
+   */
+  @Test
+  public void convertSimpleValue_ShouldPreserveJsonNodeForVariant() throws Exception {
+    // Arrange
+    String structMetadata = "STRUCT<variant_field:VARIANT>";
+    Map<String, String> typeMap = new LinkedHashMap<>();
+    typeMap.put("variant_field", "VARIANT");
+    mockParseStructMetadata(structMetadata, typeMap);
+
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode jsonNode = mapper.readTree("{\"test\":\"data\"}");
+
+    Map<String, Object> attributes = new LinkedHashMap<>();
+    attributes.put("variant_field", jsonNode);
+
+    // Act
+    DatabricksStruct databricksStruct = new DatabricksStruct(attributes, structMetadata);
+    Object[] convertedAttributes = databricksStruct.getAttributes();
+
+    // Assert
+    assertEquals(1, convertedAttributes.length, "Should have one attribute");
+    assertInstanceOf(
+        JsonNode.class,
+        convertedAttributes[0],
+        "VARIANT field should preserve JsonNode object in attributes array");
+
+    JsonNode preservedNode = (JsonNode) convertedAttributes[0];
+    assertEquals(
+        "{\"test\":\"data\"}",
+        preservedNode.toString(),
+        "JsonNode content should be preserved exactly");
   }
 }

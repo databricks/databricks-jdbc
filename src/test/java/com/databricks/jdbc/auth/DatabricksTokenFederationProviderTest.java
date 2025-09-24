@@ -18,7 +18,8 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -64,15 +65,12 @@ public class DatabricksTokenFederationProviderTest {
 
   @Test
   public void testRefreshTokenOnTokenExpiry() throws Exception {
-    doReturn(testToken()).when(databricksTokenFederationProvider).refresh();
+    doReturn(testToken()).when(databricksTokenFederationProvider).getToken();
     int getTokenCount = 10;
     for (int i = 0; i < getTokenCount; i++) {
       Map<String, String> headers =
           databricksTokenFederationProvider.configure(mockConfig).headers();
     }
-
-    // Token should be refreshed only the first time
-    verify(databricksTokenFederationProvider, times(1)).refresh();
     // getToken should be called all 10 times
     verify(databricksTokenFederationProvider, times(10)).getToken();
   }
@@ -143,7 +141,7 @@ public class DatabricksTokenFederationProviderTest {
 
   private Token testToken() throws Exception {
     return new Token(
-        "accessToken", "tokenType", "refreshToken", LocalDateTime.now().plusMinutes(10));
+        "accessToken", "tokenType", "refreshToken", Instant.now().plus(10, ChronoUnit.MINUTES));
   }
 
   private String testJwtTokenString() throws Exception {

@@ -11,13 +11,12 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.HeaderFactory;
-import com.databricks.sdk.core.commons.CommonsHttpClient;
-import com.databricks.sdk.core.http.Response;
-import com.databricks.sdk.core.oauth.OAuthResponse;
+import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import com.databricks.sdk.core.oauth.Token;
+import com.databricks.sdk.core.oauth.TokenEndpointClient;
 import java.io.IOException;
-import java.net.URL;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Properties;
 import org.apache.http.HttpHeaders;
@@ -26,6 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,11 +33,7 @@ public class OAuthRefreshCredentialsProviderTest {
 
   @Mock IDatabricksConnectionContext context;
   @Mock DatabricksConfig databricksConfig;
-  @Mock CommonsHttpClient httpClient;
-  @Mock Response httpResponse;
-  @Mock OAuthResponse oAuthResponse;
-
-  @Mock Response response;
+  @Mock HttpClient httpClient;
   private OAuthRefreshCredentialsProvider credentialsProvider;
   private static final String REFRESH_TOKEN_URL_DEFAULT =
       "jdbc:databricks://host:4423/default;transportMode=http;ssl=1;AuthMech=11;AuthFlow=0;httpPath=/sql/1.0/warehouses/99999999;OAuthRefreshToken=refresh-token";
@@ -64,7 +60,7 @@ public class OAuthRefreshCredentialsProviderTest {
     OAuthRefreshCredentialsProvider providerWithNullRefreshToken =
         new OAuthRefreshCredentialsProvider(context, databricksConfig);
     DatabricksException exception =
-        assertThrows(DatabricksException.class, providerWithNullRefreshToken::refresh);
+        assertThrows(DatabricksException.class, providerWithNullRefreshToken::getToken);
     assertEquals("oauth2: token expired and refresh token is not set", exception.getMessage());
   }
 
@@ -97,19 +93,25 @@ public class OAuthRefreshCredentialsProviderTest {
     }
     credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     assertEquals("oauth-refresh", credentialsProvider.authType());
-    // Reinitialize the OAUTH_RESPONSE InputStream for each test run
-    String jsonResponse =
-        "{\"access_token\":\"access-token\",\"token_type\":\"token-type\",\"expires_in\":360,\"refresh_token\":\"refresh-token\"}";
-
     when(databricksConfig.getHttpClient()).thenReturn(httpClient);
-    when(httpClient.execute(any())).thenReturn(new Response(jsonResponse, new URL(TEST_TOKEN_URL)));
-    HeaderFactory headerFactory = credentialsProvider.configure(databricksConfig);
-    Map<String, String> headers = headerFactory.headers();
-    assertNotNull(headers.get(HttpHeaders.AUTHORIZATION));
-    Token refreshedToken = credentialsProvider.getToken();
-    assertEquals("token-type", refreshedToken.getTokenType());
-    assertEquals("access-token", refreshedToken.getAccessToken());
-    assertEquals("refresh-token", refreshedToken.getRefreshToken());
-    assertFalse(refreshedToken.isExpired());
+    try (MockedStatic<TokenEndpointClient> mocked = mockStatic(TokenEndpointClient.class)) {
+      Token fakeToken =
+          new Token("access-token", "token-type", "refresh-token", Instant.now().plusSeconds(360));
+      mocked
+          .when(
+              () ->
+                  TokenEndpointClient.retrieveToken(
+                      any(), any(), any(), any(), any(), any(), any()))
+          .thenReturn(fakeToken);
+
+      HeaderFactory headerFactory = credentialsProvider.configure(databricksConfig);
+      Map<String, String> headers = headerFactory.headers();
+      assertNotNull(headers.get(HttpHeaders.AUTHORIZATION));
+      Token refreshedToken = credentialsProvider.getToken();
+      assertEquals("token-type", refreshedToken.getTokenType());
+      assertEquals("access-token", refreshedToken.getAccessToken());
+      assertEquals("refresh-token", refreshedToken.getRefreshToken());
+      assertFalse(refreshedToken.getExpiry().isBefore(Instant.now()));
+    }
   }
 }

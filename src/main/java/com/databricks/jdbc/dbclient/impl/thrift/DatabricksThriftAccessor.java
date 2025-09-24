@@ -253,7 +253,7 @@ final class DatabricksThriftAccessor {
             getResultSetResp(
                 response.getStatus(),
                 response.getOperationHandle(),
-                response.toString(),
+                "executeStatement",
                 maxRowsPerBlock,
                 true);
         long fetchEndTime = System.nanoTime();
@@ -294,7 +294,9 @@ final class DatabricksThriftAccessor {
     TGetOperationStatusResp statusResp = null;
     if (response.isSetDirectResults()) {
       checkDirectResultsForErrorStatus(
-          response.getDirectResults(), response.toString(), statementId.toSQLExecStatementId());
+          response.getDirectResults(),
+          "executeStatement DirectResults",
+          statementId.toSQLExecStatementId());
       statusResp = response.getDirectResults().getOperationStatus();
       checkOperationStatusForErrors(
           statusResp, StatementId.loggableStatementId(response.getOperationHandle()));
@@ -409,7 +411,7 @@ final class DatabricksThriftAccessor {
       if (operationState == TOperationState.FINISHED_STATE) {
         long fetchStartTime = System.nanoTime();
         resultSet =
-            getResultSetResp(response.getStatus(), operationHandle, response.toString(), -1, true);
+            getResultSetResp(response.getStatus(), operationHandle, "getStatementResult", -1, true);
         long fetchEndTime = System.nanoTime();
         long fetchLatencyNanos = fetchEndTime - fetchStartTime;
         long fetchLatencyMillis = fetchLatencyNanos / 1_000_000;
@@ -523,16 +525,16 @@ final class DatabricksThriftAccessor {
     } catch (TException e) {
       String errorMessage =
           String.format(
-              "Error while fetching results from Thrift server. Request {%s}, Error {%s}",
-              request.toString(), e.getMessage());
+              "Error while fetching results from Thrift server. Request maxRows=%d, maxBytes=%d, Error {%s}",
+              request.getMaxRows(), request.getMaxBytes(), e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
     verifySuccessStatus(
         response.getStatus(),
         String.format(
-            "Error while fetching results Request {%s}. TFetchResultsResp {%s}. ",
-            request, response),
+            "Error while fetching results Request maxRows=%d, maxBytes=%d. Response hasMoreRows=%s",
+            request.getMaxRows(), request.getMaxBytes(), response.hasMoreRows),
         statementId);
     return response;
   }

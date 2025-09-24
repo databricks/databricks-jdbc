@@ -4,7 +4,7 @@ import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static java.sql.ParameterMetaData.parameterModeIn;
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.sql.SQLException;
 import java.sql.Types;
 import org.junit.jupiter.api.BeforeEach;

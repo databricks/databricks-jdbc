@@ -216,6 +216,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public String getHost() {
+    return this.host;
+  }
+
+  @Override
   public IDatabricksComputeResource getComputeResource() {
     return computeResource;
   }
@@ -223,6 +228,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public String getHttpPath() {
     LOGGER.debug("String getHttpPath()");
     return getParameter(DatabricksJdbcUrlParams.HTTP_PATH);
+  }
+
+  public boolean getEnableSQLValidationForIsValid() {
+    LOGGER.debug("String getEnableSQLValidationForIsValid()");
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_VALIDATION_FOR_IS_VALID, "0")
+        .equals("1");
   }
 
   @Override
@@ -967,6 +978,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean enableShowCommandsForGetFunctions() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SHOW_COMMAND_FOR_GET_FUNCTIONS).equals("1");
+  }
+
+  @Override
   public boolean getEnableMetricViewMetadata() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_METRIC_VIEW_METADATA).equals("1");
   }
@@ -1031,5 +1047,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     // There is a minimum threshold of 1000ms for the flush interval
     return Math.max(
         1000, Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_FLUSH_INTERVAL)));
+  }
+
+  @Override
+  public boolean isBatchedInsertsEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_BATCHED_INSERTS).equals("1");
   }
 }

@@ -21,6 +21,10 @@ public class WildcardUtil {
     return s == null || s.trim().isEmpty();
   }
 
+  public static boolean isNullOrWildcard(String s) {
+    return s == null || isWildcard(s) || s.equals("%");
+  }
+
   /**
    * This function checks if the input string is a wildcard string
    *

@@ -454,7 +454,7 @@ public class DatabricksResultSetTest {
   void testGetTimestamp() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
     int columnIndex = 5;
-    String expectedTimestampString = "2023-01-01 12:30:00";
+    String expectedTimestampString = "2023-01-01 12:30:00.123456789";
     // Test using timestamp object
     Timestamp expectedTimestamp = Timestamp.valueOf(expectedTimestampString);
     when(resultSet.getObject(columnIndex)).thenReturn(expectedTimestamp);
@@ -470,9 +470,10 @@ public class DatabricksResultSetTest {
     // Test with Calendar argument
     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"));
     // Asia/Tokyo is GMT+9
-    assertEquals(
-        new Timestamp(OffsetDateTime.parse("2023-01-01T12:30:00+09:00").toEpochSecond() * 1000),
-        resultSet.getTimestamp(columnIndex, calendar));
+    var expectedTimestampWithTz =
+        new Timestamp(OffsetDateTime.parse("2023-01-01T12:30:00+09:00").toEpochSecond() * 1000);
+    expectedTimestampWithTz.setNanos(123456789);
+    assertEquals(expectedTimestampWithTz, resultSet.getTimestamp(columnIndex, calendar));
 
     // Test with null Calendar argument
     assertEquals(expectedTimestamp, resultSet.getTimestamp(columnIndex, null));

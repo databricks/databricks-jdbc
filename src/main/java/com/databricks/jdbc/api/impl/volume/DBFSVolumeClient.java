@@ -66,6 +66,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
   final WorkspaceClient workspaceClient;
   final ApiClient apiClient;
   private final String allowedVolumeIngestionPaths;
+  private final boolean enableVolumeOperations;
 
   /**
    * Initial delay in milliseconds before the first retry attempt. Used as the base value for
@@ -95,6 +96,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     this.apiClient = workspaceClient.apiClient();
     this.databricksHttpClient = null;
     this.allowedVolumeIngestionPaths = "";
+    this.enableVolumeOperations = false;
     this.presignedUrlSemaphore = new Semaphore(50);
   }
 
@@ -106,6 +108,10 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         DatabricksHttpClientFactory.getInstance()
             .getClient(connectionContext, HttpClientType.VOLUME);
     this.allowedVolumeIngestionPaths = connectionContext.getVolumeOperationAllowedPaths();
+    // When enableVolumeOperations is disabled, volume operations on streams are blocked which are
+    // accessed directly via a connection URL.
+    // Operations performed through  `DBFSVolumeClient` are not restricted by this setting.
+    this.enableVolumeOperations = true;
     int maxConcurrentRequests = connectionContext.getMaxDBFSConcurrentPresignedRequests();
     this.presignedUrlSemaphore = new Semaphore(maxConcurrentRequests);
   }
@@ -313,6 +319,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
               .operationType(VolumeUtil.VolumeOperationType.GET)
               .operationUrl(response.getUrl())
               .isAllowedInputStreamForVolumeOperation(true)
+              .isEnableVolumeOperations(enableVolumeOperations)
               .databricksHttpClient(databricksHttpClient)
               .getStreamReceiver(
                   (entity) -> {
@@ -365,6 +372,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       VolumeOperationProcessor volumeOperationProcessor =
           VolumeOperationProcessor.Builder.createBuilder()
               .operationType(VolumeUtil.VolumeOperationType.PUT)
+              .isEnableVolumeOperations(enableVolumeOperations)
               .operationUrl(response.getUrl())
               .localFilePath(localPath)
               .allowedVolumeIngestionPathString(allowedVolumeIngestionPaths)
@@ -415,6 +423,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
               .operationType(VolumeUtil.VolumeOperationType.PUT)
               .operationUrl(response.getUrl())
               .isAllowedInputStreamForVolumeOperation(true)
+              .isEnableVolumeOperations(enableVolumeOperations)
               .inputStream(inputStreamEntity)
               .databricksHttpClient(databricksHttpClient)
               .build();
@@ -451,8 +460,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       VolumeOperationProcessor volumeOperationProcessor =
           VolumeOperationProcessor.Builder.createBuilder()
               .operationType(VolumeUtil.VolumeOperationType.REMOVE)
+              .isEnableVolumeOperations(enableVolumeOperations)
               .operationUrl(response.getUrl())
-              .isAllowedInputStreamForVolumeOperation(true)
               .databricksHttpClient(databricksHttpClient)
               .build();
 

@@ -4,13 +4,10 @@
 
 ### Added
 
-- **Query Tags support**: Added ability to attach key-value tags to SQL queries for analytical purposes that would appear in `system.query.history` table. Example: `jdbc:databricks://host;QUERY_TAGS=team:marketing,dashboard:abc123`. 
-- **SQL Scripting support**: Added support for [SQL Scripting](https://docs.databricks.com/aws/en/sql/language-manual/sql-ref-scripting)
-- **Metric View**: Added support for metric views in `GetColumns`, `GetTables` and `GetTableTypes` metadata calls.
-
 ### Updated
+- **Metric View**: Added support for metric views in `GetColumns`, `GetTables` and `GetTableTypes` metadata calls. Added `EnableMetricViewMetadata` url param to set corresponding spark session conf.
 
 ### Fixed
-- Fixed `DatabricksUCVolumeClient` delete to skip file path validation and remove redundant dependency on `VolumeOperationAllowedLocalPaths`.
+- Fixed timestamp values returning only milliseconds instead of the full nanosecond precision.
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 

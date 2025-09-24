@@ -1,7 +1,6 @@
 package com.databricks.jdbc.api.impl.volume;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_STAGING_INGESTION_PATHS;
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.ALLOWED_VOLUME_INGESTION_PATHS;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.VolumeOperationStatus;
@@ -48,7 +47,8 @@ public class VolumeOperationResult implements IExecutionResult {
       long totalColumns,
       IDatabricksSession session,
       IExecutionResult resultHandler,
-      IDatabricksStatementInternal statement) {
+      IDatabricksStatementInternal statement)
+      throws DatabricksSQLException {
     this.rowCount = totalRows;
     this.columnCount = totalColumns;
     this.session = session;
@@ -58,6 +58,7 @@ public class VolumeOperationResult implements IExecutionResult {
         DatabricksHttpClientFactory.getInstance()
             .getClient(session.getConnectionContext(), HttpClientType.VOLUME);
     this.currentRowIndex = -1;
+    completeVolumeOperation();
   }
 
   @VisibleForTesting
@@ -66,7 +67,8 @@ public class VolumeOperationResult implements IExecutionResult {
       IDatabricksSession session,
       IExecutionResult resultHandler,
       IDatabricksHttpClient httpClient,
-      IDatabricksStatementInternal statement) {
+      IDatabricksStatementInternal statement)
+      throws DatabricksSQLException {
     this.rowCount = manifest.getTotalRowCount();
     this.columnCount = manifest.getSchema().getColumnCount();
     this.session = session;
@@ -74,6 +76,7 @@ public class VolumeOperationResult implements IExecutionResult {
     this.statement = statement;
     this.httpClient = httpClient;
     this.currentRowIndex = -1;
+    completeVolumeOperation();
   }
 
   private void initHandler(IExecutionResult resultHandler) throws DatabricksSQLException {
@@ -83,6 +86,7 @@ public class VolumeOperationResult implements IExecutionResult {
     String localFile = columnCount > 3 ? getString(resultHandler.getObject(3)) : null;
     Map<String, String> headers = getHeaders(getString(resultHandler.getObject(2)));
     String allowedVolumeIngestionPaths = getAllowedVolumeIngestionPaths();
+    boolean volumeOperationsAllowed = isEnableVolumeOperations();
     this.volumeOperationProcessor =
         VolumeOperationProcessor.Builder.createBuilder()
             .operationType(operation)
@@ -92,6 +96,7 @@ public class VolumeOperationResult implements IExecutionResult {
             .allowedVolumeIngestionPathString(allowedVolumeIngestionPaths)
             .isAllowedInputStreamForVolumeOperation(
                 statement.isAllowedInputStreamForVolumeOperation())
+            .isEnableVolumeOperations(volumeOperationsAllowed)
             .inputStream(statement.getInputStreamForUCVolume())
             .databricksHttpClient(httpClient)
             .getStreamReceiver(
@@ -122,6 +127,16 @@ public class VolumeOperationResult implements IExecutionResult {
       allowedPaths = session.getConnectionContext().getVolumeOperationAllowedPaths();
     }
     return allowedPaths;
+  }
+
+  private boolean isEnableVolumeOperations() {
+    String enableVolumeOperations =
+        session.getClientInfoProperties().get(ENABLE_VOLUME_OPERATIONS.toLowerCase());
+    if (enableVolumeOperations == null) {
+      return false;
+    }
+    String value = enableVolumeOperations.trim();
+    return value.equalsIgnoreCase("true") || value.equals("1");
   }
 
   private String getString(Object obj) {
@@ -170,7 +185,12 @@ public class VolumeOperationResult implements IExecutionResult {
     if (columnIndex == 0) {
       return volumeOperationProcessor.getStatus().name();
     }
-    String errorMessage = (currentRowIndex < 0) ? "Invalid row access" : "Invalid column access";
+    String userMessage = (currentRowIndex < 0) ? "Invalid row access" : "Invalid column access";
+    String errorMessage =
+        String.format(
+            "%s, Row: %s, Column: %s, statementID %s",
+            userMessage, currentRowIndex, columnIndex, statement.getStatementId());
+    LOGGER.error(errorMessage);
     throw new DatabricksVolumeOperationException(
         errorMessage, DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);
   }
@@ -182,16 +202,21 @@ public class VolumeOperationResult implements IExecutionResult {
 
   @Override
   public boolean next() throws DatabricksSQLException {
-    if (hasNext()) {
+    if (currentRowIndex == -1) {
+      currentRowIndex++;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  private void completeVolumeOperation() throws DatabricksSQLException {
+    while (resultHandler.hasNext()) {
       validateMetadata();
       resultHandler.next();
       initHandler(resultHandler);
       volumeOperationProcessor.process();
       ensureSuccessVolumeProcessorStatus();
-      currentRowIndex++;
-      return true;
-    } else {
-      return false;
     }
   }
 
@@ -206,7 +231,7 @@ public class VolumeOperationResult implements IExecutionResult {
 
   @Override
   public boolean hasNext() {
-    return resultHandler.hasNext();
+    return currentRowIndex == -1;
   }
 
   @Override

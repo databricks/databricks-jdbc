@@ -16,10 +16,10 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
+import com.databricks.jdbc.model.core.ColumnInfo;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
-import com.databricks.sdk.service.sql.ColumnInfo;
-import com.databricks.sdk.service.sql.ColumnInfoTypeName;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
@@ -148,6 +148,9 @@ public class ArrowStreamResult implements IExecutionResult {
       Object result =
           chunkIterator.getColumnObjectAtCurrentRow(
               columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfos.get(columnIndex));
+      if (result == null) {
+        return null;
+      }
       ComplexDataTypeParser parser = new ComplexDataTypeParser();
       return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
     }

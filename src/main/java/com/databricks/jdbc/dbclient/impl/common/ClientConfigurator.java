@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -196,15 +197,22 @@ public class ClientConfigurator {
         .setAuthType(DatabricksJdbcConstants.U2M_AUTH_TYPE)
         .setHost(host)
         .setClientId(clientId)
+        .setOAuthBrowserAuthTimeout(
+            Duration.ofHours(1)) // TODO : add a browser timeout connection config
         .setClientSecret(connectionContext.getClientSecret())
         .setOAuthRedirectUrl(redirectUrl);
 
     LOGGER.info("Using OAuth redirect URL: {}", redirectUrl);
 
-    if (!databricksConfig.isAzure()) {
-      databricksConfig.setScopes(connectionContext.getOAuthScopesForU2M());
+    if (databricksConfig.isAzure()) {
+      LOGGER.debug("Using Azure U2M Auth");
+      databricksConfig.setCredentialsProvider(
+          new DatabricksTokenFederationProvider(
+              connectionContext,
+              new AzureExternalBrowserProvider(connectionContext, redirectPort)));
+      return;
     }
-
+    databricksConfig.setScopes(connectionContext.getOAuthScopesForU2M());
     TokenCache tokenCache;
     if (connectionContext.isTokenCacheEnabled()) {
       if (connectionContext.getTokenCachePassPhrase() == null) {
@@ -232,7 +240,7 @@ public class ClientConfigurator {
    * @return The first available port
    * @throws DatabricksException if no available port is found
    */
-  int findAvailablePort(List<Integer> initialPorts) {
+  public int findAvailablePort(List<Integer> initialPorts) {
     List<Integer> portsToTry;
 
     // If single port provided, generate sequence of ports to try

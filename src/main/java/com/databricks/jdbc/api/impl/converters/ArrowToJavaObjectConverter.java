@@ -12,8 +12,8 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.sdk.service.sql.ColumnInfo;
-import com.databricks.sdk.service.sql.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ColumnInfo;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Date;
@@ -172,10 +172,8 @@ public class ArrowToJavaObjectConverter {
       // timestamp_ntz result is returned as local date time
       return Timestamp.valueOf((LocalDateTime) object);
     }
-    // Divide by 1000 since we need to convert from microseconds to milliseconds.
-    Instant instant =
-        Instant.ofEpochMilli(
-            object instanceof Integer ? ((int) object) / 1000 : ((long) object) / 1000);
+    long timeMicros = object instanceof Integer ? ((int) object) : ((long) object);
+    Instant instant = Instant.ofEpochSecond(timeMicros / 1000_000, (timeMicros % 1000_000) * 1000);
     ZoneId zoneId = getZoneIdFromTimeZoneOpt(timeZoneOpt);
     LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, zoneId);
     return Timestamp.valueOf(localDateTime);

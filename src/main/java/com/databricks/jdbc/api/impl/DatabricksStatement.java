@@ -692,6 +692,14 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     return SELECT_PATTERN.matcher(trimmedQuery).find();
   }
 
+  static boolean isInsertQuery(String query) {
+    if (query == null || query.trim().isEmpty()) {
+      return false;
+    }
+    String trimmedQuery = trimCommentsAndWhitespaces(query);
+    return INSERT_PATTERN.matcher(trimmedQuery).find();
+  }
+
   DatabricksResultSet executeInternal(
       String sql,
       Map<Integer, ImmutableSqlParameter> params,

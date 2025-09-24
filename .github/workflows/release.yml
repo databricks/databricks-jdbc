@@ -32,7 +32,9 @@ jobs:
           gpg-connect-agent reloadagent /bye
 
       - name: Publish to the Maven Central Repository
-        run: mvn -Prelease --batch-mode deploy -Dnvd.api.key=${{ secrets.NVD_API_KEY }}
+        run: |
+          # Deploy main artifacts (uber JAR, sources, javadoc)
+          mvn -Prelease --batch-mode deploy -Dnvd.api.key=${{ secrets.NVD_API_KEY }}
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
@@ -41,4 +43,8 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
         with:
-          files: target/*.jar
+          files: |
+            target/databricks-jdbc-*-oss.jar
+            target/databricks-jdbc-*-sources.jar
+            target/databricks-jdbc-*-javadoc.jar
+          fail_on_unmatched_files: false
