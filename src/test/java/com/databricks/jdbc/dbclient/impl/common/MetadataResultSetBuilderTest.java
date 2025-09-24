@@ -478,4 +478,44 @@ public class MetadataResultSetBuilderTest {
     }
     assertEquals(2, rowCount);
   }
+
+  @Test
+  void testGetTableTypesResultWithMetricViewEnabled() throws SQLException {
+    // Test when EnableMetricViewMetadata=true
+    when(connectionContext.getEnableMetricViewMetadata()).thenReturn(true);
+
+    DatabricksResultSet resultSet = metadataResultSetBuilder.getTableTypesResult();
+
+    // Verify we get 4 table types including METRIC_VIEW
+    List<String> tableTypes = new ArrayList<>();
+    while (resultSet.next()) {
+      tableTypes.add(resultSet.getString("TABLE_TYPE"));
+    }
+
+    assertEquals(4, tableTypes.size());
+    assertTrue(tableTypes.contains("SYSTEM TABLE"));
+    assertTrue(tableTypes.contains("TABLE"));
+    assertTrue(tableTypes.contains("VIEW"));
+    assertTrue(tableTypes.contains("METRIC_VIEW"));
+  }
+
+  @Test
+  void testGetTableTypesResultWithMetricViewDisabled() throws SQLException {
+    // Test when EnableMetricViewMetadata=false
+    when(connectionContext.getEnableMetricViewMetadata()).thenReturn(false);
+
+    DatabricksResultSet resultSet = metadataResultSetBuilder.getTableTypesResult();
+
+    // Verify we get 3 table types without METRIC_VIEW
+    List<String> tableTypes = new ArrayList<>();
+    while (resultSet.next()) {
+      tableTypes.add(resultSet.getString("TABLE_TYPE"));
+    }
+
+    assertEquals(3, tableTypes.size());
+    assertTrue(tableTypes.contains("SYSTEM TABLE"));
+    assertTrue(tableTypes.contains("TABLE"));
+    assertTrue(tableTypes.contains("VIEW"));
+    assertFalse(tableTypes.contains("METRIC_VIEW"));
+  }
 }

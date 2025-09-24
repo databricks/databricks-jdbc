@@ -94,9 +94,16 @@ public class MetadataResultSetBuilder {
   }
 
   public DatabricksResultSet getTableTypesResult() {
+    List<List<Object>> tableTypesRows =
+        ctx.getEnableMetricViewMetadata()
+            ? TABLE_TYPES_ROWS
+            : TABLE_TYPES_ROWS.stream()
+                .filter(row -> !"METRIC_VIEW".equals(row.get(0)))
+                .collect(Collectors.toList());
+
     return buildResultSet(
         TABLE_TYPE_COLUMNS,
-        TABLE_TYPES_ROWS,
+        tableTypesRows,
         GET_TABLE_TYPE_STATEMENT_ID,
         CommandName.LIST_TABLE_TYPES);
   }
