@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
@@ -197,11 +198,17 @@ public class DatabricksMetadataSdkClientTest {
 
   @Test
   void testListTableTypes() throws SQLException {
+    // Mock the connection context for the table types test
+    IDatabricksConnectionContext mockConnectionContext =
+        org.mockito.Mockito.mock(IDatabricksConnectionContext.class);
+    when(mockConnectionContext.getEnableMetricViewMetadata()).thenReturn(false);
+    when(mockClient.getConnectionContext()).thenReturn(mockConnectionContext);
+
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     DatabricksResultSet actualResult = metadataClient.listTableTypes(session);
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
     assertEquals(actualResult.getStatementId(), GET_TABLE_TYPE_STATEMENT_ID);
-    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 4);
+    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 3);
   }
 
   @ParameterizedTest

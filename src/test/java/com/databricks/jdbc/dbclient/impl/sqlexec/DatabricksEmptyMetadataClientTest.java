@@ -1,19 +1,29 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 public class DatabricksEmptyMetadataClientTest {
 
   @Mock private IDatabricksSession session;
   @Mock private IDatabricksConnectionContext ctx;
-  private final DatabricksEmptyMetadataClient mockClient = new DatabricksEmptyMetadataClient(ctx);
+  private DatabricksEmptyMetadataClient mockClient;
+
+  @BeforeEach
+  void setUp() {
+    mockClient = new DatabricksEmptyMetadataClient(ctx);
+  }
 
   @Test
   void testListTypeInfo() throws SQLException {
@@ -60,6 +70,8 @@ public class DatabricksEmptyMetadataClientTest {
 
   @Test
   void testListTableTypes() throws SQLException {
+    when(ctx.getEnableMetricViewMetadata()).thenReturn(false);
+
     ResultSet resultSet = mockClient.listTableTypes(session);
     assertNotNull(resultSet);
     assertEquals(resultSet.getMetaData().getColumnCount(), 1);

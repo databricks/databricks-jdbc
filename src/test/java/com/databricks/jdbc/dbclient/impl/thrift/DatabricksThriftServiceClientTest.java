@@ -390,12 +390,15 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListTableTypes() throws SQLException {
+    // Mock connection context to disable metric view metadata by default
+    when(connectionContext.getEnableMetricViewMetadata()).thenReturn(false);
+
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     DatabricksResultSet actualResult = client.listTableTypes(session);
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
     assertEquals(actualResult.getStatementId(), GET_TABLE_TYPE_STATEMENT_ID);
-    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 4);
+    assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 3);
   }
 
   @Test
