@@ -88,7 +88,7 @@ public class RetryUtils {
    * @param request the HTTP request that was being executed when the exception occurred
    * @throws DatabricksHttpException standardized exception with appropriate error code
    */
-  static void throwHttpException(Exception e, HttpUriRequest request)
+  static void throwDatabricksHttpException(Exception e, HttpUriRequest request)
       throws DatabricksHttpException {
     Throwable cause = e;
     while (cause != null) {

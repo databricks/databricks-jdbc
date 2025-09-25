@@ -85,7 +85,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     try {
       return httpClient.execute(request);
     } catch (IOException e) {
-      RetryUtils.throwHttpException(e, request);
+      RetryUtils.throwDatabricksHttpException(e, request);
     }
     return null;
   }
@@ -143,7 +143,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
             requestType,
             e.getMessage());
         if (!retryTimeoutManager.evaluateRetryDecisionForException(strategy, e, retryDelayMillis)) {
-          RetryUtils.throwHttpException(e, request);
+          RetryUtils.throwDatabricksHttpException(e, request);
         }
       }
 
