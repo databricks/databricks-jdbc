@@ -15,10 +15,7 @@ import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
-import com.databricks.jdbc.exception.DatabricksHttpException;
-import com.databricks.jdbc.exception.DatabricksParsingException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -27,7 +24,6 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
-import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -51,13 +47,15 @@ final class DatabricksThriftAccessor {
       TExecuteStatementResp._Fields.OPERATION_HANDLE.getThriftFieldId();
   private static final short statusFieldId =
       TExecuteStatementResp._Fields.STATUS.getThriftFieldId();
-  private final ThreadLocal<TCLIService.Client> thriftClient;
   private final DatabricksConfig databricksConfig;
   private final boolean enableDirectResults;
   private final int asyncPollIntervalMillis;
   private final int maxRowsPerBlock;
   private final String connectionUuid;
+  private final String endpointUrl;
+  private final IDatabricksConnectionContext connectionContext;
   private TProtocolVersion serverProtocolVersion = JDBC_THRIFT_VERSION;
+  private ThreadLocal<TCLIService.Client> FAKE_SHARED_CLIENT;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException {
@@ -66,33 +64,15 @@ final class DatabricksThriftAccessor {
         DatabricksClientConfiguratorManager.getInstance()
             .getConfigurator(connectionContext)
             .getDatabricksConfig();
-    String endPointUrl = connectionContext.getEndpointURL();
+    this.endpointUrl = connectionContext.getEndpointURL();
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
     this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
     this.connectionUuid = connectionContext.getConnectionUuid();
-
-    if (!DriverUtil.isRunningAgainstFake()) {
-      // Create a new thrift client for each thread as client state is not thread safe. Note that
-      // the underlying protocol uses the same http client which is thread safe
-      this.thriftClient =
-          ThreadLocal.withInitial(
-              () -> createThriftClient(endPointUrl, databricksConfig, connectionContext));
-    } else {
-      TCLIService.Client client =
-          createThriftClient(endPointUrl, databricksConfig, connectionContext);
-      this.thriftClient = ThreadLocal.withInitial(() -> client);
+    this.connectionContext = connectionContext;
+    if (DriverUtil.isRunningAgainstFake()) {
+      TCLIService.Client client = newThriftClient();
+      this.FAKE_SHARED_CLIENT = ThreadLocal.withInitial(() -> client);
     }
-  }
-
-  @VisibleForTesting
-  DatabricksThriftAccessor(
-      TCLIService.Client client, IDatabricksConnectionContext connectionContext) {
-    this.databricksConfig = null;
-    this.thriftClient = ThreadLocal.withInitial(() -> client);
-    this.enableDirectResults = connectionContext.getDirectResultMode();
-    this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
-    this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
-    this.connectionUuid = connectionContext.getConnectionUuid();
   }
 
   @SuppressWarnings("rawtypes")
@@ -491,10 +471,6 @@ final class DatabricksThriftAccessor {
         executionStatus, statementId, resultSet, StatementType.SQL, parentStatement, session);
   }
 
-  TCLIService.Client getThriftClient() {
-    return thriftClient.get();
-  }
-
   DatabricksConfig getDatabricksConfig() {
     return databricksConfig;
   }
@@ -602,25 +578,22 @@ final class DatabricksThriftAccessor {
     return fetchMetadataResults(response, response.toString());
   }
 
-  /**
-   * Creates a new thrift client for the given endpoint URL and authentication headers.
-   *
-   * @param endPointUrl endpoint URL
-   * @param databricksConfig SDK config object required for authentication headers
-   */
-  private TCLIService.Client createThriftClient(
-      String endPointUrl,
-      DatabricksConfig databricksConfig,
-      IDatabricksConnectionContext connectionContext) {
+  /** Creates a new thrift client for the given endpoint URL and authentication headers. */
+  TCLIService.Client getThriftClient() {
+    if (DriverUtil.isRunningAgainstFake()) {
+      return FAKE_SHARED_CLIENT.get();
+    }
+    return newThriftClient();
+  }
+
+  private TCLIService.Client newThriftClient() {
     DatabricksHttpTTransport transport =
         new DatabricksHttpTTransport(
             DatabricksHttpClientFactory.getInstance().getClient(connectionContext),
-            endPointUrl,
+            endpointUrl,
             databricksConfig,
             connectionContext);
-    TBinaryProtocol protocol = new TBinaryProtocol(transport);
-
-    return new TCLIService.Client(protocol);
+    return new TCLIService.Client(new TBinaryProtocol(transport));
   }
 
   /**

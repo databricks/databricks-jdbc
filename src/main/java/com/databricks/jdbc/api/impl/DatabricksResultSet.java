@@ -1394,9 +1394,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       useCal.set(Calendar.HOUR_OF_DAY, ldt.getHour());
       useCal.set(Calendar.MINUTE, ldt.getMinute());
       useCal.set(Calendar.SECOND, ldt.getSecond());
-      useCal.set(Calendar.MILLISECOND, timestamp.getNanos() / 1_000_000);
+      useCal.set(Calendar.MILLISECOND, 0);
 
-      return new Timestamp(useCal.getTimeInMillis());
+      var ts = new Timestamp(useCal.getTimeInMillis());
+      ts.setNanos(timestamp.getNanos());
+      return ts;
     }
     return timestamp;
   }

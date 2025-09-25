@@ -124,6 +124,20 @@ public class ComplexDataTypeParser {
     if (expectedType.startsWith(DatabricksTypeUtil.MAP)) {
       return parseToMap(node, expectedType);
     }
+    if (expectedType.equalsIgnoreCase(DatabricksTypeUtil.VARIANT)) {
+      // For VARIANT, the node contains escaped JSON string, we need to unescape it
+      // node.asText() gives us the content: "{\"nestedKey\":\"nestedValue\"}"
+      // We want to return: {"nestedKey":"nestedValue"}
+      String jsonText = node.asText();
+      try {
+        // Parse and re-serialize to unescape the JSON
+        return JsonUtil.getMapper().readTree(jsonText);
+      } catch (Exception e) {
+        // If parsing fails, return the original text
+        LOGGER.error(e, "Failed to parse VARIANT: {}", jsonText);
+        return jsonText;
+      }
+    }
     return convertPrimitive(node.asText(), expectedType);
   }
 

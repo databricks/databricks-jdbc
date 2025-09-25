@@ -172,10 +172,8 @@ public class ArrowToJavaObjectConverter {
       // timestamp_ntz result is returned as local date time
       return Timestamp.valueOf((LocalDateTime) object);
     }
-    // Divide by 1000 since we need to convert from microseconds to milliseconds.
-    Instant instant =
-        Instant.ofEpochMilli(
-            object instanceof Integer ? ((int) object) / 1000 : ((long) object) / 1000);
+    long timeMicros = object instanceof Integer ? ((int) object) : ((long) object);
+    Instant instant = Instant.ofEpochSecond(timeMicros / 1000_000, (timeMicros % 1000_000) * 1000);
     ZoneId zoneId = getZoneIdFromTimeZoneOpt(timeZoneOpt);
     LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, zoneId);
     return Timestamp.valueOf(localDateTime);
