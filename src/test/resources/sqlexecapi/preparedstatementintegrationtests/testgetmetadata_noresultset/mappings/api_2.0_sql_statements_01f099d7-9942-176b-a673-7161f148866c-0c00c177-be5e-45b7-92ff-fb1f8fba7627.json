@@ -1,0 +1,29 @@
+{
+  "id" : "0c00c177-be5e-45b7-92ff-fb1f8fba7627",
+  "name" : "api_2.0_sql_statements_01f099d7-9942-176b-a673-7161f148866c",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/01f099d7-9942-176b-a673-7161f148866c",
+    "method" : "DELETE"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{}",
+    "headers" : {
+      "x-request-id" : "d90b8bb9-5898-4013-aba2-3d02a79f2025",
+      "date" : "Thu, 25 Sep 2025 06:19:43 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "server-timing" : "request_id;dur=0;desc=\"d90b8bb9-5898-4013-aba2-3d02a79f2025\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "0c00c177-be5e-45b7-92ff-fb1f8fba7627",
+  "insertionIndex" : 41
+}

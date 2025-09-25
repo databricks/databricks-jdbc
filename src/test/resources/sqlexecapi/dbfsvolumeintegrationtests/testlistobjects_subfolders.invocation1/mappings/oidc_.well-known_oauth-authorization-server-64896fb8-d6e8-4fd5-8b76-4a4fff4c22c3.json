@@ -1,0 +1,33 @@
+{
+  "id" : "64896fb8-d6e8-4fd5-8b76-4a4fff4c22c3",
+  "name" : "oidc_.well-known_oauth-authorization-server",
+  "request" : {
+    "url" : "/oidc/.well-known/oauth-authorization-server",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"authorization_endpoint\":\"https:\\/\\/e2-dogfood.staging.cloud.databricks.com\\/oidc\\/v1\\/authorize\",\"token_endpoint\":\"https:\\/\\/e2-dogfood.staging.cloud.databricks.com\\/oidc\\/v1\\/token\",\"issuer\":\"https:\\/\\/e2-dogfood.staging.cloud.databricks.com\\/oidc\",\"jwks_uri\":\"https:\\/\\/oregon.staging.cloud.databricks.com\\/oidc\\/jwks.json\",\"scopes_supported\":[\"all-apis\",\"apps.apps\",\"catalog.artifact-allowlists\",\"catalog.catalogs\",\"catalog.connections\",\"catalog.credentials\",\"catalog.entity-tag-assignments\",\"catalog.external-lineage\",\"catalog.external-locations\",\"catalog.external-metadata\",\"catalog.functions\",\"catalog.grants\",\"catalog.metastores\",\"catalog.model-versions\",\"catalog.online-tables\",\"catalog.policies\",\"catalog.quality-monitors\",\"catalog.registered-models\",\"catalog.resource-quotas\",\"catalog.rfa\",\"catalog.schemas\",\"catalog.storage-credentials\",\"catalog.system-schemas\",\"catalog.table-constraints\",\"catalog.tables\",\"catalog.temporary-path-credentials\",\"catalog.temporary-table-credentials\",\"catalog.volumes\",\"catalog.workspace-bindings\",\"cleanrooms.clean-room-asset-revisions\",\"cleanrooms.clean-room-assets\",\"cleanrooms.clean-room-auto-approval-rules\",\"cleanrooms.clean-room-task-runs\",\"cleanrooms.clean-rooms\",\"compute.cluster-policies\",\"compute.clusters\",\"compute.command-execution\",\"compute.global-init-scripts\",\"compute.instance-pools\",\"compute.instance-profiles\",\"compute.libraries\",\"compute.policy-compliance-for-clusters\",\"compute.policy-families\",\"dashboards.genie\",\"dashboards.lakeview\",\"dashboards.lakeview-embedded\",\"database.database\",\"email\",\"files.dbfs\",\"files.files\",\"iam.account-access-control-proxy\",\"iam.current-user\",\"iam.groups\",\"iam.permissions\",\"iam.service-principals\",\"iam.users\",\"iamv2.iam\",\"jobs.jobs\",\"jobs.policy-compliance-for-jobs\",\"marketplace.consumer-fulfillments\",\"marketplace.consumer-installations\",\"marketplace.consumer-listings\",\"marketplace.consumer-personalization-requests\",\"marketplace.consumer-providers\",\"marketplace.provider-exchange-filters\",\"marketplace.provider-exchanges\",\"marketplace.provider-files\",\"marketplace.provider-listings\",\"marketplace.provider-personalization-requests\",\"marketplace.provider-provider-analytics-dashboards\",\"marketplace.provider-providers\",\"mcp.external\",\"mcp.functions\",\"mcp.genie\",\"mcp.sql\",\"mcp.vectorsearch\",\"ml.experiments\",\"ml.model-registry\",\"oauth2.service-principal-secrets-proxy\",\"offline_access\",\"openid\",\"pipelines.pipelines\",\"profile\",\"qualitymonitorv2.quality-monitor\",\"serving.serving-endpoints\",\"settings.aibi-dashboard-embedding-access-policy\",\"settings.aibi-dashboard-embedding-approved-domains\",\"settings.automatic-cluster-update\",\"settings.compliance-security-profile\",\"settings.dashboard-email-subscriptions\",\"settings.default-namespace\",\"settings.disable-legacy-access\",\"settings.disable-legacy-dbfs\",\"settings.enable-export-notebook\",\"settings.enable-notebook-table-clipboard\",\"settings.enable-results-downloading\",\"settings.enhanced-security-monitoring\",\"settings.ip-access-lists\",\"settings.notification-destinations\",\"settings.restrict-workspace-admins\",\"settings.sql-results-download\",\"settings.token-management\",\"settings.tokens\",\"settings.workspace-conf\",\"settingsv2.settings\",\"sharing.providers\",\"sharing.recipient-activation\",\"sharing.recipients\",\"sharing.shares\",\"sql\",\"sql.alerts\",\"sql.alerts-legacy\",\"sql.alerts-v2\",\"sql.dashboards\",\"sql.data-sources\",\"sql.dbsql-permissions\",\"sql.driver\",\"sql.queries\",\"sql.queries-legacy\",\"sql.query-history\",\"sql.statement-execution\",\"sql.warehouses\",\"tags.tag-policies\",\"vectorsearch.vector-search-endpoints\",\"vectorsearch.vector-search-indexes\",\"workspace.git-credentials\",\"workspace.repos\",\"workspace.secrets\",\"workspace.workspace\"],\"response_types_supported\":[\"code\",\"id_token\"],\"response_modes_supported\":[\"query\",\"fragment\",\"form_post\"],\"grant_types_supported\":[\"client_credentials\",\"authorization_code\",\"refresh_token\"],\"code_challenge_methods_supported\":[\"S256\"],\"token_endpoint_auth_methods_supported\":[\"client_secret_basic\",\"client_secret_post\",\"none\"],\"subject_types_supported\":[\"public\"],\"id_token_signing_alg_values_supported\":[\"RS256\"],\"claims_supported\":[\"iss\",\"sub\",\"aud\",\"iat\",\"exp\",\"jti\",\"name\",\"family_name\",\"given_name\",\"preferred_username\"],\"request_uri_parameter_supported\":false}",
+    "headers" : {
+      "x-request-id" : "2dff0a69-91b2-4acf-8834-9b198d7b53b1",
+      "date" : "Thu, 25 Sep 2025 06:24:17 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "access-control-allow-headers" : "Content-Type",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "access-control-allow-methods" : "GET",
+      "access-control-allow-origin" : "*",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json; charset=UTF-8",
+      "server-timing" : "request_id;dur=0;desc=\"2dff0a69-91b2-4acf-8834-9b198d7b53b1\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "64896fb8-d6e8-4fd5-8b76-4a4fff4c22c3",
+  "insertionIndex" : 245
+}
