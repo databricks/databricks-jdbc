@@ -28,8 +28,8 @@ public class RetryUtils {
   private static final Random RANDOM = new Random();
   private static final IRetryStrategy IDEMPOTENT_STRATEGY = new IdempotentRetryStrategy();
   private static final IRetryStrategy NON_IDEMPOTENT_STRATEGY = new NonIdempotentRetryStrategy();
-  public static final long REQUEST_TIMEOUT_SECONDS = 10;
-  public static final long REQUEST_EXCEPTION_TIMEOUT_SECONDS = 10;
+  public static final long REQUEST_TIMEOUT_SECONDS = 900;
+  public static final long REQUEST_EXCEPTION_TIMEOUT_SECONDS = 900;
 
   /**
    * Calculates exponential backoff delay based on execution count.

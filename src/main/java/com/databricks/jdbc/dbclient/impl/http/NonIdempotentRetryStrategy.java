@@ -43,7 +43,7 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
       return Optional.empty();
     }
 
-    return retryAfterHeader; // Should not reach here based on isStatusCodeRetriable logic
+    return retryAfterHeader;
   }
 
   @Override

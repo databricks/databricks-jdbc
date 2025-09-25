@@ -8,8 +8,8 @@ import java.util.Set;
 import org.apache.http.HttpStatus;
 
 /**
- * Retry strategy for idempotent requests - retries all codes except specific client errors. Always
- * uses exponential backoff and ignores Retry-After headers.
+ * Retry strategy for idempotent requests - retries all codes except specific client errors. Follow
+ * Retry-After header, if it is not present then use exponential backoff.
  */
 public class IdempotentRetryStrategy implements IRetryStrategy {
 

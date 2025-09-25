@@ -111,16 +111,19 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
     RetryTimeoutManager retryTimeoutManager = new RetryTimeoutManager(connectionContext);
 
-    for (int attempt = 0; ; attempt++) {
+    int retryAttempt = 0;
+
+    while (true) {
       // follow exponential backoff if executing the request throws IOException
-      int retryDelayMillis = RetryUtils.calculateExponentialBackoff(attempt);
+      int retryDelayMillis = RetryUtils.calculateExponentialBackoff(retryAttempt);
       try {
         CloseableHttpResponse response = httpClient.execute(request);
         int statusCode = response.getStatusLine().getStatusCode();
         Optional<Integer> retryAfterHeader = RetryUtils.extractRetryAfterHeader(response);
         // Get retry delay from strategy
         Optional<Integer> retryDelay =
-            strategy.retryRequestAfter(statusCode, retryAfterHeader, attempt, connectionContext);
+            strategy.retryRequestAfter(
+                statusCode, retryAfterHeader, retryAttempt, connectionContext);
         if (!retryTimeoutManager.evaluateRetryDecisionForResponse(statusCode, retryDelay)) {
           return response;
         }
@@ -128,7 +131,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         String errorReason = response.getStatusLine().getReasonPhrase();
         LOGGER.error(
             "Retry failure on attempt {}. HTTP response code: {}, Error Message: {}",
-            attempt,
+            retryAttempt,
             statusCode,
             errorReason);
 
@@ -136,7 +139,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       } catch (Exception e) {
         LOGGER.error(
             "Exception on attempt {} for {}: error message {}",
-            attempt,
+            retryAttempt,
             requestType,
             e.getMessage());
         if (!retryTimeoutManager.evaluateRetryDecisionForException(strategy, e, retryDelayMillis)) {
@@ -150,6 +153,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         Thread.currentThread().interrupt();
         throw new RuntimeException("Thread interrupted during retry", e);
       }
+      retryAttempt++;
     }
   }
 
