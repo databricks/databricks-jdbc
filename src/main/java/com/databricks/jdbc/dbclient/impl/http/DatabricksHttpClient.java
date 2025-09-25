@@ -130,7 +130,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
         retryDelayMillis = retryDelay.get();
         String errorReason = response.getStatusLine().getReasonPhrase();
         LOGGER.error(
-            "Retry failure on attempt {}. HTTP response code: {}, Error Message: {}",
+            "Failure on attempt {}. HTTP response code: {}, Error Message: {}",
             retryAttempt,
             statusCode,
             errorReason);

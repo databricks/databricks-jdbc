@@ -35,7 +35,8 @@ public class RetryUtils {
    * Calculates exponential backoff delay based on execution count.
    *
    * @param executionCount the number of retries that have been attempted (0-based)
-   * @return the backoff delay in milliseconds, capped at MAX_RETRY_INTERVAL
+   * @return the backoff delay with jitter in milliseconds, capped at MAX_RETRY_INTERVAL(without
+   *     jitter)
    */
   public static int calculateExponentialBackoff(int executionCount) {
     return addJitter(
