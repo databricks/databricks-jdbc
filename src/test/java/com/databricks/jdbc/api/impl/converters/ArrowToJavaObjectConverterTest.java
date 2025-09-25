@@ -227,7 +227,7 @@ public class ArrowToJavaObjectConverterTest {
 
   @Test
   public void testTimestampNTZConversion() throws SQLException {
-    long timestamp = 1704054600000000L;
+    long timestamp = 1704054601234567L;
 
     TimeStampMicroVector timestampMicroVector =
         new TimeStampMicroVector("timestampMicroVector", this.bufferAllocator);
@@ -384,7 +384,7 @@ public class ArrowToJavaObjectConverterTest {
 
   @Test
   public void testTimestampConversion() throws SQLException {
-    long timestamp = 1704054600000000L;
+    long timestamp = 1704054601234567L;
     String timeZone = "Asia/Tokyo";
     TimeStampMicroTZVector timeStampMicroTZVector =
         new TimeStampMicroTZVector("timeStampMicroTzVector", this.bufferAllocator, timeZone);
@@ -401,7 +401,9 @@ public class ArrowToJavaObjectConverterTest {
   private static Timestamp getTimestampAdjustedToTimeZone(long timestampMicro, String timeZone) {
     Instant instant = Instant.ofEpochMilli(timestampMicro / 1000);
     LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.of(timeZone));
-    return Timestamp.valueOf(localDateTime);
+    var ts = Timestamp.valueOf(localDateTime);
+    ts.setNanos((int) (timestampMicro % 1000_000) * 1000);
+    return ts;
   }
 
   @Test

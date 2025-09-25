@@ -6,7 +6,9 @@ on:
 
 jobs:
   freeze-check:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
 
     steps:
       - name: Check out repository
@@ -14,6 +16,21 @@ jobs:
 
       - name: Set up jq
         run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Fetch PR message
+        id: pr-message
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Use the GitHub API to fetch the PR message
+          pr_message=$(gh pr view ${{ github.event.pull_request.number }} --json body -q '.body')
+          
+          # Sanitize the PR message to avoid code injection, keeping the equal sign
+          sanitized_pr_message=$(echo "$pr_message" | sed 's/[^a-zA-Z0-9._/-=]/_/g')
+          
+          # Store the sanitized PR message
+          echo "$sanitized_pr_message" > pr_message.txt
+          echo "$sanitized_pr_message"
 
       - name: Enforce branch freeze logic
         shell: bash
@@ -23,6 +40,14 @@ jobs:
         run: |
           CONFIG_FILE="development/.release-freeze.json"
 
+          # 1. Check for explicit override flag in PR message
+          pr_message=$(cat pr_message.txt)
+          if echo "$pr_message" | grep -q "OVERRIDE_FREEZE=true"; then
+            echo "✅ OVERRIDE_FREEZE=true found in PR message. Freeze override permitted."
+            exit 0
+          fi
+
+          # 2. Proceed with freeze checks
           if [[ ! -f "$CONFIG_FILE" ]]; then
             echo "✅ No release config file - passing check."
             exit 0
@@ -35,26 +60,7 @@ jobs:
             exit 0
           fi
 
-          ALLOW_LIST=( $(jq -r '.allow_list[]' "$CONFIG_FILE") )
-
-          BRANCH="$PR_BRANCH"
-          ALLOWED=0
-
-          # Check for exact branch name in allow_list
-          for ENTRY in $(jq -r '.allow_list[]' "$CONFIG_FILE"); do
-            if [[ "$BRANCH" == "$ENTRY" ]]; then
-              ALLOWED=1
-              break
-            fi
-          done
-
-          if [[ "$ALLOWED" == "1" ]]; then
-            echo "✅ Branch '$BRANCH' is in allow_list. Passing check."
-            exit 0
-          else
-            echo "❌ Release freeze is ACTIVE!"
-            REASON=$(jq -r '.reason' "$CONFIG_FILE")
-            echo "Reason: $REASON"
-            echo "Branch '$BRANCH' is NOT permitted to merge under current freeze rules."
-            exit 1
-          fi
+          # 3. Freeze is ON and no override flag. Block PR.
+          echo "Release freeze is ACTIVE! Branch '${PR_BRANCH}' is NOT permitted to merge."
+          echo "To override, add OVERRIDE_FREEZE=true to your PR description."
+          exit 1
