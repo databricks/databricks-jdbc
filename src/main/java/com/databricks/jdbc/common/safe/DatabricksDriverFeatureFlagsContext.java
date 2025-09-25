@@ -68,7 +68,7 @@ public class DatabricksDriverFeatureFlagsContext {
     scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
   }
 
-  private synchronized void scheduleOrRescheduleRefresh(int ttlSeconds) {
+  private void scheduleOrRescheduleRefresh(int ttlSeconds) {
     this.refreshIntervalSeconds = ttlSeconds > 0 ? ttlSeconds : DEFAULT_TTL_SECONDS;
     if (scheduler.isShutdown()) {
       return;

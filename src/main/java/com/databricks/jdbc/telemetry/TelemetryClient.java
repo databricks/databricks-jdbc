@@ -115,7 +115,8 @@ public class TelemetryClient implements ITelemetryClient {
       // This makes the close() operation robust.
       // The `get()` method will block until the task is complete (or fails), making the close()
       // method synchronous.
-      LOGGER.debug("Caught error while performing final synchronous flush. Error: {}", e);
+      LOGGER.trace(
+          "Caught error while performing final synchronous flush for telemetry. Error: {}", e);
     }
 
     // Cancel the scheduled periodic flush task
@@ -131,6 +132,7 @@ public class TelemetryClient implements ITelemetryClient {
         scheduledExecutorService.shutdownNow();
       }
     } catch (InterruptedException ie) {
+      LOGGER.trace("Interrupted while waiting for flush to finish. Error: {}", ie);
       Thread.currentThread().interrupt();
       scheduledExecutorService.shutdownNow();
     }

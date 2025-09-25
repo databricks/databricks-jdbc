@@ -33,7 +33,7 @@ public class DatabricksDriverFeatureFlagsContextFactory {
                     new DatabricksDriverFeatureFlagsContext(context), 1);
               }
               // Additional reference for the same compute
-              existing.refCount++;
+              existing.refCount.incrementAndGet();
               return existing;
             });
     return holder.context;
@@ -51,12 +51,12 @@ public class DatabricksDriverFeatureFlagsContextFactory {
           key,
           (k, holder) -> {
             // Last reference being removed: shutdown and remove entry
-            if (holder.refCount <= 1) {
+            if (holder.refCount.get() <= 1) {
               holder.context.shutdown();
               return null;
             }
             // Still referenced elsewhere: just decrement
-            holder.refCount--;
+            holder.refCount.decrementAndGet();
             return holder;
           });
     }
