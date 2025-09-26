@@ -25,7 +25,7 @@ public enum RequestType {
     this.retryPolicy = retryPolicy;
   }
 
-  public RetryPolicy getRequestRetryability() {
+  public RetryPolicy getRetryPolicy() {
     return retryPolicy;
   }
 }

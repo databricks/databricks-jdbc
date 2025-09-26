@@ -115,7 +115,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
     while (true) {
       // follow exponential backoff if executing the request throws IOException
-      int retryDelayMillis = RetryUtils.calculateExponentialBackoff(retryAttempt);
+      int retryDelayMillis;
       try {
         CloseableHttpResponse response = httpClient.execute(request);
         int statusCode = response.getStatusLine().getStatusCode();
@@ -137,6 +137,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
         response.close();
       } catch (Exception e) {
+        retryDelayMillis = RetryUtils.calculateExponentialBackoff(retryAttempt);
         LOGGER.error(
             "Exception on attempt {} for {}: error message {}",
             retryAttempt,

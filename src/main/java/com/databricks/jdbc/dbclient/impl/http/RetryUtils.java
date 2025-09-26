@@ -108,7 +108,7 @@ public class RetryUtils {
 
   // Helper method to get retry strategy based on request type idempotency
   public static IRetryStrategy getRetryStrategy(RequestType requestType) {
-    RetryPolicy retryability = requestType.getRequestRetryability();
-    return (retryability == RetryPolicy.IDEMPOTENT) ? IDEMPOTENT_STRATEGY : NON_IDEMPOTENT_STRATEGY;
+    RetryPolicy retryPolicy = requestType.getRetryPolicy();
+    return (retryPolicy == RetryPolicy.IDEMPOTENT) ? IDEMPOTENT_STRATEGY : NON_IDEMPOTENT_STRATEGY;
   }
 }
