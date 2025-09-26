@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
-- Added support for direct results in SEA mode (used by default)
+- Enabled direct results by default in SEA mode to improve latency for short and small queries.
 ### Updated
 
 ### Fixed
