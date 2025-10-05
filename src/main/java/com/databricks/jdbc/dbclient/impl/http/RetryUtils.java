@@ -32,19 +32,22 @@ public class RetryUtils {
   public static final long REQUEST_EXCEPTION_TIMEOUT_SECONDS = 900;
 
   /**
-   * Calculates exponential backoff delay based on execution count.
+   * Calculates exponential backoff delay based on execution count with jitter to avoid thundering
+   * herd problem.
    *
    * @param executionCount the number of retries that have been attempted (0-based)
    * @return the backoff delay with jitter in milliseconds, capped at MAX_RETRY_INTERVAL(without
    *     jitter)
    */
   public static int calculateExponentialBackoff(int executionCount) {
-    return addJitter(
+    int baseDelay =
         (int)
             Math.min(
                 MIN_BACKOFF_INTERVAL_MILLISECONDS
                     * Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount),
-                MAX_BACKOFF_INTERVAL_MILLISECONDS));
+                MAX_BACKOFF_INTERVAL_MILLISECONDS);
+    // Add 0-20% jitter to avoid thundering herd problem
+    return (int) (baseDelay * (1.0 + (RANDOM.nextDouble() * 0.2)));
   }
 
   /**
@@ -66,17 +69,6 @@ public class RetryUtils {
       }
     }
     return Optional.empty();
-  }
-
-  /**
-   * Adds jitter to a delay value to avoid thundering herd problem. Returns a random value between
-   * the original value and value * 1.2 (20% jitter).
-   *
-   * @param value the base delay value in milliseconds
-   * @return a jittered delay value between value and value * 1.2
-   */
-  public static int addJitter(int value) {
-    return (int) (value * (1.0 + (RANDOM.nextDouble() * 0.2)));
   }
 
   /**
