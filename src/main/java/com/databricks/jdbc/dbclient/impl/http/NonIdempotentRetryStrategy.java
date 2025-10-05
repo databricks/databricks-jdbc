@@ -40,10 +40,9 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
         executionAttempt);
 
     if (!isStatusCodeRetriable(statusCode, connectionContext)) {
-      LOGGER.debug("Status code {} is not retriable for non-idempotent request", statusCode);
       return Optional.empty();
     } else if (retryAfterHeader.isEmpty()) {
-      LOGGER.debug(
+      LOGGER.error(
           "Retry-After header not present for status code {} in non-idempotent request",
           statusCode);
       return Optional.empty();
@@ -51,7 +50,7 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
 
     int retryAfter = retryAfterHeader.get();
     if (!retryTimeoutManager.evaluateRetryTimeoutForResponse(statusCode, retryAfter)) {
-      LOGGER.debug(
+      LOGGER.error(
           "Retry timeout reached for HTTP response. Status code: {}, retry after: {} seconds",
           statusCode,
           retryAfter);
@@ -77,7 +76,7 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
 
     int retryAfter = RetryUtils.calculateExponentialBackoff(executionAttempt);
     if (!retryTimeoutManager.evaluateRetryTimeoutForException(retryAfter)) {
-      LOGGER.debug(
+      LOGGER.error(
           "Retry timeout reached for exception. Exception: {}, retry after: {} seconds",
           e.getClass().getSimpleName(),
           retryAfter);
@@ -93,14 +92,23 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
       return false;
     }
 
+    boolean isRetriable;
     switch (statusCode) {
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
-        return connectionContext.shouldRetryTemporarilyUnavailableError();
+        isRetriable = connectionContext.shouldRetryTemporarilyUnavailableError();
+        break;
       case HttpStatus.SC_TOO_MANY_REQUESTS:
-        return connectionContext.shouldRetryRateLimitError();
+        isRetriable = connectionContext.shouldRetryRateLimitError();
+        break;
       default:
-        return false;
+        isRetriable = false;
+        break;
     }
+
+    if (!isRetriable) {
+      LOGGER.error("Status code {} is not retriable for non-idempotent request", statusCode);
+    }
+    return isRetriable;
   }
 
   private boolean isExceptionRetrieable(Exception e) {

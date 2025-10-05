@@ -51,7 +51,6 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
         executionAttempt);
 
     if (!isStatusCodeRetriable(statusCode, connectionContext)) {
-      LOGGER.debug("Status code {} is not retriable for idempotent request", statusCode);
       return Optional.empty();
     }
 
@@ -82,7 +81,7 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
 
     int retryAfter = RetryUtils.calculateExponentialBackoff(executionAttempt);
     if (!retryTimeoutManager.evaluateRetryTimeoutForException(retryAfter)) {
-      LOGGER.debug(
+      LOGGER.error(
           "Retry timeout reached for exception. Exception: {}, retry after: {} seconds",
           e.getClass().getSimpleName(),
           retryAfter);
@@ -98,14 +97,23 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
       return false;
     }
 
+    boolean isRetriable;
     switch (statusCode) {
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
-        return connectionContext.shouldRetryTemporarilyUnavailableError();
+        isRetriable = connectionContext.shouldRetryTemporarilyUnavailableError();
+        break;
       case HttpStatus.SC_TOO_MANY_REQUESTS:
-        return connectionContext.shouldRetryRateLimitError();
+        isRetriable = connectionContext.shouldRetryRateLimitError();
+        break;
       default:
-        return !NON_RETRIABLE_HTTP_CODES.contains(statusCode);
+        isRetriable = !NON_RETRIABLE_HTTP_CODES.contains(statusCode);
+        break;
     }
+
+    if (!isRetriable) {
+      LOGGER.error("Status code {} is not retriable for idempotent request", statusCode);
+    }
+    return isRetriable;
   }
 
   private boolean isExceptionRetrieable(Exception e) {
