@@ -114,7 +114,6 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     int retryAttempt = 0;
 
     while (true) {
-      // follow exponential backoff if executing the request throws IOException
       Optional<Integer> shouldRetryAfter;
       try {
         CloseableHttpResponse response = httpClient.execute(request);
