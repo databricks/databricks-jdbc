@@ -1,6 +1,8 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.net.*;
 import java.util.Arrays;
 import java.util.List;
@@ -13,6 +15,9 @@ import org.apache.http.HttpStatus;
  */
 public class NonIdempotentRetryStrategy implements IRetryStrategy {
 
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(NonIdempotentRetryStrategy.class);
+
   private static final List<Class<? extends Throwable>> RETRIABLE_EXCEPTIONS =
       Arrays.asList(
           ConnectException.class,
@@ -21,8 +26,73 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
           PortUnreachableException.class);
 
   @Override
-  public boolean isStatusCodeRetriable(
+  public Optional<Integer> shouldRetryAfter(
+      int statusCode,
+      Optional<Integer> retryAfterHeader,
+      int executionAttempt,
+      IDatabricksConnectionContext connectionContext,
+      RetryTimeoutManager retryTimeoutManager) {
+
+    LOGGER.debug(
+        "Received HTTP response. Status code: {}, Retry-After header: {}, attempt: {}",
+        statusCode,
+        retryAfterHeader.isPresent() ? retryAfterHeader.get() + "ms" : "not present",
+        executionAttempt);
+
+    if (!isStatusCodeRetriable(statusCode, connectionContext)) {
+      LOGGER.debug("Status code {} is not retriable for non-idempotent request", statusCode);
+      return Optional.empty();
+    } else if (retryAfterHeader.isEmpty()) {
+      LOGGER.debug(
+          "Retry-After header not present for status code {} in non-idempotent request",
+          statusCode);
+      return Optional.empty();
+    }
+
+    int retryAfter = retryAfterHeader.get();
+    if (!retryTimeoutManager.evaluateRetryTimeoutForResponse(statusCode, retryAfter)) {
+      LOGGER.debug(
+          "Retry timeout reached for HTTP response. Status code: {}, retry after: {} seconds",
+          statusCode,
+          retryAfter);
+      return Optional.empty();
+    }
+
+    return Optional.of(retryAfter);
+  }
+
+  @Override
+  public Optional<Integer> shouldRetryAfter(
+      Exception e, int executionAttempt, RetryTimeoutManager retryTimeoutManager) {
+    LOGGER.debug(
+        "Received exception. Exception type: {}, attempt: {}",
+        e.getClass().getSimpleName(),
+        executionAttempt);
+
+    if (!isExceptionRetrieable(e)) {
+      LOGGER.debug(
+          "Exception {} is not retriable for non-idempotent request", e.getClass().getSimpleName());
+      return Optional.empty();
+    }
+
+    int retryAfter = RetryUtils.calculateExponentialBackoff(executionAttempt);
+    if (!retryTimeoutManager.evaluateRetryTimeoutForException(retryAfter)) {
+      LOGGER.debug(
+          "Retry timeout reached for exception. Exception: {}, retry after: {} seconds",
+          e.getClass().getSimpleName(),
+          retryAfter);
+      return Optional.empty();
+    }
+
+    return Optional.of(retryAfter);
+  }
+
+  private boolean isStatusCodeRetriable(
       int statusCode, IDatabricksConnectionContext connectionContext) {
+    if (statusCode >= 200 && statusCode < 300) {
+      return false;
+    }
+
     switch (statusCode) {
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
         return connectionContext.shouldRetryTemporarilyUnavailableError();
@@ -33,21 +103,7 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
     }
   }
 
-  @Override
-  public Optional<Integer> retryRequestAfter(
-      int statusCode,
-      Optional<Integer> retryAfterHeader,
-      int executionAttempt,
-      IDatabricksConnectionContext connectionContext) {
-    if (!isStatusCodeRetriable(statusCode, connectionContext)) {
-      return Optional.empty();
-    }
-
-    return retryAfterHeader;
-  }
-
-  @Override
-  public boolean isExceptionRetryable(Exception e) {
+  private boolean isExceptionRetrieable(Exception e) {
     return RETRIABLE_EXCEPTIONS.contains(e.getClass());
   }
 }

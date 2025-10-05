@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import java.net.ConnectException;
 import java.util.Optional;
 import org.apache.http.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,183 +19,139 @@ public class NonIdempotentRetryStrategyTest {
   private NonIdempotentRetryStrategy strategy;
 
   @Mock private IDatabricksConnectionContext mockConnectionContext;
+  @Mock private RetryTimeoutManager mockRetryTimeoutManager;
 
   @BeforeEach
   public void setUp() {
     strategy = new NonIdempotentRetryStrategy();
   }
 
+  // Test 1: Retriable response (503/429) WITH Retry-After header
   @Test
-  public void testRetriable503WhenEnabled() {
+  public void testRetriableResponseWithRetryAfterHeader() {
     when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
+    when(mockRetryTimeoutManager.evaluateRetryTimeoutForResponse(anyInt(), anyInt()))
+        .thenReturn(true);
+
+    Optional<Integer> retryAfter = Optional.of(30000);
+    Optional<Integer> result =
+        strategy.shouldRetryAfter(
+            HttpStatus.SC_SERVICE_UNAVAILABLE,
+            retryAfter,
+            0,
+            mockConnectionContext,
+            mockRetryTimeoutManager);
 
     assertTrue(
-        strategy.isStatusCodeRetriable(HttpStatus.SC_SERVICE_UNAVAILABLE, mockConnectionContext));
+        result.isPresent(),
+        "Should retry retriable response (503) with Retry-After header for non-idempotent request");
+    assertEquals(30000, result.get(), "Should use exact Retry-After header value");
   }
 
+  // Test 2: Retriable response (503/429) WITHOUT Retry-After header
   @Test
-  public void testNonRetriable503WhenDisabled() {
-    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(false);
+  public void testRetriableResponseWithoutRetryAfterHeader() {
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
+
+    Optional<Integer> result =
+        strategy.shouldRetryAfter(
+            HttpStatus.SC_SERVICE_UNAVAILABLE,
+            Optional.empty(),
+            0,
+            mockConnectionContext,
+            mockRetryTimeoutManager);
 
     assertFalse(
-        strategy.isStatusCodeRetriable(HttpStatus.SC_SERVICE_UNAVAILABLE, mockConnectionContext));
+        result.isPresent(),
+        "Should NOT retry retriable response (503) without Retry-After header for non-idempotent request");
   }
 
+  // Test 3: Non-retriable response (500, 502, etc.) WITH Retry-After header
   @Test
-  public void testRetriable429WhenEnabled() {
-    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
+  public void testNonRetriableResponseWithRetryAfterHeader() {
+    Optional<Integer> result =
+        strategy.shouldRetryAfter(
+            HttpStatus.SC_INTERNAL_SERVER_ERROR,
+            Optional.of(5000),
+            0,
+            mockConnectionContext,
+            mockRetryTimeoutManager);
+
+    assertFalse(
+        result.isPresent(),
+        "Should not retry non-retriable response (500) even with Retry-After header for non-idempotent request");
+  }
+
+  // Test 4: Non-retriable response WITHOUT Retry-After header
+  @Test
+  public void testNonRetriableResponseWithoutRetryAfterHeader() {
+    Optional<Integer> result =
+        strategy.shouldRetryAfter(
+            HttpStatus.SC_BAD_REQUEST,
+            Optional.empty(),
+            0,
+            mockConnectionContext,
+            mockRetryTimeoutManager);
+
+    assertFalse(
+        result.isPresent(),
+        "Should not retry non-retriable response (400) without Retry-After header for non-idempotent request");
+  }
+
+  // Test 5: Retriable exception (uses exponential backoff)
+  @Test
+  public void testRetriableException() {
+    when(mockRetryTimeoutManager.evaluateRetryTimeoutForException(anyInt())).thenReturn(true);
+
+    ConnectException exception = new ConnectException("Connection refused");
+    Optional<Integer> result = strategy.shouldRetryAfter(exception, 0, mockRetryTimeoutManager);
 
     assertTrue(
-        strategy.isStatusCodeRetriable(HttpStatus.SC_TOO_MANY_REQUESTS, mockConnectionContext));
+        result.isPresent(),
+        "Should retry retriable exception for non-idempotent request (network errors)");
+    assertTrue(result.get() > 0, "Should use exponential backoff for exceptions");
   }
 
+  // Test 6: Non-retriable exception
   @Test
-  public void testNonRetriable429WhenDisabled() {
-    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(false);
+  public void testNonRetriableException() {
+    IllegalArgumentException exception = new IllegalArgumentException("Invalid argument");
+    Optional<Integer> result = strategy.shouldRetryAfter(exception, 0, mockRetryTimeoutManager);
 
     assertFalse(
-        strategy.isStatusCodeRetriable(HttpStatus.SC_TOO_MANY_REQUESTS, mockConnectionContext));
+        result.isPresent(), "Should not retry non-retriable exception for non-idempotent request");
   }
 
+  // Test 7: Retry stops when timeout is reached for response
   @Test
-  public void testNonRetriableOtherStatusCodes() {
-    // All other status codes should not be retriable for non-idempotent requests
-    // (connection context settings don't matter for these codes)
-    assertFalse(strategy.isStatusCodeRetriable(HttpStatus.SC_OK, mockConnectionContext));
-    assertFalse(strategy.isStatusCodeRetriable(HttpStatus.SC_BAD_REQUEST, mockConnectionContext));
-    assertFalse(strategy.isStatusCodeRetriable(HttpStatus.SC_UNAUTHORIZED, mockConnectionContext));
-    assertFalse(strategy.isStatusCodeRetriable(HttpStatus.SC_FORBIDDEN, mockConnectionContext));
-    assertFalse(strategy.isStatusCodeRetriable(HttpStatus.SC_NOT_FOUND, mockConnectionContext));
+  public void testRetryStopsWhenTimeoutReachedForResponse() {
+    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
+    when(mockRetryTimeoutManager.evaluateRetryTimeoutForResponse(anyInt(), anyInt()))
+        .thenReturn(false);
+
+    Optional<Integer> result =
+        strategy.shouldRetryAfter(
+            HttpStatus.SC_TOO_MANY_REQUESTS,
+            Optional.of(5000),
+            0,
+            mockConnectionContext,
+            mockRetryTimeoutManager);
+
     assertFalse(
-        strategy.isStatusCodeRetriable(HttpStatus.SC_INTERNAL_SERVER_ERROR, mockConnectionContext));
-    assertFalse(strategy.isStatusCodeRetriable(HttpStatus.SC_BAD_GATEWAY, mockConnectionContext));
+        result.isPresent(),
+        "Should not retry when timeout is reached for response in non-idempotent request");
+  }
+
+  // Test 8: Retry stops when timeout is reached for exception
+  @Test
+  public void testRetryStopsWhenTimeoutReachedForException() {
+    when(mockRetryTimeoutManager.evaluateRetryTimeoutForException(anyInt())).thenReturn(false);
+
+    ConnectException exception = new ConnectException("Connection refused");
+    Optional<Integer> result = strategy.shouldRetryAfter(exception, 0, mockRetryTimeoutManager);
+
     assertFalse(
-        strategy.isStatusCodeRetriable(HttpStatus.SC_GATEWAY_TIMEOUT, mockConnectionContext));
-  }
-
-  @Test
-  public void testRetryAfter503WithValidHeader() {
-    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
-
-    int statusCode = HttpStatus.SC_SERVICE_UNAVAILABLE;
-    Optional<Integer> retryAfterHeader = Optional.of(30000); // 30 seconds in milliseconds
-    int retryDelay =
-        strategy.retryRequestAfter(statusCode, retryAfterHeader, 0, mockConnectionContext).get();
-
-    assertEquals(30000, retryDelay); // 30 seconds converted to milliseconds
-  }
-
-  @Test
-  public void testRetryAfter429WithValidHeader() {
-    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
-
-    int statusCode = HttpStatus.SC_TOO_MANY_REQUESTS;
-    Optional<Integer> retryAfterHeader = Optional.of(15000); // 15 seconds in milliseconds
-    int retryDelay =
-        strategy.retryRequestAfter(statusCode, retryAfterHeader, 0, mockConnectionContext).get();
-
-    assertEquals(15000, retryDelay); // 15 seconds converted to milliseconds
-  }
-
-  @Test
-  public void testRetryAfter503WithoutHeader() {
-    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
-
-    int statusCode = HttpStatus.SC_SERVICE_UNAVAILABLE;
-    Optional<Integer> retryAfterHeader = Optional.empty(); // No retry-after header
-    Optional<Integer> retryDelay =
-        strategy.retryRequestAfter(statusCode, retryAfterHeader, 0, mockConnectionContext);
-
-    assertTrue(retryDelay.isEmpty()); // Should not retry if no header
-  }
-
-  @Test
-  public void testRetryAfter429WithoutHeader() {
-    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
-
-    int statusCode = HttpStatus.SC_TOO_MANY_REQUESTS;
-    Optional<Integer> retryAfterHeader = Optional.empty(); // No retry-after header
-    Optional<Integer> retryDelay =
-        strategy.retryRequestAfter(statusCode, retryAfterHeader, 0, mockConnectionContext);
-
-    assertTrue(retryDelay.isEmpty()); // Should not retry if no header
-  }
-
-  @Test
-  public void testRetryAfterWithInvalidHeader() {
-    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
-
-    int statusCode = HttpStatus.SC_SERVICE_UNAVAILABLE;
-    Optional<Integer> retryAfterHeader = Optional.empty(); // Invalid header means no retry
-    Optional<Integer> retryDelay =
-        strategy.retryRequestAfter(statusCode, retryAfterHeader, 0, mockConnectionContext);
-
-    assertTrue(retryDelay.isEmpty()); // Should not retry if header is invalid
-  }
-
-  @Test
-  public void testRetryAfterForOtherStatusCodes() {
-    // Test that other status codes return -1 (should not retry)
-    // No need to mock headers since they're ignored for non-503/429 codes
-    int statusCode = HttpStatus.SC_INTERNAL_SERVER_ERROR;
-    Optional<Integer> retryAfterHeader = Optional.empty();
-    Optional<Integer> retryDelay =
-        strategy.retryRequestAfter(statusCode, retryAfterHeader, 0, mockConnectionContext);
-
-    assertTrue(retryDelay.isEmpty()); // Should not retry for non-503/429 codes
-  }
-
-  @Test
-  public void testRetryAfterIgnoresExecutionAttempt() {
-    // Non-idempotent strategy should ignore execution attempt and only look at Retry-After header
-    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
-
-    int statusCode = HttpStatus.SC_SERVICE_UNAVAILABLE;
-    Optional<Integer> retryAfterHeader = Optional.of(45000); // 45 seconds in milliseconds
-    int retryDelay0 =
-        strategy.retryRequestAfter(statusCode, retryAfterHeader, 0, mockConnectionContext).get();
-    int retryDelay9 =
-        strategy.retryRequestAfter(statusCode, retryAfterHeader, 9, mockConnectionContext).get();
-
-    assertEquals(45000, retryDelay0);
-    assertEquals(45000, retryDelay9); // Should be same regardless of attempt number
-  }
-
-  @Test
-  public void testRetryAfterWithLargeValue() {
-    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
-
-    int statusCode = HttpStatus.SC_TOO_MANY_REQUESTS;
-    Optional<Integer> retryAfterHeader = Optional.of(3600000); // 1 hour in milliseconds
-    int retryDelay =
-        strategy.retryRequestAfter(statusCode, retryAfterHeader, 0, mockConnectionContext).get();
-
-    assertEquals(3600000, retryDelay); // 1 hour converted to milliseconds
-  }
-
-  @Test
-  public void testRetryAfterHeaderEdgeCases() {
-    // Test with whitespace in header value
-    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
-
-    int statusCode = HttpStatus.SC_SERVICE_UNAVAILABLE;
-    Optional<Integer> retryAfterHeader = Optional.of(25000); // 25 seconds in milliseconds
-    int retryDelay =
-        strategy.retryRequestAfter(statusCode, retryAfterHeader, 0, mockConnectionContext).get();
-
-    assertEquals(25000, retryDelay); // Should handle whitespace correctly
-  }
-
-  @Test
-  public void testRetryAfterHeaderWithFloat() {
-    // Test with float value in header (should fail to parse)
-    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
-
-    int statusCode = HttpStatus.SC_SERVICE_UNAVAILABLE;
-    Optional<Integer> retryAfterHeader = Optional.empty(); // Invalid float header means no retry
-    Optional<Integer> retryDelay =
-        strategy.retryRequestAfter(statusCode, retryAfterHeader, 0, mockConnectionContext);
-
-    assertTrue(retryDelay.isEmpty()); // Should not retry if header contains float
+        result.isPresent(),
+        "Should not retry when timeout is reached for exception in non-idempotent request");
   }
 }

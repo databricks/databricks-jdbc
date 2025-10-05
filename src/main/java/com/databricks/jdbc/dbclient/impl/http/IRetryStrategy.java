@@ -4,15 +4,17 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import java.util.Optional;
 
 public interface IRetryStrategy {
-  /* Tells whether a given HTTP status code is retriable or not */
-  boolean isStatusCodeRetriable(int statusCode, IDatabricksConnectionContext connectionContext);
-
-  /* Returns the delay in milliseconds after which a request should be retried, or empty if it shouldn't be retried */
-  Optional<Integer> retryRequestAfter(
+  // Tells after how much time the request should be retried (and returns empty if it shouldn't) if
+  // a response is received successfully.
+  Optional<Integer> shouldRetryAfter(
       int statusCode,
       Optional<Integer> retryAfterHeader,
       int executionAttempt,
-      IDatabricksConnectionContext connectionContext);
+      IDatabricksConnectionContext connectionContext,
+      RetryTimeoutManager retryTimeoutManager);
 
-  boolean isExceptionRetryable(Exception e);
+  //  Tells after how much time the request should be retried (and returns empty if it shouldn't) if
+  //  an exception is thrown while executing the request.
+  Optional<Integer> shouldRetryAfter(
+      Exception e, int executionAttempt, RetryTimeoutManager retryTimeoutManager);
 }

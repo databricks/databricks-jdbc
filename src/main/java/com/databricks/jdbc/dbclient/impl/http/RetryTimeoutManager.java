@@ -1,7 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import java.util.Optional;
 import org.apache.http.HttpStatus;
 
 /**
@@ -37,21 +36,17 @@ public class RetryTimeoutManager {
    * @param retryDelayMillis the retry delay in milliseconds to subtract from timeout
    * @return true if the request should be retried, false otherwise
    */
-  public boolean evaluateRetryDecisionForResponse(
-      int statusCode, Optional<Integer> retryDelayMillis) {
-    if (retryDelayMillis.isEmpty()) {
-      return false;
-    }
-    // Update the appropriate timeout based on status code, following executeWithRetry logic
+  public boolean evaluateRetryTimeoutForResponse(int statusCode, int retryDelayMillis) {
+    // Update the appropriate timeout based on status code
     switch (statusCode) {
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
-        tempUnavailableTimeoutMillis -= retryDelayMillis.get();
+        tempUnavailableTimeoutMillis -= retryDelayMillis;
         break;
       case HttpStatus.SC_TOO_MANY_REQUESTS:
-        rateLimitTimeoutMillis -= retryDelayMillis.get();
+        rateLimitTimeoutMillis -= retryDelayMillis;
         break;
       default:
-        otherErrorCodesTimeoutMillis -= retryDelayMillis.get();
+        otherErrorCodesTimeoutMillis -= retryDelayMillis;
         break;
     }
 
@@ -68,12 +63,7 @@ public class RetryTimeoutManager {
    * @param retryDelayMillis the retry delay in milliseconds to subtract from timeout
    * @return true if the request should be retried, false otherwise
    */
-  public boolean evaluateRetryDecisionForException(
-      IRetryStrategy strategy, Exception exception, int retryDelayMillis) {
-    if (!strategy.isExceptionRetryable(exception)) {
-      return false;
-    }
-
+  public boolean evaluateRetryTimeoutForException(int retryDelayMillis) {
     // Update exception timeout by subtracting the retry delay
     exceptionTimeoutMillis -= retryDelayMillis;
 

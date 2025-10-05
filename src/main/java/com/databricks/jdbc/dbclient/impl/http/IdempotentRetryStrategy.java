@@ -1,6 +1,8 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Optional;
@@ -12,6 +14,9 @@ import org.apache.http.HttpStatus;
  * Retry-After header, if it is not present then use exponential backoff.
  */
 public class IdempotentRetryStrategy implements IRetryStrategy {
+
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(IdempotentRetryStrategy.class);
 
   private static final Set<Class<? extends RuntimeException>> NON_RETRIABLE_EXCEPTIONS =
       new HashSet<>(
@@ -32,9 +37,63 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
       new HashSet<>(Arrays.asList(400, 401, 403, 404, 405, 409, 410, 411, 412, 413, 414, 415, 416));
 
   @Override
-  public boolean isStatusCodeRetriable(
-      int statusCode, IDatabricksConnectionContext connectionContext) {
+  public Optional<Integer> shouldRetryAfter(
+      int statusCode,
+      Optional<Integer> retryAfterHeader,
+      int executionAttempt,
+      IDatabricksConnectionContext connectionContext,
+      RetryTimeoutManager retryTimeoutManager) {
 
+    LOGGER.debug(
+        "Received HTTP response. Status code: {}, Retry-After header: {}, attempt: {}",
+        statusCode,
+        retryAfterHeader.isPresent() ? retryAfterHeader.get() + "ms" : "not present",
+        executionAttempt);
+
+    if (!isStatusCodeRetriable(statusCode, connectionContext)) {
+      LOGGER.debug("Status code {} is not retriable for idempotent request", statusCode);
+      return Optional.empty();
+    }
+
+    int retryAfter =
+        retryAfterHeader.orElseGet(() -> RetryUtils.calculateExponentialBackoff(executionAttempt));
+
+    if (!retryTimeoutManager.evaluateRetryTimeoutForResponse(statusCode, retryAfter)) {
+      LOGGER.error("Retry timeout reached after attempt {}, returning response.", executionAttempt);
+      return Optional.empty();
+    }
+
+    return Optional.of(retryAfter);
+  }
+
+  @Override
+  public Optional<Integer> shouldRetryAfter(
+      Exception e, int executionAttempt, RetryTimeoutManager retryTimeoutManager) {
+    LOGGER.debug(
+        "Received exception. Exception type: {}, attempt: {}",
+        e.getClass().getSimpleName(),
+        executionAttempt);
+
+    if (!isExceptionRetrieable(e)) {
+      LOGGER.debug(
+          "Exception {} is not retriable for idempotent request", e.getClass().getSimpleName());
+      return Optional.empty();
+    }
+
+    int retryAfter = RetryUtils.calculateExponentialBackoff(executionAttempt);
+    if (!retryTimeoutManager.evaluateRetryTimeoutForException(retryAfter)) {
+      LOGGER.debug(
+          "Retry timeout reached for exception. Exception: {}, retry after: {} seconds",
+          e.getClass().getSimpleName(),
+          retryAfter);
+      return Optional.empty();
+    }
+
+    return Optional.of(retryAfter);
+  }
+
+  private boolean isStatusCodeRetriable(
+      int statusCode, IDatabricksConnectionContext connectionContext) {
     if (statusCode >= 200 && statusCode < 300) {
       return false;
     }
@@ -49,29 +108,7 @@ public class IdempotentRetryStrategy implements IRetryStrategy {
     }
   }
 
-  @Override
-  public Optional<Integer> retryRequestAfter(
-      int statusCode,
-      Optional<Integer> retryAfterHeader,
-      int executionAttempt,
-      IDatabricksConnectionContext connectionContext) {
-
-    if (!isStatusCodeRetriable(statusCode, connectionContext)) {
-      return Optional.empty();
-    }
-
-    if (retryAfterHeader.isPresent()) {
-      // Use Retry-After header if it is present in response
-      return retryAfterHeader;
-    }
-
-    // Use exponential backoff if Retry-After header is not present in response
-    int delay = RetryUtils.calculateExponentialBackoff(executionAttempt);
-    return Optional.of(delay);
-  }
-
-  @Override
-  public boolean isExceptionRetryable(Exception e) {
+  private boolean isExceptionRetrieable(Exception e) {
     return !NON_RETRIABLE_EXCEPTIONS.contains(e.getClass());
   }
 }

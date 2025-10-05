@@ -115,41 +115,27 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
     while (true) {
       // follow exponential backoff if executing the request throws IOException
-      int retryDelayMillis;
+      Optional<Integer> shouldRetryAfter;
       try {
         CloseableHttpResponse response = httpClient.execute(request);
         int statusCode = response.getStatusLine().getStatusCode();
         Optional<Integer> retryAfterHeader = RetryUtils.extractRetryAfterHeader(response);
-        // Get retry delay from strategy
-        Optional<Integer> retryDelay =
-            strategy.retryRequestAfter(
-                statusCode, retryAfterHeader, retryAttempt, connectionContext);
-        if (!retryTimeoutManager.evaluateRetryDecisionForResponse(statusCode, retryDelay)) {
+        shouldRetryAfter =
+            strategy.shouldRetryAfter(
+                statusCode, retryAfterHeader, retryAttempt, connectionContext, retryTimeoutManager);
+        if (shouldRetryAfter.isEmpty()) {
           return response;
         }
-        retryDelayMillis = retryDelay.get();
-        String errorReason = response.getStatusLine().getReasonPhrase();
-        LOGGER.error(
-            "Failure on attempt {}. HTTP response code: {}, Error Message: {}",
-            retryAttempt,
-            statusCode,
-            errorReason);
-
         response.close();
       } catch (Exception e) {
-        retryDelayMillis = RetryUtils.calculateExponentialBackoff(retryAttempt);
-        LOGGER.error(
-            "Exception on attempt {} for {}: error message {}",
-            retryAttempt,
-            requestType,
-            e.getMessage());
-        if (!retryTimeoutManager.evaluateRetryDecisionForException(strategy, e, retryDelayMillis)) {
+        shouldRetryAfter = strategy.shouldRetryAfter(e, retryAttempt, retryTimeoutManager);
+        if (shouldRetryAfter.isEmpty()) {
           RetryUtils.throwDatabricksHttpException(e, request);
         }
       }
 
       try {
-        Thread.sleep(retryDelayMillis);
+        Thread.sleep(shouldRetryAfter.get());
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         throw new RuntimeException("Thread interrupted during retry", e);
