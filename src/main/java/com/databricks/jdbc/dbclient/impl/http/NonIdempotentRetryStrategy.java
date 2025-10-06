@@ -25,6 +25,46 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
           NoRouteToHostException.class,
           PortUnreachableException.class);
 
+  /**
+   * Determines if an HTTP response should be retried for non-idempotent requests and calculates the
+   * retry delay.
+   *
+   * <p>This method is more conservative than idempotent retry strategy. It only retries:
+   *
+   * <ul>
+   *   <li>503 Service Unavailable (if enabled in connection context)
+   *   <li>429 Too Many Requests (if enabled in connection context)
+   *   <li>ONLY when a Retry-After header is present - will not retry without it
+   * </ul>
+   *
+   * <p>For retriable responses with Retry-After header:
+   *
+   * <ul>
+   *   <li>Uses the Retry-After header value as the retry delay
+   *   <li>Validates the retry delay against configured timeouts using RetryTimeoutManager
+   * </ul>
+   *
+   * <p>Timeout determination: The RetryTimeoutManager maintains separate timeout budgets for
+   * different status codes (503, 429, and other errors). For each retry attempt:
+   *
+   * <ol>
+   *   <li>The retry delay (from Retry-After header) is subtracted from the appropriate timeout
+   *       budget
+   *   <li>If the remaining budget is positive, retry is allowed
+   *   <li>If the remaining budget becomes zero or negative, all retries are exhausted and the
+   *       request fails
+   * </ol>
+   *
+   * <p>Initial timeout values are configured via connection context (e.g.,
+   * TemporarilyUnavailableRetryTimeout for 503, RateLimitRetryTimeout for 429).
+   *
+   * @param statusCode the HTTP status code from the response
+   * @param retryAfterHeader optional Retry-After header value in milliseconds
+   * @param executionAttempt the current execution attempt number (0-based)
+   * @param connectionContext the connection context with retry configuration
+   * @param retryTimeoutManager manages timeout tracking across retries
+   * @return Optional containing retry delay in milliseconds if retry should occur, empty otherwise
+   */
   @Override
   public Optional<Integer> shouldRetryAfter(
       int statusCode,
@@ -60,6 +100,45 @@ public class NonIdempotentRetryStrategy implements IRetryStrategy {
     return Optional.of(retryAfter);
   }
 
+  /**
+   * Determines if a request should be retried after an exception for non-idempotent requests and
+   * calculates the retry delay.
+   *
+   * <p>This method only retries specific network-related exceptions that indicate connectivity
+   * issues:
+   *
+   * <ul>
+   *   <li>ConnectException - connection refused
+   *   <li>UnknownHostException - DNS resolution failure
+   *   <li>NoRouteToHostException - network routing issue
+   *   <li>PortUnreachableException - port not accessible
+   * </ul>
+   *
+   * <p>For retriable exceptions:
+   *
+   * <ul>
+   *   <li>Calculates exponential backoff delay based on execution attempt
+   *   <li>Validates the retry delay against configured exception timeout using RetryTimeoutManager
+   * </ul>
+   *
+   * <p>Timeout determination: The RetryTimeoutManager maintains a separate timeout budget for
+   * exceptions. For each retry attempt:
+   *
+   * <ol>
+   *   <li>The retry delay (calculated via exponential backoff) is subtracted from the exception
+   *       timeout budget
+   *   <li>If the remaining budget is positive, retry is allowed
+   *   <li>If the remaining budget becomes zero or negative, all retries are exhausted and the
+   *       exception is thrown
+   * </ol>
+   *
+   * <p>The initial exception timeout value is configured via connection context.
+   *
+   * @param e the exception that occurred during request execution
+   * @param executionAttempt the current execution attempt number (0-based)
+   * @param retryTimeoutManager manages timeout tracking across retries
+   * @return Optional containing retry delay in milliseconds if retry should occur, empty otherwise
+   */
   @Override
   public Optional<Integer> shouldRetryAfter(
       Exception e, int executionAttempt, RetryTimeoutManager retryTimeoutManager) {
