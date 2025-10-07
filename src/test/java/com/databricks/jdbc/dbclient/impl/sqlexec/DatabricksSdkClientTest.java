@@ -589,4 +589,101 @@ public class DatabricksSdkClientTest {
         .setType(type)
         .setValue(value);
   }
+
+  @Test
+  public void testSeaSyncMetadataHeaderIsAdded() throws Exception {
+    // Test that x-databricks-sea-can-run-fully-sync header is added for SEA + METADATA + sync
+    setupClientMocks(true, false);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    // Execute a metadata request (synchronous)
+    databricksSdkClient.executeStatement(
+        "SHOW CATALOGS",
+        warehouse,
+        new HashMap<>(),
+        StatementType.METADATA,
+        connection.getSession(),
+        statement);
+
+    // Verify that the request was made with the correct header
+    verify(apiClient, atLeastOnce())
+        .execute(
+            argThat(
+                req -> {
+                  Map<String, String> headers = req.getHeaders();
+                  return headers != null
+                      && "true".equals(headers.get("x-databricks-sea-can-run-fully-sync"));
+                }),
+            eq(ExecuteStatementResponse.class));
+  }
+
+  @Test
+  public void testSeaSyncMetadataHeaderNotAddedForAsyncExecution() throws Exception {
+    // Test that header is NOT added for async execution
+    setupClientMocks(false, true);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    // Execute an async statement
+    databricksSdkClient.executeStatementAsync(
+        "SELECT * FROM table", warehouse, new HashMap<>(), connection.getSession(), statement);
+
+    // Verify that the request was made WITHOUT the header
+    verify(apiClient)
+        .execute(
+            argThat(
+                req -> {
+                  Map<String, String> headers = req.getHeaders();
+                  return headers == null
+                      || !headers.containsKey("x-databricks-sea-can-run-fully-sync");
+                }),
+            eq(ExecuteStatementResponse.class));
+  }
+
+  @Test
+  public void testSeaSyncMetadataHeaderNotAddedForQueryType() throws Exception {
+    // Test that header is NOT added for non-METADATA statement types
+    setupClientMocks(true, false);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    // Execute a regular query (not metadata)
+    databricksSdkClient.executeStatement(
+        "SELECT * FROM table",
+        warehouse,
+        new HashMap<>(),
+        StatementType.QUERY,
+        connection.getSession(),
+        statement);
+
+    // Verify that the request was made WITHOUT the header
+    verify(apiClient, atLeastOnce())
+        .execute(
+            argThat(
+                req -> {
+                  Map<String, String> headers = req.getHeaders();
+                  return headers == null
+                      || !headers.containsKey("x-databricks-sea-can-run-fully-sync");
+                }),
+            eq(ExecuteStatementResponse.class));
+  }
 }

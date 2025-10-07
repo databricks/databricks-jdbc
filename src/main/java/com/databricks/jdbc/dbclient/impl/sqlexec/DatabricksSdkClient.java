@@ -192,7 +192,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ExecuteStatementResponse response;
     try {
       Request req = new Request(Request.POST, STATEMENT_PATH, apiClient.serialize(request));
-      req.withHeaders(getHeaders("executeStatement"));
+      req.withHeaders(getHeaders("executeStatement", statementType, false));
       response = apiClient.execute(req, ExecuteStatementResponse.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement request";
@@ -294,9 +294,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
         session,
         parentStatement);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
+    StatementType statementType = StatementType.SQL;
     ExecuteStatementRequest request =
         getRequest(
-            StatementType.SQL,
+            statementType,
             sql,
             ((Warehouse) computeResource).getWarehouseId(),
             session,
@@ -306,7 +307,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ExecuteStatementResponse response;
     try {
       Request req = new Request(Request.POST, STATEMENT_PATH, apiClient.serialize(request));
-      req.withHeaders(getHeaders("executeStatement"));
+      req.withHeaders(getHeaders("executeStatement", statementType, true));
       response = apiClient.execute(req, ExecuteStatementResponse.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement async request";
@@ -330,7 +331,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         typedStatementId,
         response.getResult(),
         response.getManifest(),
-        StatementType.SQL,
+        statementType,
         session,
         parentStatement);
   }
@@ -452,6 +453,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   private Map<String, String> getHeaders(String method) {
+    return getHeaders(method, null, false);
+  }
+
+  private Map<String, String> getHeaders(
+      String method, StatementType statementType, boolean isAsync) {
     Map<String, String> headers = new HashMap<>(JSON_HTTP_HEADERS);
     if (connectionContext.isRequestTracingEnabled()) {
       String traceHeader = TracingUtil.getTraceHeader();
@@ -459,9 +465,41 @@ public class DatabricksSdkClient implements IDatabricksClient {
       headers.put(TracingUtil.TRACE_HEADER, traceHeader);
     }
 
+    // Add SEA sync metadata header when appropriate
+    if (shouldAddSeaSyncMetadataHeader(statementType, isAsync)) {
+      headers.put("x-databricks-sea-can-run-fully-sync", "true");
+      LOGGER.debug(
+          "Adding x-databricks-sea-can-run-fully-sync header for synchronous metadata request");
+    }
+
     // Overriding with URL defined headers
     headers.putAll(this.connectionContext.getCustomHeaders());
     return headers;
+  }
+
+  /**
+   * Determines whether the x-databricks-sea-can-run-fully-sync header should be added to the
+   * request.
+   *
+   * <p>This header is only added when both of the following conditions are met:
+   *
+   * <ul>
+   *   <li>The statement type is METADATA
+   *   <li>The execution mode is synchronous (not async)
+   * </ul>
+   *
+   * <p>The header signals to the server that the metadata operation can be executed fully
+   * synchronously in SEA mode, enabling optimized execution paths.
+   *
+   * <p>Note: This client is only used for SEA mode, so no client type check is needed.
+   *
+   * @param statementType the type of statement being executed (e.g., METADATA, QUERY, SQL)
+   * @param isAsync true if the statement is being executed asynchronously, false for synchronous
+   *     execution
+   * @return true if the header should be added, false otherwise
+   */
+  private boolean shouldAddSeaSyncMetadataHeader(StatementType statementType, boolean isAsync) {
+    return statementType == StatementType.METADATA && !isAsync;
   }
 
   private ExecuteStatementRequest getRequest(
