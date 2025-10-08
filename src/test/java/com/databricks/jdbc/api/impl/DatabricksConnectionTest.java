@@ -59,6 +59,8 @@ public class DatabricksConnectionTest {
           SESSION_CONFIGS.entrySet().stream()
               .map(e -> e.getKey() + "=" + e.getValue())
               .collect(Collectors.joining(";")));
+  private static final String IGNORE_TRANSACTIONS_JDBC_URL =
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;IgnoreTransactions=1";
   private static final ImmutableSessionInfo IMMUTABLE_SESSION_INFO =
       ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
   @Mock DatabricksSdkClient databricksClient;
@@ -514,6 +516,51 @@ public class DatabricksConnectionTest {
     assertFalse(spyConnection.isValid(5));
     verify(mockStatementFail).setQueryTimeout(5);
     verify(mockStatementFail).execute("SELECT VERSION()");
+
+    connection.close();
+  }
+
+  @Test
+  public void testIgnoreTransactionsDisabled() throws Exception {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), null, DEFAULT_SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    connection = new DatabricksConnection(context, databricksClient);
+    connection.open();
+
+    assertFalse(context.getIgnoreTransactions());
+
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setAutoCommit(false));
+    assertThrows(DatabricksSQLFeatureNotImplementedException.class, () -> connection.commit());
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setSavepoint());
+
+    connection.close();
+  }
+
+  @Test
+  public void testIgnoreTransactionsEnabled() throws Exception {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), null, DEFAULT_SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(IGNORE_TRANSACTIONS_JDBC_URL, new Properties());
+    connection = new DatabricksConnection(context, databricksClient);
+    connection.open();
+
+    assertTrue(context.getIgnoreTransactions());
+
+    assertDoesNotThrow(() -> connection.setAutoCommit(false));
+    assertDoesNotThrow(() -> connection.commit());
+    assertDoesNotThrow(() -> connection.rollback());
+
+    assertNull(connection.setSavepoint());
+    assertNull(connection.setSavepoint("test"));
 
     connection.close();
   }

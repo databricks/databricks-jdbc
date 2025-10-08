@@ -120,9 +120,11 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void setAutoCommit(boolean autoCommit) throws SQLException {
     if (!autoCommit) {
-      throw new DatabricksSQLFeatureNotSupportedException(
-          "In Databricks OSS JDBC, every SQL statement is committed immediately upon execution."
-              + " Setting autoCommit=false is not supported.");
+      if (!connectionContext.getIgnoreTransactions()) {
+        throw new DatabricksSQLFeatureNotSupportedException(
+            "In Databricks OSS JDBC, every SQL statement is committed immediately upon execution."
+                + " Setting autoCommit=false is not supported.");
+      }
     }
   }
 
@@ -136,15 +138,19 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void commit() throws SQLException {
     LOGGER.debug("public void commit()");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - commit()");
+    if (!connectionContext.getIgnoreTransactions()) {
+      throw new DatabricksSQLFeatureNotImplementedException(
+          "Not implemented in DatabricksConnection - commit()");
+    }
   }
 
   @Override
   public void rollback() throws SQLException {
     LOGGER.debug("public void rollback()");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - rollback()");
+    if (!connectionContext.getIgnoreTransactions()) {
+      throw new DatabricksSQLFeatureNotImplementedException(
+          "Not implemented in DatabricksConnection - rollback()");
+    }
   }
 
   @Override
@@ -299,28 +305,39 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public Savepoint setSavepoint() throws SQLException {
     LOGGER.debug("public Savepoint setSavepoint()");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setSavepoint()");
+    if (!connectionContext.getIgnoreTransactions()) {
+      throw new DatabricksSQLFeatureNotImplementedException(
+          "Not implemented in DatabricksConnection - setSavepoint()");
+    }
+    return null;
   }
 
   @Override
   public Savepoint setSavepoint(String name) throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - setSavepoint(String name)");
+    LOGGER.debug("public Savepoint setSavepoint(String name = {})", name);
+    if (!connectionContext.getIgnoreTransactions()) {
+      throw new DatabricksSQLFeatureNotImplementedException(
+          "Not implemented in DatabricksConnection - setSavepoint(String name)");
+    }
+    return null;
   }
 
   @Override
   public void rollback(Savepoint savepoint) throws SQLException {
     LOGGER.debug("public void rollback(Savepoint savepoint)");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - rollback(Savepoint savepoint)");
+    if (!connectionContext.getIgnoreTransactions()) {
+      throw new DatabricksSQLFeatureNotImplementedException(
+          "Not implemented in DatabricksConnection - rollback(Savepoint savepoint)");
+    }
   }
 
   @Override
   public void releaseSavepoint(Savepoint savepoint) throws SQLException {
     LOGGER.debug("public void releaseSavepoint(Savepoint savepoint)");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - releaseSavepoint(Savepoint savepoint)");
+    if (!connectionContext.getIgnoreTransactions()) {
+      throw new DatabricksSQLFeatureNotImplementedException(
+          "Not implemented in DatabricksConnection - releaseSavepoint(Savepoint savepoint)");
+    }
   }
 
   @Override

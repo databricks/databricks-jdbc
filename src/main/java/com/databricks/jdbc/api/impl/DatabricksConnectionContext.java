@@ -1058,4 +1058,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public boolean isBatchedInsertsEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_BATCHED_INSERTS).equals("1");
   }
+
+  @Override
+  public boolean getIgnoreTransactions() {
+    return getParameter(DatabricksJdbcUrlParams.IGNORE_TRANSACTIONS, "0").equals("1");
+  }
 }
