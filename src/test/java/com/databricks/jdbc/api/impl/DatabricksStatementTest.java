@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.common.EnvironmentVariables.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -136,6 +135,38 @@ public class DatabricksStatementTest {
         .thenReturn(resultSet);
 
     statement.executeQuery(STATEMENT);
+    assertEquals(-1, statement.getUpdateCount());
+  }
+
+  @Test
+  public void testGetUpdateCountAfterMoreResultsForDMLQueries() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    // Mock DML statement (UPDATE) that returns update count
+    when(resultSet.hasUpdateCount()).thenReturn(true);
+    when(resultSet.getUpdateCount()).thenReturn(5L);
+    when(client.executeStatement(
+            eq("UPDATE table SET col = 'value'"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    // Execute DML statement
+    int updateCount = statement.executeUpdate("UPDATE table SET col = 'value'");
+    assertEquals(5, updateCount);
+
+    assertEquals(5, statement.getUpdateCount());
+
+    // Call getMoreResults() - this should set noMoreResults flag and close the ResultSet
+    assertFalse(statement.getMoreResults());
+
+    // After getMoreResults(), getUpdateCount() should return -1 (indicating no more results)
     assertEquals(-1, statement.getUpdateCount());
   }
 

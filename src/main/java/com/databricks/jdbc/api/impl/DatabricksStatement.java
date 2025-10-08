@@ -46,6 +46,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private InputStreamEntity inputStream = null;
   private boolean allowInputStreamForUCVolume = false;
   private final DatabricksBatchExecutor databricksBatchExecutor;
+  private boolean noMoreResults = false; // JDBC end-of-results indicator
 
   public DatabricksStatement(DatabricksConnection connection) {
     this.connection = connection;
@@ -242,10 +243,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   public int getUpdateCount() throws SQLException {
     LOGGER.debug("public int getUpdateCount()");
     checkIfClosed();
-    if (resultSet.hasUpdateCount()) {
-      return (int) resultSet.getUpdateCount();
+    if (noMoreResults || resultSet == null) { // <-- terminal state: must be -1
+      return -1;
     }
-    return -1;
+    return resultSet.hasUpdateCount() ? (int) resultSet.getUpdateCount() : -1;
   }
 
   @Override
@@ -258,7 +259,19 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @Override
   public boolean getMoreResults() throws SQLException {
     LOGGER.debug("public boolean getMoreResults()");
-    return false;
+    checkIfClosed();
+    // We only produce a single result. Advancing means: go past the last result.
+    if (!noMoreResults) {
+      noMoreResults = true; // mark end-of-results so getUpdateCount() returns -1
+      // Per JDBC, advancing implicitly closes current ResultSet
+      if (resultSet != null) {
+        try {
+          resultSet.close();
+        } catch (SQLException ignore) {
+        }
+      }
+    }
+    return false; // no next ResultSet in this driver
   }
 
   @Override
@@ -720,7 +733,15 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
               : futureResultSet.get(timeoutInSeconds, TimeUnit.SECONDS);
     } catch (TimeoutException e) {
       if (closeStatement) {
-        close(); // Close the statement
+        try {
+          close(); // Close the statement
+        } catch (SQLException sqlExceptionForClose) {
+          LOGGER.error(
+              sqlExceptionForClose,
+              String.format(
+                  "Error occurred while closing statement after timeout. StatementId %s",
+                  statementId));
+        }
       }
       String timeoutErrorMessage =
           String.format(
@@ -753,6 +774,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   DatabricksResultSet executeInternal(
       String sql, Map<Integer, ImmutableSqlParameter> params, StatementType statementType)
       throws SQLException {
+    noMoreResults = false; // reset before each execution
     DatabricksThreadContextHolder.setStatementType(statementType);
     return executeInternal(sql, params, statementType, true);
   }

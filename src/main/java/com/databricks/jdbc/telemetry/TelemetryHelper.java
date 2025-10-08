@@ -34,7 +34,7 @@ public class TelemetryHelper {
 
   @VisibleForTesting
   static final String TELEMETRY_FEATURE_FLAG_NAME =
-      "databricks.partnerplatform.clientConfigsFeatureFlags.enableTelemetry";
+      "databricks.partnerplatform.clientConfigsFeatureFlags.enableTelemetryForJdbc";
 
   private static final DriverSystemConfiguration DRIVER_SYSTEM_CONFIGURATION =
       new DriverSystemConfiguration()

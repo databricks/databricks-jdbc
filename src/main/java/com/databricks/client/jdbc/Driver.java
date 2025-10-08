@@ -22,10 +22,11 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
 /** Databricks JDBC driver. */
-public class Driver implements IDatabricksDriver, java.sql.Driver {
+public class Driver implements IDatabricksDriver {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(Driver.class);
   private static final Driver INSTANCE;
 
@@ -57,8 +58,8 @@ public class Driver implements IDatabricksDriver, java.sql.Driver {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(url, info);
     DriverUtil.setUpLogging(connectionContext);
+    CompletableFuture.runAsync(() -> LOGGER.info(getDriverSystemConfiguration().toString()));
     UserAgentManager.setUserAgent(connectionContext);
-    LOGGER.info(getDriverSystemConfiguration().toString());
     DatabricksConnection connection = new DatabricksConnection(connectionContext);
     boolean isConnectionOpen = false;
     try {

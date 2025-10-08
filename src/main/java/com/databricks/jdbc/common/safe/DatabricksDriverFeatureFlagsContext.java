@@ -1,7 +1,5 @@
 package com.databricks.jdbc.common.safe;
 
-import static java.lang.Math.max;
-
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -12,13 +10,13 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.*;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -33,56 +31,58 @@ public class DatabricksDriverFeatureFlagsContext {
           "/api/2.0/connector-service/feature-flags/OSS_JDBC/%s",
           DriverUtil.getDriverVersionWithoutOSSSuffix());
   private static final int DEFAULT_TTL_SECONDS = 900; // 15 minutes
-  private static final int REFRESH_BEFORE_EXPIRY_SECONDS = 10; // refresh 10s before expiry
   private final String featureFlagEndpoint;
   private final IDatabricksConnectionContext connectionContext;
-  private LoadingCache<String, String> featureFlags;
-  private final ExecutorService asyncExecutor = Executors.newCachedThreadPool();
+  private final Cache<String, String> featureFlags;
+  private final ScheduledExecutorService scheduler =
+      Executors.newSingleThreadScheduledExecutor(
+          r -> {
+            Thread t = new Thread(r, "databricks-jdbc-feature-flags-refresh");
+            t.setDaemon(true);
+            return t;
+          });
+  private ScheduledFuture<?> scheduledRefreshTask;
+  private volatile int refreshIntervalSeconds = DEFAULT_TTL_SECONDS;
 
   public DatabricksDriverFeatureFlagsContext(IDatabricksConnectionContext connectionContext) {
     this.connectionContext = connectionContext;
-    this.featureFlags = createFeatureFlagsCache(DEFAULT_TTL_SECONDS);
+    this.featureFlags = CacheBuilder.newBuilder().build();
     this.featureFlagEndpoint =
         String.format(
             "https://%s%s", connectionContext.getHostForOAuth(), FEATURE_FLAGS_ENDPOINT_SUFFIX);
+    // Make an initial blocking call to fetch featureFlags
+    refreshAllFeatureFlags();
+    // Async fetch eventually
+    scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
   }
 
   // Constructor for testing
   DatabricksDriverFeatureFlagsContext(
       IDatabricksConnectionContext connectionContext, Map<String, String> initialFlags) {
     this.connectionContext = connectionContext;
-    this.featureFlags = createFeatureFlagsCache(DEFAULT_TTL_SECONDS);
+    this.featureFlags = CacheBuilder.newBuilder().build();
     this.featureFlagEndpoint =
         String.format(
             "https://%s%s", connectionContext.getHostForOAuth(), FEATURE_FLAGS_ENDPOINT_SUFFIX);
     initialFlags.forEach(this.featureFlags::put);
+    scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
   }
 
-  private LoadingCache<String, String> createFeatureFlagsCache(int ttlSeconds) {
-    return CacheBuilder.newBuilder()
-        .expireAfterWrite(ttlSeconds, TimeUnit.SECONDS)
-        .refreshAfterWrite(
-            max(
-                300,
-                ttlSeconds
-                    - REFRESH_BEFORE_EXPIRY_SECONDS), // refresh time should be minimum 5 minutes
-            TimeUnit.SECONDS)
-        .build(
-            new CacheLoader<>() {
-              @Override
-              public String load(String key) {
-                refreshAllFeatureFlags();
-                return featureFlags.getIfPresent(key) != null
-                    ? featureFlags.getIfPresent(key)
-                    : "false";
-              }
-
-              @Override
-              public ListenableFuture<String> reload(String key, String oldValue) {
-                asyncExecutor.submit(() -> refreshAllFeatureFlags());
-                return Futures.immediateFuture(oldValue); // keep old value until refresh is done
-              }
-            });
+  private void scheduleOrRescheduleRefresh(int ttlSeconds) {
+    this.refreshIntervalSeconds = ttlSeconds > 0 ? ttlSeconds : DEFAULT_TTL_SECONDS;
+    if (scheduler.isShutdown()) {
+      return;
+    }
+    if (scheduledRefreshTask != null && !scheduledRefreshTask.isCancelled()) {
+      scheduledRefreshTask.cancel(false);
+    }
+    // Schedule refresh at a fixed rate.
+    scheduledRefreshTask =
+        scheduler.scheduleAtFixedRate(
+            this::refreshAllFeatureFlags,
+            this.refreshIntervalSeconds,
+            this.refreshIntervalSeconds,
+            TimeUnit.SECONDS);
   }
 
   private void refreshAllFeatureFlags() {
@@ -121,7 +121,7 @@ public class DatabricksDriverFeatureFlagsContext {
 
         Integer ttlSeconds = featureFlagsResponse.getTtlSeconds();
         if (ttlSeconds != null) {
-          featureFlags = createFeatureFlagsCache(ttlSeconds);
+          scheduleOrRescheduleRefresh(ttlSeconds);
         }
       } else {
         LOGGER.trace(
@@ -133,11 +133,23 @@ public class DatabricksDriverFeatureFlagsContext {
   }
 
   public boolean isFeatureEnabled(String name) {
+    String value = featureFlags.getIfPresent(name);
+    return Boolean.parseBoolean(value);
+  }
+
+  public void shutdown() {
+    ScheduledFuture<?> task = scheduledRefreshTask;
+    if (task != null) {
+      task.cancel(false);
+    }
+    scheduler.shutdown();
     try {
-      return Boolean.parseBoolean(featureFlags.get(name));
-    } catch (Exception e) {
-      LOGGER.trace("Error fetching feature flag {}: {}", name, e.getMessage());
-      return false;
+      if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+        scheduler.shutdownNow();
+      }
+    } catch (InterruptedException ie) {
+      Thread.currentThread().interrupt();
+      scheduler.shutdownNow();
     }
   }
 }

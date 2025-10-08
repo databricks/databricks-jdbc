@@ -804,7 +804,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isTelemetryEnabled() {
-    return getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY, "0").equals("1");
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY).equals("1");
   }
 
   @Override
@@ -817,6 +817,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isSqlExecHybridResultsEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS).equals("1");
+  }
+
+  @Override
+  public boolean isSqlExecDirectResultsEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_DIRECT_RESULTS).equals("1");
   }
 
   @Override

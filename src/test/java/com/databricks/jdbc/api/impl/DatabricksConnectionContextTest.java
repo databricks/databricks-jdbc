@@ -720,4 +720,31 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(baseUrl, properties);
     assertNotNull(connectionContext);
   }
+
+  @Test
+  public void testSqlExecDirectResultsEnabled() throws DatabricksSQLException {
+    // Test default value (should be true)
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertTrue(connectionContext.isSqlExecDirectResultsEnabled());
+
+    // Test when EnableSQLExecDirectResults=1
+    String urlWithDirectResults =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableSQLExecDirectResults=1";
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithDirectResults, properties);
+    assertTrue(connectionContext.isSqlExecDirectResultsEnabled());
+
+    // Test when EnableSQLExecDirectResults=0
+    String urlWithoutDirectResults =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableSQLExecDirectResults=0";
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithoutDirectResults, properties);
+    assertFalse(connectionContext.isSqlExecDirectResultsEnabled());
+  }
 }

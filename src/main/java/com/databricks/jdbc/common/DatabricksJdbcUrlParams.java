@@ -116,6 +116,8 @@ public enum DatabricksJdbcUrlParams {
   HTTP_CONNECTION_POOL_SIZE("HttpConnectionPoolSize", "Maximum HTTP connection pool size", "100"),
   ENABLE_SQL_EXEC_HYBRID_RESULTS(
       "EnableSQLExecHybridResults", "flag to enable hybrid results", "1"),
+  ENABLE_SQL_EXEC_DIRECT_RESULTS(
+      "EnableSQLExecDirectResults", "flag to enable direct results", "1"),
   ENABLE_COMPLEX_DATATYPE_SUPPORT(
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",

@@ -10,31 +10,17 @@ import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import java.sql.*;
+import java.util.Properties;
 import org.junit.jupiter.api.*;
 
 public class SqlExecApiHybridResultsIntegrationTests extends AbstractFakeServiceIntegrationTests {
-
-  /** JDBC URL where hybrid results are enabled. */
-  private static final String jdbcUrlTemplate =
-      "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s;EnableSQLExecHybridResults=1;useThriftClient=0";
-
-  private static final String e2BenchfoodHttpPath = "/sql/1.0/warehouses/7e635336d748166a";
-  private static final String e2BenchfoodHost =
-      "https://benchmarking-prod-aws-us-west-2.cloud.databricks.com:443";
-  private static final String e2BenchfoodRootBucketHost =
-      "https://root-benchmarking-prod-aws-us-west-2.s3.us-west-2.amazonaws.com";
   private Connection connection;
-
-  @BeforeAll
-  static void beforeAll() {
-    setDatabricksApiTargetUrl(e2BenchfoodHost);
-    setCloudFetchApiTargetUrl(e2BenchfoodRootBucketHost);
-  }
 
   @BeforeEach
   void setUp() throws SQLException {
-    String jdbcUrl = String.format(jdbcUrlTemplate, getFakeServiceHost(), e2BenchfoodHttpPath);
-    connection = DriverManager.getConnection(jdbcUrl, getDatabricksUser(), getDatabricksToken());
+    Properties props = new Properties();
+    props.setProperty("EnableSQLExecHybridResults", "1");
+    connection = getValidJDBCConnection(props);
   }
 
   @AfterEach

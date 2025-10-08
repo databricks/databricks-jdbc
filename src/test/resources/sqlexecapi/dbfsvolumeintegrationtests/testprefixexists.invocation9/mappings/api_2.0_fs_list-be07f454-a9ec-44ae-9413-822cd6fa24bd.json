@@ -1,0 +1,30 @@
+{
+  "id" : "be07f454-a9ec-44ae-9413-822cd6fa24bd",
+  "name" : "api_2.0_fs_list",
+  "request" : {
+    "url" : "/api/2.0/fs/list?path=%2FVolumes%2Fuc_volume_test_catalog%2Fuc_volume_test_schema%2Ftest_volume1%2Ffolder1%2Ffolder2%2F",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"files\":[{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/folder2/efg_file1.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717494193000,\"name\":\"efg_file1.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/folder2/upload2.csv\",\"is_dir\":false,\"file_size\":8,\"modification_time\":1758781505000,\"name\":\"upload2.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/folder2/upload2.txt\",\"is_dir\":false,\"file_size\":10,\"modification_time\":1731114292000,\"name\":\"upload2.txt\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume1/folder1/folder2/folder3/\",\"is_dir\":true,\"name\":\"folder3\"}]}",
+    "headers" : {
+      "x-request-id" : "35befcf0-ffed-4fe7-8b43-a7f04b6a9a1f",
+      "date" : "Thu, 25 Sep 2025 06:25:24 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "server-timing" : "request_id;dur=0;desc=\"35befcf0-ffed-4fe7-8b43-a7f04b6a9a1f\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "be07f454-a9ec-44ae-9413-822cd6fa24bd",
+  "insertionIndex" : 317
+}

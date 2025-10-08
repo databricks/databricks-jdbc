@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** Factory class to manage DatabricksDriverFeatureFlagsContext instances */
 public class DatabricksDriverFeatureFlagsContextFactory {
-  private static final Map<String, DatabricksDriverFeatureFlagsContext> contextMap =
+  private static final Map<String, FeatureFlagsContextHolder> contextMap =
       new ConcurrentHashMap<>();
 
   private DatabricksDriverFeatureFlagsContextFactory() {
@@ -22,9 +22,21 @@ public class DatabricksDriverFeatureFlagsContextFactory {
    */
   public static DatabricksDriverFeatureFlagsContext getInstance(
       IDatabricksConnectionContext context) {
-    return contextMap.computeIfAbsent(
-        context.getComputeResource().getUniqueIdentifier(),
-        k -> new DatabricksDriverFeatureFlagsContext(context));
+    String key = keyOf(context);
+    FeatureFlagsContextHolder holder =
+        contextMap.compute(
+            key,
+            (k, existing) -> {
+              if (existing == null) {
+                // First reference for this compute
+                return new FeatureFlagsContextHolder(
+                    new DatabricksDriverFeatureFlagsContext(context), 1);
+              }
+              // Additional reference for the same compute
+              existing.refCount.incrementAndGet();
+              return existing;
+            });
+    return holder.context;
   }
 
   /**
@@ -34,15 +46,33 @@ public class DatabricksDriverFeatureFlagsContextFactory {
    */
   public static void removeInstance(IDatabricksConnectionContext connectionContext) {
     if (connectionContext != null) {
-      contextMap.remove(connectionContext.getComputeResource().getUniqueIdentifier());
+      String key = keyOf(connectionContext);
+      contextMap.computeIfPresent(
+          key,
+          (k, holder) -> {
+            // Last reference being removed: shutdown and remove entry
+            if (holder.refCount.get() <= 1) {
+              holder.context.shutdown();
+              return null;
+            }
+            // Still referenced elsewhere: just decrement
+            holder.refCount.decrementAndGet();
+            return holder;
+          });
     }
   }
 
   @VisibleForTesting
   static void setFeatureFlagsContext(
       IDatabricksConnectionContext connectionContext, Map<String, String> featureFlags) {
+    String key = keyOf(connectionContext);
     contextMap.put(
-        connectionContext.getComputeResource().getUniqueIdentifier(),
-        new DatabricksDriverFeatureFlagsContext(connectionContext, featureFlags));
+        key,
+        new FeatureFlagsContextHolder(
+            new DatabricksDriverFeatureFlagsContext(connectionContext, featureFlags), 1));
+  }
+
+  private static String keyOf(IDatabricksConnectionContext context) {
+    return context.getComputeResource().getUniqueIdentifier();
   }
 }

@@ -266,7 +266,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         responseState,
         (executionEndTime - executionStartTime),
         pollCount);
-    if (responseState != StatementState.SUCCEEDED) {
+    if (responseState != StatementState.SUCCEEDED && responseState != StatementState.CLOSED) {
       handleFailedExecution(response, statementId, sql);
     }
     return new DatabricksResultSet(
@@ -501,9 +501,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (executeAsync) {
       request.setWaitTimeout(ASYNC_TIMEOUT_VALUE);
     } else {
-      request
-          .setWaitTimeout(SYNC_TIMEOUT_VALUE)
-          .setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE);
+      // Only set timeout if direct results mode is not enabled
+      if (!connectionContext.isSqlExecDirectResultsEnabled()) {
+        request.setWaitTimeout(SYNC_TIMEOUT_VALUE);
+      }
+      request.setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE);
     }
     if (maxRows > 0) {
       request.setRowLimit(maxRows);

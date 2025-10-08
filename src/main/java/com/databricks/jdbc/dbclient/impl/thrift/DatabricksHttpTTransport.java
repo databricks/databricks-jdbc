@@ -87,7 +87,9 @@ public class DatabricksHttpTTransport extends TTransport {
 
   @Override
   public void write(byte[] buf, int off, int len) {
-    requestBuffer.write(buf, off, len);
+    synchronized (requestBuffer) {
+      requestBuffer.write(buf, off, len);
+    }
   }
 
   @Override
@@ -115,9 +117,13 @@ public class DatabricksHttpTTransport extends TTransport {
       LOGGER.debug("Thrift tracing header: " + traceHeader);
       request.addHeader(TracingUtil.TRACE_HEADER, traceHeader);
     }
-
+    byte[] requestPayload;
+    synchronized (requestBuffer) {
+      requestPayload = requestBuffer.toByteArray();
+      requestBuffer.reset();
+    }
     // Set the request entity
-    request.setEntity(new ByteArrayEntity(requestBuffer.toByteArray()));
+    request.setEntity(new ByteArrayEntity(requestPayload));
 
     // Execute the request and handle the response
     long httpRequestStartTime = System.currentTimeMillis();
@@ -145,9 +151,6 @@ public class DatabricksHttpTTransport extends TTransport {
       LOGGER.error(e, errorMessage);
       throw new TTransportException(TTransportException.UNKNOWN, errorMessage, e);
     }
-
-    // Reset the request buffer
-    requestBuffer.reset();
   }
 
   @Override

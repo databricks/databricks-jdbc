@@ -1,0 +1,35 @@
+{
+  "id" : "8a7474fa-a9ac-49b8-9867-cfd1aef9dcc4",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SELECT * FROM samples.tpch.lineitem limit 122900\",\"warehouse_id\":\"dd43ee29fedd958d\",\"row_limit\":122900,\"session_id\":\"01f099db-0947-1369-b61c-e6e422eb1c1c\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f099db-0a01-196c-80e5-805d0eab954b\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":16,\"columns\":[{\"name\":\"l_orderkey\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":0},{\"name\":\"l_partkey\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":1},{\"name\":\"l_suppkey\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":2},{\"name\":\"l_linenumber\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":3},{\"name\":\"l_quantity\",\"type_text\":\"DECIMAL(18,2)\",\"type_name\":\"DECIMAL\",\"position\":4,\"type_precision\":18,\"type_scale\":2},{\"name\":\"l_extendedprice\",\"type_text\":\"DECIMAL(18,2)\",\"type_name\":\"DECIMAL\",\"position\":5,\"type_precision\":18,\"type_scale\":2},{\"name\":\"l_discount\",\"type_text\":\"DECIMAL(18,2)\",\"type_name\":\"DECIMAL\",\"position\":6,\"type_precision\":18,\"type_scale\":2},{\"name\":\"l_tax\",\"type_text\":\"DECIMAL(18,2)\",\"type_name\":\"DECIMAL\",\"position\":7,\"type_precision\":18,\"type_scale\":2},{\"name\":\"l_returnflag\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":8},{\"name\":\"l_linestatus\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":9},{\"name\":\"l_shipdate\",\"type_text\":\"DATE\",\"type_name\":\"DATE\",\"position\":10},{\"name\":\"l_commitdate\",\"type_text\":\"DATE\",\"type_name\":\"DATE\",\"position\":11},{\"name\":\"l_receiptdate\",\"type_text\":\"DATE\",\"type_name\":\"DATE\",\"position\":12},{\"name\":\"l_shipinstruct\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":13},{\"name\":\"l_shipmode\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":14},{\"name\":\"l_comment\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":15}]},\"total_chunk_count\":2,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":122880,\"byte_count\":21015016},{\"chunk_index\":1,\"row_offset\":122880,\"row_count\":20,\"byte_count\":5640}],\"total_row_count\":122900,\"total_byte_count\":21020656,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":122880,\"byte_count\":8099080,\"next_chunk_index\":1,\"next_chunk_internal_link\":\"/api/2.0/sql/statements/01f099db-0a01-196c-80e5-805d0eab954b/result/chunks/1\",\"external_link\":\"https://e2-dogfood-core.s3.us-west-2.amazonaws.com/oregon-staging/6051921418418893.jobs/sql/extended/results_2025-09-26T07%3A44%3A09Z_4c66dd9f-47f4-4c34-92c2-43eecb665290?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250925T064410Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=755a9645900153f9c34c1d54c3d28bdb3b6bab7070e14c2b6b077c5c30c7d12c\",\"expiration\":\"2025-09-25T06:59:10.332Z\"}]}}",
+    "headers" : {
+      "x-request-id" : "e00330ec-9944-4681-bf86-a7bf431fd1b7",
+      "date" : "Thu, 25 Sep 2025 06:44:10 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "server-timing" : "request_id;dur=0;desc=\"e00330ec-9944-4681-bf86-a7bf431fd1b7\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "8a7474fa-a9ac-49b8-9867-cfd1aef9dcc4",
+  "insertionIndex" : 4
+}

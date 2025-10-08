@@ -1,0 +1,35 @@
+{
+  "id" : "f7ef6649-1308-4f54-a5ae-5bbf2690442a",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"INSERT INTO main.jdbc_test_schema.prepared_statement_set_object_test_table VALUES (?, ?)\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01f099d8-04fd-10f9-80ad-72ac1ee24aaa\",\"disposition\":\"INLINE\",\"format\":\"JSON_ARRAY\",\"on_wait_timeout\":\"CONTINUE\",\"parameters\":[{\"type\":\"INT\",\"value\":\"6\",\"ordinal\":1},{\"type\":\"STRING\",\"value\":\"test\",\"ordinal\":2}],\"result_compression\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f099d8-07f7-1923-b5a1-cb36d4861b84\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"JSON_ARRAY\",\"schema\":{\"column_count\":2,\"columns\":[{\"name\":\"num_affected_rows\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":0},{\"name\":\"num_inserted_rows\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":1}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1}],\"total_row_count\":1,\"truncated\":false},\"result\":{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"data_array\":[[\"1\",\"1\"]]}}",
+    "headers" : {
+      "x-request-id" : "3a63af15-6c61-42b5-b387-f01e16317e50",
+      "date" : "Thu, 25 Sep 2025 06:22:38 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "server-timing" : "request_id;dur=0;desc=\"3a63af15-6c61-42b5-b387-f01e16317e50\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "f7ef6649-1308-4f54-a5ae-5bbf2690442a",
+  "insertionIndex" : 177
+}

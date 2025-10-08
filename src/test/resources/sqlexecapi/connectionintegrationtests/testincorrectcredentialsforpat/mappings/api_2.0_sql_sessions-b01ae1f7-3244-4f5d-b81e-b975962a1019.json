@@ -1,0 +1,37 @@
+{
+  "id" : "b01ae1f7-3244-4f5d-b81e-b975962a1019",
+  "name" : "api_2.0_sql_sessions",
+  "request" : {
+    "url" : "/api/2.0/sql/sessions/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"warehouse_id\":\"dd43ee29fedd958d\",\"schema\":\"default\",\"catalog\":\"SPARK\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 401,
+    "body" : "{\"error_code\":401,\"message\":\"Credential was not sent or was of an unsupported type for this API. [ReqId: 76ffd03b-be4b-4f45-9b8d-889fc1601a0f]\"}",
+    "headers" : {
+      "date" : "Thu, 25 Sep 2025 06:35:22 GMT",
+      "x-request-id" : "76ffd03b-be4b-4f45-9b8d-889fc1601a0f",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "www-authenticate" : "Bearer realm=\"DatabricksRealm\"",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json; charset=utf-8",
+      "server-timing" : "request_id;dur=0;desc=\"76ffd03b-be4b-4f45-9b8d-889fc1601a0f\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "ext_authz_denied",
+      "x-databricks-reason-phrase" : "Credential was not sent or was of an unsupported type for this API."
+    }
+  },
+  "uuid" : "b01ae1f7-3244-4f5d-b81e-b975962a1019",
+  "insertionIndex" : 744
+}

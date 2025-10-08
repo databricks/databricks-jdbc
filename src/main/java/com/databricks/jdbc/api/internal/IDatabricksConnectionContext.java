@@ -266,6 +266,9 @@ public interface IDatabricksConnectionContext {
   /** Returns true if driver should use hybrid results in SQL_EXEC API. */
   boolean isSqlExecHybridResultsEnabled();
 
+  /** Returns true if driver should use direct results in SQL_EXEC API. */
+  boolean isSqlExecDirectResultsEnabled();
+
   /** Returns the Azure tenant ID for the Azure Databricks workspace. */
   String getAzureTenantId();
 

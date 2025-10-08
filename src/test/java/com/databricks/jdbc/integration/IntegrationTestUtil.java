@@ -233,8 +233,6 @@ public class IntegrationTestUtil {
       throws SQLException {
     connectionProperties.put(DatabricksJdbcUrlParams.UID.getParamName(), getDatabricksUser());
     connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
-    connectionProperties.put(
-        DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
 
     if (DriverUtil.isRunningAgainstFake()) {
       connectionProperties.putIfAbsent(
