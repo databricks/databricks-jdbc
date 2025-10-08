@@ -481,9 +481,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
    * Determines whether the x-databricks-sea-can-run-fully-sync header should be added to the
    * request.
    *
-   * <p>This header is only added when both of the following conditions are met:
+   * <p>This header is only added when all of the following conditions are met:
    *
    * <ul>
+   *   <li>The EnableSeaSyncMetadataHeader URL parameter is enabled (default: true)
    *   <li>The statement type is METADATA
    *   <li>The execution mode is synchronous (not async)
    * </ul>
@@ -499,7 +500,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
    * @return true if the header should be added, false otherwise
    */
   private boolean shouldAddSeaSyncMetadataHeader(StatementType statementType, boolean isAsync) {
-    return statementType == StatementType.METADATA && !isAsync;
+    return connectionContext.isSeaSyncMetadataHeaderEnabled()
+        && statementType == StatementType.METADATA
+        && !isAsync;
   }
 
   private ExecuteStatementRequest getRequest(

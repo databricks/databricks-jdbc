@@ -686,4 +686,40 @@ public class DatabricksSdkClientTest {
                 }),
             eq(ExecuteStatementResponse.class));
   }
+
+  @Test
+  public void testSeaSyncMetadataHeaderNotAddedWhenDisabled() throws Exception {
+    // Test that header is NOT added when the URL parameter is disabled
+    setupClientMocks(true, false);
+    String urlWithDisabledFlag =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;EnableSeaSyncMetadataHeader=0;";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(urlWithDisabledFlag, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    // Execute a metadata request (should NOT add header because flag is disabled)
+    databricksSdkClient.executeStatement(
+        "SHOW CATALOGS",
+        warehouse,
+        new HashMap<>(),
+        StatementType.METADATA,
+        connection.getSession(),
+        statement);
+
+    // Verify that the request was made WITHOUT the header
+    verify(apiClient, atLeastOnce())
+        .execute(
+            argThat(
+                req -> {
+                  Map<String, String> headers = req.getHeaders();
+                  return headers == null
+                      || !headers.containsKey("x-databricks-sea-can-run-fully-sync");
+                }),
+            eq(ExecuteStatementResponse.class));
+  }
 }

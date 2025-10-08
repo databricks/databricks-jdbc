@@ -1050,4 +1050,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public boolean getIgnoreTransactions() {
     return getParameter(DatabricksJdbcUrlParams.IGNORE_TRANSACTIONS, "0").equals("1");
   }
+
+  @Override
+  public boolean isSeaSyncMetadataHeaderEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SEA_SYNC_METADATA_HEADER).equals("1");
+  }
 }
