@@ -564,4 +564,32 @@ public class DatabricksConnectionTest {
 
     connection.close();
   }
+
+  @Test
+  public void testMetricViewMetadataInSessionConfigs() throws SQLException {
+    String metricViewEnabledUrl = JDBC_URL + ";EnableMetricViewMetadata=1";
+    IDatabricksConnectionContext connectionContextEnabled =
+        DatabricksConnectionContext.parse(metricViewEnabledUrl, new Properties());
+
+    Map<String, String> sessionConfigsEnabled = connectionContextEnabled.getSessionConfigs();
+    assertTrue(
+        sessionConfigsEnabled.containsKey("spark.sql.thriftserver.metadata.metricview.enabled"));
+    assertEquals(
+        "true", sessionConfigsEnabled.get("spark.sql.thriftserver.metadata.metricview.enabled"));
+
+    String metricViewDisabledUrl = JDBC_URL + ";EnableMetricViewMetadata=0";
+    IDatabricksConnectionContext connectionContextDisabled =
+        DatabricksConnectionContext.parse(metricViewDisabledUrl, new Properties());
+
+    Map<String, String> sessionConfigsDisabled = connectionContextDisabled.getSessionConfigs();
+    assertFalse(
+        sessionConfigsDisabled.containsKey("spark.sql.thriftserver.metadata.metricview.enabled"));
+
+    IDatabricksConnectionContext connectionContextDefault =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+
+    Map<String, String> sessionConfigsDefault = connectionContextDefault.getSessionConfigs();
+    assertFalse(
+        sessionConfigsDefault.containsKey("spark.sql.thriftserver.metadata.metricview.enabled"));
+  }
 }

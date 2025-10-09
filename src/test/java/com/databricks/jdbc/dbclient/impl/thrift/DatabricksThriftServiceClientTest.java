@@ -394,6 +394,9 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListTableTypes() throws SQLException {
+    // Mock connection context to disable metric view metadata by default
+    when(connectionContext.getEnableMetricViewMetadata()).thenReturn(false);
+
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     DatabricksResultSet actualResult = client.listTableTypes(session);

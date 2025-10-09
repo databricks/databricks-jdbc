@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.INTERVAL;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MEASURE;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.TypeValConstants.*;
@@ -96,9 +97,16 @@ public class MetadataResultSetBuilder {
   }
 
   public DatabricksResultSet getTableTypesResult() {
+    List<List<Object>> tableTypesRows =
+        ctx.getEnableMetricViewMetadata()
+            ? TABLE_TYPES_ROWS
+            : TABLE_TYPES_ROWS.stream()
+                .filter(row -> !"METRIC_VIEW".equals(row.get(0)))
+                .collect(Collectors.toList());
+
     return buildResultSet(
         TABLE_TYPE_COLUMNS,
-        TABLE_TYPES_ROWS,
+        tableTypesRows,
         GET_TABLE_TYPE_STATEMENT_ID,
         CommandName.LIST_TABLE_TYPES);
   }
@@ -267,7 +275,8 @@ public class MetadataResultSetBuilder {
             // Handle TYPE_NAME separately for potential modifications
             if (mappedColumn.getColumnName().equals(COLUMN_TYPE_COLUMN.getColumnName())) {
               if (typeVal != null
-                  && (typeVal.contains(ARRAY_TYPE)
+                  && (typeVal.contains(MEASURE)
+                      || typeVal.contains(ARRAY_TYPE)
                       || typeVal.contains(MAP_TYPE)
                       || typeVal.contains(
                           STRUCT_TYPE))) { // for complex data types, do not strip type name
@@ -965,7 +974,8 @@ public class MetadataResultSetBuilder {
               // Handle TYPE_NAME separately for potential modifications
               if (column.getColumnName().equals(COLUMN_TYPE_COLUMN.getColumnName())) {
                 if (typeVal != null
-                    && (typeVal.contains(ARRAY_TYPE)
+                    && (typeVal.contains(MEASURE)
+                        || typeVal.contains(ARRAY_TYPE)
                         || typeVal.contains(MAP_TYPE)
                         || typeVal.contains(STRUCT_TYPE))) {
                   object = typeVal;
