@@ -40,6 +40,9 @@ public class TestConstants {
   public static final String UC_VOLUME_SCHEMA = "uc_volume_test_schema";
   public static final String TEST_SCOPE_STRING = "URI:RS:000001:000999:DatabricksOAuth:TEST";
 
+  public static final String DEFAULT_BENCHFOOD_HOST = "e2-benchfood.cloud.databricks.com";
+  public static final String DEFAULT_BENCHFOOD_HTTP_PATH = "/sql/1.0/warehouses/6e681b20741e4674";
+
   public static final TSessionHandle SESSION_HANDLE =
       new TSessionHandle().setSessionId(new THandleIdentifier().setGuid(SESSION_ID.getBytes()));
 

@@ -66,6 +66,10 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     this.serverProtocolVersion = serverProtocolVersion;
   }
 
+  private boolean isMultipleCatalogSupportEnabled() {
+    return connectionContext == null || connectionContext.getEnableMultipleCatalogSupport();
+  }
+
   @Override
   public IDatabricksConnectionContext getConnectionContext() {
     return connectionContext;
@@ -91,7 +95,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
             .setConfiguration(sessionConf)
-            .setCanUseMultipleCatalogs(true)
+            .setCanUseMultipleCatalogs(isMultipleCatalogSupportEnabled())
             .setClient_protocol_i64(JDBC_THRIFT_VERSION.getValue());
     if (catalog != null || schema != null) {
       openSessionReq.setInitialNamespace(getNamespace(catalog, schema));
@@ -331,6 +335,20 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format("Fetching catalogs using Thrift client. Session {%s}", session.toString());
     LOGGER.debug(context);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
+
+    // If multiple catalog support is disabled, return only the current catalog
+    if (!isMultipleCatalogSupportEnabled()) {
+      String currentCatalog = session.getCurrentCatalog();
+      if (currentCatalog == null || currentCatalog.isEmpty()) {
+        currentCatalog = "";
+      }
+      List<List<Object>> singleCatalogRows = new ArrayList<>();
+      List<Object> catalogRow = new ArrayList<>();
+      catalogRow.add(currentCatalog);
+      singleCatalogRows.add(catalogRow);
+      return metadataResultSetBuilder.getCatalogsResult(singleCatalogRows);
+    }
+
     TGetCatalogsReq request =
         new TGetCatalogsReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle());

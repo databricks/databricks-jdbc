@@ -1,0 +1,31 @@
+{
+  "id" : "b0f8930e-ee42-44e9-a274-3a4b5266fda7",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SELECT CURRENT_CATALOG()\",\"warehouse_id\":\"6e681b20741e4674\",\"session_id\":\"01f0a40a-1175-1540-aec7-4e8dcc518dd4\",\"disposition\":\"INLINE_OR_EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f0a40a-122d-1caa-a1a4-7a05c9095e78\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":1,\"columns\":[{\"name\":\"current_catalog()\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":0}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":360}],\"total_row_count\":1,\"total_byte_count\":360,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":338,\"attachment\":\"BCJNGHRwjoEAAACg/////5gAAAAQAAEAsAoADgAGAA0ACAAKDwAiAAQYAKEBCgAMAAAACAAEGAARCAwAASEAYQABAAAAGAsAlRIAGAAUAAAAEywAMRIAABIAABYAAiQAIAAFDAAEAgARBAIA8A8AABEAAABjdXJyZW50X2NhdGFsb2coKQAAAAAAAABdzXgNAAAAAEnsiVwEIk0YdHCOhAAAAKL/////mAAAABQAAQDyAgwAFgAOABUAEAAEAAwAAAAgFwBgAAAABAAQCADDAwoAGAAMAAgABAAKOABQSAAAAAEcAAMCABMDCAAAAgAEGAAQCA0ABwgAAUwAQQAAAA4GAAICAAAsAAAEAAgCAAgQAAAsAPABaGl2ZV9tZXRhc3RvcmUAAIdkiNAAAAAAawzywAQiTRh0cI4IAACA/////wAAAACGhpIIAAAAAIaGkgg=\"}}",
+    "headers" : {
+      "x-request-id" : "173a62ff-6ecd-407c-85cf-426a99284f1c",
+      "date" : "Wed, 8 Oct 2025 05:46:01 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "235970765114870",
+      "content-type" : "application/json",
+      "server-timing" : "request_id;dur=0;desc=\"173a62ff-6ecd-407c-85cf-426a99284f1c\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "clear",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "b0f8930e-ee42-44e9-a274-3a4b5266fda7",
+  "insertionIndex" : 3
+}

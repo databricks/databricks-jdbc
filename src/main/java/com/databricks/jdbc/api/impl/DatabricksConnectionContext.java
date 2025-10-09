@@ -237,6 +237,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         .equals("1");
   }
 
+  public boolean getEnableMultipleCatalogSupport() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_MULTIPLE_CATALOG_SUPPORT, "1").equals("1");
+  }
+
   @Override
   public String getHostForOAuth() {
     return this.host;

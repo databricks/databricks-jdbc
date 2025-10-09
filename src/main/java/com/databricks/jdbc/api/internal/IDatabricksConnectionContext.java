@@ -110,6 +110,9 @@ public interface IDatabricksConnectionContext {
   /** Returns the value of the EnableSQLValidationForIsValid connection property. */
   boolean getEnableSQLValidationForIsValid();
 
+  /** Returns the value of the enableMultipleCatalogSupport connection property. */
+  boolean getEnableMultipleCatalogSupport();
+
   String getProxyHost();
 
   int getProxyPort();

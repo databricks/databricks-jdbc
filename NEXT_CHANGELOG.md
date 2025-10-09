@@ -4,6 +4,8 @@
 
 ### Added
 
+- Added `enableMultipleCatalogSupport` connection parameter to control catalog metadata behavior.
+
 ### Updated
 
 ### Fixed

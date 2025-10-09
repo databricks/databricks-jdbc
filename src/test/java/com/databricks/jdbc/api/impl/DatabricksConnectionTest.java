@@ -198,6 +198,28 @@ public class DatabricksConnectionTest {
   }
 
   @Test
+  public void testSetCatalogWithMultipleCatalogSupportDisabled() throws SQLException {
+    // Create connection context with enableMultipleCatalogSupport=0
+    String urlWithDisabledMultipleCatalog =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;enableMultipleCatalogSupport=0";
+    IDatabricksConnectionContext contextWithDisabledMultipleCatalog =
+        DatabricksConnectionContext.parse(urlWithDisabledMultipleCatalog, new Properties());
+
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), null, "default", new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+
+    DatabricksConnection connectionWithDisabledMultipleCatalog =
+        new DatabricksConnection(contextWithDisabledMultipleCatalog, databricksClient);
+    connectionWithDisabledMultipleCatalog.open();
+
+    String originalCatalog = connectionWithDisabledMultipleCatalog.getSession().getCatalog();
+    connectionWithDisabledMultipleCatalog.setCatalog("new_catalog");
+    assertEquals(originalCatalog, connectionWithDisabledMultipleCatalog.getSession().getCatalog());
+    connectionWithDisabledMultipleCatalog.close();
+  }
+
+  @Test
   public void testClosedConnection() throws SQLException {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))

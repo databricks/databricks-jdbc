@@ -199,6 +199,11 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public void setCatalog(String catalog) throws SQLException {
+    // If enableMultipleCatalogSupport is disabled, setCatalog does nothing
+    if (!connectionContext.getEnableMultipleCatalogSupport()) {
+      LOGGER.debug("setCatalog ignored - enableMultipleCatalogSupport is disabled");
+      return;
+    }
     Statement statement = this.createStatement();
     statement.execute("SET CATALOG " + catalog);
     this.session.setCatalog(catalog);

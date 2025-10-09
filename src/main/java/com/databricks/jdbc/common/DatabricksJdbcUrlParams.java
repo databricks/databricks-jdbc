@@ -164,8 +164,9 @@ public enum DatabricksJdbcUrlParams {
       "Enable SQL query execution for connection validation in isValid() method",
       "0"),
   IGNORE_TRANSACTIONS("IgnoreTransactions", "Ignore transaction-related method calls", "0"),
-  ENABLE_METRIC_VIEW_METADATA("EnableMetricViewMetadata", "Enable metric view metadata", "0");
-
+  ENABLE_METRIC_VIEW_METADATA("EnableMetricViewMetadata", "Enable metric view metadata", "0"),
+  ENABLE_MULTIPLE_CATALOG_SUPPORT(
+      "enableMultipleCatalogSupport", "Enable multiple catalog support", "1");
   private final String paramName;
   private final String defaultValue;
   private final String description;

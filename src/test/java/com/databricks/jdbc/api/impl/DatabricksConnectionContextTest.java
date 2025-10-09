@@ -750,4 +750,44 @@ class DatabricksConnectionContextTest {
             DatabricksConnectionContext.parse(urlWithoutDirectResults, properties);
     assertFalse(connectionContext.isSqlExecDirectResultsEnabled());
   }
+
+  @Test
+  public void testEnableMultipleCatalogSupport() throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertTrue(connectionContext.getEnableMultipleCatalogSupport());
+
+    String urlWithMultipleCatalogEnabled =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;enableMultipleCatalogSupport=1";
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithMultipleCatalogEnabled, properties);
+    assertTrue(connectionContext.getEnableMultipleCatalogSupport());
+
+    String urlWithMultipleCatalogDisabled =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;enableMultipleCatalogSupport=0";
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithMultipleCatalogDisabled, properties);
+    assertFalse(connectionContext.getEnableMultipleCatalogSupport());
+
+    Properties propsWithParam = new Properties();
+    propsWithParam.setProperty("password", "passwd");
+    propsWithParam.setProperty("enableMultipleCatalogSupport", "0");
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, propsWithParam);
+    assertFalse(connectionContext.getEnableMultipleCatalogSupport());
+
+    Properties propsWithInvalidParam = new Properties();
+    propsWithInvalidParam.setProperty("password", "passwd");
+    propsWithInvalidParam.setProperty("enableMultipleCatalogSupport", "invalid");
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, propsWithInvalidParam);
+    assertFalse(connectionContext.getEnableMultipleCatalogSupport());
+  }
 }

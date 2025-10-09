@@ -64,6 +64,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testCreateSession() throws DatabricksSQLException {
+    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     TOpenSessionReq openSessionReq =
@@ -85,6 +86,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testCreateSessionHandlesProtocolVersion() throws DatabricksSQLException {
+    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
 
@@ -330,6 +332,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListCatalogs() throws SQLException {
+    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
