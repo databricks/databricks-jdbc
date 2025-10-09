@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.TestConstants.TEST_DISCOVERY_URL;
+import static com.databricks.jdbc.TestConstants.TEST_SCOPE_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_CREDENTIALS_AUTH_TYPE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.M2M_AZURE_CLIENT_SECRET_AUTH_TYPE;
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,6 +27,7 @@ import com.databricks.sdk.core.utils.Cloud;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
@@ -207,9 +209,10 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of("scope1", "scope2"));
     when(mockContext.isOAuthDiscoveryModeEnabled()).thenReturn(true);
     when(mockContext.getOAuthDiscoveryURL()).thenReturn(TEST_DISCOVERY_URL);
+    when(mockContext.getOAuthScopesForU2M())
+        .thenReturn(Collections.singletonList(TEST_SCOPE_STRING));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
@@ -222,7 +225,7 @@ public class ClientConfiguratorTest {
     assertEquals("https://oauth-browser.databricks.com", config.getHost());
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
-    assertEquals(List.of("scope1", "scope2"), config.getScopes());
+    assertEquals(List.of(TEST_SCOPE_STRING), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
   }

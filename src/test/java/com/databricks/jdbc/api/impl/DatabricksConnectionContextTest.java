@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.TestConstants.TEST_SCOPE_STRING;
 import static com.databricks.jdbc.api.impl.DatabricksConnectionContext.buildPropertiesMap;
 import static com.databricks.jdbc.api.impl.DatabricksConnectionContext.getLogLevel;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_CREDENTIALS_AUTH_TYPE;
@@ -112,7 +113,8 @@ class DatabricksConnectionContextTest {
     assertEquals(CompressionCodec.NONE, connectionContext.getCompressionCodec());
     assertEquals(9, connectionContext.parameters.size());
     assertEquals(LogLevel.OFF, connectionContext.getLogLevel());
-    assertEquals(connectionContext.getOAuthScopesForU2M(), Collections.singletonList("hello"));
+    assertEquals(
+        connectionContext.getOAuthScopesForU2M(), Collections.singletonList(TEST_SCOPE_STRING));
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
 
