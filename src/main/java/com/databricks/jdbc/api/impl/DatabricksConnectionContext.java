@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_SCOPE;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
@@ -303,6 +304,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public List<String> getOAuthScopesForU2M() throws DatabricksParsingException {
+    if (getParameter(AUTH_SCOPE) != null) {
+      return Collections.singletonList(getAuthScope());
+    }
     if (getCloud() == Cloud.AWS || getCloud() == Cloud.GCP) {
       return Arrays.asList(
           DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);

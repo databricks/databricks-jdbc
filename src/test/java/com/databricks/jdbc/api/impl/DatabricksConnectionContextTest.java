@@ -16,6 +16,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.collect.ImmutableMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.BeforeAll;
@@ -109,9 +110,9 @@ class DatabricksConnectionContextTest {
     assertEquals(AuthFlow.TOKEN_PASSTHROUGH, connectionContext.getAuthFlow());
     assertEquals(AuthMech.PAT, connectionContext.getAuthMech());
     assertEquals(CompressionCodec.NONE, connectionContext.getCompressionCodec());
-    assertEquals(8, connectionContext.parameters.size());
+    assertEquals(9, connectionContext.parameters.size());
     assertEquals(LogLevel.OFF, connectionContext.getLogLevel());
-    assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
+    assertEquals(connectionContext.getOAuthScopesForU2M(), Collections.singletonList("hello"));
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
 

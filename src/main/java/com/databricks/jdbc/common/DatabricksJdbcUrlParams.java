@@ -47,7 +47,7 @@ public enum DatabricksJdbcUrlParams {
   USE_JWT_ASSERTION("UseJWTAssertion", "Use JWT assertion", "0"),
   OIDC_DISCOVERY_MODE("EnableOIDCDiscovery", "OIDC discovery mode", "1"),
   DISCOVERY_MODE("OAuthDiscoveryMode", "OAuth discovery mode", "1"), // Same as OIDC_DISCOVERY_MODE
-  AUTH_SCOPE("Auth_Scope", "Authentication scope", "all-apis"),
+  AUTH_SCOPE("Auth_Scope", "Authentication scope"),
   OIDC_DISCOVERY_ENDPOINT("OIDCDiscoveryEndpoint", "OIDC Discovery Endpoint"),
   DISCOVERY_URL("OAuthDiscoveryURL", "OAuth discovery URL"), // Same as OIDC_DISCOVERY_ENDPOINT
   IDENTITY_FEDERATION_CLIENT_ID(

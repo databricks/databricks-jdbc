@@ -199,7 +199,7 @@ public class TestConstants {
   public static final String VALID_URL_3 =
       "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;transportMode=http;"
           + "ssl=0;AuthMech=3;httpPath=/sql/1.0/warehouses/9999999999999999;EnableQueryResultLZ4Compression=0;"
-          + "UseThriftClient=1;LogLevel=1234";
+          + "UseThriftClient=1;LogLevel=1234;Auth_scope=hello";
 
   public static final String VALID_URL_4 =
       "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
