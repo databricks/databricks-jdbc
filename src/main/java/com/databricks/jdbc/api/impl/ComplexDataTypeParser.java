@@ -1,8 +1,11 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.impl.converters.TimestampConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
+import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -21,6 +24,7 @@ import java.util.Map;
 public class ComplexDataTypeParser {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ComplexDataTypeParser.class);
+  private static final TimestampConverter TIMESTAMP_CONVERTER = new TimestampConverter();
 
   public DatabricksArray parseJsonStringToDbArray(String json, String arrayMetadata)
       throws DatabricksParsingException {
@@ -202,7 +206,7 @@ public class ComplexDataTypeParser {
       case DatabricksTypeUtil.DATE:
         return Date.valueOf(text);
       case DatabricksTypeUtil.TIMESTAMP:
-        return Timestamp.valueOf(text);
+        return parseTimestamp(text);
       case DatabricksTypeUtil.TIME:
         return Time.valueOf(text);
       case DatabricksTypeUtil.BINARY:
@@ -210,6 +214,19 @@ public class ComplexDataTypeParser {
       case DatabricksTypeUtil.STRING:
       default:
         return text;
+    }
+  }
+
+  private Timestamp parseTimestamp(String text) {
+    if (WildcardUtil.isNullOrEmpty(text)) {
+      return null;
+    }
+
+    try {
+      return TIMESTAMP_CONVERTER.toTimestamp(text);
+    } catch (DatabricksSQLException e) {
+      // Convert to IllegalArgumentException to maintain existing API contract
+      throw new IllegalArgumentException("Invalid timestamp format: " + text, e);
     }
   }
 

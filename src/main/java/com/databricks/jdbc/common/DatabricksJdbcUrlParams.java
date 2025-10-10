@@ -47,7 +47,7 @@ public enum DatabricksJdbcUrlParams {
   USE_JWT_ASSERTION("UseJWTAssertion", "Use JWT assertion", "0"),
   OIDC_DISCOVERY_MODE("EnableOIDCDiscovery", "OIDC discovery mode", "1"),
   DISCOVERY_MODE("OAuthDiscoveryMode", "OAuth discovery mode", "1"), // Same as OIDC_DISCOVERY_MODE
-  AUTH_SCOPE("Auth_Scope", "Authentication scope", "all-apis"),
+  AUTH_SCOPE("Auth_Scope", "Authentication scope"),
   OIDC_DISCOVERY_ENDPOINT("OIDCDiscoveryEndpoint", "OIDC Discovery Endpoint"),
   DISCOVERY_URL("OAuthDiscoveryURL", "OAuth discovery URL"), // Same as OIDC_DISCOVERY_ENDPOINT
   IDENTITY_FEDERATION_CLIENT_ID(
@@ -162,8 +162,11 @@ public enum DatabricksJdbcUrlParams {
   ENABLE_SQL_VALIDATION_FOR_IS_VALID(
       "EnableSQLValidationForIsValid",
       "Enable SQL query execution for connection validation in isValid() method",
-      "0");
-
+      "0"),
+  IGNORE_TRANSACTIONS("IgnoreTransactions", "Ignore transaction-related method calls", "0"),
+  ENABLE_METRIC_VIEW_METADATA("EnableMetricViewMetadata", "Enable metric view metadata", "0"),
+  ENABLE_MULTIPLE_CATALOG_SUPPORT(
+      "enableMultipleCatalogSupport", "Enable multiple catalog support", "1");
   private final String paramName;
   private final String defaultValue;
   private final String description;

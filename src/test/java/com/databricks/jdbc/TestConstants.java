@@ -38,6 +38,10 @@ public class TestConstants {
   public static final StatementId TEST_STATEMENT_ID = new StatementId("statement_id");
   public static final String UC_VOLUME_CATALOG = "uc_volume_test_catalog";
   public static final String UC_VOLUME_SCHEMA = "uc_volume_test_schema";
+  public static final String TEST_SCOPE_STRING = "URI:RS:000001:000999:DatabricksOAuth:TEST";
+
+  public static final String DEFAULT_BENCHFOOD_HOST = "e2-benchfood.cloud.databricks.com";
+  public static final String DEFAULT_BENCHFOOD_HTTP_PATH = "/sql/1.0/warehouses/6e681b20741e4674";
 
   public static final TSessionHandle SESSION_HANDLE =
       new TSessionHandle().setSessionId(new THandleIdentifier().setGuid(SESSION_ID.getBytes()));
@@ -199,7 +203,7 @@ public class TestConstants {
   public static final String VALID_URL_3 =
       "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;transportMode=http;"
           + "ssl=0;AuthMech=3;httpPath=/sql/1.0/warehouses/9999999999999999;EnableQueryResultLZ4Compression=0;"
-          + "UseThriftClient=1;LogLevel=1234";
+          + "UseThriftClient=1;LogLevel=1234;Auth_scope=URI:RS:000001:000999:DatabricksOAuth:TEST";
 
   public static final String VALID_URL_4 =
       "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"

@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.TestConstants.TEST_SCOPE_STRING;
 import static com.databricks.jdbc.api.impl.DatabricksConnectionContext.buildPropertiesMap;
 import static com.databricks.jdbc.api.impl.DatabricksConnectionContext.getLogLevel;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_CREDENTIALS_AUTH_TYPE;
@@ -16,6 +17,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.collect.ImmutableMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.BeforeAll;
@@ -109,9 +111,10 @@ class DatabricksConnectionContextTest {
     assertEquals(AuthFlow.TOKEN_PASSTHROUGH, connectionContext.getAuthFlow());
     assertEquals(AuthMech.PAT, connectionContext.getAuthMech());
     assertEquals(CompressionCodec.NONE, connectionContext.getCompressionCodec());
-    assertEquals(8, connectionContext.parameters.size());
+    assertEquals(9, connectionContext.parameters.size());
     assertEquals(LogLevel.OFF, connectionContext.getLogLevel());
-    assertEquals(connectionContext.getOAuthScopesForU2M(), expected_scopes);
+    assertEquals(
+        connectionContext.getOAuthScopesForU2M(), Collections.singletonList(TEST_SCOPE_STRING));
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
 
@@ -746,5 +749,45 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(urlWithoutDirectResults, properties);
     assertFalse(connectionContext.isSqlExecDirectResultsEnabled());
+  }
+
+  @Test
+  public void testEnableMultipleCatalogSupport() throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertTrue(connectionContext.getEnableMultipleCatalogSupport());
+
+    String urlWithMultipleCatalogEnabled =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;enableMultipleCatalogSupport=1";
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithMultipleCatalogEnabled, properties);
+    assertTrue(connectionContext.getEnableMultipleCatalogSupport());
+
+    String urlWithMultipleCatalogDisabled =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;enableMultipleCatalogSupport=0";
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithMultipleCatalogDisabled, properties);
+    assertFalse(connectionContext.getEnableMultipleCatalogSupport());
+
+    Properties propsWithParam = new Properties();
+    propsWithParam.setProperty("password", "passwd");
+    propsWithParam.setProperty("enableMultipleCatalogSupport", "0");
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, propsWithParam);
+    assertFalse(connectionContext.getEnableMultipleCatalogSupport());
+
+    Properties propsWithInvalidParam = new Properties();
+    propsWithInvalidParam.setProperty("password", "passwd");
+    propsWithInvalidParam.setProperty("enableMultipleCatalogSupport", "invalid");
+    connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, propsWithInvalidParam);
+    assertFalse(connectionContext.getEnableMultipleCatalogSupport());
   }
 }

@@ -9,6 +9,7 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksEmptyMetadataClient;
@@ -24,6 +25,7 @@ import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -275,6 +277,30 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public IDatabricksConnectionContext getConnectionContext() {
     return this.connectionContext;
+  }
+
+  @Override
+  public String getCurrentCatalog() throws DatabricksSQLException {
+    try {
+      DatabricksResultSet resultSet =
+          databricksClient.executeStatement(
+              "SELECT CURRENT_CATALOG()",
+              this.computeResource,
+              new HashMap<>(),
+              StatementType.METADATA,
+              this,
+              null);
+
+      if (resultSet.next()) {
+        String currentCatalog = resultSet.getString(1);
+        return currentCatalog;
+      }
+    } catch (Exception e) {
+      LOGGER.warn(
+          "Failed to get current catalog from database, falling back to session catalog: {}",
+          e.getMessage());
+    }
+    return this.catalog;
   }
 
   @Override

@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader.*;
 import static com.databricks.jdbc.integration.fakeservice.FakeServiceExtension.TARGET_URI_PROP_SUFFIX;
 
+import com.databricks.jdbc.TestConstants;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants.FakeServiceType;
@@ -74,6 +75,16 @@ public class IntegrationTestUtil {
         FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName()));
   }
 
+  public static String getFakeServiceBenchfoodJDBCUrl() {
+    // SSL is disabled as embedded web server of fake service uses HTTP protocol.
+    // Note that in RECORD mode, the web server interacts with production services over HTTPS.
+    String fakeServiceHost = getFakeServiceHost();
+    String benchfoodHttpPath = getDatabricksBenchfoodHTTPPath();
+    String jdbcUrlTemplate =
+        "jdbc:databricks://%s/default;transportMode=http;ssl=0;AuthMech=3;httpPath=%s";
+    return String.format(jdbcUrlTemplate, fakeServiceHost, benchfoodHttpPath);
+  }
+
   public static String getFakeServiceHTTPPath() {
     return FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.HTTP_PATH.getParamName());
   }
@@ -85,7 +96,8 @@ public class IntegrationTestUtil {
 
   public static String getDatabricksBenchfoodHost() {
     // includes port
-    return System.getenv("DATABRICKS_BENCHFOOD_HOST");
+    return Optional.ofNullable(System.getenv("DATABRICKS_BENCHFOOD_HOST"))
+        .orElse(TestConstants.DEFAULT_BENCHFOOD_HOST);
   }
 
   public static String getM2MHost() {
@@ -162,7 +174,7 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksBenchfoodToken() {
-    return System.getenv("DATABRICKS_BENCHFOOD_TOKEN");
+    return Optional.ofNullable(System.getenv("DATABRICKS_BENCHFOOD_TOKEN")).orElse("token");
   }
 
   public static String getDatabricksHTTPPath() {
@@ -170,7 +182,8 @@ public class IntegrationTestUtil {
   }
 
   public static String getDatabricksBenchfoodHTTPPath() {
-    return System.getenv("DATABRICKS_BENCHFOOD_HTTP_PATH");
+    return Optional.ofNullable(System.getenv("DATABRICKS_BENCHFOOD_HTTP_PATH"))
+        .orElse(TestConstants.DEFAULT_BENCHFOOD_HTTP_PATH);
   }
 
   public static String getDatabricksDogfoodHTTPPath() {

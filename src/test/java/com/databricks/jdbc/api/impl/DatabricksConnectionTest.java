@@ -59,6 +59,8 @@ public class DatabricksConnectionTest {
           SESSION_CONFIGS.entrySet().stream()
               .map(e -> e.getKey() + "=" + e.getValue())
               .collect(Collectors.joining(";")));
+  private static final String IGNORE_TRANSACTIONS_JDBC_URL =
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;IgnoreTransactions=1";
   private static final ImmutableSessionInfo IMMUTABLE_SESSION_INFO =
       ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
   @Mock DatabricksSdkClient databricksClient;
@@ -193,6 +195,28 @@ public class DatabricksConnectionTest {
     assertFalse(connection.isClosed());
     assertEquals(connection.getSession().getCatalog(), CATALOG);
     assertEquals(connection.getSession().getSchema(), SCHEMA);
+  }
+
+  @Test
+  public void testSetCatalogWithMultipleCatalogSupportDisabled() throws SQLException {
+    // Create connection context with enableMultipleCatalogSupport=0
+    String urlWithDisabledMultipleCatalog =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;enableMultipleCatalogSupport=0";
+    IDatabricksConnectionContext contextWithDisabledMultipleCatalog =
+        DatabricksConnectionContext.parse(urlWithDisabledMultipleCatalog, new Properties());
+
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), null, "default", new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+
+    DatabricksConnection connectionWithDisabledMultipleCatalog =
+        new DatabricksConnection(contextWithDisabledMultipleCatalog, databricksClient);
+    connectionWithDisabledMultipleCatalog.open();
+
+    String originalCatalog = connectionWithDisabledMultipleCatalog.getSession().getCatalog();
+    connectionWithDisabledMultipleCatalog.setCatalog("new_catalog");
+    assertEquals(originalCatalog, connectionWithDisabledMultipleCatalog.getSession().getCatalog());
+    connectionWithDisabledMultipleCatalog.close();
   }
 
   @Test
@@ -516,5 +540,78 @@ public class DatabricksConnectionTest {
     verify(mockStatementFail).execute("SELECT VERSION()");
 
     connection.close();
+  }
+
+  @Test
+  public void testIgnoreTransactionsDisabled() throws Exception {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), null, DEFAULT_SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    connection = new DatabricksConnection(context, databricksClient);
+    connection.open();
+
+    assertFalse(context.getIgnoreTransactions());
+
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setAutoCommit(false));
+    assertThrows(DatabricksSQLFeatureNotImplementedException.class, () -> connection.commit());
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setSavepoint());
+
+    connection.close();
+  }
+
+  @Test
+  public void testIgnoreTransactionsEnabled() throws Exception {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), null, DEFAULT_SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(IGNORE_TRANSACTIONS_JDBC_URL, new Properties());
+    connection = new DatabricksConnection(context, databricksClient);
+    connection.open();
+
+    assertTrue(context.getIgnoreTransactions());
+
+    assertDoesNotThrow(() -> connection.setAutoCommit(false));
+    assertDoesNotThrow(() -> connection.commit());
+    assertDoesNotThrow(() -> connection.rollback());
+
+    assertNull(connection.setSavepoint());
+    assertNull(connection.setSavepoint("test"));
+
+    connection.close();
+  }
+
+  @Test
+  public void testMetricViewMetadataInSessionConfigs() throws SQLException {
+    String metricViewEnabledUrl = JDBC_URL + ";EnableMetricViewMetadata=1";
+    IDatabricksConnectionContext connectionContextEnabled =
+        DatabricksConnectionContext.parse(metricViewEnabledUrl, new Properties());
+
+    Map<String, String> sessionConfigsEnabled = connectionContextEnabled.getSessionConfigs();
+    assertTrue(
+        sessionConfigsEnabled.containsKey("spark.sql.thriftserver.metadata.metricview.enabled"));
+    assertEquals(
+        "true", sessionConfigsEnabled.get("spark.sql.thriftserver.metadata.metricview.enabled"));
+
+    String metricViewDisabledUrl = JDBC_URL + ";EnableMetricViewMetadata=0";
+    IDatabricksConnectionContext connectionContextDisabled =
+        DatabricksConnectionContext.parse(metricViewDisabledUrl, new Properties());
+
+    Map<String, String> sessionConfigsDisabled = connectionContextDisabled.getSessionConfigs();
+    assertFalse(
+        sessionConfigsDisabled.containsKey("spark.sql.thriftserver.metadata.metricview.enabled"));
+
+    IDatabricksConnectionContext connectionContextDefault =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+
+    Map<String, String> sessionConfigsDefault = connectionContextDefault.getSessionConfigs();
+    assertFalse(
+        sessionConfigsDefault.containsKey("spark.sql.thriftserver.metadata.metricview.enabled"));
   }
 }

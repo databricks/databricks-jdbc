@@ -1,0 +1,28 @@
+{
+  "id" : "2da7b3d1-de96-45d2-8f2a-d5940f185d8d",
+  "name" : "sql_1.0_warehouses_6e681b20741e4674",
+  "request" : {
+    "url" : "/sql/1.0/warehouses/6e681b20741e4674",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAAAtPcGVuU2Vzc2lvbgAAAAEMAAEIAAH////5DQAECwsAAAAACgUCAAAAAAAApQkMBQQLAAIAAAAHZGVmYXVsdAACBQUBAAA="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAAAtPcGVuU2Vzc2lvbgAAAAEMAAAMAAEIAAEAAAAAAAgAAgAApQgMAAMMAAELAAEAAAAQAfCkCibcEMmV3nhzH7Wg8wsAAgAAABAzjVKdgnJG64SCy0GUZoOdAAAPBQEMAAAAAAwFBAsAAQAAAA5oaXZlX21ldGFzdG9yZQsAAgAAAAdkZWZhdWx0AAIFBQEAAA==",
+    "headers" : {
+      "x-request-id" : "3fe7eb03-fa46-4606-a13d-08c358e7bc54",
+      "date" : "Wed, 8 Oct 2025 05:46:35 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-org-id" : "235970765114870",
+      "content-type" : "application/x-thrift",
+      "server-timing" : "request_id;dur=0;desc=\"3fe7eb03-fa46-4606-a13d-08c358e7bc54\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "clear",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "2da7b3d1-de96-45d2-8f2a-d5940f185d8d",
+  "insertionIndex" : 8
+}

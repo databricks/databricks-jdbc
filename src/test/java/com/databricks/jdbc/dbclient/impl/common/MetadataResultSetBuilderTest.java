@@ -257,7 +257,8 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("DECIMAL", "DECIMAL"),
         Arguments.of("DECIMAL(6,2)", "DECIMAL"),
         Arguments.of("MAP<STRING, ARRAY<STRING>>", "MAP<STRING, ARRAY<STRING>>"),
-        Arguments.of("ARRAY<DOUBLE>", "ARRAY<DOUBLE>"));
+        Arguments.of("ARRAY<DOUBLE>", "ARRAY<DOUBLE>"),
+        Arguments.of("BINGINT measure", "BINGINT measure"));
   }
 
   @ParameterizedTest
@@ -309,6 +310,16 @@ public class MetadataResultSetBuilderTest {
     List<Object> updatedRow = updatedRows.get(0);
     assertEquals("VARCHAR", updatedRow.get(0));
     assertNull(updatedRow.get(1));
+  }
+
+  @Test
+  void testGetThriftRowsMeasureColumn() {
+    List<ResultColumn> columns = List.of(COLUMN_TYPE_COLUMN);
+    List<Object> row = List.of("DECIMAL(6,2) measure");
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(List.of(row), columns);
+    List<Object> updatedRow = updatedRows.get(0);
+    // verify that type name for measure column is not stripped
+    assertEquals("DECIMAL(6,2) measure", updatedRow.get(0));
   }
 
   @ParameterizedTest
@@ -593,5 +604,45 @@ public class MetadataResultSetBuilderTest {
             resultSet, COLUMN_COLUMNS, new DefaultDatabricksResultSetAdapter());
 
     assertEquals(expectedScale, rows.get(0).get(8), message);
+  }
+
+  @Test
+  void testGetTableTypesResultWithMetricViewEnabled() throws SQLException {
+    // Test when EnableMetricViewMetadata=true
+    when(connectionContext.getEnableMetricViewMetadata()).thenReturn(true);
+
+    DatabricksResultSet resultSet = metadataResultSetBuilder.getTableTypesResult();
+
+    // Verify we get 4 table types including METRIC_VIEW
+    List<String> tableTypes = new ArrayList<>();
+    while (resultSet.next()) {
+      tableTypes.add(resultSet.getString("TABLE_TYPE"));
+    }
+
+    assertEquals(4, tableTypes.size());
+    assertTrue(tableTypes.contains("SYSTEM TABLE"));
+    assertTrue(tableTypes.contains("TABLE"));
+    assertTrue(tableTypes.contains("VIEW"));
+    assertTrue(tableTypes.contains("METRIC_VIEW"));
+  }
+
+  @Test
+  void testGetTableTypesResultWithMetricViewDisabled() throws SQLException {
+    // Test when EnableMetricViewMetadata=false
+    when(connectionContext.getEnableMetricViewMetadata()).thenReturn(false);
+
+    DatabricksResultSet resultSet = metadataResultSetBuilder.getTableTypesResult();
+
+    // Verify we get 3 table types without METRIC_VIEW
+    List<String> tableTypes = new ArrayList<>();
+    while (resultSet.next()) {
+      tableTypes.add(resultSet.getString("TABLE_TYPE"));
+    }
+
+    assertEquals(3, tableTypes.size());
+    assertTrue(tableTypes.contains("SYSTEM TABLE"));
+    assertTrue(tableTypes.contains("TABLE"));
+    assertTrue(tableTypes.contains("VIEW"));
+    assertFalse(tableTypes.contains("METRIC_VIEW"));
   }
 }

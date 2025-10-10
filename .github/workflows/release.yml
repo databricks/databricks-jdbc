@@ -16,6 +16,8 @@ jobs:
 
       - name: Set up Java for publishing to Maven Central Repository
         uses: actions/setup-java@v4
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         with:
           java-version: 11
           server-id: central
@@ -25,16 +27,13 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
 
-      - name: Configure GPG
-        run: |
-          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
-          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
-          gpg-connect-agent reloadagent /bye
-
       - name: Publish to the Maven Central Repository
         run: |
           # Deploy main artifacts (uber JAR, sources, javadoc)
-          mvn -Prelease --batch-mode deploy -Dnvd.api.key=${{ secrets.NVD_API_KEY }}
+          mvn -Prelease --batch-mode deploy \
+            -Dnvd.api.key=${{ secrets.NVD_API_KEY }} \
+            -Dossindex.username=${{ secrets.OSSINDEX_USERNAME }} \
+            -Dossindex.password=${{ secrets.OSSINDEX_PASSWORD }}
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
@@ -44,7 +43,4 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            target/databricks-jdbc-*-oss.jar
-            target/databricks-jdbc-*-sources.jar
-            target/databricks-jdbc-*-javadoc.jar
-          fail_on_unmatched_files: false
+            files: target/*.jar

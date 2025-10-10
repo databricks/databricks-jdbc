@@ -84,6 +84,9 @@ public interface IDatabricksSession {
   /** Returns the associated connection context for the session */
   IDatabricksConnectionContext getConnectionContext();
 
+  /** Gets the current catalog from the database */
+  String getCurrentCatalog() throws DatabricksSQLException;
+
   void setEmptyMetadataClient();
 
   void forceClose();

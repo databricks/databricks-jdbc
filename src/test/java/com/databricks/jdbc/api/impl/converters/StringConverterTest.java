@@ -2,13 +2,25 @@ package com.databricks.jdbc.api.impl.converters;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.impl.DatabricksArray;
+import com.databricks.jdbc.api.impl.DatabricksMap;
+import com.databricks.jdbc.api.impl.DatabricksStruct;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 public class StringConverterTest {
@@ -157,6 +169,38 @@ public class StringConverterTest {
   }
 
   @Test
+  public void testConvertToStringWithComplexTypes() throws DatabricksSQLException {
+    DatabricksArray stringArray = new DatabricksArray(List.of("one", "two"), "ARRAY<STRING>");
+    assertEquals("[\"one\",\"two\"]", new StringConverter().toString(stringArray));
+
+    Map<String, Object> mapValues = new LinkedHashMap<>();
+    mapValues.put("alpha", "beta");
+    DatabricksMap<String, Object> databricksMap =
+        new DatabricksMap<>(mapValues, "MAP<STRING,STRING>");
+    assertEquals("{\"alpha\":\"beta\"}", new StringConverter().toString(databricksMap));
+
+    Map<String, Object> structValues = new LinkedHashMap<>();
+    structValues.put("name", "value");
+    structValues.put("score", 5);
+    DatabricksStruct databricksStruct =
+        new DatabricksStruct(structValues, "STRUCT<name:STRING,score:INT>");
+    assertEquals(
+        "{\"name\":\"value\",\"score\":5}", new StringConverter().toString(databricksStruct));
+  }
+
+  @Test
+  public void testConvertToStringFallback() throws DatabricksSQLException {
+    class CustomType {
+      @Override
+      public String toString() {
+        return "custom-string";
+      }
+    }
+
+    assertEquals("custom-string", new StringConverter().toString(new CustomType()));
+  }
+
+  @Test
   public void testConvertToTimestamp() throws DatabricksSQLException, ParseException {
     assertEquals(
         new StringConverter().toTimestamp(TIME_STAMP_STRING), Timestamp.valueOf(TIME_STAMP_STRING));
@@ -187,5 +231,117 @@ public class StringConverterTest {
             DatabricksSQLException.class,
             () -> new StringConverter().toBigInteger(CHARACTER_STRING));
     assertTrue(invalidCharactersException.getMessage().contains("Invalid conversion"));
+  }
+
+  @Test
+  public void testConvertToStringWithSqlArray() throws DatabricksSQLException, SQLException {
+    // Test with mock SQL Array
+    java.sql.Array mockArray = org.mockito.Mockito.mock(java.sql.Array.class);
+    when(mockArray.getArray()).thenReturn(new String[] {"a", "b", "c"});
+
+    assertEquals("[\"a\",\"b\",\"c\"]", new StringConverter().toString(mockArray));
+
+    // Test with null array data
+    when(mockArray.getArray()).thenReturn(null);
+    assertEquals("null", new StringConverter().toString(mockArray));
+
+    // Test SQLException handling
+    when(mockArray.getArray()).thenThrow(new SQLException("Test exception"));
+    assertThrows(
+        DatabricksValidationException.class, () -> new StringConverter().toString(mockArray));
+  }
+
+  @Test
+  public void testConvertToStringWithGenericStruct() throws DatabricksSQLException, SQLException {
+    // Test with mock Struct that's not DatabricksStruct
+    java.sql.Struct mockStruct = org.mockito.Mockito.mock(java.sql.Struct.class);
+    when(mockStruct.getAttributes()).thenReturn(new Object[] {"value1", 42, null});
+
+    assertEquals("{\"value1\",42,null}", new StringConverter().toString(mockStruct));
+
+    // Test with null attributes
+    when(mockStruct.getAttributes()).thenReturn(null);
+    assertEquals("{}", new StringConverter().toString(mockStruct));
+
+    // Test SQLException handling
+    when(mockStruct.getAttributes()).thenThrow(new SQLException("Test exception"));
+    assertThrows(
+        DatabricksValidationException.class, () -> new StringConverter().toString(mockStruct));
+  }
+
+  @Test
+  public void testConvertToStringWithGenericMap() throws DatabricksSQLException {
+    Map<String, Object> map = new LinkedHashMap<>();
+    map.put("key1", "value1");
+    map.put("key2", 42);
+    map.put("key3", null);
+
+    assertEquals(
+        "{\"key1\":\"value1\",\"key2\":42,\"key3\":null}", new StringConverter().toString(map));
+
+    // Test empty map
+    assertEquals("{}", new StringConverter().toString(new HashMap<>()));
+  }
+
+  @Test
+  public void testConvertToStringWithGenericCollection() throws DatabricksSQLException {
+    List<Object> list = Arrays.asList("item1", 42, null, true);
+
+    assertEquals("[\"item1\",42,null,true]", new StringConverter().toString(list));
+
+    // Test empty collection
+    assertEquals("[]", new StringConverter().toString(new ArrayList<>()));
+  }
+
+  @Test
+  public void testConvertToStringWithJavaArrays() throws DatabricksSQLException {
+    // String array
+    String[] stringArray = {"a", "b", "c"};
+    assertEquals("[\"a\",\"b\",\"c\"]", new StringConverter().toString(stringArray));
+
+    // Integer array
+    int[] intArray = {1, 2, 3};
+    assertEquals("[1,2,3]", new StringConverter().toString(intArray));
+
+    // Object array with mixed types
+    Object[] mixedArray = {"text", 42, null, true};
+    assertEquals("[\"text\",42,null,true]", new StringConverter().toString(mixedArray));
+
+    // Empty array
+    String[] emptyArray = {};
+    assertEquals("[]", new StringConverter().toString(emptyArray));
+  }
+
+  @Test
+  public void testEscapeString() throws DatabricksSQLException {
+    StringConverter converter = new StringConverter();
+    // Access private method via reflection for testing
+    try {
+      java.lang.reflect.Method escapeMethod =
+          StringConverter.class.getDeclaredMethod("escapeString", String.class);
+      escapeMethod.setAccessible(true);
+
+      assertEquals("test", escapeMethod.invoke(converter, "test"));
+      assertEquals("test\\\"quote", escapeMethod.invoke(converter, "test\"quote"));
+      assertEquals("test\\\\backslash", escapeMethod.invoke(converter, "test\\backslash"));
+    } catch (Exception e) {
+      fail("Failed to test escapeString method: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testConvertToStringWithNestedStructures() throws DatabricksSQLException {
+    // Test nested map in collection
+    Map<String, String> nestedMap = new HashMap<>();
+    nestedMap.put("nested", "value");
+    List<Object> listWithMap = Arrays.asList("item", nestedMap);
+
+    assertEquals("[\"item\",{\"nested\":\"value\"}]", new StringConverter().toString(listWithMap));
+
+    // Test nested collection in map
+    Map<String, Object> mapWithList = new HashMap<>();
+    mapWithList.put("list", Arrays.asList("a", "b"));
+
+    assertEquals("{\"list\":[\"a\",\"b\"]}", new StringConverter().toString(mapWithList));
   }
 }

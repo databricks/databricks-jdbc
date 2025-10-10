@@ -5,7 +5,7 @@
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
   <!-- This value may be modified by a release script to reflect the current version of the driver. -->
-  <version>1.0.10-oss</version>
+  <version>1.0.11-oss</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver</name>
   <description>Databricks JDBC Driver.</description>
@@ -390,7 +390,7 @@
       <plugin>
         <groupId>org.owasp</groupId>
         <artifactId>dependency-check-maven</artifactId>
-        <version>12.1.1</version>
+        <version>12.1.6</version>
         <configuration>
           <formats>
             <format>HTML</format>
@@ -404,6 +404,9 @@
           <nvdApiKey>${nvd.api.key}</nvdApiKey>
           <nvdMaxRetryCount>10</nvdMaxRetryCount>
           <nvdApiDelay>4000</nvdApiDelay>
+          <ossindexAnalyzerEnabled>true</ossindexAnalyzerEnabled>
+          <ossindexUsername>${ossindex.username}</ossindexUsername>
+          <ossindexPassword>${ossindex.password}</ossindexPassword>
         </configuration>
         <executions>
           <execution>
@@ -632,6 +635,28 @@
       <build>
         <plugins>
           <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.6.1</version>
+            <executions>
+              <execution>
+                <id>attach-uber-minimal-pom</id>
+                <goals>
+                  <goal>attach-artifact</goal>
+                </goals>
+                <phase>package</phase>
+                <configuration>
+                  <artifacts>
+                    <artifact>
+                      <file>${project.basedir}/uber-minimal-pom.xml</file>
+                      <type>pom</type>
+                    </artifact>
+                  </artifacts>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-source-plugin</artifactId>
             <version>3.3.1</version>
@@ -667,17 +692,10 @@
             <version>1.6</version>
             <configuration>
               <gpgArguments>
-                <arg>--batch</arg>
                 <arg>--pinentry-mode</arg>
                 <arg>loopback</arg>
-                <arg>--no-tty</arg>
-                <arg>--yes</arg>
               </gpgArguments>
               <passphrase>${env.GPG_PASSPHRASE}</passphrase>
-              <!-- Custom reduced pom file for fat jar -->
-              <pomFile>${project.basedir}/uber-minimal-pom.xml</pomFile>
-              <sources>${project.build.directory}/${project.build.finalName}-sources.jar</sources>
-              <javadoc>${project.build.directory}/${project.build.finalName}-javadoc.jar</javadoc>
             </configuration>
             <executions>
               <execution>
@@ -695,7 +713,7 @@
             <version>0.8.0</version>
             <extensions>true</extensions>
             <configuration>
-             <publishingServerId>central</publishingServerId>
+              <publishingServerId>central</publishingServerId>
               <autoPublish>true</autoPublish>
               <waitUntil>published</waitUntil>
             </configuration>
