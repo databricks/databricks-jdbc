@@ -4,6 +4,7 @@ Databricks JDBC Driver Release Notes
 
 The release notes summarize enhancements, new features, known issues, workflow changes, and version history for the Databricks JDBC Driver (OSS).
 
+Version History ==============================================================
 
 3.0.1 ========================================================================
 
@@ -14,30 +15,11 @@ Enhancements & New Features
  * Added `enableMultipleCatalogSupport` connection parameter to control catalog metadata behavior.
 
 
-Resolved Issues 
+Resolved Issues
 The following issues have been resolved in Databricks JDBC Driver 3.0.1.
 
  * Fixed complex data type conversion issues by improving StringConverter to handle Databricks complex objects (arrays/maps/structs), JDBC arrays/structs, and generic collections.
  * Fixed ComplexDataTypeParser to correctly parse ISO timestamps with T separators and timezone offsets, preventing Arrow ingestion failures.
-
-
-Workflow Changes =============================================================
-
-The following changes may disrupt established workflows for the connector. 
-
-1.0.1 ------------------------------------------------------------------------
-
- * Changes to JDBC URL parameters to ensure compatibility with the latest Databricks driver:
-   1. Removed catalog in favour of ConnCatalog
-   2. Removed schema in favour of ConnSchema
-   3. Renamed OAuthDiscoveryURL to OIDCDiscoveryEndpoint
-   4. Renamed OAuth2TokenEndpoint to OAuth2ConnAuthTokenEndpoint
-   5. Renamed OAuth2AuthorizationEndPoint to OAuth2ConnAuthAuthorizeEndpoint
-   6. Renamed OAuthDiscoveryMode to EnableOIDCDiscovery
-   7. Renamed OAuthRefreshToken to Auth_RefreshToken
-
-
-Version History ==============================================================
 
 1.0.11 -----------------------------------------------------------------------
 
@@ -240,6 +222,18 @@ The following issues have been resolved in Databricks JDBC Driver 1.0.2.
 1.0.1 ------------------------------------------------------------------------
 
 Released 2025-03-11
+
+Workflow Changes
+The following changes may disrupt established workflows for the connector.
+
+ * Changes to JDBC URL parameters to ensure compatibility with the latest Databricks driver:
+   1. Removed catalog in favour of ConnCatalog
+   2. Removed schema in favour of ConnSchema
+   3. Renamed OAuthDiscoveryURL to OIDCDiscoveryEndpoint
+   4. Renamed OAuth2TokenEndpoint to OAuth2ConnAuthTokenEndpoint
+   5. Renamed OAuth2AuthorizationEndPoint to OAuth2ConnAuthAuthorizeEndpoint
+   6. Renamed OAuthDiscoveryMode to EnableOIDCDiscovery
+   7. Renamed OAuthRefreshToken to Auth_RefreshToken
 
 Enhancements & New Features
 
