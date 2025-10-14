@@ -443,4 +443,48 @@ The following issues have been resolved in Databricks JDBC Driver 0.9.2.
 
 Released 2024-08-08
 
- * Release the first version of OSS JDBC in maven
+ * Support for Input Stream in UC Volume Operations.
+ * Metadata fixes.
+ * Redacted passwords from logging.
+
+0.9.0 ------------------------------------------------------------------------
+
+Released 2024-07-24
+
+Enhancements & New Features
+
+ * Release OSS JDBC driver for Public Preview.
+
+0.9.0-beta -------------------------------------------------------------------
+
+Released 2024-07-22
+
+Enhancements & New Features
+
+ * Initial beta release of Databricks JDBC OSS Driver for Public Preview.
+
+0.7.0 ------------------------------------------------------------------------
+
+Released 2024-07-09
+
+Enhancements & New Features
+
+ * Stable release before Public Preview.
+
+0.1.0 ------------------------------------------------------------------------
+
+Released 2024-06-02
+
+Enhancements & New Features
+
+ * All-purpose cluster support and logging support.
+
+0.0.1 ------------------------------------------------------------------------
+
+Released 2024-02-29
+
+Enhancements & New Features
+
+ * First stable release with support for SQL warehouses.
+
+==============================================================================
