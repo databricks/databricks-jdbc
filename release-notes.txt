@@ -2,9 +2,7 @@
 Databricks JDBC Driver Release Notes 
 ==============================================================================
 
-The release notes provide details of enhancements, features, known issues, and
-workflow changes in Databricks JDBC Driver, as well as the version 
-history. 
+The release notes summarize enhancements, new features, known issues, workflow changes, and version history for the Databricks JDBC Driver (OSS).
 
 
 3.0.1 ========================================================================
