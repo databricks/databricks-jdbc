@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_STATEMENT_TIMEOUT_SECONDS;
 import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSION;
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDecimalTypeString;
@@ -77,8 +78,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
 
   @Override
   public void resetAccessToken(String newAccessToken) {
-    ((DatabricksHttpTTransport) thriftAccessor.getThriftClient().getInputProtocol().getTransport())
-        .resetAccessToken(newAccessToken);
+    // Update the config stored in the accessor so new transports use the new token
+    DatabricksConfig currentConfig = thriftAccessor.getDatabricksConfig();
+    DatabricksConfig newConfig = initializeConfigWithToken(newAccessToken, currentConfig);
+    newConfig.resolve();
+    thriftAccessor.updateConfig(newConfig);
   }
 
   @Override

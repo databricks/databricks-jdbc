@@ -47,7 +47,7 @@ final class DatabricksThriftAccessor {
       TExecuteStatementResp._Fields.OPERATION_HANDLE.getThriftFieldId();
   private static final short statusFieldId =
       TExecuteStatementResp._Fields.STATUS.getThriftFieldId();
-  private final DatabricksConfig databricksConfig;
+  private DatabricksConfig databricksConfig;
   private final boolean enableDirectResults;
   private final int asyncPollIntervalMillis;
   private final int maxRowsPerBlock;
@@ -473,6 +473,10 @@ final class DatabricksThriftAccessor {
 
   DatabricksConfig getDatabricksConfig() {
     return databricksConfig;
+  }
+
+  void updateConfig(DatabricksConfig newConfig) {
+    this.databricksConfig = newConfig;
   }
 
   TFetchResultsResp getResultSetResp(
