@@ -43,11 +43,8 @@ public class DatabricksAuthUtil {
         .setToken(newAccessToken);
 
     // Preserve and reconfigure the credentials provider if it exists
-    // The configure() call ensures the provider updates its internal reference to the new config
     if (credentialsProvider != null) {
       newConfig.setCredentialsProvider(credentialsProvider);
-      // Reconfigure the provider with the new config so it reads from the updated config
-      credentialsProvider.configure(newConfig);
     }
 
     return newConfig;
