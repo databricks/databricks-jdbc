@@ -3,6 +3,7 @@ package com.databricks.jdbc.telemetry.latency;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.getStatementIdString;
 
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -81,7 +82,8 @@ public class TelemetryCollector {
     }
     TelemetryHelper.exportTelemetryLog(
         new StatementTelemetryDetails(statementId)
-            .recordOperationLatency(latencyMillis, operationType));
+            .recordOperationLatency(latencyMillis, operationType),
+        TelemetryLogLevel.INFO);
   }
 
   /**
@@ -119,7 +121,8 @@ public class TelemetryCollector {
     LOGGER.trace(" {} pending telemetry details for telemetry export", statementTrackers.size());
     statementTrackers.forEach(
         (statementId, statementTelemetryDetails) -> {
-          TelemetryHelper.exportTelemetryLog(statementTelemetryDetails);
+          // Info log level is used to export the latency telemetry
+          TelemetryHelper.exportTelemetryLog(statementTelemetryDetails, TelemetryLogLevel.INFO);
         });
     statementTrackers.clear();
   }
@@ -163,7 +166,8 @@ public class TelemetryCollector {
    */
   private void exportTelemetryDetailsAndClear(String statementId) {
     StatementTelemetryDetails statementTelemetryDetails = statementTrackers.remove(statementId);
-    TelemetryHelper.exportTelemetryLog(statementTelemetryDetails);
+    // Info log level is used to export the latency telemetry
+    TelemetryHelper.exportTelemetryLog(statementTelemetryDetails, TelemetryLogLevel.INFO);
   }
 
   public void setResultFormat(

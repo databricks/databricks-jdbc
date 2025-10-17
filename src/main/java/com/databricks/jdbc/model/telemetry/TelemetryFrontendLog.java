@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.telemetry;
 
+import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -17,7 +18,12 @@ public class TelemetryFrontendLog {
   @JsonProperty("entry")
   FrontendLogEntry entry;
 
-  public TelemetryFrontendLog() {}
+  // @JsonProperty("log_level") // TODO: Add this when the backend is ready for consumption
+  TelemetryLogLevel logLevel;
+
+  public TelemetryFrontendLog(TelemetryLogLevel logLevel) {
+    this.logLevel = logLevel;
+  }
 
   public Long getWorkspaceId() {
     return workspaceId;

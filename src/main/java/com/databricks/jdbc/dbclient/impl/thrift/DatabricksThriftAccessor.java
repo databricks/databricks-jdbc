@@ -282,7 +282,9 @@ final class DatabricksThriftAccessor {
           statusResp, StatementId.loggableStatementId(response.getOperationHandle()));
     }
 
-    TimeoutHandler timeoutHandler = getTimeoutHandler(response, timeoutInSeconds);
+    TimeoutHandler timeoutHandler =
+        getTimeoutHandler(
+            response, timeoutInSeconds, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
 
     // Polling until query operation state is finished
     long pollingStartTime = System.nanoTime();
@@ -740,7 +742,10 @@ final class DatabricksThriftAccessor {
     serverProtocolVersion = protocolVersion;
   }
 
-  private TimeoutHandler getTimeoutHandler(TExecuteStatementResp response, int timeoutInSeconds) {
+  private TimeoutHandler getTimeoutHandler(
+      TExecuteStatementResp response,
+      int timeoutInSeconds,
+      DatabricksDriverErrorCode internalErrorCode) {
     final TOperationHandle operationHandle = response.getOperationHandle();
 
     return new TimeoutHandler(
@@ -753,7 +758,8 @@ final class DatabricksThriftAccessor {
           } catch (Exception e) {
             LOGGER.warn("Failed to cancel operation on timeout: {}", e.getMessage());
           }
-        });
+        },
+        internalErrorCode);
   }
 
   private TGetOperationStatusResp getOperationStatus(

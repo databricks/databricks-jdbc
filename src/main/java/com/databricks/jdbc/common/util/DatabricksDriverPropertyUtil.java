@@ -1,8 +1,5 @@
 package com.databricks.jdbc.common.util;
 
-import static com.databricks.jdbc.common.AuthFlow.BROWSER_BASED_AUTHENTICATION;
-import static com.databricks.jdbc.common.AuthFlow.CLIENT_CREDENTIALS;
-import static com.databricks.jdbc.common.AuthFlow.TOKEN_PASSTHROUGH;
 import static com.databricks.jdbc.common.AuthMech.OAUTH;
 import static com.databricks.jdbc.common.AuthMech.PAT;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.*;

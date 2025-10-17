@@ -2,6 +2,7 @@ package com.databricks.jdbc.exception;
 
 import static com.databricks.jdbc.telemetry.TelemetryHelper.exportFailureLog;
 
+import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.SQLException;
@@ -27,6 +28,7 @@ public class DatabricksSQLException extends SQLException {
   }
 
   // This constructor is used to export chunk download failure logs
+  // TODO : Check chunk retry telemetry logic
   public DatabricksSQLException(
       String reason, Throwable cause, String statementId, Long chunkIndex, String sqlState) {
     super(reason, sqlState, DatabricksVendorCode.getVendorCode(cause), cause);
@@ -35,7 +37,8 @@ public class DatabricksSQLException extends SQLException {
         DatabricksDriverErrorCode.CONNECTION_ERROR.name(),
         reason,
         statementId,
-        chunkIndex);
+        chunkIndex,
+        TelemetryLogLevel.ERROR);
   }
 
   public DatabricksSQLException(String reason, String sqlState) {
@@ -49,8 +52,7 @@ public class DatabricksSQLException extends SQLException {
   public DatabricksSQLException(
       String reason, String sqlState, DatabricksDriverErrorCode internalError) {
     super(reason, sqlState);
-    exportFailureLog(
-        DatabricksThreadContextHolder.getConnectionContext(), internalError.name(), reason);
+    logTelemetryEvent(sqlState, reason, false);
   }
 
   public DatabricksSQLException(String reason, String sqlState, int vendorCode) {
@@ -60,16 +62,28 @@ public class DatabricksSQLException extends SQLException {
   public DatabricksSQLException(
       String reason, String sqlState, int vendorCode, boolean silentExceptions) {
     super(reason, sqlState, vendorCode);
-    if (!silentExceptions) {
-      exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);
-    }
+    logTelemetryEvent(sqlState, reason, silentExceptions);
   }
 
   public DatabricksSQLException(String reason, String sqlState, int vendorCode, Throwable cause) {
     super(reason, sqlState, vendorCode, cause);
-    exportFailureLog(
-        DatabricksThreadContextHolder.getConnectionContext(),
-        DatabricksDriverErrorCode.CONNECTION_ERROR.name(),
-        reason);
+    logTelemetryEvent(sqlState, reason, false);
+  }
+
+  private void logTelemetryEvent(String sqlState, String reason, boolean silentExceptions) {
+    if (!silentExceptions) {
+      exportFailureLog(
+          DatabricksThreadContextHolder.getConnectionContext(),
+          sqlState,
+          reason,
+          TelemetryLogLevel.ERROR);
+    } else {
+      // These are errors that are thrown to call a fallback method, hence adding a lower log level.
+      exportFailureLog(
+          DatabricksThreadContextHolder.getConnectionContext(),
+          sqlState,
+          reason,
+          TelemetryLogLevel.WARN);
+    }
   }
 }
