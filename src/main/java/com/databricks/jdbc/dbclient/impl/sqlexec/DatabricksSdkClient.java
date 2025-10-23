@@ -484,7 +484,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
    * <p>This header is only added when all of the following conditions are met:
    *
    * <ul>
-   *   <li>The EnableSeaSyncMetadataHeader URL parameter is enabled (default: true)
+   *   <li>The EnableSeaSyncMetadata URL parameter is enabled (default: true)
    *   <li>The statement type is METADATA
    *   <li>The execution mode is synchronous (not async)
    * </ul>

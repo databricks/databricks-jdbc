@@ -692,7 +692,7 @@ public class DatabricksSdkClientTest {
     // Test that header is NOT added when the URL parameter is disabled
     setupClientMocks(true, false);
     String urlWithDisabledFlag =
-        "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;EnableSeaSyncMetadataHeader=0;";
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;EnableSeaSyncMetadata=0;";
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(urlWithDisabledFlag, new Properties());
     DatabricksSdkClient databricksSdkClient =

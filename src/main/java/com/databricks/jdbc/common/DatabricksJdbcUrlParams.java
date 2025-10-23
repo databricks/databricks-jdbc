@@ -164,8 +164,8 @@ public enum DatabricksJdbcUrlParams {
       "Enable SQL query execution for connection validation in isValid() method",
       "0"),
   IGNORE_TRANSACTIONS("IgnoreTransactions", "Ignore transaction-related method calls", "0"),
-  ENABLE_SEA_SYNC_METADATA_HEADER(
-      "EnableSeaSyncMetadataHeader",
+  ENABLE_SEA_SYNC_METADATA(
+      "EnableSeaSyncMetadata",
       "Enable x-databricks-sea-can-run-fully-sync header for synchronous metadata requests in SEA mode",
       "1");
 
