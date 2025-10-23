@@ -154,22 +154,27 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     try {
       InsertStatementParser.InsertInfo insertInfo = InsertStatementParser.parseInsertStrict(sql);
 
-      // Calculate how many rows we can fit in one chunk based on parameter limit
+      // Calculate how many rows we can fit in one chunk
       int parametersPerRow = insertInfo.getColumnCount();
       int maxRowsPerChunk;
 
       if (interpolateParameters) {
         // When parameter interpolation is enabled (supportManyParameters=1), there is no
         // parameter limit since values are interpolated directly into the SQL string.
-        // Execute all rows in a single batch for optimal performance.
-        maxRowsPerChunk = databricksBatchParameterMetaData.size();
+        // Try to execute all rows in a single batch, only limited by configured BatchInsertSize
+        // which users can set based on their data to avoid exceeding the 16MB statement limit.
+        int configuredBatchSize = connection.getConnectionContext().getBatchInsertSize();
+        maxRowsPerChunk = Math.min(configuredBatchSize, databricksBatchParameterMetaData.size());
       } else {
         // When using parameterized queries, respect the 256 parameter limit from Databricks backend
-        maxRowsPerChunk = DatabricksJdbcConstants.MAX_QUERY_PARAMETERS / parametersPerRow;
+        int maxRowsByParameterLimit =
+            DatabricksJdbcConstants.MAX_QUERY_PARAMETERS / parametersPerRow;
 
         // Ensure we have at least 1 row per chunk
-        if (maxRowsPerChunk < 1) {
+        if (maxRowsByParameterLimit < 1) {
           maxRowsPerChunk = 1;
+        } else {
+          maxRowsPerChunk = maxRowsByParameterLimit;
         }
       }
 

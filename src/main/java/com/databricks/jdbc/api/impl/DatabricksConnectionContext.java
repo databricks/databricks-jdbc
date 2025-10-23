@@ -811,6 +811,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public int getBatchInsertSize() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.BATCH_INSERT_SIZE));
+  }
+
+  @Override
   public boolean isTelemetryEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY).equals("1");
   }

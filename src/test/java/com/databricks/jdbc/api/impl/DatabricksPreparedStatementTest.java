@@ -7,6 +7,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -995,5 +997,103 @@ public class DatabricksPreparedStatementTest {
     for (int count : updateCounts) {
       assertEquals(1, count); // Each row should show 1 row affected
     }
+  }
+
+  @Test
+  public void testBatchedInsertWithCustomBatchInsertSize() throws Exception {
+    // Test that BatchInsertSize parameter controls chunking behavior
+    // With 8 columns and BatchInsertSize=50, max 50 rows per chunk
+    String jdbcUrlWithCustomBatchSize =
+        JDBC_URL_WITH_MANY_PARAMETERS + "EnableBatchedInserts=1;BatchInsertSize=50;";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(jdbcUrlWithCustomBatchSize, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+
+    // Add 200 rows, which should be split into 4 chunks of 50 rows each
+    for (int i = 1; i <= 200; i++) {
+      statement.setLong(1, 100 + i);
+      statement.setShort(2, (short) (10 + i));
+      statement.setByte(3, (byte) (i % 128));
+      statement.setString(4, "value" + i);
+      statement.addBatch();
+    }
+
+    // Verify BatchInsertSize is read correctly
+    assertEquals(50, connectionContext.getBatchInsertSize());
+
+    // Mock will be called 4 times (200 rows / 50 batch size = 4 chunks)
+    String expectedSqlPrefix = "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES";
+    when(client.executeStatement(
+            org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    lenient().when(resultSet.getUpdateCount()).thenReturn(50L);
+
+    int[] updateCounts = statement.executeBatch();
+    assertEquals(200, updateCounts.length);
+    for (int count : updateCounts) {
+      assertEquals(1, count); // Each row should show 1 row affected
+    }
+
+    // CRITICAL: Verify that executeStatement was called exactly 4 times (4 chunks of 50 rows)
+    verify(client, times(4))
+        .executeStatement(
+            org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement));
+  }
+
+  @Test
+  public void testBatchInsertSizeDefaultValue() throws Exception {
+    // Test that BatchInsertSize defaults to 1000 when not specified
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_BATCHED_INSERTS, new Properties());
+    assertEquals(1000, connectionContext.getBatchInsertSize());
+  }
+
+  @Test
+  public void testBatchInsertSizeRespectsParameterLimit() throws Exception {
+    // Test that without supportManyParameters, the driver still respects 256 parameter limit
+    // even if BatchInsertSize is higher
+    String jdbcUrlWithHighBatchSize = JDBC_URL_WITH_BATCHED_INSERTS + "BatchInsertSize=5000;";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(jdbcUrlWithHighBatchSize, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+
+    // Add 100 rows with 4 columns = 400 parameters (exceeds 256 limit)
+    for (int i = 1; i <= 100; i++) {
+      statement.setLong(1, 100 + i);
+      statement.setShort(2, (short) (10 + i));
+      statement.setByte(3, (byte) (i % 128));
+      statement.setString(4, "value" + i);
+      statement.addBatch();
+    }
+
+    // Without supportManyParameters, should chunk at 256/4 = 64 rows
+    // even though BatchInsertSize=5000
+    String expectedSqlPrefix = "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES";
+    when(client.executeStatement(
+            org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    lenient().when(resultSet.getUpdateCount()).thenReturn(64L);
+
+    int[] updateCounts = statement.executeBatch();
+    assertEquals(100, updateCounts.length);
   }
 }
