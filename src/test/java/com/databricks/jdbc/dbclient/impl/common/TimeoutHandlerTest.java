@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.lang.reflect.Field;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,12 @@ class TimeoutHandlerTest {
   @Test
   void testNoTimeout() {
     // Create handler with no timeout (0 seconds)
-    TimeoutHandler handler = new TimeoutHandler(0, "Test operation", mockTimeoutAction);
+    TimeoutHandler handler =
+        new TimeoutHandler(
+            0,
+            "Test operation",
+            mockTimeoutAction,
+            DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
 
     // This should not throw an exception
     assertDoesNotThrow(handler::checkTimeout);
@@ -36,7 +42,12 @@ class TimeoutHandlerTest {
   @Test
   void testTimeoutNotReached() {
     // Create handler with 10 second timeout
-    TimeoutHandler handler = new TimeoutHandler(10, "Test operation", mockTimeoutAction);
+    TimeoutHandler handler =
+        new TimeoutHandler(
+            10,
+            "Test operation",
+            mockTimeoutAction,
+            DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
 
     // This should not throw an exception
     assertDoesNotThrow(handler::checkTimeout);
@@ -48,7 +59,12 @@ class TimeoutHandlerTest {
   @Test
   void testTimeoutActionExecuted() throws Exception {
     // Create handler with 2 second timeout
-    TimeoutHandler handler = new TimeoutHandler(2, "Test operation", mockTimeoutAction);
+    TimeoutHandler handler =
+        new TimeoutHandler(
+            2,
+            "Test operation",
+            mockTimeoutAction,
+            DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
 
     // Manipulate the startTimeMillis to simulate elapsed time
     Field startTimeField = TimeoutHandler.class.getDeclaredField("startTimeMillis");
@@ -74,7 +90,12 @@ class TimeoutHandlerTest {
     doThrow(new RuntimeException("Test exception")).when(mockTimeoutAction).run();
 
     // Create handler with 2 second timeout
-    TimeoutHandler handler = new TimeoutHandler(2, "Test operation", mockTimeoutAction);
+    TimeoutHandler handler =
+        new TimeoutHandler(
+            2,
+            "Test operation",
+            mockTimeoutAction,
+            DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
 
     // Manipulate the startTimeMillis to simulate elapsed time
     Field startTimeField = TimeoutHandler.class.getDeclaredField("startTimeMillis");
@@ -96,7 +117,9 @@ class TimeoutHandlerTest {
   @Test
   void testNullTimeoutAction() throws Exception {
     // Create handler with null timeout action
-    TimeoutHandler handler = new TimeoutHandler(2, "Test operation", null);
+    TimeoutHandler handler =
+        new TimeoutHandler(
+            2, "Test operation", null, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
 
     // Manipulate the startTimeMillis to simulate elapsed time
     Field startTimeField = TimeoutHandler.class.getDeclaredField("startTimeMillis");
@@ -117,7 +140,9 @@ class TimeoutHandlerTest {
     when(mockStatementId.toString()).thenReturn("test-statement-id");
 
     // Create handler with factory method
-    TimeoutHandler handler = TimeoutHandler.forStatement(5, mockStatementId, mockClient);
+    TimeoutHandler handler =
+        TimeoutHandler.forStatement(
+            5, mockStatementId, mockClient, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
 
     // Verify handler was created correctly
     Field timeoutSecondsField = TimeoutHandler.class.getDeclaredField("timeoutSeconds");
@@ -150,7 +175,9 @@ class TimeoutHandlerTest {
         .cancelStatement(mockStatementId);
 
     // Create handler with factory method
-    TimeoutHandler handler = TimeoutHandler.forStatement(5, mockStatementId, mockClient);
+    TimeoutHandler handler =
+        TimeoutHandler.forStatement(
+            5, mockStatementId, mockClient, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
 
     // Manipulate the startTimeMillis to simulate elapsed time
     Field startTimeField = TimeoutHandler.class.getDeclaredField("startTimeMillis");

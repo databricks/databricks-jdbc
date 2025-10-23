@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_SCOPE;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
@@ -236,6 +237,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         .equals("1");
   }
 
+  public boolean getEnableMultipleCatalogSupport() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_MULTIPLE_CATALOG_SUPPORT, "1").equals("1");
+  }
+
   @Override
   public String getHostForOAuth() {
     return this.host;
@@ -303,6 +308,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public List<String> getOAuthScopesForU2M() throws DatabricksParsingException {
+    if (getParameter(AUTH_SCOPE) != null) {
+      return Collections.singletonList(getAuthScope());
+    }
     if (getCloud() == Cloud.AWS || getCloud() == Cloud.GCP) {
       return Arrays.asList(
           DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
@@ -452,12 +460,20 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public Map<String, String> getSessionConfigs() {
-    return this.parameters.entrySet().stream()
-        .filter(
-            e ->
-                ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
-                    .anyMatch(allowedConf -> allowedConf.toLowerCase().equals(e.getKey())))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    Map<String, String> sessionConfigs =
+        this.parameters.entrySet().stream()
+            .filter(
+                e ->
+                    ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
+                        .anyMatch(allowedConf -> allowedConf.toLowerCase().equals(e.getKey())))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    // Add metric view metadata configuration if enabled
+    if (getEnableMetricViewMetadata()) {
+      sessionConfigs.put("spark.sql.thriftserver.metadata.metricview.enabled", "true");
+    }
+
+    return sessionConfigs;
   }
 
   @Override
@@ -979,6 +995,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcUrlParams.ENABLE_SHOW_COMMAND_FOR_GET_FUNCTIONS).equals("1");
   }
 
+  @Override
+  public boolean getEnableMetricViewMetadata() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_METRIC_VIEW_METADATA).equals("1");
+  }
+
   private static boolean nullOrEmptyString(String s) {
     return s == null || s.isEmpty();
   }
@@ -1049,6 +1070,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean getIgnoreTransactions() {
     return getParameter(DatabricksJdbcUrlParams.IGNORE_TRANSACTIONS, "0").equals("1");
+  }
+
+  @Override
+  public TelemetryLogLevel getTelemetryLogLevel() {
+    return TelemetryLogLevel.parse(
+        getParameter(DatabricksJdbcUrlParams.TELEMETRY_LOG_LEVEL), TelemetryLogLevel.DEBUG);
   }
 
   @Override

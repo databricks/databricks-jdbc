@@ -2,6 +2,7 @@ package com.databricks.jdbc.exception;
 
 import static com.databricks.jdbc.telemetry.TelemetryHelper.exportFailureLog;
 
+import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 
@@ -18,11 +19,19 @@ public class DatabricksDriverException extends RuntimeException {
 
   public DatabricksDriverException(String reason, Throwable cause, String sqlState) {
     super(reason, cause);
-    exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);
+    exportFailureLog(
+        DatabricksThreadContextHolder.getConnectionContext(),
+        sqlState,
+        reason,
+        TelemetryLogLevel.ERROR);
   }
 
   public DatabricksDriverException(String reason, String sqlState) {
     super(reason);
-    exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), sqlState, reason);
+    exportFailureLog(
+        DatabricksThreadContextHolder.getConnectionContext(),
+        sqlState,
+        reason,
+        TelemetryLogLevel.ERROR);
   }
 }

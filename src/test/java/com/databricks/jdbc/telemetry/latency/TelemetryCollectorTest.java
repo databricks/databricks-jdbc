@@ -3,6 +3,7 @@ package com.databricks.jdbc.telemetry.latency;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.latency.ChunkDetails;
@@ -78,7 +79,9 @@ public class TelemetryCollectorTest {
       handler.recordOperationLatency(latency, methodName);
 
       mockedStatic.verify(
-          () -> TelemetryHelper.exportTelemetryLog(any(StatementTelemetryDetails.class)));
+          () ->
+              TelemetryHelper.exportTelemetryLog(
+                  any(StatementTelemetryDetails.class), any(TelemetryLogLevel.class)));
     }
   }
 

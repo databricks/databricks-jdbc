@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.http.HttpClient;
@@ -33,12 +34,19 @@ public class DatabricksAuthUtil {
       String newAccessToken, DatabricksConfig config) {
     String hostUrl = config.getHost();
     HttpClient httpClient = config.getHttpClient();
+    CredentialsProvider credentialsProvider = config.getCredentialsProvider();
     DatabricksConfig newConfig = new DatabricksConfig();
     newConfig
         .setHost(hostUrl)
         .setHttpClient(httpClient)
         .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
         .setToken(newAccessToken);
+
+    // Preserve and reconfigure the credentials provider if it exists
+    if (credentialsProvider != null) {
+      newConfig.setCredentialsProvider(credentialsProvider);
+    }
+
     return newConfig;
   }
 

@@ -225,7 +225,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
     // Create timeout handler
     TimeoutHandler timeoutHandler =
-        TimeoutHandler.forStatement(timeoutInSeconds, typedStatementId, this);
+        TimeoutHandler.forStatement(
+            timeoutInSeconds,
+            typedStatementId,
+            this,
+            DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
 
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
@@ -240,7 +244,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
               String.format(
                   "Thread interrupted due to statement timeout. StatementID %s", statementId);
           LOGGER.error(timeoutErrorMessage);
-          throw new DatabricksTimeoutException(timeoutErrorMessage);
+          throw new DatabricksTimeoutException(
+              timeoutErrorMessage, null, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
         }
       }
       String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);

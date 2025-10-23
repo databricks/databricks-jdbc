@@ -5,6 +5,7 @@ import java.sql.DriverPropertyInfo;
 /** Enum to hold all the Databricks JDBC URL parameters. */
 public enum DatabricksJdbcUrlParams {
   LOG_LEVEL("loglevel", "Log level for debugging"),
+  TELEMETRY_LOG_LEVEL("telemetryLogLevel", "Log level for telemetry logs", "DEBUG"),
   LOG_PATH("logpath", "Path to the log file"),
   LOG_FILE_SIZE("LogFileSize", "Maximum size of the log file", "10"), // 10 MB
   LOG_FILE_COUNT("LogFileCount", "Number of log files to retain", "10"),
@@ -47,7 +48,7 @@ public enum DatabricksJdbcUrlParams {
   USE_JWT_ASSERTION("UseJWTAssertion", "Use JWT assertion", "0"),
   OIDC_DISCOVERY_MODE("EnableOIDCDiscovery", "OIDC discovery mode", "1"),
   DISCOVERY_MODE("OAuthDiscoveryMode", "OAuth discovery mode", "1"), // Same as OIDC_DISCOVERY_MODE
-  AUTH_SCOPE("Auth_Scope", "Authentication scope", "all-apis"),
+  AUTH_SCOPE("Auth_Scope", "Authentication scope"),
   OIDC_DISCOVERY_ENDPOINT("OIDCDiscoveryEndpoint", "OIDC Discovery Endpoint"),
   DISCOVERY_URL("OAuthDiscoveryURL", "OAuth discovery URL"), // Same as OIDC_DISCOVERY_ENDPOINT
   IDENTITY_FEDERATION_CLIENT_ID(
@@ -164,6 +165,9 @@ public enum DatabricksJdbcUrlParams {
       "Enable SQL query execution for connection validation in isValid() method",
       "0"),
   IGNORE_TRANSACTIONS("IgnoreTransactions", "Ignore transaction-related method calls", "0"),
+  ENABLE_METRIC_VIEW_METADATA("EnableMetricViewMetadata", "Enable metric view metadata", "0"),
+  ENABLE_MULTIPLE_CATALOG_SUPPORT(
+      "enableMultipleCatalogSupport", "Enable multiple catalog support", "1"),
   ENABLE_SEA_SYNC_METADATA(
       "EnableSeaSyncMetadata",
       "Enable x-databricks-sea-can-run-fully-sync header for synchronous metadata requests in SEA mode",

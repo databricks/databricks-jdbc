@@ -1,7 +1,5 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
-import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
-
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -169,11 +167,6 @@ public class DatabricksHttpTTransport extends TTransport {
     Map<String, String> refreshedHeaders = databricksConfig.authenticate();
     customHeaders =
         refreshedHeaders != null ? new HashMap<>(refreshedHeaders) : Collections.emptyMap();
-  }
-
-  void resetAccessToken(String newAccessToken) {
-    this.databricksConfig = initializeConfigWithToken(newAccessToken, databricksConfig);
-    this.databricksConfig.resolve();
   }
 
   @VisibleForTesting

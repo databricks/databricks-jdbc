@@ -45,8 +45,10 @@ jobs:
       - name: Find JAR file
         shell: bash
         run: |
-          # Find the main JAR file dynamically
-          MAIN_JAR=$(find target -name "databricks-jdbc-*-oss.jar" -not -name "*-thin.jar" | head -1)
+          # Find the main JAR file dynamically (fat JAR, not thin, not tests)
+          MAIN_JAR=$(find target -maxdepth 1 -name "databricks-jdbc-*.jar" \
+            -not -name "*-thin.jar" \
+            -not -name "*-tests.jar" | head -1)
           if [ -z "$MAIN_JAR" ]; then
             echo "ERROR: Could not find main JAR file in target directory"
             ls -la target/

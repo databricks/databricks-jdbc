@@ -53,6 +53,17 @@ public interface IDatabricksConnectionContext {
 
   String getClientSecret();
 
+  /**
+   * Returns the OAuth scopes to request for the user-to-machine (U2M) authorization flow.
+   *
+   * <p>If an explicit auth scope is provided via connection parameters, this returns a singleton
+   * list containing that scope. On AWS and GCP, this returns the SQL scope and offline access
+   * scope. On Azure, this returns {@code null} because the default scope is set by the Databricks
+   * SDK.
+   *
+   * @return a list of OAuth scopes to request, or {@code null} on Azure to use the SDK default
+   * @throws DatabricksParsingException if connection parameters cannot be parsed
+   */
   List<String> getOAuthScopesForU2M() throws DatabricksParsingException;
 
   AuthMech getAuthMech();
@@ -62,6 +73,8 @@ public interface IDatabricksConnectionContext {
   boolean isPropertyPresent(DatabricksJdbcUrlParams urlParam);
 
   LogLevel getLogLevel();
+
+  TelemetryLogLevel getTelemetryLogLevel();
 
   String getLogPathString();
 
@@ -98,6 +111,9 @@ public interface IDatabricksConnectionContext {
 
   /** Returns the value of the EnableSQLValidationForIsValid connection property. */
   boolean getEnableSQLValidationForIsValid();
+
+  /** Returns the value of the enableMultipleCatalogSupport connection property. */
+  boolean getEnableMultipleCatalogSupport();
 
   String getProxyHost();
 
@@ -371,6 +387,9 @@ public interface IDatabricksConnectionContext {
 
   /** Returns whether transaction-related method calls should be ignored */
   boolean getIgnoreTransactions();
+
+  /* Returns whether metric view metadata is enabled */
+  boolean getEnableMetricViewMetadata();
 
   /**
    * Returns whether the x-databricks-sea-can-run-fully-sync header should be enabled for

@@ -57,7 +57,9 @@ public class DatabricksStruct implements Struct {
       String fieldType = typeMap.get(fieldName);
       Object value = attributes.get(fieldName);
 
-      if (fieldType.startsWith(DatabricksTypeUtil.STRUCT)) {
+      if (value == null) {
+        convertedAttributes[index] = value;
+      } else if (fieldType.startsWith(DatabricksTypeUtil.STRUCT)) {
         if (value instanceof Map) {
           convertedAttributes[index] = new DatabricksStruct((Map<String, Object>) value, fieldType);
         } else if (value instanceof DatabricksStruct) {

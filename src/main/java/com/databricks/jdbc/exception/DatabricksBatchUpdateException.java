@@ -2,6 +2,7 @@ package com.databricks.jdbc.exception;
 
 import static com.databricks.jdbc.telemetry.TelemetryHelper.exportFailureLog;
 
+import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.BatchUpdateException;
@@ -21,7 +22,10 @@ public class DatabricksBatchUpdateException extends BatchUpdateException {
             : Arrays.copyOf(longUpdateCounts, longUpdateCounts.length);
     this.updateCounts = (longUpdateCounts == null) ? null : copyUpdateCount(longUpdateCounts);
     exportFailureLog(
-        DatabricksThreadContextHolder.getConnectionContext(), internalErrorCode.toString(), reason);
+        DatabricksThreadContextHolder.getConnectionContext(),
+        internalErrorCode.toString(),
+        reason,
+        TelemetryLogLevel.ERROR);
   }
 
   public DatabricksBatchUpdateException(
@@ -32,7 +36,11 @@ public class DatabricksBatchUpdateException extends BatchUpdateException {
             ? null
             : Arrays.copyOf(longUpdateCounts, longUpdateCounts.length);
     this.updateCounts = (longUpdateCounts == null) ? null : copyUpdateCount(longUpdateCounts);
-    exportFailureLog(DatabricksThreadContextHolder.getConnectionContext(), SQLState, reason);
+    exportFailureLog(
+        DatabricksThreadContextHolder.getConnectionContext(),
+        SQLState,
+        reason,
+        TelemetryLogLevel.ERROR);
   }
 
   public long[] getLargeUpdateCounts() {

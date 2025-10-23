@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
@@ -60,15 +61,18 @@ public class TelemetryClientTest {
       TelemetryClient client =
           new TelemetryClient(context, MoreExecutors.newDirectExecutorService());
 
-      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event1"));
+      client.exportEvent(
+          new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event1"));
       Mockito.verifyNoInteractions(mockHttpClient);
       assertEquals(1, client.getCurrentSize());
 
-      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event2"));
+      client.exportEvent(
+          new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event2"));
       Thread.sleep(1000);
       assertEquals(0, client.getCurrentSize());
 
-      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event3"));
+      client.exportEvent(
+          new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event3"));
       Mockito.verifyNoMoreInteractions(mockHttpClient);
       assertEquals(1, client.getCurrentSize());
 
@@ -99,11 +103,13 @@ public class TelemetryClientTest {
       TelemetryClient client =
           new TelemetryClient(context, MoreExecutors.newDirectExecutorService(), databricksConfig);
 
-      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event1"));
+      client.exportEvent(
+          new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event1"));
       Mockito.verifyNoInteractions(mockHttpClient);
       assertEquals(1, client.getCurrentSize());
 
-      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event2"));
+      client.exportEvent(
+          new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event2"));
       Thread.sleep(1000);
       assertEquals(0, client.getCurrentSize());
       ArgumentCaptor<HttpUriRequest> requestCaptor = ArgumentCaptor.forClass(HttpUriRequest.class);
@@ -112,7 +118,8 @@ public class TelemetryClientTest {
       assertNotNull(requestCaptor.getValue().getFirstHeader("Authorization"));
       assertEquals("token", requestCaptor.getValue().getFirstHeader("Authorization").getValue());
 
-      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event3"));
+      client.exportEvent(
+          new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event3"));
       Mockito.verifyNoMoreInteractions(mockHttpClient);
       assertEquals(1, client.getCurrentSize());
 
@@ -136,9 +143,13 @@ public class TelemetryClientTest {
       TelemetryClient client =
           new TelemetryClient(context, MoreExecutors.newDirectExecutorService());
 
-      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event1"));
+      client.exportEvent(
+          new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event1"));
       assertDoesNotThrow(
-          () -> client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event2")));
+          () ->
+              client.exportEvent(
+                  new TelemetryFrontendLog(TelemetryLogLevel.ERROR)
+                      .setFrontendLogEventId("event2")));
     }
   }
 
@@ -169,7 +180,8 @@ public class TelemetryClientTest {
           new TelemetryClient(context, MoreExecutors.newDirectExecutorService(), databricksConfig);
 
       // Add a single event that won't trigger batch flush
-      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event1"));
+      client.exportEvent(
+          new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event1"));
       assertEquals(1, client.getCurrentSize());
 
       // Wait for a short time to verify the periodic flush doesn't trigger immediately
@@ -180,7 +192,8 @@ public class TelemetryClientTest {
       Thread.sleep(2000);
       assertEquals(0, client.getCurrentSize());
 
-      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event2"));
+      client.exportEvent(
+          new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event2"));
       assertEquals(1, client.getCurrentSize());
       // Close the client to trigger final flush
       client.close();
@@ -213,9 +226,10 @@ public class TelemetryClientTest {
       client = new TelemetryClient(context, executor);
 
       // Add events to trigger batch size flush
-      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event1"));
       client.exportEvent(
-          new TelemetryFrontendLog()
+          new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event1"));
+      client.exportEvent(
+          new TelemetryFrontendLog(TelemetryLogLevel.ERROR)
               .setFrontendLogEventId("event2")); // This should trigger flush due to batch size
 
       // assert that the flush occurred
@@ -225,7 +239,8 @@ public class TelemetryClientTest {
       Thread.sleep(2000);
 
       // Add another event
-      client.exportEvent(new TelemetryFrontendLog().setFrontendLogEventId("event3"));
+      client.exportEvent(
+          new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event3"));
 
       // Verify it's still in the batch (shouldn't have been flushed yet since timer was reset)
       assertEquals(1, client.getCurrentSize());

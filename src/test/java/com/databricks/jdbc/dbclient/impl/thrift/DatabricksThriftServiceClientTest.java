@@ -33,7 +33,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Stream;
-import org.apache.thrift.protocol.TProtocol;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -41,7 +40,6 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -64,6 +62,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testCreateSession() throws DatabricksSQLException {
+    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     TOpenSessionReq openSessionReq =
@@ -85,6 +84,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testCreateSessionHandlesProtocolVersion() throws DatabricksSQLException {
+    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
 
@@ -330,6 +330,7 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListCatalogs() throws SQLException {
+    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
@@ -394,6 +395,9 @@ public class DatabricksThriftServiceClientTest {
 
   @Test
   void testListTableTypes() throws SQLException {
+    // Mock connection context to disable metric view metadata by default
+    when(connectionContext.getEnableMetricViewMetadata()).thenReturn(false);
+
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     DatabricksResultSet actualResult = client.listTableTypes(session);
@@ -898,15 +902,10 @@ public class DatabricksThriftServiceClientTest {
   void testResetAccessToken() throws DatabricksParsingException {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
-    DatabricksHttpTTransport mockDatabricksHttpTTransport =
-        Mockito.mock(DatabricksHttpTTransport.class);
-    TCLIService.Client mockTCLIServiceClient = Mockito.mock(TCLIService.Client.class);
-    TProtocol mockProtocol = Mockito.mock(TProtocol.class);
-    when(thriftAccessor.getThriftClient()).thenReturn(mockTCLIServiceClient);
-    when(mockTCLIServiceClient.getInputProtocol()).thenReturn(mockProtocol);
-    when(mockProtocol.getTransport()).thenReturn(mockDatabricksHttpTTransport);
+    when(thriftAccessor.getDatabricksConfig()).thenReturn(databricksConfig);
+    when(databricksConfig.getHost()).thenReturn("test-host");
     client.resetAccessToken(NEW_ACCESS_TOKEN);
-    verify(mockDatabricksHttpTTransport).resetAccessToken(NEW_ACCESS_TOKEN);
+    verify(thriftAccessor).updateConfig(any(DatabricksConfig.class));
   }
 
   @Test

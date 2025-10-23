@@ -198,6 +198,28 @@ public class DatabricksConnectionTest {
   }
 
   @Test
+  public void testSetCatalogWithMultipleCatalogSupportDisabled() throws SQLException {
+    // Create connection context with enableMultipleCatalogSupport=0
+    String urlWithDisabledMultipleCatalog =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;enableMultipleCatalogSupport=0";
+    IDatabricksConnectionContext contextWithDisabledMultipleCatalog =
+        DatabricksConnectionContext.parse(urlWithDisabledMultipleCatalog, new Properties());
+
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), null, "default", new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+
+    DatabricksConnection connectionWithDisabledMultipleCatalog =
+        new DatabricksConnection(contextWithDisabledMultipleCatalog, databricksClient);
+    connectionWithDisabledMultipleCatalog.open();
+
+    String originalCatalog = connectionWithDisabledMultipleCatalog.getSession().getCatalog();
+    connectionWithDisabledMultipleCatalog.setCatalog("new_catalog");
+    assertEquals(originalCatalog, connectionWithDisabledMultipleCatalog.getSession().getCatalog());
+    connectionWithDisabledMultipleCatalog.close();
+  }
+
+  @Test
   public void testClosedConnection() throws SQLException {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
@@ -563,5 +585,33 @@ public class DatabricksConnectionTest {
     assertNull(connection.setSavepoint("test"));
 
     connection.close();
+  }
+
+  @Test
+  public void testMetricViewMetadataInSessionConfigs() throws SQLException {
+    String metricViewEnabledUrl = JDBC_URL + ";EnableMetricViewMetadata=1";
+    IDatabricksConnectionContext connectionContextEnabled =
+        DatabricksConnectionContext.parse(metricViewEnabledUrl, new Properties());
+
+    Map<String, String> sessionConfigsEnabled = connectionContextEnabled.getSessionConfigs();
+    assertTrue(
+        sessionConfigsEnabled.containsKey("spark.sql.thriftserver.metadata.metricview.enabled"));
+    assertEquals(
+        "true", sessionConfigsEnabled.get("spark.sql.thriftserver.metadata.metricview.enabled"));
+
+    String metricViewDisabledUrl = JDBC_URL + ";EnableMetricViewMetadata=0";
+    IDatabricksConnectionContext connectionContextDisabled =
+        DatabricksConnectionContext.parse(metricViewDisabledUrl, new Properties());
+
+    Map<String, String> sessionConfigsDisabled = connectionContextDisabled.getSessionConfigs();
+    assertFalse(
+        sessionConfigsDisabled.containsKey("spark.sql.thriftserver.metadata.metricview.enabled"));
+
+    IDatabricksConnectionContext connectionContextDefault =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+
+    Map<String, String> sessionConfigsDefault = connectionContextDefault.getSessionConfigs();
+    assertFalse(
+        sessionConfigsDefault.containsKey("spark.sql.thriftserver.metadata.metricview.enabled"));
   }
 }

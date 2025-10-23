@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_STATEMENT_TIMEOUT_SECONDS;
 import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSION;
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDecimalTypeString;
@@ -66,6 +67,10 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     this.serverProtocolVersion = serverProtocolVersion;
   }
 
+  private boolean isMultipleCatalogSupportEnabled() {
+    return connectionContext == null || connectionContext.getEnableMultipleCatalogSupport();
+  }
+
   @Override
   public IDatabricksConnectionContext getConnectionContext() {
     return connectionContext;
@@ -73,8 +78,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
 
   @Override
   public void resetAccessToken(String newAccessToken) {
-    ((DatabricksHttpTTransport) thriftAccessor.getThriftClient().getInputProtocol().getTransport())
-        .resetAccessToken(newAccessToken);
+    // Update the config stored in the accessor so new transports use the new token
+    DatabricksConfig currentConfig = thriftAccessor.getDatabricksConfig();
+    DatabricksConfig newConfig = initializeConfigWithToken(newAccessToken, currentConfig);
+    newConfig.resolve();
+    thriftAccessor.updateConfig(newConfig);
   }
 
   @Override
@@ -91,7 +99,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TOpenSessionReq openSessionReq =
         new TOpenSessionReq()
             .setConfiguration(sessionConf)
-            .setCanUseMultipleCatalogs(true)
+            .setCanUseMultipleCatalogs(isMultipleCatalogSupportEnabled())
             .setClient_protocol_i64(JDBC_THRIFT_VERSION.getValue());
     if (catalog != null || schema != null) {
       openSessionReq.setInitialNamespace(getNamespace(catalog, schema));
@@ -331,6 +339,20 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
         String.format("Fetching catalogs using Thrift client. Session {%s}", session.toString());
     LOGGER.debug(context);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
+
+    // If multiple catalog support is disabled, return only the current catalog
+    if (!isMultipleCatalogSupportEnabled()) {
+      String currentCatalog = session.getCurrentCatalog();
+      if (currentCatalog == null || currentCatalog.isEmpty()) {
+        currentCatalog = "";
+      }
+      List<List<Object>> singleCatalogRows = new ArrayList<>();
+      List<Object> catalogRow = new ArrayList<>();
+      catalogRow.add(currentCatalog);
+      singleCatalogRows.add(catalogRow);
+      return metadataResultSetBuilder.getCatalogsResult(singleCatalogRows);
+    }
+
     TGetCatalogsReq request =
         new TGetCatalogsReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle());

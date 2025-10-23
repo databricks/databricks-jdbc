@@ -655,7 +655,39 @@ public class DatabricksStructTest {
     metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
   }
 
-  /**
+  /** Test the constructor with null values in attributes with complex field types. */
+  @Test
+  public void constructor_ShouldHandleNullValuesInComplexAttributes() throws SQLException {
+    String metadata = "STRUCT<id:INT,map:STRUCT<value:STRING>,array:ARRAY<STRING>>";
+    Map<String, Object> attributes = new HashMap<>();
+    attributes.put("id", null);
+    attributes.put("map", null);
+    attributes.put("array", null);
+
+    // Mock MetadataParser.parseStructMetadata to return a map of field types
+    Map<String, String> typeMap = new LinkedHashMap<>();
+    typeMap.put("id", "INT");
+    typeMap.put("map", "STRUCT<value:STRING>");
+    typeMap.put("array", "ARRAY<STRING>");
+    mockParseStructMetadata(metadata, typeMap);
+
+    DatabricksStruct databricksStruct = new DatabricksStruct(attributes, metadata);
+
+    // Retrieve attributes
+    Object[] convertedAttributes = databricksStruct.getAttributes();
+
+    // Assertions
+    assertNotNull(convertedAttributes, "Converted attributes should not be null");
+    assertEquals(3, convertedAttributes.length, "Struct should have three attributes");
+    assertNull(convertedAttributes[0], "Attribute 'id' should be null");
+    assertNull(convertedAttributes[1], "Attribute 'map' should be null");
+    assertNull(convertedAttributes[2], "Attribute 'array' should be null");
+
+    // Verify that parseStructMetadata was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
+  }
+
+  /*
    * Test the constructor with conversion failure in nested Struct. Expects
    * DatabricksDriverException.
    */
