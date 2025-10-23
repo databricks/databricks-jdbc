@@ -500,7 +500,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
    * @return true if the header should be added, false otherwise
    */
   private boolean shouldAddSeaSyncMetadataHeader(StatementType statementType, boolean isAsync) {
-    return connectionContext.isSeaSyncMetadataHeaderEnabled()
+    return connectionContext.isSeaSyncMetadataEnabled()
         && statementType == StatementType.METADATA
         && !isAsync;
   }

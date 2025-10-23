@@ -376,5 +376,5 @@ public interface IDatabricksConnectionContext {
    * Returns whether the x-databricks-sea-can-run-fully-sync header should be enabled for
    * synchronous metadata requests in SEA mode
    */
-  boolean isSeaSyncMetadataHeaderEnabled();
+  boolean isSeaSyncMetadataEnabled();
 }

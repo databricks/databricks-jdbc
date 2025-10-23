@@ -1052,7 +1052,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public boolean isSeaSyncMetadataHeaderEnabled() {
+  public boolean isSeaSyncMetadataEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_SEA_SYNC_METADATA).equals("1");
   }
 }
