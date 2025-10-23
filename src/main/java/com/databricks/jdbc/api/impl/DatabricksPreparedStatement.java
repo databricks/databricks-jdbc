@@ -156,11 +156,21 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
       // Calculate how many rows we can fit in one chunk based on parameter limit
       int parametersPerRow = insertInfo.getColumnCount();
-      int maxRowsPerChunk = DatabricksJdbcConstants.MAX_QUERY_PARAMETERS / parametersPerRow;
+      int maxRowsPerChunk;
 
-      // Ensure we have at least 1 row per chunk
-      if (maxRowsPerChunk < 1) {
-        maxRowsPerChunk = 1;
+      if (interpolateParameters) {
+        // When parameter interpolation is enabled (supportManyParameters=1), there is no
+        // parameter limit since values are interpolated directly into the SQL string.
+        // Execute all rows in a single batch for optimal performance.
+        maxRowsPerChunk = databricksBatchParameterMetaData.size();
+      } else {
+        // When using parameterized queries, respect the 256 parameter limit from Databricks backend
+        maxRowsPerChunk = DatabricksJdbcConstants.MAX_QUERY_PARAMETERS / parametersPerRow;
+
+        // Ensure we have at least 1 row per chunk
+        if (maxRowsPerChunk < 1) {
+          maxRowsPerChunk = 1;
+        }
       }
 
       long[] allUpdateCounts = new long[databricksBatchParameterMetaData.size()];
@@ -193,8 +203,12 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
           }
         }
 
-        // Execute this chunk
-        executeInternal(multiRowSql, chunkParams, StatementType.UPDATE, false);
+        // Execute this chunk with interpolation if enabled
+        String sqlToExecute =
+            interpolateParameters ? interpolateSQL(multiRowSql, chunkParams) : multiRowSql;
+        Map<Integer, ImmutableSqlParameter> paramsToSend =
+            interpolateParameters ? new HashMap<>() : chunkParams;
+        executeInternal(sqlToExecute, paramsToSend, StatementType.UPDATE, false);
 
         // Set update counts for this chunk (each row typically affects 1 row)
         for (int i = startIndex; i < endIndex; i++) {

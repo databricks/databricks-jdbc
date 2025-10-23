@@ -915,4 +915,85 @@ public class DatabricksPreparedStatementTest {
         DatabricksSQLException.class,
         () -> preparedStatement.execute("SELECT * FROM table", new String[] {"column"}));
   }
+
+  @Test
+  public void testBatchedInsertWithManyParameters() throws Exception {
+    // Test that when supportManyParameters=1, batched inserts can exceed 256 parameters
+    // by using parameter interpolation instead of parameterized queries
+    String jdbcUrlWithBothFlags = JDBC_URL_WITH_MANY_PARAMETERS + "EnableBatchedInserts=1;";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(jdbcUrlWithBothFlags, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+
+    // Add 200 rows with 4 parameters each = 800 parameters (exceeds 256 limit)
+    for (int i = 1; i <= 200; i++) {
+      statement.setLong(1, 100 + i);
+      statement.setShort(2, (short) (10 + i));
+      statement.setByte(3, (byte) (i % 128));
+      statement.setString(4, "value" + i);
+      statement.addBatch();
+    }
+
+    // With supportManyParameters=1, all 200 rows should be batched in a single INSERT
+    // with interpolated values (not parameterized)
+    String expectedSqlPrefix = "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES";
+    when(client.executeStatement(
+            org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    lenient().when(resultSet.getUpdateCount()).thenReturn(200L);
+
+    int[] updateCounts = statement.executeBatch();
+    assertEquals(200, updateCounts.length);
+    for (int count : updateCounts) {
+      assertEquals(1, count); // Each row should show 1 row affected
+    }
+  }
+
+  @Test
+  public void testBatchedInsertWithVeryLargeParameterCount() throws Exception {
+    // Test with 10,000 rows = 40,000 parameters to verify scalability
+    // This would require ~156 chunks with the old 256-parameter limit
+    // but now executes as a single batch with parameter interpolation
+    String jdbcUrlWithBothFlags = JDBC_URL_WITH_MANY_PARAMETERS + "EnableBatchedInserts=1;";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(jdbcUrlWithBothFlags, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, BATCH_STATEMENT);
+
+    // Add 10,000 rows with 4 parameters each = 40,000 parameters
+    int rowCount = 10000;
+    for (int i = 1; i <= rowCount; i++) {
+      statement.setLong(1, 100 + i);
+      statement.setShort(2, (short) (10 + (i % 1000)));
+      statement.setByte(3, (byte) (i % 128));
+      statement.setString(4, "value" + i);
+      statement.addBatch();
+    }
+
+    // With supportManyParameters=1, all 10,000 rows execute in a single INSERT
+    String expectedSqlPrefix = "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES";
+    when(client.executeStatement(
+            org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    lenient().when(resultSet.getUpdateCount()).thenReturn((long) rowCount);
+
+    int[] updateCounts = statement.executeBatch();
+    assertEquals(rowCount, updateCounts.length);
+    for (int count : updateCounts) {
+      assertEquals(1, count); // Each row should show 1 row affected
+    }
+  }
 }
