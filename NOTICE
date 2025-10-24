@@ -80,6 +80,12 @@ jakartaee/common-annotations-api - https://github.com/jakartaee/common-annotatio
 Copyright common-annotations-api authors
 Notice - https://github.com/jakartaee/common-annotations-api/blob/master/NOTICE.md
 
+locationtech/jts - https://github.com/locationtech/jts
+Copyright (c) 2007, Eclipse Foundation, Inc. and its licensors
+Copyright LocationTech JTS contributors
+License: Eclipse Public License v2.0 (EPL-2.0) and Eclipse Distribution License v1.0 (EDL-1.0)
+License URLs: https://github.com/locationtech/jts/blob/master/LICENSE_EPLv2.txt, https://github.com/locationtech/jts/blob/master/LICENSE_EDLv1.txt
+
 ________________
 This Software contains code from the following open source projects, licensed under the GNU Lesser General Public License (https://www.gnu.org/licenses/lgpl-3.0.html):
 

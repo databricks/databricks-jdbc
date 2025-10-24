@@ -5,10 +5,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.VOLUME_OPERATIO
 import static com.databricks.jdbc.common.MetadataResultConstants.LARGE_DISPLAY_COLUMNS;
 import static com.databricks.jdbc.common.MetadataResultConstants.REMARKS_COLUMN;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
-import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
-import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP_NTZ;
-import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
-import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getBasePrecisionAndScale;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.AccessType;
@@ -178,6 +175,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             columnIndex < resultManifest.getSchema().getColumnsSize();
             columnIndex++) {
           TColumnDesc columnDesc = resultManifest.getSchema().getColumns().get(columnIndex);
+
           ColumnInfo columnInfo = getColumnInfoFromTColumnDesc(columnDesc);
           int[] precisionAndScale = getPrecisionAndScale(columnInfo);
           int precision = precisionAndScale[0];
@@ -205,6 +203,16 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                 .columnTypeClassName("java.lang.String")
                 .columnType(Types.OTHER)
                 .columnTypeText(VARIANT);
+          } else if (isGeometryColumn(arrowMetadata, columnIndex)) {
+            columnBuilder
+                .columnTypeClassName(GEOMETRY_CLASS_NAME)
+                .columnType(Types.OTHER)
+                .columnTypeText(GEOMETRY);
+          } else if (isGeographyColumn(arrowMetadata, columnIndex)) {
+            columnBuilder
+                .columnTypeClassName(GEOGRAPHY_CLASS_NAME)
+                .columnType(Types.OTHER)
+                .columnTypeText(GEOGRAPHY);
           }
           columnsBuilder.add(columnBuilder.build());
           columnNameToIndexMap.putIfAbsent(columnInfo.getName(), ++currIndex);
@@ -640,6 +648,20 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         && arrowMetadata.size() > i
         && arrowMetadata.get(i) != null
         && arrowMetadata.get(i).equalsIgnoreCase(VARIANT);
+  }
+
+  private boolean isGeometryColumn(List<String> arrowMetadata, int index) {
+    return arrowMetadata != null
+        && arrowMetadata.size() > index
+        && arrowMetadata.get(index) != null
+        && arrowMetadata.get(index).contains(GEOMETRY);
+  }
+
+  private boolean isGeographyColumn(List<String> arrowMetadata, int index) {
+    return arrowMetadata != null
+        && arrowMetadata.size() > index
+        && arrowMetadata.get(index) != null
+        && arrowMetadata.get(index).contains(GEOGRAPHY);
   }
 
   private ImmutableDatabricksColumn.Builder getColumnBuilder() {

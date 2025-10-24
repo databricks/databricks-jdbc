@@ -1,10 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
-import static com.databricks.jdbc.common.util.DatabricksTypeUtil.ARRAY;
-import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MAP;
-import static com.databricks.jdbc.common.util.DatabricksTypeUtil.STRUCT;
-import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IExecutionStatus;
@@ -480,13 +477,19 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   /**
-   * Checks if the given type name represents a complex type (ARRAY, MAP, or STRUCT).
+   * Checks if the given type name represents a complex type (ARRAY, MAP, STRUCT, GEOMETRY, or
+   * GEOGRAPHY).
    *
    * @param typeName The type name to check
-   * @return true if the type name starts with ARRAY, MAP, or STRUCT, false otherwise
+   * @return true if the type name starts with ARRAY, MAP, STRUCT, GEOMETRY, or GEOGRAPHY, false
+   *     otherwise
    */
   private static boolean isComplexType(String typeName) {
-    return typeName.startsWith(ARRAY) || typeName.startsWith(MAP) || typeName.startsWith(STRUCT);
+    return typeName.startsWith(ARRAY)
+        || typeName.startsWith(MAP)
+        || typeName.startsWith(STRUCT)
+        || typeName.startsWith(GEOMETRY)
+        || typeName.startsWith(GEOGRAPHY);
   }
 
   @Override
@@ -531,6 +534,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return parser.parseJsonStringToDbMap(obj.toString(), columnName).toString();
     } else if (columnName.startsWith(STRUCT)) {
       return parser.parseJsonStringToDbStruct(obj.toString(), columnName).toString();
+    } else if (columnName.startsWith(GEOMETRY)) {
+      return obj;
+    } else if (columnName.startsWith(GEOGRAPHY)) {
+      return obj;
     }
     throw new DatabricksParsingException(
         "Unexpected metadata format. Type is not a COMPLEX: " + columnName,
@@ -1969,7 +1976,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return defaultValue.get();
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
-    ObjectConverter converter = ConverterHelper.getConverterForSqlType(columnType);
+    String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
+
+    // Use metadata-aware converter selection for proper handling of databricks-specific types
+    ObjectConverter converter =
+        ConverterHelper.getConverterForColumnType(columnType, columnTypeName);
     return convertMethod.apply(converter, obj);
   }
 

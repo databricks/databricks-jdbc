@@ -287,6 +287,11 @@
       <artifactId>resilience4j-core</artifactId>
       <version>${resilience4j.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.locationtech.jts</groupId>
+      <artifactId>jts-core</artifactId>
+      <version>1.20.0</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -538,6 +543,10 @@
                 <relocation>
                   <pattern>org.json</pattern>
                   <shadedPattern>com.databricks.internal.json</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.locationtech.jts</pattern>
+                  <shadedPattern>com.databricks.internal.jts</shadedPattern>
                 </relocation>
                 <relocation>
                   <pattern>org.osgi</pattern>

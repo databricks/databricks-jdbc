@@ -11,6 +11,7 @@ import java.sql.*;
 import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -336,6 +337,65 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
     assertEquals("0 00:00:45.789000000", resultSet.getString("iv_second"));
 
     assertFalse(resultSet.next());
+  }
+
+  @Test
+  void testGeospatialTypes() throws SQLException {
+
+    // Skip for THRIFT_SERVER as the test environment version doesn't support geospatial types
+    // TODO: Update stubs and remove this skip once THRIFT_SERVER environment is upgraded to support
+    // geospatial types
+    Assumptions.assumeTrue(
+        isSqlExecSdkClient(), "Geospatial types are not supported on THRIFT_SERVER yet");
+
+    String query =
+        "SELECT * FROM (VALUES "
+            + "(1, ST_GeomFromText('POINT (1 2)'), ST_GeogFromText('POINT (3 4)')), "
+            + "(2, ST_GeomFromText('LINESTRING (0 0, 1 1, 2 2)'), ST_GeogFromText('LINESTRING (5 5, 6 6)')), "
+            + "(3, NULL, NULL)"
+            + ") AS geospatial_data(id, geom, geog) "
+            + "ORDER BY id";
+
+    ResultSet rs = executeQuery(connection, query);
+    assertNotNull(
+        rs, "ResultSet should not be null - GEOMETRY/GEOGRAPHY types may not be supported");
+    ResultSetMetaData rsmd = rs.getMetaData();
+
+    // Validate metadata
+    assertEquals("GEOMETRY", rsmd.getColumnTypeName(2));
+    assertEquals("GEOGRAPHY", rsmd.getColumnTypeName(3));
+
+    // Validate data
+    int rowCount = 0;
+    while (rs.next()) {
+      rowCount++;
+      int id = rs.getInt("id");
+      Object geom = rs.getObject("geom");
+      Object geog = rs.getObject("geog");
+
+      switch (id) {
+        case 1:
+          assertNotNull(geom);
+          assertNotNull(geog);
+          assertTrue(geom.toString().contains("POINT"));
+          assertTrue(geog.toString().contains("POINT"));
+          break;
+        case 2:
+          assertNotNull(geom);
+          assertNotNull(geog);
+          assertTrue(geom.toString().contains("LINESTRING"));
+          assertTrue(geog.toString().contains("LINESTRING"));
+          break;
+        case 3:
+          assertNull(geom);
+          assertNull(geog);
+          break;
+        default:
+          fail("Unexpected row id: " + id);
+      }
+    }
+    assertEquals(3, rowCount);
+    rs.close();
   }
 
   private void closeConnection(Connection connection) throws SQLException {

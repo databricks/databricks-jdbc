@@ -160,7 +160,7 @@ public class ArrowStreamResult implements IExecutionResult {
   }
 
   /**
-   * Checks if the given type is a complex type (ARRAY, MAP, or STRUCT).
+   * Checks if the given type is a complex type (ARRAY, MAP, STRUCT, GEOMETRY, or GEOGRAPHY).
    *
    * @param type The type to check
    * @return true if the type is a complex type, false otherwise
@@ -169,7 +169,9 @@ public class ArrowStreamResult implements IExecutionResult {
   public static boolean isComplexType(ColumnInfoTypeName type) {
     return type == ColumnInfoTypeName.ARRAY
         || type == ColumnInfoTypeName.MAP
-        || type == ColumnInfoTypeName.STRUCT;
+        || type == ColumnInfoTypeName.STRUCT
+        || type == ColumnInfoTypeName.GEOMETRY
+        || type == ColumnInfoTypeName.GEOGRAPHY;
   }
 
   /** {@inheritDoc} */

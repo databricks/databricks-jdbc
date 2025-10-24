@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl.converters;
 
 import com.databricks.jdbc.api.impl.DatabricksArray;
+import com.databricks.jdbc.api.impl.DatabricksGeography;
+import com.databricks.jdbc.api.impl.DatabricksGeometry;
 import com.databricks.jdbc.api.impl.DatabricksMap;
 import com.databricks.jdbc.api.impl.DatabricksStruct;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -139,6 +141,24 @@ public interface ObjectConverter {
     }
     throw new DatabricksSQLException(
         "Unsupported Struct conversion operation", DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+  }
+
+  default DatabricksGeometry toDatabricksGeometry(Object object) throws DatabricksSQLException {
+    if (object instanceof DatabricksGeometry) {
+      return (DatabricksGeometry) object;
+    }
+    throw new DatabricksSQLException(
+        "Unsupported Geometry conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+  }
+
+  default DatabricksGeography toDatabricksGeography(Object object) throws DatabricksSQLException {
+    if (object instanceof DatabricksGeography) {
+      return (DatabricksGeography) object;
+    }
+    throw new DatabricksSQLException(
+        "Unsupported Geography conversion operation",
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
   default InputStream toBinaryStream(Object object) throws DatabricksSQLException {

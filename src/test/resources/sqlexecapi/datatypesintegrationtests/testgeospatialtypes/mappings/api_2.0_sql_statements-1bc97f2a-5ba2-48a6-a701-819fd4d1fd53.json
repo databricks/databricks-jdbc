@@ -1,0 +1,35 @@
+{
+  "id" : "1bc97f2a-5ba2-48a6-a701-819fd4d1fd53",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SELECT * FROM (VALUES (1, ST_GeomFromText('POINT (1 2)'), ST_GeogFromText('POINT (3 4)')), (2, ST_GeomFromText('LINESTRING (0 0, 1 1, 2 2)'), ST_GeogFromText('LINESTRING (5 5, 6 6)')), (3, NULL, NULL)) AS geospatial_data(id, geom, geog) ORDER BY id\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01f0a5bc-7472-14b8-bc16-71f68ce36d0c\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f0a5bc-7691-1333-a867-e256984f11cf\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":3,\"columns\":[{\"name\":\"id\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":0},{\"name\":\"geom\",\"type_text\":\"GEOMETRY(0)\",\"type_name\":\"GEOMETRY\",\"position\":1},{\"name\":\"geog\",\"type_text\":\"GEOGRAPHY(4326)\",\"type_name\":\"GEOGRAPHY\",\"position\":2}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":3,\"byte_count\":720}],\"total_row_count\":3,\"total_byte_count\":720,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":3,\"byte_count\":547,\"external_link\":\"https://e2-dogfood-core.s3.us-west-2.amazonaws.com/oregon-staging/6051921418418893.jobs/sql/2025-10-10/09/results_2025-10-10T09%3A35%3A31Z_dfb38243-a074-4425-a7fe-772f480f384a?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20251010T093531Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=6a356f310ac3c56bbfccb7b5f5f31b34eb1010a04c8250659118a9db52f83e5f\",\"expiration\":\"2025-10-10T09:50:31.512Z\"}]}}",
+    "headers" : {
+      "x-request-id" : "c41ca866-9974-4e14-83c2-a6c072d9a33c",
+      "date" : "Fri, 10 Oct 2025 09:35:31 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "server-timing" : "request_id;dur=0;desc=\"c41ca866-9974-4e14-83c2-a6c072d9a33c\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "1bc97f2a-5ba2-48a6-a701-819fd4d1fd53",
+  "insertionIndex" : 4
+}

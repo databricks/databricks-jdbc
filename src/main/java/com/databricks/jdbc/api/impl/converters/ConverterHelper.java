@@ -1,5 +1,10 @@
 package com.databricks.jdbc.api.impl.converters;
 
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.GEOGRAPHY;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.GEOMETRY;
+
+import com.databricks.jdbc.api.impl.DatabricksGeography;
+import com.databricks.jdbc.api.impl.DatabricksGeometry;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -12,6 +17,7 @@ public class ConverterHelper {
 
   private static final Map<Integer, ObjectConverter> CONVERTER_CACHE = new HashMap<>();
   private static final Map<Integer, List<Integer>> SUPPORTED_CONVERSIONS = new HashMap<>();
+  private static final GeospatialConverter GEOSPATIAL_CONVERTER = new GeospatialConverter();
 
   static {
     // Numeric Types
@@ -506,6 +512,10 @@ public class ConverterHelper {
       return converter.toDatabricksArray(obj);
     } else if (javaType == Struct.class) {
       return converter.toDatabricksStruct(obj);
+    } else if (javaType == DatabricksGeometry.class) {
+      return converter.toDatabricksGeometry(obj);
+    } else if (javaType == DatabricksGeography.class) {
+      return converter.toDatabricksGeography(obj);
     }
     return converter.toString(obj); // By default, convert to string
   }
@@ -516,8 +526,28 @@ public class ConverterHelper {
    * @param columnSqlType The SQL type of the column, as defined in java.sql.Types
    * @return An ObjectConverter suitable for the specified SQL type
    */
+  // TODO: replace all usages of this method with getConverterForColumnType
   public static ObjectConverter getConverterForSqlType(int columnSqlType) {
     return CONVERTER_CACHE.getOrDefault(columnSqlType, CONVERTER_CACHE.get(Types.VARCHAR));
+  }
+
+  /**
+   * Retrieves the appropriate ObjectConverter for a given SQL type and column type name. This
+   * method provides metadata-aware converter selection, checking the actual column type name first
+   * for database-specific types before falling back to SQL type-based selection.
+   *
+   * @param columnSqlType The SQL type of the column, as defined in java.sql.Types
+   * @param columnTypeName The actual column type name from metadata (e.g., "GEOMETRY", "GEOGRAPHY")
+   * @return An ObjectConverter suitable for the specified column type
+   */
+  public static ObjectConverter getConverterForColumnType(
+      int columnSqlType, String columnTypeName) {
+    if (columnTypeName != null) {
+      if (columnTypeName.equals(GEOMETRY) || columnTypeName.equals(GEOGRAPHY)) {
+        return GEOSPATIAL_CONVERTER;
+      }
+    }
+    return getConverterForSqlType(columnSqlType);
   }
 
   public static boolean isConversionSupported(int fromType, int toType) {
