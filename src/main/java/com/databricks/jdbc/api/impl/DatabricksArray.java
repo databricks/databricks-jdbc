@@ -226,9 +226,9 @@ public class DatabricksArray implements Array {
       if (element == null) {
         // JSON-like null
         sb.append("null");
-      } else if (element instanceof String) {
-        // Wrap string in double quotes
-        sb.append("\"").append(element).append("\"");
+      } else if (element instanceof String || DatabricksTypeUtil.isTemporalType(element)) {
+        // Strings and temporal types get quoted
+        sb.append("\"").append(element.toString()).append("\"");
       } else {
         // For non-string, just call toString()
         sb.append(element.toString());

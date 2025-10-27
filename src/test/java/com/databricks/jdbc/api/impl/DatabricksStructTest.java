@@ -925,4 +925,54 @@ public class DatabricksStructTest {
         preservedNode.toString(),
         "JsonNode content should be preserved exactly");
   }
+
+  @Test
+  public void testToStringWithTimestamp() throws SQLException {
+    // Test that timestamps in structs are properly quoted
+    java.sql.Timestamp timestamp = java.sql.Timestamp.valueOf("2024-01-01 12:30:45.123");
+    String metadata = "STRUCT<id:INT,created_at:TIMESTAMP>";
+
+    Map<String, Object> fieldTypesMap = new LinkedHashMap<>();
+    fieldTypesMap.put("id", "INT");
+    fieldTypesMap.put("created_at", "TIMESTAMP");
+
+    metadataParserMock
+        .when(() -> MetadataParser.parseStructMetadata(metadata))
+        .thenReturn(fieldTypesMap);
+
+    Map<String, Object> inputMap = new LinkedHashMap<>();
+    inputMap.put("id", 123);
+    inputMap.put("created_at", timestamp);
+
+    DatabricksStruct struct = new DatabricksStruct(inputMap, metadata);
+    String actual = struct.toString();
+
+    String expected = "{\"id\":123,\"created_at\":\"2024-01-01 12:30:45.123\"}";
+    assertEquals(expected, actual, "DatabricksStruct.toString() should quote timestamp fields");
+  }
+
+  @Test
+  public void testToStringWithDate() throws SQLException {
+    // Test that dates in structs are properly quoted
+    java.sql.Date date = java.sql.Date.valueOf("2024-01-01");
+    String metadata = "STRUCT<id:INT,event_date:DATE>";
+
+    Map<String, Object> fieldTypesMap = new LinkedHashMap<>();
+    fieldTypesMap.put("id", "INT");
+    fieldTypesMap.put("event_date", "DATE");
+
+    metadataParserMock
+        .when(() -> MetadataParser.parseStructMetadata(metadata))
+        .thenReturn(fieldTypesMap);
+
+    Map<String, Object> inputMap = new LinkedHashMap<>();
+    inputMap.put("id", 456);
+    inputMap.put("event_date", date);
+
+    DatabricksStruct struct = new DatabricksStruct(inputMap, metadata);
+    String actual = struct.toString();
+
+    String expected = "{\"id\":456,\"event_date\":\"2024-01-01\"}";
+    assertEquals(expected, actual, "DatabricksStruct.toString() should quote date fields");
+  }
 }

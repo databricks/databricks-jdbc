@@ -194,9 +194,9 @@ public class DatabricksStruct implements Struct {
       } else if (val instanceof JsonNode) {
         // VARIANT fields represented as JsonNode - preserve JSON structure without quotes
         sb.append(val.toString());
-      } else if (val instanceof String) {
-        // Strings get quoted
-        sb.append("\"").append(val).append("\"");
+      } else if (val instanceof String || DatabricksTypeUtil.isTemporalType(val)) {
+        // Strings and temporal types get quoted
+        sb.append("\"").append(val.toString()).append("\"");
       } else {
         // For non-string values, rely on their existing toString()
         sb.append(val);
