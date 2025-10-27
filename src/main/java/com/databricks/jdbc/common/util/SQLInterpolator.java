@@ -23,6 +23,10 @@ public class SQLInterpolator {
       return object.value().toString();
     } else if (object.value() instanceof String) {
       return "'" + escapeApostrophes((String) object.value()) + "'";
+    } else if (object.type() == ColumnInfoTypeName.TIMESTAMP
+        || object.type() == ColumnInfoTypeName.DATE) {
+      // Timestamp and Date types need to be quoted as strings
+      return "'" + object.value().toString() + "'";
     } else {
       return object.value().toString();
     }

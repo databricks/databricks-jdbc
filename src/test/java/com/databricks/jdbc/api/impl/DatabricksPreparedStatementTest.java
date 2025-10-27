@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -1095,5 +1096,59 @@ public class DatabricksPreparedStatementTest {
 
     int[] updateCounts = statement.executeBatch();
     assertEquals(100, updateCounts.length);
+  }
+
+  @Test
+  public void testBatchedInsertWithTimestampsGeneratesQuotedSQL() throws Exception {
+    // Test that timestamps are properly quoted in the generated SQL during batched inserts
+    String jdbcUrlWithBothFlags = JDBC_URL_WITH_MANY_PARAMETERS + "EnableBatchedInserts=1;";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(jdbcUrlWithBothFlags, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+
+    String insertSql = "INSERT INTO events (id, name, created_at) VALUES (?, ?, ?)";
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, insertSql);
+
+    // Add 2 rows with timestamps
+    Timestamp ts1 = Timestamp.valueOf("2024-01-01 12:30:45.123");
+    Timestamp ts2 = Timestamp.valueOf("2024-02-15 08:15:30.456");
+
+    statement.setInt(1, 1);
+    statement.setString(2, "Event One");
+    statement.setTimestamp(3, ts1);
+    statement.addBatch();
+
+    statement.setInt(1, 2);
+    statement.setString(2, "Event Two");
+    statement.setTimestamp(3, ts2);
+    statement.addBatch();
+
+    // Capture the SQL that gets executed
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    when(client.executeStatement(
+            sqlCaptor.capture(),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    lenient().when(resultSet.getUpdateCount()).thenReturn(2L);
+
+    int[] updateCounts = statement.executeBatch();
+    assertEquals(2, updateCounts.length);
+
+    // Capture and validate the entire generated INSERT statement
+    String executedSql = sqlCaptor.getValue();
+
+    String expectedSql =
+        "INSERT INTO events (id, name, created_at) VALUES "
+            + "(1, 'Event One', '2024-01-01 12:30:45.123'), "
+            + "(2, 'Event Two', '2024-02-15 08:15:30.456')";
+
+    assertEquals(
+        expectedSql,
+        executedSql,
+        "Generated SQL should exactly match expected format with quoted timestamps");
   }
 }

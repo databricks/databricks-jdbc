@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.exception.DatabricksValidationException;
+import java.sql.Date;
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -89,6 +91,28 @@ public class SQLInterpolatorTest {
     params.put(1, getSqlParam(1, 101, DatabricksTypeUtil.INT));
     params.put(2, getSqlParam(2, "X'0102030405'", DatabricksTypeUtil.BINARY));
     String expected = "INSERT INTO sales (id, data) VALUES (101, X'0102030405')";
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testTimestampType() throws DatabricksValidationException {
+    String sql = "INSERT INTO events (id, created_at) VALUES (?, ?)";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    Timestamp timestamp = Timestamp.valueOf("2024-01-01 12:30:45.123");
+    params.put(1, getSqlParam(1, 101, DatabricksTypeUtil.INT));
+    params.put(2, getSqlParam(2, timestamp, DatabricksTypeUtil.TIMESTAMP));
+    String expected = "INSERT INTO events (id, created_at) VALUES (101, '2024-01-01 12:30:45.123')";
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testDateType() throws DatabricksValidationException {
+    String sql = "INSERT INTO events (id, event_date) VALUES (?, ?)";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    Date date = Date.valueOf("2024-01-01");
+    params.put(1, getSqlParam(1, 101, DatabricksTypeUtil.INT));
+    params.put(2, getSqlParam(2, date, DatabricksTypeUtil.DATE));
+    String expected = "INSERT INTO events (id, event_date) VALUES (101, '2024-01-01')";
     assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
   }
 

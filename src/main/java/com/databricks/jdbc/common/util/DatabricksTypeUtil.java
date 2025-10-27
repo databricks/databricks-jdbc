@@ -446,9 +446,12 @@ public class DatabricksTypeUtil {
       type = STRING;
     } else if (obj instanceof Integer) {
       type = INT;
-    } else if (obj instanceof Timestamp) {
+    } else if (obj instanceof Timestamp
+        || obj instanceof java.time.LocalDateTime
+        || obj instanceof java.time.Instant
+        || obj instanceof java.time.ZonedDateTime) {
       type = TIMESTAMP;
-    } else if (obj instanceof Date) {
+    } else if (obj instanceof Date || obj instanceof java.time.LocalDate) {
       type = DATE;
     } else if (obj instanceof Double) {
       type = DOUBLE;
