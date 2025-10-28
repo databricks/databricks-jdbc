@@ -116,6 +116,28 @@ public class SQLInterpolatorTest {
     assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
   }
 
+  @Test
+  public void testStringWithNewline() throws DatabricksValidationException {
+    String sql = "INSERT INTO events (id, text) VALUES (?, ?)";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 101, DatabricksTypeUtil.INT));
+    params.put(2, getSqlParam(2, "foo\nbar\tbazz", DatabricksTypeUtil.STRING));
+    String expected = "INSERT INTO events (id, text) VALUES (101, 'foo\\nbar\\tbazz')";
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testEscapeInputs() {
+    // Simple apostrophe doubling
+    assertEquals("'foo''bar'", SQLInterpolator.escapeInputs("foo'bar"));
+    // Escaping newlines
+    assertEquals("'line1\\nline2'", SQLInterpolator.escapeInputs("line1\nline2"));
+    // Escaping backslashes
+    assertEquals("'back\\\\slash'", SQLInterpolator.escapeInputs("back\\slash"));
+    // Emoji properly escaped as \U0001F9F1
+    assertEquals("'brick\\U0001F9F1test'", SQLInterpolator.escapeInputs("brick🧱test"));
+  }
+
   private static Stream<Arguments> providePlaceholderQuotingTestCases() {
     return Stream.of(
         // Basic placeholder quoting

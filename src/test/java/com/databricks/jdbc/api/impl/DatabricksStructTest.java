@@ -975,4 +975,37 @@ public class DatabricksStructTest {
     String expected = "{\"id\":456,\"event_date\":\"2024-01-01\"}";
     assertEquals(expected, actual, "DatabricksStruct.toString() should quote date fields");
   }
+
+  @Test
+  public void testToStringProducesValidJsonWithSpecialCharacters() throws SQLException {
+    // Test that toString() produces VALID JSON when strings contain special characters
+    String metadata = "STRUCT<id:INT,message:STRING,path:STRING>";
+
+    Map<String, Object> fieldTypesMap = new LinkedHashMap<>();
+    fieldTypesMap.put("id", "INT");
+    fieldTypesMap.put("message", "STRING");
+    fieldTypesMap.put("path", "STRING");
+
+    metadataParserMock
+        .when(() -> MetadataParser.parseStructMetadata(metadata))
+        .thenReturn(fieldTypesMap);
+
+    Map<String, Object> inputMap = new LinkedHashMap<>();
+    inputMap.put("id", 1);
+    inputMap.put("message", "She said \"hello\"");
+    inputMap.put("path", "C:\\Users\\file.txt");
+
+    DatabricksStruct struct = new DatabricksStruct(inputMap, metadata);
+    String actual = struct.toString();
+
+    System.out.println("Generated JSON: " + actual);
+
+    try {
+      new ObjectMapper().readTree(actual);
+      // Success! The JSON is valid
+      System.out.println("JSON parsing succeeded - output is valid JSON");
+    } catch (Exception e) {
+      fail("JSON parsing failed. JSON was invalid: " + actual + "\nError: " + e.getMessage());
+    }
+  }
 }
