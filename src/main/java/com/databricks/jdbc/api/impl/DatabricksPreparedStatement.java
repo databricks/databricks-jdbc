@@ -147,6 +147,171 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     }
   }
 
+  /**
+   * Executes a chunk with retry logic. If it fails after retries, splits the chunk in half and
+   * tries each half separately (recursively).
+   *
+   * @param insertInfo Parsed INSERT statement information
+   * @param startIndex Starting row index (inclusive)
+   * @param endIndex Ending row index (exclusive)
+   * @param allUpdateCounts Array to store update counts
+   * @param interpolateParameters Whether to interpolate parameters into SQL
+   * @param depth Current recursion depth (0 = top level)
+   * @return Number of rows successfully processed
+   * @throws DatabricksBatchUpdateException if a single row fails after all retries
+   */
+  private int executeChunkWithRetryAndSplit(
+      InsertStatementParser.InsertInfo insertInfo,
+      int startIndex,
+      int endIndex,
+      long[] allUpdateCounts,
+      boolean interpolateParameters,
+      int depth)
+      throws DatabricksBatchUpdateException {
+
+    int chunkSize = endIndex - startIndex;
+    LOGGER.debug(
+        "Processing chunk {}-{} ({} rows) at depth {}", startIndex + 1, endIndex, chunkSize, depth);
+
+    // Prepare SQL and parameters once (not on every retry)
+    String multiRowSql;
+    Map<Integer, ImmutableSqlParameter> chunkParams;
+    try {
+      multiRowSql = InsertStatementParser.generateMultiRowInsert(insertInfo, chunkSize);
+      chunkParams = new HashMap<>();
+      int paramIndex = 1;
+
+      for (int i = startIndex; i < endIndex; i++) {
+        DatabricksParameterMetaData batchParams = databricksBatchParameterMetaData.get(i);
+        Map<Integer, ImmutableSqlParameter> rowParams = batchParams.getParameterBindings();
+        for (int j = 1; j <= rowParams.size(); j++) {
+          if (rowParams.containsKey(j)) {
+            chunkParams.put(paramIndex++, rowParams.get(j));
+          }
+        }
+      }
+    } catch (DatabricksParsingException e) {
+      // If we can't generate SQL for this chunk, mark all rows as failed
+      for (int i = startIndex; i < allUpdateCounts.length; i++) {
+        allUpdateCounts[i] = Statement.EXECUTE_FAILED;
+      }
+      throw new DatabricksBatchUpdateException(
+          "Failed to generate SQL for chunk "
+              + (startIndex + 1)
+              + "-"
+              + endIndex
+              + ": "
+              + e.getMessage(),
+          DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION.toString(),
+          0,
+          allUpdateCounts,
+          e);
+    }
+
+    // Only retry at top level (depth 0) to avoid excessive retries on single rows
+    int maxRetries = (depth == 0) ? 3 : 0;
+    Exception lastException = null;
+
+    for (int attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          LOGGER.warn(
+              "Retrying chunk {}-{} (attempt {}/{})",
+              startIndex + 1,
+              endIndex,
+              attempt + 1,
+              maxRetries + 1);
+          // Simple exponential backoff: 100ms, 200ms, 400ms
+          try {
+            Thread.sleep(100L * (1L << (attempt - 1)));
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new SQLException("Retry sleep interrupted", ie);
+          }
+        }
+
+        // Execute this chunk with interpolation if enabled
+        String sqlToExecute =
+            interpolateParameters ? interpolateSQL(multiRowSql, chunkParams) : multiRowSql;
+        Map<Integer, ImmutableSqlParameter> paramsToSend =
+            interpolateParameters ? new HashMap<>() : chunkParams;
+        executeInternal(sqlToExecute, paramsToSend, StatementType.UPDATE, false);
+
+        // Set update counts for this chunk (each row typically affects 1 row)
+        for (int i = startIndex; i < endIndex; i++) {
+          allUpdateCounts[i] = 1;
+        }
+
+        LOGGER.debug("Successfully processed chunk {}-{}", startIndex + 1, endIndex);
+        return chunkSize;
+
+      } catch (Exception e) {
+        lastException = e;
+        LOGGER.error(
+            "Failed to execute chunk {}-{} (attempt {}/{}): {}",
+            startIndex + 1,
+            endIndex,
+            attempt + 1,
+            maxRetries + 1,
+            e.getMessage());
+      }
+    }
+
+    // Failed after all retries - try splitting the chunk if it has more than 1 row
+    if (chunkSize > 1) {
+      LOGGER.warn(
+          "Chunk {}-{} failed after {} attempts. Splitting into smaller chunks.",
+          startIndex + 1,
+          endIndex,
+          maxRetries + 1);
+
+      int midPoint = startIndex + (chunkSize / 2);
+
+      // Recursively process first half
+      int processedFirst =
+          executeChunkWithRetryAndSplit(
+              insertInfo, startIndex, midPoint, allUpdateCounts, interpolateParameters, depth + 1);
+
+      // Recursively process second half
+      int processedSecond =
+          executeChunkWithRetryAndSplit(
+              insertInfo, midPoint, endIndex, allUpdateCounts, interpolateParameters, depth + 1);
+
+      return processedFirst + processedSecond;
+    }
+
+    // Single row that still failed - mark it and throw
+    LOGGER.error(
+        "Single row chunk {}-{} failed after {} attempts and cannot be split further",
+        startIndex + 1,
+        endIndex,
+        maxRetries + 1);
+
+    for (int i = startIndex; i < allUpdateCounts.length; i++) {
+      allUpdateCounts[i] = Statement.EXECUTE_FAILED;
+    }
+
+    // Use null-safe error message
+    String errorMsg =
+        (lastException != null && lastException.getMessage() != null)
+            ? lastException.getMessage()
+            : String.valueOf(lastException);
+
+    throw new DatabricksBatchUpdateException(
+        "Chunk "
+            + (startIndex + 1)
+            + "-"
+            + endIndex
+            + " failed after "
+            + (maxRetries + 1)
+            + " attempts: "
+            + errorMsg,
+        DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION.toString(),
+        0,
+        allUpdateCounts,
+        lastException);
+  }
+
   /** Executes the batch as a single multi-row INSERT statement. */
   private long[] executeBatchedInsert() throws DatabricksBatchUpdateException {
     LOGGER.debug("Executing batched INSERT with {} rows", databricksBatchParameterMetaData.size());
@@ -164,6 +329,9 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         // Try to execute all rows in a single batch, only limited by configured BatchInsertSize
         // which users can set based on their data to avoid exceeding the 16MB statement limit.
         int configuredBatchSize = connection.getConnectionContext().getBatchInsertSize();
+        if (configuredBatchSize < 1) {
+          throw new SQLException("BatchInsertSize must be at least 1, got: " + configuredBatchSize);
+        }
         maxRowsPerChunk = Math.min(configuredBatchSize, databricksBatchParameterMetaData.size());
       } else {
         // When using parameterized queries, respect the 256 parameter limit from Databricks backend
@@ -181,56 +349,45 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       long[] allUpdateCounts = new long[databricksBatchParameterMetaData.size()];
       int processedRows = 0;
 
-      // Process batches in chunks
+      // Process batches in chunks with per-chunk retry logic
       for (int startIndex = 0;
           startIndex < databricksBatchParameterMetaData.size();
           startIndex += maxRowsPerChunk) {
         int endIndex =
             Math.min(startIndex + maxRowsPerChunk, databricksBatchParameterMetaData.size());
-        int chunkSize = endIndex - startIndex;
 
-        LOGGER.debug("Processing chunk {}-{} ({} rows)", startIndex + 1, endIndex, chunkSize);
-
-        // Generate multi-row SQL for this chunk
-        String multiRowSql = InsertStatementParser.generateMultiRowInsert(insertInfo, chunkSize);
-
-        // Combine parameters for this chunk
-        Map<Integer, ImmutableSqlParameter> chunkParams = new HashMap<>();
-        int paramIndex = 1;
-
-        for (int i = startIndex; i < endIndex; i++) {
-          DatabricksParameterMetaData batchParams = databricksBatchParameterMetaData.get(i);
-          Map<Integer, ImmutableSqlParameter> rowParams = batchParams.getParameterBindings();
-          for (int j = 1; j <= rowParams.size(); j++) {
-            if (rowParams.containsKey(j)) {
-              chunkParams.put(paramIndex++, rowParams.get(j));
-            }
-          }
-        }
-
-        // Execute this chunk with interpolation if enabled
-        String sqlToExecute =
-            interpolateParameters ? interpolateSQL(multiRowSql, chunkParams) : multiRowSql;
-        Map<Integer, ImmutableSqlParameter> paramsToSend =
-            interpolateParameters ? new HashMap<>() : chunkParams;
-        executeInternal(sqlToExecute, paramsToSend, StatementType.UPDATE, false);
-
-        // Set update counts for this chunk (each row typically affects 1 row)
-        for (int i = startIndex; i < endIndex; i++) {
-          allUpdateCounts[i] = 1;
-        }
-
-        processedRows += chunkSize;
+        // Execute chunk with retry and split logic (starting at depth 0)
+        processedRows +=
+            executeChunkWithRetryAndSplit(
+                insertInfo, startIndex, endIndex, allUpdateCounts, interpolateParameters, 0);
       }
 
       LOGGER.debug("Successfully processed {} rows in chunks", processedRows);
+      // Clear the batch after successful execution to prevent accidental re-execution
+      clearBatch();
       return allUpdateCounts;
 
+    } catch (DatabricksBatchUpdateException e) {
+      // Re-throw batch update exceptions (these already have proper update counts)
+      // Clear the batch to prevent duplicate inserts if application retries
+      try {
+        clearBatch();
+      } catch (SQLException clearEx) {
+        LOGGER.error("Failed to clear batch after exception", clearEx);
+      }
+      throw e;
     } catch (Exception e) {
-      LOGGER.error("Error executing batched INSERT: {}", e.getMessage(), e);
+      // Unexpected exception - mark all as failed
+      LOGGER.error("Unexpected error executing batched INSERT: {}", e.getMessage(), e);
       long[] failedCounts = new long[databricksBatchParameterMetaData.size()];
       for (int i = 0; i < failedCounts.length; i++) {
         failedCounts[i] = Statement.EXECUTE_FAILED;
+      }
+      // Clear the batch to prevent duplicate inserts on retry
+      try {
+        clearBatch();
+      } catch (SQLException clearEx) {
+        LOGGER.error("Failed to clear batch after exception", clearEx);
       }
       throw new DatabricksBatchUpdateException(
           e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, failedCounts);
@@ -261,9 +418,23 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         for (int i = sqlQueryIndex + 1; i < largeUpdateCount.length; i++) {
           largeUpdateCount[i] = Statement.EXECUTE_FAILED;
         }
+        // Clear the batch to prevent duplicate execution on retry
+        // WARNING: Due to lack of transaction support, any successfully executed statements
+        // before this failure have already been committed and cannot be rolled back
+        try {
+          clearBatch();
+        } catch (SQLException clearEx) {
+          LOGGER.error("Failed to clear batch after exception", clearEx);
+        }
         throw new DatabricksBatchUpdateException(
             e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, largeUpdateCount);
       }
+    }
+    // Clear the batch after successful execution to prevent accidental re-execution
+    try {
+      clearBatch();
+    } catch (SQLException e) {
+      LOGGER.error("Failed to clear batch after successful execution", e);
     }
     return largeUpdateCount;
   }

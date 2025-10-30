@@ -1151,4 +1151,198 @@ public class DatabricksPreparedStatementTest {
         executedSql,
         "Generated SQL should exactly match expected format with quoted timestamps");
   }
+
+  @Test
+  public void testChunkSplittingStopsAtSingleRow() throws Exception {
+    // Test that chunk splitting recursion terminates at single rows.
+    // When a chunk fails, it splits recursively (8→4→2→1) until reaching
+    // a single row, then throws an exception rather than infinite recursion.
+
+    String jdbcUrlWithBatched = JDBC_URL_WITH_BATCHED_INSERTS;
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(jdbcUrlWithBatched, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+
+    // Create a statement with 8 rows (requires max 3 levels of splitting: 8→4→2→1)
+    String insertSql = "INSERT INTO test_table (id, name) VALUES (?, ?)";
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, insertSql);
+
+    for (int i = 1; i <= 8; i++) {
+      statement.setInt(1, i);
+      statement.setString(2, "Row-" + i);
+      statement.addBatch();
+    }
+
+    // Mock to simulate: first 7 rows succeed, row 8 always fails
+    // This forces recursive splitting: 8→4→2→1 for the failing row
+    when(client.executeStatement(
+            any(String.class),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenAnswer(
+            invocation -> {
+              // Check parameters to see if this chunk contains row 8
+              @SuppressWarnings("unchecked")
+              HashMap<Integer, ImmutableSqlParameter> params = invocation.getArgument(2);
+
+              // Check if any parameter has value 8 (the id of the failing row)
+              for (ImmutableSqlParameter param : params.values()) {
+                if (param.value() != null && param.value().equals(8)) {
+                  // Simulate failure for any chunk containing row 8
+                  throw new SQLException("Simulated failure for row 8");
+                }
+              }
+              // All other chunks succeed
+              return resultSet;
+            });
+
+    lenient().when(resultSet.getUpdateCount()).thenReturn(1L);
+
+    // Execute should fail because row 8 cannot be inserted even after splitting to single row
+    DatabricksBatchUpdateException exception =
+        assertThrows(DatabricksBatchUpdateException.class, () -> statement.executeBatch());
+
+    // Verify the exception message indicates we reached a single-row failure
+    assertTrue(
+        exception.getMessage().contains("failed after"),
+        "Exception should indicate retry failure: " + exception.getMessage());
+
+    // Verify update counts: rows 1-7 should have succeeded, row 8 failed
+    long[] updateCounts = exception.getLargeUpdateCounts();
+    assertEquals(8, updateCounts.length);
+
+    // First 7 rows should be marked as succeeded (value = 1)
+    for (int i = 0; i < 7; i++) {
+      assertEquals(1, updateCounts[i], "Row " + (i + 1) + " should have succeeded");
+    }
+
+    // Row 8 should be marked as failed
+    assertEquals(
+        Statement.EXECUTE_FAILED, updateCounts[7], "Row 8 should be marked as EXECUTE_FAILED");
+
+    // Success: No StackOverflowError - recursion terminates properly
+  }
+
+  @Test
+  public void testChunkSplittingHandlesDeepRecursion() throws Exception {
+    // Test that chunk splitting handles deep recursion (7 levels) without stack overflow.
+    // For 128 rows: 128→64→32→16→8→4→2→1 = 7 levels of splitting.
+
+    String jdbcUrlWithBatched = JDBC_URL_WITH_BATCHED_INSERTS;
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(jdbcUrlWithBatched, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+
+    String insertSql = "INSERT INTO test_table (id) VALUES (?)";
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, insertSql);
+
+    // Add 128 rows - this is 2^7, so max recursion depth will be 7
+    int totalRows = 128;
+    for (int i = 1; i <= totalRows; i++) {
+      statement.setInt(1, i);
+      statement.addBatch();
+    }
+
+    // Mock: Last row (128) always fails, forcing maximum recursion depth
+    when(client.executeStatement(
+            any(String.class),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              HashMap<Integer, ImmutableSqlParameter> params = invocation.getArgument(2);
+
+              // Check if this chunk contains row 128 (last parameter would be 128)
+              for (ImmutableSqlParameter param : params.values()) {
+                if (param.value() != null && param.value().equals(128)) {
+                  throw new SQLException("Simulated failure for row 128");
+                }
+              }
+              return resultSet;
+            });
+
+    lenient().when(resultSet.getUpdateCount()).thenReturn(1L);
+
+    // Execute - should fail on row 128 but not cause stack overflow
+    DatabricksBatchUpdateException exception =
+        assertThrows(DatabricksBatchUpdateException.class, () -> statement.executeBatch());
+
+    // Verify we processed up to the failure point
+    long[] updateCounts = exception.getLargeUpdateCounts();
+    assertEquals(totalRows, updateCounts.length);
+
+    // Rows 1-127 should succeed, row 128 should fail
+    for (int i = 0; i < totalRows - 1; i++) {
+      assertEquals(1, updateCounts[i], "Row " + (i + 1) + " should have succeeded");
+    }
+    assertEquals(
+        Statement.EXECUTE_FAILED,
+        updateCounts[totalRows - 1],
+        "Row 128 should be marked as EXECUTE_FAILED");
+  }
+
+  @Test
+  public void testRejectsNegativeBatchSize() throws Exception {
+    // Test that negative BatchInsertSize is rejected to prevent infinite loops
+
+    String jdbcUrlWithInvalidBatchSize =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;"
+            + "transportMode=http;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/99999999;"
+            + "supportManyParameters=1;EnableBatchedInserts=1;"
+            + "BatchInsertSize=-1;"; // Invalid negative batch size
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(jdbcUrlWithInvalidBatchSize, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+
+    String insertSql = "INSERT INTO test_table (id) VALUES (?)";
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, insertSql);
+
+    statement.setInt(1, 1);
+    statement.addBatch();
+    statement.setInt(1, 2);
+    statement.addBatch();
+
+    // Should throw SQLException about invalid batch size
+    SQLException exception = assertThrows(SQLException.class, () -> statement.executeBatch());
+    assertTrue(
+        exception.getMessage().contains("BatchInsertSize must be at least 1"),
+        "Exception should mention invalid BatchInsertSize: " + exception.getMessage());
+  }
+
+  @Test
+  public void testRejectsZeroBatchSize() throws Exception {
+    // Test that zero BatchInsertSize is rejected
+
+    String jdbcUrlWithZeroBatchSize =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;"
+            + "transportMode=http;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/99999999;"
+            + "supportManyParameters=1;EnableBatchedInserts=1;"
+            + "BatchInsertSize=0;"; // Invalid zero batch size
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(jdbcUrlWithZeroBatchSize, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+
+    String insertSql = "INSERT INTO test_table (id) VALUES (?)";
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, insertSql);
+
+    statement.setInt(1, 1);
+    statement.addBatch();
+
+    // Should throw SQLException about invalid batch size
+    SQLException exception = assertThrows(SQLException.class, () -> statement.executeBatch());
+    assertTrue(
+        exception.getMessage().contains("BatchInsertSize must be at least 1"),
+        "Exception should mention invalid BatchInsertSize: " + exception.getMessage());
+  }
 }
