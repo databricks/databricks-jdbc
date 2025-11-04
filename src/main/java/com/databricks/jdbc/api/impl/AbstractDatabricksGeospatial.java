@@ -20,6 +20,7 @@ public abstract class AbstractDatabricksGeospatial implements IDatabricksGeospat
 
   private final String wkt;
   private final int srid; // Spatial Reference System Identifier
+  private final byte[] wkb;
 
   /**
    * Constructs an AbstractDatabricksGeospatial with the specified WKT and SRID.
@@ -37,17 +38,17 @@ public abstract class AbstractDatabricksGeospatial implements IDatabricksGeospat
 
     this.wkt = wkt.trim();
     this.srid = srid;
+    this.wkb = WKTConverter.toWKB(this.wkt);
   }
 
   /**
    * Returns the Well-Known Binary (WKB) representation of the geospatial object.
    *
    * @return the WKB representation as a byte array
-   * @throws DatabricksValidationException if WKT to WKB conversion fails
    */
   @Override
-  public byte[] getWKB() throws DatabricksValidationException {
-    return WKTConverter.toWKB(wkt);
+  public byte[] getWKB() {
+    return wkb;
   }
 
   /**
