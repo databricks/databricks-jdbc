@@ -40,7 +40,8 @@ public class TimestampConverterTest {
                   .toInstant());
 
       assertEquals(
-          "2023-09-11T03:14:00Z", converter.toString(istTimestamp)); // Should be converted to UTC
+          "2023-09-11 08:44:00.0",
+          converter.toString(istTimestamp)); // Should return SQL format without conversion
 
     } finally {
       // Restore the original timezone after the test
@@ -90,7 +91,15 @@ public class TimestampConverterTest {
 
   @Test
   public void testConvertToString() throws DatabricksSQLException {
-    assertEquals("2023-09-10T20:45:00Z", converter.toString(TIMESTAMP));
+    TimeZone defaultTimeZone = TimeZone.getDefault();
+    try {
+      // Set timezone to UTC to ensure consistent test results
+      TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+      assertEquals("2023-09-10 20:45:00.0", converter.toString(TIMESTAMP));
+    } finally {
+      // Restore the original timezone after the test
+      TimeZone.setDefault(defaultTimeZone);
+    }
   }
 
   @Test

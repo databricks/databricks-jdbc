@@ -77,7 +77,7 @@ public class TimestampConverter implements ObjectConverter {
 
   @Override
   public String toString(Object object) throws DatabricksSQLException {
-    return toTimestamp(object).toInstant().toString();
+    return toTimestamp(object).toString();
   }
 
   @Override
