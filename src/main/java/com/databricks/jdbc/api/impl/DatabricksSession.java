@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
 public class DatabricksSession implements IDatabricksSession {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSession.class);
-  private IDatabricksClient databricksClient;
+  private IDatabricksClient databricksClient = null;
   private IDatabricksMetadataClient databricksMetadataClient;
   private final IDatabricksComputeResource computeResource;
   private boolean isSessionOpen;
@@ -58,17 +58,6 @@ public class DatabricksSession implements IDatabricksSession {
    */
   public DatabricksSession(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
-    if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
-      this.databricksClient =
-          DatabricksMetricsTimedProcessor.createProxy(
-              new DatabricksThriftServiceClient(connectionContext));
-    } else {
-      this.databricksClient =
-          DatabricksMetricsTimedProcessor.createProxy(new DatabricksSdkClient(connectionContext));
-      this.databricksMetadataClient =
-          DatabricksMetricsTimedProcessor.createProxy(
-              new DatabricksMetadataSdkClient(databricksClient));
-    }
     this.isSessionOpen = false;
     this.sessionInfo = null;
     this.computeResource = connectionContext.getComputeResource();
@@ -135,6 +124,22 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public void open() throws DatabricksSQLException {
     LOGGER.debug("public void open()");
+
+    // Skip for tests, it would be already set
+    if (databricksClient == null) {
+      if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
+        this.databricksClient =
+            DatabricksMetricsTimedProcessor.createProxy(
+                new DatabricksThriftServiceClient(connectionContext));
+      } else {
+        this.databricksClient =
+            DatabricksMetricsTimedProcessor.createProxy(new DatabricksSdkClient(connectionContext));
+        this.databricksMetadataClient =
+            DatabricksMetricsTimedProcessor.createProxy(
+                new DatabricksMetadataSdkClient(databricksClient));
+      }
+    }
+
     synchronized (this) {
       if (!isSessionOpen) {
         try {

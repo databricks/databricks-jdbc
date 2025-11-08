@@ -204,4 +204,99 @@ class DatabricksDriverFeatureFlagsContextTest {
     // Test with non-existent flag
     assertFalse(context.isFeatureEnabled("nonexistent"));
   }
+
+  // ===== Additional Integration Tests =====
+
+  @Test
+  void testIsFeatureEnabledForSqlExecFlag() {
+    Map<String, String> flags = new HashMap<>();
+    flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
+    context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, flags);
+
+    assertTrue(
+        context.isFeatureEnabled(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc"));
+  }
+
+  @Test
+  void testMultipleFeatureFlagsInResponse() throws Exception {
+    try (MockedStatic<JsonUtil> jsonUtilMocked = mockStatic(JsonUtil.class)) {
+      String responseJson =
+          "{\"flags\":["
+              + "{\"name\":\"flag1\",\"value\":\"true\"},"
+              + "{\"name\":\"databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc\",\"value\":\"true\"},"
+              + "{\"name\":\"flag3\",\"value\":\"false\"}"
+              + "],\"ttl_seconds\":300}";
+
+      when(httpResponseMock.getStatusLine()).thenReturn(statusLineMock);
+      when(statusLineMock.getStatusCode()).thenReturn(200);
+      when(httpResponseMock.getEntity()).thenReturn(httpEntityMock);
+      when(httpEntityMock.getContent())
+          .thenReturn(new ByteArrayInputStream(responseJson.getBytes()));
+      when(httpClientMock.execute(any(HttpGet.class))).thenReturn(httpResponseMock);
+
+      FeatureFlagsResponse response =
+          new ObjectMapper().readValue(responseJson, FeatureFlagsResponse.class);
+      jsonUtilMocked.when(JsonUtil::getMapper).thenReturn(objectMapperMock);
+      when(objectMapperMock.readValue(anyString(), eq(FeatureFlagsResponse.class)))
+          .thenReturn(response);
+
+      HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
+      context.fetchAndSetFlagsFromServer(httpClientMock, request);
+
+      assertTrue(context.isFeatureEnabled("flag1"));
+      assertTrue(
+          context.isFeatureEnabled(
+              "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc"));
+      assertFalse(context.isFeatureEnabled("flag3"));
+    }
+  }
+
+  @Test
+  void testFetchAndSetFlagsFromServer_404Error() throws IOException, DatabricksHttpException {
+    when(httpResponseMock.getStatusLine()).thenReturn(statusLineMock);
+    when(statusLineMock.getStatusCode()).thenReturn(404);
+    when(httpClientMock.execute(any(HttpGet.class))).thenReturn(httpResponseMock);
+
+    HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
+    context.fetchAndSetFlagsFromServer(httpClientMock, request);
+
+    // Should not throw, and feature should be disabled by default
+    assertFalse(context.isFeatureEnabled(FEATURE_FLAG_NAME));
+  }
+
+  @Test
+  void testFetchAndSetFlagsFromServer_403Error() throws IOException, DatabricksHttpException {
+    when(httpResponseMock.getStatusLine()).thenReturn(statusLineMock);
+    when(statusLineMock.getStatusCode()).thenReturn(403);
+    when(httpClientMock.execute(any(HttpGet.class))).thenReturn(httpResponseMock);
+
+    HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
+    context.fetchAndSetFlagsFromServer(httpClientMock, request);
+
+    assertFalse(context.isFeatureEnabled(FEATURE_FLAG_NAME));
+  }
+
+  @Test
+  void testFetchAndSetFlagsFromServer_503Error() throws IOException, DatabricksHttpException {
+    when(httpResponseMock.getStatusLine()).thenReturn(statusLineMock);
+    when(statusLineMock.getStatusCode()).thenReturn(503);
+    when(httpClientMock.execute(any(HttpGet.class))).thenReturn(httpResponseMock);
+
+    HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
+    context.fetchAndSetFlagsFromServer(httpClientMock, request);
+
+    assertFalse(context.isFeatureEnabled(FEATURE_FLAG_NAME));
+  }
+
+  @Test
+  void testIsFeatureEnabledCaseSensitive() {
+    Map<String, String> flags = new HashMap<>();
+    flags.put("TestFlag", "true");
+    context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, flags);
+
+    assertTrue(context.isFeatureEnabled("TestFlag"));
+    assertFalse(context.isFeatureEnabled("testflag"));
+    assertFalse(context.isFeatureEnabled("TESTFLAG"));
+  }
 }
