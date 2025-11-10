@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
 public class DatabricksSession implements IDatabricksSession {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSession.class);
-  private IDatabricksClient databricksClient = null;
+  private IDatabricksClient databricksClient;
   private IDatabricksMetadataClient databricksMetadataClient;
   private final IDatabricksComputeResource computeResource;
   private boolean isSessionOpen;
@@ -60,6 +60,8 @@ public class DatabricksSession implements IDatabricksSession {
       throws DatabricksSQLException {
     this.isSessionOpen = false;
     this.sessionInfo = null;
+    this.databricksClient = null;
+    this.databricksMetadataClient = null;
     this.computeResource = connectionContext.getComputeResource();
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
