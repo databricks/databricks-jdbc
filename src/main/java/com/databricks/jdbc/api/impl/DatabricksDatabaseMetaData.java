@@ -827,21 +827,21 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public int getDefaultTransactionIsolation() throws SQLException {
     LOGGER.debug("public int getDefaultTransactionIsolation()");
     throwExceptionIfConnectionIsClosed();
-    return Connection.TRANSACTION_READ_UNCOMMITTED;
+    return Connection.TRANSACTION_REPEATABLE_READ;
   }
 
   @Override
   public boolean supportsTransactions() throws SQLException {
     LOGGER.debug("public boolean supportsTransactions()");
     throwExceptionIfConnectionIsClosed();
-    return false;
+    return true;
   }
 
   @Override
   public boolean supportsTransactionIsolationLevel(int level) throws SQLException {
     LOGGER.debug("public boolean supportsTransactionIsolationLevel(int level = {})", level);
     throwExceptionIfConnectionIsClosed();
-    return level == Connection.TRANSACTION_READ_UNCOMMITTED;
+    return level == Connection.TRANSACTION_REPEATABLE_READ;
   }
 
   @Override

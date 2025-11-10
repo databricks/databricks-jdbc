@@ -117,39 +117,280 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
         "Databricks OSS JDBC does not support conversion to native query.");
   }
 
+  /**
+   * Sets the auto-commit mode for this connection to the given state.
+   *
+   * <p>When auto-commit is enabled (the default), each SQL statement is executed as an individual
+   * transaction and is committed immediately upon completion.
+   *
+   * <p>When auto-commit is disabled, SQL statements are grouped into transactions that must be
+   * explicitly committed via {@link #commit()} or rolled back via {@link #rollback()}. When
+   * auto-commit is disabled, a new transaction is automatically started:
+   *
+   * <ul>
+   *   <li>Immediately after executing SET AUTOCOMMIT = FALSE
+   *   <li>After each COMMIT or ROLLBACK statement
+   * </ul>
+   *
+   * <h3>Thread Safety</h3>
+   *
+   * <p><b>This method is not thread-safe.</b> The {@code Connection} object should not be shared
+   * across multiple threads. Concurrent access may lead to undefined behavior and server-side
+   * transaction aborts due to sequence ID mismatches. Each thread should obtain its own {@code
+   * Connection} from a connection pool.
+   *
+   * <h3>Example Usage</h3>
+   *
+   * <pre>{@code
+   * // Disable auto-commit to start a transaction
+   * connection.setAutoCommit(false);
+   *
+   * try {
+   *     // Execute multiple statements as part of one transaction
+   *     statement.executeUpdate("UPDATE accounts SET balance = balance - 100 WHERE id = 1");
+   *     statement.executeUpdate("UPDATE accounts SET balance = balance + 100 WHERE id = 2");
+   *
+   *     // Commit the transaction
+   *     connection.commit();
+   * } catch (SQLException e) {
+   *     // Rollback on error
+   *     connection.rollback();
+   *     throw e;
+   * }
+   * }</pre>
+   *
+   * @param autoCommit {@code true} to enable auto-commit mode; {@code false} to disable it
+   * @throws DatabricksSQLException if the connection is closed
+   * @throws DatabricksTransactionException if the auto-commit mode cannot be changed due to an
+   *     active transaction or invalid state
+   * @see #getAutoCommit()
+   * @see #commit()
+   * @see #rollback()
+   */
   @Override
   public void setAutoCommit(boolean autoCommit) throws SQLException {
-    if (!autoCommit) {
-      if (!connectionContext.getIgnoreTransactions()) {
-        throw new DatabricksSQLFeatureNotSupportedException(
-            "In Databricks OSS JDBC, every SQL statement is committed immediately upon execution."
-                + " Setting autoCommit=false is not supported.");
-      }
+    LOGGER.debug("setAutoCommit({})", autoCommit);
+    throwExceptionIfConnectionIsClosed();
+
+    // Backward compatibility: honor ignoreTransactions flag (deprecated)
+    if (connectionContext.getIgnoreTransactions()) {
+      LOGGER.warn(
+          "ignoreTransactions flag is set - setAutoCommit is no-op (deprecated behavior). "
+              + "Please remove this flag to enable transaction support.");
+      return;
+    }
+
+    // Execute SET AUTOCOMMIT command
+    Statement statement = null;
+    try {
+      statement = createStatement();
+      String sql = "SET AUTOCOMMIT = " + (autoCommit ? "TRUE" : "FALSE");
+      statement.execute(sql);
+
+      // Success: update local cache
+      session.setAutoCommit(autoCommit);
+
+    } catch (SQLException e) {
+      LOGGER.error(e, "Error {} while setting autoCommit to {}", e.getMessage(), autoCommit);
+      throw new DatabricksTransactionException(
+          e.getMessage(), e, DatabricksDriverErrorCode.TRANSACTION_SET_AUTOCOMMIT_ERROR);
+
+    } finally {
+      closeStatementSafely(statement);
     }
   }
 
+  /**
+   * Retrieves the current auto-commit mode for this connection.
+   *
+   * <p>On a newly created connection, returns {@code true} (JDBC default) without making a server
+   * round-trip.
+   *
+   * <p>After {@link #setAutoCommit(boolean)} is called, returns the cached value from the session.
+   *
+   * <p>If the connection property {@code FetchAutoCommitFromServer=1} is set, this method will
+   * query the server using {@code SET AUTOCOMMIT} SQL command to retrieve the current auto-commit
+   * state, ensuring the returned value matches the server state. This is useful for debugging or
+   * when strict state verification is needed.
+   *
+   * @return true if auto-commit mode is enabled; false otherwise
+   * @throws DatabricksSQLException if the connection is closed
+   * @throws DatabricksSQLException if querying the server fails (when FetchAutoCommitFromServer=1)
+   * @see #setAutoCommit(boolean)
+   */
   @Override
   public boolean getAutoCommit() throws SQLException {
-    LOGGER.debug("public boolean getAutoCommit()");
+    LOGGER.debug("getAutoCommit()");
     throwExceptionIfConnectionIsClosed();
-    return true;
+
+    // If FetchAutoCommitFromServer is enabled, query the server for current state
+    if (connectionContext.getFetchAutoCommitFromServer()) {
+      return fetchAutoCommitStateFromServer();
+    }
+
+    // Default: return cached value
+    return session.getAutoCommit();
   }
 
-  @Override
-  public void commit() throws SQLException {
-    LOGGER.debug("public void commit()");
-    if (!connectionContext.getIgnoreTransactions()) {
-      throw new DatabricksSQLFeatureNotImplementedException(
-          "Not implemented in DatabricksConnection - commit()");
+  /**
+   * Fetches the auto-commit state from the server by executing SET AUTOCOMMIT query.
+   *
+   * @return true if auto-commit is enabled on the server; false otherwise
+   * @throws SQLException if the query fails
+   */
+  private boolean fetchAutoCommitStateFromServer() throws SQLException {
+    Statement statement = null;
+    try {
+      statement = createStatement();
+      // Execute SET AUTOCOMMIT without a value to query the current state
+      ResultSet rs = statement.executeQuery("SET AUTOCOMMIT");
+
+      if (rs.next()) {
+        // The result should contain the value = "true" or "false"
+        String value = rs.getString(1); // Column 1: value
+
+        LOGGER.debug(
+            "Fetched autoCommit state from server: value={}. Updating session cache.", value);
+
+        boolean autoCommitState = "true".equalsIgnoreCase(value);
+
+        // Update the session cache with the server value
+        session.setAutoCommit(autoCommitState);
+
+        rs.close();
+        return autoCommitState;
+      } else {
+        throw new DatabricksSQLException(
+            "Failed to fetch autoCommit state from server: no result returned",
+            DatabricksDriverErrorCode.TRANSACTION_SET_AUTOCOMMIT_ERROR);
+      }
+
+    } catch (SQLException e) {
+      LOGGER.error(e, "Error {} while fetching autoCommit state from server", e.getMessage());
+      throw new DatabricksSQLException(
+          "Failed to fetch autoCommit state from server: " + e.getMessage(),
+          e,
+          DatabricksDriverErrorCode.TRANSACTION_SET_AUTOCOMMIT_ERROR);
+
+    } finally {
+      closeStatementSafely(statement);
     }
   }
 
+  /**
+   * Makes all changes made since the previous commit/rollback permanent.
+   *
+   * <p>This method should be used only when auto-commit mode has been disabled.
+   *
+   * <p>When auto-commit is FALSE:
+   *
+   * <ul>
+   *   <li>Commits the current transaction
+   *   <li>A new transaction begins automatically
+   * </ul>
+   *
+   * <p>When auto-commit is TRUE:
+   *
+   * <ul>
+   *   <li>This operation throws {@link DatabricksTransactionException} (if ignoreTransactions flag
+   *       is not set)
+   * </ul>
+   *
+   * @throws DatabricksSQLException if the connection is closed
+   * @throws DatabricksTransactionException for transaction-specific errors such as
+   *     MULTI_STATEMENT_TRANSACTION_NO_ACTIVE_TRANSACTION or
+   *     MULTI_STATEMENT_TRANSACTION_ROLLBACK_REQUIRED_AFTER_ABORT
+   * @see #setAutoCommit(boolean)
+   * @see #rollback()
+   */
+  @Override
+  public void commit() throws SQLException {
+    LOGGER.debug("commit()");
+    throwExceptionIfConnectionIsClosed();
+
+    // Backward compatibility: honor ignoreTransactions flag (deprecated)
+    if (connectionContext.getIgnoreTransactions()) {
+      LOGGER.warn(
+          "ignoreTransactions flag is set - commit is no-op (deprecated behavior). "
+              + "Please remove this flag to enable transaction support.");
+      return;
+    }
+
+    // Execute COMMIT command
+    Statement statement = null;
+    try {
+      statement = createStatement();
+      statement.execute("COMMIT");
+      // Note: Server auto-starts new transaction if autocommit=false
+
+    } catch (SQLException e) {
+      LOGGER.error(e, "Error {} while committing transaction", e.getMessage());
+      throw new DatabricksTransactionException(
+          e.getMessage(), e, DatabricksDriverErrorCode.TRANSACTION_COMMIT_ERROR);
+
+    } finally {
+      closeStatementSafely(statement);
+    }
+  }
+
+  /**
+   * Undoes all changes made in the current transaction.
+   *
+   * <p>This method should be used only when auto-commit mode has been disabled.
+   *
+   * <p>When auto-commit is FALSE:
+   *
+   * <ul>
+   *   <li>Rolls back the current transaction
+   *   <li>A new transaction begins automatically (per autocommit design)
+   * </ul>
+   *
+   * <p>When auto-commit is TRUE:
+   *
+   * <ul>
+   *   <li>ROLLBACK is a safe no-op (does not throw exception)
+   *   <li>This is more forgiving than COMMIT, which throws an exception when there's no active
+   *       transaction
+   * </ul>
+   *
+   * <p><b>Note:</b> ROLLBACK is designed to be safe to call even when there is no active
+   * transaction. It can be used to recover from error states without needing to check transaction
+   * status first.
+   *
+   * @throws DatabricksSQLException if the connection is closed
+   * @throws DatabricksTransactionException for transaction-specific errors (rare - ROLLBACK is
+   *     typically very forgiving)
+   * @see #setAutoCommit(boolean)
+   * @see #commit()
+   */
   @Override
   public void rollback() throws SQLException {
-    LOGGER.debug("public void rollback()");
-    if (!connectionContext.getIgnoreTransactions()) {
-      throw new DatabricksSQLFeatureNotImplementedException(
-          "Not implemented in DatabricksConnection - rollback()");
+    LOGGER.debug("rollback()");
+    throwExceptionIfConnectionIsClosed();
+
+    // Backward compatibility: honor ignoreTransactions flag (deprecated)
+    if (connectionContext.getIgnoreTransactions()) {
+      LOGGER.warn(
+          "ignoreTransactions flag is set - rollback is no-op (deprecated behavior). "
+              + "Please remove this flag to enable transaction support.");
+      return;
+    }
+
+    // Execute ROLLBACK command
+    Statement statement = null;
+    try {
+      statement = createStatement();
+      statement.execute("ROLLBACK");
+      // Note: Server auto-starts new transaction if autocommit=false
+      // Note: ROLLBACK is more forgiving - typically succeeds even on unexpected states
+
+    } catch (SQLException e) {
+      LOGGER.error(e, "Error {} while rolling back transaction", e.getMessage());
+      throw new DatabricksTransactionException(
+          e.getMessage(), e, DatabricksDriverErrorCode.TRANSACTION_ROLLBACK_ERROR);
+
+    } finally {
+      closeStatementSafely(statement);
     }
   }
 
@@ -222,7 +463,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   public void setTransactionIsolation(int level) throws SQLException {
     LOGGER.debug("public void setTransactionIsolation(int level = {})", level);
     throwExceptionIfConnectionIsClosed();
-    if (level != Connection.TRANSACTION_READ_UNCOMMITTED) {
+    if (level != Connection.TRANSACTION_REPEATABLE_READ) {
       throw new DatabricksSQLFeatureNotSupportedException(
           "Setting of the given transaction isolation is not supported");
     }
@@ -232,7 +473,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   public int getTransactionIsolation() throws SQLException {
     LOGGER.debug("public int getTransactionIsolation()");
     throwExceptionIfConnectionIsClosed();
-    return Connection.TRANSACTION_READ_UNCOMMITTED;
+    return Connection.TRANSACTION_REPEATABLE_READ;
   }
 
   @Override
@@ -775,6 +1016,24 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       LOGGER.error(e, errorMessage);
       throw new DatabricksSQLException(
           errorMessage, DatabricksDriverErrorCode.CATALOG_OR_SCHEMA_FETCH_ERROR);
+    }
+  }
+
+  /**
+   * Safely closes a statement, logging any errors but not throwing exceptions.
+   *
+   * <p>This helper method is used to ensure statements are always closed in finally blocks without
+   * masking the original exception.
+   *
+   * @param statement the statement to close, may be null
+   */
+  private void closeStatementSafely(Statement statement) {
+    if (statement != null) {
+      try {
+        statement.close();
+      } catch (SQLException e) {
+        LOGGER.error(e, "Error closing statement: {}", e.getMessage());
+      }
     }
   }
 }

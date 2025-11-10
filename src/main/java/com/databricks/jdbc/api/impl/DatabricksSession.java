@@ -46,6 +46,10 @@ public class DatabricksSession implements IDatabricksSession {
   private String catalog;
 
   private String schema;
+
+  /** Auto-commit mode for transactions (JDBC default is true) */
+  private boolean autoCommit = true;
+
   private final Map<String, String> sessionConfigs;
   private final Map<String, String> clientInfoProperties;
   private final CompressionCodec compressionCodec;
@@ -324,5 +328,17 @@ public class DatabricksSession implements IDatabricksSession {
     } finally {
       this.isSessionOpen = false;
     }
+  }
+
+  @Override
+  public void setAutoCommit(boolean autoCommit) {
+    LOGGER.debug("public void setAutoCommit(boolean autoCommit = {})", autoCommit);
+    this.autoCommit = autoCommit;
+  }
+
+  @Override
+  public boolean getAutoCommit() {
+    LOGGER.debug("public boolean getAutoCommit()");
+    return this.autoCommit;
   }
 }

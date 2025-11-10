@@ -434,13 +434,13 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void getDefaultTransactionIsolation_returnsExpectedIsolationLevel() throws Exception {
     int defaultTransactionIsolation = metaData.getDefaultTransactionIsolation();
-    assertEquals(Connection.TRANSACTION_READ_UNCOMMITTED, defaultTransactionIsolation);
+    assertEquals(Connection.TRANSACTION_REPEATABLE_READ, defaultTransactionIsolation);
   }
 
   @Test
   public void supportsTransactions_returnsFalse() throws Exception {
     boolean supportsTransactions = metaData.supportsTransactions();
-    assertFalse(supportsTransactions);
+    assertTrue(supportsTransactions);
   }
 
   @Test
@@ -1460,9 +1460,10 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testSupportsTransactionIsolationLevel() throws SQLException {
     assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_NONE));
-    assertTrue(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED));
+    assertFalse(
+        metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_UNCOMMITTED));
     assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_READ_COMMITTED));
-    assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ));
+    assertTrue(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ));
     assertFalse(metaData.supportsTransactionIsolationLevel(Connection.TRANSACTION_SERIALIZABLE));
   }
 

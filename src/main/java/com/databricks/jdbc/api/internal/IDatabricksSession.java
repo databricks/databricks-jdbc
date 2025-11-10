@@ -90,4 +90,18 @@ public interface IDatabricksSession {
   void setEmptyMetadataClient();
 
   void forceClose();
+
+  /**
+   * Sets the auto-commit mode for this session.
+   *
+   * @param autoCommit true to enable auto-commit; false to disable
+   */
+  void setAutoCommit(boolean autoCommit);
+
+  /**
+   * Retrieves the current auto-commit mode for this session.
+   *
+   * @return true if auto-commit mode is enabled; false otherwise
+   */
+  boolean getAutoCommit();
 }

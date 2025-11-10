@@ -165,6 +165,10 @@ public enum DatabricksJdbcUrlParams {
       "Enable SQL query execution for connection validation in isValid() method",
       "0"),
   IGNORE_TRANSACTIONS("IgnoreTransactions", "Ignore transaction-related method calls", "0"),
+  FETCH_AUTOCOMMIT_FROM_SERVER(
+      "FetchAutoCommitFromServer",
+      "Fetch auto-commit state from server using SQL query instead of using cached value",
+      "0"),
   ENABLE_METRIC_VIEW_METADATA("EnableMetricViewMetadata", "Enable metric view metadata", "0"),
   ENABLE_MULTIPLE_CATALOG_SUPPORT(
       "enableMultipleCatalogSupport", "Enable multiple catalog support", "1"),
