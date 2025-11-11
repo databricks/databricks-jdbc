@@ -205,6 +205,7 @@ public class TelemetryHelperTest {
   public void testTelemetryNotAllowedUsecase() {
     // Clear thread context to ensure telemetry is not allowed
     when(connectionContext.forceEnableTelemetry()).thenReturn(false);
+    when(connectionContext.getHostForOAuth()).thenReturn("test-host");
     when(connectionContext.isTelemetryEnabled()).thenReturn(false);
     assertFalse(isTelemetryAllowedForConnection(connectionContext));
     when(connectionContext.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
@@ -216,6 +217,7 @@ public class TelemetryHelperTest {
   public void testTelemetryAllowedWithForceTelemetryFlag() {
     when(connectionContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.DEBUG);
     when(connectionContext.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    when(connectionContext.getHostForOAuth()).thenReturn("test-host");
     enableFeatureFlagForTesting(connectionContext, Collections.emptyMap());
     assertTrue(() -> isTelemetryAllowedForConnection(connectionContext));
   }
