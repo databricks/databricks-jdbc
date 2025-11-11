@@ -68,7 +68,7 @@ public class JsonChunkProvider {
     addDataFromChunk(initialResultData);
 
     // Check if there are more chunks to fetch
-    Long totalChunkCount = Objects.requireNonNullElse(resultManifest.getTotalChunkCount(),0L);
+    Long totalChunkCount = Objects.requireNonNullElse(resultManifest.getTotalChunkCount(), 0L);
     if (totalChunkCount > 1) {
       LOGGER.debug("Total chunks to fetch: {}", totalChunkCount);
 
@@ -139,7 +139,7 @@ public class JsonChunkProvider {
    * @return the chunk count
    */
   public long getChunkCount() {
-    return Objects.requireNonNullElse(resultManifest.getTotalChunkCount(),0L);
+    return Objects.requireNonNullElse(resultManifest.getTotalChunkCount(), 0L);
   }
 
   /** Closes the provider and releases resources. */
