@@ -41,7 +41,6 @@ public class DatabricksDriverPropertyUtil {
           DatabricksJdbcUrlParams.ENABLE_MULTIPLE_CATALOG_SUPPORT,
           DatabricksJdbcUrlParams.IGNORE_TRANSACTIONS);
 
-
   public static List<DriverPropertyInfo> getMissingProperties(String url, Properties info)
       throws DatabricksParsingException {
     if (url == null) {
