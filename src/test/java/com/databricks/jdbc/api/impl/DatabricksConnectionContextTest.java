@@ -42,12 +42,6 @@ class DatabricksConnectionContextTest {
     properties_with_pwd.setProperty("pwd", "passwd2");
   }
 
-  @AfterEach
-  public void tearDown() {
-    // Clean up any feature flag contexts created during tests
-    // This ensures test isolation
-  }
-
   @Test
   public void testBuildPropertiesMap() {
     String connectionParamString = "param1=value1;param2=value2";
@@ -350,6 +344,28 @@ class DatabricksConnectionContextTest {
     assertEquals(5, connectionContext.parameters.size());
     assertEquals(LogLevel.WARN, connectionContext.getLogLevel());
     assertTrue(connectionContext.isAllPurposeCluster());
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testAllPurposeClusterAlwaysUsesThriftClient() throws DatabricksSQLException {
+    // Test that all-purpose clusters always use THRIFT client type regardless of feature flags
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+
+    // Verify it's an all-purpose cluster
+    assertTrue(connectionContext.isAllPurposeCluster());
+
+    // Should use THRIFT client type
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+
+    // Even if we set feature flag to enable SEA, all-purpose cluster should still use THRIFT
+    Map<String, String> flags = new HashMap<>();
+    flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+
+    // Client type should still be THRIFT for all-purpose cluster
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
   }
 
