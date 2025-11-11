@@ -385,6 +385,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       }
 
       LOGGER.debug("Successfully processed {} rows in chunks", processedRows);
+      // Clear the batch after successful execution per JDBC spec
+      clearBatch();
       return allUpdateCounts;
 
     } catch (DatabricksBatchUpdateException e) {
@@ -399,13 +401,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       }
       throw new DatabricksBatchUpdateException(
           e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, failedCounts);
-    } finally {
-      // Always clear the batch to prevent duplicate inserts on retry
-      try {
-        clearBatch();
-      } catch (SQLException clearEx) {
-        LOGGER.error("Failed to clear batch", clearEx);
-      }
     }
   }
 
@@ -415,40 +410,37 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         "Executing batch individually with {} statements", databricksBatchParameterMetaData.size());
     long[] largeUpdateCount = new long[databricksBatchParameterMetaData.size()];
 
-    try {
-      for (int sqlQueryIndex = 0;
-          sqlQueryIndex < databricksBatchParameterMetaData.size();
-          sqlQueryIndex++) {
-        DatabricksParameterMetaData databricksParameterMetaData =
-            databricksBatchParameterMetaData.get(sqlQueryIndex);
-        try {
-          executeInternal(
-              sql, databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE, false);
-          largeUpdateCount[sqlQueryIndex] = resultSet.getUpdateCount();
-        } catch (Exception e) {
-          LOGGER.error(
-              "Error executing batch update for index {}: {}", sqlQueryIndex, e.getMessage(), e);
-          // Set the current failed statement's count
-          largeUpdateCount[sqlQueryIndex] = Statement.EXECUTE_FAILED;
-          // Set all remaining statements as failed
-          for (int i = sqlQueryIndex + 1; i < largeUpdateCount.length; i++) {
-            largeUpdateCount[i] = Statement.EXECUTE_FAILED;
-          }
-          // WARNING: Due to lack of transaction support, any successfully executed statements
-          // before this failure have already been committed and cannot be rolled back
-          throw new DatabricksBatchUpdateException(
-              e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, largeUpdateCount);
-        }
-      }
-      return largeUpdateCount;
-    } finally {
-      // Always clear the batch to prevent duplicate execution on retry
+    for (int sqlQueryIndex = 0;
+        sqlQueryIndex < databricksBatchParameterMetaData.size();
+        sqlQueryIndex++) {
+      DatabricksParameterMetaData databricksParameterMetaData =
+          databricksBatchParameterMetaData.get(sqlQueryIndex);
       try {
-        clearBatch();
-      } catch (SQLException clearEx) {
-        LOGGER.error("Failed to clear batch", clearEx);
+        executeInternal(
+            sql, databricksParameterMetaData.getParameterBindings(), StatementType.UPDATE, false);
+        largeUpdateCount[sqlQueryIndex] = resultSet.getUpdateCount();
+      } catch (Exception e) {
+        LOGGER.error(
+            "Error executing batch update for index {}: {}", sqlQueryIndex, e.getMessage(), e);
+        // Set the current failed statement's count
+        largeUpdateCount[sqlQueryIndex] = Statement.EXECUTE_FAILED;
+        // Set all remaining statements as failed
+        for (int i = sqlQueryIndex + 1; i < largeUpdateCount.length; i++) {
+          largeUpdateCount[i] = Statement.EXECUTE_FAILED;
+        }
+        // WARNING: Due to lack of transaction support, any successfully executed statements
+        // before this failure have already been committed and cannot be rolled back
+        throw new DatabricksBatchUpdateException(
+            e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, largeUpdateCount);
       }
     }
+    // Clear the batch after successful execution per JDBC spec
+    try {
+      clearBatch();
+    } catch (SQLException e) {
+      LOGGER.error("Failed to clear batch after successful execution", e);
+    }
+    return largeUpdateCount;
   }
 
   @Override
