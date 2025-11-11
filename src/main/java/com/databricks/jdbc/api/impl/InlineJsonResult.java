@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
@@ -11,11 +13,22 @@ public class InlineJsonResult implements IExecutionResult {
 
   private long currentRow;
   private List<List<Object>> data;
-
+  private JsonChunkProvider chunkProvider;
   private boolean isClosed;
 
-  public InlineJsonResult(ResultManifest resultManifest, ResultData resultData) {
-    this(getDataList(resultData.getDataArray()));
+  public InlineJsonResult(
+      ResultManifest resultManifest,
+      ResultData resultData,
+      StatementId statementId,
+      IDatabricksSession session)
+      throws DatabricksSQLException {
+
+    this.chunkProvider = new JsonChunkProvider(resultManifest, resultData, statementId, session);
+    // Fetching data all at once as the data is at most 26Mb in total (SEA)
+    this.data = chunkProvider.getAllData();
+
+    this.currentRow = -1;
+    this.isClosed = false;
   }
 
   public InlineJsonResult(Object[][] rows) {
@@ -29,21 +42,6 @@ public class InlineJsonResult implements IExecutionResult {
     this.data = rows.stream().map(ArrayList::new).collect(Collectors.toList());
     this.currentRow = -1;
     this.isClosed = false;
-  }
-
-  private static List<List<Object>> getDataList(Collection<Collection<String>> dataArray) {
-    if (dataArray == null) {
-      return new ArrayList<>();
-    }
-    List<List<Object>> dataList = new ArrayList<>();
-    for (Collection<String> innerCollection : dataArray) {
-      if (innerCollection == null) {
-        dataList.add(Collections.emptyList());
-      } else {
-        dataList.add(new ArrayList<>(innerCollection));
-      }
-    }
-    return dataList;
   }
 
   @Override
@@ -86,6 +84,9 @@ public class InlineJsonResult implements IExecutionResult {
   public void close() {
     this.isClosed = true;
     this.data = null;
+    if (chunkProvider != null) {
+      chunkProvider.close();
+    }
   }
 
   @Override
@@ -95,7 +96,7 @@ public class InlineJsonResult implements IExecutionResult {
 
   @Override
   public long getChunkCount() {
-    return 0;
+    return chunkProvider.getChunkCount();
   }
 
   private boolean isClosed() {

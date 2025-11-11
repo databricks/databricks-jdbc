@@ -29,6 +29,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
@@ -325,6 +326,14 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       throw new DatabricksSQLException(error, DatabricksDriverErrorCode.INVALID_STATE);
     }
     return externalLinks;
+  }
+
+  @Override
+  public ResultData getResultChunksData(StatementId statementId, long chunkIndex)
+      throws DatabricksSQLException {
+    throw new DatabricksSQLException(
+        "getResultChunksData method is not yet implemented for thrift client",
+        DatabricksDriverErrorCode.INVALID_STATE);
   }
 
   @Override

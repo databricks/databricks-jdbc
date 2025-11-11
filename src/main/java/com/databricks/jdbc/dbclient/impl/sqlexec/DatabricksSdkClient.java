@@ -433,6 +433,29 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   @Override
+  public ResultData getResultChunksData(StatementId typedStatementId, long chunkIndex)
+      throws DatabricksSQLException {
+    DatabricksThreadContextHolder.setStatementId(typedStatementId);
+    String statementId = typedStatementId.toSQLExecStatementId();
+    LOGGER.debug(
+        "public ResultData getResultChunksData(String statementId = {}, long chunkIndex = {})",
+        statementId,
+        chunkIndex);
+    GetStatementResultChunkNRequest request =
+        new GetStatementResultChunkNRequest().setStatementId(statementId).setChunkIndex(chunkIndex);
+    String path = String.format(RESULT_CHUNK_PATH, statementId, chunkIndex);
+    try {
+      Request req = new Request(Request.GET, path, apiClient.serialize(request));
+      req.withHeaders(getHeaders("getStatementResultN"));
+      return apiClient.execute(req, ResultData.class);
+    } catch (IOException e) {
+      String errorMessage = "Error while processing the get result chunk request";
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    }
+  }
+
+  @Override
   public synchronized void resetAccessToken(String newAccessToken) {
     this.clientConfigurator.resetAccessTokenInConfig(newAccessToken);
     this.workspaceClient = clientConfigurator.getWorkspaceClient();
