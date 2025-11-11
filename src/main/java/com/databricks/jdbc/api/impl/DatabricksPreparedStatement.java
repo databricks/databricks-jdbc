@@ -171,7 +171,11 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
     int chunkSize = endIndex - startIndex;
     LOGGER.debug(
-        "Processing chunk {}-{} ({} rows) at depth {}", startIndex + 1, endIndex, chunkSize, depth);
+        "Processing chunk: rows {}-{} (inclusive) - {} rows at depth {}",
+        startIndex,
+        endIndex - 1,
+        chunkSize,
+        depth);
 
     // Prepare SQL and parameters once (not on every retry)
     String multiRowSql;
@@ -180,6 +184,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       multiRowSql = InsertStatementParser.generateMultiRowInsert(insertInfo, chunkSize);
       chunkParams = new HashMap<>();
       int paramIndex = 1;
+      int expectedParamCount = insertInfo.getColumnCount();
 
       for (int i = startIndex; i < endIndex; i++) {
         DatabricksParameterMetaData batchParams = databricksBatchParameterMetaData.get(i);
@@ -190,17 +195,30 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
           }
         }
       }
-    } catch (DatabricksParsingException e) {
+
+      // Validate that we collected the expected number of parameters for the chunk
+      int expectedTotalParams = chunkSize * expectedParamCount;
+      if (chunkParams.size() != expectedTotalParams) {
+        throw new DatabricksSQLException(
+            "Parameter count mismatch: expected "
+                + expectedTotalParams
+                + " parameters for "
+                + chunkSize
+                + " rows, but got "
+                + chunkParams.size(),
+            DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION);
+      }
+    } catch (DatabricksSQLException e) {
       // If we can't generate SQL for this chunk, mark all rows as failed
       for (int i = startIndex; i < allUpdateCounts.length; i++) {
         allUpdateCounts[i] = Statement.EXECUTE_FAILED;
       }
       throw new DatabricksBatchUpdateException(
-          "Failed to generate SQL for chunk "
-              + (startIndex + 1)
+          "Failed to generate SQL for rows "
+              + startIndex
               + "-"
-              + endIndex
-              + ": "
+              + (endIndex - 1)
+              + " (inclusive): "
               + e.getMessage(),
           DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION.toString(),
           0,
@@ -216,9 +234,9 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       try {
         if (attempt > 0) {
           LOGGER.warn(
-              "Retrying chunk {}-{} (attempt {}/{})",
-              startIndex + 1,
-              endIndex,
+              "Retrying chunk: rows {}-{} (inclusive) - attempt {}/{}",
+              startIndex,
+              endIndex - 1,
               attempt + 1,
               maxRetries + 1);
           // Simple exponential backoff: 100ms, 200ms, 400ms
@@ -226,7 +244,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             Thread.sleep(100L * (1L << (attempt - 1)));
           } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
-            throw new SQLException("Retry sleep interrupted", ie);
+            throw new DatabricksSQLException(
+                "Retry sleep interrupted", ie, DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION);
           }
         }
 
@@ -242,15 +261,16 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
           allUpdateCounts[i] = 1;
         }
 
-        LOGGER.debug("Successfully processed chunk {}-{}", startIndex + 1, endIndex);
+        LOGGER.debug(
+            "Successfully processed chunk: rows {}-{} (inclusive)", startIndex, endIndex - 1);
         return chunkSize;
 
       } catch (Exception e) {
         lastException = e;
         LOGGER.error(
-            "Failed to execute chunk {}-{} (attempt {}/{}): {}",
-            startIndex + 1,
-            endIndex,
+            "Failed to execute chunk: rows {}-{} (inclusive) - attempt {}/{}: {}",
+            startIndex,
+            endIndex - 1,
             attempt + 1,
             maxRetries + 1,
             e.getMessage());
@@ -260,9 +280,9 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     // Failed after all retries - try splitting the chunk if it has more than 1 row
     if (chunkSize > 1) {
       LOGGER.warn(
-          "Chunk {}-{} failed after {} attempts. Splitting into smaller chunks.",
-          startIndex + 1,
-          endIndex,
+          "Chunk: rows {}-{} (inclusive) failed after {} attempts. Splitting into smaller chunks.",
+          startIndex,
+          endIndex - 1,
           maxRetries + 1);
 
       int midPoint = startIndex + (chunkSize / 2);
@@ -282,9 +302,9 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
 
     // Single row that still failed - mark it and throw
     LOGGER.error(
-        "Single row chunk {}-{} failed after {} attempts and cannot be split further",
-        startIndex + 1,
-        endIndex,
+        "Single row: rows {}-{} (inclusive) failed after {} attempts and cannot be split further",
+        startIndex,
+        endIndex - 1,
         maxRetries + 1);
 
     for (int i = startIndex; i < allUpdateCounts.length; i++) {
@@ -298,11 +318,11 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             : String.valueOf(lastException);
 
     throw new DatabricksBatchUpdateException(
-        "Chunk "
-            + (startIndex + 1)
+        "Rows "
+            + startIndex
             + "-"
-            + endIndex
-            + " failed after "
+            + (endIndex - 1)
+            + " (inclusive) failed after "
             + (maxRetries + 1)
             + " attempts: "
             + errorMsg,
@@ -330,7 +350,9 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         // which users can set based on their data to avoid exceeding the 16MB statement limit.
         int configuredBatchSize = connection.getConnectionContext().getBatchInsertSize();
         if (configuredBatchSize < 1) {
-          throw new SQLException("BatchInsertSize must be at least 1, got: " + configuredBatchSize);
+          throw new DatabricksSQLException(
+              "BatchInsertSize must be at least 1, got: " + configuredBatchSize,
+              DatabricksDriverErrorCode.INVALID_STATE);
         }
         maxRowsPerChunk = Math.min(configuredBatchSize, databricksBatchParameterMetaData.size());
       } else {
@@ -363,18 +385,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       }
 
       LOGGER.debug("Successfully processed {} rows in chunks", processedRows);
-      // Clear the batch after successful execution to prevent accidental re-execution
-      clearBatch();
       return allUpdateCounts;
 
     } catch (DatabricksBatchUpdateException e) {
-      // Re-throw batch update exceptions (these already have proper update counts)
-      // Clear the batch to prevent duplicate inserts if application retries
-      try {
-        clearBatch();
-      } catch (SQLException clearEx) {
-        LOGGER.error("Failed to clear batch after exception", clearEx);
-      }
+      // Batch is NOT cleared on failure - user must inspect updateCounts and handle retry/cleanup
       throw e;
     } catch (Exception e) {
       // Unexpected exception - mark all as failed
@@ -382,12 +396,6 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       long[] failedCounts = new long[databricksBatchParameterMetaData.size()];
       for (int i = 0; i < failedCounts.length; i++) {
         failedCounts[i] = Statement.EXECUTE_FAILED;
-      }
-      // Clear the batch to prevent duplicate inserts on retry
-      try {
-        clearBatch();
-      } catch (SQLException clearEx) {
-        LOGGER.error("Failed to clear batch after exception", clearEx);
       }
       throw new DatabricksBatchUpdateException(
           e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, failedCounts);
@@ -418,23 +426,9 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         for (int i = sqlQueryIndex + 1; i < largeUpdateCount.length; i++) {
           largeUpdateCount[i] = Statement.EXECUTE_FAILED;
         }
-        // Clear the batch to prevent duplicate execution on retry
-        // WARNING: Due to lack of transaction support, any successfully executed statements
-        // before this failure have already been committed and cannot be rolled back
-        try {
-          clearBatch();
-        } catch (SQLException clearEx) {
-          LOGGER.error("Failed to clear batch after exception", clearEx);
-        }
         throw new DatabricksBatchUpdateException(
             e.getMessage(), DatabricksDriverErrorCode.BATCH_EXECUTE_EXCEPTION, largeUpdateCount);
       }
-    }
-    // Clear the batch after successful execution to prevent accidental re-execution
-    try {
-      clearBatch();
-    } catch (SQLException e) {
-      LOGGER.error("Failed to clear batch after successful execution", e);
     }
     return largeUpdateCount;
   }
