@@ -17,7 +17,7 @@ jobs:
           - test-command: mvn -B compile test -Dtest=*IntegrationTests
             token-secret: DATABRICKS_TOKEN
             fake-service-type: 'SQL_EXEC'
-          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!SqlExecApiHybridResultsIntegrationTests,!DBFSVolumeIntegrationTests,!M2MAuthIntegrationTests,!UCVolumeIntegrationTests
+          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!SqlExecApiHybridResultsIntegrationTests,!DBFSVolumeIntegrationTests,!M2MAuthIntegrationTests,!UCVolumeIntegrationTests,!SqlExecApiIntegrationTests
             token-secret: THRIFT_DATABRICKS_TOKEN
             fake-service-type: 'THRIFT_SERVER'
     steps:
