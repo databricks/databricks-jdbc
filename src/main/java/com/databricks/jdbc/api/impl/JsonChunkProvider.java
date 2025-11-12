@@ -139,6 +139,7 @@ public class JsonChunkProvider {
    * @return the chunk count
    */
   public long getChunkCount() {
+    LOGGER.debug("Getting total chunk count");
     return Objects.requireNonNullElse(resultManifest.getTotalChunkCount(), 0L);
   }
 
