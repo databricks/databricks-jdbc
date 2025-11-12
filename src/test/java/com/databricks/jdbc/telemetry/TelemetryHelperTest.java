@@ -262,6 +262,29 @@ public class TelemetryHelperTest {
     }
   }
 
+  @Test
+  void testExportTelemetryLog_EmitsWhenEventLevelEqualToConfigured() {
+    // Configured level: INFO (4); Event level: INFO (4) -> should export (4 >= 4)
+    when(connectionContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.INFO);
+    StatementTelemetryDetails details =
+        new StatementTelemetryDetails("stmt-eq").setOperationLatencyMillis(15L);
+
+    ITelemetryClient clientMock = mock(ITelemetryClient.class);
+    TelemetryClientFactory factoryMock = mock(TelemetryClientFactory.class);
+
+    try (MockedStatic<TelemetryClientFactory> mocked =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mocked.when(TelemetryClientFactory::getInstance).thenReturn(factoryMock);
+      when(factoryMock.getTelemetryClient(connectionContext)).thenReturn(clientMock);
+
+      TelemetryHelper.exportTelemetryLog(details, TelemetryLogLevel.INFO);
+
+      mocked.verify(TelemetryClientFactory::getInstance, times(1));
+      verify(factoryMock, times(1)).getTelemetryClient(connectionContext);
+      verify(clientMock, times(1)).exportEvent(any());
+    }
+  }
+
   static Stream<Object[]> failureLogParameters() {
     return Stream.of(
         new Object[] {"test-statement-id", null},
