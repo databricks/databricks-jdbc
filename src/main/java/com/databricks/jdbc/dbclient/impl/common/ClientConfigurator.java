@@ -48,6 +48,7 @@ public class ClientConfigurator {
       throws DatabricksSSLException {
     this.connectionContext = connectionContext;
     this.databricksConfig = new DatabricksConfig();
+    databricksConfig.setDisableOauthRefreshToken(connectionContext.getDisableOauthRefreshToken());
     CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
     httpClientBuilder.withTimeoutSeconds(connectionContext.getSocketTimeout());
     setupProxyConfig(httpClientBuilder);
