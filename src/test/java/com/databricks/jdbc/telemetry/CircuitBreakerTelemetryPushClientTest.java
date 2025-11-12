@@ -3,6 +3,7 @@ package com.databricks.jdbc.telemetry;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.exception.DatabricksTelemetryException;
 import com.databricks.jdbc.model.telemetry.TelemetryRequest;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
@@ -130,6 +131,22 @@ class CircuitBreakerTelemetryPushClientTest {
 
     // STEP 4: Validate that breaker transitions back to CLOSED
     assertEquals(CircuitBreaker.State.CLOSED, circuitBreakerClient.getCircuitBreakerState());
+  }
+
+  @Test
+  void testCircuitBreakerOpensOnTelemetryExceptionFailures() throws Exception {
+    // Given: delegate throws DatabricksTelemetryException (e.g., representing 429 mapping)
+    doThrow(new DatabricksTelemetryException("rate-limited"))
+        .when(mockDelegate)
+        .pushEvent(any(TelemetryRequest.class));
+
+    // When: making multiple calls that fail
+    for (int i = 0; i < 20; i++) {
+      circuitBreakerClient.pushEvent(testEvent);
+    }
+
+    // Then: circuit breaker should open after enough failures
+    assertEquals(CircuitBreaker.State.OPEN, circuitBreakerClient.getCircuitBreakerState());
   }
 
   @Test
