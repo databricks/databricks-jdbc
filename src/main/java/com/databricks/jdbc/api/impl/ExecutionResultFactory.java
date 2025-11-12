@@ -57,7 +57,7 @@ class ExecutionResultFactory {
         return new ArrowStreamResult(manifest, data, statementId, session);
       case JSON_ARRAY:
         // This is used for metadata and update commands
-        return new InlineJsonResult(manifest, data);
+        return new InlineJsonResult(manifest, data, statementId, session);
       default:
         String errorMessage = String.format("Invalid response format %s", manifest.getFormat());
         LOGGER.error(errorMessage);
