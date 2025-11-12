@@ -17,7 +17,7 @@ public class SqlExecApiIntegrationTests extends AbstractFakeServiceIntegrationTe
   void testJsonInlineChunkedResults_withoutArrow() throws SQLException {
     final String table = "samples.tpch.lineitem";
     // Limit set such that atleast 2 chunks are present for results
-    final int maxRows = 45000;
+    final int maxRows = 64000;
     final String sql = "SELECT * FROM " + table + " limit " + maxRows;
 
     Properties properties = new Properties();
