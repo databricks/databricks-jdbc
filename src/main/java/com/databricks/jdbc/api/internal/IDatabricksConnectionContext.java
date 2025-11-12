@@ -401,4 +401,7 @@ public interface IDatabricksConnectionContext {
    * synchronous metadata requests in SEA mode
    */
   boolean isSeaSyncMetadataEnabled();
+
+  /** Returns whether OAuth refresh tokens should be disabled (omit offline_access by default). */
+  boolean getDisableOauthRefreshToken();
 }

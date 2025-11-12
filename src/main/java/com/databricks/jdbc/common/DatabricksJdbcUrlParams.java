@@ -175,6 +175,10 @@ public enum DatabricksJdbcUrlParams {
   ENABLE_SEA_SYNC_METADATA(
       "EnableSeaSyncMetadata",
       "Enable x-databricks-sea-can-run-fully-sync header for synchronous metadata requests in SEA mode",
+      "1"),
+  DISABLE_OAUTH_REFRESH_TOKEN(
+      "DisableOauthRefreshToken",
+      "Disable requesting OAuth refresh tokens (omit offline_access unless explicitly provided)",
       "1");
 
   private final String paramName;
