@@ -40,6 +40,8 @@
     </repository>
   </distributionManagement>
   <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <arrow.version>17.0.0</arrow.version>
     <commons-lang3.version>3.18.0</commons-lang3.version>
     <maven.compiler.source>11</maven.compiler.source>

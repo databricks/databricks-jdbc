@@ -6,8 +6,12 @@
 - Added support for geospatial data types.
 - Added support for telemetry log levels, which can be controlled via the connection parameter `TelemetryLogLevel`. This allows users to configure the verbosity of telemetry logging from OFF to TRACE.
 - Added full support for JDBC transaction control methods in Databricks. Transaction support in Databricks is currently available as a Private Preview. The `IgnoreTransactions` connection parameter can be set to `1` to disable or no-op transaction control methods.
+- Added support for high-performance batched writes with parameter interpolation:
+  - `supportManyParameters=1`: Enables parameter interpolation to bypass 256-parameter limit (default: 0)
+  - `EnableBatchedInserts=1`: Enables multi-row INSERT batching (default: 0)
+  - `BatchInsertSize=<SIZE>`: Maximum rows per batch (default: 1000)
+  - Note: Large batches are chunked for execution. If a chunk fails, previous chunks remain committed (no transaction rollback). Consider using staging tables for critical workflows.
 - Added a new config attribute `DisableOauthRefreshToken` to control whether refresh tokens are requested in OAuth exchanges. By default, the driver does not include the `offline_access` scope. If `offline_access` is explicitly provided by the user, it is preserved and not removed.
-- Added support for more performant batched writes with parameter interpolation; controlled via `supportManyParameters=1`, `EnableBatchedInserts=1`, `BatchInsertSize=<BATCHSIZE>`.
 
 ### Updated
 - Minimized OAuth requests by reducing calls in feature flags and telemetry.
