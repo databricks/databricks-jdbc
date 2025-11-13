@@ -205,6 +205,7 @@ public class TelemetryHelperTest {
   public void testTelemetryNotAllowedUsecase() {
     // Clear thread context to ensure telemetry is not allowed
     when(connectionContext.forceEnableTelemetry()).thenReturn(false);
+    when(connectionContext.getHostForOAuth()).thenReturn("test-host");
     when(connectionContext.isTelemetryEnabled()).thenReturn(false);
     assertFalse(isTelemetryAllowedForConnection(connectionContext));
     when(connectionContext.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
@@ -216,6 +217,7 @@ public class TelemetryHelperTest {
   public void testTelemetryAllowedWithForceTelemetryFlag() {
     when(connectionContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.DEBUG);
     when(connectionContext.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    when(connectionContext.getHostForOAuth()).thenReturn("test-host");
     enableFeatureFlagForTesting(connectionContext, Collections.emptyMap());
     assertTrue(() -> isTelemetryAllowedForConnection(connectionContext));
   }
@@ -253,6 +255,29 @@ public class TelemetryHelperTest {
       when(factoryMock.getTelemetryClient(connectionContext)).thenReturn(clientMock);
 
       TelemetryHelper.exportTelemetryLog(details, TelemetryLogLevel.DEBUG);
+
+      mocked.verify(TelemetryClientFactory::getInstance, times(1));
+      verify(factoryMock, times(1)).getTelemetryClient(connectionContext);
+      verify(clientMock, times(1)).exportEvent(any());
+    }
+  }
+
+  @Test
+  void testExportTelemetryLog_EmitsWhenEventLevelEqualToConfigured() {
+    // Configured level: INFO (4); Event level: INFO (4) -> should export (4 >= 4)
+    when(connectionContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.INFO);
+    StatementTelemetryDetails details =
+        new StatementTelemetryDetails("stmt-eq").setOperationLatencyMillis(15L);
+
+    ITelemetryClient clientMock = mock(ITelemetryClient.class);
+    TelemetryClientFactory factoryMock = mock(TelemetryClientFactory.class);
+
+    try (MockedStatic<TelemetryClientFactory> mocked =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mocked.when(TelemetryClientFactory::getInstance).thenReturn(factoryMock);
+      when(factoryMock.getTelemetryClient(connectionContext)).thenReturn(clientMock);
+
+      TelemetryHelper.exportTelemetryLog(details, TelemetryLogLevel.INFO);
 
       mocked.verify(TelemetryClientFactory::getInstance, times(1));
       verify(factoryMock, times(1)).getTelemetryClient(connectionContext);

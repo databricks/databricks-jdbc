@@ -73,6 +73,6 @@ public class DatabricksDriverFeatureFlagsContextFactory {
   }
 
   private static String keyOf(IDatabricksConnectionContext context) {
-    return context.getComputeResource().getUniqueIdentifier();
+    return context.getHostForOAuth();
   }
 }

@@ -88,7 +88,7 @@ public class TelemetryHelper {
       TelemetryLogLevel logLevel) {
     if (connectionContext == null
         || telemetryDetails == null
-        || logLevel.toInt() <= connectionContext.getTelemetryLogLevel().toInt()) {
+        || logLevel.toInt() < connectionContext.getTelemetryLogLevel().toInt()) {
       // We don't export telemetry logs in the following three scenarios:
       // 1. When the context is not set.
       // 2. When telemetry details are not set.
