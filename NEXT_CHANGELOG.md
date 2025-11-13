@@ -9,7 +9,6 @@
 - Added a new config attribute `DisableOauthRefreshToken` to control whether refresh tokens are requested in OAuth exchanges. By default, the driver does not include the `offline_access` scope. If `offline_access` is explicitly provided by the user, it is preserved and not removed.
 
 ### Updated
-- Minimized OAuth requests by reducing calls in feature flags and telemetry.
 - Updated sdk version from 0.65.0 to 0.69.0
 
 ### Fixed
