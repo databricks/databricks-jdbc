@@ -19,6 +19,7 @@
 - Fixed: Resolved SDK token-caching regression causing token refresh on every call. SDK is now configured once to avoid excessive token endpoint hits and rate limiting.
 - Fixed: TimestampConverter.toString() returning ISO8601 format with timezone conversion instead of SQL standard format.
 - Fixed: Errors in table creation when using BIGINT, SMALLINT, TINYINT, or VOID types.
+- Fixed: PreparedStatement.getMetaData() now correctly reports TINYINT columns as Types.TINYINT (java.lang.Byte) instead of Types.SMALLINT (java.lang.Integer).
 - Fixed: Driver not loading complete JSON result in the case of SEA Inline without Arrow
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 
