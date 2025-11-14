@@ -89,7 +89,7 @@ public class DatabricksTypeUtil {
       case DatabricksTypeUtil.SHORT:
         return ColumnInfoTypeName.SHORT;
       case DatabricksTypeUtil.TINYINT:
-        return ColumnInfoTypeName.BYTE;
+        return ColumnInfoTypeName.TINYINT;
       case DatabricksTypeUtil.BYTE:
         return ColumnInfoTypeName.BYTE;
       case DatabricksTypeUtil.INT:
@@ -125,6 +125,7 @@ public class DatabricksTypeUtil {
       return Types.OTHER;
     }
     switch (typeName) {
+      case TINYINT:
       case BYTE:
         return Types.TINYINT;
       case SMALLINT:
@@ -135,8 +136,6 @@ public class DatabricksTypeUtil {
       case LONG:
       case BIGINT:
         return Types.BIGINT;
-      case TINYINT:
-        return Types.TINYINT;
       case VOID:
         return Types.OTHER;
       case FLOAT:

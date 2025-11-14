@@ -259,7 +259,7 @@ class DatabricksTypeUtilTest {
     "TIMESTAMP_NTZ, TIMESTAMP",
     "SHORT, SHORT",
     "SMALLINT, SHORT",
-    "TINYINT, BYTE",
+    "TINYINT, TINYINT",
     "BYTE, BYTE",
     "INT, INT",
     "BIGINT, LONG",
