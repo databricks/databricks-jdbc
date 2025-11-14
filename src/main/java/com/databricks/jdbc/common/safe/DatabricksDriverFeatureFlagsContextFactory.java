@@ -63,7 +63,7 @@ public class DatabricksDriverFeatureFlagsContextFactory {
   }
 
   @VisibleForTesting
-  static void setFeatureFlagsContext(
+  public static void setFeatureFlagsContext(
       IDatabricksConnectionContext connectionContext, Map<String, String> featureFlags) {
     String key = keyOf(connectionContext);
     contextMap.put(
@@ -73,6 +73,6 @@ public class DatabricksDriverFeatureFlagsContextFactory {
   }
 
   private static String keyOf(IDatabricksConnectionContext context) {
-    return context.getHostForOAuth();
+    return context.getHost();
   }
 }

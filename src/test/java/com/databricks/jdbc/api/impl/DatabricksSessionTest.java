@@ -259,4 +259,38 @@ public class DatabricksSessionTest {
         DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName(), "token");
     verify(thriftClient).resetAccessToken("token");
   }
+
+  // ===== Lazy Client Type Integration Tests =====
+
+  @Test
+  public void testSessionOpensWithLazyClientType() throws DatabricksSQLException {
+    // Create connection context with conditions for SEA client
+    String url =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=0";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(url, new Properties());
+
+    // Create session (should not evaluate client type yet)
+    DatabricksSession session = new DatabricksSession(connectionContext);
+
+    // Client type should be SEA when accessed
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testSessionOpensWithLazyClientTypeForCluster() throws DatabricksSQLException {
+    // Create connection context for all-purpose cluster
+    String url =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=sql/protocolv1/o/9999999999999999/9999999999999999999";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(url, new Properties());
+
+    // Create session
+    DatabricksSession session = new DatabricksSession(connectionContext);
+
+    // Client type should be THRIFT for all-purpose cluster
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
 }

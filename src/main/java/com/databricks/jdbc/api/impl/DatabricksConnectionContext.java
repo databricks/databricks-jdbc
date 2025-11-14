@@ -10,6 +10,7 @@ import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -23,6 +24,7 @@ import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.utils.Cloud;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.util.*;
@@ -34,13 +36,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksConnectionContext.class);
+
+  private static final String SQL_EXEC_FLAG_NAME =
+      "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc";
+
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
   private final String connectionURL;
   private final IDatabricksComputeResource computeResource;
   private final Map<String, String> customHeaders;
-  private DatabricksClientType clientType;
+  private Supplier<DatabricksClientType> clientTypeSupplier;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
   @VisibleForTesting final String connectionUuid;
 
@@ -59,7 +65,18 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.customHeaders = parseCustomHeaders(parameters);
     this.computeResource = buildCompute();
     this.connectionUuid = UUID.randomUUID().toString();
-    this.clientType = getClientTypeFromContext();
+    this.clientTypeSupplier =
+        new Supplier<>() {
+          private DatabricksClientType cType;
+
+          @Override
+          public synchronized DatabricksClientType get() {
+            if (cType == null) {
+              cType = getClientTypeFromContext();
+            }
+            return cType;
+          }
+        };
   }
 
   private DatabricksConnectionContext(
@@ -422,20 +439,40 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     if (computeResource instanceof AllPurposeCluster) {
       return DatabricksClientType.THRIFT;
     }
-    String useThriftClient = getParameter(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT);
-    if (useThriftClient != null && useThriftClient.equals("1")) {
+    // First we will check if user as explicitly provided a client type, and we will honour that
+    String useThriftClient = getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT);
+    if (useThriftClient != null) {
+      if (useThriftClient.equals("1")) {
+        return DatabricksClientType.THRIFT;
+      } else if (useThriftClient.equals("0")) {
+        return DatabricksClientType.SEA;
+      }
+    }
+    // Now, user has not provided a value, we will decide based on our checks
+    // Check if Arrow is disabled - Thrift is required for inline mode
+    if (!Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_ARROW), "1")) {
       return DatabricksClientType.THRIFT;
     }
-    return DatabricksClientType.SEA;
+    // Check if CloudFetch is disabled - Thrift is required for inline mode
+    if (!Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_CLOUD_FETCH), "1")) {
+      return DatabricksClientType.THRIFT;
+    }
+    // Check feature flag to determine if SEA client should be enabled
+    if (DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
+        .isFeatureEnabled(SQL_EXEC_FLAG_NAME)) {
+      return DatabricksClientType.SEA;
+    }
+    // Default to THRIFT if feature flag is not enabled or cannot be determined
+    return DatabricksClientType.THRIFT;
   }
 
   @Override
   public DatabricksClientType getClientType() {
-    return clientType;
+    return clientTypeSupplier.get();
   }
 
   public void setClientType(DatabricksClientType clientType) {
-    this.clientType = clientType;
+    this.clientTypeSupplier = () -> clientType;
   }
 
   @Override
@@ -1034,6 +1071,10 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private String getParameter(DatabricksJdbcUrlParams key) {
     return this.parameters.getOrDefault(key.getParamName().toLowerCase(), key.getDefaultValue());
+  }
+
+  private String getParameterIgnoreDefault(DatabricksJdbcUrlParams key) {
+    return this.parameters.getOrDefault(key.getParamName().toLowerCase(), null);
   }
 
   private String getParameter(DatabricksJdbcUrlParams key, String defaultValue) {

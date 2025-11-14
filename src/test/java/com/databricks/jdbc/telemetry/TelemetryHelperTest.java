@@ -49,6 +49,7 @@ public class TelemetryHelperTest {
     when(connectionContext.getTelemetryBatchSize()).thenReturn(10);
     when(connectionContext.getTelemetryFlushIntervalInMilliseconds()).thenReturn(1000);
     when(connectionContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.DEBUG);
+    when(connectionContext.getHost()).thenReturn("test-host.databricks.com");
   }
 
   @Test

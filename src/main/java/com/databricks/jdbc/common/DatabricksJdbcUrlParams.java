@@ -172,6 +172,7 @@ public enum DatabricksJdbcUrlParams {
   ENABLE_METRIC_VIEW_METADATA("EnableMetricViewMetadata", "Enable metric view metadata", "0"),
   ENABLE_MULTIPLE_CATALOG_SUPPORT(
       "enableMultipleCatalogSupport", "Enable multiple catalog support", "1"),
+  ENABLE_CLOUD_FETCH("EnableQueryResultDownload", "Enable Cloud Fetch", "1"),
   ENABLE_SEA_SYNC_METADATA(
       "EnableSeaSyncMetadata",
       "Enable x-databricks-sea-can-run-fully-sync header for synchronous metadata requests in SEA mode",
