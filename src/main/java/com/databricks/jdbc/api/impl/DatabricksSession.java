@@ -62,19 +62,10 @@ public class DatabricksSession implements IDatabricksSession {
    */
   public DatabricksSession(IDatabricksConnectionContext connectionContext)
       throws DatabricksSQLException {
-    if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
-      this.databricksClient =
-          DatabricksMetricsTimedProcessor.createProxy(
-              new DatabricksThriftServiceClient(connectionContext));
-    } else {
-      this.databricksClient =
-          DatabricksMetricsTimedProcessor.createProxy(new DatabricksSdkClient(connectionContext));
-      this.databricksMetadataClient =
-          DatabricksMetricsTimedProcessor.createProxy(
-              new DatabricksMetadataSdkClient(databricksClient));
-    }
     this.isSessionOpen = false;
     this.sessionInfo = null;
+    this.databricksClient = null;
+    this.databricksMetadataClient = null;
     this.computeResource = connectionContext.getComputeResource();
     this.catalog = connectionContext.getCatalog();
     this.schema = connectionContext.getSchema();
@@ -139,6 +130,22 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public void open() throws DatabricksSQLException {
     LOGGER.debug("public void open()");
+
+    // Skip for tests, it would be already set
+    if (databricksClient == null) {
+      if (connectionContext.getClientType() == DatabricksClientType.THRIFT) {
+        this.databricksClient =
+            DatabricksMetricsTimedProcessor.createProxy(
+                new DatabricksThriftServiceClient(connectionContext));
+      } else {
+        this.databricksClient =
+            DatabricksMetricsTimedProcessor.createProxy(new DatabricksSdkClient(connectionContext));
+        this.databricksMetadataClient =
+            DatabricksMetricsTimedProcessor.createProxy(
+                new DatabricksMetadataSdkClient(databricksClient));
+      }
+    }
+
     synchronized (this) {
       if (!isSessionOpen) {
         try {

@@ -8,6 +8,10 @@ package com.databricks.jdbc.model.core;
 public enum ColumnInfoTypeName {
   ARRAY,
   BINARY,
+  BIGINT,
+  SMALLINT,
+  TINYINT,
+  VOID,
   BOOLEAN,
   BYTE,
   CHAR,
