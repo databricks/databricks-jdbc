@@ -10,6 +10,7 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimed;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.sql.SQLException;
@@ -120,6 +121,16 @@ public interface IDatabricksClient {
    * @param chunkIndex chunkIndex for which chunk should be fetched
    */
   Collection<ExternalLink> getResultChunks(StatementId statementId, long chunkIndex)
+      throws DatabricksSQLException;
+
+  /**
+   * Fetches the result data for given chunk index and statement-Id.
+   *
+   * @param statementId statement-Id for which chunk data should be fetched
+   * @param chunkIndex chunkIndex for which chunk data should be fetched
+   * @return ResultData containing the chunk's data array and metadata
+   */
+  ResultData getResultChunksData(StatementId statementId, long chunkIndex)
       throws DatabricksSQLException;
 
   IDatabricksConnectionContext getConnectionContext();

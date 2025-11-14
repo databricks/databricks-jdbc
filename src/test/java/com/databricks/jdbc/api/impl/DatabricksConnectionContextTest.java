@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -1117,5 +1116,41 @@ class DatabricksConnectionContextTest {
     DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
 
     assertEquals(expectedClientType, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testDisableOauthRefreshTokenParam() throws DatabricksSQLException {
+    // Default should be true (offline_access not requested by default)
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertTrue(ctx.getDisableOauthRefreshToken());
+
+    // Explicitly disable = 0 via URL
+    String urlWithDisableOff =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;DisableOauthRefreshToken=0";
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithDisableOff, properties);
+    assertFalse(ctx.getDisableOauthRefreshToken());
+
+    // Explicitly enable = 1 via URL
+    String urlWithDisableOn =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;DisableOauthRefreshToken=1";
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithDisableOn, properties);
+    assertTrue(ctx.getDisableOauthRefreshToken());
+
+    // Via Properties
+    Properties props = new Properties();
+    props.setProperty("password", "passwd");
+    props.setProperty("DisableOauthRefreshToken", "0");
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
+    assertFalse(ctx.getDisableOauthRefreshToken());
   }
 }

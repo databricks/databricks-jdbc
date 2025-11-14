@@ -1128,4 +1128,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public boolean isSeaSyncMetadataEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_SEA_SYNC_METADATA).equals("1");
   }
+
+  @Override
+  public boolean getDisableOauthRefreshToken() {
+    return getParameter(DatabricksJdbcUrlParams.DISABLE_OAUTH_REFRESH_TOKEN, "1").equals("1");
+  }
 }

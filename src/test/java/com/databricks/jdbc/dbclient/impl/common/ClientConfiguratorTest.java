@@ -188,6 +188,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -199,6 +200,28 @@ public class ClientConfiguratorTest {
     assertEquals(List.of("scope1", "scope2"), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithBrowserBasedAuthentication_ScopesExcludeOfflineAccess()
+      throws DatabricksParsingException, DatabricksSSLException {
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
+    when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
+    when(mockContext.getClientId()).thenReturn("browser-client-id");
+    when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of("scope.read", "scope.write"));
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8030));
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
+
+    configurator = new ClientConfigurator(mockContext);
+    DatabricksConfig config = configurator.getDatabricksConfig();
+
+    // Driver disables refresh tokens for OAuth, so SDK must not include offline_access
+    assertTrue(config.getDisableOauthRefreshToken());
+    assertFalse(config.getScopes().contains("offline_access"));
   }
 
   @Test
@@ -217,6 +240,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -461,6 +485,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(testPort));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
 
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -490,6 +515,7 @@ public class ClientConfiguratorTest {
     when(mockContext.isTokenCacheEnabled()).thenReturn(true);
     when(mockContext.getTokenCachePassPhrase()).thenReturn("testPassphrase");
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
 
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -522,6 +548,7 @@ public class ClientConfiguratorTest {
     when(mockContext.isTokenCacheEnabled()).thenReturn(true);
     when(mockContext.getTokenCachePassPhrase()).thenReturn(null);
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
 
     assertThrows(DatabricksException.class, () -> new ClientConfigurator(mockContext));
   }
@@ -539,6 +566,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.isTokenCacheEnabled()).thenReturn(false);
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
 
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
