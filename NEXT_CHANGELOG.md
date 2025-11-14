@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Added Feature-flag integration for SQL Exec API rollout
 
 ### Updated
 - Minimized OAuth requests by reducing calls in feature flags and telemetry.
