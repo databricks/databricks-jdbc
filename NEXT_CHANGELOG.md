@@ -5,6 +5,7 @@
 ### Added
 
 ### Updated
+- Minimized OAuth requests by reducing calls in feature flags and telemetry.
 
 ### Fixed
 - Fixed: Errors in table creation when using BIGINT, SMALLINT, TINYINT, or VOID types.
