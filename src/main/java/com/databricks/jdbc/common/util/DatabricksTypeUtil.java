@@ -11,9 +11,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.math.BigDecimal;
-import java.sql.Date;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -464,15 +462,30 @@ public class DatabricksTypeUtil {
       type = STRING;
     } else if (obj instanceof Integer) {
       type = INT;
-    } else if (obj instanceof Timestamp) {
+    } else if (isTimestamp(obj)) {
       type = TIMESTAMP;
-    } else if (obj instanceof Date) {
+    } else if (isDate(obj)) {
       type = DATE;
     } else if (obj instanceof Double) {
       type = DOUBLE;
     }
     // TODO: Handle more object types
     return type;
+  }
+
+  public static boolean isTimestamp(Object obj) {
+    return obj instanceof java.sql.Timestamp
+        || obj instanceof java.time.LocalDateTime
+        || obj instanceof java.time.Instant
+        || obj instanceof java.time.ZonedDateTime;
+  }
+
+  public static boolean isDate(Object obj) {
+    return obj instanceof java.sql.Date || obj instanceof java.time.LocalDate;
+  }
+
+  public static boolean isTemporalType(Object obj) {
+    return isTimestamp(obj) || isDate(obj);
   }
 
   public static TPrimitiveTypeEntry getTPrimitiveTypeOrDefault(TTypeDesc typeDesc) {

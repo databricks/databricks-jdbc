@@ -249,6 +249,15 @@ class DatabricksTypeUtilTest {
     assertEquals(DatabricksTypeUtil.FLOAT, DatabricksTypeUtil.inferDatabricksType(1.0f));
     assertEquals(DatabricksTypeUtil.INT, DatabricksTypeUtil.inferDatabricksType(1));
     assertEquals(DatabricksTypeUtil.DOUBLE, DatabricksTypeUtil.inferDatabricksType(1.0d));
+    // Test Java 8+ temporal types
+    assertEquals(
+        DatabricksTypeUtil.TIMESTAMP,
+        DatabricksTypeUtil.inferDatabricksType(java.time.Instant.now()));
+    assertEquals(
+        DatabricksTypeUtil.TIMESTAMP,
+        DatabricksTypeUtil.inferDatabricksType(java.time.LocalDateTime.now()));
+    assertEquals(
+        DatabricksTypeUtil.DATE, DatabricksTypeUtil.inferDatabricksType(java.time.LocalDate.now()));
   }
 
   @ParameterizedTest
