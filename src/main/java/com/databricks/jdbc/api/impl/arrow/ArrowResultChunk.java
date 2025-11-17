@@ -9,6 +9,7 @@ import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -22,6 +23,7 @@ import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.Map;
+import org.apache.commons.io.IOUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
@@ -79,24 +81,32 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       response = httpClient.execute(getRequest, true);
       checkHTTPError(response);
 
+      // Read compressed stream fully (download latency excludes decompression)
+      byte[] compressed = IOUtils.toByteArray(response.getEntity().getContent());
       long downloadTimeMs = (System.nanoTime() - startTime) / 1_000_000;
-      long contentLength = response.getEntity().getContentLength();
+      long size = response.getEntity().getContentLength();
       logDownloadMetrics(
-          downloadTimeMs, contentLength, chunkLink.getExternalLink(), speedThreshold);
-
+          downloadTimeMs,
+          size > 0 ? size : compressed.length,
+          chunkLink.getExternalLink(),
+          speedThreshold);
       TelemetryCollector.getInstance()
           .recordChunkDownloadLatency(
               getStatementIdString(statementId), chunkIndex, downloadTimeMs);
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
-      String decompressionContext =
-          String.format(
-              "Data decompression for chunk index [%d] and statement [%s]",
-              this.chunkIndex, this.statementId);
-      InputStream uncompressedStream =
-          DecompressionUtil.decompress(
-              response.getEntity().getContent(), compressionCodec, decompressionContext);
-      initializeData(uncompressedStream);
-    } catch (IOException | DatabricksSQLException | URISyntaxException e) {
+
+      // Decompress (if needed) and parse
+      try {
+        String ctx =
+            String.format(
+                "Data decompression for chunk index [%d] and statement [%s]",
+                this.chunkIndex, this.statementId);
+        InputStream data = DecompressionUtil.decompressToStream(compressed, compressionCodec, ctx);
+        initializeData(data);
+      } catch (DatabricksSQLException | IOException e) {
+        handleFailure(e, ChunkStatus.PROCESSING_FAILED);
+      }
+    } catch (DatabricksHttpException | IOException | URISyntaxException e) {
       handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
     } finally {
       if (response != null) {
