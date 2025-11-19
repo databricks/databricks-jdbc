@@ -182,12 +182,20 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           int scale = precisionAndScale[1];
 
           ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+          // Use arrowMetadata for type text if available, as it contains full type information
+          // like "ARRAY<INT>" whereas TTypeDesc only has primitive "ARRAY_TYPE"
+          String columnTypeText =
+              (arrowMetadata != null
+                      && columnIndex < arrowMetadata.size()
+                      && arrowMetadata.get(columnIndex) != null)
+                  ? arrowMetadata.get(columnIndex)
+                  : getTypeTextFromTypeDesc(columnDesc.getTypeDesc());
           columnBuilder
               .columnName(columnInfo.getName())
               .columnTypeClassName(
                   DatabricksTypeUtil.getColumnTypeClassName(columnInfo.getTypeName()))
               .columnType(DatabricksTypeUtil.getColumnType(columnInfo.getTypeName()))
-              .columnTypeText(getTypeTextFromTypeDesc(columnDesc.getTypeDesc()))
+              .columnTypeText(columnTypeText)
               // columnInfoTypeName does not have BIGINT, SMALLINT. Extracting from thriftType in
               // typeDesc
               .typePrecision(precision)

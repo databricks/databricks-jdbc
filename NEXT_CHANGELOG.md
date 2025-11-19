@@ -28,5 +28,6 @@
 - Fixed: Errors in table creation when using BIGINT, SMALLINT, TINYINT, or VOID types.
 - Fixed: PreparedStatement.getMetaData() now correctly reports TINYINT columns as Types.TINYINT (java.lang.Byte) instead of Types.SMALLINT (java.lang.Integer).
 - Fixed: TINYINT to String conversion to return numeric representation (e.g., "65") instead of character representation (e.g., "A").
+- Fixed: Complex types (Structs, arrays, maps) now show detailed type information in metadata calls in Thrift mode
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 
