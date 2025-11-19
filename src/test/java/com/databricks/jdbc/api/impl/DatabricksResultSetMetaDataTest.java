@@ -444,6 +444,91 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals(Types.VARCHAR, metaData.getColumnType(3));
   }
 
+  @Test
+  public void testThriftComplexTypeWithArrowMetadata() throws SQLException {
+    // Create a Thrift result manifest with ARRAY, MAP, and STRUCT columns
+    TGetResultSetMetadataResp resultManifest = new TGetResultSetMetadataResp();
+
+    // Create ARRAY column descriptor (TTypeDesc only has primitive ARRAY_TYPE)
+    TColumnDesc arrayColumn = new TColumnDesc().setColumnName("array_col").setPosition(1);
+    TTypeDesc arrayTypeDesc = new TTypeDesc();
+    TTypeEntry arrayTypeEntry = new TTypeEntry();
+    TPrimitiveTypeEntry arrayPrimitiveEntry = new TPrimitiveTypeEntry(TTypeId.ARRAY_TYPE);
+    arrayTypeEntry.setPrimitiveEntry(arrayPrimitiveEntry);
+    arrayTypeDesc.setTypes(Collections.singletonList(arrayTypeEntry));
+    arrayColumn.setTypeDesc(arrayTypeDesc);
+
+    // Create MAP column descriptor (TTypeDesc only has primitive MAP_TYPE)
+    TColumnDesc mapColumn = new TColumnDesc().setColumnName("map_col").setPosition(2);
+    TTypeDesc mapTypeDesc = new TTypeDesc();
+    TTypeEntry mapTypeEntry = new TTypeEntry();
+    TPrimitiveTypeEntry mapPrimitiveEntry = new TPrimitiveTypeEntry(TTypeId.MAP_TYPE);
+    mapTypeEntry.setPrimitiveEntry(mapPrimitiveEntry);
+    mapTypeDesc.setTypes(Collections.singletonList(mapTypeEntry));
+    mapColumn.setTypeDesc(mapTypeDesc);
+
+    // Create STRUCT column descriptor (TTypeDesc only has primitive STRUCT_TYPE)
+    TColumnDesc structColumn = new TColumnDesc().setColumnName("struct_col").setPosition(3);
+    TTypeDesc structTypeDesc = new TTypeDesc();
+    TTypeEntry structTypeEntry = new TTypeEntry();
+    TPrimitiveTypeEntry structPrimitiveEntry = new TPrimitiveTypeEntry(TTypeId.STRUCT_TYPE);
+    structTypeEntry.setPrimitiveEntry(structPrimitiveEntry);
+    structTypeDesc.setTypes(Collections.singletonList(structTypeEntry));
+    structColumn.setTypeDesc(structTypeDesc);
+
+    TTableSchema schema =
+        new TTableSchema().setColumns(List.of(arrayColumn, mapColumn, structColumn));
+    resultManifest.setSchema(schema);
+
+    // Arrow metadata contains full type information
+    List<String> arrowMetadata =
+        List.of("ARRAY<INT>", "MAP<STRING,INT>", "STRUCT<field1:INT,field2:STRING>");
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(
+            THRIFT_STATEMENT_ID, resultManifest, 1, 1, arrowMetadata, connectionContext);
+
+    // Verify that arrowMetadata is used for type names (not the primitive types from TTypeDesc)
+    assertEquals("ARRAY<INT>", metaData.getColumnTypeName(1));
+    assertEquals("MAP<STRING,INT>", metaData.getColumnTypeName(2));
+    assertEquals("STRUCT<field1:INT,field2:STRING>", metaData.getColumnTypeName(3));
+
+    assertEquals("array_col", metaData.getColumnName(1));
+    assertEquals("map_col", metaData.getColumnName(2));
+    assertEquals("struct_col", metaData.getColumnName(3));
+
+    assertEquals(Types.ARRAY, metaData.getColumnType(1));
+    assertEquals(Types.VARCHAR, metaData.getColumnType(2));
+    assertEquals(Types.STRUCT, metaData.getColumnType(3));
+  }
+
+  @Test
+  public void testThriftComplexTypeWithoutArrowMetadata() throws SQLException {
+    // Test fallback behavior when arrowMetadata is not available
+    TGetResultSetMetadataResp resultManifest = new TGetResultSetMetadataResp();
+
+    TColumnDesc arrayColumn = new TColumnDesc().setColumnName("array_col").setPosition(1);
+    TTypeDesc arrayTypeDesc = new TTypeDesc();
+    TTypeEntry arrayTypeEntry = new TTypeEntry();
+    TPrimitiveTypeEntry arrayPrimitiveEntry = new TPrimitiveTypeEntry(TTypeId.ARRAY_TYPE);
+    arrayTypeEntry.setPrimitiveEntry(arrayPrimitiveEntry);
+    arrayTypeDesc.setTypes(Collections.singletonList(arrayTypeEntry));
+    arrayColumn.setTypeDesc(arrayTypeDesc);
+
+    TTableSchema schema = new TTableSchema().setColumns(Collections.singletonList(arrayColumn));
+    resultManifest.setSchema(schema);
+
+    // No arrow metadata - should fall back to TTypeDesc
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(
+            THRIFT_STATEMENT_ID, resultManifest, 1, 1, null, connectionContext);
+
+    // Without arrowMetadata, falls back to primitive type name from TTypeDesc
+    assertEquals("ARRAY", metaData.getColumnTypeName(1));
+    assertEquals("array_col", metaData.getColumnName(1));
+    assertEquals(Types.ARRAY, metaData.getColumnType(1));
+  }
+
   private void verifyDefaultMetadataProperties(
       DatabricksResultSetMetaData metaData, StatementType type) throws SQLException {
     for (int i = 1; i <= metaData.getColumnCount(); i++) {
