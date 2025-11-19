@@ -86,10 +86,13 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       TelemetryCollector.getInstance()
           .recordChunkDownloadLatency(
               getStatementIdString(statementId), chunkIndex, downloadTimeMs);
-      setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
 
       // Read compressed stream fully (download latency excludes decompression)
       byte[] compressed = IOUtils.toByteArray(response.getEntity().getContent());
+
+      // Set status to DOWNLOAD_SUCCEEDED after reading the compressed stream fully
+      setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
+
       long size = response.getEntity().getContentLength();
       logDownloadMetrics(
           downloadTimeMs,
