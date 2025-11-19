@@ -203,4 +203,194 @@ public class WKTConverterTest {
       future.get();
     }
   }
+
+  // ========== 3D and 4D Geometry Tests (Z, M, ZM coordinates) ==========
+
+  @Test
+  public void testToWKB_PointZ_3D() throws DatabricksValidationException {
+    String wkt = "POINT Z (1 2 3)";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    assertTrue(wkb.length > 0);
+
+    // Convert back and verify Z coordinate is preserved
+    // Note: JTS outputs without space after Z
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("POINT Z(1 2 3)", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_PointM_3D() throws DatabricksValidationException {
+    String wkt = "POINT M (1 2 3)";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    assertTrue(wkb.length > 0);
+
+    // Convert back and verify M coordinate is preserved
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("POINT M(1 2 3)", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_PointZM_4D() throws DatabricksValidationException {
+    String wkt = "POINT ZM (1 2 3 4)";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    assertTrue(wkb.length > 0);
+
+    // Convert back and verify both Z and M coordinates are preserved
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("POINT ZM(1 2 3 4)", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_LineStringZ() throws DatabricksValidationException {
+    String wkt = "LINESTRING Z (0 0 0, 1 1 1, 2 2 2)";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    assertTrue(wkb.length > 0);
+
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("LINESTRING Z(0 0 0, 1 1 1, 2 2 2)", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_LineStringM() throws DatabricksValidationException {
+    String wkt = "LINESTRING M (0 0 10, 1 1 20, 2 2 30)";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    assertTrue(wkb.length > 0);
+
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("LINESTRING M(0 0 10, 1 1 20, 2 2 30)", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_LineStringZM() throws DatabricksValidationException {
+    String wkt = "LINESTRING ZM (0 0 0 10, 1 1 1 20, 2 2 2 30)";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    assertTrue(wkb.length > 0);
+
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("LINESTRING ZM(0 0 0 10, 1 1 1 20, 2 2 2 30)", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_PolygonZ() throws DatabricksValidationException {
+    String wkt = "POLYGON Z ((0 0 0, 4 0 0, 4 4 0, 0 4 0, 0 0 0))";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    assertTrue(wkb.length > 0);
+
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("POLYGON Z((0 0 0, 4 0 0, 4 4 0, 0 4 0, 0 0 0))", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_PolygonM() throws DatabricksValidationException {
+    String wkt = "POLYGON M ((0 0 1, 4 0 2, 4 4 3, 0 4 4, 0 0 1))";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    assertTrue(wkb.length > 0);
+
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("POLYGON M((0 0 1, 4 0 2, 4 4 3, 0 4 4, 0 0 1))", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_PolygonZM() throws DatabricksValidationException {
+    String wkt = "POLYGON ZM ((0 0 0 1, 4 0 0 2, 4 4 0 3, 0 4 0 4, 0 0 0 1))";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    assertTrue(wkb.length > 0);
+
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("POLYGON ZM((0 0 0 1, 4 0 0 2, 4 4 0 3, 0 4 0 4, 0 0 0 1))", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_MultiPointZ() throws DatabricksValidationException {
+    String wkt = "MULTIPOINT Z ((1 2 3), (4 5 6))";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    assertTrue(wkb.length > 0);
+
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("MULTIPOINT Z((1 2 3), (4 5 6))", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_EmptyPoint() throws DatabricksValidationException {
+    String wkt = "POINT EMPTY";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    assertTrue(wkb.length > 0);
+
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("POINT EMPTY", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_EmptyLineString() throws DatabricksValidationException {
+    String wkt = "LINESTRING EMPTY";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    assertTrue(wkb.length > 0);
+
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("LINESTRING EMPTY", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_PointZ_NegativeCoordinates() throws DatabricksValidationException {
+    String wkt = "POINT Z (-122.4 37.8 100.5)";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("POINT Z(-122.4 37.8 100.5)", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_PointM_DecimalMeasure() throws DatabricksValidationException {
+    String wkt = "POINT M (10.5 20.3 1234567890.123)";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("POINT M(10.5 20.3 1234567890.123)", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_PointZM_AllDimensions() throws DatabricksValidationException {
+    String wkt = "POINT ZM (-71.06 42.36 10.0 1609459200)";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("POINT ZM(-71.06 42.36 10 1609459200)", convertedBack);
+  }
+
+  @Test
+  public void testToWKB_GeometryCollectionZ() throws DatabricksValidationException {
+    String wkt = "GEOMETRYCOLLECTION Z (POINT Z (1 2 3), LINESTRING Z (0 0 0, 1 1 1))";
+    byte[] wkb = WKTConverter.toWKB(wkt);
+
+    assertNotNull(wkb);
+    String convertedBack = WKTConverter.toWKT(wkb);
+    assertEquals("GEOMETRYCOLLECTION Z(POINT Z(1 2 3), LINESTRING Z(0 0 0, 1 1 1))", convertedBack);
+  }
 }

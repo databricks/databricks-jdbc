@@ -3,10 +3,12 @@ package com.databricks.jdbc.api.impl.converters;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import java.nio.ByteOrder;
+import java.util.EnumSet;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.Ordinate;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBReader;
-import org.locationtech.jts.io.WKBWriter;
 import org.locationtech.jts.io.WKTReader;
 import org.locationtech.jts.io.WKTWriter;
 
@@ -22,15 +24,13 @@ public class WKTConverter {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(WKTConverter.class);
 
   private static final ThreadLocal<WKTReader> WKT_READER = ThreadLocal.withInitial(WKTReader::new);
-  private static final ThreadLocal<WKTWriter> WKT_WRITER = ThreadLocal.withInitial(WKTWriter::new);
   private static final ThreadLocal<WKBReader> WKB_READER = ThreadLocal.withInitial(WKBReader::new);
-  private static final ThreadLocal<WKBWriter> WKB_WRITER = ThreadLocal.withInitial(WKBWriter::new);
 
   /**
    * Converts WKT (Well-Known Text) to WKB (Well-Known Binary) format.
    *
    * <p>This implementation uses the JTS library to parse the WKT string into a Geometry object and
-   * then converts it to WKB format. This provides robust, standards-compliant conversion.
+   * then converts it to WKB format using the custom OGC-compliant WKB writer. geometry.
    *
    * @param wkt the WKT string to convert
    * @return the WKB representation as a byte array
@@ -43,7 +43,9 @@ public class WKTConverter {
 
     try {
       Geometry geometry = WKT_READER.get().read(wkt);
-      return WKB_WRITER.get().write(geometry);
+      EnumSet<Ordinate> ordinates = determineOrdinates(geometry);
+      JTSOGCWKBWriter writer = new JTSOGCWKBWriter(ordinates, ByteOrder.LITTLE_ENDIAN);
+      return writer.write(geometry);
     } catch (ParseException e) {
       String errorMessage = String.format("Invalid WKT format: %s", wkt);
       LOGGER.error(errorMessage, e);
@@ -68,11 +70,41 @@ public class WKTConverter {
 
     try {
       Geometry geometry = WKB_READER.get().read(wkb);
-      return WKT_WRITER.get().write(geometry);
+      EnumSet<Ordinate> ordinates = determineOrdinates(geometry);
+      int outputDimension = ordinates.size();
+      WKTWriter writer = new WKTWriter(outputDimension);
+      writer.setOutputOrdinates(ordinates);
+      return writer.write(geometry);
     } catch (Exception e) {
       String errorMessage = String.format("Invalid WKB format: %d bytes", wkb.length);
       LOGGER.error(errorMessage, e);
       throw new DatabricksValidationException(errorMessage, e);
+    }
+  }
+
+  private static EnumSet<Ordinate> determineOrdinates(Geometry geometry) {
+    // Handle empty geometries
+    if (geometry.isEmpty() || geometry.getCoordinate() == null) {
+      return EnumSet.of(Ordinate.X, Ordinate.Y);
+    }
+
+    // Check which ordinates are present by examining coordinate values
+    // In JTS, getZ() and getM() return NaN if the ordinate is not present
+    boolean hasZ = !Double.isNaN(geometry.getCoordinate().getZ());
+    boolean hasM = !Double.isNaN(geometry.getCoordinate().getM());
+
+    if (hasZ && hasM) {
+      // 4D geometry: XYZM
+      return EnumSet.of(Ordinate.X, Ordinate.Y, Ordinate.Z, Ordinate.M);
+    } else if (hasZ) {
+      // 3D geometry: XYZ
+      return EnumSet.of(Ordinate.X, Ordinate.Y, Ordinate.Z);
+    } else if (hasM) {
+      // 3D geometry: XYM
+      return EnumSet.of(Ordinate.X, Ordinate.Y, Ordinate.M);
+    } else {
+      // 2D geometry: XY
+      return EnumSet.of(Ordinate.X, Ordinate.Y);
     }
   }
 
