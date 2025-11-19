@@ -15,6 +15,7 @@
 - Added Feature-flag integration for SQL Exec API rollout
 
 ### Updated
+- Geospatial `getWKB()` now returns OGC-compliant WKB values.
 - Minimized OAuth requests by reducing calls in feature flags and telemetry.
 
 ### Fixed
