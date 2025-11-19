@@ -393,4 +393,200 @@ public class WKTConverterTest {
     String convertedBack = WKTConverter.toWKT(wkb);
     assertEquals("GEOMETRYCOLLECTION Z(POINT Z(1 2 3), LINESTRING Z(0 0 0, 1 1 1))", convertedBack);
   }
+
+  // ========== WKB → WKT → WKB Round-trip Tests ==========
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_Point() throws DatabricksValidationException {
+    // Start with WKT, convert to WKB (our "original" WKB)
+    String originalWkt = "POINT (1 2)";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    // Round trip: WKB → WKT → WKB
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    // Verify WKB bytes are identical
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_LineString() throws DatabricksValidationException {
+    String originalWkt = "LINESTRING (0 0, 1 1, 2 2)";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_Polygon() throws DatabricksValidationException {
+    String originalWkt = "POLYGON ((0 0, 4 0, 4 4, 0 4, 0 0))";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_PointZ() throws DatabricksValidationException {
+    String originalWkt = "POINT Z (1 2 3)";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    // Round trip: WKB → WKT → WKB
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_PointM() throws DatabricksValidationException {
+    String originalWkt = "POINT M (1 2 3)";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_PointZM() throws DatabricksValidationException {
+    String originalWkt = "POINT ZM (1 2 3 4)";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_LineStringZ() throws DatabricksValidationException {
+    String originalWkt = "LINESTRING Z (0 0 0, 1 1 1, 2 2 2)";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_LineStringM() throws DatabricksValidationException {
+    String originalWkt = "LINESTRING M (0 0 10, 1 1 20, 2 2 30)";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_LineStringZM() throws DatabricksValidationException {
+    String originalWkt = "LINESTRING ZM (0 0 0 10, 1 1 1 20, 2 2 2 30)";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_PolygonZ() throws DatabricksValidationException {
+    String originalWkt = "POLYGON Z ((0 0 0, 4 0 0, 4 4 0, 0 4 0, 0 0 0))";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_PolygonM() throws DatabricksValidationException {
+    String originalWkt = "POLYGON M ((0 0 1, 4 0 2, 4 4 3, 0 4 4, 0 0 1))";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_PolygonZM() throws DatabricksValidationException {
+    String originalWkt = "POLYGON ZM ((0 0 0 1, 4 0 0 2, 4 4 0 3, 0 4 0 4, 0 0 0 1))";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_MultiPointZ() throws DatabricksValidationException {
+    String originalWkt = "MULTIPOINT Z ((1 2 3), (4 5 6))";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_GeometryCollectionZ()
+      throws DatabricksValidationException {
+    String originalWkt = "GEOMETRYCOLLECTION Z (POINT Z (1 2 3), LINESTRING Z (0 0 0, 1 1 1))";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_EmptyPoint() throws DatabricksValidationException {
+    String originalWkt = "POINT EMPTY";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_NegativeCoordinates()
+      throws DatabricksValidationException {
+    String originalWkt = "POINT Z (-122.4 37.8 100.5)";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
+
+  @Test
+  public void testRoundTrip_WKB_to_WKT_to_WKB_LargeDecimalValues()
+      throws DatabricksValidationException {
+    String originalWkt = "POINT M (10.5 20.3 1234567890.123)";
+    byte[] originalWkb = WKTConverter.toWKB(originalWkt);
+
+    String wkt = WKTConverter.toWKT(originalWkb);
+    byte[] finalWkb = WKTConverter.toWKB(wkt);
+
+    assertArrayEquals(originalWkb, finalWkb);
+  }
 }
