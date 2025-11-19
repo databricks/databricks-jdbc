@@ -80,20 +80,22 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       // Retry would be done in http client, we should not bother about that here
       response = httpClient.execute(getRequest, true);
       checkHTTPError(response);
+      long downloadTimeMs = (System.nanoTime() - startTime) / 1_000_000;
+
+      // Add telemetry for the time to first byte for chunk download
+      TelemetryCollector.getInstance()
+          .recordChunkDownloadLatency(
+              getStatementIdString(statementId), chunkIndex, downloadTimeMs);
+      setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
 
       // Read compressed stream fully (download latency excludes decompression)
       byte[] compressed = IOUtils.toByteArray(response.getEntity().getContent());
-      long downloadTimeMs = (System.nanoTime() - startTime) / 1_000_000;
       long size = response.getEntity().getContentLength();
       logDownloadMetrics(
           downloadTimeMs,
           size > 0 ? size : compressed.length,
           chunkLink.getExternalLink(),
           speedThreshold);
-      TelemetryCollector.getInstance()
-          .recordChunkDownloadLatency(
-              getStatementIdString(statementId), chunkIndex, downloadTimeMs);
-      setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
 
       // Decompress (if needed) and parse
       try {
