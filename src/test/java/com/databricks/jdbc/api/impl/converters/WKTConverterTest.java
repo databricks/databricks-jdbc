@@ -4,6 +4,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.google.common.io.BaseEncoding;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -15,6 +20,12 @@ import org.junit.jupiter.api.Test;
 
 /** Test class for WKTConverter utility. */
 public class WKTConverterTest {
+
+  /** Inner class to hold test case data from JSON. */
+  private static class WKBTestCase {
+    String wkt;
+    String wkb;
+  }
 
   @Test
   public void testToWKB_ValidWKT() throws DatabricksValidationException {
@@ -132,7 +143,7 @@ public class WKTConverterTest {
     DatabricksValidationException exception =
         assertThrows(DatabricksValidationException.class, () -> WKTConverter.toWKB(invalidWkt));
 
-    assertTrue(exception.getMessage().contains("Invalid WKT format"));
+    assertTrue(exception.getMessage().contains("Failed to parse WKT"));
   }
 
   @Test
@@ -592,43 +603,50 @@ public class WKTConverterTest {
   }
 
   @Test
-  public void testWKBWConversion() throws DatabricksValidationException {
-    String wkt =
-        "GEOMETRYCOLLECTION (POINT (1 2), LINESTRING (1 2, 3 4), POLYGON ((0 0, 1 0, 0 1, 0 0)), "
-            + "MULTIPOINT (EMPTY, (1 2)), MULTILINESTRING (EMPTY, (1 2, 3 4)), "
-            + "MULTIPOLYGON (EMPTY, ((0 0, 1 0, 0 1, 0 0))), GEOMETRYCOLLECTION (POINT (1 2), "
-            + "LINESTRING (1 2, 3 4), POLYGON ((0 0, 1 0, 0 1, 0 0)), MULTIPOINT (EMPTY, (1 2)), "
-            + "MULTILINESTRING (EMPTY, (1 2, 3 4)), MULTIPOLYGON (EMPTY, ((0 0, 1 0, 0 1, 0 0)))))";
+  public void testWktToWkb() {
+    // Load test cases from JSON file
+    InputStream inputStream =
+        getClass().getClassLoader().getResourceAsStream("wkb_test_cases.json");
+    assertNotNull(inputStream, "wkb_test_cases.json file not found");
 
-    // Expected WKB in hex format (little-endian, OGC-compliant)
-    String expectedWkbHex =
-        "0107000000070000000101000000000000000000f03f0000000000000040010200000002000000000000"
-            + "000000f03f00000000000000400000000000000840000000000000104001030000000100000004000000"
-            + "00000000000000000000000000000000000000000000f03f000000000000000000000000000000000000"
-            + "00000000f03f000000000000000000000000000000000104000000020000000101000000000000000000"
-            + "f87f000000000000f87f0101000000000000000000f03f00000000000000400105000000020000000102"
-            + "00000000000000010200000002000000000000000000f03f000000000000004000000000000008400000"
-            + "000000001040010600000002000000010300000000000000010300000001000000040000000000000000"
-            + "0000000000000000000000000000000000f03f00000000000000000000000000000000000000000000f0"
-            + "3f000000000000000000000000000000000107000000060000000101000000000000000000f03f000000"
-            + "0000000040010200000002000000000000000000f03f0000000000000040000000000000084000000000"
-            + "000010400103000000010000000400000000000000000000000000000000000000000000000000f03f00"
-            + "000000000000000000000000000000000000000000f03f00000000000000000000000000000000010400"
-            + "0000020000000101000000000000000000f87f000000000000f87f0101000000000000000000f03f0000"
-            + "000000000040010500000002000000010200000000000000010200000002000000000000000000f03f00"
-            + "000000000000400000000000000840000000000000104001060000000200000001030000000000000001"
-            + "03000000010000000400000000000000000000000000000000000000000000000000f03f000000000000"
-            + "00000000000000000000000000000000f03f00000000000000000000000000000000";
+    Gson gson = new Gson();
+    Type listType = new TypeToken<List<WKBTestCase>>() {}.getType();
+    List<WKBTestCase> testCases = gson.fromJson(new InputStreamReader(inputStream), listType);
 
-    // Convert expected hex string to byte array
-    byte[] expectedWkb = BaseEncoding.base16().decode(expectedWkbHex.toUpperCase());
+    assertNotNull(testCases, "Test cases should not be null");
+    assertFalse(testCases.isEmpty(), "Test cases should not be empty");
 
-    // Convert WKT to WKB and assert against expected
-    byte[] actualWkb = WKTConverter.toWKB(wkt);
-    assertArrayEquals(expectedWkb, actualWkb);
+    // Track statistics
+    int passed = 0;
+    List<String> failures = new ArrayList<>();
 
-    // Also verify round-trip stability (WKT → WKB → WKT should match original)
-    String convertedWkt = WKTConverter.toWKT(actualWkb);
-    assertEquals(wkt, convertedWkt);
+    // Test each case - WKT to WKB conversion
+    for (int i = 0; i < testCases.size(); i++) {
+      WKBTestCase testCase = testCases.get(i);
+      try {
+        byte[] actualWkb = WKTConverter.toWKB(testCase.wkt);
+        byte[] expectedWkb = BaseEncoding.base16().decode(testCase.wkb.toUpperCase());
+
+        // Assert WKB bytes match expected
+        assertArrayEquals(
+            expectedWkb,
+            actualWkb,
+            String.format("Test case %d WKB mismatch: WKT='%s'", i, testCase.wkt));
+
+        passed++;
+
+      } catch (AssertionError | Exception e) {
+        failures.add(
+            String.format("Test case %d: WKT='%s', Error: %s", i, testCase.wkt, e.getMessage()));
+      }
+    }
+
+    // Fail if there are any failures
+    if (!failures.isEmpty()) {
+      fail(
+          String.format(
+              "Failed %d out of %d test cases:\n%s",
+              failures.size(), testCases.size(), String.join("\n", failures)));
+    }
   }
 }

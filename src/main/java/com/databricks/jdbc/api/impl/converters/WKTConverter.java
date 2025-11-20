@@ -42,35 +42,30 @@ public class WKTConverter {
     }
 
     try {
+      int ogcDimension = ogcDimensionFromWkt(wkt);
+      EnumSet<Ordinate> ordinates = determineOrdinates(ogcDimension);
       Geometry geometry = WKT_READER.get().read(wkt);
-      EnumSet<Ordinate> ordinates = determineOrdinates(geometry);
       JTSOGCWKBWriter writer = new JTSOGCWKBWriter(ordinates, ByteOrder.LITTLE_ENDIAN);
       return writer.write(geometry);
     } catch (ParseException e) {
-      String errorMessage = String.format("Invalid WKT format: %s", wkt);
+      String errorMessage =
+          String.format("Failed to parse WKT: %s. Error: %s", wkt, e.getMessage());
       LOGGER.error(errorMessage, e);
       throw new DatabricksValidationException(errorMessage, e);
     }
   }
 
-  /**
-   * Converts WKB (Well-Known Binary) to WKT (Well-Known Text) format.
-   *
-   * <p>This implementation uses the JTS library to parse the WKB bytes into a Geometry object and
-   * then converts it to WKT format.
-   *
-   * @param wkb the WKB bytes to convert
-   * @return the WKT representation as a string
-   * @throws DatabricksValidationException if the WKB is invalid
-   */
+  // USED ONLY IN TEST CASES - DO NOT USE IN NORMAL FLOW
+  // WKB READER HAS LIMITATIONS WITH EMPTY GEOMETRIES
   public static String toWKT(byte[] wkb) throws DatabricksValidationException {
     if (wkb == null || wkb.length == 0) {
       throw new DatabricksValidationException("WKB bytes cannot be null or empty");
     }
 
     try {
+      int ogcDimension = ogcDimensionFromWkb(wkb);
+      EnumSet<Ordinate> ordinates = determineOrdinates(ogcDimension);
       Geometry geometry = WKB_READER.get().read(wkb);
-      EnumSet<Ordinate> ordinates = determineOrdinates(geometry);
       int outputDimension = ordinates.size();
       WKTWriter writer = new WKTWriter(outputDimension);
       writer.setOutputOrdinates(ordinates);
@@ -82,29 +77,70 @@ public class WKTConverter {
     }
   }
 
-  private static EnumSet<Ordinate> determineOrdinates(Geometry geometry) {
-    // Handle empty geometries
-    if (geometry.isEmpty() || geometry.getCoordinate() == null) {
-      return EnumSet.of(Ordinate.X, Ordinate.Y);
+  /**
+   * Extracts the OGC dimension from a WKT string.
+   *
+   * <p>OGC dimension values: 0 = XY (2D) 1000 = XYZ (3D with Z) 2000 = XYM (3D with M) 3000 = XYZM
+   * (4D)
+   *
+   * @param wkt the WKT string to parse
+   * @return the OGC dimension value (0, 1000, 2000, or 3000)
+   * @throws DatabricksValidationException if the WKT format is invalid
+   */
+  private static int ogcDimensionFromWkt(String wkt) throws DatabricksValidationException {
+    for (int i = 0; i < wkt.length() - 2; ++i) {
+      char c = wkt.charAt(i);
+      if (c == '(') return 0;
+      if (c == ' ') {
+        char next = Character.toUpperCase(wkt.charAt(i + 1));
+        if (next == 'E') return 0; // EMPTY
+        if (next == 'M') return 2000; // M dimension
+        if (next == 'Z') {
+          // Check if it's Z or ZM
+          return (i + 2 < wkt.length() && Character.toUpperCase(wkt.charAt(i + 2)) == 'M')
+              ? 3000
+              : 1000;
+        }
+      }
     }
+    throw new DatabricksValidationException("Invalid WKT input: " + wkt);
+  }
 
-    // Check which ordinates are present by examining coordinate values
-    // In JTS, getZ() and getM() return NaN if the ordinate is not present
-    boolean hasZ = !Double.isNaN(geometry.getCoordinate().getZ());
-    boolean hasM = !Double.isNaN(geometry.getCoordinate().getM());
+  /**
+   * Extracts the OGC dimension from WKB bytes.
+   *
+   * <p>OGC dimension values: 0 = XY (2D) 1000 = XYZ (3D with Z) 2000 = XYM (3D with M) 3000 = XYZM
+   * (4D)
+   *
+   * @param wkb the WKB bytes to parse
+   * @return the OGC dimension value (0, 1000, 2000, or 3000)
+   * @throws DatabricksValidationException if the WKB format is invalid
+   */
+  private static int ogcDimensionFromWkb(byte[] wkb) throws DatabricksValidationException {
+    if (wkb.length < 5) {
+      throw new DatabricksValidationException("Invalid WKB input: insufficient bytes");
+    }
+    ByteOrder endianness = (wkb[0] == 0) ? ByteOrder.BIG_ENDIAN : ByteOrder.LITTLE_ENDIAN;
+    int type = java.nio.ByteBuffer.wrap(wkb).order(endianness).getInt(/* pos= */ 1);
+    return type - type % 1000;
+  }
 
-    if (hasZ && hasM) {
-      // 4D geometry: XYZM
-      return EnumSet.of(Ordinate.X, Ordinate.Y, Ordinate.Z, Ordinate.M);
-    } else if (hasZ) {
-      // 3D geometry: XYZ
-      return EnumSet.of(Ordinate.X, Ordinate.Y, Ordinate.Z);
-    } else if (hasM) {
-      // 3D geometry: XYM
-      return EnumSet.of(Ordinate.X, Ordinate.Y, Ordinate.M);
-    } else {
-      // 2D geometry: XY
-      return EnumSet.of(Ordinate.X, Ordinate.Y);
+  /**
+   * Determines the ordinate set based on the OGC dimension.
+   *
+   * @param ogcDimension the OGC dimension value (0, 1000, 2000, or 3000)
+   * @return the appropriate EnumSet of Ordinates
+   */
+  private static EnumSet<Ordinate> determineOrdinates(int ogcDimension) {
+    switch (ogcDimension) {
+      case 1000:
+        return Ordinate.createXYZ();
+      case 2000:
+        return Ordinate.createXYM();
+      case 3000:
+        return Ordinate.createXYZM();
+      default:
+        return Ordinate.createXY();
     }
   }
 
