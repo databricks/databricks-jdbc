@@ -29,5 +29,6 @@
 - Fixed: PreparedStatement.getMetaData() now correctly reports TINYINT columns as Types.TINYINT (java.lang.Byte) instead of Types.SMALLINT (java.lang.Integer).
 - Fixed: TINYINT to String conversion to return numeric representation (e.g., "65") instead of character representation (e.g., "A").
 - Fixed: Complex types (Structs, arrays, maps) now show detailed type information in metadata calls in Thrift mode
+- Fixed: incorrect chunk download/processing status codes.
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 
