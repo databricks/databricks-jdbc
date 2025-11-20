@@ -1,12 +1,17 @@
 name: Release
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Release Thin JAR"]
+    types:
+      - completed
 
 jobs:
   publish:
+    # Only run if thin JAR workflow succeeded or manual trigger
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
@@ -27,15 +32,9 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
 
-      - name: Configure GPG
+      - name: Publish to the Maven Central Repository
         run: |
-          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
-          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
-          gpg-connect-agent reloadagent /bye
-
-      - name: Publish shaded JAR to Maven Central
-        run: |
-          # Deploy main artifacts (shaded uber JAR, sources, javadoc)
+          # Deploy main artifacts (uber JAR, sources, javadoc)
           mvn -Prelease --batch-mode deploy \
             -Dnvd.api.key=${{ secrets.NVD_API_KEY }} \
             -Dossindex.username=${{ secrets.OSSINDEX_USERNAME }} \
@@ -45,26 +44,8 @@ jobs:
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
 
-      - name: Publish thin JAR as separate artifact to Maven Central
-        run: |
-          VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
-          mvn -Prelease gpg:sign-and-deploy-file \
-            -Dfile="target/databricks-jdbc-${VERSION}-thin.jar" \
-            -DpomFile=thin_public_pom.xml \
-            -DrepositoryId=central \
-            -Durl=https://oss.sonatype.org/service/local/staging/deploy/maven2/ \
-            -DgroupId=com.databricks \
-            -DartifactId=databricks-jdbc-thin \
-            -Dversion="${VERSION}" \
-            -Dpackaging=jar \
-            -Dgpg.passphrase="${GPG_PASSPHRASE}"
-        env:
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
-          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
-
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            target/*.jar
+            files: target/*.jar

@@ -11,9 +11,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.math.BigDecimal;
-import java.sql.Date;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,7 +40,8 @@ public class DatabricksTypeUtil {
   public static final String INT = "INT";
   public static final String BYTE = "BYTE";
   public static final String VOID = "VOID";
-  public static final String SMALLINT = "SHORT";
+  public static final String SHORT = "SHORT";
+  public static final String SMALLINT = "SMALLINT";
   public static final String NULL = "NULL";
   public static final String STRING = "STRING";
   public static final String TINYINT = "TINYINT";
@@ -68,7 +67,11 @@ public class DatabricksTypeUtil {
               ColumnInfoTypeName.FLOAT,
               ColumnInfoTypeName.INT,
               ColumnInfoTypeName.LONG,
-              ColumnInfoTypeName.SHORT));
+              ColumnInfoTypeName.SHORT,
+              ColumnInfoTypeName.SMALLINT,
+              ColumnInfoTypeName.TINYINT,
+              ColumnInfoTypeName.BYTE,
+              ColumnInfoTypeName.BIGINT));
 
   // only used for PreparedStatement
   public static ColumnInfoTypeName getColumnInfoType(String typeName) {
@@ -81,8 +84,10 @@ public class DatabricksTypeUtil {
       case DatabricksTypeUtil.TIMESTAMP_NTZ:
         return ColumnInfoTypeName.TIMESTAMP;
       case DatabricksTypeUtil.SMALLINT:
-      case DatabricksTypeUtil.TINYINT:
+      case DatabricksTypeUtil.SHORT:
         return ColumnInfoTypeName.SHORT;
+      case DatabricksTypeUtil.TINYINT:
+        return ColumnInfoTypeName.TINYINT;
       case DatabricksTypeUtil.BYTE:
         return ColumnInfoTypeName.BYTE;
       case DatabricksTypeUtil.INT:
@@ -118,14 +123,19 @@ public class DatabricksTypeUtil {
       return Types.OTHER;
     }
     switch (typeName) {
+      case TINYINT:
       case BYTE:
         return Types.TINYINT;
+      case SMALLINT:
       case SHORT:
         return Types.SMALLINT;
       case INT:
         return Types.INTEGER;
       case LONG:
+      case BIGINT:
         return Types.BIGINT;
+      case VOID:
+        return Types.OTHER;
       case FLOAT:
         return Types.FLOAT;
       case DOUBLE:
@@ -169,8 +179,13 @@ public class DatabricksTypeUtil {
     switch (typeName) {
       case BYTE:
       case SHORT:
+      case SMALLINT:
+        return "java.lang.Short";
       case INT:
         return "java.lang.Integer";
+      case TINYINT:
+        return "java.lang.Byte";
+      case BIGINT:
       case LONG:
         return "java.lang.Long";
       case FLOAT:
@@ -201,6 +216,7 @@ public class DatabricksTypeUtil {
       case GEOGRAPHY:
         return GEOGRAPHY_CLASS_NAME;
       case NULL:
+      case VOID:
         return "null";
       case MAP:
         return "java.util.Map";
@@ -446,15 +462,30 @@ public class DatabricksTypeUtil {
       type = STRING;
     } else if (obj instanceof Integer) {
       type = INT;
-    } else if (obj instanceof Timestamp) {
+    } else if (isTimestamp(obj)) {
       type = TIMESTAMP;
-    } else if (obj instanceof Date) {
+    } else if (isDate(obj)) {
       type = DATE;
     } else if (obj instanceof Double) {
       type = DOUBLE;
     }
     // TODO: Handle more object types
     return type;
+  }
+
+  public static boolean isTimestamp(Object obj) {
+    return obj instanceof java.sql.Timestamp
+        || obj instanceof java.time.LocalDateTime
+        || obj instanceof java.time.Instant
+        || obj instanceof java.time.ZonedDateTime;
+  }
+
+  public static boolean isDate(Object obj) {
+    return obj instanceof java.sql.Date || obj instanceof java.time.LocalDate;
+  }
+
+  public static boolean isTemporalType(Object obj) {
+    return isTimestamp(obj) || isDate(obj);
   }
 
   public static TPrimitiveTypeEntry getTPrimitiveTypeOrDefault(TTypeDesc typeDesc) {

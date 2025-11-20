@@ -132,14 +132,14 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
    *   <li>After each COMMIT or ROLLBACK statement
    * </ul>
    *
-   * <h3>Thread Safety</h3>
+   * <p><b>Thread Safety</b>
    *
    * <p><b>This method is not thread-safe.</b> The {@code Connection} object should not be shared
    * across multiple threads. Concurrent access may lead to undefined behavior and server-side
    * transaction aborts due to sequence ID mismatches. Each thread should obtain its own {@code
    * Connection} from a connection pool.
    *
-   * <h3>Example Usage</h3>
+   * <p><b>Example Usage</b>
    *
    * <pre>{@code
    * // Disable auto-commit to start a transaction

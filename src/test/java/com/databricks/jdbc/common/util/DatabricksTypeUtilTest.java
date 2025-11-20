@@ -12,6 +12,7 @@ import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
@@ -46,6 +47,11 @@ class DatabricksTypeUtilTest {
         new Object[] {TTypeId.TIMESTAMP_TYPE, new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)},
         new Object[] {TTypeId.BINARY_TYPE, ArrowType.Binary.INSTANCE},
         new Object[] {TTypeId.NULL_TYPE, ArrowType.Null.INSTANCE},
+        new Object[] {TTypeId.ARRAY_TYPE, ArrowType.Utf8.INSTANCE},
+        new Object[] {TTypeId.MAP_TYPE, ArrowType.Utf8.INSTANCE},
+        new Object[] {TTypeId.STRUCT_TYPE, ArrowType.Utf8.INSTANCE},
+        new Object[] {TTypeId.USER_DEFINED_TYPE, ArrowType.Utf8.INSTANCE},
+        new Object[] {TTypeId.DECIMAL_TYPE, ArrowType.Utf8.INSTANCE},
         new Object[] {TTypeId.DATE_TYPE, new ArrowType.Date(DateUnit.DAY)});
   }
 
@@ -59,47 +65,82 @@ class DatabricksTypeUtilTest {
 
   @Test
   void testGetColumnType() {
-    assertEquals(Types.TINYINT, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.BYTE));
-    assertEquals(Types.SMALLINT, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.SHORT));
-    assertEquals(Types.BIGINT, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.LONG));
-    assertEquals(Types.FLOAT, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.FLOAT));
-    assertEquals(Types.DECIMAL, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.DECIMAL));
-    assertEquals(Types.BINARY, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.BINARY));
-    assertEquals(Types.BOOLEAN, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.BOOLEAN));
-    assertEquals(Types.CHAR, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.CHAR));
-    assertEquals(Types.TIMESTAMP, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.TIMESTAMP));
-    assertEquals(Types.DATE, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.DATE));
-    assertEquals(Types.STRUCT, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.STRUCT));
-    assertEquals(Types.ARRAY, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.ARRAY));
-    assertEquals(Types.VARCHAR, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.NULL));
-    assertEquals(
-        Types.OTHER, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.USER_DEFINED_TYPE));
+    Map<ColumnInfoTypeName, Integer> expectedMappings =
+        Map.ofEntries(
+            Map.entry(ColumnInfoTypeName.BYTE, Types.TINYINT),
+            Map.entry(ColumnInfoTypeName.SHORT, Types.SMALLINT),
+            Map.entry(ColumnInfoTypeName.SMALLINT, Types.SMALLINT),
+            Map.entry(ColumnInfoTypeName.INT, Types.INTEGER),
+            Map.entry(ColumnInfoTypeName.LONG, Types.BIGINT),
+            Map.entry(ColumnInfoTypeName.BIGINT, Types.BIGINT),
+            Map.entry(ColumnInfoTypeName.TINYINT, Types.TINYINT),
+            Map.entry(ColumnInfoTypeName.VOID, Types.OTHER),
+            Map.entry(ColumnInfoTypeName.FLOAT, Types.FLOAT),
+            Map.entry(ColumnInfoTypeName.DOUBLE, Types.DOUBLE),
+            Map.entry(ColumnInfoTypeName.DECIMAL, Types.DECIMAL),
+            Map.entry(ColumnInfoTypeName.BINARY, Types.BINARY),
+            Map.entry(ColumnInfoTypeName.BOOLEAN, Types.BOOLEAN),
+            Map.entry(ColumnInfoTypeName.CHAR, Types.CHAR),
+            Map.entry(ColumnInfoTypeName.STRING, Types.VARCHAR),
+            Map.entry(ColumnInfoTypeName.MAP, Types.VARCHAR),
+            Map.entry(ColumnInfoTypeName.INTERVAL, Types.VARCHAR),
+            Map.entry(ColumnInfoTypeName.NULL, Types.VARCHAR),
+            Map.entry(ColumnInfoTypeName.TIMESTAMP, Types.TIMESTAMP),
+            Map.entry(ColumnInfoTypeName.DATE, Types.DATE),
+            Map.entry(ColumnInfoTypeName.STRUCT, Types.STRUCT),
+            Map.entry(ColumnInfoTypeName.ARRAY, Types.ARRAY),
+            Map.entry(ColumnInfoTypeName.GEOMETRY, Types.OTHER),
+            Map.entry(ColumnInfoTypeName.GEOGRAPHY, Types.OTHER),
+            Map.entry(ColumnInfoTypeName.USER_DEFINED_TYPE, Types.OTHER));
+
+    expectedMappings.forEach(
+        (typeName, expectedSqlType) ->
+            assertEquals(
+                expectedSqlType,
+                DatabricksTypeUtil.getColumnType(typeName),
+                () -> "Unexpected type for " + typeName));
+    assertEquals(Types.OTHER, DatabricksTypeUtil.getColumnType(null));
   }
 
   @Test
   void testGetColumnTypeClassName() {
-    assertEquals(
-        "java.lang.Long", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.LONG));
-    assertEquals(
-        "java.lang.Float", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.FLOAT));
-    assertEquals(
-        "java.lang.Double", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.DOUBLE));
-    assertEquals(
-        "java.math.BigDecimal",
-        DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.DECIMAL));
-    assertEquals("[B", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.BINARY));
-    assertEquals(
-        "java.sql.Date", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.DATE));
-    assertEquals(
-        "java.sql.Struct", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.STRUCT));
-    assertEquals(
-        "java.sql.Array", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.ARRAY));
-    assertEquals(
-        "java.util.Map", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.MAP));
-    assertEquals("null", DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.NULL));
-    assertEquals(
-        "java.sql.Timestamp",
-        DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.TIMESTAMP));
+    final String GEOMETRY_CLASS_NAME = "com.databricks.jdbc.api.IGeometry";
+    final String GEOGRAPHY_CLASS_NAME = "com.databricks.jdbc.api.IGeography";
+    Map<ColumnInfoTypeName, String> expectedMappings =
+        Map.ofEntries(
+            Map.entry(ColumnInfoTypeName.BYTE, "java.lang.Short"),
+            Map.entry(ColumnInfoTypeName.SHORT, "java.lang.Short"),
+            Map.entry(ColumnInfoTypeName.SMALLINT, "java.lang.Short"),
+            Map.entry(ColumnInfoTypeName.INT, "java.lang.Integer"),
+            Map.entry(ColumnInfoTypeName.TINYINT, "java.lang.Byte"),
+            Map.entry(ColumnInfoTypeName.LONG, "java.lang.Long"),
+            Map.entry(ColumnInfoTypeName.BIGINT, "java.lang.Long"),
+            Map.entry(ColumnInfoTypeName.FLOAT, "java.lang.Float"),
+            Map.entry(ColumnInfoTypeName.DOUBLE, "java.lang.Double"),
+            Map.entry(ColumnInfoTypeName.DECIMAL, "java.math.BigDecimal"),
+            Map.entry(ColumnInfoTypeName.BINARY, "[B"),
+            Map.entry(ColumnInfoTypeName.BOOLEAN, "java.lang.Boolean"),
+            Map.entry(ColumnInfoTypeName.CHAR, "java.lang.String"),
+            Map.entry(ColumnInfoTypeName.STRING, "java.lang.String"),
+            Map.entry(ColumnInfoTypeName.INTERVAL, "java.lang.String"),
+            Map.entry(ColumnInfoTypeName.USER_DEFINED_TYPE, "java.lang.String"),
+            Map.entry(ColumnInfoTypeName.TIMESTAMP, "java.sql.Timestamp"),
+            Map.entry(ColumnInfoTypeName.DATE, "java.sql.Date"),
+            Map.entry(ColumnInfoTypeName.STRUCT, "java.sql.Struct"),
+            Map.entry(ColumnInfoTypeName.ARRAY, "java.sql.Array"),
+            Map.entry(ColumnInfoTypeName.GEOMETRY, GEOMETRY_CLASS_NAME),
+            Map.entry(ColumnInfoTypeName.GEOGRAPHY, GEOGRAPHY_CLASS_NAME),
+            Map.entry(ColumnInfoTypeName.MAP, "java.util.Map"),
+            Map.entry(ColumnInfoTypeName.NULL, "null"),
+            Map.entry(ColumnInfoTypeName.VOID, "null"));
+
+    expectedMappings.forEach(
+        (columnType, expectedClassName) ->
+            assertEquals(
+                expectedClassName,
+                DatabricksTypeUtil.getColumnTypeClassName(columnType),
+                () -> "Unexpected type for " + columnType));
+    assertEquals("null", DatabricksTypeUtil.getColumnTypeClassName(null));
   }
 
   @Test
@@ -154,61 +195,42 @@ class DatabricksTypeUtilTest {
 
   @Test
   void testGetDatabricksTypeFromSQLType() {
-    assertEquals(
-        DatabricksTypeUtil.INT, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.INTEGER));
-    assertEquals(
-        DatabricksTypeUtil.STRING, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.VARCHAR));
-    assertEquals(
-        DatabricksTypeUtil.CHAR, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.CHAR));
-    assertEquals(
-        DatabricksTypeUtil.STRING,
-        DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.LONGVARCHAR));
-    assertEquals(
-        DatabricksTypeUtil.STRING, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.NVARCHAR));
-    assertEquals(
-        DatabricksTypeUtil.STRING,
-        DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.LONGNVARCHAR));
-    assertEquals(
-        DatabricksTypeUtil.ARRAY, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.ARRAY));
-    assertEquals(
-        DatabricksTypeUtil.LONG, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.BIGINT));
-    assertEquals(
-        DatabricksTypeUtil.BINARY, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.BINARY));
-    assertEquals(
-        DatabricksTypeUtil.BINARY,
-        DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.VARBINARY));
-    assertEquals(
-        DatabricksTypeUtil.BINARY,
-        DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.LONGVARBINARY));
-    assertEquals(
-        DatabricksTypeUtil.DECIMAL, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.NUMERIC));
-    assertEquals(
-        DatabricksTypeUtil.DATE, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.DATE));
-    assertEquals(
-        DatabricksTypeUtil.DECIMAL, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.DECIMAL));
-    assertEquals(
-        DatabricksTypeUtil.BOOLEAN, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.BOOLEAN));
-    assertEquals(
-        DatabricksTypeUtil.DOUBLE, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.DOUBLE));
-    assertEquals(
-        DatabricksTypeUtil.FLOAT, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.FLOAT));
-    assertEquals(
-        DatabricksTypeUtil.FLOAT, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.REAL));
-    assertEquals(
-        DatabricksTypeUtil.TIMESTAMP_NTZ,
-        DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.TIMESTAMP));
-    assertEquals(
-        DatabricksTypeUtil.TIMESTAMP,
-        DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.TIMESTAMP_WITH_TIMEZONE));
-    assertEquals(
-        DatabricksTypeUtil.STRUCT, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.STRUCT));
-    assertEquals(
-        DatabricksTypeUtil.STRUCT, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.STRUCT));
-    assertEquals(
-        DatabricksTypeUtil.SMALLINT,
-        DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.SMALLINT));
-    assertEquals(
-        DatabricksTypeUtil.TINYINT, DatabricksTypeUtil.getDatabricksTypeFromSQLType(Types.TINYINT));
+    final int UNKNOWN_TYPE = 1000;
+    final String NULL = "NULL";
+    Map<Integer, String> expectedMappings =
+        Map.ofEntries(
+            Map.entry(Types.INTEGER, DatabricksTypeUtil.INT),
+            Map.entry(Types.VARCHAR, DatabricksTypeUtil.STRING),
+            Map.entry(Types.CHAR, DatabricksTypeUtil.CHAR),
+            Map.entry(Types.LONGVARCHAR, DatabricksTypeUtil.STRING),
+            Map.entry(Types.NVARCHAR, DatabricksTypeUtil.STRING),
+            Map.entry(Types.LONGNVARCHAR, DatabricksTypeUtil.STRING),
+            Map.entry(Types.ARRAY, DatabricksTypeUtil.ARRAY),
+            Map.entry(Types.BIGINT, DatabricksTypeUtil.LONG),
+            Map.entry(Types.BINARY, DatabricksTypeUtil.BINARY),
+            Map.entry(Types.VARBINARY, DatabricksTypeUtil.BINARY),
+            Map.entry(Types.LONGVARBINARY, DatabricksTypeUtil.BINARY),
+            Map.entry(Types.NUMERIC, DatabricksTypeUtil.DECIMAL),
+            Map.entry(Types.DATE, DatabricksTypeUtil.DATE),
+            Map.entry(Types.DECIMAL, DatabricksTypeUtil.DECIMAL),
+            Map.entry(Types.BOOLEAN, DatabricksTypeUtil.BOOLEAN),
+            Map.entry(Types.DOUBLE, DatabricksTypeUtil.DOUBLE),
+            Map.entry(Types.FLOAT, DatabricksTypeUtil.FLOAT),
+            Map.entry(Types.REAL, DatabricksTypeUtil.FLOAT),
+            Map.entry(Types.TIMESTAMP, DatabricksTypeUtil.TIMESTAMP_NTZ),
+            Map.entry(Types.TIMESTAMP_WITH_TIMEZONE, DatabricksTypeUtil.TIMESTAMP),
+            Map.entry(Types.STRUCT, DatabricksTypeUtil.STRUCT),
+            Map.entry(Types.SMALLINT, DatabricksTypeUtil.SMALLINT),
+            Map.entry(Types.TINYINT, DatabricksTypeUtil.TINYINT),
+            Map.entry(Types.BIT, DatabricksTypeUtil.BOOLEAN));
+
+    expectedMappings.forEach(
+        (sqlType, expectedType) ->
+            assertEquals(
+                expectedType,
+                DatabricksTypeUtil.getDatabricksTypeFromSQLType(sqlType),
+                () -> "Unexpected type for " + sqlType));
+    assertEquals(NULL, DatabricksTypeUtil.getDatabricksTypeFromSQLType(UNKNOWN_TYPE));
   }
 
   @Test
@@ -227,6 +249,15 @@ class DatabricksTypeUtilTest {
     assertEquals(DatabricksTypeUtil.FLOAT, DatabricksTypeUtil.inferDatabricksType(1.0f));
     assertEquals(DatabricksTypeUtil.INT, DatabricksTypeUtil.inferDatabricksType(1));
     assertEquals(DatabricksTypeUtil.DOUBLE, DatabricksTypeUtil.inferDatabricksType(1.0d));
+    // Test Java 8+ temporal types
+    assertEquals(
+        DatabricksTypeUtil.TIMESTAMP,
+        DatabricksTypeUtil.inferDatabricksType(java.time.Instant.now()));
+    assertEquals(
+        DatabricksTypeUtil.TIMESTAMP,
+        DatabricksTypeUtil.inferDatabricksType(java.time.LocalDateTime.now()));
+    assertEquals(
+        DatabricksTypeUtil.DATE, DatabricksTypeUtil.inferDatabricksType(java.time.LocalDate.now()));
   }
 
   @ParameterizedTest
@@ -236,7 +267,8 @@ class DatabricksTypeUtilTest {
     "TIMESTAMP, TIMESTAMP",
     "TIMESTAMP_NTZ, TIMESTAMP",
     "SHORT, SHORT",
-    "TINYINT, SHORT",
+    "SMALLINT, SHORT",
+    "TINYINT, TINYINT",
     "BYTE, BYTE",
     "INT, INT",
     "BIGINT, LONG",

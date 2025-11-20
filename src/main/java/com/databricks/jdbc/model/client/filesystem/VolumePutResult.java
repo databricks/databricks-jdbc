@@ -10,7 +10,7 @@ import java.util.Objects;
  * successful and failed operations. The HTTP status codes follow standard conventions and indicate
  * the specific type of success or failure.
  *
- * <h3>HTTP Status Codes Used</h3>
+ * <p><b>HTTP Status Codes Used</b>
  *
  * <ul>
  *   <li><strong>2xx Success Codes:</strong>
@@ -37,7 +37,7 @@ import java.util.Objects;
  *       </ul>
  * </ul>
  *
- * <h3>Retry Behavior</h3>
+ * <p><b>Retry Behavior</b>
  *
  * <p>Server errors (500, 502, 503, 504) trigger automatic retries with exponential backoff. Client
  * errors (4xx) and cancellations (499) do not trigger retries as they indicate permanent failures

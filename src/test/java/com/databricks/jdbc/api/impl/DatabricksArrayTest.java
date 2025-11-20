@@ -863,4 +863,82 @@ public class DatabricksArrayTest {
         actual,
         "DatabricksArray.toString() should produce a JSON-like array of map elements with string keys quoted and int values unquoted");
   }
+
+  @Test
+  public void testToStringWithTimestamps() throws SQLException {
+    // Test that timestamps in arrays are properly quoted
+    java.sql.Timestamp ts1 = java.sql.Timestamp.valueOf("2024-01-01 12:30:45.123");
+    java.sql.Timestamp ts2 = java.sql.Timestamp.valueOf("2024-02-15 08:15:30.456");
+
+    String metadata = "ARRAY<TIMESTAMP>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<TIMESTAMP>"))
+        .thenReturn("TIMESTAMP");
+
+    DatabricksArray array = new DatabricksArray(List.of(ts1, ts2), metadata);
+    String actual = array.toString();
+
+    String expected = "[\"2024-01-01 12:30:45.123\",\"2024-02-15 08:15:30.456\"]";
+    assertEquals(expected, actual, "DatabricksArray.toString() should quote timestamp elements");
+  }
+
+  @Test
+  public void testToStringWithDates() throws SQLException {
+    // Test that dates in arrays are properly quoted
+    java.sql.Date date1 = java.sql.Date.valueOf("2024-01-01");
+    java.sql.Date date2 = java.sql.Date.valueOf("2024-02-15");
+
+    String metadata = "ARRAY<DATE>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<DATE>"))
+        .thenReturn("DATE");
+
+    DatabricksArray array = new DatabricksArray(List.of(date1, date2), metadata);
+    String actual = array.toString();
+
+    String expected = "[\"2024-01-01\",\"2024-02-15\"]";
+    assertEquals(expected, actual, "DatabricksArray.toString() should quote date elements");
+  }
+
+  @Test
+  public void testToStringWithNestedStructContainingTimestamp() throws SQLException {
+    // Test that timestamps in nested structures (array of struct with timestamp) are properly
+    // quoted
+    java.sql.Timestamp ts1 = java.sql.Timestamp.valueOf("2024-01-01 12:30:45.123");
+    java.sql.Timestamp ts2 = java.sql.Timestamp.valueOf("2024-02-15 08:15:30.456");
+
+    String structMetadata = "STRUCT<id:INT,created_at:TIMESTAMP>";
+    Map<String, Object> fieldTypesMap = new LinkedHashMap<>();
+    fieldTypesMap.put("id", "INT");
+    fieldTypesMap.put("created_at", "TIMESTAMP");
+
+    metadataParserMock
+        .when(() -> MetadataParser.parseStructMetadata(structMetadata))
+        .thenReturn(fieldTypesMap);
+
+    Map<String, Object> struct1 = new LinkedHashMap<>();
+    struct1.put("id", 1);
+    struct1.put("created_at", ts1);
+
+    Map<String, Object> struct2 = new LinkedHashMap<>();
+    struct2.put("id", 2);
+    struct2.put("created_at", ts2);
+
+    DatabricksStruct databricksStruct1 = new DatabricksStruct(struct1, structMetadata);
+    DatabricksStruct databricksStruct2 = new DatabricksStruct(struct2, structMetadata);
+
+    String arrayMetadata = "ARRAY<STRUCT<id:INT,created_at:TIMESTAMP>>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(arrayMetadata))
+        .thenReturn(structMetadata);
+
+    DatabricksArray array =
+        new DatabricksArray(List.of(databricksStruct1, databricksStruct2), arrayMetadata);
+    String actual = array.toString();
+
+    String expected =
+        "[{\"id\":1,\"created_at\":\"2024-01-01 12:30:45.123\"},{\"id\":2,\"created_at\":\"2024-02-15 08:15:30.456\"}]";
+    assertEquals(
+        expected, actual, "Nested structures should properly quote timestamps at all levels");
+  }
 }

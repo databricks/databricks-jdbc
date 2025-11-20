@@ -7,10 +7,13 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_CRED
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.GCP_GOOGLE_ID_AUTH_TYPE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.M2M_AUTH_TYPE;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.TestConstants;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -18,7 +21,9 @@ import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -338,6 +343,28 @@ class DatabricksConnectionContextTest {
     assertEquals(5, connectionContext.parameters.size());
     assertEquals(LogLevel.WARN, connectionContext.getLogLevel());
     assertTrue(connectionContext.isAllPurposeCluster());
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testAllPurposeClusterAlwaysUsesThriftClient() throws DatabricksSQLException {
+    // Test that all-purpose clusters always use THRIFT client type regardless of feature flags
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+
+    // Verify it's an all-purpose cluster
+    assertTrue(connectionContext.isAllPurposeCluster());
+
+    // Should use THRIFT client type
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+
+    // Even if we set feature flag to enable SEA, all-purpose cluster should still use THRIFT
+    Map<String, String> flags = new HashMap<>();
+    flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+
+    // Client type should still be THRIFT for all-purpose cluster
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
   }
 
@@ -814,6 +841,281 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, propsWithInvalidParam);
     assertFalse(connectionContext.getEnableMultipleCatalogSupport());
+  }
+
+  // ===== Lazy Initialization Tests =====
+
+  @Test
+  public void testClientTypeIsCachedAfterFirstAccess() throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_2, properties_with_pwd);
+
+    // First call should compute the client type
+    DatabricksClientType firstCall = connectionContext.getClientType();
+    // Second call should return cached value
+    DatabricksClientType secondCall = connectionContext.getClientType();
+
+    assertEquals(firstCall, secondCall);
+    assertEquals(DatabricksClientType.SEA, firstCall);
+  }
+
+  @Test
+  public void testClientTypeThreadSafety() throws Exception {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_2, properties_with_pwd);
+
+    int numThreads = 10;
+    Thread[] threads = new Thread[numThreads];
+    DatabricksClientType[] results = new DatabricksClientType[numThreads];
+
+    for (int i = 0; i < numThreads; i++) {
+      final int index = i;
+      threads[i] = new Thread(() -> results[index] = connectionContext.getClientType());
+    }
+
+    // Start all threads at once
+    for (Thread thread : threads) {
+      thread.start();
+    }
+
+    // Wait for all threads to complete
+    for (Thread thread : threads) {
+      thread.join();
+    }
+
+    // All threads should get the same result
+    DatabricksClientType expected = results[0];
+    for (DatabricksClientType result : results) {
+      assertEquals(expected, result);
+    }
+  }
+
+  // ===== Client Type Selection Logic Tests =====
+
+  @Test
+  public void testClientTypeWithExplicitUseThriftClientEnabled() throws DatabricksSQLException {
+    String urlWithThrift =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;UseThriftClient=1;EnableArrow=1;EnableQueryResultDownload=1";
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(urlWithThrift, properties);
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testClientTypeWithExplicitUseThriftClientDisabled() throws DatabricksSQLException {
+    String urlWithSea =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;UseThriftClient=0";
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(urlWithSea, properties);
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testClientTypeWhenArrowDisabled() throws DatabricksSQLException {
+    String urlWithArrowDisabled =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableArrow=0";
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithArrowDisabled, properties);
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testClientTypeWhenCloudFetchDisabled() throws DatabricksSQLException {
+    String urlWithCloudFetchDisabled =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableQueryResultDownload=0";
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithCloudFetchDisabled, properties);
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testClientTypeWhenBothArrowAndCloudFetchDisabled() throws DatabricksSQLException {
+    String urlWithBothDisabled =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableArrow=0;EnableQueryResultDownload=0";
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithBothDisabled, properties);
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  // ===== setClientType Override Tests =====
+
+  @Test
+  public void testSetClientTypeBeforeFirstAccess() throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_3, properties);
+
+    // Set client type before accessing
+    connectionContext.setClientType(DatabricksClientType.SEA);
+
+    // Should return the overridden value
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testSetClientTypeAfterFirstAccess() throws DatabricksSQLException {
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_3, properties);
+
+    // First access computes THRIFT
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+
+    // Override to SEA
+    connectionContext.setClientType(DatabricksClientType.SEA);
+
+    // Should return the new overridden value
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+  }
+
+  // ===== Feature Flag Value Tests =====
+
+  @Test
+  public void testClientTypeWithFeatureFlagEnabled() throws DatabricksSQLException {
+    String url =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableArrow=1;EnableQueryResultDownload=1";
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, properties);
+
+    // Mock feature flag to return true
+    Map<String, String> flags = new HashMap<>();
+    flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testClientTypeWithFeatureFlagDisabled() throws DatabricksSQLException {
+    String url =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableArrow=1;EnableQueryResultDownload=1";
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, properties);
+
+    // Mock feature flag to return false
+    Map<String, String> flags = new HashMap<>();
+    flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "false");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testClientTypeWithInvalidFeatureFlagValue() throws DatabricksSQLException {
+    String url =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableArrow=1;EnableQueryResultDownload=1";
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, properties);
+
+    // Mock feature flag to return invalid value
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "invalid");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+
+    // Should default to THRIFT
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testClientTypeWithEmptyFeatureFlagValue() throws DatabricksSQLException {
+    String url =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableArrow=1;EnableQueryResultDownload=1";
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, properties);
+
+    // Mock feature flag to return empty value
+    Map<String, String> flags = new HashMap<>();
+    flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+
+    // Should default to THRIFT
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testClientTypeWhenFeatureFlagNotFound() throws DatabricksSQLException {
+    String url =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableArrow=1;EnableQueryResultDownload=1";
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, properties);
+
+    // Mock feature flag context with no matching flag
+    Map<String, String> flags = new HashMap<>();
+    flags.put("some.other.flag", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+
+    // Should default to THRIFT
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  // ===== Parameterized Decision Matrix Test =====
+
+  @ParameterizedTest
+  @CsvSource({
+    "true, null, 1, 1, true, THRIFT", // AllPurposeCluster always returns THRIFT
+    "true, null, 1, 1, false, THRIFT", // AllPurposeCluster always returns THRIFT
+    "false, 1, 1, 1, true, THRIFT", // Explicit useThriftClient=1 returns THRIFT
+    "false, 0, 1, 1, true, SEA", // Explicit useThriftClient=0 returns SEA
+    "false, 0, 1, 1, false, SEA", // Explicit useThriftClient=0 returns SEA (ignores flag)
+    "false, null, 0, 1, true, THRIFT", // Arrow disabled returns THRIFT
+    "false, null, 1, 0, true, THRIFT", // CloudFetch disabled returns THRIFT
+    "false, null, 1, 1, true, SEA", // All enabled + flag=true returns SEA
+    "false, null, 1, 1, false, THRIFT", // All enabled + flag=false returns THRIFT
+    "false, null, 0, 0, true, THRIFT", // Both Arrow and CloudFetch disabled returns THRIFT
+  })
+  public void testClientTypeDecisionMatrix(
+      boolean isCluster,
+      String useThriftClient,
+      int enableArrow,
+      int enableCloudFetch,
+      boolean featureFlagEnabled,
+      DatabricksClientType expectedClientType)
+      throws DatabricksSQLException {
+
+    String httpPath =
+        isCluster
+            ? "sql/protocolv1/o/9999999999999999/9999999999999999999"
+            : "/sql/1.0/warehouses/9999999999999999";
+
+    StringBuilder urlBuilder =
+        new StringBuilder(
+            "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;");
+    urlBuilder.append("httpPath=").append(httpPath).append(";");
+
+    if (useThriftClient != null && !useThriftClient.equals("null")) {
+      urlBuilder.append("UseThriftClient=").append(useThriftClient).append(";");
+    }
+    urlBuilder.append("EnableArrow=").append(enableArrow).append(";");
+    urlBuilder.append("EnableQueryResultDownload=").append(enableCloudFetch).append(";");
+
+    String url = urlBuilder.toString();
+    DatabricksConnectionContext connectionContext =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, properties);
+
+    // Set up feature flag
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc",
+        String.valueOf(featureFlagEnabled));
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+
+    assertEquals(expectedClientType, connectionContext.getClientType());
   }
 
   @Test

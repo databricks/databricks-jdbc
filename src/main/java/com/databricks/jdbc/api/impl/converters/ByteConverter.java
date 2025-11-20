@@ -66,6 +66,6 @@ public class ByteConverter implements ObjectConverter {
 
   @Override
   public String toString(Object object) throws DatabricksSQLException {
-    return new String(new byte[] {toByte(object)});
+    return String.valueOf(toByte(object));
   }
 }
