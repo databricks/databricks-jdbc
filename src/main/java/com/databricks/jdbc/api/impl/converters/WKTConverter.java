@@ -71,7 +71,8 @@ public class WKTConverter {
       writer.setOutputOrdinates(ordinates);
       return writer.write(geometry);
     } catch (Exception e) {
-      String errorMessage = String.format("Invalid WKB format: %d bytes", wkb.length);
+      String errorMessage =
+          String.format("Failed to parse WKB: %d bytes. Error: %s", wkb.length, e.getMessage());
       LOGGER.error(errorMessage, e);
       throw new DatabricksValidationException(errorMessage, e);
     }
