@@ -236,7 +236,7 @@ public class ComplexDataTypeParser {
    *
    * @param jsonString The JSON string representation of the complex type
    * @param complexType The type of complex data (MAP, ARRAY, STRUCT)
-   * @param typeMetadata The metadata for the type (e.g., "MAP<INT,INT>")
+   * @param typeMetadata The metadata for the type (e.g., {@code MAP<INT,INT>})
    * @return A consistently formatted string representation
    */
   public String formatComplexTypeString(
@@ -260,7 +260,7 @@ public class ComplexDataTypeParser {
    * Formats a map JSON string into the standard {key:value} format.
    *
    * @param jsonString The JSON string representation of the map
-   * @param mapMetadata The metadata for the map type (e.g., "MAP<INT,INT>")
+   * @param mapMetadata The metadata for the map type (e.g., {@code MAP<INT,INT>})
    * @return A map string in the format {key:value,key:value}
    */
   public String formatMapString(String jsonString, String mapMetadata) {

@@ -9,8 +9,8 @@ import java.util.List;
 
 /**
  * Memory-efficient columnar view that provides row-based access without materializing all rows.
- * Instead of creating List<List<Object>>, this class provides direct access to columnar data on a
- * per-row, per-column basis, significantly reducing memory allocations.
+ * Instead of creating {@code List<List<Object>>}, this class provides direct access to columnar
+ * data on a per-row, per-column basis, significantly reducing memory allocations.
  */
 public class ColumnarRowView {
   private final List<TColumn> columns;

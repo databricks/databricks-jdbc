@@ -26,9 +26,9 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p>This service maintains a CompletableFuture for each chunk's external link.
  *
- * <h3>Key Features:</h3>
+ * <p><b>Key Features:</b>
  *
- * <h4>1. Download Pipeline:</h4>
+ * <p><b>1. Download Pipeline:</b>
  *
  * <ul>
  *   <li>Automatically initiates a download chain when using SQL Execution API
@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *   <li>Completes the corresponding futures as soon as links are received
  * </ul>
  *
- * <h4>2. Link Expiration Handling:</h4>
+ * <p><b>2. Link Expiration Handling:</b>
  *
  * <ul>
  *   <li>Monitors link expiration when chunks request their download links
@@ -48,7 +48,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *       </ul>
  * </ul>
  *
- * <h4>3. Correctness Guarantee:</h4>
+ * <p><b>3. Correctness Guarantee:</b>
  *
  * <p>The service maintains correctness through two mechanisms:
  *
