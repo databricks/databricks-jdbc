@@ -18,6 +18,7 @@
 ### Updated
 - Geospatial `getWKB()` now returns OGC-compliant WKB values.
 - Minimized OAuth requests by reducing calls in feature flags and telemetry.
+- Updated Circuit breaker to be triggered by 429 errors too.
 
 ### Fixed
 - Fixed SQL syntax error when LIKE queries contain empty ESCAPE clauses.
