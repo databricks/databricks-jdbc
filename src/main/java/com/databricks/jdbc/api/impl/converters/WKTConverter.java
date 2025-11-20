@@ -30,7 +30,7 @@ public class WKTConverter {
    * Converts WKT (Well-Known Text) to WKB (Well-Known Binary) format.
    *
    * <p>This implementation uses the JTS library to parse the WKT string into a Geometry object and
-   * then converts it to WKB format using the custom OGC-compliant WKB writer. geometry.
+   * then converts it to WKB format using the custom OGC-compliant WKB writer.
    *
    * @param wkt the WKT string to convert
    * @return the WKB representation as a byte array
@@ -55,7 +55,7 @@ public class WKTConverter {
     }
   }
 
-  // USED ONLY IN TEST CASES - DO NOT USE IN NORMAL FLOW
+  // USED ONLY IN TEST CASES (WITH NON-EMPTY GEOMETRIES) - DO NOT USE IN NORMAL FLOW
   // WKB READER HAS LIMITATIONS WITH EMPTY GEOMETRIES
   public static String toWKT(byte[] wkb) throws DatabricksValidationException {
     if (wkb == null || wkb.length == 0) {
