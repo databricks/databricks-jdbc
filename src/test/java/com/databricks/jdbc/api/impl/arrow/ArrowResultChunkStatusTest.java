@@ -16,6 +16,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.Locale;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.http.Header;
 import org.apache.http.HeaderIterator;
 import org.apache.http.HttpEntity;
@@ -39,7 +44,7 @@ public class ArrowResultChunkStatusTest {
 
   @Test
   void setsDownloadSucceededOnlyAfterBodyRead_successfulFlow() throws Exception {
-    byte[] payload = "arrow".getBytes();
+    byte[] payload = minimalArrowStream();
     ArrowResultChunk chunk = newChunk();
     IDatabricksHttpClient http = httpWithEntity(new ByteArrayInputStream(payload), payload.length);
 
@@ -221,6 +226,26 @@ public class ArrowResultChunkStatusTest {
       @Override
       public void setParams(HttpParams params) {}
     };
+  }
+
+  private static byte[] minimalArrowStream() throws IOException {
+    BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+    try (IntVector intVector = new IntVector("c1", allocator)) {
+      intVector.allocateNew(1);
+      intVector.set(0, 1);
+      intVector.setValueCount(1);
+      try (VectorSchemaRoot root = VectorSchemaRoot.of(intVector)) {
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        try (ArrowStreamWriter writer = new ArrowStreamWriter(root, null, baos)) {
+          writer.start();
+          writer.writeBatch();
+          writer.end();
+        }
+        return baos.toByteArray();
+      }
+    } finally {
+      allocator.close();
+    }
   }
 
   private static final class ErrorInputStream extends FilterInputStream {

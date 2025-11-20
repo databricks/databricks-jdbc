@@ -9,7 +9,6 @@ import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -20,7 +19,6 @@ import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.Map;
 import org.apache.commons.io.IOUtils;
@@ -108,10 +106,10 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
                 this.chunkIndex, this.statementId);
         InputStream data = DecompressionUtil.decompressToStream(compressed, compressionCodec, ctx);
         initializeData(data);
-      } catch (DatabricksSQLException | IOException e) {
+      } catch (Exception e) {
         handleFailure(e, ChunkStatus.PROCESSING_FAILED);
       }
-    } catch (DatabricksHttpException | IOException | URISyntaxException e) {
+    } catch (Exception e) {
       handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
     } finally {
       if (response != null) {
