@@ -13,6 +13,7 @@
   - Note: Large batches are chunked for execution. If a chunk fails, previous chunks remain committed (no transaction rollback). Consider using staging tables for critical workflows.
 - Added a new config attribute `DisableOauthRefreshToken` to control whether refresh tokens are requested in OAuth exchanges. By default, the driver does not include the `offline_access` scope. If `offline_access` is explicitly provided by the user, it is preserved and not removed.
 - Added Feature-flag integration for SQL Exec API rollout
+- Call statements will return result sets in response
 
 ### Updated
 - Minimized OAuth requests by reducing calls in feature flags and telemetry.
