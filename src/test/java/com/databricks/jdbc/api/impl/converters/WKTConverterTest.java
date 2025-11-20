@@ -172,7 +172,7 @@ public class WKTConverterTest {
     DatabricksValidationException exception =
         assertThrows(DatabricksValidationException.class, () -> WKTConverter.toWKT(invalidWkb));
 
-    assertTrue(exception.getMessage().contains("Invalid WKB format"));
+    assertTrue(exception.getMessage().contains("Failed to parse WKB"));
   }
 
   @Test
