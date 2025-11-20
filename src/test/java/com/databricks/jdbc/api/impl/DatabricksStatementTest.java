@@ -676,6 +676,14 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  public void testShouldReturnResultSet_CallStatement() {
+    String query =
+        "-- Single-line comment\n/* Multi-line comment */ CALL send_notifications(12); /* Another comment */ -- End comment";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet("CALL send_notifications(12);"));
+  }
+
+  @Test
   public void testShouldReturnResultSet_StartWithBegin() {
     assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN"));
     assertTrue(DatabricksStatement.shouldReturnResultSet("   begin   "));

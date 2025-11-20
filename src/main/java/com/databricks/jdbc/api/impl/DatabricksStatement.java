@@ -695,7 +695,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         || GET_PATTERN.matcher(trimmedQuery).find()
         || REMOVE_PATTERN.matcher(trimmedQuery).find()
         || LIST_PATTERN.matcher(trimmedQuery).find()
-        || BEGIN_PATTERN_FOR_SQL_SCRIPT.matcher(trimmedQuery).find();
+        || BEGIN_PATTERN_FOR_SQL_SCRIPT.matcher(trimmedQuery).find()
+        || CALL_PATTERN.matcher(trimmedQuery).find();
 
     // Otherwise, it should not return a ResultSet
   }

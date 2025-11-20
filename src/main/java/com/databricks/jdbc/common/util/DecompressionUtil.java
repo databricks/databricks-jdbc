@@ -53,6 +53,13 @@ public class DecompressionUtil {
     }
   }
 
+  public static InputStream decompressToStream(
+      byte[] compressedInput, CompressionCodec compressionCodec, String context)
+      throws DatabricksSQLException {
+    byte[] uncompressed = decompress(compressedInput, compressionCodec, context);
+    return new ByteArrayInputStream(uncompressed);
+  }
+
   public static InputStream decompress(
       InputStream compressedStream, CompressionCodec compressionCodec, String context)
       throws IOException, DatabricksSQLException {

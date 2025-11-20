@@ -13,6 +13,7 @@
   - Note: Large batches are chunked for execution. If a chunk fails, previous chunks remain committed (no transaction rollback). Consider using staging tables for critical workflows.
 - Added a new config attribute `DisableOauthRefreshToken` to control whether refresh tokens are requested in OAuth exchanges. By default, the driver does not include the `offline_access` scope. If `offline_access` is explicitly provided by the user, it is preserved and not removed.
 - Added Feature-flag integration for SQL Exec API rollout
+- Call statements will return result sets in response
 
 ### Updated
 - Geospatial `getWKB()` now returns OGC-compliant WKB values.
@@ -30,5 +31,6 @@
 - Fixed: PreparedStatement.getMetaData() now correctly reports TINYINT columns as Types.TINYINT (java.lang.Byte) instead of Types.SMALLINT (java.lang.Integer).
 - Fixed: TINYINT to String conversion to return numeric representation (e.g., "65") instead of character representation (e.g., "A").
 - Fixed: Complex types (Structs, arrays, maps) now show detailed type information in metadata calls in Thrift mode
+- Fixed: incorrect chunk download/processing status codes.
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.* 

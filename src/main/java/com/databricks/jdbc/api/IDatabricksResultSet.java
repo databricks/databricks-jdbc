@@ -23,11 +23,12 @@ public interface IDatabricksResultSet extends ResultSet {
   Struct getStruct(String columnLabel) throws SQLException;
 
   /**
-   * Retrieves the SQL `Map` from the specified column using its label.
+   * Retrieves the SQL {@code Map} from the specified column using its label.
    *
    * @param columnLabel the label for the column specified in the SQL query
-   * @return a `Map<String, Object>` if the column contains a map; `null` if the value is SQL `NULL`
-   * @throws SQLException if the column is not of `MAP` type or if any SQL error occurs
+   * @return a {@code Map<String, Object>} if the column contains a map; {@code null} if the value
+   *     is SQL {@code NULL}
+   * @throws SQLException if the column is not of {@code MAP} type or if any SQL error occurs
    */
   Map<String, Object> getMap(String columnLabel) throws SQLException;
 
@@ -77,11 +78,12 @@ public interface IDatabricksResultSet extends ResultSet {
   boolean hasUpdateCount() throws SQLException;
 
   /**
-   * Retrieves the SQL `Map` from the specified column index in the result set.
+   * Retrieves the SQL {@code Map} from the specified column index in the result set.
    *
    * @param columnIndex the index of the column in the result set (1-based)
-   * @return a `Map<String, Object>` if the column contains a map; `null` if the value is SQL `NULL`
-   * @throws SQLException if the column is not of `MAP` type or if any SQL error occurs
+   * @return a {@code Map<String, Object>} if the column contains a map; {@code null} if the value
+   *     is SQL {@code NULL}
+   * @throws SQLException if the column is not of {@code MAP} type or if any SQL error occurs
    */
   Map<String, Object> getMap(int columnIndex) throws SQLException;
 
