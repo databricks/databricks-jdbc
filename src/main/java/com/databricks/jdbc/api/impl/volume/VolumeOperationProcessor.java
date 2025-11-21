@@ -294,8 +294,9 @@ class VolumeOperationProcessor {
     try (CloseableHttpResponse response = databricksHttpClient.execute(httpGet)) {
       if (!HttpUtil.isSuccessfulHttpResponse(response)) {
         LOGGER.error(
-            "Failed to fetch content from volume with error {%s} for local file {%s}",
-            response.getStatusLine().getStatusCode(), localFilePath);
+            "Failed to fetch content from volume with error {} for local file {}",
+            response.getStatusLine().getStatusCode(),
+            localFilePath);
         status = VolumeOperationStatus.FAILED;
         errorMessage = "Failed to download file";
         return;
@@ -367,8 +368,9 @@ class VolumeOperationProcessor {
         status = VolumeOperationStatus.SUCCEEDED;
       } else {
         LOGGER.error(
-            "Failed to upload file {%s} with error code: {%s}",
-            localFilePath, response.getStatusLine().getStatusCode());
+            "Failed to upload file {} with error code: {}",
+            localFilePath,
+            response.getStatusLine().getStatusCode());
         // TODO: Add retries
         status = VolumeOperationStatus.FAILED;
         errorMessage =
@@ -413,7 +415,7 @@ class VolumeOperationProcessor {
         status = VolumeOperationStatus.SUCCEEDED;
       } else {
         LOGGER.error(
-            "Failed to delete volume with error code: {%s}",
+            "Failed to delete volume with error code: {}",
             response.getStatusLine().getStatusCode());
         status = VolumeOperationStatus.FAILED;
         errorMessage = "Failed to delete volume";
