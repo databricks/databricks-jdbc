@@ -916,6 +916,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean isGeoSpatialSupportEnabled() {
+    // Geospatial support requires complex datatype support to be enabled
+    return isComplexDatatypeSupportEnabled()
+        && getParameter(DatabricksJdbcUrlParams.ENABLE_GEOSPATIAL_SUPPORT).equals("1");
+  }
+
+  @Override
   public boolean isRequestTracingEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_REQUEST_TRACING).equals("1");
   }

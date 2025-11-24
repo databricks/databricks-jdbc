@@ -214,6 +214,8 @@ public class ArrowStreamResultTest {
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.ARRAY));
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.MAP));
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.STRUCT));
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOMETRY));
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOGRAPHY));
 
     // Non-complex types should return false
     assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.INT));
@@ -221,6 +223,23 @@ public class ArrowStreamResultTest {
     assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.DOUBLE));
     assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.BOOLEAN));
     assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.TIMESTAMP));
+  }
+
+  @Test
+  public void testGeospatialTypeHandling() {
+    // Geospatial types should return true
+    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOMETRY));
+    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOGRAPHY));
+
+    // Non-geospatial types should return false
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.ARRAY));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.MAP));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.STRUCT));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.INT));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.STRING));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.DOUBLE));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.BOOLEAN));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.TIMESTAMP));
   }
 
   private List<ExternalLink> getChunkLinks(long chunkIndex, boolean isLast) {
@@ -316,6 +335,94 @@ public class ArrowStreamResultTest {
     fieldList.add(new Field("Field1", fieldType1, null));
     fieldList.add(new Field("Field2", fieldType2, null));
     return new Schema(fieldList);
+  }
+
+  @Test
+  public void testGeospatialTypeWithGeoSpatialSupportDisabled() throws Exception {
+    // Setup connection context with geospatial support disabled
+    // (EnableComplexDatatypeSupport=1, but EnableGeoSpatialSupport=0)
+    Properties props = new Properties();
+    props.setProperty("EnableComplexDatatypeSupport", "1");
+    props.setProperty("EnableGeoSpatialSupport", "0");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+
+    // Verify the flags are set correctly
+    assertTrue(connectionContext.isComplexDatatypeSupportEnabled());
+    assertFalse(connectionContext.isGeoSpatialSupportEnabled());
+
+    // Test with GEOMETRY column
+    List<ColumnInfo> geometryColumnInfos = new ArrayList<>();
+    geometryColumnInfos.add(
+        new ColumnInfo()
+            .setName("geometry_col")
+            .setTypeText("GEOMETRY")
+            .setTypeName(ColumnInfoTypeName.GEOMETRY));
+
+    ResultManifest geometryManifest =
+        new ResultManifest()
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(1L)
+            .setSchema(new ResultSchema().setColumns(geometryColumnInfos).setColumnCount(1L));
+    ResultData geometryData = new ResultData().setExternalLinks(new ArrayList<>());
+
+    ArrowStreamResult geometryResult =
+        new ArrowStreamResult(geometryManifest, geometryData, STATEMENT_ID, session);
+
+    // Verify that GEOMETRY type is converted to STRING when geospatial support is disabled
+    // The actual conversion happens in getObject(), but we're testing the flag behavior here
+    assertFalse(geometryResult.hasNext());
+
+    // Test with GEOGRAPHY column
+    List<ColumnInfo> geographyColumnInfos = new ArrayList<>();
+    geographyColumnInfos.add(
+        new ColumnInfo()
+            .setName("geography_col")
+            .setTypeText("GEOGRAPHY")
+            .setTypeName(ColumnInfoTypeName.GEOGRAPHY));
+
+    ResultManifest geographyManifest =
+        new ResultManifest()
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(1L)
+            .setSchema(new ResultSchema().setColumns(geographyColumnInfos).setColumnCount(1L));
+    ResultData geographyData = new ResultData().setExternalLinks(new ArrayList<>());
+
+    ArrowStreamResult geographyResult =
+        new ArrowStreamResult(geographyManifest, geographyData, STATEMENT_ID, session);
+
+    // Verify that GEOGRAPHY type is handled when geospatial support is disabled
+    assertFalse(geographyResult.hasNext());
+  }
+
+  @Test
+  public void testGeospatialTypeWithBothFlagsEnabled() throws Exception {
+    // Setup connection context with both complex datatype and geospatial support enabled
+    Properties props = new Properties();
+    props.setProperty("EnableComplexDatatypeSupport", "1");
+    props.setProperty("EnableGeoSpatialSupport", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    // Verify both flags are enabled
+    assertTrue(connectionContext.isComplexDatatypeSupportEnabled());
+    assertTrue(connectionContext.isGeoSpatialSupportEnabled());
+  }
+
+  @Test
+  public void testGeospatialSupportRequiresComplexDatatypeSupport() throws Exception {
+    // Test that EnableGeoSpatialSupport=1 alone (without EnableComplexDatatypeSupport) doesn't
+    // enable geospatial
+    Properties props = new Properties();
+    props.setProperty("EnableComplexDatatypeSupport", "0");
+    props.setProperty("EnableGeoSpatialSupport", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    // Verify that geospatial support is disabled because complex datatype support is disabled
+    assertFalse(connectionContext.isComplexDatatypeSupportEnabled());
+    assertFalse(connectionContext.isGeoSpatialSupportEnabled());
   }
 
   @Test

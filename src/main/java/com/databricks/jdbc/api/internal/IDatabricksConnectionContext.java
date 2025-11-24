@@ -300,6 +300,12 @@ public interface IDatabricksConnectionContext {
   /** Returns true if driver return complex data type java objects natively as opposed to string */
   boolean isComplexDatatypeSupportEnabled();
 
+  /**
+   * Returns true if driver returns GEOMETRY and GEOGRAPHY types natively. Requires
+   * isComplexDatatypeSupportEnabled() to be true
+   */
+  boolean isGeoSpatialSupportEnabled();
+
   /** Returns the size for HTTP connection pool */
   int getHttpConnectionPoolSize();
 

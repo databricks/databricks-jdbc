@@ -142,6 +142,24 @@ public class ArrowStreamResult implements IExecutionResult {
     // Handle complex type conversion when complex datatype support is disabled
     boolean isComplexDatatypeSupportEnabled =
         this.session.getConnectionContext().isComplexDatatypeSupportEnabled();
+    boolean isGeoSpatialSupportEnabled =
+        this.session.getConnectionContext().isGeoSpatialSupportEnabled();
+
+    // Check if we need to convert geospatial types to string when geospatial support is disabled
+    // This check must come before the general complex type check
+    if (!isGeoSpatialSupportEnabled && isGeospatialType(requiredType)) {
+      LOGGER.debug("Geospatial support is disabled, converting {} to STRING", requiredType);
+
+      Object result =
+          chunkIterator.getColumnObjectAtCurrentRow(
+              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfos.get(columnIndex));
+      if (result == null) {
+        return null;
+      }
+      // Return raw string for geospatial types when support is disabled
+      return result;
+    }
+
     if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
       LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
 
@@ -172,6 +190,17 @@ public class ArrowStreamResult implements IExecutionResult {
         || type == ColumnInfoTypeName.STRUCT
         || type == ColumnInfoTypeName.GEOMETRY
         || type == ColumnInfoTypeName.GEOGRAPHY;
+  }
+
+  /**
+   * Checks if the given type is a geospatial type (GEOMETRY or GEOGRAPHY).
+   *
+   * @param type The type to check
+   * @return true if the type is a geospatial type, false otherwise
+   */
+  @VisibleForTesting
+  public static boolean isGeospatialType(ColumnInfoTypeName type) {
+    return type == ColumnInfoTypeName.GEOMETRY || type == ColumnInfoTypeName.GEOGRAPHY;
   }
 
   /** {@inheritDoc} */

@@ -492,6 +492,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         || typeName.startsWith(GEOGRAPHY);
   }
 
+  /**
+   * Checks if the given type name represents a geospatial type (GEOMETRY or GEOGRAPHY).
+   *
+   * @param typeName The type name to check
+   * @return true if the type name starts with GEOMETRY or GEOGRAPHY, false otherwise
+   */
+  private static boolean isGeospatialType(String typeName) {
+    return typeName.startsWith(GEOMETRY) || typeName.startsWith(GEOGRAPHY);
+  }
+
   @Override
   public Object getObject(int columnIndex) throws SQLException {
     checkIfClosed();
