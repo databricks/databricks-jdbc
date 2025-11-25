@@ -18,6 +18,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.Set;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -87,23 +88,22 @@ public class DatabricksTypeUtil {
               ColumnInfoTypeName.TINYINT,
               ColumnInfoTypeName.BYTE,
               ColumnInfoTypeName.BIGINT));
-  public static final ArrayList<String> INTERVAL_TYPES =
-      new ArrayList<>(
-          Arrays.asList(
-              INTERVAL,
-              INTERVAL_SECOND,
-              INTERVAL_MINUTE,
-              INTERVAL_HOUR,
-              INTERVAL_DAY,
-              INTERVAL_MONTH,
-              INTERVAL_YEAR,
-              INTERVAL_YEAR_TO_MONTH,
-              INTERVAL_DAY_TO_HOUR,
-              INTERVAL_DAY_TO_MINUTE,
-              INTERVAL_DAY_TO_SECOND,
-              INTERVAL_HOUR_TO_MINUTE,
-              INTERVAL_HOUR_TO_SECOND,
-              INTERVAL_MINUTE_TO_SECOND));
+  public static final Set<String> INTERVAL_TYPES =
+      Set.of(
+          INTERVAL,
+          INTERVAL_SECOND,
+          INTERVAL_MINUTE,
+          INTERVAL_HOUR,
+          INTERVAL_DAY,
+          INTERVAL_MONTH,
+          INTERVAL_YEAR,
+          INTERVAL_YEAR_TO_MONTH,
+          INTERVAL_DAY_TO_HOUR,
+          INTERVAL_DAY_TO_MINUTE,
+          INTERVAL_DAY_TO_SECOND,
+          INTERVAL_HOUR_TO_MINUTE,
+          INTERVAL_HOUR_TO_SECOND,
+          INTERVAL_MINUTE_TO_SECOND);
 
   // only used for PreparedStatement
   public static ColumnInfoTypeName getColumnInfoType(String typeName) {
