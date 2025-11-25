@@ -492,6 +492,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         || typeName.startsWith(GEOGRAPHY);
   }
 
+  /**
+   * Checks if the given type name represents a geospatial type (GEOMETRY or GEOGRAPHY).
+   *
+   * @param typeName The type name to check
+   * @return true if the type name starts with GEOMETRY or GEOGRAPHY, false otherwise
+   */
+  private static boolean isGeospatialType(String typeName) {
+    return typeName.startsWith(GEOMETRY) || typeName.startsWith(GEOGRAPHY);
+  }
+
   @Override
   public Object getObject(int columnIndex) throws SQLException {
     checkIfClosed();
@@ -1265,11 +1275,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   /**
-   * Retrieves the SQL `Map` from the specified column index in the result set.
+   * Retrieves the SQL {@code Map} from the specified column index in the result set.
    *
    * @param columnIndex the index of the column in the result set (1-based)
-   * @return a `Map<String, Object>` if the column contains a map; `null` if the value is SQL `NULL`
-   * @throws SQLException if the column is not of `MAP` type or if any SQL error occurs
+   * @return a {@code Map<String, Object>} if the column contains a map; {@code null} if the value
+   *     is SQL {@code NULL}
+   * @throws SQLException if the column is not of {@code MAP} type or if any SQL error occurs
    */
   @Override
   public Map getMap(int columnIndex) throws SQLException {

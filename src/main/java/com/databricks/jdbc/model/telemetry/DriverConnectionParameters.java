@@ -91,6 +91,9 @@ public class DriverConnectionParameters {
   @JsonProperty("enable_complex_datatype_support")
   boolean enableComplexDatatypeSupport;
 
+  @JsonProperty("enable_geospatial_support")
+  boolean enableGeoSpatialSupport;
+
   @JsonProperty("azure_workspace_resource_id")
   String azureWorkspaceResourceId;
 
@@ -278,6 +281,11 @@ public class DriverConnectionParameters {
     return this;
   }
 
+  public DriverConnectionParameters setEnableGeoSpatialSupport(boolean enableGeoSpatialSupport) {
+    this.enableGeoSpatialSupport = enableGeoSpatialSupport;
+    return this;
+  }
+
   public DriverConnectionParameters setAzureWorkspaceResourceId(String azureWorkspaceResourceId) {
     this.azureWorkspaceResourceId = azureWorkspaceResourceId;
     return this;
@@ -379,6 +387,7 @@ public class DriverConnectionParameters {
         .add("googleCredentialFilePath", googleCredentialFilePath)
         .add("allowedVolumeIngestionPaths", allowedVolumeIngestionPaths)
         .add("enableComplexDatatypeSupport", enableComplexDatatypeSupport)
+        .add("enableGeoSpatialSupport", enableGeoSpatialSupport)
         .add("azureWorkspaceResourceId", azureWorkspaceResourceId)
         .add("azureTenantId", azureTenantId)
         .add("stringColumnLength", stringColumnLength)

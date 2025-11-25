@@ -268,6 +268,9 @@ public interface IDatabricksConnectionContext {
   /** Returns the batch size for Telemetry logs processing */
   int getTelemetryBatchSize();
 
+  /** Returns the maximum number of rows per batch insert execution */
+  int getBatchInsertSize();
+
   /**
    * Returns a unique identifier for this connection context.
    *
@@ -296,6 +299,12 @@ public interface IDatabricksConnectionContext {
 
   /** Returns true if driver return complex data type java objects natively as opposed to string */
   boolean isComplexDatatypeSupportEnabled();
+
+  /**
+   * Returns true if driver returns GEOMETRY and GEOGRAPHY types natively. Requires
+   * isComplexDatatypeSupportEnabled() to be true
+   */
+  boolean isGeoSpatialSupportEnabled();
 
   /** Returns the size for HTTP connection pool */
   int getHttpConnectionPoolSize();

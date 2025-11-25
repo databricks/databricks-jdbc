@@ -7,6 +7,8 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 public class ByteConverterTest {
   private final byte NON_ZERO_OBJECT = 65;
@@ -74,9 +76,10 @@ public class ByteConverterTest {
     assertTrue(exception.getMessage().contains("Unsupported char conversion operation"));
   }
 
-  @Test
-  public void testConvertToString() throws DatabricksSQLException {
-    assertEquals(new ByteConverter().toString(NON_ZERO_OBJECT), "A");
+  @ParameterizedTest
+  @CsvSource({"-128, -128", "-1, -1", "0, 0", "1, 1", "10, 10", "65, 65", "127, 127"})
+  public void testConvertToString(byte input, String expected) throws DatabricksSQLException {
+    assertEquals(new ByteConverter().toString(input), expected);
   }
 
   @Test

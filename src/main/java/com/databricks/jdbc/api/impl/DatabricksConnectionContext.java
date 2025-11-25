@@ -848,6 +848,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public int getBatchInsertSize() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.BATCH_INSERT_SIZE));
+  }
+
+  @Override
   public boolean isTelemetryEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY).equals("1");
   }
@@ -908,6 +913,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isComplexDatatypeSupportEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_COMPLEX_DATATYPE_SUPPORT).equals("1");
+  }
+
+  @Override
+  public boolean isGeoSpatialSupportEnabled() {
+    // Geospatial support requires complex datatype support to be enabled
+    return isComplexDatatypeSupportEnabled()
+        && getParameter(DatabricksJdbcUrlParams.ENABLE_GEOSPATIAL_SUPPORT).equals("1");
   }
 
   @Override

@@ -1,4 +1,4 @@
 {
-  "freeze": false,
-  "reason": ""
+  "freeze": true,
+  "reason": "Release freeze for v3.0.5"
 }

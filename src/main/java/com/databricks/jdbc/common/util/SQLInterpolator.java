@@ -10,9 +10,42 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class SQLInterpolator {
-  private static String escapeApostrophes(String input) {
+  protected static String escapeInputs(String input) {
     if (input == null) return null;
-    return input.replace("'", "''");
+    StringBuilder out = new StringBuilder(input.length() + 16);
+    out.append("'");
+    for (int i = 0; i < input.length(); ) {
+      int codePoint = input.codePointAt(i);
+      i += Character.charCount(codePoint);
+      switch (codePoint) {
+        case '\'':
+          out.append("''");
+          break; // SQL-standard quote escape
+        case '\\':
+          out.append("\\\\");
+          break; // escape backslash
+        case '\n':
+          out.append("\\n");
+          break;
+        case '\r':
+          out.append("\\r");
+          break;
+        case '\t':
+          out.append("\\t");
+          break;
+        default:
+          // Basic Multilingual Plane — fits in one UTF-16 char, append directly
+          if (codePoint <= 0xFFFF) {
+            out.append((char) codePoint);
+          } else {
+            // Supplementary plane (e.g. emoji) — render as \UXXXXXXXX for clarity and portability
+            // Example: 🧱 (U+1F9F1) → \U0001F9F1
+            out.append(String.format("\\U%08X", codePoint)); // emoji etc.
+          }
+      }
+    }
+    out.append("'");
+    return out.toString();
   }
 
   private static String formatObject(ImmutableSqlParameter object) {
@@ -22,7 +55,11 @@ public class SQLInterpolator {
       // Don't wrap within quotes. Don't treat hex literals as string.
       return object.value().toString();
     } else if (object.value() instanceof String) {
-      return "'" + escapeApostrophes((String) object.value()) + "'";
+      return escapeInputs(object.value().toString());
+    } else if (object.type() == ColumnInfoTypeName.TIMESTAMP
+        || object.type() == ColumnInfoTypeName.DATE) {
+      // Timestamp and Date types need to be quoted as strings
+      return "'" + (object.value().toString()) + "'";
     } else {
       return object.value().toString();
     }

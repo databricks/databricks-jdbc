@@ -50,7 +50,7 @@ public class DatabricksHttpRetryHandler
    * @throws IOException If there's an issue processing the response.
    * @throws DatabricksRetryHandlerException If the status code is retryable, triggering the retry
    *     mechanism.
-   * @implNote The method performs the following steps:
+   *     <p>Implementation note: The method performs the following steps:
    *     <ul>
    *       <li>Checks if the status code is retryable.
    *       <li>Extracts the retry interval from the response for status codes 503 and 429.
@@ -58,8 +58,7 @@ public class DatabricksHttpRetryHandler
    *       <li>Throws a {@code DatabricksRetryHandlerException} to trigger the retry mechanism,
    *           including relevant error information from the response.
    *     </ul>
-   *
-   * @implSpec This method adheres to the contract specified by its parent interface or class. It's
+   *     <p>This method adheres to the contract specified by its parent interface or class. It's
    *     designed to be called as part of the HTTP response handling pipeline.
    * @see #isStatusCodeRetryable(int)
    * @see #initializeRetryAccumulatedTimeIfNotExist(HttpContext)
@@ -109,7 +108,7 @@ public class DatabricksHttpRetryHandler
    * @return boolean True if the request should be retried, false otherwise.
    * @throws RuntimeException If an invalid retry interval is found in the context for status codes
    *     503 (Service Unavailable) or 429 (Too Many Requests).
-   * @implNote The method performs the following checks:
+   *     <p>Implementation note: The method performs the following checks:
    *     <ul>
    *       <li>Verifies if the status code is retryable.
    *       <li>Checks the validity of retry intervals for specific status codes.

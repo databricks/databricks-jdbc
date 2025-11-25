@@ -198,6 +198,7 @@ public class TelemetryHelper {
             .setSocketTimeout(connectionContext.getSocketTimeout())
             .setStringColumnLength(connectionContext.getDefaultStringColumnLength())
             .setEnableComplexDatatypeSupport(connectionContext.isComplexDatatypeSupportEnabled())
+            .setEnableGeoSpatialSupport(connectionContext.isGeoSpatialSupportEnabled())
             .setAzureWorkspaceResourceId(connectionContext.getAzureWorkspaceResourceId())
             .setAzureTenantId(connectionContext.getAzureTenantId())
             .setSslTrustStoreType(connectionContext.getSSLTrustStoreType())
