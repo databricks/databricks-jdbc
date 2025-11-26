@@ -146,8 +146,9 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       headers.forEach(getRequest::addHeader);
     } else {
       LOGGER.debug(
-          "No encryption headers present for chunk index %s and statement %s",
-          chunkIndex, statementId);
+          "No encryption headers present for chunk index {} and statement {}",
+          chunkIndex,
+          statementId);
     }
   }
 

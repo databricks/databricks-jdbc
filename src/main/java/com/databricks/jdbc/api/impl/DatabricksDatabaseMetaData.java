@@ -1503,8 +1503,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public ResultSet getSchemas(String catalog, String schemaPattern) throws SQLException {
     LOGGER.debug(
-        "public ResultSet getSchemas(String catalog = %s, String schemaPattern = %s)",
-        catalog, schemaPattern);
+        "public ResultSet getSchemas(String catalog = {}, String schemaPattern = {})",
+        catalog,
+        schemaPattern);
     throwExceptionIfConnectionIsClosed();
 
     return session.getDatabricksMetadataClient().listSchemas(session, catalog, schemaPattern);

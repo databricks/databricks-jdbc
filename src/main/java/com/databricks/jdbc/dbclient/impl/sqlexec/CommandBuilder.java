@@ -76,8 +76,10 @@ public class CommandBuilder {
 
   private String fetchSchemaSQL() {
     LOGGER.debug(
-        "Building command for fetching schema. Catalog %s, SchemaPattern %s and session context %s",
-        catalogName, schemaPattern, sessionContext);
+        "Building command for fetching schema. Catalog {}, SchemaPattern {} and session context {}",
+        catalogName,
+        schemaPattern,
+        sessionContext);
     String showSchemasSQL;
     if (WildcardUtil.isNullOrWildcard(catalogName)) {
       // SHOW SCHEMAS IN ALL CATALOGS
@@ -93,8 +95,11 @@ public class CommandBuilder {
 
   private String fetchTablesSQL() {
     LOGGER.debug(
-        "Building command for fetching tables. Catalog %s, SchemaPattern %s, TablePattern %s and session context %s",
-        catalogName, schemaPattern, tablePattern, sessionContext);
+        "Building command for fetching tables. Catalog {}, SchemaPattern {}, TablePattern {} and session context {}",
+        catalogName,
+        schemaPattern,
+        tablePattern,
+        sessionContext);
     String showTablesSQL;
     if (WildcardUtil.isNullOrWildcard(catalogName)) {
       // SHOW TABLES IN ALL CATALOGS

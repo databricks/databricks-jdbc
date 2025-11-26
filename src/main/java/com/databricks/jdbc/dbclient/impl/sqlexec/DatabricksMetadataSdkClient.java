@@ -317,7 +317,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
                   rows.add(schemaRow);
                 }
               } catch (SQLException e) {
-                LOGGER.warn("Error fetching schemas for catalog %s %s", c, e.getMessage());
+                LOGGER.warn("Error fetching schemas for catalog {} {}", c, e.getMessage());
               }
               return rows;
             },

@@ -107,8 +107,9 @@ class ChunkDownloadTask implements DatabricksCallableTask {
         chunk.getChunkReadyFuture().complete(null); // complete the void future successfully
       } else {
         LOGGER.info(
-            "Uncaught exception during chunk download. Chunk index: %d, Error: %s",
-            chunk.getChunkIndex(), Arrays.toString(uncaughtException.getStackTrace()));
+            "Uncaught exception during chunk download. Chunk index: {}, Error: {}",
+            chunk.getChunkIndex(),
+            Arrays.toString(uncaughtException.getStackTrace()));
         // Status is set to DOWNLOAD_SUCCEEDED in the happy path. For any failure case,
         // explicitly set status to DOWNLOAD_FAILED here to ensure consistent error handling
         chunk.setStatus(ChunkStatus.DOWNLOAD_FAILED);
