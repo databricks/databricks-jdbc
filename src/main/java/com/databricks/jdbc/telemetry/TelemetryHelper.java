@@ -206,7 +206,10 @@ public class TelemetryHelper {
             .setCheckCertificateRevocation(connectionContext.checkCertificateRevocation())
             .setAcceptUndeterminedCertificateRevocation(
                 connectionContext.acceptUndeterminedCertificateRevocation())
-            .setDriverMode(connectionContext.getClientType().toString())
+            .setDriverMode(
+                connectionContext.getClientType() != null
+                    ? connectionContext.getClientType().toString()
+                    : null)
             .setAuthEndpoint(connectionContext.getAuthEndpoint())
             .setTokenEndpoint(connectionContext.getTokenEndpoint())
             .setNonProxyHosts(StringUtil.split(connectionContext.getNonProxyHosts()))

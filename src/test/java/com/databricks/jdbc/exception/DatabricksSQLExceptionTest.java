@@ -21,6 +21,7 @@ public class DatabricksSQLExceptionTest {
     when(ctx.getTelemetryLogLevel()).thenReturn(com.databricks.jdbc.common.TelemetryLogLevel.INFO);
     when(ctx.isTelemetryEnabled()).thenReturn(true);
     when(ctx.forceEnableTelemetry()).thenReturn(true);
+    when(ctx.getClientType()).thenReturn(com.databricks.jdbc.common.DatabricksClientType.SEA);
     when(ctx.getConnectionUuid()).thenReturn("ctx-uuid");
     DatabricksThreadContextHolder.setConnectionContext(ctx);
 

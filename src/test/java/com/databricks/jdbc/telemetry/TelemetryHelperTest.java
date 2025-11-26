@@ -57,16 +57,30 @@ public class TelemetryHelperTest {
     TelemetryHelper telemetryHelper = new TelemetryHelper(); // Increasing coverage for class
     StatementTelemetryDetails telemetryDetails =
         new StatementTelemetryDetails(TEST_STRING).setOperationLatencyMillis(150L);
-    assertDoesNotThrow(
-        () -> TelemetryHelper.exportTelemetryLog(telemetryDetails, TelemetryLogLevel.ERROR));
+    ITelemetryClient clientMock = mock(ITelemetryClient.class);
+    TelemetryClientFactory factoryMock = mock(TelemetryClientFactory.class);
+    try (MockedStatic<TelemetryClientFactory> mocked =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mocked.when(TelemetryClientFactory::getInstance).thenReturn(factoryMock);
+      when(factoryMock.getTelemetryClient(connectionContext)).thenReturn(clientMock);
+      assertDoesNotThrow(
+          () -> TelemetryHelper.exportTelemetryLog(telemetryDetails, TelemetryLogLevel.ERROR));
+    }
   }
 
   @Test
   void testErrorTelemetryToNoAuthTelemetryClientDoesNotThrowError() {
-    assertDoesNotThrow(
-        () ->
-            TelemetryHelper.exportFailureLog(
-                connectionContext, TEST_STRING, TEST_STRING, TelemetryLogLevel.ERROR));
+    ITelemetryClient clientMock = mock(ITelemetryClient.class);
+    TelemetryClientFactory factoryMock = mock(TelemetryClientFactory.class);
+    try (MockedStatic<TelemetryClientFactory> mocked =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mocked.when(TelemetryClientFactory::getInstance).thenReturn(factoryMock);
+      when(factoryMock.getTelemetryClient(connectionContext)).thenReturn(clientMock);
+      assertDoesNotThrow(
+          () ->
+              TelemetryHelper.exportFailureLog(
+                  connectionContext, TEST_STRING, TEST_STRING, TelemetryLogLevel.ERROR));
+    }
   }
 
   @Test
@@ -165,6 +179,8 @@ public class TelemetryHelperTest {
 
   @Test
   void testExportTelemetryLogWithNullContext() {
+    // Ensure no connection context present
+    DatabricksThreadContextHolder.clearConnectionContext();
     StatementTelemetryDetails details = new StatementTelemetryDetails("test-statement-id");
     assertDoesNotThrow(() -> TelemetryHelper.exportTelemetryLog(details, TelemetryLogLevel.ERROR));
   }
