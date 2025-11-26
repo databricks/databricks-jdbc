@@ -144,6 +144,21 @@ public class DatabricksTypeUtil {
         return ColumnInfoTypeName.NULL;
       case DatabricksTypeUtil.MAP:
         return ColumnInfoTypeName.MAP;
+      case DatabricksTypeUtil.INTERVAL:
+      case DatabricksTypeUtil.INTERVAL_SECOND:
+      case DatabricksTypeUtil.INTERVAL_MINUTE:
+      case DatabricksTypeUtil.INTERVAL_HOUR:
+      case DatabricksTypeUtil.INTERVAL_DAY:
+      case DatabricksTypeUtil.INTERVAL_MONTH:
+      case DatabricksTypeUtil.INTERVAL_YEAR:
+      case DatabricksTypeUtil.INTERVAL_YEAR_TO_MONTH:
+      case DatabricksTypeUtil.INTERVAL_DAY_TO_HOUR:
+      case DatabricksTypeUtil.INTERVAL_DAY_TO_MINUTE:
+      case DatabricksTypeUtil.INTERVAL_DAY_TO_SECOND:
+      case DatabricksTypeUtil.INTERVAL_HOUR_TO_MINUTE:
+      case DatabricksTypeUtil.INTERVAL_HOUR_TO_SECOND:
+      case DatabricksTypeUtil.INTERVAL_MINUTE_TO_SECOND:
+        return ColumnInfoTypeName.INTERVAL;
     }
     return ColumnInfoTypeName.USER_DEFINED_TYPE;
   }

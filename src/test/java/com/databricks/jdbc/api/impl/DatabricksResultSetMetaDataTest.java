@@ -199,7 +199,70 @@ public class DatabricksResultSetMetaDataTest {
       {"col_struct", "struct<col_int:int,col_string:string>", "STRUCT", Types.STRUCT, 255, 0},
       {"col_array", "array<int>", "ARRAY", Types.ARRAY, 255, 0},
       {"col_map", "map<string,string>", "MAP", Types.VARCHAR, 255, 0},
-      {"col_variant", "variant", "VARIANT", Types.VARCHAR, 255, 0}
+      {"col_variant", "variant", "VARIANT", Types.VARCHAR, 255, 0},
+      {"col_interval", "interval", "INTERVAL", Types.VARCHAR, 255, 0},
+      {"col_interval_second", "interval second", "INTERVAL SECOND", Types.VARCHAR, 255, 0},
+      {"col_interval_minute", "interval minute", "INTERVAL MINUTE", Types.VARCHAR, 255, 0},
+      {"col_interval_hour", "interval hour", "INTERVAL HOUR", Types.VARCHAR, 255, 0},
+      {"col_interval_day", "interval day", "INTERVAL DAY", Types.VARCHAR, 255, 0},
+      {"col_interval_month", "interval month", "INTERVAL MONTH", Types.VARCHAR, 255, 0},
+      {"col_interval_year", "interval year", "INTERVAL YEAR", Types.VARCHAR, 255, 0},
+      {
+        "col_interval_year_to_month",
+        "interval year to month",
+        "INTERVAL YEAR TO MONTH",
+        Types.VARCHAR,
+        255,
+        0
+      },
+      {
+        "col_interval_day_to_hour",
+        "interval day to hour",
+        "INTERVAL DAY TO HOUR",
+        Types.VARCHAR,
+        255,
+        0
+      },
+      {
+        "col_interval_day_to_minute",
+        "interval day to minute",
+        "INTERVAL DAY TO MINUTE",
+        Types.VARCHAR,
+        255,
+        0
+      },
+      {
+        "col_interval_day_to_second",
+        "interval day to second",
+        "INTERVAL DAY TO SECOND",
+        Types.VARCHAR,
+        255,
+        0
+      },
+      {
+        "col_interval_hour_to_minute",
+        "interval hour to minute",
+        "INTERVAL HOUR TO MINUTE",
+        Types.VARCHAR,
+        255,
+        0
+      },
+      {
+        "col_interval_hour_to_second",
+        "interval hour to second",
+        "INTERVAL HOUR TO SECOND",
+        Types.VARCHAR,
+        255,
+        0
+      },
+      {
+        "col_interval_minute_to_second",
+        "interval minute to second",
+        "INTERVAL MINUTE TO SECOND",
+        Types.VARCHAR,
+        255,
+        0
+      }
     };
 
     List<String> columnNames =
