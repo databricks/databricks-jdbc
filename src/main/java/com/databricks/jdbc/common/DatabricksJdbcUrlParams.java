@@ -185,7 +185,9 @@ public enum DatabricksJdbcUrlParams {
   DISABLE_OAUTH_REFRESH_TOKEN(
       "DisableOauthRefreshToken",
       "Disable requesting OAuth refresh tokens (omit offline_access unless explicitly provided)",
-      "1");
+      "1"),
+  ENABLE_TOKEN_FEDERATION(
+      "EnableTokenFederation", "Enable token federation for authentication", "1");
 
   private final String paramName;
   private final String defaultValue;

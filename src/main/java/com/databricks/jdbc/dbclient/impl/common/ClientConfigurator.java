@@ -209,8 +209,7 @@ public class ClientConfigurator {
     if (databricksConfig.isAzure()) {
       LOGGER.debug("Using Azure U2M Auth");
       databricksConfig.setCredentialsProvider(
-          new DatabricksTokenFederationProvider(
-              connectionContext,
+          wrapWithTokenFederationIfEnabled(
               new AzureExternalBrowserProvider(connectionContext, redirectPort)));
       return;
     }
@@ -229,8 +228,7 @@ public class ClientConfigurator {
     }
 
     databricksConfig.setCredentialsProvider(
-        new DatabricksTokenFederationProvider(
-            connectionContext, new ExternalBrowserCredentialsProvider(tokenCache)));
+        wrapWithTokenFederationIfEnabled(new ExternalBrowserCredentialsProvider(tokenCache)));
   }
 
   /**
@@ -305,9 +303,9 @@ public class ClientConfigurator {
   public void setupOAuthAccessTokenConfig() throws DatabricksParsingException {
     // Token Federation is only supported for JWT tokens
     if (DatabricksAuthUtil.isTokenJWT(connectionContext.getPassThroughAccessToken())) {
-      DatabricksTokenFederationProvider databricksTokenFederationProvider =
-          new DatabricksTokenFederationProvider(connectionContext, new PatCredentialsProvider());
-      databricksConfig.setCredentialsProvider(databricksTokenFederationProvider);
+      CredentialsProvider credentialsProvider =
+          wrapWithTokenFederationIfEnabled(new PatCredentialsProvider());
+      databricksConfig.setCredentialsProvider(credentialsProvider);
     }
 
     databricksConfig
@@ -329,12 +327,11 @@ public class ClientConfigurator {
         .setClientSecret(connectionContext.getClientSecret());
     CredentialsProvider provider =
         new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
-    CredentialsProvider databricksTokenFederationProvider =
-        new DatabricksTokenFederationProvider(connectionContext, provider);
+    CredentialsProvider wrappedProvider = wrapWithTokenFederationIfEnabled(provider);
 
     databricksConfig
-        .setAuthType(databricksTokenFederationProvider.authType()) // oauth-refresh
-        .setCredentialsProvider(databricksTokenFederationProvider);
+        .setAuthType(wrappedProvider.authType()) // oauth-refresh
+        .setCredentialsProvider(wrappedProvider);
   }
 
   /** Setup the OAuth M2M authentication settings in the databricks config. */
@@ -353,13 +350,11 @@ public class ClientConfigurator {
       if (authType.equals(GCP_GOOGLE_CREDENTIALS_AUTH_TYPE)) {
         databricksConfig.setGoogleCredentials(connectionContext.getGoogleCredentials());
         databricksConfig.setCredentialsProvider(
-            new DatabricksTokenFederationProvider(
-                connectionContext, new GoogleCredentialsCredentialsProvider()));
+            wrapWithTokenFederationIfEnabled(new GoogleCredentialsCredentialsProvider()));
       } else {
         databricksConfig.setGoogleServiceAccount(connectionContext.getGoogleServiceAccount());
         databricksConfig.setCredentialsProvider(
-            new DatabricksTokenFederationProvider(
-                connectionContext, new GoogleIdCredentialsProvider()));
+            wrapWithTokenFederationIfEnabled(new GoogleIdCredentialsProvider()));
       }
 
     } else if (connectionContext.getAzureTenantId() != null) {
@@ -376,8 +371,7 @@ public class ClientConfigurator {
           .setAzureClientSecret(connectionContext.getClientSecret())
           .setAzureTenantId(connectionContext.getAzureTenantId())
           .setCredentialsProvider(
-              new DatabricksTokenFederationProvider(
-                  connectionContext, new AzureServicePrincipalCredentialsProvider()));
+              wrapWithTokenFederationIfEnabled(new AzureServicePrincipalCredentialsProvider()));
     } else {
       databricksConfig
           .setClientId(connectionContext.getClientId())
@@ -387,14 +381,12 @@ public class ClientConfigurator {
             new PrivateKeyClientCredentialProvider(connectionContext, databricksConfig);
         databricksConfig
             .setAuthType(jwtProvider.authType())
-            .setCredentialsProvider(
-                new DatabricksTokenFederationProvider(connectionContext, jwtProvider));
+            .setCredentialsProvider(wrapWithTokenFederationIfEnabled(jwtProvider));
       } else {
         CredentialsProvider m2mProvider = new OAuthM2MServicePrincipalCredentialsProvider();
         databricksConfig
             .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)
-            .setCredentialsProvider(
-                new DatabricksTokenFederationProvider(connectionContext, m2mProvider));
+            .setCredentialsProvider(wrapWithTokenFederationIfEnabled(m2mProvider));
       }
     }
   }
@@ -403,8 +395,7 @@ public class ClientConfigurator {
     databricksConfig.setHost(connectionContext.getHostForOAuth());
     databricksConfig.setAuthType(DatabricksJdbcConstants.AZURE_MSI_AUTH_TYPE);
     databricksConfig.setCredentialsProvider(
-        new DatabricksTokenFederationProvider(
-            connectionContext, new AzureMSICredentialProvider(connectionContext)));
+        wrapWithTokenFederationIfEnabled(new AzureMSICredentialProvider(connectionContext)));
   }
 
   /**
@@ -445,5 +436,19 @@ public class ClientConfigurator {
     if (connectionContext.isOAuthDiscoveryModeEnabled()) {
       databricksConfig.setDiscoveryUrl(connectionContext.getOAuthDiscoveryURL());
     }
+  }
+
+  /**
+   * Conditionally wraps a credentials provider with DatabricksTokenFederationProvider based on the
+   * EnableTokenFederation connection parameter.
+   *
+   * @param provider The credentials provider to potentially wrap
+   * @return The original provider if token federation is disabled, or wrapped provider if enabled
+   */
+  private CredentialsProvider wrapWithTokenFederationIfEnabled(CredentialsProvider provider) {
+    if (connectionContext.isTokenFederationEnabled()) {
+      return new DatabricksTokenFederationProvider(connectionContext, provider);
+    }
+    return provider;
   }
 }

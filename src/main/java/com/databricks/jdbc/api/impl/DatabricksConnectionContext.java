@@ -1145,4 +1145,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public boolean getDisableOauthRefreshToken() {
     return getParameter(DatabricksJdbcUrlParams.DISABLE_OAUTH_REFRESH_TOKEN, "1").equals("1");
   }
+
+  @Override
+  public boolean isTokenFederationEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_TOKEN_FEDERATION, "1").equals("1");
+  }
 }
