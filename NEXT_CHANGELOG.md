@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Added the EnableTokenFederation url param to enable or disable Token federation feature. By default it is set to 1
 
 ### Updated
 

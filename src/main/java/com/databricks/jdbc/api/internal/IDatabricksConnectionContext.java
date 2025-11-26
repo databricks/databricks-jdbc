@@ -413,4 +413,7 @@ public interface IDatabricksConnectionContext {
 
   /** Returns whether OAuth refresh tokens should be disabled (omit offline_access by default). */
   boolean getDisableOauthRefreshToken();
+
+  /** Returns whether token federation is enabled for authentication. */
+  boolean isTokenFederationEnabled();
 }

@@ -135,6 +135,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getClientSecret()).thenReturn("client-secret");
     when(mockContext.useJWTAssertion()).thenReturn(true);
     when(mockContext.getTokenEndpoint()).thenReturn("token-endpoint");
+    when(mockContext.isTokenFederationEnabled()).thenReturn(true);
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
@@ -516,6 +517,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getTokenCachePassPhrase()).thenReturn("testPassphrase");
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
+    when(mockContext.isTokenFederationEnabled()).thenReturn(true);
 
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -567,6 +569,7 @@ public class ClientConfiguratorTest {
     when(mockContext.isTokenCacheEnabled()).thenReturn(false);
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
+    when(mockContext.isTokenFederationEnabled()).thenReturn(true);
 
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -584,5 +587,83 @@ public class ClientConfiguratorTest {
     assertInstanceOf(
         ExternalBrowserCredentialsProvider.class,
         databricksTokenFederationProvider.getCredentialsProvider());
+  }
+
+  @Test
+  void testTokenFederationEnabled_WrapsCredentialsProvider()
+      throws DatabricksParsingException, DatabricksSSLException {
+    // Setup OAuth M2M with token federation enabled
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
+    when(mockContext.getHostForOAuth()).thenReturn("https://oauth-m2m.databricks.com");
+    when(mockContext.getClientId()).thenReturn("m2m-client-id");
+    when(mockContext.getClientSecret()).thenReturn("m2m-client-secret");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
+    when(mockContext.isTokenFederationEnabled()).thenReturn(true); // Token federation enabled
+    when(mockContext.useJWTAssertion()).thenReturn(false);
+    when(mockContext.getAzureTenantId()).thenReturn(null);
+    when(mockContext.getCloud()).thenReturn(Cloud.AWS);
+
+    configurator = new ClientConfigurator(mockContext);
+    WorkspaceClient client = configurator.getWorkspaceClient();
+    assertNotNull(client);
+    DatabricksConfig config = client.config();
+
+    // Verify that the credentials provider is wrapped with DatabricksTokenFederationProvider
+    assertInstanceOf(DatabricksTokenFederationProvider.class, config.getCredentialsProvider());
+    assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
+  }
+
+  @Test
+  void testTokenFederationDisabled_DoesNotWrapCredentialsProvider()
+      throws DatabricksParsingException, DatabricksSSLException {
+    // Setup OAuth M2M with token federation disabled
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.CLIENT_CREDENTIALS);
+    when(mockContext.getHostForOAuth()).thenReturn("https://oauth-m2m.databricks.com");
+    when(mockContext.getClientId()).thenReturn("m2m-client-id");
+    when(mockContext.getClientSecret()).thenReturn("m2m-client-secret");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
+    when(mockContext.isTokenFederationEnabled()).thenReturn(false); // Token federation disabled
+    when(mockContext.useJWTAssertion()).thenReturn(false);
+    when(mockContext.getAzureTenantId()).thenReturn(null);
+    when(mockContext.getCloud()).thenReturn(Cloud.AWS);
+
+    configurator = new ClientConfigurator(mockContext);
+    WorkspaceClient client = configurator.getWorkspaceClient();
+    assertNotNull(client);
+    DatabricksConfig config = client.config();
+
+    // Verify that the credentials provider is NOT wrapped with DatabricksTokenFederationProvider
+    assertNotNull(config.getCredentialsProvider());
+    // Should be the original OAuthM2MServicePrincipalCredentialsProvider, not wrapped
+    assertFalse(config.getCredentialsProvider() instanceof DatabricksTokenFederationProvider);
+  }
+
+  @Test
+  void testTokenFederationWithPATAuth_DoesNotAffectPATAuth()
+      throws DatabricksParsingException, DatabricksSSLException {
+    // Setup PAT auth with token federation disabled - should not affect PAT auth
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
+    when(mockContext.getHostUrl()).thenReturn("https://pat.databricks.com");
+    when(mockContext.getToken()).thenReturn("pat-token");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+
+    configurator = new ClientConfigurator(mockContext);
+    WorkspaceClient client = configurator.getWorkspaceClient();
+    assertNotNull(client);
+    DatabricksConfig config = client.config();
+
+    // PAT auth should work normally regardless of token federation setting
+    assertEquals("https://pat.databricks.com", config.getHost());
+    assertEquals("pat-token", config.getToken());
+    assertEquals(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, config.getAuthType());
+    // PAT auth doesn't use Token federation provider, so it should be SDK default provider
+    assertFalse(config.getCredentialsProvider() instanceof DatabricksTokenFederationProvider);
   }
 }

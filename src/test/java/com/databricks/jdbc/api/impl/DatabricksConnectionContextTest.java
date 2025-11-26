@@ -1153,4 +1153,47 @@ class DatabricksConnectionContextTest {
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
     assertFalse(ctx.getDisableOauthRefreshToken());
   }
+
+  @Test
+  public void testEnableTokenFederation() throws DatabricksSQLException {
+    // Test default value (should be enabled by default)
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertTrue(ctx.isTokenFederationEnabled()); // Default should be true
+
+    // Test via URL parameter - enabled
+    String urlWithTokenFederationEnabled =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;httpPath=/sql/1.0/warehouses/999999999;EnableTokenFederation=1";
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithTokenFederationEnabled, properties);
+    assertTrue(ctx.isTokenFederationEnabled());
+
+    // Test via URL parameter - disabled
+    String urlWithTokenFederationDisabled =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;httpPath=/sql/1.0/warehouses/999999999;EnableTokenFederation=0";
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithTokenFederationDisabled, properties);
+    assertFalse(ctx.isTokenFederationEnabled());
+
+    // Test via Properties - enabled
+    Properties props = new Properties();
+    props.setProperty("password", "passwd");
+    props.setProperty("EnableTokenFederation", "1");
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
+    assertTrue(ctx.isTokenFederationEnabled());
+
+    // Test via Properties - disabled
+    props = new Properties();
+    props.setProperty("password", "passwd");
+    props.setProperty("EnableTokenFederation", "0");
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
+    assertFalse(ctx.isTokenFederationEnabled());
+  }
 }
