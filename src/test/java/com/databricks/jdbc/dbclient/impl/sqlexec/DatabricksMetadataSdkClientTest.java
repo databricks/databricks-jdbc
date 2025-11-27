@@ -17,11 +17,15 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.TelemetryLogLevel;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.impl.common.CrossReferenceKeysDatabricksResultSetAdapter;
 import com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.core.ResultColumn;
+import com.databricks.jdbc.telemetry.ITelemetryClient;
+import com.databricks.jdbc.telemetry.TelemetryClientFactory;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -36,6 +40,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -529,26 +535,43 @@ public class DatabricksMetadataSdkClientTest {
 
   @Test
   void testImportedKeys_throwsParseSyntaxError() throws Exception {
-    DatabricksSQLException exception =
-        new DatabricksSQLException(
-            "syntax error at or near \"foreign\"", PARSE_SYNTAX_ERROR_SQL_STATE);
-    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
-    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
-    when(mockClient.executeStatement(
-            "SHOW FOREIGN KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
-            WAREHOUSE_COMPUTE,
-            new HashMap<>(),
-            StatementType.METADATA,
-            session,
-            null))
-        .thenThrow(exception);
-    try (DatabricksResultSet actualResult =
-        metadataClient.listImportedKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE)) {
-      assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
-      assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
-      assertEquals(14, actualResult.getMetaData().getColumnCount());
-      // Parse syntax error is handled gracefully to return empty result set
-      assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    // Set up mock connection context and telemetry to avoid NPE on Ubuntu
+    IDatabricksConnectionContext mockContext = Mockito.mock(IDatabricksConnectionContext.class);
+    Mockito.lenient().when(mockContext.getHost()).thenReturn("test-host");
+    Mockito.lenient().when(mockContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.OFF);
+    DatabricksThreadContextHolder.setConnectionContext(mockContext);
+
+    ITelemetryClient mockTelemetryClient = Mockito.mock(ITelemetryClient.class);
+    TelemetryClientFactory mockFactory = Mockito.mock(TelemetryClientFactory.class);
+
+    try (MockedStatic<TelemetryClientFactory> mockedFactory =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mockedFactory.when(TelemetryClientFactory::getInstance).thenReturn(mockFactory);
+      Mockito.lenient()
+          .when(mockFactory.getTelemetryClient(mockContext))
+          .thenReturn(mockTelemetryClient);
+
+      DatabricksSQLException exception =
+          new DatabricksSQLException(
+              "syntax error at or near \"foreign\"", PARSE_SYNTAX_ERROR_SQL_STATE);
+      when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+      DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+      when(mockClient.executeStatement(
+              "SHOW FOREIGN KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
+              WAREHOUSE_COMPUTE,
+              new HashMap<>(),
+              StatementType.METADATA,
+              session,
+              null))
+          .thenThrow(exception);
+      try (DatabricksResultSet actualResult =
+          metadataClient.listImportedKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE)) {
+        assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+        assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
+        assertEquals(14, actualResult.getMetaData().getColumnCount());
+        // Parse syntax error is handled gracefully to return empty result set
+        assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+      }
     }
   }
 
@@ -665,33 +688,50 @@ public class DatabricksMetadataSdkClientTest {
 
   @Test
   void testListCrossReferences_throwsParseSyntaxError() throws Exception {
-    DatabricksSQLException exception =
-        new DatabricksSQLException(
-            "syntax error at or near \"foreign\"", PARSE_SYNTAX_ERROR_SQL_STATE);
-    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
-    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
-    when(mockClient.executeStatement(
-            "SHOW FOREIGN KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
-            WAREHOUSE_COMPUTE,
-            new HashMap<>(),
-            StatementType.METADATA,
-            session,
-            null))
-        .thenThrow(exception);
-    try (DatabricksResultSet actualResult =
-        metadataClient.listCrossReferences(
-            session,
-            "parentCatalog",
-            "parentSchema",
-            "parentTable",
-            TEST_CATALOG,
-            TEST_SCHEMA,
-            TEST_TABLE)) {
-      assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
-      assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
-      assertEquals(14, actualResult.getMetaData().getColumnCount());
-      // Parse syntax error is handled gracefully to return empty result set
-      assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    // Set up mock connection context and telemetry to avoid NPE on Ubuntu
+    IDatabricksConnectionContext mockContext = Mockito.mock(IDatabricksConnectionContext.class);
+    Mockito.lenient().when(mockContext.getHost()).thenReturn("test-host");
+    Mockito.lenient().when(mockContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.OFF);
+    DatabricksThreadContextHolder.setConnectionContext(mockContext);
+
+    ITelemetryClient mockTelemetryClient = Mockito.mock(ITelemetryClient.class);
+    TelemetryClientFactory mockFactory = Mockito.mock(TelemetryClientFactory.class);
+
+    try (MockedStatic<TelemetryClientFactory> mockedFactory =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mockedFactory.when(TelemetryClientFactory::getInstance).thenReturn(mockFactory);
+      Mockito.lenient()
+          .when(mockFactory.getTelemetryClient(mockContext))
+          .thenReturn(mockTelemetryClient);
+
+      DatabricksSQLException exception =
+          new DatabricksSQLException(
+              "syntax error at or near \"foreign\"", PARSE_SYNTAX_ERROR_SQL_STATE);
+      when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+      DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+      when(mockClient.executeStatement(
+              "SHOW FOREIGN KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
+              WAREHOUSE_COMPUTE,
+              new HashMap<>(),
+              StatementType.METADATA,
+              session,
+              null))
+          .thenThrow(exception);
+      try (DatabricksResultSet actualResult =
+          metadataClient.listCrossReferences(
+              session,
+              "parentCatalog",
+              "parentSchema",
+              "parentTable",
+              TEST_CATALOG,
+              TEST_SCHEMA,
+              TEST_TABLE)) {
+        assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+        assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
+        assertEquals(14, actualResult.getMetaData().getColumnCount());
+        // Parse syntax error is handled gracefully to return empty result set
+        assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+      }
     }
   }
 
@@ -844,25 +884,43 @@ public class DatabricksMetadataSdkClientTest {
 
   @Test
   void testGetTablesAllCatalogs_throwsParseSyntaxError() throws Exception {
-    DatabricksSQLException exception =
-        new DatabricksSQLException("syntax error at or near \"IN\"", PARSE_SYNTAX_ERROR_SQL_STATE);
-    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
-    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
-    when(mockClient.executeStatement(
-            "SHOW TABLES IN ALL CATALOGS SCHEMA LIKE 'testSchema' LIKE 'testTable'",
-            WAREHOUSE_COMPUTE,
-            new HashMap<>(),
-            StatementType.METADATA,
-            session,
-            null))
-        .thenThrow(exception);
-    try (DatabricksResultSet actualResult =
-        metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE, null)) {
-      assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
-      assertEquals(GET_TABLES_STATEMENT_ID, actualResult.getStatementId());
-      assertEquals(10, actualResult.getMetaData().getColumnCount());
-      // Parse syntax error is handled gracefully to return empty result set
-      assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    // Set up mock connection context and telemetry to avoid NPE on Ubuntu
+    IDatabricksConnectionContext mockContext = Mockito.mock(IDatabricksConnectionContext.class);
+    Mockito.lenient().when(mockContext.getHost()).thenReturn("test-host");
+    Mockito.lenient().when(mockContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.OFF);
+    DatabricksThreadContextHolder.setConnectionContext(mockContext);
+
+    ITelemetryClient mockTelemetryClient = Mockito.mock(ITelemetryClient.class);
+    TelemetryClientFactory mockFactory = Mockito.mock(TelemetryClientFactory.class);
+
+    try (MockedStatic<TelemetryClientFactory> mockedFactory =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mockedFactory.when(TelemetryClientFactory::getInstance).thenReturn(mockFactory);
+      Mockito.lenient()
+          .when(mockFactory.getTelemetryClient(mockContext))
+          .thenReturn(mockTelemetryClient);
+
+      DatabricksSQLException exception =
+          new DatabricksSQLException(
+              "syntax error at or near \"IN\"", PARSE_SYNTAX_ERROR_SQL_STATE);
+      when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+      DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+      when(mockClient.executeStatement(
+              "SHOW TABLES IN ALL CATALOGS SCHEMA LIKE 'testSchema' LIKE 'testTable'",
+              WAREHOUSE_COMPUTE,
+              new HashMap<>(),
+              StatementType.METADATA,
+              session,
+              null))
+          .thenThrow(exception);
+      try (DatabricksResultSet actualResult =
+          metadataClient.listTables(session, null, TEST_SCHEMA, TEST_TABLE, null)) {
+        assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+        assertEquals(GET_TABLES_STATEMENT_ID, actualResult.getStatementId());
+        assertEquals(10, actualResult.getMetaData().getColumnCount());
+        // Parse syntax error is handled gracefully to return empty result set
+        assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+      }
     }
   }
 
