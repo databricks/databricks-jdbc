@@ -533,7 +533,9 @@ public class DatabricksMetadataSdkClientTest {
         new DatabricksSQLException(
             "syntax error at or near \"foreign\"", PARSE_SYNTAX_ERROR_SQL_STATE);
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
-    when(mockClient.getConnectionContext()).thenReturn(mock(IDatabricksConnectionContext.class));
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             "SHOW FOREIGN KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
@@ -787,7 +789,9 @@ public class DatabricksMetadataSdkClientTest {
 
   @Test
   void testThrowsErrorResultInCaseOfNullCatalog() {
-    when(mockClient.getConnectionContext()).thenReturn(mock(IDatabricksConnectionContext.class));
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     assertThrows(
         DatabricksValidationException.class,
@@ -850,7 +854,9 @@ public class DatabricksMetadataSdkClientTest {
     DatabricksSQLException exception =
         new DatabricksSQLException("syntax error at or near \"IN\"", PARSE_SYNTAX_ERROR_SQL_STATE);
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
-    when(mockClient.getConnectionContext()).thenReturn(mock(IDatabricksConnectionContext.class));
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             "SHOW TABLES IN ALL CATALOGS SCHEMA LIKE 'testSchema' LIKE 'testTable'",
