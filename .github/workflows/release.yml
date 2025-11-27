@@ -1,17 +1,12 @@
 name: Release
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Release Thin JAR"]
-    types:
-      - completed
 
 jobs:
   publish:
-    # Only run if thin JAR workflow succeeded or manual trigger
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest

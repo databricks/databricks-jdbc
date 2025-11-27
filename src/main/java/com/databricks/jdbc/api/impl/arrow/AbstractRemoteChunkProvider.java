@@ -283,8 +283,10 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
     rowCount += DatabricksThriftUtil.getRowCount(resultData);
     for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
       LOGGER.debug(
-          "Chunk information log - Row Offset: %s, Row Count: %s, Expiry Time: %s",
-          resultLink.getStartRowOffset(), resultLink.getRowCount(), resultLink.getExpiryTime());
+          "Chunk information log - Row Offset: {}, Row Count: {}, Expiry Time: {}",
+          resultLink.getStartRowOffset(),
+          resultLink.getRowCount(),
+          resultLink.getExpiryTime());
       chunkIndexMap.put(chunkCount, createChunk(statementId, chunkCount, resultLink));
       chunkCount++;
     }
