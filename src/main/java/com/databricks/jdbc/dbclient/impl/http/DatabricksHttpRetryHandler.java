@@ -28,6 +28,7 @@ public class DatabricksHttpRetryHandler
   private static final String TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY =
       "tempUnavailableAccumulatedTime";
   private static final String RATE_LIMIT_ACCUMULATED_TIME_KEY = "rateLimitAccumulatedTime";
+  static final String API_RETRIABLE_CODES_KEY = "apiRetriableCodes";
   static final String RETRY_AFTER_HEADER = "Retry-After";
   private static final int DEFAULT_BACKOFF_FACTOR = 2; // Exponential factor
   private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
@@ -134,16 +135,34 @@ public class DatabricksHttpRetryHandler
 
     // check if retry interval is valid for 503 and 429
     int retryInterval = (int) context.getAttribute(RETRY_INTERVAL_KEY);
+
+    // Get API retriable codes from context attribute or connection context
+    @SuppressWarnings("unchecked")
+    java.util.Set<Integer> apiRetriableCodes =
+        (java.util.Set<Integer>) context.getAttribute(API_RETRIABLE_CODES_KEY);
+    if (apiRetriableCodes == null) {
+      apiRetriableCodes = connectionContext.getApiRetriableCodes();
+    }
+    boolean isInCustomRetriableCodes =
+        apiRetriableCodes != null && apiRetriableCodes.contains(statusCode);
+
     if ((statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
             || statusCode == HttpStatus.SC_TOO_MANY_REQUESTS)
-        && retryInterval == -1) {
+        && retryInterval == -1
+        && !isInCustomRetriableCodes) {
       // This case arises when the server does not send the retryAfter header
+      // and the status code is not in the custom retriable codes list
       LOGGER.warn(
           "Invalid retry interval in the context "
               + context
               + " for the error: "
               + exception.getMessage());
       return false;
+    }
+
+    // If no retry-after header (retryInterval == -1), calculate delay using exponential backoff
+    if (retryInterval == -1) {
+      retryInterval = (int) (calculateExponentialBackoff(executionCount) / 1000);
     }
 
     long tempUnavailableAccumulatedTime =

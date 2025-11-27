@@ -665,6 +665,24 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public java.util.Set<Integer> getApiRetriableCodes() {
+    String codes = getParameter(DatabricksJdbcUrlParams.API_RETRIABLE_CODES);
+    if (codes == null || codes.trim().isEmpty()) {
+      return java.util.Collections.emptySet();
+    }
+
+    java.util.Set<Integer> retriableCodes = new java.util.HashSet<>();
+    for (String code : codes.split(",")) {
+      try {
+        retriableCodes.add(Integer.parseInt(code.trim()));
+      } catch (NumberFormatException e) {
+        LOGGER.warn("Invalid HTTP status code in ApiRetriableCodes: " + code.trim());
+      }
+    }
+    return retriableCodes;
+  }
+
+  @Override
   public int getIdleHttpConnectionExpiry() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.IDLE_HTTP_CONNECTION_EXPIRY));
   }

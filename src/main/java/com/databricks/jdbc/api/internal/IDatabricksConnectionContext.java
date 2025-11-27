@@ -171,6 +171,8 @@ public interface IDatabricksConnectionContext {
 
   int getRateLimitRetryTimeout();
 
+  java.util.Set<Integer> getApiRetriableCodes();
+
   int getIdleHttpConnectionExpiry();
 
   boolean supportManyParameters();
