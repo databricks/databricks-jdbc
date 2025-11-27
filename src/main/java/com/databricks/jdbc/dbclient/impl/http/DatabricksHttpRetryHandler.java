@@ -138,8 +138,7 @@ public class DatabricksHttpRetryHandler
 
     // Get API retriable codes from connection context
     Set<Integer> apiRetriableCodes = connectionContext.getApiRetriableCodes();
-    boolean isInCustomRetriableCodes =
-        apiRetriableCodes != null && apiRetriableCodes.contains(statusCode);
+    boolean isInCustomRetriableCodes = apiRetriableCodes.contains(statusCode);
 
     if ((statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
             || statusCode == HttpStatus.SC_TOO_MANY_REQUESTS)
