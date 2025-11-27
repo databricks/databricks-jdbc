@@ -51,7 +51,8 @@ class ValidationUtilTest {
 
   @ParameterizedTest
   @MethodSource("validateAndParsePositiveIntegerTestCases")
-  void testValidateAndParsePositiveInteger(String value, Integer expectedResult, boolean shouldFail) {
+  void testValidateAndParsePositiveInteger(
+      String value, Integer expectedResult, boolean shouldFail) {
     if (shouldFail) {
       assertThrows(
           DatabricksSQLException.class,

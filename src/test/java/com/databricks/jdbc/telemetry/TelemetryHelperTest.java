@@ -13,6 +13,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -41,7 +42,7 @@ public class TelemetryHelperTest {
   @Mock IDatabricksConnectionContext connectionContext;
 
   @BeforeEach
-  void setUp() {
+  void setUp() throws DatabricksValidationException {
     DatabricksThreadContextHolder.setConnectionContext(connectionContext);
     when(connectionContext.forceEnableTelemetry()).thenReturn(true);
     when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);

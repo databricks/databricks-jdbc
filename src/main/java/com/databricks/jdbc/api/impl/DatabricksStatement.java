@@ -48,7 +48,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private final DatabricksBatchExecutor databricksBatchExecutor;
   private boolean noMoreResults = false; // JDBC end-of-results indicator
 
-  public DatabricksStatement(DatabricksConnection connection) {
+  public DatabricksStatement(DatabricksConnection connection) throws DatabricksValidationException {
     this.connection = connection;
     this.resultSet = null;
     this.statementId = null;
@@ -58,7 +58,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         new DatabricksBatchExecutor(this, connection.getConnectionContext().getMaxBatchSize());
   }
 
-  public DatabricksStatement(DatabricksConnection connection, StatementId statementId) {
+  public DatabricksStatement(DatabricksConnection connection, StatementId statementId)
+      throws DatabricksValidationException {
     this.connection = connection;
     this.statementId = statementId;
     this.resultSet = null;

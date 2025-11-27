@@ -12,6 +12,7 @@ import com.databricks.jdbc.common.util.ProcessNameUtil;
 import com.databricks.jdbc.common.util.StringUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.*;
@@ -178,47 +179,53 @@ public class TelemetryHelper {
       // This would mean, telemetry data cannot be sent.
       return null;
     }
-    DriverConnectionParameters connectionParameters =
-        new DriverConnectionParameters()
-            .setHostDetails(getHostDetails(hostUrl))
-            .setUseProxy(connectionContext.getUseProxy())
-            .setAuthMech(connectionContext.getAuthMech())
-            .setAuthScope(connectionContext.getAuthScope())
-            .setUseSystemProxy(connectionContext.getUseSystemProxy())
-            .setUseCfProxy(connectionContext.getUseCloudFetchProxy())
-            .setDriverAuthFlow(connectionContext.getAuthFlow())
-            .setDiscoveryModeEnabled(connectionContext.isOAuthDiscoveryModeEnabled())
-            .setDiscoveryUrl(connectionContext.getOAuthDiscoveryURL())
-            .setIdentityFederationClientId(connectionContext.getIdentityFederationClientId())
-            .setUseEmptyMetadata(connectionContext.getUseEmptyMetadata())
-            .setSupportManyParameters(connectionContext.supportManyParameters())
-            .setGoogleCredentialFilePath(connectionContext.getGoogleCredentials())
-            .setGoogleServiceAccount(connectionContext.getGoogleServiceAccount())
-            .setAllowedVolumeIngestionPaths(connectionContext.getVolumeOperationAllowedPaths())
-            .setSocketTimeout(connectionContext.getSocketTimeout())
-            .setStringColumnLength(connectionContext.getDefaultStringColumnLength())
-            .setEnableComplexDatatypeSupport(connectionContext.isComplexDatatypeSupportEnabled())
-            .setEnableGeoSpatialSupport(connectionContext.isGeoSpatialSupportEnabled())
-            .setAzureWorkspaceResourceId(connectionContext.getAzureWorkspaceResourceId())
-            .setAzureTenantId(connectionContext.getAzureTenantId())
-            .setSslTrustStoreType(connectionContext.getSSLTrustStoreType())
-            .setEnableArrow(connectionContext.shouldEnableArrow())
-            .setEnableDirectResults(connectionContext.getDirectResultMode())
-            .setCheckCertificateRevocation(connectionContext.checkCertificateRevocation())
-            .setAcceptUndeterminedCertificateRevocation(
-                connectionContext.acceptUndeterminedCertificateRevocation())
-            .setDriverMode(connectionContext.getClientType().toString())
-            .setAuthEndpoint(connectionContext.getAuthEndpoint())
-            .setTokenEndpoint(connectionContext.getTokenEndpoint())
-            .setNonProxyHosts(StringUtil.split(connectionContext.getNonProxyHosts()))
-            .setHttpConnectionPoolSize(connectionContext.getHttpConnectionPoolSize())
-            .setEnableSeaHybridResults(connectionContext.isSqlExecHybridResultsEnabled())
-            .setAllowSelfSignedSupport(connectionContext.allowSelfSignedCerts())
-            .setUseSystemTrustStore(connectionContext.useSystemTrustStore())
-            .setRowsFetchedPerBlock(connectionContext.getRowsFetchedPerBlock())
-            .setAsyncPollIntervalMillis(connectionContext.getAsyncExecPollInterval())
-            .setEnableTokenCache(connectionContext.isTokenCacheEnabled())
-            .setHttpPath(connectionContext.getHttpPath());
+    DriverConnectionParameters connectionParameters = new DriverConnectionParameters();
+    try {
+      connectionParameters
+          .setHostDetails(getHostDetails(hostUrl))
+          .setUseProxy(connectionContext.getUseProxy())
+          .setAuthMech(connectionContext.getAuthMech())
+          .setAuthScope(connectionContext.getAuthScope())
+          .setUseSystemProxy(connectionContext.getUseSystemProxy())
+          .setUseCfProxy(connectionContext.getUseCloudFetchProxy())
+          .setDriverAuthFlow(connectionContext.getAuthFlow())
+          .setDiscoveryModeEnabled(connectionContext.isOAuthDiscoveryModeEnabled())
+          .setDiscoveryUrl(connectionContext.getOAuthDiscoveryURL())
+          .setIdentityFederationClientId(connectionContext.getIdentityFederationClientId())
+          .setUseEmptyMetadata(connectionContext.getUseEmptyMetadata())
+          .setSupportManyParameters(connectionContext.supportManyParameters())
+          .setGoogleCredentialFilePath(connectionContext.getGoogleCredentials())
+          .setGoogleServiceAccount(connectionContext.getGoogleServiceAccount())
+          .setAllowedVolumeIngestionPaths(connectionContext.getVolumeOperationAllowedPaths())
+          .setSocketTimeout(connectionContext.getSocketTimeout())
+          .setStringColumnLength(connectionContext.getDefaultStringColumnLength())
+          .setEnableComplexDatatypeSupport(connectionContext.isComplexDatatypeSupportEnabled())
+          .setEnableGeoSpatialSupport(connectionContext.isGeoSpatialSupportEnabled())
+          .setAzureWorkspaceResourceId(connectionContext.getAzureWorkspaceResourceId())
+          .setAzureTenantId(connectionContext.getAzureTenantId())
+          .setSslTrustStoreType(connectionContext.getSSLTrustStoreType())
+          .setEnableArrow(connectionContext.shouldEnableArrow())
+          .setEnableDirectResults(connectionContext.getDirectResultMode())
+          .setCheckCertificateRevocation(connectionContext.checkCertificateRevocation())
+          .setAcceptUndeterminedCertificateRevocation(
+              connectionContext.acceptUndeterminedCertificateRevocation())
+          .setDriverMode(connectionContext.getClientType().toString())
+          .setAuthEndpoint(connectionContext.getAuthEndpoint())
+          .setTokenEndpoint(connectionContext.getTokenEndpoint())
+          .setNonProxyHosts(StringUtil.split(connectionContext.getNonProxyHosts()))
+          .setHttpConnectionPoolSize(connectionContext.getHttpConnectionPoolSize())
+          .setEnableSeaHybridResults(connectionContext.isSqlExecHybridResultsEnabled())
+          .setAllowSelfSignedSupport(connectionContext.allowSelfSignedCerts())
+          .setUseSystemTrustStore(connectionContext.useSystemTrustStore())
+          .setRowsFetchedPerBlock(connectionContext.getRowsFetchedPerBlock())
+          .setAsyncPollIntervalMillis(connectionContext.getAsyncExecPollInterval())
+          .setEnableTokenCache(connectionContext.isTokenCacheEnabled())
+          .setHttpPath(connectionContext.getHttpPath());
+    } catch (DatabricksValidationException e) {
+      // If configuration validation fails, return null to skip telemetry export
+      // This prevents invalid configuration from breaking telemetry
+      return null;
+    }
     if (connectionContext.useJWTAssertion()) {
       connectionParameters
           .setEnableJwtAssertion(true)

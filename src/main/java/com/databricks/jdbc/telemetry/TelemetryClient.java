@@ -41,7 +41,8 @@ public class TelemetryClient implements ITelemetryClient {
   public TelemetryClient(
       IDatabricksConnectionContext connectionContext,
       ExecutorService executorService,
-      DatabricksConfig config) {
+      DatabricksConfig config)
+      throws Exception {
     this.eventsBatch = new LinkedList<>();
     this.eventsBatchSize = connectionContext.getTelemetryBatchSize();
     this.context = connectionContext;
@@ -58,7 +59,8 @@ public class TelemetryClient implements ITelemetryClient {
   }
 
   public TelemetryClient(
-      IDatabricksConnectionContext connectionContext, ExecutorService executorService) {
+      IDatabricksConnectionContext connectionContext, ExecutorService executorService)
+      throws Exception {
     this.eventsBatch = new LinkedList<>();
     this.eventsBatchSize = connectionContext.getTelemetryBatchSize();
     this.context = connectionContext;

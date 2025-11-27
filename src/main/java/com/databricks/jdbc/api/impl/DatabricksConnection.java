@@ -87,7 +87,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   }
 
   @Override
-  public Statement createStatement() {
+  public Statement createStatement() throws SQLException {
     LOGGER.debug("public Statement createStatement()");
     DatabricksStatement statement = new DatabricksStatement(this);
     statementSet.add(statement);
@@ -95,7 +95,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   }
 
   @Override
-  public PreparedStatement prepareStatement(String sql) {
+  public PreparedStatement prepareStatement(String sql) throws SQLException {
     LOGGER.debug(
         String.format("public PreparedStatement prepareStatement(String sql = {%s})", sql));
     DatabricksPreparedStatement statement = new DatabricksPreparedStatement(this, sql);

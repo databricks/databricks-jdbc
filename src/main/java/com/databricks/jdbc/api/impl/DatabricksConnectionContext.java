@@ -3,7 +3,6 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_SCOPE;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH;
-import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
@@ -275,7 +274,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getAsyncExecPollInterval() {
+  public int getAsyncExecPollInterval() throws DatabricksValidationException {
     return ValidationUtil.validateAndParsePositiveInteger(
         getParameter(DatabricksJdbcUrlParams.POLL_INTERVAL),
         DatabricksJdbcUrlParams.POLL_INTERVAL.getParamName());
@@ -407,14 +406,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getLogFileSize() {
+  public int getLogFileSize() throws DatabricksValidationException {
     return ValidationUtil.validateAndParsePositiveInteger(
         getParameter(DatabricksJdbcUrlParams.LOG_FILE_SIZE),
         DatabricksJdbcUrlParams.LOG_FILE_SIZE.getParamName());
   }
 
   @Override
-  public int getLogFileCount() {
+  public int getLogFileCount() throws DatabricksValidationException {
     return ValidationUtil.validateAndParsePositiveInteger(
         getParameter(DatabricksJdbcUrlParams.LOG_FILE_COUNT),
         DatabricksJdbcUrlParams.LOG_FILE_COUNT.getParamName());
@@ -482,7 +481,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getCloudFetchThreadPoolSize() {
+  public int getCloudFetchThreadPoolSize() throws DatabricksValidationException {
     return ValidationUtil.validateAndParsePositiveInteger(
         getParameter(DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE),
         DatabricksJdbcUrlParams.CLOUD_FETCH_THREAD_POOL_SIZE.getParamName());
@@ -841,7 +840,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getMaxBatchSize() {
+  public int getMaxBatchSize() throws DatabricksValidationException {
     return ValidationUtil.validateAndParsePositiveInteger(
         getParameter(DatabricksJdbcUrlParams.MAX_BATCH_SIZE),
         DatabricksJdbcUrlParams.MAX_BATCH_SIZE.getParamName());
@@ -853,14 +852,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getTelemetryBatchSize() {
+  public int getTelemetryBatchSize() throws DatabricksValidationException {
     return ValidationUtil.validateAndParsePositiveInteger(
         getParameter(DatabricksJdbcUrlParams.TELEMETRY_BATCH_SIZE),
         DatabricksJdbcUrlParams.TELEMETRY_BATCH_SIZE.getParamName());
   }
 
   @Override
-  public int getBatchInsertSize() {
+  public int getBatchInsertSize() throws DatabricksValidationException {
     return ValidationUtil.validateAndParsePositiveInteger(
         getParameter(DatabricksJdbcUrlParams.BATCH_INSERT_SIZE),
         DatabricksJdbcUrlParams.BATCH_INSERT_SIZE.getParamName());
@@ -942,7 +941,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getHttpConnectionPoolSize() {
+  public int getHttpConnectionPoolSize() throws DatabricksValidationException {
     return ValidationUtil.validateAndParsePositiveInteger(
         getParameter(DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE),
         DatabricksJdbcUrlParams.HTTP_CONNECTION_POOL_SIZE.getParamName());
@@ -987,7 +986,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getRowsFetchedPerBlock() {
+  public int getRowsFetchedPerBlock() throws DatabricksValidationException {
     return ValidationUtil.validateAndParsePositiveInteger(
         getParameter(DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK),
         DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK.getParamName());

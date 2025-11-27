@@ -383,7 +383,8 @@ class DatabricksConnectionContextTest {
 
   @ParameterizedTest
   @MethodSource("rowsFetchedPerBlockTestCases")
-  public void testRowsFetchedPerBlock(String value, Integer expectedResult, Class<? extends Exception> expectedException)
+  public void testRowsFetchedPerBlock(
+      String value, Integer expectedResult, Class<? extends Exception> expectedException)
       throws DatabricksSQLException {
     Properties testProperties = new Properties();
     testProperties.setProperty("password", "passwd");
