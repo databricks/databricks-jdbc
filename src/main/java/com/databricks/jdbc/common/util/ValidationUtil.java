@@ -50,6 +50,29 @@ public class ValidationUtil {
     }
   }
 
+  /**
+   * Parses a string to an integer and validates that it is positive (greater than 0).
+   *
+   * @param value the string value to parse
+   * @param fieldName the name of the field being validated
+   * @return the parsed positive integer
+   * @throws DatabricksSQLException if the value cannot be parsed or is not positive
+   */
+  public static int validateAndParsePositiveInteger(String value, String fieldName)
+      throws DatabricksSQLException {
+    try {
+      int parsedValue = Integer.parseInt(value);
+      checkIfPositive(parsedValue, fieldName);
+      return parsedValue;
+    } catch (NumberFormatException e) {
+      String errorMessage =
+          String.format(
+              "Invalid value for %s: '%s'. Value must be a valid positive integer.", fieldName, value);
+      LOGGER.error(errorMessage);
+      throw new DatabricksValidationException(errorMessage);
+    }
+  }
+
   public static void throwErrorIfNull(Map<String, String> fields, String context)
       throws DatabricksSQLException {
     for (Map.Entry<String, String> field : fields.entrySet()) {
