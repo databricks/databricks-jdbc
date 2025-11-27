@@ -175,6 +175,6 @@ public class TelemetryClientFactory {
   }
 
   private static String keyOf(IDatabricksConnectionContext context) {
-    return context.getHostForOAuth();
+    return context.getHost();
   }
 }
