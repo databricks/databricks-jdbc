@@ -16,7 +16,6 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Optional;
-import java.util.Set;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -57,23 +56,10 @@ public class DatabricksTypeUtil {
   public static final String GEOMETRY = "GEOMETRY";
   public static final String GEOGRAPHY = "GEOGRAPHY";
   public static final String INTERVAL = "INTERVAL";
-  public static final String INTERVAL_SECOND = "INTERVAL SECOND";
-  public static final String INTERVAL_MINUTE = "INTERVAL MINUTE";
-  public static final String INTERVAL_HOUR = "INTERVAL HOUR";
-  public static final String INTERVAL_DAY = "INTERVAL DAY";
-  public static final String INTERVAL_MONTH = "INTERVAL MONTH";
-  public static final String INTERVAL_YEAR = "INTERVAL YEAR";
-  public static final String INTERVAL_YEAR_TO_MONTH = "INTERVAL YEAR TO MONTH";
-  public static final String INTERVAL_DAY_TO_HOUR = "INTERVAL DAY TO HOUR";
-  public static final String INTERVAL_DAY_TO_MINUTE = "INTERVAL DAY TO MINUTE";
-  public static final String INTERVAL_DAY_TO_SECOND = "INTERVAL DAY TO SECOND";
-  public static final String INTERVAL_HOUR_TO_MINUTE = "INTERVAL HOUR TO MINUTE";
-  public static final String INTERVAL_HOUR_TO_SECOND = "INTERVAL HOUR TO SECOND";
-  public static final String INTERVAL_MINUTE_TO_SECOND = "INTERVAL MINUTE TO SECOND";
   public static final String GEOMETRY_CLASS_NAME = "com.databricks.jdbc.api.IGeometry";
   public static final String GEOGRAPHY_CLASS_NAME = "com.databricks.jdbc.api.IGeography";
   public static final String MEASURE = "measure";
-  public static final ArrayList<ColumnInfoTypeName> SIGNED_TYPES =
+  private static final ArrayList<ColumnInfoTypeName> SIGNED_TYPES =
       new ArrayList<>(
           Arrays.asList(
               ColumnInfoTypeName.DECIMAL,
@@ -86,22 +72,6 @@ public class DatabricksTypeUtil {
               ColumnInfoTypeName.TINYINT,
               ColumnInfoTypeName.BYTE,
               ColumnInfoTypeName.BIGINT));
-  public static final Set<String> INTERVAL_TYPES =
-      Set.of(
-          INTERVAL,
-          INTERVAL_SECOND,
-          INTERVAL_MINUTE,
-          INTERVAL_HOUR,
-          INTERVAL_DAY,
-          INTERVAL_MONTH,
-          INTERVAL_YEAR,
-          INTERVAL_YEAR_TO_MONTH,
-          INTERVAL_DAY_TO_HOUR,
-          INTERVAL_DAY_TO_MINUTE,
-          INTERVAL_DAY_TO_SECOND,
-          INTERVAL_HOUR_TO_MINUTE,
-          INTERVAL_HOUR_TO_SECOND,
-          INTERVAL_MINUTE_TO_SECOND);
 
   // only used for PreparedStatement
   public static ColumnInfoTypeName getColumnInfoType(String typeName) {
@@ -145,19 +115,6 @@ public class DatabricksTypeUtil {
       case DatabricksTypeUtil.MAP:
         return ColumnInfoTypeName.MAP;
       case DatabricksTypeUtil.INTERVAL:
-      case DatabricksTypeUtil.INTERVAL_SECOND:
-      case DatabricksTypeUtil.INTERVAL_MINUTE:
-      case DatabricksTypeUtil.INTERVAL_HOUR:
-      case DatabricksTypeUtil.INTERVAL_DAY:
-      case DatabricksTypeUtil.INTERVAL_MONTH:
-      case DatabricksTypeUtil.INTERVAL_YEAR:
-      case DatabricksTypeUtil.INTERVAL_YEAR_TO_MONTH:
-      case DatabricksTypeUtil.INTERVAL_DAY_TO_HOUR:
-      case DatabricksTypeUtil.INTERVAL_DAY_TO_MINUTE:
-      case DatabricksTypeUtil.INTERVAL_DAY_TO_SECOND:
-      case DatabricksTypeUtil.INTERVAL_HOUR_TO_MINUTE:
-      case DatabricksTypeUtil.INTERVAL_HOUR_TO_SECOND:
-      case DatabricksTypeUtil.INTERVAL_MINUTE_TO_SECOND:
         return ColumnInfoTypeName.INTERVAL;
     }
     return ColumnInfoTypeName.USER_DEFINED_TYPE;
