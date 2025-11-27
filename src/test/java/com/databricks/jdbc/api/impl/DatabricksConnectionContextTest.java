@@ -383,8 +383,7 @@ class DatabricksConnectionContextTest {
 
   @ParameterizedTest
   @MethodSource("rowsFetchedPerBlockTestCases")
-  public void testRowsFetchedPerBlock(
-      String value, Integer expectedResult, Class<? extends Exception> expectedException)
+  public void testRowsFetchedPerBlock(String value, Integer expectedResult)
       throws DatabricksSQLException {
     Properties testProperties = new Properties();
     testProperties.setProperty("password", "passwd");
@@ -393,20 +392,15 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, testProperties);
-
-    if (expectedException != null) {
-      assertThrows(expectedException, connectionContext::getRowsFetchedPerBlock);
-    } else {
       assertEquals(expectedResult, connectionContext.getRowsFetchedPerBlock());
-    }
   }
 
   private static Stream<Arguments> rowsFetchedPerBlockTestCases() {
     return Stream.of(
-        Arguments.of("500000", 500000, null), // Valid positive value
-        Arguments.of("1", 1, null), // Valid minimum positive value
-        Arguments.of("0", null, DatabricksValidationException.class), // Zero should throw
-        Arguments.of("-100", null, DatabricksValidationException.class)); // Negative should throw
+        Arguments.of("500000", 500000), // Valid positive value
+        Arguments.of("1", 1), // Valid minimum positive value
+        Arguments.of("0", 2000000), // Zero returns default
+        Arguments.of("-100", 2000000)); // Negative returns default
   }
 
   @Test

@@ -267,7 +267,7 @@ public interface IDatabricksConnectionContext {
   boolean isTelemetryEnabled();
 
   /** Returns the batch size for Telemetry logs processing */
-  int getTelemetryBatchSize() throws DatabricksValidationException;
+  int getTelemetryBatchSize();
 
   /** Returns the maximum number of rows per batch insert execution */
   int getBatchInsertSize() throws DatabricksValidationException;
@@ -319,7 +319,7 @@ public interface IDatabricksConnectionContext {
   String getAzureWorkspaceResourceId();
 
   /** Returns maximum number of rows that a query returns at a time. */
-  int getRowsFetchedPerBlock() throws DatabricksValidationException;
+  int getRowsFetchedPerBlock();
 
   /** Returns the socket timeout in seconds for HTTP connections. */
   int getSocketTimeout();

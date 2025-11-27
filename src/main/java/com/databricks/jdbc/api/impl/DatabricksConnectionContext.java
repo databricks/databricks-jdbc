@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_SCOPE;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
@@ -852,10 +853,15 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getTelemetryBatchSize() throws DatabricksValidationException {
-    return ValidationUtil.validateAndParsePositiveInteger(
-        getParameter(DatabricksJdbcUrlParams.TELEMETRY_BATCH_SIZE),
-        DatabricksJdbcUrlParams.TELEMETRY_BATCH_SIZE.getParamName());
+  public int getTelemetryBatchSize() {
+    try {
+      return ValidationUtil.validateAndParsePositiveInteger(
+          getParameter(DatabricksJdbcUrlParams.TELEMETRY_BATCH_SIZE),
+          DatabricksJdbcUrlParams.TELEMETRY_BATCH_SIZE.getParamName());
+    } catch (DatabricksValidationException e) {
+      // We don't want to throw any errors related to telemetry.
+      return Integer.parseInt(DatabricksJdbcUrlParams.TELEMETRY_BATCH_SIZE.getDefaultValue());
+    }
   }
 
   @Override
@@ -986,10 +992,15 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public int getRowsFetchedPerBlock() throws DatabricksValidationException {
-    return ValidationUtil.validateAndParsePositiveInteger(
-        getParameter(DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK),
-        DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK.getParamName());
+  public int getRowsFetchedPerBlock() {
+    try {
+      return ValidationUtil.validateAndParsePositiveInteger(
+          getParameter(DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK),
+          DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK.getParamName());
+    } catch (DatabricksValidationException exception) {
+      LOGGER.warn("Invalid value for RowsFetchedPerBlock, using default value");
+    }
+    return DEFAULT_ROW_LIMIT_PER_BLOCK;
   }
 
   /** {@inheritDoc} */
