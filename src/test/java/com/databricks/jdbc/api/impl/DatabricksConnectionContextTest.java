@@ -17,7 +17,6 @@ import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactor
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.collect.ImmutableMap;
@@ -392,7 +391,7 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, testProperties);
-      assertEquals(expectedResult, connectionContext.getRowsFetchedPerBlock());
+    assertEquals(expectedResult, connectionContext.getRowsFetchedPerBlock());
   }
 
   private static Stream<Arguments> rowsFetchedPerBlockTestCases() {
