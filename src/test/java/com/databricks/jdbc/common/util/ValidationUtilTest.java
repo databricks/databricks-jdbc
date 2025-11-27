@@ -29,6 +29,26 @@ class ValidationUtilTest {
         DatabricksSQLException.class, () -> ValidationUtil.checkIfNonNegative(-10, "testField"));
   }
 
+  @ParameterizedTest
+  @MethodSource("positiveIntegerTestCases")
+  void testCheckIfPositiveInteger(int value, boolean shouldPass) {
+    if (shouldPass) {
+      assertDoesNotThrow(() -> ValidationUtil.checkIfPositive(value, "testField"));
+    } else {
+      assertThrows(
+          DatabricksSQLException.class, () -> ValidationUtil.checkIfPositive(value, "testField"));
+    }
+  }
+
+  private static Stream<Arguments> positiveIntegerTestCases() {
+    return Stream.of(
+        Arguments.of(10, true), // Positive value should pass
+        Arguments.of(1, true), // Positive value should pass
+        Arguments.of(0, false), // Zero should fail
+        Arguments.of(-10, false), // Negative value should fail
+        Arguments.of(-1, false)); // Negative value should fail
+  }
+
   @Test
   void testSuccessfulResponseCheck() {
     when(response.getStatusLine()).thenReturn(statusLine);

@@ -31,6 +31,25 @@ public class ValidationUtil {
     }
   }
 
+  /**
+   * Validates that a number is positive (greater than 0).
+   *
+   * @param number the number to validate
+   * @param fieldName the name of the field being validated
+   * @throws DatabricksSQLException if the number is not positive
+   */
+  public static <T extends Number> void checkIfPositive(T number, String fieldName)
+      throws DatabricksSQLException {
+    if (number.longValue() <= 0) {
+      String errorMessage =
+          String.format(
+              "Invalid value for %s: %d. Value must be a positive integer (> 0).",
+              fieldName, number.longValue());
+      LOGGER.error(errorMessage);
+      throw new DatabricksValidationException(errorMessage);
+    }
+  }
+
   public static void throwErrorIfNull(Map<String, String> fields, String context)
       throws DatabricksSQLException {
     for (Map.Entry<String, String> field : fields.entrySet()) {

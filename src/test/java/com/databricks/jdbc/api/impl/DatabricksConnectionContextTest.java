@@ -17,6 +17,7 @@ import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactor
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.collect.ImmutableMap;
@@ -25,10 +26,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class DatabricksConnectionContextTest {
 
@@ -369,30 +373,39 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testRowsFetchedPerBlock() throws DatabricksSQLException {
+  public void testRowsFetchedPerBlockDefault() throws DatabricksSQLException {
     // Test with default value
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
     assertEquals(100000, connectionContext.getRowsFetchedPerBlock());
+  }
 
-    // Test with custom value
-    Properties properties = new Properties();
-    properties.setProperty("password", "passwd");
-    properties.setProperty("RowsFetchedPerBlock", "500000");
+  @ParameterizedTest
+  @MethodSource("rowsFetchedPerBlockTestCases")
+  public void testRowsFetchedPerBlock(String value, Integer expectedResult, Class<? extends Exception> expectedException)
+      throws DatabricksSQLException {
+    Properties testProperties = new Properties();
+    testProperties.setProperty("password", "passwd");
+    testProperties.setProperty("RowsFetchedPerBlock", value);
 
-    connectionContext =
+    DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
-    assertEquals(500000, connectionContext.getRowsFetchedPerBlock());
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, testProperties);
 
-    // Test with invalid value (should fall back to default)
-    properties.setProperty("RowsFetchedPerBlock", "invalid");
+    if (expectedException != null) {
+      assertThrows(expectedException, connectionContext::getRowsFetchedPerBlock);
+    } else {
+      assertEquals(expectedResult, connectionContext.getRowsFetchedPerBlock());
+    }
+  }
 
-    connectionContext =
-        (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
-    assertEquals(2000000, connectionContext.getRowsFetchedPerBlock());
+  private static Stream<Arguments> rowsFetchedPerBlockTestCases() {
+    return Stream.of(
+        Arguments.of("500000", 500000, null), // Valid positive value
+        Arguments.of("1", 1, null), // Valid minimum positive value
+        Arguments.of("0", null, DatabricksValidationException.class), // Zero should throw
+        Arguments.of("-100", null, DatabricksValidationException.class)); // Negative should throw
   }
 
   @Test
