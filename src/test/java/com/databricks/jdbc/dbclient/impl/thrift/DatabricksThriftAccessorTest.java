@@ -916,7 +916,8 @@ public class DatabricksThriftAccessorTest {
     verify(thriftClient).FetchResults(expectedFetchRequest);
   }
 
-  private TFetchResultsReq getFetchResultsRequest(boolean includeMetadata) {
+  private TFetchResultsReq getFetchResultsRequest(boolean includeMetadata)
+      throws DatabricksValidationException {
     TFetchResultsReq request =
         new TFetchResultsReq()
             .setOperationHandle(tOperationHandle)
