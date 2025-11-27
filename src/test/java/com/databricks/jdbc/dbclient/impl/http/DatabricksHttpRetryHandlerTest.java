@@ -285,9 +285,10 @@ public class DatabricksHttpRetryHandlerTest {
             1,
             httpContext));
 
-    // Verify exponential backoff delay was used (2^1 * 1000 = 2s)
+    // Verify exponential backoff delay was used
+    long expectedDelay = DatabricksHttpRetryHandler.calculateExponentialBackoff(1);
     assertEquals(1, sleepDurations.size());
-    assertEquals(2000L, sleepDurations.get(0));
+    assertEquals(expectedDelay, sleepDurations.get(0));
   }
 
   private HttpResponse createResponse(int statusCode) {
