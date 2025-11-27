@@ -1,18 +1,33 @@
 name: Release Thin JAR
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_run:
+    workflows: ["Release"]
+    types:
+      - completed
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v3.0.5)'
+        required: true
+        type: string
 
 jobs:
   publish-thin:
+    # Only run if main JAR workflow succeeded or manual trigger
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # If manual trigger: use input tag, else use the SHA from the completed workflow run
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.event.workflow_run.head_sha }}
+          fetch-tags: true
+          fetch-depth: 0
 
       - name: Set up Java for publishing to Maven Central Repository
         uses: actions/setup-java@v4
@@ -126,9 +141,38 @@ jobs:
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
 
+      - name: Get tag name from commit
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # For manual trigger, use the input tag directly
+            TAG="${{ inputs.tag }}"
+          else
+            # For workflow_run, find the tag pointing to the current commit
+            TAG=$(git tag --points-at HEAD | grep "^v" | head -1)
+            if [ -z "$TAG" ]; then
+              echo "Error: No tag found for current commit"
+              exit 1
+            fi
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Found tag: $TAG"
+
+      - name: Verify main release exists
+        if: github.event_name == 'workflow_run'
+        run: |
+          echo "Verifying main release exists for ${{ steps.get_tag.outputs.tag }}"
+          gh release view "${{ steps.get_tag.outputs.tag }}" || {
+            echo "Error: Main release not found for tag ${{ steps.get_tag.outputs.tag }}"
+            exit 1
+          }
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Upload Thin JAR to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ steps.get_tag.outputs.tag }}
           files: |
             target/*-thin.jar
 
