@@ -29,7 +29,6 @@ public class DatabricksHttpRetryHandler
   private static final String TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY =
       "tempUnavailableAccumulatedTime";
   private static final String RATE_LIMIT_ACCUMULATED_TIME_KEY = "rateLimitAccumulatedTime";
-  static final String API_RETRIABLE_CODES_KEY = "apiRetriableCodes";
   static final String RETRY_AFTER_HEADER = "Retry-After";
   private static final int DEFAULT_BACKOFF_FACTOR = 2; // Exponential factor
   private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
@@ -137,12 +136,8 @@ public class DatabricksHttpRetryHandler
     // check if retry interval is valid for 503 and 429
     int retryInterval = (int) context.getAttribute(RETRY_INTERVAL_KEY);
 
-    // Get API retriable codes from context attribute or connection context
-    @SuppressWarnings("unchecked")
-    Set<Integer> apiRetriableCodes = (Set<Integer>) context.getAttribute(API_RETRIABLE_CODES_KEY);
-    if (apiRetriableCodes == null) {
-      apiRetriableCodes = connectionContext.getApiRetriableCodes();
-    }
+    // Get API retriable codes from connection context
+    Set<Integer> apiRetriableCodes = connectionContext.getApiRetriableCodes();
     boolean isInCustomRetriableCodes =
         apiRetriableCodes != null && apiRetriableCodes.contains(statusCode);
 

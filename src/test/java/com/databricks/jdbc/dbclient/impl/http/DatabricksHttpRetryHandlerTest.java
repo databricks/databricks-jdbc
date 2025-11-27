@@ -32,7 +32,6 @@ public class DatabricksHttpRetryHandlerTest {
   private static final String TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY =
       "tempUnavailableAccumulatedTime";
   private static final String RATE_LIMIT_ACCUMULATED_TIME_KEY = "rateLimitAccumulatedTime";
-  private static final String API_RETRIABLE_CODES_KEY = "apiRetriableCodes";
   private static final String RETRY_AFTER_HEADER = "Retry-After";
 
   @Mock private IDatabricksConnectionContext mockConnectionContext;
@@ -269,10 +268,10 @@ public class DatabricksHttpRetryHandlerTest {
   void testApiRetriableCodesWithoutRetryAfterHeader() throws IOException {
     when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
     when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(30);
+    when(mockConnectionContext.getApiRetriableCodes()).thenReturn(java.util.Set.of(503));
 
     HttpRequest request = createRequest("GET", "/api/data");
     httpContext.setAttribute(HttpCoreContext.HTTP_REQUEST, request);
-    httpContext.setAttribute(API_RETRIABLE_CODES_KEY, java.util.Set.of(503));
 
     // 503 WITHOUT Retry-After header - should use exponential backoff
     HttpResponse response = createResponse(HttpStatus.SC_SERVICE_UNAVAILABLE);

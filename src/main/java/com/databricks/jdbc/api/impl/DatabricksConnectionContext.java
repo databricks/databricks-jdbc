@@ -668,7 +668,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public Set<Integer> getApiRetriableCodes() {
     String codes = getParameter(DatabricksJdbcUrlParams.API_RETRIABLE_CODES);
-    if (codes == null || codes.trim().isEmpty()) {
+    if (codes.trim().isEmpty()) {
       return Collections.emptySet();
     }
 

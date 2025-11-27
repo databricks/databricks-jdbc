@@ -1196,4 +1196,13 @@ class DatabricksConnectionContextTest {
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
     assertFalse(ctx.isTokenFederationEnabled());
   }
+
+  @Test
+  public void testGetApiRetriableCodes() throws DatabricksSQLException {
+    String url = TestConstants.VALID_URL_1 + ";ApiRetriableCodes=429,503";
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, properties);
+    assertTrue(ctx.getApiRetriableCodes().contains(429));
+    assertTrue(ctx.getApiRetriableCodes().contains(503));
+  }
 }
