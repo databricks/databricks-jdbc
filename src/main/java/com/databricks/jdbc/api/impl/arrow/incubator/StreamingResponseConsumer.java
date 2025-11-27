@@ -112,7 +112,10 @@ class StreamingResponseConsumer extends AbstractBinResponseConsumer<byte[]> {
     double speedMBps = (chunk.bytesDownloaded / 1024.0 / 1024.0) / (durationMs / 1000.0);
 
     LOGGER.debug(
-        "Download stats for chunk %s: Size: %s MB, Duration: %s ms, Speed: %s MB/s",
-        chunk.getChunkIndex(), chunk.bytesDownloaded / 1024.0 / 1024.0, durationMs, speedMBps);
+        "Download stats for chunk {}: Size: {} MB, Duration: {} ms, Speed: {} MB/s",
+        chunk.getChunkIndex(),
+        chunk.bytesDownloaded / 1024.0 / 1024.0,
+        durationMs,
+        speedMBps);
   }
 }

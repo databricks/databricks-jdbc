@@ -546,7 +546,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
   @Override
   public void setStatementId(StatementId statementId) {
-    LOGGER.debug("void setStatementId {%s}", statementId);
+    LOGGER.debug("void setStatementId(Statement statementId = {})", statementId);
     this.statementId = statementId;
   }
 
