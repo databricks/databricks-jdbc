@@ -6,6 +6,7 @@ import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.utils.Cloud;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public interface IDatabricksConnectionContext {
 
@@ -171,7 +172,7 @@ public interface IDatabricksConnectionContext {
 
   int getRateLimitRetryTimeout();
 
-  java.util.Set<Integer> getApiRetriableCodes();
+  Set<Integer> getApiRetriableCodes();
 
   int getIdleHttpConnectionExpiry();
 

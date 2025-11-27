@@ -28,6 +28,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.util.*;
+import java.util.Collections;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
@@ -665,13 +666,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public java.util.Set<Integer> getApiRetriableCodes() {
+  public Set<Integer> getApiRetriableCodes() {
     String codes = getParameter(DatabricksJdbcUrlParams.API_RETRIABLE_CODES);
     if (codes == null || codes.trim().isEmpty()) {
-      return java.util.Collections.emptySet();
+      return Collections.emptySet();
     }
 
-    java.util.Set<Integer> retriableCodes = new java.util.HashSet<>();
+    Set<Integer> retriableCodes = new HashSet<>();
     for (String code : codes.split(",")) {
       try {
         retriableCodes.add(Integer.parseInt(code.trim()));

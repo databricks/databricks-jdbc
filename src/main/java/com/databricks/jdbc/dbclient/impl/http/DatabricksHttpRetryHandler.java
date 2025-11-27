@@ -9,6 +9,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Set;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpResponseInterceptor;
 import org.apache.http.HttpStatus;
@@ -138,8 +139,7 @@ public class DatabricksHttpRetryHandler
 
     // Get API retriable codes from context attribute or connection context
     @SuppressWarnings("unchecked")
-    java.util.Set<Integer> apiRetriableCodes =
-        (java.util.Set<Integer>) context.getAttribute(API_RETRIABLE_CODES_KEY);
+    Set<Integer> apiRetriableCodes = (Set<Integer>) context.getAttribute(API_RETRIABLE_CODES_KEY);
     if (apiRetriableCodes == null) {
       apiRetriableCodes = connectionContext.getApiRetriableCodes();
     }
