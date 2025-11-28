@@ -1,5 +1,6 @@
 package com.databricks.jdbc.telemetry;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_TAGS;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -223,7 +224,8 @@ public class TelemetryHelper {
           .setAsyncPollIntervalMillis(connectionContext.getAsyncExecPollInterval())
           .setEnableTokenCache(connectionContext.isTokenCacheEnabled())
           .setHttpPath(connectionContext.getHttpPath())
-          .setEnableMetricViewMetadata(connectionContext.getEnableMetricViewMetadata());
+          .setEnableMetricViewMetadata(connectionContext.getEnableMetricViewMetadata())
+          .setQueryTags(connectionContext.getSessionConfigs().get(QUERY_TAGS));
     } catch (DatabricksValidationException e) {
       // If configuration validation fails, return null to skip telemetry export
       // This prevents invalid configuration from breaking telemetry
