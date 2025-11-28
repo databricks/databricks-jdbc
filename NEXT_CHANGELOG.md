@@ -10,5 +10,7 @@
 
 ### Fixed
 
+- Fix driver crash when using `INTERVAL` types.
+
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.*

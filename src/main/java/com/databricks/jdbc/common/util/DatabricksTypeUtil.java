@@ -53,9 +53,9 @@ public class DatabricksTypeUtil {
   public static final String STRUCT = "STRUCT";
   public static final String VARIANT = "VARIANT";
   public static final String CHAR = "CHAR";
-  public static final String INTERVAL = "INTERVAL";
   public static final String GEOMETRY = "GEOMETRY";
   public static final String GEOGRAPHY = "GEOGRAPHY";
+  public static final String INTERVAL = "INTERVAL";
   public static final String GEOMETRY_CLASS_NAME = "com.databricks.jdbc.api.IGeometry";
   public static final String GEOGRAPHY_CLASS_NAME = "com.databricks.jdbc.api.IGeography";
   public static final String MEASURE = "measure";
@@ -114,6 +114,8 @@ public class DatabricksTypeUtil {
         return ColumnInfoTypeName.NULL;
       case DatabricksTypeUtil.MAP:
         return ColumnInfoTypeName.MAP;
+      case DatabricksTypeUtil.INTERVAL:
+        return ColumnInfoTypeName.INTERVAL;
     }
     return ColumnInfoTypeName.USER_DEFINED_TYPE;
   }

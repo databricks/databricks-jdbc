@@ -284,6 +284,7 @@ class DatabricksTypeUtilTest {
     "NULL, NULL",
     "MAP, MAP",
     "CHAR, STRING",
+    "INTERVAL, INTERVAL",
     "UNKNOWN, USER_DEFINED_TYPE"
   })
   public void testGetColumnInfoType(String inputTypeName, String expectedTypeName) {
