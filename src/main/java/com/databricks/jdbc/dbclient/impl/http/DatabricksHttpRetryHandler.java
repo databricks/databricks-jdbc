@@ -29,6 +29,7 @@ public class DatabricksHttpRetryHandler
   private static final String TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY =
       "tempUnavailableAccumulatedTime";
   private static final String RATE_LIMIT_ACCUMULATED_TIME_KEY = "rateLimitAccumulatedTime";
+  private static final String API_CODES_ACCUMULATED_TIME_KEY = "apiCodesAccumulatedTime";
   static final String RETRY_AFTER_HEADER = "Retry-After";
   private static final int DEFAULT_BACKOFF_FACTOR = 2; // Exponential factor
   private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
@@ -136,14 +137,9 @@ public class DatabricksHttpRetryHandler
     // check if retry interval is valid for 503 and 429
     int retryInterval = (int) context.getAttribute(RETRY_INTERVAL_KEY);
 
-    // Get API retriable codes from connection context
     Set<Integer> apiRetriableCodes = connectionContext.getApiRetriableCodes();
     boolean isInCustomRetriableCodes = apiRetriableCodes.contains(statusCode);
-
-    if ((statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
-            || statusCode == HttpStatus.SC_TOO_MANY_REQUESTS)
-        && retryInterval == -1
-        && !isInCustomRetriableCodes) {
+    if (retryInterval == -1 && !isInCustomRetriableCodes) {
       // This case arises when the server does not send the retryAfter header
       // and the status code is not in the custom retriable codes list
       LOGGER.warn(
@@ -162,6 +158,7 @@ public class DatabricksHttpRetryHandler
     long tempUnavailableAccumulatedTime =
         getAccumulatedTime(context, TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY);
     long rateLimitAccumulatedTime = getAccumulatedTime(context, RATE_LIMIT_ACCUMULATED_TIME_KEY);
+    long apiCodesAccumulatedTime = getAccumulatedTime(context, API_CODES_ACCUMULATED_TIME_KEY);
 
     // check if retry timeout has been hit for error code 503
     if (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
@@ -187,6 +184,19 @@ public class DatabricksHttpRetryHandler
       return false;
     }
 
+    // check if retry timeout has been hit for custom API retriable codes
+    if (apiRetriableCodes.contains(statusCode)
+        && statusCode != HttpStatus.SC_SERVICE_UNAVAILABLE
+        && statusCode != HttpStatus.SC_TOO_MANY_REQUESTS
+        && apiCodesAccumulatedTime + retryInterval > connectionContext.getApiCodesRetryTimeout()) {
+      LOGGER.warn(
+          "ApiCodesRetry timeout "
+              + connectionContext.getApiCodesRetryTimeout()
+              + " has been hit for the error: "
+              + exception.getMessage());
+      return false;
+    }
+
     // check if request method is retryable
     boolean isRequestMethodRetryable =
         isRequestMethodRetryable(
@@ -203,6 +213,8 @@ public class DatabricksHttpRetryHandler
     } else if (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS) {
       context.setAttribute(
           RATE_LIMIT_ACCUMULATED_TIME_KEY, rateLimitAccumulatedTime + retryInterval);
+    } else if (apiRetriableCodes.contains(statusCode)) {
+      context.setAttribute(API_CODES_ACCUMULATED_TIME_KEY, apiCodesAccumulatedTime + retryInterval);
     }
 
     // calculate the delay and sleep for that duration
@@ -250,6 +262,9 @@ public class DatabricksHttpRetryHandler
     if (httpContext.getAttribute(RATE_LIMIT_ACCUMULATED_TIME_KEY) == null) {
       httpContext.setAttribute(RATE_LIMIT_ACCUMULATED_TIME_KEY, 0L);
     }
+    if (httpContext.getAttribute(API_CODES_ACCUMULATED_TIME_KEY) == null) {
+      httpContext.setAttribute(API_CODES_ACCUMULATED_TIME_KEY, 0L);
+    }
   }
 
   private static long getAccumulatedTime(HttpContext context, String key) {
@@ -269,6 +284,11 @@ public class DatabricksHttpRetryHandler
 
   /** Check if the request is retryable based on the status code and any connection preferences. */
   private boolean isStatusCodeRetryable(int statusCode) {
+    Set<Integer> apiRetriableCodes = connectionContext.getApiRetriableCodes();
+    if (apiRetriableCodes.contains(statusCode)) {
+      return true;
+    }
+
     switch (statusCode) {
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
         return connectionContext.shouldRetryTemporarilyUnavailableError();

@@ -684,6 +684,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public int getApiCodesRetryTimeout() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.API_CODES_RETRY_TIMEOUT));
+  }
+
+  @Override
   public int getIdleHttpConnectionExpiry() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.IDLE_HTTP_CONNECTION_EXPIRY));
   }

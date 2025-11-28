@@ -266,21 +266,21 @@ public class DatabricksHttpRetryHandlerTest {
 
   @Test
   void testApiRetriableCodesWithoutRetryAfterHeader() throws IOException {
-    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
-    when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(30);
-    when(mockConnectionContext.getApiRetriableCodes()).thenReturn(java.util.Set.of(503));
+    when(mockConnectionContext.getApiRetriableCodes())
+        .thenReturn(java.util.Set.of(HttpStatus.SC_INTERNAL_SERVER_ERROR));
+    when(mockConnectionContext.getApiCodesRetryTimeout()).thenReturn(120);
 
     HttpRequest request = createRequest("GET", "/api/data");
     httpContext.setAttribute(HttpCoreContext.HTTP_REQUEST, request);
 
     // 503 WITHOUT Retry-After header - should use exponential backoff
-    HttpResponse response = createResponse(HttpStatus.SC_SERVICE_UNAVAILABLE);
+    HttpResponse response = createResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
     assertThrows(
         DatabricksRetryHandlerException.class, () -> retryHandler.process(response, httpContext));
 
     assertTrue(
         retryHandler.retryRequest(
-            new DatabricksRetryHandlerException("Test", HttpStatus.SC_SERVICE_UNAVAILABLE),
+            new DatabricksRetryHandlerException("Test", HttpStatus.SC_INTERNAL_SERVER_ERROR),
             1,
             httpContext));
 

@@ -174,6 +174,8 @@ public interface IDatabricksConnectionContext {
 
   Set<Integer> getApiRetriableCodes();
 
+  int getApiCodesRetryTimeout();
+
   int getIdleHttpConnectionExpiry();
 
   boolean supportManyParameters();

@@ -191,7 +191,9 @@ public enum DatabricksJdbcUrlParams {
   API_RETRIABLE_CODES(
       "ApiRetriableCodes",
       "Comma-separated list of HTTP status codes that should be retried even without Retry-After header.",
-      "");
+      ""),
+  API_CODES_RETRY_TIMEOUT(
+      "ApiCodesRetryTimeout", "Timeout for retrying API retriable codes", "120");
 
   private final String paramName;
   private final String defaultValue;
