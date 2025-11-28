@@ -93,6 +93,7 @@ public class TelemetryClientFactory {
                       new TelemetryClient(connectionContext, getTelemetryExecutorService()), 1);
                 } catch (Exception e) {
                   // Validation or other errors during client creation - fail silently
+                  LOGGER.trace("Skipping telemetry, client creation failed {}", e);
                   return null;
                 }
               }
