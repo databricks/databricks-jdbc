@@ -352,4 +352,12 @@ public class TelemetryHelperTest {
             "ClientInfoApp",
             "When URL params are not set but client info is provided"));
   }
+
+  @Test
+  void testGetDatabricksConfigSafely_IncludesEnableMetricViewMetadata() {
+    // Verify that EnableMetricViewMetadata is included in telemetry
+    when(connectionContext.getEnableMetricViewMetadata()).thenReturn(true);
+    assertDoesNotThrow(() -> TelemetryHelper.getDatabricksConfigSafely(connectionContext));
+    verify(connectionContext, atLeastOnce()).getEnableMetricViewMetadata();
+  }
 }
