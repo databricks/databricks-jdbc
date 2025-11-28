@@ -13,6 +13,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TelemetryClient implements ITelemetryClient {
+  private static final int MINIMUM_TELEMETRY_FLUSH_MILLISECONDS = 1000;
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TelemetryClient.class);
   private final IDatabricksConnectionContext context;
   private final DatabricksConfig databricksConfig;
@@ -66,7 +67,11 @@ public class TelemetryClient implements ITelemetryClient {
     this.executorService = executorService;
     this.scheduledExecutorService =
         Executors.newSingleThreadScheduledExecutor(createSchedulerThreadFactory());
-    this.flushIntervalMillis = context.getTelemetryFlushIntervalInMilliseconds();
+    this.flushIntervalMillis =
+        Math.max(
+            context.getTelemetryFlushIntervalInMilliseconds(),
+            MINIMUM_TELEMETRY_FLUSH_MILLISECONDS); // To avoid illegalArgument exception in any
+    // case;
     this.lastFlushedTime = System.currentTimeMillis();
     this.telemetryPushClient =
         TelemetryClientFactory.getTelemetryPushClient(
