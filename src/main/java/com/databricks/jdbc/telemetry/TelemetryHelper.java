@@ -1,6 +1,7 @@
 package com.databricks.jdbc.telemetry;
 
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
+import static com.databricks.jdbc.telemetry.TelemetryClientFactory.DEFAULT_HOST;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
@@ -61,11 +62,10 @@ public class TelemetryHelper {
     if (context == null || context.getTelemetryLogLevel().equals(TelemetryLogLevel.OFF)) {
       return false;
     }
-    if (context != null && context.forceEnableTelemetry()) {
+    if (context.forceEnableTelemetry()) {
       return true;
     }
-    return context != null
-        && context.isTelemetryEnabled()
+    return context.isTelemetryEnabled()
         && DatabricksDriverFeatureFlagsContextFactory.getInstance(context)
             .isFeatureEnabled(TELEMETRY_FEATURE_FLAG_NAME);
   }
@@ -376,5 +376,12 @@ public class TelemetryHelper {
 
     // Finally check system property
     return System.getProperty(APP_NAME_SYSTEM_PROPERTY);
+  }
+
+  public static String keyOf(IDatabricksConnectionContext context) {
+    if (context == null || context.getHost() == null) {
+      return DEFAULT_HOST;
+    }
+    return context.getHost();
   }
 }
