@@ -1,7 +1,6 @@
 package com.databricks.jdbc.telemetry;
 
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
-import static com.databricks.jdbc.telemetry.TelemetryClientFactory.DEFAULT_HOST;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
@@ -29,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TelemetryHelper {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TelemetryHelper.class);
+  public static final String DEFAULT_HOST = "unknown-host";
   // Cache to store unique DriverConnectionParameters for each connectionUuid
   private static final ConcurrentHashMap<String, DriverConnectionParameters>
       connectionParameterCache = new ConcurrentHashMap<>();
