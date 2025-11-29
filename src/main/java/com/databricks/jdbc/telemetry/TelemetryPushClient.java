@@ -6,6 +6,7 @@ import com.databricks.jdbc.common.util.HttpUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants;
+import com.databricks.jdbc.exception.DatabricksTelemetryException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.TelemetryRequest;
@@ -63,7 +64,12 @@ public class TelemetryPushClient implements ITelemetryPushClient {
       if (!HttpUtil.isSuccessfulHttpResponse(response)) {
         LOGGER.trace(
             "Failed to push telemetry logs with error response: {}", response.getStatusLine());
-        return;
+        if (connectionContext.isTelemetryCircuitBreakerEnabled()) {
+          throw new DatabricksTelemetryException(
+              "Telemetry push failed with response: " + response.getStatusLine());
+        } else {
+          return;
+        }
       }
       TelemetryResponse telResponse =
           objectMapper.readValue(
@@ -89,7 +95,7 @@ public class TelemetryPushClient implements ITelemetryPushClient {
           e.getMessage(),
           objectMapper.writeValueAsString(request));
       if (connectionContext.isTelemetryCircuitBreakerEnabled()) {
-        throw e; // Re-throw to allow circuit breaker to handle it
+        throw new DatabricksTelemetryException("Exception while pushing telemetry logs", e);
       }
     }
   }

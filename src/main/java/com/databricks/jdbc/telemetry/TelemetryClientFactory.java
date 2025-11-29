@@ -1,5 +1,6 @@
 package com.databricks.jdbc.telemetry;
 
+import static com.databricks.jdbc.telemetry.TelemetryHelper.DEFAULT_HOST;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.isTelemetryAllowedForConnection;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -19,7 +20,6 @@ public class TelemetryClientFactory {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(TelemetryClientFactory.class);
-  private static final String DEFAULT_HOST = "unknown-host";
 
   private static final TelemetryClientFactory INSTANCE = new TelemetryClientFactory();
 
@@ -60,7 +60,7 @@ public class TelemetryClientFactory {
     DatabricksConfig databricksConfig =
         TelemetryHelper.getDatabricksConfigSafely(connectionContext);
     if (databricksConfig != null) {
-      String key = keyOf(connectionContext);
+      String key = TelemetryHelper.keyOf(connectionContext);
       TelemetryClientHolder holder =
           telemetryClientHolders.compute(
               key,
@@ -82,7 +82,7 @@ public class TelemetryClientFactory {
       return holder != null ? holder.client : NoopTelemetryClient.getInstance();
     }
     // Use no-auth telemetry client if connection creation failed.
-    String key = keyOf(connectionContext);
+    String key = TelemetryHelper.keyOf(connectionContext);
     TelemetryClientHolder holder =
         noauthTelemetryClientHolders.compute(
             key,
@@ -104,7 +104,7 @@ public class TelemetryClientFactory {
   }
 
   public void closeTelemetryClient(IDatabricksConnectionContext connectionContext) {
-    String key = keyOf(connectionContext);
+    String key = TelemetryHelper.keyOf(connectionContext);
     telemetryClientHolders.computeIfPresent(
         key,
         (k, holder) -> {

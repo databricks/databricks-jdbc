@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TelemetryHelper {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TelemetryHelper.class);
+  public static final String DEFAULT_HOST = "unknown-host";
   // Cache to store unique DriverConnectionParameters for each connectionUuid
   private static final ConcurrentHashMap<String, DriverConnectionParameters>
       connectionParameterCache = new ConcurrentHashMap<>();
@@ -62,11 +63,10 @@ public class TelemetryHelper {
     if (context == null || context.getTelemetryLogLevel().equals(TelemetryLogLevel.OFF)) {
       return false;
     }
-    if (context != null && context.forceEnableTelemetry()) {
+    if (context.forceEnableTelemetry()) {
       return true;
     }
-    return context != null
-        && context.isTelemetryEnabled()
+    return context.isTelemetryEnabled()
         && DatabricksDriverFeatureFlagsContextFactory.getInstance(context)
             .isFeatureEnabled(TELEMETRY_FEATURE_FLAG_NAME);
   }
@@ -89,12 +89,11 @@ public class TelemetryHelper {
       TelemetryLogLevel logLevel) {
     if (connectionContext == null
         || telemetryDetails == null
-        || logLevel.toInt() < connectionContext.getTelemetryLogLevel().toInt()) {
+        || logLevel.toInt() > connectionContext.getTelemetryLogLevel().toInt()) {
       // We don't export telemetry logs in the following three scenarios:
       // 1. When the context is not set.
       // 2. When telemetry details are not set.
-      // 3. When the telemetry logLevel configured in the connection context is higher than the
-      // logLevel for the event.
+      // 3. When the event's log level is more verbose than the configured telemetry log level.
       // In any of these cases, export is skipped.
       return;
     }
@@ -384,5 +383,12 @@ public class TelemetryHelper {
 
     // Finally check system property
     return System.getProperty(APP_NAME_SYSTEM_PROPERTY);
+  }
+
+  public static String keyOf(IDatabricksConnectionContext context) {
+    if (context == null || context.getHost() == null) {
+      return DEFAULT_HOST;
+    }
+    return context.getHost();
   }
 }
