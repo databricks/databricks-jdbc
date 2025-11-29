@@ -380,8 +380,6 @@ public class TelemetryHelper {
 
   public static String keyOf(IDatabricksConnectionContext context) {
     if (context == null || context.getHost() == null) {
-      String defaultHost = DEFAULT_HOST;
-      System.out.println("DEBUG: keyOf returning default host: " + defaultHost);
       return DEFAULT_HOST;
     }
     return context.getHost();
