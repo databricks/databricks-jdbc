@@ -12,6 +12,7 @@
 ### Fixed
 
 - Fix driver crash when using `INTERVAL` types.
+- Fix connection failure in restricted environments when `LogLevel.OFF` is used.
 
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.*
