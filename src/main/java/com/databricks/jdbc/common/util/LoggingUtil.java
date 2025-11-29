@@ -17,6 +17,13 @@ public class LoggingUtil {
 
   public static void setupLogger(String logDir, int logFileSizeMB, int logFileCount, LogLevel level)
       throws IOException {
+    if (level == LogLevel.OFF) {
+      /*
+       * Skip handler initialization to prevent AccessDeniedException for log lock files
+       * in restricted environments (Docker, Kafka Connect, read-only filesystems).
+       */
+      return;
+    }
     if (LOGGER instanceof JulLogger && System.getProperty(JAVA_UTIL_LOGGING_CONFIG_FILE) == null) {
       // Only configure JUL logger if it's not already configured via external properties file
       JulLogger.initLogger(toJulLevel(level), logDir, logFileSizeMB * 1024 * 1024, logFileCount);
