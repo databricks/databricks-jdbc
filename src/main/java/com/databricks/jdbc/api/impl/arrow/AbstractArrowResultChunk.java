@@ -65,10 +65,12 @@ public abstract class AbstractArrowResultChunk {
   static final class ArrowData {
     private final List<List<ValueVector>> valueVectors;
     private final List<String> metadata;
+    private final long rowCount;
 
-    public ArrowData(List<List<ValueVector>> valueVectors, List<String> metadata) {
+    public ArrowData(List<List<ValueVector>> valueVectors, List<String> metadata, long rowCount) {
       this.valueVectors = valueVectors;
       this.metadata = metadata;
+      this.rowCount = rowCount;
     }
 
     public List<List<ValueVector>> getValueVectors() {
@@ -77,6 +79,10 @@ public abstract class AbstractArrowResultChunk {
 
     public List<String> getMetadata() {
       return metadata;
+    }
+
+    public long getRowCount() {
+      return rowCount;
     }
   }
 
@@ -291,7 +297,11 @@ public abstract class AbstractArrowResultChunk {
     ArrowData arrowData = getRecordBatchList(inputStream, rootAllocator, statementId, chunkIndex);
     recordBatchList = arrowData.getValueVectors();
     arrowMetadata = arrowData.getMetadata();
-    LOGGER.debug("Data parsed for chunk index {} and statement {}", chunkIndex, statementId);
+    LOGGER.debug(
+        "Data parsed for chunk index {} and statement {}. Row count: {}",
+        chunkIndex,
+        statementId,
+        arrowData.getRowCount());
     setStatus(ChunkStatus.PROCESSING_SUCCEEDED);
   }
 
@@ -311,10 +321,12 @@ public abstract class AbstractArrowResultChunk {
       throws IOException {
     List<List<ValueVector>> recordBatchList = new ArrayList<>();
     List<String> metadata = new ArrayList<>();
+    long rowCount = 0L;
     try (ArrowStreamReader arrowStreamReader = new ArrowStreamReader(inputStream, rootAllocator)) {
       VectorSchemaRoot vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();
       boolean fetchedMetadata = false;
       while (arrowStreamReader.loadNextBatch()) {
+        rowCount += vectorSchemaRoot.getRowCount();
         if (!fetchedMetadata) {
           metadata = getMetadataInformationFromSchemaRoot(vectorSchemaRoot);
           fetchedMetadata = true;
@@ -338,7 +350,7 @@ public abstract class AbstractArrowResultChunk {
       throw e;
     }
 
-    return new ArrowData(recordBatchList, metadata);
+    return new ArrowData(recordBatchList, metadata, rowCount);
   }
 
   private List<String> getMetadataInformationFromSchemaRoot(VectorSchemaRoot vectorSchemaRoot) {

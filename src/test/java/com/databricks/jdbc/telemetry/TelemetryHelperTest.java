@@ -13,6 +13,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -41,7 +42,7 @@ public class TelemetryHelperTest {
   @Mock IDatabricksConnectionContext connectionContext;
 
   @BeforeEach
-  void setUp() {
+  void setUp() throws DatabricksValidationException {
     DatabricksThreadContextHolder.setConnectionContext(connectionContext);
     when(connectionContext.forceEnableTelemetry()).thenReturn(true);
     when(connectionContext.getClientType()).thenReturn(DatabricksClientType.SEA);
@@ -57,16 +58,30 @@ public class TelemetryHelperTest {
     TelemetryHelper telemetryHelper = new TelemetryHelper(); // Increasing coverage for class
     StatementTelemetryDetails telemetryDetails =
         new StatementTelemetryDetails(TEST_STRING).setOperationLatencyMillis(150L);
-    assertDoesNotThrow(
-        () -> TelemetryHelper.exportTelemetryLog(telemetryDetails, TelemetryLogLevel.ERROR));
+    ITelemetryClient clientMock = mock(ITelemetryClient.class);
+    TelemetryClientFactory factoryMock = mock(TelemetryClientFactory.class);
+    try (MockedStatic<TelemetryClientFactory> mocked =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mocked.when(TelemetryClientFactory::getInstance).thenReturn(factoryMock);
+      when(factoryMock.getTelemetryClient(connectionContext)).thenReturn(clientMock);
+      assertDoesNotThrow(
+          () -> TelemetryHelper.exportTelemetryLog(telemetryDetails, TelemetryLogLevel.ERROR));
+    }
   }
 
   @Test
   void testErrorTelemetryToNoAuthTelemetryClientDoesNotThrowError() {
-    assertDoesNotThrow(
-        () ->
-            TelemetryHelper.exportFailureLog(
-                connectionContext, TEST_STRING, TEST_STRING, TelemetryLogLevel.ERROR));
+    ITelemetryClient clientMock = mock(ITelemetryClient.class);
+    TelemetryClientFactory factoryMock = mock(TelemetryClientFactory.class);
+    try (MockedStatic<TelemetryClientFactory> mocked =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mocked.when(TelemetryClientFactory::getInstance).thenReturn(factoryMock);
+      when(factoryMock.getTelemetryClient(connectionContext)).thenReturn(clientMock);
+      assertDoesNotThrow(
+          () ->
+              TelemetryHelper.exportFailureLog(
+                  connectionContext, TEST_STRING, TEST_STRING, TelemetryLogLevel.ERROR));
+    }
   }
 
   @Test
@@ -165,6 +180,8 @@ public class TelemetryHelperTest {
 
   @Test
   void testExportTelemetryLogWithNullContext() {
+    // Ensure no connection context present
+    DatabricksThreadContextHolder.clearConnectionContext();
     StatementTelemetryDetails details = new StatementTelemetryDetails("test-statement-id");
     assertDoesNotThrow(() -> TelemetryHelper.exportTelemetryLog(details, TelemetryLogLevel.ERROR));
   }
@@ -224,28 +241,11 @@ public class TelemetryHelperTest {
   }
 
   @Test
-  void testExportTelemetryLog_SkipsWhenEventLevelLowerThanConfigured() {
-    // Configured level: DEBUG (more verbose)
+  void testExportTelemetryLog_EmitsWhenEventLevelLowerThanConfigured() {
+    // Configured level: DEBUG (5); Event level: ERROR (2) -> should export
     when(connectionContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.DEBUG);
     StatementTelemetryDetails details =
         new StatementTelemetryDetails("stmt-1").setOperationLatencyMillis(10L);
-
-    try (MockedStatic<TelemetryClientFactory> mocked =
-        Mockito.mockStatic(TelemetryClientFactory.class)) {
-      // Do not set any behavior for getInstance(); we only want to verify it's never called.
-      TelemetryHelper.exportTelemetryLog(details, TelemetryLogLevel.ERROR); // lower than DEBUG
-
-      // Verify export was skipped by asserting no attempt to obtain the telemetry client factory
-      mocked.verify(() -> TelemetryClientFactory.getInstance(), never());
-    }
-  }
-
-  @Test
-  void testExportTelemetryLog_EmitsWhenEventLevelHigherThanConfigured() {
-    // Configured level: ERROR (2); Event level: DEBUG (5) -> should export (5 <= 2 is false)
-    when(connectionContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.ERROR);
-    StatementTelemetryDetails details =
-        new StatementTelemetryDetails("stmt-2").setOperationLatencyMillis(25L);
 
     ITelemetryClient clientMock = mock(ITelemetryClient.class);
     TelemetryClientFactory factoryMock = mock(TelemetryClientFactory.class);
@@ -255,7 +255,7 @@ public class TelemetryHelperTest {
       mocked.when(TelemetryClientFactory::getInstance).thenReturn(factoryMock);
       when(factoryMock.getTelemetryClient(connectionContext)).thenReturn(clientMock);
 
-      TelemetryHelper.exportTelemetryLog(details, TelemetryLogLevel.DEBUG);
+      TelemetryHelper.exportTelemetryLog(details, TelemetryLogLevel.ERROR);
 
       mocked.verify(TelemetryClientFactory::getInstance, times(1));
       verify(factoryMock, times(1)).getTelemetryClient(connectionContext);
@@ -264,8 +264,23 @@ public class TelemetryHelperTest {
   }
 
   @Test
+  void testExportTelemetryLog_SkipsWhenEventLevelHigherThanConfigured() {
+    // Configured level: ERROR (2); Event level: DEBUG (5) -> should skip
+    when(connectionContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.ERROR);
+    StatementTelemetryDetails details =
+        new StatementTelemetryDetails("stmt-2").setOperationLatencyMillis(25L);
+
+    try (MockedStatic<TelemetryClientFactory> mocked =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      // No factory interactions expected when skipped
+      TelemetryHelper.exportTelemetryLog(details, TelemetryLogLevel.DEBUG);
+      mocked.verify(TelemetryClientFactory::getInstance, never());
+    }
+  }
+
+  @Test
   void testExportTelemetryLog_EmitsWhenEventLevelEqualToConfigured() {
-    // Configured level: INFO (4); Event level: INFO (4) -> should export (4 >= 4)
+    // Configured level: INFO (4); Event level: INFO (4) -> should export
     when(connectionContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.INFO);
     StatementTelemetryDetails details =
         new StatementTelemetryDetails("stmt-eq").setOperationLatencyMillis(15L);
@@ -284,6 +299,52 @@ public class TelemetryHelperTest {
       verify(factoryMock, times(1)).getTelemetryClient(connectionContext);
       verify(clientMock, times(1)).exportEvent(any());
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource("telemetryFilterCases")
+  void testExportTelemetryLog_FilteringParameterized(
+      TelemetryLogLevel configuredLevel, TelemetryLogLevel eventLevel, boolean expectedExport) {
+    when(connectionContext.getTelemetryLogLevel()).thenReturn(configuredLevel);
+    StatementTelemetryDetails details =
+        new StatementTelemetryDetails("stmt-param").setOperationLatencyMillis(5L);
+
+    ITelemetryClient clientMock = mock(ITelemetryClient.class);
+    TelemetryClientFactory factoryMock = mock(TelemetryClientFactory.class);
+
+    try (MockedStatic<TelemetryClientFactory> mocked =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      mocked.when(TelemetryClientFactory::getInstance).thenReturn(factoryMock);
+      when(factoryMock.getTelemetryClient(connectionContext)).thenReturn(clientMock);
+
+      TelemetryHelper.exportTelemetryLog(details, eventLevel);
+
+      if (expectedExport) {
+        mocked.verify(TelemetryClientFactory::getInstance, times(1));
+        verify(factoryMock, times(1)).getTelemetryClient(connectionContext);
+        verify(clientMock, times(1)).exportEvent(any());
+      } else {
+        mocked.verify(TelemetryClientFactory::getInstance, never());
+      }
+    }
+  }
+
+  private static Stream<Arguments> telemetryFilterCases() {
+    return Stream.of(
+        // Configured DEBUG: export all except TRACE
+        Arguments.of(TelemetryLogLevel.DEBUG, TelemetryLogLevel.ERROR, true),
+        Arguments.of(TelemetryLogLevel.DEBUG, TelemetryLogLevel.INFO, true),
+        Arguments.of(TelemetryLogLevel.DEBUG, TelemetryLogLevel.DEBUG, true),
+        Arguments.of(TelemetryLogLevel.DEBUG, TelemetryLogLevel.TRACE, false),
+        // Configured INFO: export INFO and more severe; skip DEBUG/TRACE
+        Arguments.of(TelemetryLogLevel.INFO, TelemetryLogLevel.INFO, true),
+        Arguments.of(TelemetryLogLevel.INFO, TelemetryLogLevel.WARN, true),
+        Arguments.of(TelemetryLogLevel.INFO, TelemetryLogLevel.ERROR, true),
+        Arguments.of(TelemetryLogLevel.INFO, TelemetryLogLevel.DEBUG, false),
+        // Configured ERROR: export ERROR and FATAL only
+        Arguments.of(TelemetryLogLevel.ERROR, TelemetryLogLevel.ERROR, true),
+        Arguments.of(TelemetryLogLevel.ERROR, TelemetryLogLevel.FATAL, true),
+        Arguments.of(TelemetryLogLevel.ERROR, TelemetryLogLevel.WARN, false));
   }
 
   static Stream<Object[]> failureLogParameters() {

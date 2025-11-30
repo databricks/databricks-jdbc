@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.internal;
 
 import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.utils.Cloud;
 import java.util.List;
@@ -78,9 +79,9 @@ public interface IDatabricksConnectionContext {
 
   String getLogPathString();
 
-  int getLogFileSize();
+  int getLogFileSize() throws DatabricksValidationException;
 
-  int getLogFileCount();
+  int getLogFileCount() throws DatabricksValidationException;
 
   /** Returns the userAgent string specific to client used to fetch results. */
   String getClientUserAgent();
@@ -145,7 +146,7 @@ public interface IDatabricksConnectionContext {
 
   String getEndpointURL() throws DatabricksParsingException;
 
-  int getAsyncExecPollInterval();
+  int getAsyncExecPollInterval() throws DatabricksValidationException;
 
   Boolean shouldEnableArrow();
 
@@ -156,7 +157,7 @@ public interface IDatabricksConnectionContext {
   Boolean getUseEmptyMetadata();
 
   /** Returns the number of threads to be used for fetching data from cloud storage */
-  int getCloudFetchThreadPoolSize();
+  int getCloudFetchThreadPoolSize() throws DatabricksValidationException;
 
   /** Returns the minimum expected download speed threshold in MB/s for CloudFetch operations */
   double getCloudFetchSpeedThreshold();
@@ -260,7 +261,7 @@ public interface IDatabricksConnectionContext {
   String getSSLTrustStoreProvider();
 
   /** Returns the maximum number of commands that can be executed in a single batch. */
-  int getMaxBatchSize();
+  int getMaxBatchSize() throws DatabricksValidationException;
 
   /** Checks if Telemetry is enabled */
   boolean isTelemetryEnabled();
@@ -269,7 +270,7 @@ public interface IDatabricksConnectionContext {
   int getTelemetryBatchSize();
 
   /** Returns the maximum number of rows per batch insert execution */
-  int getBatchInsertSize();
+  int getBatchInsertSize() throws DatabricksValidationException;
 
   /**
    * Returns a unique identifier for this connection context.
@@ -307,7 +308,7 @@ public interface IDatabricksConnectionContext {
   boolean isGeoSpatialSupportEnabled();
 
   /** Returns the size for HTTP connection pool */
-  int getHttpConnectionPoolSize();
+  int getHttpConnectionPoolSize() throws DatabricksValidationException;
 
   /** Returns the list of HTTP codes to retry for UC Volume Ingestion */
   List<Integer> getUCIngestionRetriableHttpCodes();

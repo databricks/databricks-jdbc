@@ -76,6 +76,7 @@ public class TelemetryClientFactoryTest {
     // Mock TelemetryHelper to return null for DatabricksConfig
     try (MockedStatic<TelemetryHelper> mockedStatic = mockStatic(TelemetryHelper.class)) {
       mockedStatic.when(() -> TelemetryHelper.getDatabricksConfigSafely(context)).thenReturn(null);
+      mockedStatic.when(() -> TelemetryHelper.keyOf(any())).thenCallRealMethod();
       ITelemetryClient telemetryClient =
           TelemetryClientFactory.getInstance().getTelemetryClient(context);
 

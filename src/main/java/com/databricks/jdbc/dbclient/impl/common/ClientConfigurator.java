@@ -11,6 +11,7 @@ import com.databricks.jdbc.common.util.DatabricksAuthUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSSLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -45,7 +46,7 @@ public class ClientConfigurator {
   private DatabricksConfig databricksConfig;
 
   public ClientConfigurator(IDatabricksConnectionContext connectionContext)
-      throws DatabricksSSLException {
+      throws DatabricksSSLException, DatabricksValidationException {
     this.connectionContext = connectionContext;
     this.databricksConfig = new DatabricksConfig();
     databricksConfig.setDisableOauthRefreshToken(connectionContext.getDisableOauthRefreshToken());
@@ -112,7 +113,7 @@ public class ClientConfigurator {
    * @param httpClientBuilder The builder to which the SSL configuration should be added.
    */
   void setupConnectionManager(CommonsHttpClient.Builder httpClientBuilder)
-      throws DatabricksSSLException {
+      throws DatabricksSSLException, DatabricksValidationException {
     PoolingHttpClientConnectionManager connManager =
         ConfiguratorUtils.getBaseConnectionManager(connectionContext);
     // Default value is 100 which is consistent with the value in the SDK

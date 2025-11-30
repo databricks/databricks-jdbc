@@ -37,7 +37,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   private final boolean interpolateParameters;
   private final int CHUNK_SIZE = 8192;
 
-  public DatabricksPreparedStatement(DatabricksConnection connection, String sql) {
+  public DatabricksPreparedStatement(DatabricksConnection connection, String sql)
+      throws DatabricksValidationException {
     super(connection);
     this.sql = sql;
     this.interpolateParameters = connection.getConnectionContext().supportManyParameters();
@@ -49,7 +50,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       DatabricksConnection connection,
       String sql,
       boolean interpolateParameters,
-      DatabricksParameterMetaData databricksParameterMetaData) {
+      DatabricksParameterMetaData databricksParameterMetaData)
+      throws DatabricksValidationException {
     super(connection);
     this.sql = sql;
     this.interpolateParameters = interpolateParameters;
