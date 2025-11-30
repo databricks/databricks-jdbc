@@ -441,7 +441,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     if (cal != null) {
       TimeZone originalTimeZone = TimeZone.getDefault();
       TimeZone.setDefault(cal.getTimeZone());
+      // Preserve nanosecond precision when adjusting for timezone
+      int originalNanos = x.getNanos();
       x = new Timestamp(x.getTime());
+      x.setNanos(originalNanos);
       TimeZone.setDefault(originalTimeZone);
       setObject(parameterIndex, x, DatabricksTypeUtil.TIMESTAMP);
     } else {

@@ -1209,4 +1209,49 @@ public class DatabricksPreparedStatementTest {
         exception.getMessage().contains("BatchInsertSize must be at least 1"),
         "Exception should mention invalid BatchInsertSize: " + exception.getMessage());
   }
+
+  @Test
+  public void testSetTimestampWithCalendarPreservesMicroseconds() throws Exception {
+    // Test that microsecond precision is preserved when using setTimestamp with Calendar
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_MANY_PARAMETERS, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+
+    String sql = "UPDATE test_table SET ts = ? WHERE id = ?";
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, sql);
+
+    // Create a timestamp with microsecond precision (185.645 milliseconds = 185645000 nanoseconds)
+    Timestamp originalTs = Timestamp.valueOf("2025-11-21 23:30:49.185645");
+    assertEquals(
+        185645000, originalTs.getNanos(), "Original timestamp should have microsecond precision");
+
+    // Set timestamp with a Calendar (UTC timezone)
+    Calendar calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
+    statement.setTimestamp(1, originalTs, calendar);
+    statement.setInt(2, 123);
+
+    // Capture the SQL that gets executed
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    when(client.executeStatement(
+            sqlCaptor.capture(),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    statement.executeUpdate();
+
+    // Verify the executed SQL contains the full microsecond precision
+    String executedSql = sqlCaptor.getValue();
+    System.out.println(executedSql);
+    assertTrue(
+        executedSql.contains("2025-11-21 23:30:49.185645"),
+        "Executed SQL should preserve microsecond precision: " + executedSql);
+    assertFalse(
+        executedSql.contains("2025-11-21 23:30:49.185 ")
+            || executedSql.contains("2025-11-21 23:30:49.185'"),
+        "Executed SQL should not truncate to milliseconds: " + executedSql);
+  }
 }
