@@ -222,7 +222,7 @@ public class TelemetryHelper {
           .setRowsFetchedPerBlock(connectionContext.getRowsFetchedPerBlock())
           .setAsyncPollIntervalMillis(connectionContext.getAsyncExecPollInterval())
           .setEnableTokenCache(connectionContext.isTokenCacheEnabled())
-          .setHttpPath(connectionContext.getHttpPath()
+          .setHttpPath(connectionContext.getHttpPath())
           .setEnableMetricViewMetadata(connectionContext.getEnableMetricViewMetadata());
     } catch (DatabricksValidationException e) {
       // If configuration validation fails, return null to skip telemetry export
