@@ -578,7 +578,6 @@
                     <exclude>javax/**</exclude>
                     <exclude>jakarta/**</exclude>
                     <exclude>net/jcip/**</exclude>
-                    <exclude>oauth/**</exclude>
                   </excludes>
                 </filter>
               </filters>

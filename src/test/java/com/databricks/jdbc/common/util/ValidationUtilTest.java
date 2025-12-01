@@ -29,6 +29,54 @@ class ValidationUtilTest {
         DatabricksSQLException.class, () -> ValidationUtil.checkIfNonNegative(-10, "testField"));
   }
 
+  @ParameterizedTest
+  @MethodSource("positiveIntegerTestCases")
+  void testCheckIfPositiveInteger(int value, boolean shouldPass) {
+    if (shouldPass) {
+      assertDoesNotThrow(() -> ValidationUtil.checkIfPositive(value, "testField"));
+    } else {
+      assertThrows(
+          DatabricksSQLException.class, () -> ValidationUtil.checkIfPositive(value, "testField"));
+    }
+  }
+
+  private static Stream<Arguments> positiveIntegerTestCases() {
+    return Stream.of(
+        Arguments.of(10, true), // Positive value should pass
+        Arguments.of(1, true), // Positive value should pass
+        Arguments.of(0, false), // Zero should fail
+        Arguments.of(-10, false), // Negative value should fail
+        Arguments.of(-1, false)); // Negative value should fail
+  }
+
+  @ParameterizedTest
+  @MethodSource("validateAndParsePositiveIntegerTestCases")
+  void testValidateAndParsePositiveInteger(
+      String value, Integer expectedResult, boolean shouldFail) {
+    if (shouldFail) {
+      assertThrows(
+          DatabricksSQLException.class,
+          () -> ValidationUtil.validateAndParsePositiveInteger(value, "testField"));
+    } else {
+      assertDoesNotThrow(
+          () -> {
+            int result = ValidationUtil.validateAndParsePositiveInteger(value, "testField");
+            assertEquals(expectedResult, result);
+          });
+    }
+  }
+
+  private static Stream<Arguments> validateAndParsePositiveIntegerTestCases() {
+    return Stream.of(
+        Arguments.of("10", 10, false), // Valid positive integer
+        Arguments.of("1", 1, false), // Valid minimum positive integer
+        Arguments.of("100000", 100000, false), // Valid large positive integer
+        Arguments.of("0", null, true), // Zero should fail
+        Arguments.of("-10", null, true), // Negative should fail
+        Arguments.of("invalid", null, true), // Non-numeric should fail
+        Arguments.of("", null, true)); // Empty string should fail
+  }
+
   @Test
   void testSuccessfulResponseCheck() {
     when(response.getStatusLine()).thenReturn(statusLine);

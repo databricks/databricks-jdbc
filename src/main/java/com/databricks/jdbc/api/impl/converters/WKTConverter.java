@@ -23,9 +23,6 @@ public class WKTConverter {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(WKTConverter.class);
 
-  private static final ThreadLocal<WKTReader> WKT_READER = ThreadLocal.withInitial(WKTReader::new);
-  private static final ThreadLocal<WKBReader> WKB_READER = ThreadLocal.withInitial(WKBReader::new);
-
   /**
    * Converts WKT (Well-Known Text) to WKB (Well-Known Binary) format.
    *
@@ -44,7 +41,8 @@ public class WKTConverter {
     try {
       int ogcDimension = ogcDimensionFromWkt(wkt);
       EnumSet<Ordinate> ordinates = determineOrdinates(ogcDimension);
-      Geometry geometry = WKT_READER.get().read(wkt);
+      WKTReader reader = new WKTReader();
+      Geometry geometry = reader.read(wkt);
       JTSOGCWKBWriter writer = new JTSOGCWKBWriter(ordinates, ByteOrder.LITTLE_ENDIAN);
       return writer.write(geometry);
     } catch (ParseException e) {
@@ -65,7 +63,8 @@ public class WKTConverter {
     try {
       int ogcDimension = ogcDimensionFromWkb(wkb);
       EnumSet<Ordinate> ordinates = determineOrdinates(ogcDimension);
-      Geometry geometry = WKB_READER.get().read(wkb);
+      WKBReader reader = new WKBReader();
+      Geometry geometry = reader.read(wkb);
       int outputDimension = ordinates.size();
       WKTWriter writer = new WKTWriter(outputDimension);
       writer.setOutputOrdinates(ordinates);

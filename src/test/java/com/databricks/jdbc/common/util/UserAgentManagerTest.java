@@ -30,6 +30,8 @@ public class UserAgentManagerTest {
   @BeforeEach
   public void setup() {
     telemetryHelperMock = Mockito.mockStatic(TelemetryHelper.class);
+    // Allow keyOf() to call the real method to avoid NPE
+    telemetryHelperMock.when(() -> TelemetryHelper.keyOf(Mockito.any())).thenCallRealMethod();
   }
 
   @AfterEach

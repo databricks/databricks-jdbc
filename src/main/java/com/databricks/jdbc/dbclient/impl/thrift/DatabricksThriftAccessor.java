@@ -58,7 +58,7 @@ final class DatabricksThriftAccessor {
   private ThreadLocal<TCLIService.Client> FAKE_SHARED_CLIENT;
 
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
-      throws DatabricksParsingException {
+      throws DatabricksParsingException, DatabricksValidationException {
     this.enableDirectResults = connectionContext.getDirectResultMode();
     this.databricksConfig =
         DatabricksClientConfiguratorManager.getInstance()
