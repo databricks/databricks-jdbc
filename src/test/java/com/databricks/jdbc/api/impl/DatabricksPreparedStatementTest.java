@@ -1178,7 +1178,7 @@ public class DatabricksPreparedStatementTest {
     // Should throw SQLException about invalid batch size
     SQLException exception = assertThrows(SQLException.class, () -> statement.executeBatch());
     assertTrue(
-        exception.getMessage().contains("BatchInsertSize must be at least 1"),
+        exception.getMessage().contains("Invalid value for BatchInsertSize"),
         "Exception should mention invalid BatchInsertSize: " + exception.getMessage());
   }
 
@@ -1206,7 +1206,7 @@ public class DatabricksPreparedStatementTest {
     // Should throw SQLException about invalid batch size
     SQLException exception = assertThrows(SQLException.class, () -> statement.executeBatch());
     assertTrue(
-        exception.getMessage().contains("BatchInsertSize must be at least 1"),
+        exception.getMessage().contains("Invalid value for BatchInsertSize"),
         "Exception should mention invalid BatchInsertSize: " + exception.getMessage());
   }
 }

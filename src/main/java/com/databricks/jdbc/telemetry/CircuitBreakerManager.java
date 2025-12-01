@@ -1,7 +1,7 @@
 package com.databricks.jdbc.telemetry;
 
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksTelemetryException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -61,7 +61,7 @@ public class CircuitBreakerManager {
                 // HTTP errors that indicate server issues
                 HttpResponseException.class,
                 // Databricks specific exceptions
-                DatabricksHttpException.class)
+                DatabricksTelemetryException.class)
             .ignoreExceptions(
                 // Exceptions that can be ignored, the logic is that due to these exception,
                 // the execution will not even reach the server, so no point in opening the
