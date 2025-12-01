@@ -172,9 +172,9 @@ public interface IDatabricksConnectionContext {
 
   int getRateLimitRetryTimeout();
 
-  Set<Integer> getApiRetriableCodes();
+  Set<Integer> getApiRetriableHttpCodes();
 
-  int getApiCodesRetryTimeout();
+  int getApiRetryTimeout();
 
   int getIdleHttpConnectionExpiry();
 

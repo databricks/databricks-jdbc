@@ -137,7 +137,7 @@ public class DatabricksHttpRetryHandler
     // check if retry interval is valid for 503 and 429
     int retryInterval = (int) context.getAttribute(RETRY_INTERVAL_KEY);
 
-    Set<Integer> apiRetriableCodes = connectionContext.getApiRetriableCodes();
+    Set<Integer> apiRetriableCodes = connectionContext.getApiRetriableHttpCodes();
     boolean isInCustomRetriableCodes = apiRetriableCodes.contains(statusCode);
     if (retryInterval == -1 && !isInCustomRetriableCodes) {
       // This case arises when the server does not send the retryAfter header
@@ -188,10 +188,10 @@ public class DatabricksHttpRetryHandler
     if (apiRetriableCodes.contains(statusCode)
         && statusCode != HttpStatus.SC_SERVICE_UNAVAILABLE
         && statusCode != HttpStatus.SC_TOO_MANY_REQUESTS
-        && apiCodesAccumulatedTime + retryInterval > connectionContext.getApiCodesRetryTimeout()) {
+        && apiCodesAccumulatedTime + retryInterval > connectionContext.getApiRetryTimeout()) {
       LOGGER.warn(
-          "ApiCodesRetry timeout "
-              + connectionContext.getApiCodesRetryTimeout()
+          "ApiRetry timeout "
+              + connectionContext.getApiRetryTimeout()
               + " has been hit for the error: "
               + exception.getMessage());
       return false;
@@ -284,7 +284,7 @@ public class DatabricksHttpRetryHandler
 
   /** Check if the request is retryable based on the status code and any connection preferences. */
   private boolean isStatusCodeRetryable(int statusCode) {
-    Set<Integer> apiRetriableCodes = connectionContext.getApiRetriableCodes();
+    Set<Integer> apiRetriableCodes = connectionContext.getApiRetriableHttpCodes();
     if (apiRetriableCodes.contains(statusCode)) {
       return true;
     }

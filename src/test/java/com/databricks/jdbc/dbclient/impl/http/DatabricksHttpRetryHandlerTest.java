@@ -266,9 +266,9 @@ public class DatabricksHttpRetryHandlerTest {
 
   @Test
   void testApiRetriableCodesWithoutRetryAfterHeader() throws IOException {
-    when(mockConnectionContext.getApiRetriableCodes())
+    when(mockConnectionContext.getApiRetriableHttpCodes())
         .thenReturn(java.util.Set.of(HttpStatus.SC_INTERNAL_SERVER_ERROR));
-    when(mockConnectionContext.getApiCodesRetryTimeout()).thenReturn(120);
+    when(mockConnectionContext.getApiRetryTimeout()).thenReturn(120);
 
     HttpRequest request = createRequest("GET", "/api/data");
     httpContext.setAttribute(HttpCoreContext.HTTP_REQUEST, request);
