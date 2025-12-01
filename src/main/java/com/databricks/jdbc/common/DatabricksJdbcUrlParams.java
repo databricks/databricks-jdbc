@@ -190,9 +190,10 @@ public enum DatabricksJdbcUrlParams {
       "EnableTokenFederation", "Enable token federation for authentication", "1"),
   API_RETRIABLE_HTTP_CODES(
       "ApiRetriableHttpCodes",
-      "Comma-separated list of HTTP status codes that should be retried even without Retry-After header.",
+      "Comma-separated list of HTTP status codes that should be retried irrespective of Retry-After header.",
       ""),
-  API_RETRY_TIMEOUT("ApiRetryTimeout", "Timeout for retrying API retriable codes", "120");
+  API_RETRY_TIMEOUT(
+      "ApiRetryTimeout", "Timeout for retrying API retriable codes in seconds", "120");
 
   private final String paramName;
   private final String defaultValue;
