@@ -148,6 +148,39 @@ class CommandBuilderTest {
       String sql1 = builder1.getSQLString(CommandName.LIST_TABLES);
       assertEquals(SHOW_TABLES_IN_ALL_CATALOGS_SQL, sql1);
     }
+
+    @Test
+    @DisplayName("Should generate SCHEMA LIKE clause for empty string schema pattern")
+    void shouldGenerateSchemaLikeClauseForEmptyStringSchemaPattern() throws SQLException {
+      CommandBuilder builder = new CommandBuilder(TEST_CATALOG, mockSession).setSchemaPattern("");
+
+      String sql = builder.getSQLString(CommandName.LIST_TABLES);
+
+      String expectedSql = String.format(SHOW_TABLES_SQL.concat(SCHEMA_LIKE_SQL), TEST_CATALOG, "");
+      assertEquals(expectedSql, sql);
+    }
+
+    @Test
+    @DisplayName("Should NOT generate SCHEMA LIKE clause for null schema pattern")
+    void shouldNotGenerateSchemaLikeClauseForNullSchemaPattern() throws SQLException {
+      CommandBuilder builder = new CommandBuilder(TEST_CATALOG, mockSession).setSchemaPattern(null);
+
+      String sql = builder.getSQLString(CommandName.LIST_TABLES);
+
+      String expectedSql = String.format(SHOW_TABLES_SQL, TEST_CATALOG);
+      assertEquals(expectedSql, sql);
+    }
+
+    @Test
+    @DisplayName("Should generate LIKE clause for empty string table pattern")
+    void shouldGenerateLikeClauseForEmptyStringTablePattern() throws SQLException {
+      CommandBuilder builder = new CommandBuilder(TEST_CATALOG, mockSession).setTablePattern("");
+
+      String sql = builder.getSQLString(CommandName.LIST_TABLES);
+
+      String expectedSql = String.format(SHOW_TABLES_SQL.concat(LIKE_SQL), TEST_CATALOG, "");
+      assertEquals(expectedSql, sql);
+    }
   }
 
   @Nested
