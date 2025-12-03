@@ -136,6 +136,9 @@ public class DriverConnectionParameters {
   @JsonProperty("async_poll_interval_millis")
   int asyncPollIntervalMillis;
 
+  @JsonProperty("enable_metric_view_metadata")
+  boolean enableMetricViewMetadata;
+
   public DriverConnectionParameters setHttpPath(String httpPath) {
     this.httpPath = httpPath;
     return this;
@@ -356,6 +359,11 @@ public class DriverConnectionParameters {
     return this;
   }
 
+  public DriverConnectionParameters setEnableMetricViewMetadata(boolean enableMetricViewMetadata) {
+    this.enableMetricViewMetadata = enableMetricViewMetadata;
+    return this;
+  }
+
   @Override
   public String toString() {
     return new ToStringer(DriverConnectionParameters.class)
@@ -402,6 +410,7 @@ public class DriverConnectionParameters {
         .add("useSystemTrustStore", useSystemTrustStore)
         .add("rowsFetchedPerBlock", rowsFetchedPerBlock)
         .add("asyncPollIntervalMillis", asyncPollIntervalMillis)
+        .add("enableMetricViewMetadata", enableMetricViewMetadata)
         .toString();
   }
 }
