@@ -1,7 +1,9 @@
 package com.databricks.jdbc.common.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -85,5 +87,19 @@ public class StringUtilTest {
   public void testPreserveCustomEscapeClause() {
     String sql = "SELECT * FROM table WHERE name LIKE 'pattern#%' ESCAPE '#'";
     assertEquals(sql, StringUtil.removeRedundantEscapeClause(sql));
+  }
+
+  @Test
+  public void testParseIntegerSet() {
+    // Valid input
+    Set<Integer> result = StringUtil.parseIntegerSet("500,503,504");
+    assertEquals(3, result.size());
+    assertTrue(result.contains(500));
+    assertTrue(result.contains(503));
+    assertTrue(result.contains(504));
+
+    // Empty or whitespace
+    assertTrue(StringUtil.parseIntegerSet("").isEmpty());
+    assertTrue(StringUtil.parseIntegerSet("   ").isEmpty());
   }
 }
