@@ -13,6 +13,7 @@
 ### Fixed
 
 - Fix driver crash when using `INTERVAL` types.
+- Fix connection failure in restricted environments when `LogLevel.OFF` is used.
 - Fix U2M by including SDK OAuth HTML callback resources.
 
 ---

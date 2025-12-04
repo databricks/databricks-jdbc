@@ -17,6 +17,10 @@ public class LoggingUtil {
 
   public static void setupLogger(String logDir, int logFileSizeMB, int logFileCount, LogLevel level)
       throws IOException {
+    if (level == LogLevel.OFF) {
+      // Skip handler initialization to avoid AccessDeniedException in restricted environments
+      return;
+    }
     if (LOGGER instanceof JulLogger && System.getProperty(JAVA_UTIL_LOGGING_CONFIG_FILE) == null) {
       // Only configure JUL logger if it's not already configured via external properties file
       JulLogger.initLogger(toJulLevel(level), logDir, logFileSizeMB * 1024 * 1024, logFileCount);
