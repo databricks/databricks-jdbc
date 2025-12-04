@@ -160,8 +160,20 @@ public class DatabricksHttpRetryHandler
     long rateLimitAccumulatedTime = getAccumulatedTime(context, RATE_LIMIT_ACCUMULATED_TIME_KEY);
     long apiCodesAccumulatedTime = getAccumulatedTime(context, API_CODES_ACCUMULATED_TIME_KEY);
 
+    // check if retry timeout has been hit for custom API retriable codes
+    if (isInCustomRetriableCodes
+        && apiCodesAccumulatedTime + retryInterval > connectionContext.getApiRetryTimeout()) {
+      LOGGER.warn(
+          "ApiRetry timeout "
+              + connectionContext.getApiRetryTimeout()
+              + " has been hit for the error: "
+              + exception.getMessage());
+      return false;
+    }
+
     // check if retry timeout has been hit for error code 503
-    if (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
+    if (!isInCustomRetriableCodes
+        && statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
         && tempUnavailableAccumulatedTime + retryInterval
             > connectionContext.getTemporarilyUnavailableRetryTimeout()) {
       LOGGER.warn(
@@ -173,25 +185,13 @@ public class DatabricksHttpRetryHandler
     }
 
     // check if retry timeout has been hit for error code 429
-    if (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS
+    if (!isInCustomRetriableCodes
+        && statusCode == HttpStatus.SC_TOO_MANY_REQUESTS
         && rateLimitAccumulatedTime + retryInterval
             > connectionContext.getRateLimitRetryTimeout()) {
       LOGGER.warn(
           "RateLimitRetry timeout "
               + connectionContext.getRateLimitRetryTimeout()
-              + " has been hit for the error: "
-              + exception.getMessage());
-      return false;
-    }
-
-    // check if retry timeout has been hit for custom API retriable codes
-    if (apiRetriableCodes.contains(statusCode)
-        && statusCode != HttpStatus.SC_SERVICE_UNAVAILABLE
-        && statusCode != HttpStatus.SC_TOO_MANY_REQUESTS
-        && apiCodesAccumulatedTime + retryInterval > connectionContext.getApiRetryTimeout()) {
-      LOGGER.warn(
-          "ApiRetry timeout "
-              + connectionContext.getApiRetryTimeout()
               + " has been hit for the error: "
               + exception.getMessage());
       return false;
@@ -207,18 +207,18 @@ public class DatabricksHttpRetryHandler
 
     // if the control has reached here, then we can retry the request
     // update the accumulated time in context
-    if (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE) {
+    if (isInCustomRetriableCodes) {
+      context.setAttribute(API_CODES_ACCUMULATED_TIME_KEY, apiCodesAccumulatedTime + retryInterval);
+    } else if (statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE) {
       context.setAttribute(
           TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY, tempUnavailableAccumulatedTime + retryInterval);
     } else if (statusCode == HttpStatus.SC_TOO_MANY_REQUESTS) {
       context.setAttribute(
           RATE_LIMIT_ACCUMULATED_TIME_KEY, rateLimitAccumulatedTime + retryInterval);
-    } else if (apiRetriableCodes.contains(statusCode)) {
-      context.setAttribute(API_CODES_ACCUMULATED_TIME_KEY, apiCodesAccumulatedTime + retryInterval);
     }
 
     // calculate the delay and sleep for that duration
-    long delayMillis = calculateDelayInMillis(statusCode, executionCount, retryInterval);
+    long delayMillis = 1000L * retryInterval;
     doSleepForDelay(delayMillis);
 
     return true;
