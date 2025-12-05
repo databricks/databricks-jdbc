@@ -9,12 +9,14 @@
 ### Updated
 - Added validation for positive integer configuration properties (RowsFetchedPerBlock, BatchInsertSize, etc.) to prevent hangs and errors when set to zero or negative values.
 - Updated Circuit breaker to be triggered by 429 errors too.
+- Log timestamps now explicitly display timezone.
 
 ### Fixed
 
 - Fix driver crash when using `INTERVAL` types.
 - Fix connection failure in restricted environments when `LogLevel.OFF` is used.
 - Fix U2M by including SDK OAuth HTML callback resources.
+- Remove global JVM timezone modification from `Driver.main()` to prevent side effects on other code running in the same JVM.
 
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.*

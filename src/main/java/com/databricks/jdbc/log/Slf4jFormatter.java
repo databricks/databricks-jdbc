@@ -2,7 +2,6 @@ package com.databricks.jdbc.log;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.TimeZone;
 import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
 
@@ -12,13 +11,12 @@ import java.util.logging.LogRecord;
  */
 public class Slf4jFormatter extends Formatter {
 
-  private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+  private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss z";
 
   private static final SimpleDateFormat dateFormat;
 
   static {
     dateFormat = new SimpleDateFormat(DATE_FORMAT);
-    dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
   }
 
   /** {@inheritDoc} */
