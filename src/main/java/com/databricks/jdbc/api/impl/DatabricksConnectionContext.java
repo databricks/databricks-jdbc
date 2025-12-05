@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_SCOPE;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
+import static com.databricks.jdbc.common.util.StringUtil.parseIntegerSet;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
@@ -28,6 +29,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.util.*;
+import java.util.Collections;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
@@ -670,6 +672,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getRateLimitRetryTimeout() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.RATE_LIMIT_RETRY_TIMEOUT));
+  }
+
+  @Override
+  public Set<Integer> getApiRetriableHttpCodes() {
+    String codes = getParameter(DatabricksJdbcUrlParams.API_RETRIABLE_HTTP_CODES);
+    return parseIntegerSet(codes);
+  }
+
+  @Override
+  public int getApiRetryTimeout() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.API_RETRY_TIMEOUT));
   }
 
   @Override
