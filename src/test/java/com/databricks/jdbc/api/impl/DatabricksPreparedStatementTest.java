@@ -1214,7 +1214,7 @@ public class DatabricksPreparedStatementTest {
   public void testSetTimestampWithCalendarPreservesMicroseconds() throws Exception {
     // Test that microsecond precision is preserved when using setTimestamp with Calendar
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL_WITH_MANY_PARAMETERS, new Properties());
+            DatabricksConnectionContext.parse(JDBC_URL_WITH_MANY_PARAMETERS, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
 
     String sql = "UPDATE test_table SET ts = ? WHERE id = ?";
@@ -1223,7 +1223,7 @@ public class DatabricksPreparedStatementTest {
     // Create a timestamp with microsecond precision (185.645 milliseconds = 185645000 nanoseconds)
     Timestamp originalTs = Timestamp.valueOf("2025-11-21 23:30:49.185645");
     assertEquals(
-        185645000, originalTs.getNanos(), "Original timestamp should have microsecond precision");
+            185645000, originalTs.getNanos(), "Original timestamp should have microsecond precision");
 
     // Set timestamp with a Calendar (UTC timezone)
     Calendar calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"));
@@ -1239,19 +1239,48 @@ public class DatabricksPreparedStatementTest {
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
             eq(statement)))
-        .thenReturn(resultSet);
+            .thenReturn(resultSet);
 
     statement.executeUpdate();
 
-    // Verify the executed SQL contains the full microsecond precision
+    // Calculate expected timestamp after timezone conversion
+    Calendar defaultCal = Calendar.getInstance();
+    defaultCal.setTimeInMillis(originalTs.getTime());
+
+    Calendar expectedCal = (Calendar) calendar.clone();
+    expectedCal.set(Calendar.YEAR, defaultCal.get(Calendar.YEAR));
+    expectedCal.set(Calendar.MONTH, defaultCal.get(Calendar.MONTH));
+    expectedCal.set(Calendar.DAY_OF_MONTH, defaultCal.get(Calendar.DAY_OF_MONTH));
+    expectedCal.set(Calendar.HOUR_OF_DAY, defaultCal.get(Calendar.HOUR_OF_DAY));
+    expectedCal.set(Calendar.MINUTE, defaultCal.get(Calendar.MINUTE));
+    expectedCal.set(Calendar.SECOND, defaultCal.get(Calendar.SECOND));
+    expectedCal.set(Calendar.MILLISECOND, 0);
+
+    Timestamp expectedTs = new Timestamp(expectedCal.getTimeInMillis());
+    expectedTs.setNanos(originalTs.getNanos());
+
+    // Verify the executed SQL contains the expected timestamp
     String executedSql = sqlCaptor.getValue();
-    System.out.println(executedSql);
+    System.out.println("Expected: " + expectedTs.toString());
+    System.out.println("Actual SQL: " + executedSql);
+
+    // Verify full timestamp with microsecond precision is preserved
     assertTrue(
-        executedSql.contains("2025-11-21 23:30:49.185645"),
-        "Executed SQL should preserve microsecond precision: " + executedSql);
-    assertFalse(
-        executedSql.contains("2025-11-21 23:30:49.185 ")
-            || executedSql.contains("2025-11-21 23:30:49.185'"),
-        "Executed SQL should not truncate to milliseconds: " + executedSql);
+            executedSql.contains(expectedTs.toString()),
+            "Executed SQL should match expected timestamp: expected="
+                    + expectedTs.toString()
+                    + ", actual="
+                    + executedSql);
+
+    // Verify microsecond precision is preserved (6 decimal places, not truncated to 3)
+    assertTrue(
+            executedSql.matches(".*\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{6}.*"),
+            "Executed SQL should have microsecond precision (6 decimal places): " + executedSql);
+
+    // Verify nanosecond value is exactly preserved
+    assertEquals(
+            185645000,
+            expectedTs.getNanos(),
+            "Nanosecond precision should be preserved in converted timestamp");
   }
 }
