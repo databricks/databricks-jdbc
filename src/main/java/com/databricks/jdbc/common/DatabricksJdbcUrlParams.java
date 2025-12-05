@@ -187,7 +187,13 @@ public enum DatabricksJdbcUrlParams {
       "Disable requesting OAuth refresh tokens (omit offline_access unless explicitly provided)",
       "1"),
   ENABLE_TOKEN_FEDERATION(
-      "EnableTokenFederation", "Enable token federation for authentication", "1");
+      "EnableTokenFederation", "Enable token federation for authentication", "1"),
+  API_RETRIABLE_HTTP_CODES(
+      "ApiRetriableHttpCodes",
+      "Comma-separated list of HTTP status codes that should be retried irrespective of Retry-After header.",
+      ""),
+  API_RETRY_TIMEOUT(
+      "ApiRetryTimeout", "Timeout for retrying API retriable codes in seconds", "300");
 
   private final String paramName;
   private final String defaultValue;
