@@ -44,14 +44,11 @@ public class Slf4jFormatterTest {
     String expectedZone = formatterZone.getDisplayName(false, TimeZone.SHORT);
 
     String expected =
-            String.format("%s %s INFO TestClass#testMethod - Test message%n",
-                    expectedTimestamp,
-                    expectedZone);
+        String.format(
+            "%s %s INFO TestClass#testMethod - Test message%n", expectedTimestamp, expectedZone);
 
     assertEquals(expected, formattedLog);
   }
-
-
 
   @Test
   public void testFormatWithDifferentLevels() {
