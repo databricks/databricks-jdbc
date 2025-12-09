@@ -31,8 +31,13 @@ import java.sql.*;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Properties;
+import java.util.TimeZone;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -1280,5 +1285,82 @@ public class DatabricksPreparedStatementTest {
         185645000,
         expectedTs.getNanos(),
         "Nanosecond precision should be preserved in converted timestamp");
+  }
+
+  static Stream<Arguments> dstTestCases() {
+    return Stream.of(
+        Arguments.of("Spring Forward (Non-existent time)", "2024-03-10 02:30:00.185645"),
+        Arguments.of("Fall Back (Ambiguous time)", "2024-11-03 01:30:00.185645"));
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("dstTestCases")
+  public void testSetTimestampWithCalendarDSTTransitions(String testName, String timestampLiteral)
+      throws Exception {
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL_WITH_MANY_PARAMETERS, new Properties());
+
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+
+    String sql = "UPDATE test_table SET ts = ? WHERE id = ?";
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, sql);
+
+    // Create timestamp (either Spring forward gap or Fall back overlap)
+    Timestamp originalTs = Timestamp.valueOf(timestampLiteral);
+
+    assertEquals(
+        185645000, originalTs.getNanos(), "Original timestamp must preserve microsecond precision");
+
+    // Use New York calendar (DST-enabled)
+    Calendar nyCalendar = Calendar.getInstance(TimeZone.getTimeZone("America/New_York"));
+
+    statement.setTimestamp(1, originalTs, nyCalendar);
+    statement.setInt(2, 123);
+
+    // Build expected timestamp by reinterpreting fields in target TZ
+    Calendar defaultCal = Calendar.getInstance();
+    defaultCal.setTimeInMillis(originalTs.getTime());
+
+    Calendar expectedCal = (Calendar) nyCalendar.clone();
+    expectedCal.set(Calendar.YEAR, defaultCal.get(Calendar.YEAR));
+    expectedCal.set(Calendar.MONTH, defaultCal.get(Calendar.MONTH));
+    expectedCal.set(Calendar.DAY_OF_MONTH, defaultCal.get(Calendar.DAY_OF_MONTH));
+    expectedCal.set(Calendar.HOUR_OF_DAY, defaultCal.get(Calendar.HOUR_OF_DAY));
+    expectedCal.set(Calendar.MINUTE, defaultCal.get(Calendar.MINUTE));
+    expectedCal.set(Calendar.SECOND, defaultCal.get(Calendar.SECOND));
+    expectedCal.set(Calendar.MILLISECOND, 0);
+
+    // Lenient mode resolves both gap and ambiguity
+    Timestamp expectedTs = new Timestamp(expectedCal.getTimeInMillis());
+    expectedTs.setNanos(originalTs.getNanos());
+
+    // Capture executed SQL
+    ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+    when(client.executeStatement(
+            sqlCaptor.capture(),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    statement.executeUpdate();
+
+    String executedSql = sqlCaptor.getValue();
+
+    // Validation
+    assertTrue(
+        executedSql.contains(expectedTs.toString()),
+        "DST behavior incorrect for "
+            + testName
+            + ": expected="
+            + expectedTs
+            + ", actual="
+            + executedSql);
+
+    assertEquals(
+        185645000, expectedTs.getNanos(), "Nanosecond precision must be preserved for " + testName);
   }
 }
