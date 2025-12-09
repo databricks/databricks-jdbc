@@ -441,11 +441,23 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal)");
     checkIfClosed();
     if (cal != null) {
-      TimeZone originalTimeZone = TimeZone.getDefault();
-      TimeZone.setDefault(cal.getTimeZone());
-      x = new Timestamp(x.getTime());
-      TimeZone.setDefault(originalTimeZone);
-      setObject(parameterIndex, x, DatabricksTypeUtil.TIMESTAMP);
+      Calendar defaultCalendar = Calendar.getInstance();
+      defaultCalendar.setTimeInMillis(x.getTime());
+
+      Calendar targetCalendar = (Calendar) cal.clone();
+      targetCalendar.set(Calendar.YEAR, defaultCalendar.get(Calendar.YEAR));
+      targetCalendar.set(Calendar.MONTH, defaultCalendar.get(Calendar.MONTH));
+      targetCalendar.set(Calendar.DAY_OF_MONTH, defaultCalendar.get(Calendar.DAY_OF_MONTH));
+      targetCalendar.set(Calendar.HOUR_OF_DAY, defaultCalendar.get(Calendar.HOUR_OF_DAY));
+      targetCalendar.set(Calendar.MINUTE, defaultCalendar.get(Calendar.MINUTE));
+      targetCalendar.set(Calendar.SECOND, defaultCalendar.get(Calendar.SECOND));
+      targetCalendar.set(
+          Calendar.MILLISECOND, 0); // Because we are already handling sub-second precision below
+
+      Timestamp convertedTimestamp = new Timestamp(targetCalendar.getTimeInMillis());
+      convertedTimestamp.setNanos(
+          x.getNanos()); // Note this preserved the microseconds and nanoseconds both
+      setObject(parameterIndex, convertedTimestamp, DatabricksTypeUtil.TIMESTAMP);
     } else {
       setTimestamp(parameterIndex, x);
     }
