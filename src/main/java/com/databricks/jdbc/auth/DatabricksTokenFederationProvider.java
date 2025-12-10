@@ -67,11 +67,6 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
   private IDatabricksHttpClient hc;
 
   public DatabricksTokenFederationProvider(
-      IDatabricksConnectionContext connectionContext, CredentialsProvider credentialsProvider) {
-    this(connectionContext, credentialsProvider, new NoOpTokenCache());
-  }
-
-  public DatabricksTokenFederationProvider(
       IDatabricksConnectionContext connectionContext,
       CredentialsProvider credentialsProvider,
       TokenCache tokenCache) {
@@ -83,14 +78,6 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
     // Initialize a minimal config; real config will be provided via configure(databricksConfig)
     this.config = null;
     this.externalHeaderFactory = null;
-  }
-
-  @VisibleForTesting
-  DatabricksTokenFederationProvider(
-      IDatabricksConnectionContext connectionContext,
-      CredentialsProvider credentialsProvider,
-      DatabricksConfig config) {
-    this(connectionContext, credentialsProvider, config, new NoOpTokenCache());
   }
 
   @VisibleForTesting

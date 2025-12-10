@@ -8,9 +8,13 @@ import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.HeaderFactory;
 import com.databricks.sdk.core.oauth.Token;
+import com.databricks.sdk.core.oauth.TokenCache;
 import com.google.common.annotations.VisibleForTesting;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.apache.http.HttpHeaders;
 
@@ -20,12 +24,36 @@ public class PrivateKeyClientCredentialProvider implements CredentialsProvider {
   String tokenEndpoint;
 
   IDatabricksHttpClient httpClient;
+  TokenCache tokenCache;
 
   public PrivateKeyClientCredentialProvider(
       IDatabricksConnectionContext connectionContext, DatabricksConfig databricksConfig) {
     this.connectionContext = connectionContext;
     this.httpClient = DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
     this.tokenEndpoint = DatabricksAuthUtil.getTokenEndpoint(databricksConfig, connectionContext);
+    this.tokenCache = createTokenCache(databricksConfig);
+  }
+
+  /**
+   * Creates a TokenCache instance for JWT M2M credentials.
+   *
+   * @param config The Databricks configuration
+   * @return An EncryptedFileTokenCache instance
+   */
+  private TokenCache createTokenCache(DatabricksConfig config) {
+    String userHome = System.getProperty("user.home");
+    Path homeDir = Paths.get(userHome);
+    Path databricksDir = homeDir.resolve(".config/databricks-jdbc/oauth");
+
+    // Create unique cache path based on host + clientId
+    String cacheId = (config.getHost() + config.getClientId()).hashCode() + "";
+    Path cachePath = databricksDir.resolve("token-cache-jwt-m2m-" + cacheId);
+
+    return TokenCacheUtils.createEncryptedCache(
+        cachePath,
+        connectionContext.getTokenCachePassPhrase(),
+        config.getHost(),
+        config.getClientId());
   }
 
   @Override
@@ -44,6 +72,7 @@ public class PrivateKeyClientCredentialProvider implements CredentialsProvider {
         .withJwtAlgorithm(connectionContext.getJWTAlgorithm())
         .withTokenUrl(tokenEndpoint)
         .withScopes(Collections.singletonList(connectionContext.getAuthScope()))
+        .withTokenCache(this.tokenCache)
         .build();
   }
 

@@ -37,11 +37,6 @@ public class OAuthRefreshCredentialsProvider implements TokenSource, Credentials
   private final TokenCache tokenCache;
 
   public OAuthRefreshCredentialsProvider(
-      IDatabricksConnectionContext context, DatabricksConfig databricksConfig) {
-    this(context, databricksConfig, new NoOpTokenCache());
-  }
-
-  public OAuthRefreshCredentialsProvider(
       IDatabricksConnectionContext context,
       DatabricksConfig databricksConfig,
       TokenCache tokenCache) {

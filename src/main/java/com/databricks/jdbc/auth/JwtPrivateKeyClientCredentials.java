@@ -69,7 +69,7 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
     private String jwtAlgorithm;
     private IDatabricksHttpClient hc;
     private List<String> scopes = Collections.emptyList();
-    private TokenCache tokenCache = new NoOpTokenCache();
+    private TokenCache tokenCache;
 
     public Builder withClientId(String clientId) {
       this.clientId = clientId;
@@ -120,6 +120,7 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
       Objects.requireNonNull(this.clientId, "clientId must be specified");
       Objects.requireNonNull(this.jwtKeyFile, "JWT key file must be specified");
       Objects.requireNonNull(this.jwtKid, "JWT KID must be specified");
+      Objects.requireNonNull(this.tokenCache, "tokenCache must be specified");
       return new JwtPrivateKeyClientCredentials(
           hc, clientId, jwtKeyFile, jwtKid, jwtKeyPassphrase, jwtAlgorithm, tokenUrl, scopes,
           tokenCache);

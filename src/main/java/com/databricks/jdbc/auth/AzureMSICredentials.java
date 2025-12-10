@@ -59,16 +59,6 @@ public class AzureMSICredentials implements TokenSource {
   private final TokenCache managementTokenCache;
 
   /**
-   * Constructs a new AzureMSICredentials instance with no caching.
-   *
-   * @param hc The HTTP client to use for making token requests
-   * @param clientId The client ID for user-assigned managed identity, or null for system-assigned
-   */
-  AzureMSICredentials(IDatabricksHttpClient hc, String clientId) {
-    this(hc, clientId, new NoOpTokenCache(), new NoOpTokenCache());
-  }
-
-  /**
    * Constructs a new AzureMSICredentials instance with token caching.
    *
    * @param hc The HTTP client to use for making token requests

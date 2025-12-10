@@ -108,6 +108,27 @@ public class ClientConfigurator {
   }
 
   /**
+   * Creates a TokenCache instance using encrypted file-based caching.
+   * Follows SDK's cache path pattern but uses encryption for better security.
+   *
+   * @param clientId The OAuth client ID (used for cache path generation)
+   * @param scopes The OAuth scopes (used for cache path generation)
+   * @return An EncryptedFileTokenCache instance
+   */
+  private TokenCache createTokenCache(String clientId, List<String> scopes) {
+    Path cachePath = getTokenCachePath(
+        connectionContext.getHostForOAuth(),
+        clientId,
+        scopes != null ? scopes : List.of());
+
+    return TokenCacheUtils.createEncryptedCache(
+        cachePath,
+        connectionContext.getTokenCachePassPhrase(),
+        connectionContext.getHostForOAuth(),
+        clientId);
+  }
+
+  /**
    * Setup the SSL configuration in the httpClientBuilder.
    *
    * @param httpClientBuilder The builder to which the SSL configuration should be added.
@@ -326,8 +347,10 @@ public class ClientConfigurator {
         .setHost(connectionContext.getHostForOAuth())
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret());
+
+    TokenCache tokenCache = createTokenCache(connectionContext.getClientId(), List.of());
     CredentialsProvider provider =
-        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
+        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig, tokenCache);
     CredentialsProvider wrappedProvider = wrapWithTokenFederationIfEnabled(provider);
 
     databricksConfig
@@ -448,7 +471,11 @@ public class ClientConfigurator {
    */
   private CredentialsProvider wrapWithTokenFederationIfEnabled(CredentialsProvider provider) {
     if (connectionContext.isTokenFederationEnabled()) {
-      return new DatabricksTokenFederationProvider(connectionContext, provider);
+      // Create a separate token cache for federated tokens
+      TokenCache federationTokenCache = createTokenCache(
+          connectionContext.getNullableClientId(),
+          List.of("federation"));
+      return new DatabricksTokenFederationProvider(connectionContext, provider, federationTokenCache);
     }
     return provider;
   }
