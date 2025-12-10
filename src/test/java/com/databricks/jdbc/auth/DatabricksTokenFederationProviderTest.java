@@ -45,7 +45,7 @@ public class DatabricksTokenFederationProviderTest {
     databricksTokenFederationProvider =
         spy(
             new DatabricksTokenFederationProvider(
-                mockContext, mockCredentialsProvider, mockConfig));
+                mockContext, mockCredentialsProvider, new NoOpTokenCache()));
   }
 
   @Test
@@ -89,11 +89,14 @@ public class DatabricksTokenFederationProviderTest {
 
   @Test
   public void testExchangeToken() throws Exception {
+    // Use the 4-parameter test constructor that sets the config field
     when(mockConfig.getHost()).thenReturn("https://host.com");
-    doReturn(testToken())
-        .when(databricksTokenFederationProvider)
-        .retrieveToken(any(), any(), any(), any());
-    Token exchangedToken = databricksTokenFederationProvider.exchangeToken("thirdPartyToken");
+    DatabricksTokenFederationProvider providerWithConfig =
+        spy(
+            new DatabricksTokenFederationProvider(
+                mockContext, mockCredentialsProvider, mockConfig, new NoOpTokenCache()));
+    doReturn(testToken()).when(providerWithConfig).retrieveToken(any(), any(), any(), any());
+    Token exchangedToken = providerWithConfig.exchangeToken("thirdPartyToken");
     assertEquals("tokenType", exchangedToken.getTokenType());
     assertEquals("accessToken", exchangedToken.getAccessToken());
     assertEquals("refreshToken", exchangedToken.getRefreshToken());

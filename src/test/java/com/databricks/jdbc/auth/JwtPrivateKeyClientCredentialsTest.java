@@ -37,15 +37,18 @@ public class JwtPrivateKeyClientCredentialsTest {
 
   @Mock RSAPrivateKey rsaPrivateKey;
 
-  private JwtPrivateKeyClientCredentials clientCredentials =
-      new JwtPrivateKeyClientCredentials.Builder()
-          .withHttpClient(httpClient)
-          .withClientId(TEST_CLIENT_ID)
-          .withJwtKid(TEST_JWT_KID)
-          .withJwtKeyFile(TEST_JWT_KEY_FILE)
-          .withJwtAlgorithm(TEST_JWT_ALGORITHM)
-          .withTokenUrl(TEST_TOKEN_URL)
-          .build();
+  // Helper method to create test credentials (requires valid private key file)
+  private JwtPrivateKeyClientCredentials createTestCredentials() {
+    return new JwtPrivateKeyClientCredentials.Builder()
+        .withHttpClient(httpClient)
+        .withClientId(TEST_CLIENT_ID)
+        .withJwtKid(TEST_JWT_KID)
+        .withJwtKeyFile(TEST_JWT_KEY_FILE)
+        .withJwtAlgorithm(TEST_JWT_ALGORITHM)
+        .withTokenUrl(TEST_TOKEN_URL)
+        .withTokenCache(new NoOpTokenCache())
+        .build();
+  }
 
   @ParameterizedTest
   @CsvSource({
@@ -62,7 +65,8 @@ public class JwtPrivateKeyClientCredentialsTest {
     "HS256,RS256", // Unsupported algorithm, should default to RS256
   })
   public void testDetermineSignatureAlgorithm(String jwtAlgorithm, JWSAlgorithm expectedAlgorithm) {
-    JWSAlgorithm result = clientCredentials.determineSignatureAlgorithm(jwtAlgorithm);
+    JwtPrivateKeyClientCredentials credentials = createTestCredentials();
+    JWSAlgorithm result = credentials.determineSignatureAlgorithm(jwtAlgorithm);
     assertEquals(expectedAlgorithm, result);
   }
 
@@ -74,7 +78,9 @@ public class JwtPrivateKeyClientCredentialsTest {
     Exception exception =
         assertThrows(
             DatabricksException.class,
-            () -> clientCredentials.retrieveToken(httpClient, TEST_TOKEN_URL, Map.of(), Map.of()));
+            () ->
+                JwtPrivateKeyClientCredentials.retrieveToken(
+                    httpClient, TEST_TOKEN_URL, Map.of(), Map.of()));
     assertTrue(exception.getMessage().contains("Failed to retrieve custom M2M token"));
   }
 
@@ -84,18 +90,21 @@ public class JwtPrivateKeyClientCredentialsTest {
     when(httpResponse.getEntity()).thenReturn(httpEntity);
     when(httpEntity.getContent())
         .thenReturn(new ByteArrayInputStream(TEST_OAUTH_RESPONSE.getBytes()));
-    Token token = clientCredentials.retrieveToken(httpClient, TEST_TOKEN_URL, Map.of(), Map.of());
+    Token token =
+        JwtPrivateKeyClientCredentials.retrieveToken(
+            httpClient, TEST_TOKEN_URL, Map.of(), Map.of());
     assertEquals(token.getAccessToken(), TEST_ACCESS_TOKEN);
     assertEquals(token.getTokenType(), "Bearer");
   }
 
   @Test
   void testFetchSignedJWTWithRSAKey() throws Exception {
+    JwtPrivateKeyClientCredentials credentials = createTestCredentials();
     when(rsaPrivateKey.getAlgorithm()).thenReturn("RSA");
     when(rsaPrivateKey.getModulus())
         .thenReturn(new BigInteger(2048, new SecureRandom()).setBit(2047));
     when(rsaPrivateKey.getPrivateExponent()).thenReturn(new BigInteger(10, new SecureRandom()));
-    SignedJWT signedJWT = clientCredentials.fetchSignedJWT(rsaPrivateKey);
+    SignedJWT signedJWT = credentials.fetchSignedJWT(rsaPrivateKey);
     assertNotNull(signedJWT);
     assertEquals(TEST_CLIENT_ID, signedJWT.getJWTClaimsSet().getSubject());
     assertEquals(TEST_CLIENT_ID, signedJWT.getJWTClaimsSet().getIssuer());

@@ -108,18 +108,17 @@ public class ClientConfigurator {
   }
 
   /**
-   * Creates a TokenCache instance using encrypted file-based caching.
-   * Follows SDK's cache path pattern but uses encryption for better security.
+   * Creates a TokenCache instance using encrypted file-based caching. Follows SDK's cache path
+   * pattern but uses encryption for better security.
    *
    * @param clientId The OAuth client ID (used for cache path generation)
    * @param scopes The OAuth scopes (used for cache path generation)
    * @return An EncryptedFileTokenCache instance
    */
   private TokenCache createTokenCache(String clientId, List<String> scopes) {
-    Path cachePath = getTokenCachePath(
-        connectionContext.getHostForOAuth(),
-        clientId,
-        scopes != null ? scopes : List.of());
+    Path cachePath =
+        getTokenCachePath(
+            connectionContext.getHostForOAuth(), clientId, scopes != null ? scopes : List.of());
 
     return TokenCacheUtils.createEncryptedCache(
         cachePath,
@@ -472,10 +471,10 @@ public class ClientConfigurator {
   private CredentialsProvider wrapWithTokenFederationIfEnabled(CredentialsProvider provider) {
     if (connectionContext.isTokenFederationEnabled()) {
       // Create a separate token cache for federated tokens
-      TokenCache federationTokenCache = createTokenCache(
-          connectionContext.getNullableClientId(),
-          List.of("federation"));
-      return new DatabricksTokenFederationProvider(connectionContext, provider, federationTokenCache);
+      TokenCache federationTokenCache =
+          createTokenCache(connectionContext.getNullableClientId(), List.of("federation"));
+      return new DatabricksTokenFederationProvider(
+          connectionContext, provider, federationTokenCache);
     }
     return provider;
   }

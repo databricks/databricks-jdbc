@@ -29,14 +29,14 @@ public class TokenCacheUtils {
   public static final long EXPIRATION_BUFFER_SECONDS = 300;
 
   /**
-   * Default passphrase suffix used when generating encryption passphrases for token caches.
-   * This is combined with host and clientId to create unique passphrases.
+   * Default passphrase suffix used when generating encryption passphrases for token caches. This is
+   * combined with host and clientId to create unique passphrases.
    */
   private static final String DEFAULT_PASSPHRASE_SUFFIX = "databricks-jdbc-token-cache";
 
   /**
-   * Generates a default passphrase for token cache encryption.
-   * Combines host, clientId, and a standard suffix to create a unique passphrase.
+   * Generates a default passphrase for token cache encryption. Combines host, clientId, and a
+   * standard suffix to create a unique passphrase.
    *
    * @param host The Databricks host URL
    * @param clientId The OAuth client ID (can be null)
@@ -49,8 +49,8 @@ public class TokenCacheUtils {
   }
 
   /**
-   * Creates an EncryptedFileTokenCache with the given parameters.
-   * Uses the configured passphrase if available, otherwise generates a default passphrase.
+   * Creates an EncryptedFileTokenCache with the given parameters. Uses the configured passphrase if
+   * available, otherwise generates a default passphrase.
    *
    * @param cachePath The path where the token cache file will be stored
    * @param configuredPassphrase The passphrase from configuration (can be null)
@@ -59,10 +59,7 @@ public class TokenCacheUtils {
    * @return An EncryptedFileTokenCache instance
    */
   public static TokenCache createEncryptedCache(
-      java.nio.file.Path cachePath,
-      String configuredPassphrase,
-      String host,
-      String clientId) {
+      java.nio.file.Path cachePath, String configuredPassphrase, String host, String clientId) {
     String passphrase = configuredPassphrase;
     if (passphrase == null || passphrase.isEmpty()) {
       passphrase = getDefaultPassphrase(host, clientId);

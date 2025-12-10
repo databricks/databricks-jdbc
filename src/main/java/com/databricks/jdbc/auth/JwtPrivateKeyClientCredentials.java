@@ -122,7 +122,14 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
       Objects.requireNonNull(this.jwtKid, "JWT KID must be specified");
       Objects.requireNonNull(this.tokenCache, "tokenCache must be specified");
       return new JwtPrivateKeyClientCredentials(
-          hc, clientId, jwtKeyFile, jwtKid, jwtKeyPassphrase, jwtAlgorithm, tokenUrl, scopes,
+          hc,
+          clientId,
+          jwtKeyFile,
+          jwtKid,
+          jwtKeyPassphrase,
+          jwtAlgorithm,
+          tokenUrl,
+          scopes,
           tokenCache);
     }
   }
@@ -269,8 +276,8 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
   }
 
   /**
-   * Loads the private key from file once during construction.
-   * The key is cached to avoid repeated file I/O operations.
+   * Loads the private key from file once during construction. The key is cached to avoid repeated
+   * file I/O operations.
    *
    * @return The parsed PrivateKey
    * @throws DatabricksException if the key cannot be loaded or parsed

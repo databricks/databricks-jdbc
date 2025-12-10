@@ -55,10 +55,12 @@ public class OAuthRefreshCredentialsProviderTest {
             new OpenIDConnectEndpoints(
                 "https://oauth.example.com/oidc/v1/token",
                 "https://oauth.example.com/oidc/v1/authorize"));
-    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
+    credentialsProvider =
+        new OAuthRefreshCredentialsProvider(
+            connectionContext, databricksConfig, new NoOpTokenCache());
     when(context.getOAuthRefreshToken()).thenReturn(null);
     OAuthRefreshCredentialsProvider providerWithNullRefreshToken =
-        new OAuthRefreshCredentialsProvider(context, databricksConfig);
+        new OAuthRefreshCredentialsProvider(context, databricksConfig, new NoOpTokenCache());
     DatabricksException exception =
         assertThrows(DatabricksException.class, providerWithNullRefreshToken::getToken);
     assertEquals("oauth2: token expired and refresh token is not set", exception.getMessage());
@@ -71,7 +73,9 @@ public class OAuthRefreshCredentialsProviderTest {
     when(databricksConfig.getOidcEndpoints()).thenThrow(new IOException());
     assertThrows(
         DatabricksException.class,
-        () -> new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig));
+        () ->
+            new OAuthRefreshCredentialsProvider(
+                connectionContext, databricksConfig, new NoOpTokenCache()));
   }
 
   @ParameterizedTest
@@ -91,7 +95,9 @@ public class OAuthRefreshCredentialsProviderTest {
       when(databricksConfig.getOidcEndpoints())
           .thenReturn(new OpenIDConnectEndpoints(TEST_TOKEN_URL, TEST_AUTH_URL));
     }
-    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
+    credentialsProvider =
+        new OAuthRefreshCredentialsProvider(
+            connectionContext, databricksConfig, new NoOpTokenCache());
     assertEquals("oauth-refresh", credentialsProvider.authType());
     when(databricksConfig.getHttpClient()).thenReturn(httpClient);
     try (MockedStatic<TokenEndpointClient> mocked = mockStatic(TokenEndpointClient.class)) {

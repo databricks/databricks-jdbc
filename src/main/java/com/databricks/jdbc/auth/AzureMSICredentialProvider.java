@@ -53,16 +53,17 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
   }
 
   /**
-   * Creates a TokenCache instance for Azure MSI credentials.
-   * Azure MSI requires TWO separate caches:
-   * - databricks scope: for Databricks API calls (resource: 2ff814a6-3304-4ab8-85cb-cd0e6f879c1d)
-   * - management scope: for Azure Resource Manager calls (resource: https://management.core.windows.net/)
+   * Creates a TokenCache instance for Azure MSI credentials. Azure MSI requires TWO separate
+   * caches: - databricks scope: for Databricks API calls (resource:
+   * 2ff814a6-3304-4ab8-85cb-cd0e6f879c1d) - management scope: for Azure Resource Manager calls
+   * (resource: https://management.core.windows.net/)
    *
    * @param connectionContext The connection context
    * @param scope The scope identifier (databricks or management)
    * @return An EncryptedFileTokenCache instance
    */
-  private TokenCache createTokenCache(IDatabricksConnectionContext connectionContext, String scope) {
+  private TokenCache createTokenCache(
+      IDatabricksConnectionContext connectionContext, String scope) {
     String userHome = System.getProperty("user.home");
     Path homeDir = Paths.get(userHome);
     Path databricksDir = homeDir.resolve(".config/databricks-jdbc/oauth");
@@ -81,16 +82,13 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
       passphraseWithScope = configuredPassphrase + "-" + scope;
     }
 
-    return TokenCacheUtils.createEncryptedCache(
-        cachePath,
-        passphraseWithScope,
-        host,
-        clientId);
+    return TokenCacheUtils.createEncryptedCache(cachePath, passphraseWithScope, host, clientId);
   }
 
   /**
    * Constructs a new AzureMSICredentialProvider with a custom HTTP client. This constructor is
-   * primarily used for testing purposes.
+   * primarily used for testing purposes and uses NoOpTokenCache to avoid persisting tokens during
+   * tests.
    *
    * @param connectionContext The Databricks connection context containing authentication
    *     parameters.
@@ -102,6 +100,8 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
     this.httpClient = httpClient;
     this.clientId = connectionContext.getNullableClientId();
     this.resourceId = connectionContext.getAzureWorkspaceResourceId();
+    this.databricksTokenCache = new NoOpTokenCache();
+    this.managementTokenCache = new NoOpTokenCache();
   }
 
   /**
