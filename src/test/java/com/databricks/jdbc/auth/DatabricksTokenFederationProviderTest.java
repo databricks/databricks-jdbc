@@ -2,6 +2,7 @@ package com.databricks.jdbc.auth;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -42,6 +43,8 @@ public class DatabricksTokenFederationProviderTest {
 
   @BeforeEach
   public void setUp() {
+    lenient().when(mockContext.getConnectionUuid()).thenReturn("test-uuid");
+    lenient().when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     databricksTokenFederationProvider =
         spy(
             new DatabricksTokenFederationProvider(
