@@ -11,6 +11,8 @@
 - Updated Circuit breaker to be triggered by 429 errors too.
 - Log timestamps now explicitly display timezone.
 - **[Breaking Change]** `PreparedStatement.setTimestamp(int, Timestamp, Calendar)` now properly applies Calendar timezone conversion using LocalDateTime pattern (inline with `getTimestamp`). Previously Calendar parameter was ineffective.
+- Refactored chunk download to keep a sliding window of chunk links. The window advances as the main thread consumes chunks. These changes can be enabled using the connection property EnableStreamingChunkProvider=1. The changes are expected to make chunk download faster and robust. 
+- Added separate circuit breaker to handle 429 from SEA connection creation calls, and fall back to Thrift.
 
 ### Fixed
 
@@ -19,6 +21,7 @@
 - Fix U2M by including SDK OAuth HTML callback resources.
 - Removes dangerous global timezone modification that caused race conditions.
 - Fix microsecond precision loss in `PreparedStatement.setTimestamp(int,Timestamp, Calendar)` and address thread-safety issues with global timezone modification.
+- Fix metadata methods (`getColumns`, `getFunctions`, `getPrimaryKeys`, `getImportedKeys`) to return empty ResultSets instead of throwing exceptions when catalog parameter is NULL, for SEA.
 
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.*

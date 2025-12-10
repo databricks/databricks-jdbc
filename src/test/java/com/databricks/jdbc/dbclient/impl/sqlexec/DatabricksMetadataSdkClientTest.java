@@ -20,7 +20,6 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.CrossReferenceKeysDatabricksResultSetAdapter;
 import com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.ResultSet;
@@ -788,20 +787,41 @@ public class DatabricksMetadataSdkClientTest {
   }
 
   @Test
-  void testThrowsErrorResultInCaseOfNullCatalog() {
+  void testReturnsEmptyResultSetInCaseOfNullCatalog() throws SQLException {
     IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
     when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
     when(mockClient.getConnectionContext()).thenReturn(mockContext);
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
-    assertThrows(
-        DatabricksValidationException.class,
-        () -> metadataClient.listColumns(session, null, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN));
-    assertThrows(
-        DatabricksValidationException.class,
-        () -> metadataClient.listPrimaryKeys(session, null, TEST_SCHEMA, TEST_TABLE));
-    assertThrows(
-        DatabricksValidationException.class,
-        () -> metadataClient.listFunctions(session, null, TEST_SCHEMA, TEST_TABLE));
+
+    // listColumns with null catalog should return empty ResultSet
+    DatabricksResultSet columnsResult =
+        metadataClient.listColumns(session, null, TEST_SCHEMA, TEST_TABLE, TEST_COLUMN);
+    assertNotNull(columnsResult);
+    assertFalse(
+        columnsResult.next(), "Expected empty result set for listColumns with null catalog");
+
+    // listFunctions with null catalog should return empty ResultSet
+    DatabricksResultSet functionsResult =
+        metadataClient.listFunctions(session, null, TEST_SCHEMA, TEST_TABLE);
+    assertNotNull(functionsResult);
+    assertFalse(
+        functionsResult.next(), "Expected empty result set for listFunctions with null catalog");
+
+    // listPrimaryKeys with null catalog should return empty ResultSet
+    DatabricksResultSet primaryKeysResult =
+        metadataClient.listPrimaryKeys(session, null, TEST_SCHEMA, TEST_TABLE);
+    assertNotNull(primaryKeysResult);
+    assertFalse(
+        primaryKeysResult.next(),
+        "Expected empty result set for listPrimaryKeys with null catalog");
+
+    // listImportedKeys with null catalog should return empty ResultSet
+    DatabricksResultSet importedKeysResult =
+        metadataClient.listImportedKeys(session, null, TEST_SCHEMA, TEST_TABLE);
+    assertNotNull(importedKeysResult);
+    assertFalse(
+        importedKeysResult.next(),
+        "Expected empty result set for listImportedKeys with null catalog");
   }
 
   @Test

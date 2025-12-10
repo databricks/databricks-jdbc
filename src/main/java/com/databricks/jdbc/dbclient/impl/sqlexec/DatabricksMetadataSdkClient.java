@@ -146,6 +146,17 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       String columnNamePattern)
       throws SQLException {
     catalog = autoFillCatalog(catalog, session);
+
+    // Return empty result set if catalog is null
+    if (catalog == null) {
+      LOGGER.debug("Catalog is null, returning empty result set for listColumns");
+      return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+          MetadataResultConstants.COLUMN_COLUMNS,
+          new ArrayList<>(),
+          METADATA_STATEMENT_ID,
+          com.databricks.jdbc.common.CommandName.LIST_COLUMNS);
+    }
+
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session)
             .setSchemaPattern(schemaNamePattern)
@@ -164,6 +175,17 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       String functionNamePattern)
       throws SQLException {
     catalog = autoFillCatalog(catalog, session);
+
+    // Return empty result set if catalog is null
+    if (catalog == null) {
+      LOGGER.debug("Catalog is null, returning empty result set for listFunctions");
+      return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+          MetadataResultConstants.FUNCTION_COLUMNS,
+          new ArrayList<>(),
+          METADATA_STATEMENT_ID,
+          com.databricks.jdbc.common.CommandName.LIST_FUNCTIONS);
+    }
+
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session)
             .setSchemaPattern(schemaNamePattern)
@@ -177,6 +199,21 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   public DatabricksResultSet listPrimaryKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
     catalog = autoFillCatalog(catalog, session);
+
+    // Return empty result set if catalog, schema, or table is null
+    if (catalog == null || schema == null || table == null) {
+      LOGGER.debug(
+          "Catalog, schema, or table is null (catalog={}, schema={}, table={}), returning empty result set for listPrimaryKeys",
+          catalog,
+          schema,
+          table);
+      return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+          MetadataResultConstants.PRIMARY_KEYS_COLUMNS,
+          new ArrayList<>(),
+          METADATA_STATEMENT_ID,
+          com.databricks.jdbc.common.CommandName.LIST_PRIMARY_KEYS);
+    }
+
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
@@ -189,6 +226,21 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
     LOGGER.debug("public ResultSet listImportedKeys() using SDK");
     catalog = autoFillCatalog(catalog, session);
+
+    // Return empty result set if catalog, schema, or table is null
+    if (catalog == null || schema == null || table == null) {
+      LOGGER.debug(
+          "Catalog, schema, or table is null (catalog={}, schema={}, table={}), returning empty result set for listImportedKeys",
+          catalog,
+          schema,
+          table);
+      return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+          MetadataResultConstants.IMPORTED_KEYS_COLUMNS,
+          new ArrayList<>(),
+          METADATA_STATEMENT_ID,
+          com.databricks.jdbc.common.CommandName.GET_IMPORTED_KEYS);
+    }
+
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FOREIGN_KEYS);

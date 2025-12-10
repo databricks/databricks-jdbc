@@ -9,12 +9,11 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
-import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimed;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.Map;
 
 /** Interface for Databricks client which abstracts the integration with Databricks server. */
@@ -115,12 +114,25 @@ public interface IDatabricksClient {
       throws SQLException;
 
   /**
-   * Fetches the chunk details for given chunk index and statement-Id.
+   * Fetches the chunk links for given chunk index and statement-Id.
+   *
+   * <p>For SEA clients, the chunkIndex is used to identify which chunk to fetch. For Thrift
+   * clients, the rowOffset is used with FETCH_ABSOLUTE orientation to seek to the correct position.
+   *
+   * <p>The returned {@link ChunkLinkFetchResult} contains the chunk links and continuation
+   * information:
+   *
+   * <ul>
+   *   <li>SEA: hasMore derived from last link's nextChunkIndex
+   *   <li>Thrift: hasMore from server's hasMoreRows flag, nextRowOffset for continuation
+   * </ul>
    *
    * @param statementId statement-Id for which chunk should be fetched
-   * @param chunkIndex chunkIndex for which chunk should be fetched
+   * @param chunkIndex chunkIndex for which chunk should be fetched (used by SEA)
+   * @param rowOffset row offset for fetching results (used by Thrift with FETCH_ABSOLUTE)
+   * @return ChunkLinkFetchResult containing links and continuation information
    */
-  Collection<ExternalLink> getResultChunks(StatementId statementId, long chunkIndex)
+  ChunkLinkFetchResult getResultChunks(StatementId statementId, long chunkIndex, long rowOffset)
       throws DatabricksSQLException;
 
   /**
