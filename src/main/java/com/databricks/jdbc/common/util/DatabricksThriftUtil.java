@@ -21,6 +21,7 @@ import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.*;
 
 public class DatabricksThriftUtil {
@@ -73,7 +74,10 @@ public class DatabricksThriftUtil {
     return new ExternalLink()
         .setExternalLink(chunkInfo.getFileLink())
         .setChunkIndex(chunkIndex)
-        .setExpiration(Long.toString(chunkInfo.getExpiryTime()));
+        .setExpiration(Instant.ofEpochMilli(chunkInfo.getExpiryTime()).toString())
+        .setRowOffset(chunkInfo.getStartRowOffset())
+        .setByteCount(chunkInfo.getBytesNum())
+        .setRowCount(chunkInfo.getRowCount());
   }
 
   public static void verifySuccessStatus(TStatus status, String errorContext)

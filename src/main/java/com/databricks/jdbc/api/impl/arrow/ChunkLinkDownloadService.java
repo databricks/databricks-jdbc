@@ -9,9 +9,9 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -219,16 +219,18 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
         CompletableFuture.runAsync(
             () -> {
               try {
-                Collection<ExternalLink> links =
-                    session.getDatabricksClient().getResultChunks(statementId, batchStartIndex);
+                // rowOffset is 0 here as this service is used by RemoteChunkProvider (SEA-only)
+                // which fetches by chunkIndex, not rowOffset
+                ChunkLinkFetchResult result =
+                    session.getDatabricksClient().getResultChunks(statementId, batchStartIndex, 0);
                 LOGGER.info(
                     "Retrieved {} links for batch starting at {} for statement id {}",
-                    links.size(),
+                    result.getChunkLinks().size(),
                     batchStartIndex,
                     statementId);
 
                 // Complete futures for all chunks in this batch
-                for (ExternalLink link : links) {
+                for (ExternalLink link : result.getChunkLinks()) {
                   CompletableFuture<ExternalLink> future =
                       chunkIndexToLinkFuture.get(link.getChunkIndex());
                   if (future != null) {
@@ -241,9 +243,12 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
                 }
 
                 // Update next batch start index and trigger next batch
-                if (!links.isEmpty()) {
+                if (!result.getChunkLinks().isEmpty()) {
                   long maxChunkIndex =
-                      links.stream().mapToLong(ExternalLink::getChunkIndex).max().getAsLong();
+                      result.getChunkLinks().stream()
+                          .mapToLong(ExternalLink::getChunkIndex)
+                          .max()
+                          .getAsLong();
                   nextBatchStartIndex.set(maxChunkIndex + 1);
                   LOGGER.debug("Updated next batch start index to {}", maxChunkIndex + 1);
 

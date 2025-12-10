@@ -11,6 +11,7 @@ import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
+import com.databricks.jdbc.common.SeaCircuitBreakerManager;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -457,6 +458,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       }
     }
     // Now, user has not provided a value, we will decide based on our checks
+    // Check if circuit breaker is open due to recent 429 rate limit failures
+    if (SeaCircuitBreakerManager.isCircuitOpen()) {
+      long remainingMs = SeaCircuitBreakerManager.getTimeRemainingMs();
+      LOGGER.info(
+          "SEA circuit breaker is OPEN due to recent 429 rate limit failures. "
+              + "Using THRIFT client. Circuit will close in {} ({}ms)",
+          SeaCircuitBreakerManager.getTimeRemainingFormatted(),
+          remainingMs);
+      return DatabricksClientType.THRIFT;
+    }
     // Check if Arrow is disabled - Thrift is required for inline mode
     if (!Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_ARROW), "1")) {
       return DatabricksClientType.THRIFT;
@@ -1184,5 +1195,15 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isTokenFederationEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_TOKEN_FEDERATION, "1").equals("1");
+  }
+
+  @Override
+  public boolean isStreamingChunkProviderEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_STREAMING_CHUNK_PROVIDER).equals("1");
+  }
+
+  @Override
+  public int getLinkPrefetchWindow() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.LINK_PREFETCH_WINDOW));
   }
 }

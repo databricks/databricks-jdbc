@@ -422,4 +422,19 @@ public interface IDatabricksConnectionContext {
 
   /** Returns whether token federation is enabled for authentication. */
   boolean isTokenFederationEnabled();
+
+  /** Returns whether streaming chunk provider is enabled for result fetching. */
+  boolean isStreamingChunkProviderEnabled();
+
+  /**
+   * Returns the number of chunk links to prefetch ahead of consumption.
+   *
+   * <p>This controls how far ahead the streaming chunk provider fetches links before they are
+   * needed. Higher values reduce latency by ensuring links are ready when needed. Lower values
+   * reduce the risk of link expiry for workloads that process data slowly (e.g., heavy computation
+   * per row), since prefetched links may expire before being used.
+   *
+   * @return the link prefetch window size (default: 128)
+   */
+  int getLinkPrefetchWindow();
 }

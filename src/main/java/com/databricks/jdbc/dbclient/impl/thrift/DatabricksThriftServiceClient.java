@@ -29,6 +29,7 @@ import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -37,7 +38,6 @@ import com.google.common.annotations.VisibleForTesting;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabricksMetadataClient {
@@ -301,32 +301,67 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   @Override
-  public Collection<ExternalLink> getResultChunks(StatementId statementId, long chunkIndex)
-      throws DatabricksSQLException {
-    String context =
-        String.format(
-            "public Optional<ExternalLink> getResultChunk(String statementId = {%s}, long chunkIndex = {%s}) using Thrift client",
-            statementId, chunkIndex);
-    LOGGER.debug(context);
-    DatabricksThreadContextHolder.setStatementId(statementId);
-    TFetchResultsResp fetchResultsResp;
-    List<ExternalLink> externalLinks = new ArrayList<>();
-    AtomicInteger index = new AtomicInteger(0);
-    do {
-      fetchResultsResp = thriftAccessor.getResultSetResp(getOperationHandle(statementId), context);
-      fetchResultsResp
-          .getResults()
-          .getResultLinks()
-          .forEach(
-              resultLink ->
-                  externalLinks.add(createExternalLink(resultLink, index.getAndIncrement())));
-    } while (fetchResultsResp.hasMoreRows);
-    if (chunkIndex < 0 || externalLinks.size() <= chunkIndex) {
-      String error = String.format("Out of bounds error for chunkIndex. Context: %s", context);
-      LOGGER.error(error);
-      throw new DatabricksSQLException(error, DatabricksDriverErrorCode.INVALID_STATE);
+  public ChunkLinkFetchResult getResultChunks(
+      StatementId statementId, long chunkIndex, long rowOffset) throws DatabricksSQLException {
+    // Thrift uses rowOffset with FETCH_ABSOLUTE; chunkIndex is used for link metadata
+    LOGGER.debug(
+        "getResultChunks(statementId={}, chunkIndex={}, rowOffset={}) using Thrift client",
+        statementId,
+        chunkIndex,
+        rowOffset);
+
+    TFetchResultsResp fetchResultsResp =
+        thriftAccessor.fetchResultsWithAbsoluteOffset(
+            getOperationHandle(statementId), rowOffset, "getResultChunks");
+
+    boolean hasMoreRows = fetchResultsResp.hasMoreRows;
+    List<TSparkArrowResultLink> resultLinks = fetchResultsResp.getResults().getResultLinks();
+
+    if (resultLinks == null || resultLinks.isEmpty()) {
+      LOGGER.debug(
+          "No result links returned for statement {}, hasMoreRows={}", statementId, hasMoreRows);
+      // For Thrift, hasMoreRows is the source of truth. Even with no links,
+      // if hasMoreRows is true, we should indicate continuation with the same offset.
+      return ChunkLinkFetchResult.of(new ArrayList<>(), hasMoreRows, chunkIndex, rowOffset);
     }
-    return externalLinks;
+
+    List<ExternalLink> chunkLinks = new ArrayList<>();
+    int lastIndex = resultLinks.size() - 1;
+    long nextRowOffset = rowOffset;
+    long nextFetchIndex = chunkIndex;
+
+    for (int linkIndex = 0; linkIndex < resultLinks.size(); linkIndex++) {
+      TSparkArrowResultLink thriftLink = resultLinks.get(linkIndex);
+      long linkChunkIndex = chunkIndex + linkIndex;
+
+      // createExternalLink sets chunkIndex, rowOffset, rowCount, byteCount, expiration,
+      // externalLink
+      ExternalLink externalLink = createExternalLink(thriftLink, linkChunkIndex);
+
+      // Set nextChunkIndex based on position and hasMoreRows
+      if (linkIndex == lastIndex) {
+        if (hasMoreRows) {
+          externalLink.setNextChunkIndex(linkChunkIndex + 1);
+          nextFetchIndex = linkChunkIndex + 1;
+        }
+        nextRowOffset = thriftLink.getStartRowOffset() + thriftLink.getRowCount();
+      } else {
+        externalLink.setNextChunkIndex(linkChunkIndex + 1);
+      }
+
+      chunkLinks.add(externalLink);
+    }
+
+    LOGGER.debug(
+        "Built ChunkLinkFetchResult with {} links for statement {}, hasMore={}, nextFetchIndex={}, nextRowOffset={}",
+        chunkLinks.size(),
+        statementId,
+        hasMoreRows,
+        nextFetchIndex,
+        nextRowOffset);
+
+    return ChunkLinkFetchResult.of(
+        chunkLinks, hasMoreRows, hasMoreRows ? nextFetchIndex : -1, nextRowOffset);
   }
 
   @Override

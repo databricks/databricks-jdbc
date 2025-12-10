@@ -14,8 +14,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!M2MAuthIntegrationTests
+          # SQL_EXEC mode: Tests SEA client behavior
+          # Note: CircuitBreakerIntegrationTests requires THRIFT_SERVER mode (tested in second matrix entry)
+          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!M2MAuthIntegrationTests,!CircuitBreakerIntegrationTests
             fake-service-type: 'SQL_EXEC'
+          # THRIFT_SERVER mode: Tests Thrift client behavior and circuit breaker fallback
           - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!SqlExecApiHybridResultsIntegrationTests,!DBFSVolumeIntegrationTests,!M2MAuthIntegrationTests,!UCVolumeIntegrationTests,!SqlExecApiIntegrationTests
             fake-service-type: 'THRIFT_SERVER'
     steps:

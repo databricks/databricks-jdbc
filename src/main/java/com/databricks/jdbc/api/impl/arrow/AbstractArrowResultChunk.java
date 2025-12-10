@@ -117,6 +117,15 @@ public abstract class AbstractArrowResultChunk {
   }
 
   /**
+   * Returns the starting row offset for this chunk.
+   *
+   * @return the row offset
+   */
+  public long getRowOffset() {
+    return rowOffset;
+  }
+
+  /**
    * Checks if the chunk link is invalid or expired.
    *
    * @return true if link is invalid, false otherwise

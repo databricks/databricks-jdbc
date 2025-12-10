@@ -188,6 +188,16 @@ public enum DatabricksJdbcUrlParams {
       "1"),
   ENABLE_TOKEN_FEDERATION(
       "EnableTokenFederation", "Enable token federation for authentication", "1"),
+  ENABLE_STREAMING_CHUNK_PROVIDER(
+      "EnableStreamingChunkProvider",
+      "Enable streaming chunk provider for result fetching (experimental)",
+      "0"),
+  LINK_PREFETCH_WINDOW(
+      "LinkPrefetchWindow",
+      "Number of chunk links to prefetch ahead of consumption. "
+          + "Higher values reduce latency by having links ready sooner. "
+          + "Lower values reduce risk of link expiry for slow processing workloads",
+      "128"),
   API_RETRIABLE_HTTP_CODES(
       "ApiRetriableHttpCodes",
       "Comma-separated list of HTTP status codes that should be retried irrespective of Retry-After header.",
