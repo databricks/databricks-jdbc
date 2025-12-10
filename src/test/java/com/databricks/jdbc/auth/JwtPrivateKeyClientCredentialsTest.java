@@ -13,16 +13,11 @@ import com.databricks.sdk.core.oauth.Token;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jwt.SignedJWT;
 import java.io.ByteArrayInputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
 import java.security.SecureRandom;
 import java.security.interfaces.RSAPrivateKey;
-import java.util.Base64;
 import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -49,30 +44,12 @@ public class JwtPrivateKeyClientCredentialsTest {
 
   @BeforeAll
   public static void generateTestKeyFile() throws Exception {
-    // Generate a temporary RSA key pair for testing
-    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
-    keyGen.initialize(2048, new SecureRandom());
-    KeyPair keyPair = keyGen.generateKeyPair();
-    RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
-
-    // Create temporary file
-    tempKeyFile = Files.createTempFile("test-private-key-", ".pem");
-
-    // Write private key in PKCS#8 PEM format (Java's default encoding)
-    try (FileWriter writer = new FileWriter(tempKeyFile.toFile())) {
-      writer.write("-----BEGIN PRIVATE KEY-----\n");
-      String encoded =
-          Base64.getMimeEncoder(64, "\n".getBytes()).encodeToString(privateKey.getEncoded());
-      writer.write(encoded);
-      writer.write("\n-----END PRIVATE KEY-----\n");
-    }
+    tempKeyFile = TestKeyGenerator.generateTemporaryKeyFile();
   }
 
   @AfterAll
   public static void cleanupTestKeyFile() throws Exception {
-    if (tempKeyFile != null) {
-      Files.deleteIfExists(tempKeyFile);
-    }
+    TestKeyGenerator.cleanupKeyFile(tempKeyFile);
   }
 
   // Helper method to create test credentials (uses dynamically generated temp key file)
