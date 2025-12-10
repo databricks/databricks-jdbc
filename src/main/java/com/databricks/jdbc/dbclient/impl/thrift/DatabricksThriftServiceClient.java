@@ -516,6 +516,15 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     LOGGER.debug(context);
     if (connectionContext.enableShowCommandsForGetFunctions()) {
+      // Return empty result set if catalog is null for SQL command path
+      if (catalog == null) {
+        LOGGER.debug("Catalog is null, returning empty result set for listFunctions (SQL path)");
+        return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+            com.databricks.jdbc.common.MetadataResultConstants.FUNCTION_COLUMNS,
+            new ArrayList<>(),
+            com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID,
+            com.databricks.jdbc.common.CommandName.LIST_FUNCTIONS);
+      }
       String showFunctionsSqlCommand =
           new CommandBuilder(catalog, session)
               .setSchemaPattern(schemaNamePattern)
