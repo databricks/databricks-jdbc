@@ -471,6 +471,127 @@ public class ArrowStreamResultTest {
     assertDoesNotThrow(result::close);
   }
 
+  // ==================== StreamingChunkProvider Instantiation Tests ====================
+
+  @Test
+  public void testStreamingChunkProviderEnabledForSeaResult() throws Exception {
+    // Enable StreamingChunkProvider via connection property
+    Properties props = new Properties();
+    props.setProperty("EnableStreamingChunkProvider", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    assertTrue(
+        connectionContext.isStreamingChunkProviderEnabled(),
+        "StreamingChunkProvider should be enabled via property");
+
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    // Setup result manifest with external links (triggers remote chunk provider path)
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(1L)
+            .setTotalRowCount(110L)
+            .setTotalByteCount(1000L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setChunks(this.chunkInfos.subList(0, 1))
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+
+    ResultData localResultData = new ResultData().setExternalLinks(getChunkLinks(0L, true));
+
+    setupMockResponse();
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    // Verify result was created successfully with StreamingChunkProvider
+    assertNotNull(result);
+    assertTrue(result.hasNext(), "Result should have data");
+    assertTrue(result.next());
+    assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testStreamingChunkProviderDisabledUsesRemoteChunkProvider() throws Exception {
+    // Default properties - StreamingChunkProvider disabled
+    Properties props = new Properties();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    assertFalse(
+        connectionContext.isStreamingChunkProviderEnabled(),
+        "StreamingChunkProvider should be disabled by default");
+
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(1L)
+            .setTotalRowCount(110L)
+            .setTotalByteCount(1000L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setChunks(this.chunkInfos.subList(0, 1))
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+
+    ResultData localResultData = new ResultData().setExternalLinks(getChunkLinks(0L, true));
+
+    setupMockResponse();
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    // Verify result was created successfully with RemoteChunkProvider
+    assertNotNull(result);
+    assertTrue(result.hasNext(), "Result should have data");
+    assertTrue(result.next());
+    assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testStreamingChunkProviderEnabledForThriftResult() throws Exception {
+    // Enable StreamingChunkProvider via connection property
+    Properties props = new Properties();
+    props.setProperty("EnableStreamingChunkProvider", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    assertTrue(
+        connectionContext.isStreamingChunkProviderEnabled(),
+        "StreamingChunkProvider should be enabled via property");
+
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
+
+    // Create result links for cloud fetch path (non-inline)
+    TSparkArrowResultLink resultLink =
+        new TSparkArrowResultLink()
+            .setFileLink("http://test-url/chunk-0")
+            .setStartRowOffset(0L)
+            .setRowCount(100L)
+            .setExpiryTime(
+                java.time.Instant.now().plusSeconds(3600).toEpochMilli()); // 1 hour from now
+    when(resultData.getResultLinks()).thenReturn(Collections.singletonList(resultLink));
+    when(fetchResultsResp.getResults()).thenReturn(resultData);
+    when(fetchResultsResp.getResultSetMetadata()).thenReturn(metadataResp);
+    when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
+
+    setupMockResponse();
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(fetchResultsResp, false, parentStatement, session, mockHttpClient);
+
+    // Verify result was created successfully with StreamingChunkProvider for Thrift
+    assertNotNull(result);
+    assertTrue(result.hasNext(), "Result should have data");
+    assertTrue(result.next());
+    assertDoesNotThrow(result::close);
+  }
+
   private Object[][] createTestData(Schema schema, int rows) {
     int cols = schema.getFields().size();
     Object[][] data = new Object[cols][rows];
