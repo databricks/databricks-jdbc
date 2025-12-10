@@ -353,6 +353,15 @@ public class StreamingChunkProvider implements ChunkProvider {
         prefetchError = e;
         notifyChunkCreated(); // Wake up any waiting consumer to check the error
         break;
+      } catch (Exception e) {
+        LOGGER.error("Unexpected error in link prefetch: {}", e.getMessage(), e);
+        prefetchError =
+            new DatabricksSQLException(
+                "Unexpected error in link prefetch: " + e.getMessage(),
+                e,
+                DatabricksDriverErrorCode.CHUNK_READY_ERROR);
+        notifyChunkCreated(); // Wake up any waiting consumer to check the error
+        break;
       }
     }
 
