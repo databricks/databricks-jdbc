@@ -89,7 +89,9 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
    */
   @Override
   public HeaderFactory configure(DatabricksConfig databricksConfig) {
-    AzureMSICredentials azureMSICredentials = new AzureMSICredentials(httpClient, clientId);
+    // Use NoOpTokenCache by default - can be enhanced later to use EncryptedFileTokenCache
+    AzureMSICredentials azureMSICredentials =
+        new AzureMSICredentials(httpClient, clientId, new NoOpTokenCache(), new NoOpTokenCache());
 
     return () -> {
       Map<String, String> headers = new HashMap<>();

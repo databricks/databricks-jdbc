@@ -13,6 +13,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.*;
 import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.Token;
+import com.databricks.sdk.core.oauth.TokenCache;
 import com.databricks.sdk.core.oauth.TokenSource;
 import com.google.common.annotations.VisibleForTesting;
 import com.nimbusds.jwt.JWTClaimsSet;
@@ -45,8 +46,9 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksTokenFederationProvider.class);
-  private Token token;
+
   private HeaderFactory externalHeaderFactory;
+  private final TokenCache tokenCache;
   private static final Map<String, String> TOKEN_EXCHANGE_PARAMS =
       Map.of(
           "grant_type",
@@ -66,19 +68,21 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
 
   public DatabricksTokenFederationProvider(
       IDatabricksConnectionContext connectionContext, CredentialsProvider credentialsProvider) {
+    this(connectionContext, credentialsProvider, new NoOpTokenCache());
+  }
+
+  public DatabricksTokenFederationProvider(
+      IDatabricksConnectionContext connectionContext,
+      CredentialsProvider credentialsProvider,
+      TokenCache tokenCache) {
     this.connectionContext = connectionContext;
     this.credentialsProvider = credentialsProvider;
+    this.tokenCache = tokenCache;
     this.externalProviderHeaders = new HashMap<>();
     this.hc = DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
     // Initialize a minimal config; real config will be provided via configure(databricksConfig)
     this.config = null;
     this.externalHeaderFactory = null;
-    this.token =
-        new Token(
-            DatabricksJdbcConstants.EMPTY_STRING,
-            DatabricksJdbcConstants.EMPTY_STRING,
-            DatabricksJdbcConstants.EMPTY_STRING,
-            Instant.now().minus(Duration.ofMinutes(1)));
   }
 
   @VisibleForTesting
@@ -86,17 +90,21 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
       IDatabricksConnectionContext connectionContext,
       CredentialsProvider credentialsProvider,
       DatabricksConfig config) {
+    this(connectionContext, credentialsProvider, config, new NoOpTokenCache());
+  }
+
+  @VisibleForTesting
+  DatabricksTokenFederationProvider(
+      IDatabricksConnectionContext connectionContext,
+      CredentialsProvider credentialsProvider,
+      DatabricksConfig config,
+      TokenCache tokenCache) {
     this.connectionContext = connectionContext;
     this.credentialsProvider = credentialsProvider;
     this.config = config;
+    this.tokenCache = tokenCache;
     this.externalHeaderFactory = this.credentialsProvider.configure(this.config);
     this.externalProviderHeaders = new HashMap<>();
-    this.token =
-        new Token(
-            DatabricksJdbcConstants.EMPTY_STRING,
-            DatabricksJdbcConstants.EMPTY_STRING,
-            DatabricksJdbcConstants.EMPTY_STRING,
-            Instant.now().minus(Duration.ofMinutes(1)));
   }
 
   public String authType() {
@@ -131,6 +139,14 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
   }
 
   public Token getToken() {
+    // 1. Check cache first for a valid federated token
+    Token cachedToken = TokenCacheUtils.loadValidToken(tokenCache);
+    if (cachedToken != null) {
+      LOGGER.debug("Using cached federated token");
+      return cachedToken;
+    }
+
+    // 2. Cache miss or expired - perform token federation
     if (this.externalHeaderFactory == null) {
       // Lazy-initialize if configure(databricksConfig) was not called yet
       this.externalHeaderFactory = this.credentialsProvider.configure(this.config);
@@ -151,7 +167,14 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
       if (optionalToken.isEmpty()) {
         optionalToken = Optional.of(createToken(accessToken, accessTokenType));
       }
-      return optionalToken.get();
+
+      Token federatedToken = optionalToken.get();
+
+      // 3. Cache the federated token for future use
+      tokenCache.save(federatedToken);
+      LOGGER.debug("Cached new federated token");
+
+      return federatedToken;
     } catch (Exception e) {
       LOGGER.error(e, "Failed to refresh access token");
       throw new DatabricksDriverException(

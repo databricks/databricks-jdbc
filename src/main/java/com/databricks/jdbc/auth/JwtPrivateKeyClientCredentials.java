@@ -14,6 +14,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.Token;
+import com.databricks.sdk.core.oauth.TokenCache;
 import com.databricks.sdk.core.oauth.TokenSource;
 import com.google.common.annotations.VisibleForTesting;
 import com.nimbusds.jose.*;
@@ -68,6 +69,7 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
     private String jwtAlgorithm;
     private IDatabricksHttpClient hc;
     private List<String> scopes = Collections.emptyList();
+    private TokenCache tokenCache = new NoOpTokenCache();
 
     public Builder withClientId(String clientId) {
       this.clientId = clientId;
@@ -109,12 +111,18 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
       return this;
     }
 
+    public Builder withTokenCache(TokenCache tokenCache) {
+      this.tokenCache = tokenCache;
+      return this;
+    }
+
     public JwtPrivateKeyClientCredentials build() {
       Objects.requireNonNull(this.clientId, "clientId must be specified");
       Objects.requireNonNull(this.jwtKeyFile, "JWT key file must be specified");
       Objects.requireNonNull(this.jwtKid, "JWT KID must be specified");
       return new JwtPrivateKeyClientCredentials(
-          hc, clientId, jwtKeyFile, jwtKid, jwtKeyPassphrase, jwtAlgorithm, tokenUrl, scopes);
+          hc, clientId, jwtKeyFile, jwtKid, jwtKeyPassphrase, jwtAlgorithm, tokenUrl, scopes,
+          tokenCache);
     }
   }
 
@@ -129,6 +137,10 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
   private final String jwtKid;
   private final String jwtKeyPassphrase;
   private final JWSAlgorithm jwtAlgorithm;
+  private final TokenCache tokenCache;
+
+  // Cache the parsed private key to avoid repeated file I/O
+  private final PrivateKey privateKey;
 
   private JwtPrivateKeyClientCredentials(
       IDatabricksHttpClient hc,
@@ -138,7 +150,8 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
       String jwtKeyPassphrase,
       String jwtAlgorithm,
       String tokenUrl,
-      List<String> scopes) {
+      List<String> scopes,
+      TokenCache tokenCache) {
     this.hc = hc;
     this.clientId = clientId;
     this.jwtKeyFile = jwtKeyFile;
@@ -147,10 +160,22 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
     this.jwtAlgorithm = determineSignatureAlgorithm(jwtAlgorithm);
     this.tokenUrl = tokenUrl;
     this.scopes = scopes;
+    this.tokenCache = tokenCache;
+
+    // Load and cache the private key once during construction
+    this.privateKey = loadPrivateKey();
   }
 
   @Override
   public Token getToken() {
+    // 1. Check cache first for a valid token
+    Token cachedToken = TokenCacheUtils.loadValidToken(tokenCache);
+    if (cachedToken != null) {
+      LOGGER.debug("Using cached JWT M2M token");
+      return cachedToken;
+    }
+
+    // 2. Cache miss or expired token - generate new JWT and retrieve token
     Map<String, String> params = new HashMap<>();
     params.put("grant_type", "client_credentials");
     if (scopes != null) {
@@ -161,7 +186,14 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
     if (DriverUtil.isRunningAgainstFake()) {
       params.put("client_assertion", "my-private-key");
     }
-    return retrieveToken(hc, tokenUrl, params, new HashMap<>());
+
+    Token newToken = retrieveToken(hc, tokenUrl, params, new HashMap<>());
+
+    // 3. Cache the new token for future use
+    tokenCache.save(newToken);
+    LOGGER.debug("Generated and cached new JWT M2M token");
+
+    return newToken;
   }
 
   @VisibleForTesting
@@ -193,8 +225,8 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
   }
 
   private String getSerialisedSignedJWT() {
-    PrivateKey privateKey = getPrivateKey();
-    SignedJWT signedJWT = fetchSignedJWT(privateKey);
+    // Use the cached private key instead of reading from file
+    SignedJWT signedJWT = fetchSignedJWT(this.privateKey);
     return signedJWT.serialize();
   }
 
@@ -235,7 +267,14 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
     }
   }
 
-  private PrivateKey getPrivateKey() {
+  /**
+   * Loads the private key from file once during construction.
+   * The key is cached to avoid repeated file I/O operations.
+   *
+   * @return The parsed PrivateKey
+   * @throws DatabricksException if the key cannot be loaded or parsed
+   */
+  private PrivateKey loadPrivateKey() {
     try (Reader reader = new FileReader(jwtKeyFile);
         PEMParser pemParser = new PEMParser(reader)) {
       Object object = pemParser.readObject();

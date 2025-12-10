@@ -8,6 +8,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.Token;
+import com.databricks.sdk.core.oauth.TokenCache;
 import com.databricks.sdk.core.oauth.TokenSource;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -51,15 +52,39 @@ public class AzureMSICredentials implements TokenSource {
   /** The client ID for user-assigned managed identity (null for system-assigned) */
   private final String clientId;
 
+  /** Token cache for Databricks scope tokens */
+  private final TokenCache databricksTokenCache;
+
+  /** Token cache for management endpoint tokens */
+  private final TokenCache managementTokenCache;
+
   /**
-   * Constructs a new AzureMSICredentials instance.
+   * Constructs a new AzureMSICredentials instance with no caching.
    *
    * @param hc The HTTP client to use for making token requests
    * @param clientId The client ID for user-assigned managed identity, or null for system-assigned
    */
   AzureMSICredentials(IDatabricksHttpClient hc, String clientId) {
+    this(hc, clientId, new NoOpTokenCache(), new NoOpTokenCache());
+  }
+
+  /**
+   * Constructs a new AzureMSICredentials instance with token caching.
+   *
+   * @param hc The HTTP client to use for making token requests
+   * @param clientId The client ID for user-assigned managed identity, or null for system-assigned
+   * @param databricksTokenCache Cache for Databricks scope tokens
+   * @param managementTokenCache Cache for management endpoint tokens
+   */
+  AzureMSICredentials(
+      IDatabricksHttpClient hc,
+      String clientId,
+      TokenCache databricksTokenCache,
+      TokenCache managementTokenCache) {
     this.hc = hc;
     this.clientId = clientId;
+    this.databricksTokenCache = databricksTokenCache;
+    this.managementTokenCache = managementTokenCache;
   }
 
   /**
@@ -72,7 +97,19 @@ public class AzureMSICredentials implements TokenSource {
    */
   @Override
   public Token getToken() {
-    return getTokenForResource(AZURE_DATABRICKS_SCOPE);
+    // Check cache first for a valid token
+    Token cachedToken = TokenCacheUtils.loadValidToken(databricksTokenCache);
+    if (cachedToken != null) {
+      LOGGER.debug("Using cached Azure MSI token for Databricks scope");
+      return cachedToken;
+    }
+
+    // Cache miss or expired - retrieve new token
+    Token newToken = getTokenForResource(AZURE_DATABRICKS_SCOPE);
+    databricksTokenCache.save(newToken);
+    LOGGER.debug("Retrieved and cached new Azure MSI token for Databricks scope");
+
+    return newToken;
   }
 
   /**
@@ -84,7 +121,19 @@ public class AzureMSICredentials implements TokenSource {
    * @return A Token object containing the access token for the Azure Management endpoint
    */
   public Token getManagementEndpointToken() {
-    return getTokenForResource(AZURE_MANAGEMENT_ENDPOINT);
+    // Check cache first for a valid token
+    Token cachedToken = TokenCacheUtils.loadValidToken(managementTokenCache);
+    if (cachedToken != null) {
+      LOGGER.debug("Using cached Azure MSI token for management endpoint");
+      return cachedToken;
+    }
+
+    // Cache miss or expired - retrieve new token
+    Token newToken = getTokenForResource(AZURE_MANAGEMENT_ENDPOINT);
+    managementTokenCache.save(newToken);
+    LOGGER.debug("Retrieved and cached new Azure MSI token for management endpoint");
+
+    return newToken;
   }
 
   /**

@@ -17,6 +17,7 @@ import com.databricks.sdk.core.HeaderFactory;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.oauth.AuthParameterPosition;
 import com.databricks.sdk.core.oauth.Token;
+import com.databricks.sdk.core.oauth.TokenCache;
 import com.databricks.sdk.core.oauth.TokenSource;
 import java.time.Duration;
 import java.time.Instant;
@@ -27,14 +28,23 @@ import org.apache.http.HttpHeaders;
 public class OAuthRefreshCredentialsProvider implements TokenSource, CredentialsProvider {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(OAuthRefreshCredentialsProvider.class);
+
   private HttpClient hc;
   private final String tokenEndpoint;
   private final String clientId;
   private final String clientSecret;
   private final Token token;
+  private final TokenCache tokenCache;
 
   public OAuthRefreshCredentialsProvider(
       IDatabricksConnectionContext context, DatabricksConfig databricksConfig) {
+    this(context, databricksConfig, new NoOpTokenCache());
+  }
+
+  public OAuthRefreshCredentialsProvider(
+      IDatabricksConnectionContext context,
+      DatabricksConfig databricksConfig,
+      TokenCache tokenCache) {
     this.tokenEndpoint = DatabricksAuthUtil.getTokenEndpoint(databricksConfig, context);
     try {
       this.clientId = context.getClientId();
@@ -44,6 +54,7 @@ public class OAuthRefreshCredentialsProvider implements TokenSource, Credentials
       throw new DatabricksException(exceptionMessage, e);
     }
     this.clientSecret = context.getClientSecret();
+    this.tokenCache = tokenCache;
     // Create an expired dummy token object with the refresh token to use
     this.token =
         new Token(
@@ -74,6 +85,14 @@ public class OAuthRefreshCredentialsProvider implements TokenSource, Credentials
 
   @Override
   public Token getToken() {
+    // 1. Check cache first for a valid token
+    Token cachedToken = TokenCacheUtils.loadValidToken(tokenCache);
+    if (cachedToken != null) {
+      LOGGER.debug("Using cached OAuth refresh token");
+      return cachedToken;
+    }
+
+    // 2. Cache miss or expired token - refresh using the refresh token
     if (this.token == null) {
       String exceptionMessage = "oauth2: token is not set";
       LOGGER.error(exceptionMessage);
@@ -90,7 +109,14 @@ public class OAuthRefreshCredentialsProvider implements TokenSource, Credentials
     params.put(GRANT_TYPE_KEY, GRANT_TYPE_REFRESH_TOKEN_KEY);
     params.put(GRANT_TYPE_REFRESH_TOKEN_KEY, refreshToken);
     Map<String, String> headers = new HashMap<>();
-    return retrieveToken(
-        hc, clientId, clientSecret, tokenEndpoint, params, headers, AuthParameterPosition.BODY);
+    Token newToken =
+        retrieveToken(
+            hc, clientId, clientSecret, tokenEndpoint, params, headers, AuthParameterPosition.BODY);
+
+    // 3. Cache the new token for future use
+    tokenCache.save(newToken);
+    LOGGER.debug("Refreshed and cached new OAuth token");
+
+    return newToken;
   }
 }
