@@ -87,19 +87,29 @@ public class AzureMSICredentials implements TokenSource {
    */
   @Override
   public Token getToken() {
-    // Check cache first for a valid token
+    // Check cache first for a valid token (unsynchronized for fast reads)
     Token cachedToken = TokenCacheUtils.loadValidToken(databricksTokenCache);
     if (cachedToken != null) {
       LOGGER.debug("Using cached Azure MSI token for Databricks scope");
       return cachedToken;
     }
 
-    // Cache miss or expired - retrieve new token
-    Token newToken = getTokenForResource(AZURE_DATABRICKS_SCOPE);
-    databricksTokenCache.save(newToken);
-    LOGGER.debug("Retrieved and cached new Azure MSI token for Databricks scope");
+    // Cache miss - synchronize token retrieval
+    synchronized (databricksTokenCache) {
+      // Double-check: another thread may have retrieved while we were waiting
+      cachedToken = TokenCacheUtils.loadValidToken(databricksTokenCache);
+      if (cachedToken != null) {
+        LOGGER.debug("Using cached Azure MSI token for Databricks scope (from concurrent fetch)");
+        return cachedToken;
+      }
 
-    return newToken;
+      // Retrieve new token
+      Token newToken = getTokenForResource(AZURE_DATABRICKS_SCOPE);
+      databricksTokenCache.save(newToken);
+      LOGGER.debug("Retrieved and cached new Azure MSI token for Databricks scope");
+
+      return newToken;
+    }
   }
 
   /**
@@ -111,19 +121,30 @@ public class AzureMSICredentials implements TokenSource {
    * @return A Token object containing the access token for the Azure Management endpoint
    */
   public Token getManagementEndpointToken() {
-    // Check cache first for a valid token
+    // Check cache first for a valid token (unsynchronized for fast reads)
     Token cachedToken = TokenCacheUtils.loadValidToken(managementTokenCache);
     if (cachedToken != null) {
       LOGGER.debug("Using cached Azure MSI token for management endpoint");
       return cachedToken;
     }
 
-    // Cache miss or expired - retrieve new token
-    Token newToken = getTokenForResource(AZURE_MANAGEMENT_ENDPOINT);
-    managementTokenCache.save(newToken);
-    LOGGER.debug("Retrieved and cached new Azure MSI token for management endpoint");
+    // Cache miss - synchronize token retrieval
+    synchronized (managementTokenCache) {
+      // Double-check: another thread may have retrieved while we were waiting
+      cachedToken = TokenCacheUtils.loadValidToken(managementTokenCache);
+      if (cachedToken != null) {
+        LOGGER.debug(
+            "Using cached Azure MSI token for management endpoint (from concurrent fetch)");
+        return cachedToken;
+      }
 
-    return newToken;
+      // Retrieve new token
+      Token newToken = getTokenForResource(AZURE_MANAGEMENT_ENDPOINT);
+      managementTokenCache.save(newToken);
+      LOGGER.debug("Retrieved and cached new Azure MSI token for management endpoint");
+
+      return newToken;
+    }
   }
 
   /**

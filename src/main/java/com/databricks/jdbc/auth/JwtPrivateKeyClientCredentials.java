@@ -176,32 +176,42 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
 
   @Override
   public Token getToken() {
-    // 1. Check cache first for a valid token
+    // 1. Check cache first for a valid token (unsynchronized for fast reads)
     Token cachedToken = TokenCacheUtils.loadValidToken(tokenCache);
     if (cachedToken != null) {
       LOGGER.debug("Using cached JWT M2M token");
       return cachedToken;
     }
 
-    // 2. Cache miss or expired token - generate new JWT and retrieve token
-    Map<String, String> params = new HashMap<>();
-    params.put("grant_type", "client_credentials");
-    if (scopes != null) {
-      params.put("scope", String.join(" ", scopes));
+    // 2. Cache miss - synchronize token refresh to avoid multiple concurrent refreshes
+    synchronized (this) {
+      // Double-check: another thread may have refreshed while we were waiting
+      cachedToken = TokenCacheUtils.loadValidToken(tokenCache);
+      if (cachedToken != null) {
+        LOGGER.debug("Using cached JWT M2M token (from concurrent refresh)");
+        return cachedToken;
+      }
+
+      // Generate new JWT and retrieve token
+      Map<String, String> params = new HashMap<>();
+      params.put("grant_type", "client_credentials");
+      if (scopes != null) {
+        params.put("scope", String.join(" ", scopes));
+      }
+      params.put("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
+      params.put("client_assertion", getSerialisedSignedJWT());
+      if (DriverUtil.isRunningAgainstFake()) {
+        params.put("client_assertion", "my-private-key");
+      }
+
+      Token newToken = retrieveToken(hc, tokenUrl, params, new HashMap<>());
+
+      // Cache the new token for future use
+      tokenCache.save(newToken);
+      LOGGER.debug("Generated and cached new JWT M2M token");
+
+      return newToken;
     }
-    params.put("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
-    params.put("client_assertion", getSerialisedSignedJWT());
-    if (DriverUtil.isRunningAgainstFake()) {
-      params.put("client_assertion", "my-private-key");
-    }
-
-    Token newToken = retrieveToken(hc, tokenUrl, params, new HashMap<>());
-
-    // 3. Cache the new token for future use
-    tokenCache.save(newToken);
-    LOGGER.debug("Generated and cached new JWT M2M token");
-
-    return newToken;
   }
 
   @VisibleForTesting

@@ -36,6 +36,9 @@ public class PrivateKeyClientCredentialProvider implements CredentialsProvider {
   /**
    * Creates a TokenCache instance for JWT M2M credentials.
    *
+   * <p>Uses the connection UUID to ensure each connection has its own isolated token cache,
+   * preventing cache collisions between different connections.
+   *
    * @param config The Databricks configuration
    * @return An EncryptedFileTokenCache instance
    */
@@ -44,9 +47,9 @@ public class PrivateKeyClientCredentialProvider implements CredentialsProvider {
     Path homeDir = Paths.get(userHome);
     Path databricksDir = homeDir.resolve(".config/databricks-jdbc/oauth");
 
-    // Create unique cache path based on host + clientId
-    String cacheId = (config.getHost() + config.getClientId()).hashCode() + "";
-    Path cachePath = databricksDir.resolve("token-cache-jwt-m2m-" + cacheId);
+    // Use connection UUID directly as cache filename - guarantees uniqueness
+    String connectionUuid = connectionContext.getConnectionUuid();
+    Path cachePath = databricksDir.resolve(connectionUuid);
 
     return TokenCacheUtils.createEncryptedCache(
         cachePath,

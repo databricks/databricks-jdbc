@@ -125,46 +125,56 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
   }
 
   public Token getToken() {
-    // 1. Check cache first for a valid federated token
+    // 1. Check cache first for a valid federated token (unsynchronized for fast reads)
     Token cachedToken = TokenCacheUtils.loadValidToken(tokenCache);
     if (cachedToken != null) {
       LOGGER.debug("Using cached federated token");
       return cachedToken;
     }
 
-    // 2. Cache miss or expired - perform token federation
-    if (this.externalHeaderFactory == null) {
-      // Lazy-initialize if configure(databricksConfig) was not called yet
-      this.externalHeaderFactory = this.credentialsProvider.configure(this.config);
-    }
-    this.externalProviderHeaders = this.externalHeaderFactory.headers();
-    String[] tokenInfo = extractTokenInfoFromHeader(this.externalProviderHeaders);
-    String accessTokenType = tokenInfo[0];
-    String accessToken = tokenInfo[1];
-
-    try {
-      SignedJWT signedJWT = SignedJWT.parse(accessToken);
-      JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
-
-      Optional<Token> optionalToken = Optional.empty();
-      if (!isSameHost(claims.getIssuer(), this.config.getHost())) {
-        optionalToken = tryTokenExchange(accessToken, accessTokenType);
-      }
-      if (optionalToken.isEmpty()) {
-        optionalToken = Optional.of(createToken(accessToken, accessTokenType));
+    // 2. Cache miss - synchronize token federation to avoid multiple concurrent federations
+    synchronized (this) {
+      // Double-check: another thread may have performed federation while we were waiting
+      cachedToken = TokenCacheUtils.loadValidToken(tokenCache);
+      if (cachedToken != null) {
+        LOGGER.debug("Using cached federated token (from concurrent federation)");
+        return cachedToken;
       }
 
-      Token federatedToken = optionalToken.get();
+      // Perform token federation
+      if (this.externalHeaderFactory == null) {
+        // Lazy-initialize if configure(databricksConfig) was not called yet
+        this.externalHeaderFactory = this.credentialsProvider.configure(this.config);
+      }
+      this.externalProviderHeaders = this.externalHeaderFactory.headers();
+      String[] tokenInfo = extractTokenInfoFromHeader(this.externalProviderHeaders);
+      String accessTokenType = tokenInfo[0];
+      String accessToken = tokenInfo[1];
 
-      // 3. Cache the federated token for future use
-      tokenCache.save(federatedToken);
-      LOGGER.debug("Cached new federated token");
+      try {
+        SignedJWT signedJWT = SignedJWT.parse(accessToken);
+        JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
 
-      return federatedToken;
-    } catch (Exception e) {
-      LOGGER.error(e, "Failed to refresh access token");
-      throw new DatabricksDriverException(
-          "Failed to refresh access token", e, DatabricksDriverErrorCode.AUTH_ERROR);
+        Optional<Token> optionalToken = Optional.empty();
+        if (!isSameHost(claims.getIssuer(), this.config.getHost())) {
+          optionalToken = tryTokenExchange(accessToken, accessTokenType);
+        }
+        if (optionalToken.isEmpty()) {
+          optionalToken = Optional.of(createToken(accessToken, accessTokenType));
+        }
+
+        Token federatedToken = optionalToken.get();
+
+        // Cache the federated token for future use
+        tokenCache.save(federatedToken);
+        LOGGER.debug("Cached new federated token");
+
+        return federatedToken;
+      } catch (Exception e) {
+        LOGGER.error(e, "Failed to refresh access token");
+        throw new DatabricksDriverException(
+            "Failed to refresh access token", e, DatabricksDriverErrorCode.AUTH_ERROR);
+      }
     }
   }
 

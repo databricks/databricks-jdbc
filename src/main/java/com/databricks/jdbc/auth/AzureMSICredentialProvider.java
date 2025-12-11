@@ -54,9 +54,17 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
 
   /**
    * Creates a TokenCache instance for Azure MSI credentials. Azure MSI requires TWO separate
-   * caches: - databricks scope: for Databricks API calls (resource:
-   * 2ff814a6-3304-4ab8-85cb-cd0e6f879c1d) - management scope: for Azure Resource Manager calls
-   * (resource: https://management.core.windows.net/)
+   * caches:
+   *
+   * <ul>
+   *   <li>databricks scope: for Databricks API calls (resource:
+   *       2ff814a6-3304-4ab8-85cb-cd0e6f879c1d)
+   *   <li>management scope: for Azure Resource Manager calls (resource:
+   *       https://management.core.windows.net/)
+   * </ul>
+   *
+   * <p>Uses the connection UUID with scope suffix to ensure each connection and scope has its own
+   * isolated token cache.
    *
    * @param connectionContext The connection context
    * @param scope The scope identifier (databricks or management)
@@ -68,10 +76,9 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
     Path homeDir = Paths.get(userHome);
     Path databricksDir = homeDir.resolve(".config/databricks-jdbc/oauth");
 
-    // Create unique cache path based on host + clientId + scope
-    String host = connectionContext.getHostForOAuth();
-    String cacheId = (host + clientId + scope).hashCode() + "";
-    Path cachePath = databricksDir.resolve("token-cache-azure-msi-" + cacheId);
+    // Use connection UUID with scope suffix for unique cache files
+    String connectionUuid = connectionContext.getConnectionUuid();
+    Path cachePath = databricksDir.resolve(connectionUuid + "-" + scope);
 
     // For scope-specific caches, append scope to the passphrase
     String configuredPassphrase = connectionContext.getTokenCachePassPhrase();
@@ -82,6 +89,7 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
       passphraseWithScope = configuredPassphrase + "-" + scope;
     }
 
+    String host = connectionContext.getHostForOAuth();
     return TokenCacheUtils.createEncryptedCache(cachePath, passphraseWithScope, host, clientId);
   }
 
