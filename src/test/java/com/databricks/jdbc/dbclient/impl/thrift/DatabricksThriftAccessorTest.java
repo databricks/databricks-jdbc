@@ -825,8 +825,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testExecuteWithTimeoutExpired()
-      throws TException, SQLException {
+  void testExecuteWithTimeoutExpired() throws TException, SQLException {
     // Set the async poll interval to 1 second to facilitate testing
     when(connectionContext.getAsyncExecPollInterval()).thenReturn(1000);
 
@@ -871,8 +870,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testServerSideTimeoutThrowsTimeoutException()
-      throws TException, SQLException {
+  void testServerSideTimeoutThrowsTimeoutException() throws TException, SQLException {
 
     accessor = spy(new DatabricksThriftAccessor(connectionContext));
     doReturn(thriftClient).when(accessor).getThriftClient();
