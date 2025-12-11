@@ -964,4 +964,125 @@ public class DatabricksMetadataSdkClientTest {
     assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
     assertEquals(2, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
   }
+
+  /**
+   * Test that listTables handles SQLException with null SQL state without NPE. This tests the fix
+   * for the issue where e.getSQLState() could return null, causing NullPointerException when
+   * calling .equals() on it.
+   */
+  @Test
+  void testListTables_handlesNullSqlStateWithoutNPE() throws Exception {
+    // Create exception with null SQL state (simulating server response without structured SQL
+    // state)
+    DatabricksSQLException exception =
+        new DatabricksSQLException(
+            "[SCHEMA_NOT_FOUND] The schema cannot be found. SQLSTATE: 42704",
+            (String) null); // null SQL state
+
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW TABLES IN CATALOG ",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenThrow(exception);
+
+    // This should throw the original exception, not NPE
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> metadataClient.listTables(session, "", null, null, null));
+  }
+
+  @Test
+  void testListSchemas_handlesNullSqlStateWithoutNPE() throws Exception {
+    DatabricksSQLException exception =
+        new DatabricksSQLException(
+            "syntax error at or near \"ALL CATALOGS\"", (String) null); // null SQL state
+
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW SCHEMAS IN ALL CATALOGS",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenThrow(exception);
+
+    // This should throw the original exception, not NPE
+    assertThrows(
+        DatabricksSQLException.class, () -> metadataClient.listSchemas(session, null, null));
+  }
+
+  @Test
+  void testListImportedKeys_handlesNullSqlStateWithoutNPE() throws Exception {
+    DatabricksSQLException exception =
+        new DatabricksSQLException(
+            "syntax error at or near \"foreign\"", (String) null); // null SQL state
+
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW FOREIGN KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenThrow(exception);
+
+    // This should throw the original exception, not NPE
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> metadataClient.listImportedKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE));
+  }
+
+  @Test
+  void testListCrossReferences_handlesNullSqlStateWithoutNPE() throws Exception {
+    DatabricksSQLException exception =
+        new DatabricksSQLException(
+            "syntax error at or near \"foreign\"", (String) null); // null SQL state
+
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    when(mockClient.getConnectionContext()).thenReturn(mock(IDatabricksConnectionContext.class));
+
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+    when(mockClient.executeStatement(
+            "SHOW FOREIGN KEYS IN CATALOG catalog1 IN SCHEMA testSchema IN TABLE testTable",
+            WAREHOUSE_COMPUTE,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenThrow(exception);
+
+    // This should throw the original exception, not NPE
+    assertThrows(
+        DatabricksSQLException.class,
+        () ->
+            metadataClient.listCrossReferences(
+                session,
+                "parentCatalog",
+                "parentSchema",
+                "parentTable",
+                TEST_CATALOG,
+                TEST_SCHEMA,
+                TEST_TABLE));
+  }
 }
