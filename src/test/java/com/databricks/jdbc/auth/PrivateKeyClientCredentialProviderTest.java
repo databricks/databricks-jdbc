@@ -41,12 +41,16 @@ public class PrivateKeyClientCredentialProviderTest {
   }
 
   void setup() {
-    when(context.getAuthScope()).thenReturn(TEST_SCOPE);
-    when(context.getKID()).thenReturn(TEST_JWT_KID);
-    when(context.getJWTKeyFile()).thenReturn(tempKeyFile.toString());
-    when(context.getJWTAlgorithm()).thenReturn(TEST_JWT_ALGORITHM);
-    when(context.getJWTPassphrase()).thenReturn(null);
-    when(config.getClientId()).thenReturn(TEST_CLIENT_ID);
+    lenient().when(context.getAuthScope()).thenReturn(TEST_SCOPE);
+    lenient().when(context.getKID()).thenReturn(TEST_JWT_KID);
+    lenient().when(context.getJWTKeyFile()).thenReturn(tempKeyFile.toString());
+    lenient().when(context.getJWTAlgorithm()).thenReturn(TEST_JWT_ALGORITHM);
+    lenient().when(context.getJWTPassphrase()).thenReturn(null);
+    lenient().when(context.getConnectionUuid()).thenReturn("test-connection-uuid");
+    lenient().when(context.getTokenCachePassPhrase()).thenReturn(null);
+    lenient().when(context.getHostForOAuth()).thenReturn("https://test.databricks.com");
+    lenient().when(config.getClientId()).thenReturn(TEST_CLIENT_ID);
+    lenient().when(config.getHost()).thenReturn("https://test.databricks.com");
   }
 
   @Test
