@@ -19,6 +19,7 @@
 - Fix U2M by including SDK OAuth HTML callback resources.
 - Fix microsecond precision loss in `PreparedStatement.setTimestamp(int,Timestamp, Calendar)` and address thread-safety issues with global timezone modification.
 - Fix metadata methods (`getColumns`, `getFunctions`, `getPrimaryKeys`, `getImportedKeys`) to return empty ResultSets instead of throwing exceptions when catalog parameter is NULL, for SEA.
+- Fix timeout exception handling to throw `SQLTimeoutException` instead of `DatabricksSQLException` when queries timeout.
 
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.*
