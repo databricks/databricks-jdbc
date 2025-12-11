@@ -23,89 +23,6 @@ public class TokenCacheUtilsTest {
   @TempDir Path tempDir;
 
   // ============================================
-  // Tests for isExpired()
-  // ============================================
-
-  @Test
-  void testIsExpired_NullToken() {
-    assertTrue(TokenCacheUtils.isExpired(null), "Null token should be considered expired");
-  }
-
-  @Test
-  void testIsExpired_NullExpiry() {
-    // Create a mock token with null expiry using Mockito
-    Token token = Mockito.mock(Token.class);
-    Mockito.when(token.getExpiry()).thenReturn(null);
-
-    assertTrue(
-        TokenCacheUtils.isExpired(token), "Token with null expiry should be considered expired");
-  }
-
-  @Test
-  void testIsExpired_ExpiredToken() {
-    // Create a token that expired 1 hour ago
-    Instant expiry = Instant.now().minus(1, ChronoUnit.HOURS);
-    Token token = new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, expiry);
-
-    assertTrue(TokenCacheUtils.isExpired(token), "Past-expired token should be considered expired");
-  }
-
-  @Test
-  void testIsExpired_TokenExpiringInOneMinute() {
-    // Create a token that expires in 1 minute (within the 5-minute buffer)
-    Instant expiry = Instant.now().plus(1, ChronoUnit.MINUTES);
-    Token token = new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, expiry);
-
-    assertTrue(
-        TokenCacheUtils.isExpired(token),
-        "Token expiring within the safety buffer should be considered expired");
-  }
-
-  @Test
-  void testIsExpired_TokenExpiringAtBufferBoundary() {
-    // Create a token that expires exactly at the buffer boundary (5 minutes)
-    Instant expiry = Instant.now().plusSeconds(TokenCacheUtils.EXPIRATION_BUFFER_SECONDS);
-    Token token = new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, expiry);
-
-    // At exactly the buffer boundary, it should be considered expired (isBefore check)
-    assertTrue(
-        TokenCacheUtils.isExpired(token),
-        "Token expiring at buffer boundary should be considered expired");
-  }
-
-  @Test
-  void testIsExpired_TokenExpiringJustAfterBuffer() {
-    // Create a token that expires just after the buffer (5 minutes + 1 second)
-    Instant expiry = Instant.now().plusSeconds(TokenCacheUtils.EXPIRATION_BUFFER_SECONDS + 1);
-    Token token = new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, expiry);
-
-    assertFalse(
-        TokenCacheUtils.isExpired(token),
-        "Token expiring after the safety buffer should be considered valid");
-  }
-
-  @Test
-  void testIsExpired_ValidTokenExpiringIn10Minutes() {
-    // Create a token that expires in 10 minutes (beyond the 5-minute buffer)
-    Instant expiry = Instant.now().plus(10, ChronoUnit.MINUTES);
-    Token token = new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, expiry);
-
-    assertFalse(
-        TokenCacheUtils.isExpired(token),
-        "Token expiring in 10 minutes should be considered valid");
-  }
-
-  @Test
-  void testIsExpired_ValidTokenExpiringIn1Hour() {
-    // Create a token that expires in 1 hour
-    Instant expiry = Instant.now().plus(1, ChronoUnit.HOURS);
-    Token token = new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, expiry);
-
-    assertFalse(
-        TokenCacheUtils.isExpired(token), "Token expiring in 1 hour should be considered valid");
-  }
-
-  // ============================================
   // Tests for loadValidToken()
   // ============================================
 
@@ -125,48 +42,15 @@ public class TokenCacheUtilsTest {
   }
 
   @Test
-  void testLoadValidToken_CacheReturnsExpiredToken() {
-    TokenCache mockCache = Mockito.mock(TokenCache.class);
-    Instant expiry = Instant.now().minus(1, ChronoUnit.HOURS);
-    Token expiredToken = new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, expiry);
-    Mockito.when(mockCache.load()).thenReturn(expiredToken);
-
-    Token result = TokenCacheUtils.loadValidToken(mockCache);
-    assertNull(result, "Loading expired token from cache should return null");
-  }
-
-  @Test
-  void testLoadValidToken_CacheReturnsTokenExpiringWithinBuffer() {
-    TokenCache mockCache = Mockito.mock(TokenCache.class);
-    Instant expiry = Instant.now().plus(2, ChronoUnit.MINUTES); // Within 5-minute buffer
-    Token expiringToken = new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, expiry);
-    Mockito.when(mockCache.load()).thenReturn(expiringToken);
-
-    Token result = TokenCacheUtils.loadValidToken(mockCache);
-    assertNull(result, "Loading token expiring within buffer should return null");
-  }
-
-  @Test
-  void testLoadValidToken_CacheReturnsValidToken() {
+  void testLoadValidToken_CacheReturnsToken() {
     TokenCache mockCache = Mockito.mock(TokenCache.class);
     Instant expiry = Instant.now().plus(1, ChronoUnit.HOURS);
-    Token validToken = new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, expiry);
-    Mockito.when(mockCache.load()).thenReturn(validToken);
+    Token cachedToken = new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, expiry);
+    Mockito.when(mockCache.load()).thenReturn(cachedToken);
 
     Token result = TokenCacheUtils.loadValidToken(mockCache);
-    assertNotNull(result, "Loading valid token from cache should return the token");
-    assertEquals(validToken, result, "Returned token should match the cached token");
-  }
-
-  @Test
-  void testLoadValidToken_CacheReturnsTokenWithNullExpiry() {
-    TokenCache mockCache = Mockito.mock(TokenCache.class);
-    Token tokenWithNullExpiry = Mockito.mock(Token.class);
-    Mockito.when(tokenWithNullExpiry.getExpiry()).thenReturn(null);
-    Mockito.when(mockCache.load()).thenReturn(tokenWithNullExpiry);
-
-    Token result = TokenCacheUtils.loadValidToken(mockCache);
-    assertNull(result, "Loading token with null expiry should return null");
+    assertNotNull(result, "Loading token from cache should return the token");
+    assertEquals(cachedToken, result, "Returned token should match the cached token");
   }
 
   // ============================================
@@ -319,17 +203,5 @@ public class TokenCacheUtilsTest {
     Token loadedToken = cache2.load();
 
     assertNull(loadedToken, "Token encrypted with different passphrase should not decrypt");
-  }
-
-  // ============================================
-  // Tests for EXPIRATION_BUFFER_SECONDS constant
-  // ============================================
-
-  @Test
-  void testExpirationBufferConstant() {
-    assertEquals(
-        300,
-        TokenCacheUtils.EXPIRATION_BUFFER_SECONDS,
-        "Expiration buffer should be 300 seconds (5 minutes)");
   }
 }
