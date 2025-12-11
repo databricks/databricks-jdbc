@@ -79,7 +79,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       return metadataResultSetBuilder.getSchemasResult(getResultSet(SQL, session), catalog);
     } catch (SQLException e) {
       if (WildcardUtil.isNullOrWildcard(catalog)
-          && e.getSQLState().equals(PARSE_SYNTAX_ERROR_SQL_STATE)) {
+          && PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())) {
         // This is a fallback for the case where the SQL command fails with "syntax error at or near
         // "ALL CATALOGS""
         // This is a known issue for older DBR versions
@@ -115,7 +115,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       return metadataResultSetBuilder.getTablesResult(
           getResultSet(SQL, session), validatedTableTypes);
     } catch (SQLException e) {
-      if (e.getSQLState().equals(PARSE_SYNTAX_ERROR_SQL_STATE)
+      if (PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())
           && (catalog == null || catalog.equals("*") || catalog.equals("%"))) {
         // Gracefully handles the case where an older DBSQL version doesn't support all catalogs in
         // the SHOW TABLES command.
@@ -247,7 +247,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     try {
       return metadataResultSetBuilder.getImportedKeysResult(getResultSet(SQL, session));
     } catch (SQLException e) {
-      if (e.getSQLState().equals(PARSE_SYNTAX_ERROR_SQL_STATE)) {
+      if (PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())) {
         // This is a workaround for the issue where the SQL command fails with "syntax error at or
         // near "foreign""
         LOGGER.debug("SQL command failed with syntax error. Returning empty result set.");
@@ -293,7 +293,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       return metadataResultSetBuilder.getCrossReferenceKeysResult(
           getResultSet(SQL, session), parentCatalog, parentSchema, parentTable);
     } catch (SQLException e) {
-      if (e.getSQLState().equals(PARSE_SYNTAX_ERROR_SQL_STATE)) {
+      if (PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())) {
         // This is a workaround for the issue where the SQL command fails with "syntax error at or
         // near "foreign""
         // This is a known issue in Databricks for older DBSQL versions
