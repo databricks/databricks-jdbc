@@ -609,4 +609,70 @@ public class ArrowStreamResultTest {
     }
     return data;
   }
+
+  // ==================== End of Stream Conversion Tests ====================
+
+  @Test
+  public void testSeaEmptyLinksWithZeroChunkCountReturnsEndOfStream() throws Exception {
+    // Enable StreamingChunkProvider
+    Properties props = new Properties();
+    props.setProperty("EnableStreamingChunkProvider", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    assertTrue(connectionContext.isStreamingChunkProviderEnabled());
+
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    // Create result manifest with zero chunks and empty external links
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(0L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+
+    ResultData localResultData = new ResultData().setExternalLinks(new ArrayList<>());
+
+    // Should create result successfully with end-of-stream signal
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    assertNotNull(result);
+    assertFalse(result.hasNext(), "Empty result should have no data");
+    assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testSeaNullLinksWithZeroChunkCountReturnsEndOfStream() throws Exception {
+    // Enable StreamingChunkProvider
+    Properties props = new Properties();
+    props.setProperty("EnableStreamingChunkProvider", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    assertTrue(connectionContext.isStreamingChunkProviderEnabled());
+
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    // Create result manifest with zero chunks and null external links
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(0L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+
+    ResultData localResultData = new ResultData().setExternalLinks(null);
+
+    // Should create result successfully with end-of-stream signal
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    assertNotNull(result);
+    assertFalse(result.hasNext(), "Empty result should have no data");
+    assertDoesNotThrow(result::close);
+  }
 }
