@@ -116,7 +116,8 @@ public class ArrowStreamResult implements IExecutionResult {
 
       // Convert ExternalLinks to ChunkLinkFetchResult for the provider
       ChunkLinkFetchResult initialLinks =
-          convertToChunkLinkFetchResult(resultData.getExternalLinks());
+          convertToChunkLinkFetchResult(
+              resultData.getExternalLinks(), resultManifest.getTotalChunkCount());
 
       return new StreamingChunkProvider(
           linkFetcher,
@@ -377,11 +378,17 @@ public class ArrowStreamResult implements IExecutionResult {
    * Converts a collection of ExternalLinks to a ChunkLinkFetchResult.
    *
    * @param externalLinks The external links to convert, may be null
-   * @return A ChunkLinkFetchResult, or null if input is null or empty
+   * @param totalChunkCount The total chunk count from result manifest, may be null
+   * @return A ChunkLinkFetchResult, or endOfStream if chunk count is zero, or null if unknown
    */
   private static ChunkLinkFetchResult convertToChunkLinkFetchResult(
-      Collection<ExternalLink> externalLinks) {
+      Collection<ExternalLink> externalLinks, Long totalChunkCount) {
     if (externalLinks == null || externalLinks.isEmpty()) {
+      // If total chunk count is zero, return end of stream
+      if (totalChunkCount != null && totalChunkCount == 0) {
+        LOGGER.debug("Total chunk count is zero, returning end of stream");
+        return ChunkLinkFetchResult.endOfStream();
+      }
       return null;
     }
 
@@ -396,6 +403,13 @@ public class ArrowStreamResult implements IExecutionResult {
     long nextFetchIndex = hasMore ? lastLink.getNextChunkIndex() : -1;
     long nextRowOffset = lastLink.getRowOffset() + lastLink.getRowCount();
 
+    LOGGER.debug(
+        "Converting ExternalLinks to ChunkLinkFetchResult: linkCount={}, hasMore={}, nextFetchIndex={}, nextRowOffset={}",
+        linkList.size(),
+        hasMore,
+        nextFetchIndex,
+        nextRowOffset);
+
     return ChunkLinkFetchResult.of(linkList, hasMore, nextFetchIndex, nextRowOffset);
   }
 
@@ -406,12 +420,17 @@ public class ArrowStreamResult implements IExecutionResult {
    * ChunkLinkFetchResult format used by StreamingChunkProvider.
    *
    * @param resultsResp The Thrift fetch results response containing initial links
-   * @return A ChunkLinkFetchResult, or null if no links
+   * @return A ChunkLinkFetchResult, or endOfStream if no more rows, or null if unknown
    */
   private static ChunkLinkFetchResult convertThriftLinksToChunkLinkFetchResult(
       TFetchResultsResp resultsResp) {
     List<TSparkArrowResultLink> resultLinks = resultsResp.getResults().getResultLinks();
     if (resultLinks == null || resultLinks.isEmpty()) {
+      // If hasMoreRows is false, return end of stream
+      if (!resultsResp.hasMoreRows) {
+        LOGGER.debug("No result links and hasMoreRows is false, returning end of stream");
+        return ChunkLinkFetchResult.endOfStream();
+      }
       return null;
     }
 
