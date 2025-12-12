@@ -46,9 +46,7 @@ public class DatabricksTokenFederationProviderTest {
     lenient().when(mockContext.getConnectionUuid()).thenReturn("test-uuid");
     lenient().when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     databricksTokenFederationProvider =
-        spy(
-            new DatabricksTokenFederationProvider(
-                mockContext, mockCredentialsProvider, new NoOpTokenCache()));
+        spy(new DatabricksTokenFederationProvider(mockContext, mockCredentialsProvider));
   }
 
   @Test
@@ -97,7 +95,7 @@ public class DatabricksTokenFederationProviderTest {
     DatabricksTokenFederationProvider providerWithConfig =
         spy(
             new DatabricksTokenFederationProvider(
-                mockContext, mockCredentialsProvider, mockConfig, new NoOpTokenCache()));
+                mockContext, mockCredentialsProvider, mockConfig));
     doReturn(testToken()).when(providerWithConfig).retrieveToken(any(), any(), any(), any());
     Token exchangedToken = providerWithConfig.exchangeToken("thirdPartyToken");
     assertEquals("tokenType", exchangedToken.getTokenType());

@@ -6,9 +6,9 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.oauth.CachedTokenSource;
 import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.Token;
-import com.databricks.sdk.core.oauth.TokenCache;
 import com.databricks.sdk.core.oauth.TokenSource;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -52,68 +52,48 @@ public class AzureMSICredentials implements TokenSource {
   /** The client ID for user-assigned managed identity (null for system-assigned) */
   private final String clientId;
 
-  /** Token cache for Databricks scope tokens */
-  private final TokenCache databricksTokenCache;
+  /** In-memory token cache for Databricks scope tokens */
+  private final CachedTokenSource databricksTokenCache;
 
-  /** Token cache for management endpoint tokens */
-  private final TokenCache managementTokenCache;
+  /** In-memory token cache for management endpoint tokens */
+  private final CachedTokenSource managementTokenCache;
 
   /**
    * Constructs a new AzureMSICredentials instance with token caching.
    *
    * @param hc The HTTP client to use for making token requests
    * @param clientId The client ID for user-assigned managed identity, or null for system-assigned
-   * @param databricksTokenCache Cache for Databricks scope tokens
-   * @param managementTokenCache Cache for management endpoint tokens
    */
-  AzureMSICredentials(
-      IDatabricksHttpClient hc,
-      String clientId,
-      TokenCache databricksTokenCache,
-      TokenCache managementTokenCache) {
+  AzureMSICredentials(IDatabricksHttpClient hc, String clientId) {
     this.hc = hc;
     this.clientId = clientId;
-    this.databricksTokenCache = databricksTokenCache;
-    this.managementTokenCache = managementTokenCache;
+
+    // Initialize in-memory token caches
+    TokenSource databricksRefreshLogic = () -> getTokenForResource(AZURE_DATABRICKS_SCOPE);
+    this.databricksTokenCache = new CachedTokenSource.Builder(databricksRefreshLogic).build();
+
+    TokenSource managementRefreshLogic = () -> getTokenForResource(AZURE_MANAGEMENT_ENDPOINT);
+    this.managementTokenCache = new CachedTokenSource.Builder(managementRefreshLogic).build();
   }
 
   /**
-   * Refreshes the Databricks access token.
+   * Retrieves the Databricks access token.
    *
-   * <p>This method is called automatically when the token expires or when a token is requested for
-   * the first time.
+   * <p>This method uses an in-memory cache for fast token retrieval. Tokens are refreshed
+   * automatically when expired.
    *
-   * @return A new Token object containing the refreshed access token
+   * @return A Token object containing the access token
    */
   @Override
   public Token getToken() {
-    // Check cache first for a valid token (unsynchronized for fast reads)
-    Token cachedToken = TokenCacheUtils.loadValidToken(databricksTokenCache);
-    if (cachedToken != null) {
-      LOGGER.debug("Using cached Azure MSI token for Databricks scope");
-      return cachedToken;
-    }
-
-    // Cache miss - synchronize token retrieval
-    synchronized (databricksTokenCache) {
-      // Double-check: another thread may have retrieved while we were waiting
-      cachedToken = TokenCacheUtils.loadValidToken(databricksTokenCache);
-      if (cachedToken != null) {
-        LOGGER.debug("Using cached Azure MSI token for Databricks scope (from concurrent fetch)");
-        return cachedToken;
-      }
-
-      // Retrieve new token
-      Token newToken = getTokenForResource(AZURE_DATABRICKS_SCOPE);
-      databricksTokenCache.save(newToken);
-      LOGGER.debug("Retrieved and cached new Azure MSI token for Databricks scope");
-
-      return newToken;
-    }
+    return databricksTokenCache.getToken();
   }
 
   /**
    * Retrieves a token for accessing the Azure Management endpoint.
+   *
+   * <p>This method uses an in-memory cache for fast token retrieval. Tokens are refreshed
+   * automatically when expired.
    *
    * <p>This token is used for operations that require access to Azure Resource Manager, such as
    * managing workspace resources.
@@ -121,30 +101,7 @@ public class AzureMSICredentials implements TokenSource {
    * @return A Token object containing the access token for the Azure Management endpoint
    */
   public Token getManagementEndpointToken() {
-    // Check cache first for a valid token (unsynchronized for fast reads)
-    Token cachedToken = TokenCacheUtils.loadValidToken(managementTokenCache);
-    if (cachedToken != null) {
-      LOGGER.debug("Using cached Azure MSI token for management endpoint");
-      return cachedToken;
-    }
-
-    // Cache miss - synchronize token retrieval
-    synchronized (managementTokenCache) {
-      // Double-check: another thread may have retrieved while we were waiting
-      cachedToken = TokenCacheUtils.loadValidToken(managementTokenCache);
-      if (cachedToken != null) {
-        LOGGER.debug(
-            "Using cached Azure MSI token for management endpoint (from concurrent fetch)");
-        return cachedToken;
-      }
-
-      // Retrieve new token
-      Token newToken = getTokenForResource(AZURE_MANAGEMENT_ENDPOINT);
-      managementTokenCache.save(newToken);
-      LOGGER.debug("Retrieved and cached new Azure MSI token for management endpoint");
-
-      return newToken;
-    }
+    return managementTokenCache.getToken();
   }
 
   /**

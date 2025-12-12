@@ -12,9 +12,9 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.oauth.CachedTokenSource;
 import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.Token;
-import com.databricks.sdk.core.oauth.TokenCache;
 import com.databricks.sdk.core.oauth.TokenSource;
 import com.google.common.annotations.VisibleForTesting;
 import com.nimbusds.jose.*;
@@ -69,7 +69,6 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
     private String jwtAlgorithm;
     private IDatabricksHttpClient hc;
     private List<String> scopes = Collections.emptyList();
-    private TokenCache tokenCache;
 
     public Builder withClientId(String clientId) {
       this.clientId = clientId;
@@ -111,26 +110,12 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
       return this;
     }
 
-    public Builder withTokenCache(TokenCache tokenCache) {
-      this.tokenCache = tokenCache;
-      return this;
-    }
-
     public JwtPrivateKeyClientCredentials build() {
       Objects.requireNonNull(this.clientId, "clientId must be specified");
       Objects.requireNonNull(this.jwtKeyFile, "JWT key file must be specified");
       Objects.requireNonNull(this.jwtKid, "JWT KID must be specified");
-      Objects.requireNonNull(this.tokenCache, "tokenCache must be specified");
       return new JwtPrivateKeyClientCredentials(
-          hc,
-          clientId,
-          jwtKeyFile,
-          jwtKid,
-          jwtKeyPassphrase,
-          jwtAlgorithm,
-          tokenUrl,
-          scopes,
-          tokenCache);
+          hc, clientId, jwtKeyFile, jwtKid, jwtKeyPassphrase, jwtAlgorithm, tokenUrl, scopes);
     }
   }
 
@@ -145,10 +130,12 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
   private final String jwtKid;
   private final String jwtKeyPassphrase;
   private final JWSAlgorithm jwtAlgorithm;
-  private final TokenCache tokenCache;
 
   // Cache the parsed private key to avoid repeated file I/O
   private final PrivateKey privateKey;
+
+  // In-memory token cache
+  private final CachedTokenSource cachedTokenSource;
 
   private JwtPrivateKeyClientCredentials(
       IDatabricksHttpClient hc,
@@ -158,8 +145,7 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
       String jwtKeyPassphrase,
       String jwtAlgorithm,
       String tokenUrl,
-      List<String> scopes,
-      TokenCache tokenCache) {
+      List<String> scopes) {
     this.hc = hc;
     this.clientId = clientId;
     this.jwtKeyFile = jwtKeyFile;
@@ -168,50 +154,43 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
     this.jwtAlgorithm = determineSignatureAlgorithm(jwtAlgorithm);
     this.tokenUrl = tokenUrl;
     this.scopes = scopes;
-    this.tokenCache = tokenCache;
 
     // Load and cache the private key once during construction
     this.privateKey = loadPrivateKey();
+
+    // Initialize in-memory token cache
+    TokenSource refreshLogic = this::generateToken;
+    this.cachedTokenSource = new CachedTokenSource.Builder(refreshLogic).build();
   }
 
   @Override
   public Token getToken() {
-    // 1. Check cache first for a valid token (unsynchronized for fast reads)
-    Token cachedToken = TokenCacheUtils.loadValidToken(tokenCache);
-    if (cachedToken != null) {
-      LOGGER.debug("Using cached JWT M2M token");
-      return cachedToken;
+    return cachedTokenSource.getToken();
+  }
+
+  /**
+   * Generates a new JWT M2M token. This method is wrapped by CachedTokenSource for in-memory
+   * caching.
+   */
+  private Token generateToken() {
+    LOGGER.debug("Generating new JWT M2M token");
+
+    // Generate new JWT and retrieve token
+    Map<String, String> params = new HashMap<>();
+    params.put("grant_type", "client_credentials");
+    if (scopes != null) {
+      params.put("scope", String.join(" ", scopes));
+    }
+    params.put("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
+    params.put("client_assertion", getSerialisedSignedJWT());
+    if (DriverUtil.isRunningAgainstFake()) {
+      params.put("client_assertion", "my-private-key");
     }
 
-    // 2. Cache miss - synchronize token refresh to avoid multiple concurrent refreshes
-    synchronized (this) {
-      // Double-check: another thread may have refreshed while we were waiting
-      cachedToken = TokenCacheUtils.loadValidToken(tokenCache);
-      if (cachedToken != null) {
-        LOGGER.debug("Using cached JWT M2M token (from concurrent refresh)");
-        return cachedToken;
-      }
+    Token newToken = retrieveToken(hc, tokenUrl, params, new HashMap<>());
+    LOGGER.debug("Successfully generated new JWT M2M token");
 
-      // Generate new JWT and retrieve token
-      Map<String, String> params = new HashMap<>();
-      params.put("grant_type", "client_credentials");
-      if (scopes != null) {
-        params.put("scope", String.join(" ", scopes));
-      }
-      params.put("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
-      params.put("client_assertion", getSerialisedSignedJWT());
-      if (DriverUtil.isRunningAgainstFake()) {
-        params.put("client_assertion", "my-private-key");
-      }
-
-      Token newToken = retrieveToken(hc, tokenUrl, params, new HashMap<>());
-
-      // Cache the new token for future use
-      tokenCache.save(newToken);
-      LOGGER.debug("Generated and cached new JWT M2M token");
-
-      return newToken;
-    }
+    return newToken;
   }
 
   @VisibleForTesting

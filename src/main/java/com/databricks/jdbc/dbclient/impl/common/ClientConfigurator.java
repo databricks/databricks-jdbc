@@ -357,9 +357,8 @@ public class ClientConfigurator {
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret());
 
-    TokenCache tokenCache = createTokenCache(connectionContext.getClientId(), List.of());
     CredentialsProvider provider =
-        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig, tokenCache);
+        new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     CredentialsProvider wrappedProvider = wrapWithTokenFederationIfEnabled(provider);
 
     databricksConfig
@@ -480,11 +479,7 @@ public class ClientConfigurator {
    */
   private CredentialsProvider wrapWithTokenFederationIfEnabled(CredentialsProvider provider) {
     if (connectionContext.isTokenFederationEnabled()) {
-      // Create a separate token cache for federated tokens
-      TokenCache federationTokenCache =
-          createTokenCache(connectionContext.getNullableClientId(), List.of("federation"));
-      return new DatabricksTokenFederationProvider(
-          connectionContext, provider, federationTokenCache);
+      return new DatabricksTokenFederationProvider(connectionContext, provider);
     }
     return provider;
   }

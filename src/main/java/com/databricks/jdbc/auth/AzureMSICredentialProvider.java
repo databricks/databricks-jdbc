@@ -10,10 +10,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.HeaderFactory;
-import com.databricks.sdk.core.oauth.TokenCache;
 import com.google.common.annotations.VisibleForTesting;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.http.HttpHeaders;
@@ -35,8 +32,6 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
   private final IDatabricksHttpClient httpClient;
   private final String resourceId;
   private final String clientId;
-  private final TokenCache databricksTokenCache;
-  private final TokenCache managementTokenCache;
 
   /**
    * Constructs a new AzureMSICredentialProvider.
@@ -48,55 +43,11 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
     this.httpClient = DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
     this.clientId = connectionContext.getNullableClientId();
     this.resourceId = connectionContext.getAzureWorkspaceResourceId();
-    this.databricksTokenCache = createTokenCache(connectionContext, "databricks");
-    this.managementTokenCache = createTokenCache(connectionContext, "management");
-  }
-
-  /**
-   * Creates a TokenCache instance for Azure MSI credentials. Azure MSI requires TWO separate
-   * caches:
-   *
-   * <ul>
-   *   <li>databricks scope: for Databricks API calls (resource:
-   *       2ff814a6-3304-4ab8-85cb-cd0e6f879c1d)
-   *   <li>management scope: for Azure Resource Manager calls (resource:
-   *       https://management.core.windows.net/)
-   * </ul>
-   *
-   * <p>Uses the connection UUID with scope suffix to ensure each connection and scope has its own
-   * isolated token cache.
-   *
-   * @param connectionContext The connection context
-   * @param scope The scope identifier (databricks or management)
-   * @return An EncryptedFileTokenCache instance
-   */
-  private TokenCache createTokenCache(
-      IDatabricksConnectionContext connectionContext, String scope) {
-    String userHome = System.getProperty("user.home");
-    Path homeDir = Paths.get(userHome);
-    Path databricksDir = homeDir.resolve(".config/databricks-jdbc/oauth");
-
-    // Use connection UUID with scope suffix for unique cache files
-    String connectionUuid = connectionContext.getConnectionUuid();
-    Path cachePath = databricksDir.resolve(connectionUuid + "-" + scope);
-
-    // For scope-specific caches, append scope to the passphrase
-    String configuredPassphrase = connectionContext.getTokenCachePassPhrase();
-    String passphraseWithScope = configuredPassphrase;
-    if (configuredPassphrase == null || configuredPassphrase.isEmpty()) {
-      passphraseWithScope = null; // Let utility generate default
-    } else {
-      passphraseWithScope = configuredPassphrase + "-" + scope;
-    }
-
-    String host = connectionContext.getHostForOAuth();
-    return TokenCacheUtils.createEncryptedCache(cachePath, passphraseWithScope, host, clientId);
   }
 
   /**
    * Constructs a new AzureMSICredentialProvider with a custom HTTP client. This constructor is
-   * primarily used for testing purposes and uses NoOpTokenCache to avoid persisting tokens during
-   * tests.
+   * primarily used for testing purposes.
    *
    * @param connectionContext The Databricks connection context containing authentication
    *     parameters.
@@ -108,8 +59,6 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
     this.httpClient = httpClient;
     this.clientId = connectionContext.getNullableClientId();
     this.resourceId = connectionContext.getAzureWorkspaceResourceId();
-    this.databricksTokenCache = new NoOpTokenCache();
-    this.managementTokenCache = new NoOpTokenCache();
   }
 
   /**
@@ -140,8 +89,7 @@ public class AzureMSICredentialProvider implements CredentialsProvider {
    */
   @Override
   public HeaderFactory configure(DatabricksConfig databricksConfig) {
-    AzureMSICredentials azureMSICredentials =
-        new AzureMSICredentials(httpClient, clientId, databricksTokenCache, managementTokenCache);
+    AzureMSICredentials azureMSICredentials = new AzureMSICredentials(httpClient, clientId);
 
     return () -> {
       Map<String, String> headers = new HashMap<>();

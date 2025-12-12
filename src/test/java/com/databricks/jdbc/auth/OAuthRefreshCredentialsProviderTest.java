@@ -56,12 +56,12 @@ public class OAuthRefreshCredentialsProviderTest {
             new OpenIDConnectEndpoints(
                 "https://oauth.example.com/oidc/v1/token",
                 "https://oauth.example.com/oidc/v1/authorize"));
-    credentialsProvider =
-        new OAuthRefreshCredentialsProvider(
-            connectionContext, databricksConfig, new NoOpTokenCache());
+    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     when(context.getOAuthRefreshToken()).thenReturn(null);
+    when(databricksConfig.getHttpClient()).thenReturn(httpClient);
     OAuthRefreshCredentialsProvider providerWithNullRefreshToken =
-        new OAuthRefreshCredentialsProvider(context, databricksConfig, new NoOpTokenCache());
+        new OAuthRefreshCredentialsProvider(context, databricksConfig);
+    providerWithNullRefreshToken.configure(databricksConfig);
     DatabricksDriverException exception =
         assertThrows(DatabricksDriverException.class, providerWithNullRefreshToken::getToken);
     assertEquals("oauth2: token expired and refresh token is not set", exception.getMessage());
@@ -74,9 +74,7 @@ public class OAuthRefreshCredentialsProviderTest {
     when(databricksConfig.getOidcEndpoints()).thenThrow(new IOException());
     assertThrows(
         DatabricksException.class,
-        () ->
-            new OAuthRefreshCredentialsProvider(
-                connectionContext, databricksConfig, new NoOpTokenCache()));
+        () -> new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig));
   }
 
   @ParameterizedTest
@@ -96,9 +94,7 @@ public class OAuthRefreshCredentialsProviderTest {
       when(databricksConfig.getOidcEndpoints())
           .thenReturn(new OpenIDConnectEndpoints(TEST_TOKEN_URL, TEST_AUTH_URL));
     }
-    credentialsProvider =
-        new OAuthRefreshCredentialsProvider(
-            connectionContext, databricksConfig, new NoOpTokenCache());
+    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     assertEquals("oauth-refresh", credentialsProvider.authType());
     when(databricksConfig.getHttpClient()).thenReturn(httpClient);
     try (MockedStatic<TokenEndpointClient> mocked = mockStatic(TokenEndpointClient.class)) {

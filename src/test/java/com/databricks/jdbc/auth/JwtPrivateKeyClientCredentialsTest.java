@@ -61,7 +61,6 @@ public class JwtPrivateKeyClientCredentialsTest {
         .withJwtKeyFile(tempKeyFile.toString())
         .withJwtAlgorithm(TEST_JWT_ALGORITHM)
         .withTokenUrl(TEST_TOKEN_URL)
-        .withTokenCache(new NoOpTokenCache())
         .build();
   }
 
