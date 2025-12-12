@@ -70,9 +70,12 @@ public class ClientConfigurator {
    * @return The path for the token cache file
    */
   public static Path getTokenCachePath(String host, String clientId, List<String> scopes) {
-    String userHome = System.getProperty("user.home");
+    String userHome = System.getProperty(USER_HOME_PROPERTY);
     Path homeDir = Paths.get(userHome);
-    Path databricksDir = homeDir.resolve(".config/databricks-jdbc/oauth");
+    // Use .config on Unix/Mac, databricks-jdbc on Windows
+    String configDir =
+        System.getProperty("os.name").toLowerCase().contains("win") ? "databricks-jdbc" : ".config";
+    Path databricksDir = homeDir.resolve(configDir).resolve("databricks-jdbc").resolve("oauth");
 
     // Create a unique string identifier from the combination of parameters
     String uniqueIdentifier = createUniqueIdentifier(host, clientId, scopes);
@@ -107,34 +110,6 @@ public class ClientConfigurator {
 
     // Convert to a positive hexadecimal string
     return Integer.toHexString(hash & 0x7FFFFFFF);
-  }
-
-  /**
-   * Creates a TokenCache instance using encrypted file-based caching.
-   *
-   * <p>Uses the connection UUID to ensure each connection has its own isolated token cache,
-   * preventing cache collisions between different connections.
-   *
-   * @param clientId The OAuth client ID (used for encryption passphrase generation)
-   * @param scopes The OAuth scopes (used for cache path identification if non-empty)
-   * @return An EncryptedFileTokenCache instance
-   */
-  private TokenCache createTokenCache(String clientId, List<String> scopes) {
-    String userHome = System.getProperty("user.home");
-    Path homeDir = Paths.get(userHome);
-    Path databricksDir = homeDir.resolve(".config/databricks-jdbc/oauth");
-
-    // Use connection UUID directly as cache filename (with scope suffix if specified)
-    String connectionUuid = connectionContext.getConnectionUuid();
-    String scopeSuffix =
-        (scopes != null && !scopes.isEmpty()) ? "-" + String.join("-", scopes) : "";
-    Path cachePath = databricksDir.resolve(connectionUuid + scopeSuffix);
-
-    return TokenCacheUtils.createEncryptedCache(
-        cachePath,
-        connectionContext.getTokenCachePassPhrase(),
-        connectionContext.getHostForOAuth(),
-        clientId);
   }
 
   /**

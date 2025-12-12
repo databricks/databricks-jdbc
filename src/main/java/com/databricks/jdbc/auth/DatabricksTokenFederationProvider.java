@@ -11,6 +11,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.*;
+import com.databricks.sdk.core.oauth.CachedTokenSource;
 import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.Token;
 import com.databricks.sdk.core.oauth.TokenSource;
@@ -46,6 +47,7 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
       JdbcLoggerFactory.getLogger(DatabricksTokenFederationProvider.class);
 
   private HeaderFactory externalHeaderFactory;
+  private CachedTokenSource cachedTokenSource;
   private static final Map<String, String> TOKEN_EXCHANGE_PARAMS =
       Map.of(
           "grant_type",
@@ -107,6 +109,13 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
     this.config = databricksConfig;
     // Call the underlying provider's configure ONCE and cache the HeaderFactory
     this.externalHeaderFactory = this.credentialsProvider.configure(this.config);
+
+    // Initialize CachedTokenSource to cache the exchanged token
+    if (this.cachedTokenSource == null) {
+      TokenSource refreshLogic = this::fetchAndExchangeToken;
+      this.cachedTokenSource = new CachedTokenSource.Builder(refreshLogic).build();
+    }
+
     return () -> {
       Token exchangedToken = getToken();
       Map<String, String> headers = new HashMap<>(this.externalProviderHeaders);
@@ -118,6 +127,21 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
   }
 
   public Token getToken() {
+    if (this.cachedTokenSource == null) {
+      throw new DatabricksDriverException(
+          "CachedTokenSource not initialized. Call configure() first.",
+          DatabricksDriverErrorCode.AUTH_ERROR);
+    }
+    return cachedTokenSource.getToken();
+  }
+
+  /**
+   * Fetches token from the underlying provider and exchanges it if needed. This method is wrapped
+   * by CachedTokenSource for in-memory caching.
+   */
+  private Token fetchAndExchangeToken() {
+    LOGGER.debug("Fetching and exchanging token");
+
     if (this.externalHeaderFactory == null) {
       // Lazy-initialize if configure(databricksConfig) was not called yet
       this.externalHeaderFactory = this.credentialsProvider.configure(this.config);
@@ -138,6 +162,8 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
       if (optionalToken.isEmpty()) {
         optionalToken = Optional.of(createToken(accessToken, accessTokenType));
       }
+
+      LOGGER.debug("Successfully fetched and exchanged token");
       return optionalToken.get();
     } catch (Exception e) {
       LOGGER.error(e, "Failed to refresh access token");

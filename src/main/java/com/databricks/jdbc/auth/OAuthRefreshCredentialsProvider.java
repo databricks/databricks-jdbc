@@ -77,9 +77,9 @@ public class OAuthRefreshCredentialsProvider implements TokenSource, Credentials
 
     return () -> {
       Map<String, String> headers = new HashMap<>();
+      Token token = getToken();
       // An example header looks like: "Authorization: Bearer <access-token>"
-      headers.put(
-          HttpHeaders.AUTHORIZATION, getToken().getTokenType() + " " + getToken().getAccessToken());
+      headers.put(HttpHeaders.AUTHORIZATION, token.getTokenType() + " " + token.getAccessToken());
       return headers;
     };
   }

@@ -14,7 +14,7 @@ public class TokenCacheUtils {
    * Default passphrase suffix used when generating encryption passphrases for token caches. This is
    * combined with host and clientId to create unique passphrases.
    */
-  private static final String DEFAULT_PASSPHRASE_SUFFIX = "databricks-jdbc-token-cache";
+  private static final String DEFAULT_PASSPHRASE_SUFFIX = "-databricks-jdbc-token-cache";
 
   /**
    * Generates a default passphrase for token cache encryption. Combines host, clientId, and a
