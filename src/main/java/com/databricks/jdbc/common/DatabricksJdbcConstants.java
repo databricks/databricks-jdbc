@@ -104,6 +104,7 @@ public final class DatabricksJdbcConstants {
   public static final String GCP_GOOGLE_CREDENTIALS_AUTH_TYPE = "google-credentials";
   public static final String GCP_GOOGLE_ID_AUTH_TYPE = "google-id";
   public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = "08000";
+  public static final String QUERY_EXECUTION_TIMEOUT_SQLSTATE = "57KD0";
   public static final int TEMPORARY_REDIRECT_STATUS_CODE = 307;
   public static final String REDACTED_TOKEN = "****";
   public static final int MAX_DEFAULT_STRING_COLUMN_LENGTH = 32767;

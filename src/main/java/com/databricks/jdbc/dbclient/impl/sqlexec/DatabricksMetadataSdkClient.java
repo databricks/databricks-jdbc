@@ -71,6 +71,17 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   public DatabricksResultSet listSchemas(
       IDatabricksSession session, String catalog, String schemaNamePattern) throws SQLException {
     catalog = autoFillCatalog(catalog, session);
+
+    // Return empty result set if catalog is an empty string
+    if (catalog != null && catalog.isEmpty()) {
+      LOGGER.debug("Catalog is empty string, returning empty result set for listSchemas");
+      return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+          SCHEMA_COLUMNS,
+          new ArrayList<>(),
+          METADATA_STATEMENT_ID,
+          com.databricks.jdbc.common.CommandName.LIST_SCHEMAS);
+    }
+
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session).setSchemaPattern(schemaNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);

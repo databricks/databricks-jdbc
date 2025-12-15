@@ -1085,4 +1085,25 @@ public class DatabricksMetadataSdkClientTest {
                 TEST_SCHEMA,
                 TEST_TABLE));
   }
+
+  @Test
+  void testListSchemasWithEmptyCatalog() throws SQLException {
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(false);
+    when(session.getCurrentCatalog()).thenReturn("");
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+
+    // Call listSchemas with empty catalog
+    DatabricksResultSet actualResult = metadataClient.listSchemas(session, "", null);
+
+    // Verify the result set is empty
+    assertNotNull(actualResult);
+    assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+    assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
+    assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    assertFalse(
+        actualResult.next(), "Expected empty result set for listSchemas with empty catalog");
+  }
 }

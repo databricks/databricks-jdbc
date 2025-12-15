@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
@@ -650,10 +651,14 @@ public class DatabricksSdkClient implements IDatabricksClient {
               " Error Message: %s, Error code: %s", error.getMessage(), error.getErrorCode());
     }
     LOGGER.debug(errorMessage);
+
+    String sqlState = response.getStatus().getSqlState();
+    if (QUERY_EXECUTION_TIMEOUT_SQLSTATE.equals(sqlState)) {
+      throw new DatabricksTimeoutException(
+          errorMessage, null, DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
+    }
     throw new DatabricksSQLException(
-        errorMessage,
-        response.getStatus().getSqlState(),
-        DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
+        errorMessage, sqlState, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
   }
 
   private ExecuteStatementResponse wrapGetStatementResponse(
