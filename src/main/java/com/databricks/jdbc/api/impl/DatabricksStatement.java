@@ -755,11 +755,11 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           timeoutErrorMessage, e, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
     } catch (InterruptedException | ExecutionException e) {
       Throwable cause = e;
-      // Look for underlying DatabricksSQL exception
+      // Look for underlying SQLException (includes DatabricksSQLException and other SQL exceptions)
       while (cause.getCause() != null) {
         cause = cause.getCause();
-        if (cause instanceof DatabricksSQLException) {
-          throw (DatabricksSQLException) cause;
+        if (cause instanceof SQLException) {
+          throw (SQLException) cause;
         }
       }
       String errMsg =

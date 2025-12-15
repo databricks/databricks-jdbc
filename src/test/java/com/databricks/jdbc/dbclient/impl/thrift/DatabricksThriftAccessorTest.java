@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static org.junit.jupiter.api.Assertions.*;
@@ -824,8 +825,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testExecuteWithTimeoutExpired()
-      throws TException, SQLException, DatabricksValidationException {
+  void testExecuteWithTimeoutExpired() throws TException, SQLException {
     // Set the async poll interval to 1 second to facilitate testing
     when(connectionContext.getAsyncExecPollInterval()).thenReturn(1000);
 
@@ -867,6 +867,40 @@ public class DatabricksThriftAccessorTest {
 
     // Verify that cancel was called
     verify(thriftClient).CancelOperation(any(TCancelOperationReq.class));
+  }
+
+  @Test
+  void testServerSideTimeoutThrowsTimeoutException() throws TException, SQLException {
+
+    accessor = spy(new DatabricksThriftAccessor(connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
+
+    // Create statement execution mocks
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+
+    // Mock server-side timeout: server returns ERROR_STATE with sqlState="57KD0"
+    TGetOperationStatusResp operationStatusErrorResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setOperationState(TOperationState.ERROR_STATE)
+            .setSqlState(QUERY_EXECUTION_TIMEOUT_SQLSTATE) // Server-side timeout SQL state
+            .setErrorMessage("Statement has timed out after 10 seconds.");
+
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(operationStatusErrorResp);
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(300); // Long timeout, server times out first
+
+    // Verify that DatabricksTimeoutException is thrown
+    assertThrows(
+        DatabricksTimeoutException.class,
+        () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
   }
 
   @Test

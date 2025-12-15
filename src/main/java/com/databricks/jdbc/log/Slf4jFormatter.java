@@ -1,8 +1,8 @@
 package com.databricks.jdbc.log;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.TimeZone;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
 
@@ -12,19 +12,13 @@ import java.util.logging.LogRecord;
  */
 public class Slf4jFormatter extends Formatter {
 
-  private static final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
-
-  private static final SimpleDateFormat dateFormat;
-
-  static {
-    dateFormat = new SimpleDateFormat(DATE_FORMAT);
-    dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-  }
+  private static final DateTimeFormatter DATE_FORMATTER =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z").withZone(ZoneId.systemDefault());
 
   /** {@inheritDoc} */
   @Override
   public String format(LogRecord record) {
-    String timestamp = dateFormat.format(new Date(record.getMillis()));
+    String timestamp = DATE_FORMATTER.format(Instant.ofEpochMilli(record.getMillis()));
     String level = record.getLevel().getLocalizedName();
     String className = record.getSourceClassName();
     String methodName = record.getSourceMethodName();

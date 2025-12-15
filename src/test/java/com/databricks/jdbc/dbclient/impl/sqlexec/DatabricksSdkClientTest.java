@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.TestConstants.TEST_STRING;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import static com.databricks.jdbc.model.core.ColumnInfoTypeName.DECIMAL;
@@ -436,6 +437,59 @@ public class DatabricksSdkClientTest {
 
     // Verify cancel was called
     verify(databricksSdkClient).cancelStatement(eq(STATEMENT_ID));
+  }
+
+  @Test
+  public void testServerSideTimeoutThrowsTimeoutException() throws Exception {
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        spy(new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient));
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+
+    // Mock session creation
+    CreateSessionResponse sessionResponse = new CreateSessionResponse().setSessionId(SESSION_ID);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(sessionResponse);
+    connection.open();
+
+    // Create statement with a long client timeout (server times out first)
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setMaxRows(100);
+    statement.setQueryTimeout(300); // 300 seconds - server will timeout before this
+
+    // Mock server-side timeout: server returns FAILED state with sqlState="57KD0"
+    ExecuteStatementResponse executeResponse =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(
+                new StatementStatus()
+                    .setState(StatementState.FAILED)
+                    .setSqlState(QUERY_EXECUTION_TIMEOUT_SQLSTATE) // Server-side timeout SQL state
+                    .setError(
+                        new ServiceError()
+                            .setMessage("Statement has timed out after 10 seconds.")
+                            .setErrorCode(ServiceErrorCode.BAD_REQUEST)));
+
+    // Set up mock response
+    when(apiClient.execute(
+            argThat(req -> req != null && STATEMENT_PATH.equals(req.getUrl())),
+            eq(ExecuteStatementResponse.class)))
+        .thenReturn(executeResponse);
+
+    // Verify that DatabricksTimeoutException is thrown
+    assertThrows(
+        DatabricksTimeoutException.class,
+        () ->
+            databricksSdkClient.executeStatement(
+                STATEMENT,
+                warehouse,
+                sqlParams,
+                StatementType.QUERY,
+                connection.getSession(),
+                statement));
   }
 
   @Test
