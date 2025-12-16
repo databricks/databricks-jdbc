@@ -11,6 +11,7 @@
 ### Fixed
 - Fix timeout exception handling to throw `SQLTimeoutException` instead of `DatabricksSQLException` when queries timeout.
 - Removes dangerous global timezone modification that caused race conditions.
+- CVE-2025-66566. Updated lz4-java dependency to 1.10.1.
 
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.*
