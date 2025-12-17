@@ -20,6 +20,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.collect.ImmutableMap;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -87,7 +88,10 @@ class DatabricksConnectionContextTest {
     assertEquals(LogLevel.DEBUG, connectionContext.getLogLevel());
     assertNull(connectionContext.getClientSecret());
     assertEquals("./test1", connectionContext.getLogPathString());
-    assertNull(connectionContext.getOAuthScopesForU2M());
+    assertEquals(
+        Arrays.asList(
+            DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE),
+        connectionContext.getOAuthScopesForU2M());
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
 
@@ -104,7 +108,10 @@ class DatabricksConnectionContextTest {
     assertEquals(LogLevel.OFF, connectionContext.getLogLevel());
     assertEquals(System.getProperty("user.dir"), connectionContext.getLogPathString());
     assertEquals("3", connectionContext.parameters.get("authmech"));
-    assertNull(connectionContext.getOAuthScopesForU2M());
+    assertEquals(
+        Arrays.asList(
+            DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE),
+        connectionContext.getOAuthScopesForU2M());
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
 
