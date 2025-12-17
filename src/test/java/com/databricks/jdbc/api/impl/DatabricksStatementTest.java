@@ -735,6 +735,120 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  public void testMarkAsClosed() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    // Execute a query to set up result set
+    statement.executeQuery(STATEMENT);
+    assertFalse(statement.isClosed());
+
+    // Mark statement as closed without attempting to close on server or clean up resources
+    statement.markAsClosed();
+
+    // Verify statement is marked as closed
+    assertTrue(statement.isClosed());
+
+    // Verify that closeStatement was NOT called on the client (server already closed it)
+    verify(client, never()).closeStatement(any(StatementId.class));
+
+    // Verify that result set is NOT closed yet by markAsClosed
+    verify(resultSet, never()).close();
+
+    // Verify that the statement cannot be used anymore
+    assertThrows(DatabricksSQLException.class, () -> statement.executeQuery(STATEMENT));
+
+    // Now call close() - it should clean up the result set without trying to close on server
+    statement.close();
+
+    // Verify that result set was closed by close()
+    verify(resultSet, times(1)).close();
+
+    // Verify that closeStatement was still NOT called on the client (already closed on server)
+    verify(client, never()).closeStatement(any(StatementId.class));
+  }
+
+  @Test
+  public void testMarkAsClosedThenCloseWithResultSetError() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    // Create a mock result set that throws an exception on close
+    DatabricksResultSet mockResultSet = mock(DatabricksResultSet.class);
+    doThrow(new DatabricksSQLException("Error closing result set", "HY000"))
+        .when(mockResultSet)
+        .close();
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(mockResultSet);
+
+    // Execute a query to set up result set
+    statement.executeQuery(STATEMENT);
+    assertFalse(statement.isClosed());
+
+    // Mark statement as closed - should not throw since it doesn't close result set
+    assertDoesNotThrow(() -> statement.markAsClosed());
+
+    // Verify statement is marked as closed
+    assertTrue(statement.isClosed());
+
+    // Verify result set was NOT closed by markAsClosed
+    verify(mockResultSet, never()).close();
+
+    // Now call close() - it should attempt to close result set and throw the exception
+    assertThrows(DatabricksSQLException.class, () -> statement.close());
+
+    // Verify that result set close was attempted during close()
+    verify(mockResultSet, times(1)).close();
+
+    // Verify that closeStatement was NOT called on the client
+    verify(client, never()).closeStatement(any(StatementId.class));
+  }
+
+  @Test
+  public void testMarkAsClosedWithoutResultSet() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    // Mark statement as closed without executing any query (no result set)
+    assertFalse(statement.isClosed());
+    statement.markAsClosed();
+
+    // Verify statement is marked as closed
+    assertTrue(statement.isClosed());
+
+    // Verify that closeStatement was NOT called on the client
+    verify(client, never()).closeStatement(any(StatementId.class));
+
+    // Calling close() after markAsClosed should not throw
+    assertDoesNotThrow(() -> statement.close());
+
+    // Statement should still be closed
+    assertTrue(statement.isClosed());
+  }
+
+  @Test
   public void testRemoveEmptyEscapeClauseFromQuery() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -772,5 +886,169 @@ public class DatabricksStatementTest {
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
     return connection;
+  }
+
+  // Tests for Issue #1063: getLargeUpdateCount() should return -1 instead of throwing exception
+
+  @Test
+  public void testGetLargeUpdateCountAfterNoMoreResults() throws Exception {
+    // Setup
+    DatabricksConnection connection = getTestConnection();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(WAREHOUSE_COMPUTE),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    when(resultSet.hasUpdateCount()).thenReturn(false); // SELECT query
+
+    // Execute and get result set
+    statement.execute(STATEMENT);
+    statement.getResultSet();
+
+    // Advance past results
+    assertFalse(statement.getMoreResults());
+
+    // Should return -1, not throw exception
+    assertEquals(-1, statement.getLargeUpdateCount());
+    assertEquals(-1, statement.getUpdateCount());
+  }
+
+  @Test
+  public void testGetLargeUpdateCountForSelect() throws Exception {
+    // Setup
+    DatabricksConnection connection = getTestConnection();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(WAREHOUSE_COMPUTE),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    when(resultSet.hasUpdateCount()).thenReturn(false); // SELECT query
+
+    // Execute SELECT query
+    statement.execute(STATEMENT);
+
+    // Should return -1 for SELECT statements
+    assertEquals(-1, statement.getLargeUpdateCount());
+    assertEquals(-1, statement.getUpdateCount());
+  }
+
+  @Test
+  public void testGetLargeUpdateCountForUpdate() throws Exception {
+    // Setup
+    DatabricksConnection connection = getTestConnection();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    String updateSql = "UPDATE test_table SET col = 'value'";
+
+    when(client.executeStatement(
+            eq(updateSql),
+            eq(WAREHOUSE_COMPUTE),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    when(resultSet.hasUpdateCount()).thenReturn(true);
+    when(resultSet.getUpdateCount()).thenReturn(42L);
+
+    // Execute UPDATE query
+    statement.execute(updateSql);
+
+    // Should return actual update count
+    assertEquals(42L, statement.getLargeUpdateCount());
+    assertEquals(42, statement.getUpdateCount());
+  }
+
+  @Test
+  public void testUpdateCountConsistency() throws Exception {
+    // Setup
+    DatabricksConnection connection = getTestConnection();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(WAREHOUSE_COMPUTE),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    when(resultSet.hasUpdateCount()).thenReturn(false);
+
+    // Execute and advance past results
+    statement.execute(STATEMENT);
+    statement.getResultSet();
+    statement.getMoreResults();
+
+    // Both methods should return the same value (-1)
+    assertEquals(statement.getUpdateCount(), (int) statement.getLargeUpdateCount());
+  }
+
+  @Test
+  public void testGetUpdateCountOverflow() throws Exception {
+    // Setup
+    DatabricksConnection connection = getTestConnection();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    String updateSql = "UPDATE large_table SET col = 'value'";
+    long largeCount = ((long) Integer.MAX_VALUE) + 100L;
+
+    when(client.executeStatement(
+            eq(updateSql),
+            eq(WAREHOUSE_COMPUTE),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    when(resultSet.hasUpdateCount()).thenReturn(true);
+    when(resultSet.getUpdateCount()).thenReturn(largeCount);
+
+    // Execute UPDATE with large count
+    statement.execute(updateSql);
+
+    // getLargeUpdateCount should return actual count
+    assertEquals(largeCount, statement.getLargeUpdateCount());
+
+    // getUpdateCount should return SUCCESS_NO_INFO for overflow
+    assertEquals(Statement.SUCCESS_NO_INFO, statement.getUpdateCount());
+  }
+
+  @Test
+  public void testJdbcStopCondition() throws Exception {
+    // Setup - test the standard JDBC stop condition pattern
+    DatabricksConnection connection = getTestConnection();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(WAREHOUSE_COMPUTE),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    when(resultSet.hasUpdateCount()).thenReturn(false);
+
+    // Execute query
+    statement.execute(STATEMENT);
+    statement.getResultSet();
+
+    // Standard JDBC stop condition should work without exception
+    boolean hasMoreResults = false;
+    do {
+      hasMoreResults = statement.getMoreResults();
+    } while (hasMoreResults || statement.getUpdateCount() != -1);
+
+    // After loop, should be able to call getLargeUpdateCount() without exception
+    assertEquals(-1, statement.getLargeUpdateCount());
   }
 }

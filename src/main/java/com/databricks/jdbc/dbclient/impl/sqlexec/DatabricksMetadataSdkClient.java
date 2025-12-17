@@ -17,6 +17,7 @@ import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,10 +31,10 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksMetadataSdkClient.class);
-  private static final int DEFAULT_MAX_THREADS_FETCH_SCHEMAS = 10;
-  private static final int TASK_TIMEOUT_FETCH_SCHEMAS_SEC = 90;
+  private static final int DEFAULT_MAX_THREADS_METADATA_FETCH = 10;
+  private static final int TASK_TIMEOUT_METADATA_FETCH_SEC = 90;
   private static final Object THREAD_POOL_LOCK = new Object();
-  private static ExecutorService schemasThreadPool = null;
+  private static ExecutorService metadataThreadPool = null;
   private final IDatabricksClient sdkClient;
   private final MetadataResultSetBuilder metadataResultSetBuilder;
 
@@ -158,14 +159,11 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       throws SQLException {
     catalog = autoFillCatalog(catalog, session);
 
-    // Return empty result set if catalog is null
+    // Fetch columns from all catalogs if catalog is null
     if (catalog == null) {
-      LOGGER.debug("Catalog is null, returning empty result set for listColumns");
-      return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-          MetadataResultConstants.COLUMN_COLUMNS,
-          new ArrayList<>(),
-          METADATA_STATEMENT_ID,
-          com.databricks.jdbc.common.CommandName.LIST_COLUMNS);
+      LOGGER.debug("Catalog is null, fetching columns across all catalogs");
+      return fetchColumnsAcrossCatalogs(
+          session, schemaNamePattern, tableNamePattern, columnNamePattern);
     }
 
     CommandBuilder commandBuilder =
@@ -366,9 +364,9 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         JdbcThreadUtils.parallelFlatMap(
             catalogList,
             session.getConnectionContext(),
-            DEFAULT_MAX_THREADS_FETCH_SCHEMAS, // Not significant since the executor is provided as
+            DEFAULT_MAX_THREADS_METADATA_FETCH, // Not significant since the executor is provided as
             // a parameter
-            TASK_TIMEOUT_FETCH_SCHEMAS_SEC,
+            TASK_TIMEOUT_METADATA_FETCH_SEC,
             c -> {
               List<List<Object>> rows = new ArrayList<>();
               try (ResultSet catalogSchemas =
@@ -384,7 +382,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
               }
               return rows;
             },
-            getOrCreateSchemasThreadPool());
+            getOrCreateMetadataThreadPool());
 
     // Convert combined data into a result set
     return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
@@ -394,20 +392,75 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         com.databricks.jdbc.common.CommandName.LIST_SCHEMAS);
   }
 
-  public static ExecutorService getOrCreateSchemasThreadPool() {
+  private DatabricksResultSet fetchColumnsAcrossCatalogs(
+      IDatabricksSession session,
+      String schemaNamePattern,
+      String tableNamePattern,
+      String columnNamePattern)
+      throws SQLException {
+    List<String> catalogList = new ArrayList<>();
+    try (ResultSet catalogs = session.getDatabricksMetadataClient().listCatalogs(session)) {
+      while (catalogs.next()) {
+        String c = catalogs.getString(1);
+        if (c != null && !c.isEmpty()) {
+          catalogList.add(c);
+        }
+      }
+    }
+
+    // Process catalogs in parallel, gathering column information
+    List<List<Object>> columnRows =
+        JdbcThreadUtils.parallelFlatMap(
+            catalogList,
+            session.getConnectionContext(),
+            DEFAULT_MAX_THREADS_METADATA_FETCH,
+            TASK_TIMEOUT_METADATA_FETCH_SEC,
+            c -> {
+              List<List<Object>> rows = new ArrayList<>();
+              try (ResultSet catalogColumns =
+                  session
+                      .getDatabricksMetadataClient()
+                      .listColumns(
+                          session, c, schemaNamePattern, tableNamePattern, columnNamePattern)) {
+                ResultSetMetaData metaData = catalogColumns.getMetaData();
+                int columnCount = metaData.getColumnCount();
+                while (catalogColumns.next()) {
+                  List<Object> columnRow = new ArrayList<>();
+                  // Read all columns from the result set
+                  for (int i = 1; i <= columnCount; i++) {
+                    columnRow.add(catalogColumns.getObject(i));
+                  }
+                  rows.add(columnRow);
+                }
+              } catch (SQLException e) {
+                LOGGER.warn("Error fetching columns for catalog {} {}", c, e.getMessage());
+              }
+              return rows;
+            },
+            getOrCreateMetadataThreadPool());
+
+    // Convert combined data into a result set
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        MetadataResultConstants.COLUMN_COLUMNS,
+        columnRows,
+        METADATA_STATEMENT_ID,
+        com.databricks.jdbc.common.CommandName.LIST_COLUMNS);
+  }
+
+  public static ExecutorService getOrCreateMetadataThreadPool() {
     synchronized (THREAD_POOL_LOCK) {
-      if (schemasThreadPool == null || schemasThreadPool.isShutdown()) {
+      if (metadataThreadPool == null || metadataThreadPool.isShutdown()) {
         // Could read max threads from a configuration property
-        schemasThreadPool =
+        metadataThreadPool =
             Executors.newFixedThreadPool(
-                DEFAULT_MAX_THREADS_FETCH_SCHEMAS,
+                DEFAULT_MAX_THREADS_METADATA_FETCH,
                 r -> {
-                  Thread t = new Thread(r, "jdbc-schemas-fetcher");
+                  Thread t = new Thread(r, "jdbc-metadata-fetcher");
                   t.setDaemon(true);
                   return t;
                 });
       }
-      return schemasThreadPool;
+      return metadataThreadPool;
     }
   }
 }
