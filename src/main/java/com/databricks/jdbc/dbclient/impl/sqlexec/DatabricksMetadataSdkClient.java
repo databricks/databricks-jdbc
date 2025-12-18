@@ -185,14 +185,19 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       throws SQLException {
     catalog = autoFillCatalog(catalog, session);
 
-    // Return empty result set if catalog is null
+    // Fetch current catalog if catalog is null
     if (catalog == null) {
-      LOGGER.debug("Catalog is null, returning empty result set for listFunctions");
-      return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-          MetadataResultConstants.FUNCTION_COLUMNS,
-          new ArrayList<>(),
-          METADATA_STATEMENT_ID,
-          com.databricks.jdbc.common.CommandName.LIST_FUNCTIONS);
+      // #TODO: Make server side changes
+      LOGGER.debug("Catalog is null, fetching current catalog for listFunctions");
+      catalog = session.getCurrentCatalog();
+
+      // Use hive_metastore as fallback if current catalog is null
+      if (catalog == null) {
+        LOGGER.debug("Current catalog is null, using hive_metastore as fallback");
+        catalog = "hive_metastore";
+      } else {
+        LOGGER.debug("Using current catalog: {}", catalog);
+      }
     }
 
     CommandBuilder commandBuilder =

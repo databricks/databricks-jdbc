@@ -788,18 +788,51 @@ public class DatabricksMetadataSdkClientTest {
   }
 
   @Test
+  void testListFunctionsWithNullCatalog() throws SQLException {
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    when(session.getCurrentCatalog()).thenReturn("current_catalog");
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+
+    String expectedSQL =
+        "SHOW FUNCTIONS IN CATALOG `current_catalog` SCHEMA LIKE 'testSchema' LIKE 'functionPattern'";
+    when(mockClient.executeStatement(
+            expectedSQL,
+            WAREHOUSE_COMPUTE,
+            new HashMap<Integer, ImmutableSqlParameter>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.next()).thenReturn(true, false);
+    doReturn(6).when(mockedMetaData).getColumnCount();
+    doReturn(FUNCTION_NAME_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
+    doReturn(FUNCTION_SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
+    doReturn(FUNCTION_CATALOG_COLUMN.getResultSetColumnName())
+        .when(mockedMetaData)
+        .getColumnName(3);
+    doReturn(REMARKS_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(4);
+    doReturn(FUNCTION_TYPE_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(5);
+    doReturn(SPECIFIC_NAME_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(6);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+
+    DatabricksResultSet actualResult =
+        metadataClient.listFunctions(session, null, TEST_SCHEMA, TEST_FUNCTION_PATTERN);
+
+    assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+    assertEquals(GET_FUNCTIONS_STATEMENT_ID, actualResult.getStatementId());
+    assertEquals(1, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+  }
+
+  @Test
   void testReturnsEmptyResultSetInCaseOfNullCatalog() throws SQLException {
     IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
     when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
     when(mockClient.getConnectionContext()).thenReturn(mockContext);
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
-
-    // listFunctions with null catalog should return empty ResultSet
-    DatabricksResultSet functionsResult =
-        metadataClient.listFunctions(session, null, TEST_SCHEMA, TEST_TABLE);
-    assertNotNull(functionsResult);
-    assertFalse(
-        functionsResult.next(), "Expected empty result set for listFunctions with null catalog");
 
     // listPrimaryKeys with null catalog should return empty ResultSet
     DatabricksResultSet primaryKeysResult =

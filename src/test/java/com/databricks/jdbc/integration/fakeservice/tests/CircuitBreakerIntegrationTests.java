@@ -88,7 +88,10 @@ public class CircuitBreakerIntegrationTests extends AbstractFakeServiceIntegrati
     connectionProperties.put(DatabricksJdbcUrlParams.UID.getParamName(), getDatabricksUser());
     connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
     connectionProperties.put(
-        DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
+        DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), "0");
+    connectionProperties.put(
+        DatabricksJdbcUrlParams.OIDC_DISCOVERY_MODE.getParamName(),
+        "0"); // Disable OIDC discovery for fake service tests
 
     if (DriverUtil.isRunningAgainstFake()) {
       connectionProperties.putIfAbsent(
