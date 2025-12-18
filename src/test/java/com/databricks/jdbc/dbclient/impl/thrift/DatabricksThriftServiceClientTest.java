@@ -24,6 +24,7 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -370,17 +371,19 @@ public class DatabricksThriftServiceClientTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
-    when(thriftAccessor.getResultSetResp(any(), anyLong())).thenReturn(response);
+    when(thriftAccessor.fetchResultsWithAbsoluteOffset(any(), anyLong())).thenReturn(response);
     when(resultData.getResultLinks())
         .thenReturn(
             Collections.singletonList(new TSparkArrowResultLink().setFileLink(TEST_STRING)));
-    Collection<ExternalLink> resultChunks = client.getResultChunks(TEST_STMT_ID, 0, 0);
-    assertEquals(resultChunks.size(), 1);
-    assertEquals(resultChunks.stream().findFirst().get().getExternalLink(), TEST_STRING);
+    // Pass chunkIndex=0 and rowOffset=0 for the first chunk
+    ChunkLinkFetchResult result = client.getResultChunks(TEST_STMT_ID, 0, 0);
+    List<ExternalLink> chunkLinks = result.getChunkLinks();
+    assertEquals(1, chunkLinks.size());
+    assertEquals(TEST_STRING, chunkLinks.get(0).getExternalLink());
   }
 
   @Test
-  void testGetResultChunksThrowsError() throws SQLException {
+  void testGetResultChunksReturnsEmptyWhenNoLinks() throws SQLException {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     TFetchResultsResp response =
@@ -388,25 +391,11 @@ public class DatabricksThriftServiceClientTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
-    when(thriftAccessor.getResultSetResp(any(), anyLong())).thenReturn(response);
-    assertThrows(DatabricksSQLException.class, () -> client.getResultChunks(TEST_STMT_ID, -1, 0));
-    assertThrows(DatabricksSQLException.class, () -> client.getResultChunks(TEST_STMT_ID, 2, 0));
-    assertThrows(DatabricksSQLException.class, () -> client.getResultChunks(TEST_STMT_ID, 1, 0));
-  }
-
-  @Test
-  void testGetResultChunksEmptyLinksThrowsException() throws SQLException {
-    DatabricksThriftServiceClient client =
-        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
-    TFetchResultsResp response =
-        new TFetchResultsResp()
-            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
-            .setResults(resultData)
-            .setResultSetMetadata(resultMetadataData);
-    when(thriftAccessor.getResultSetResp(any(), eq(0L))).thenReturn(response);
-    when(resultData.getResultLinks()).thenReturn(Collections.emptyList());
-
-    assertThrows(DatabricksSQLException.class, () -> client.getResultChunks(TEST_STMT_ID, 0, 0));
+    when(thriftAccessor.fetchResultsWithAbsoluteOffset(any(), anyLong())).thenReturn(response);
+    when(resultData.getResultLinks()).thenReturn(null);
+    ChunkLinkFetchResult result = client.getResultChunks(TEST_STMT_ID, 0, 0);
+    assertTrue(result.isEndOfStream());
+    assertEquals(0, result.getChunkLinks().size());
   }
 
   @Test
@@ -428,9 +417,11 @@ public class DatabricksThriftServiceClientTest {
     TFetchResultsResp response =
         new TFetchResultsResp()
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setHasMoreRows(false)
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
-    when(thriftAccessor.getResultSetResp(any(), eq(requestedStartRowOffset))).thenReturn(response);
+    when(thriftAccessor.fetchResultsWithAbsoluteOffset(any(), eq(requestedStartRowOffset)))
+        .thenReturn(response);
     when(resultData.getResultLinks()).thenReturn(Collections.singletonList(resultLink));
 
     assertThrows(
@@ -649,7 +640,8 @@ public class DatabricksThriftServiceClientTest {
             .setTimestampAsArrow(true);
     TExecuteStatementReq executeStatementReq =
         new TExecuteStatementReq()
-            .setStatement("SHOW FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema' LIKE 'test'")
+            .setStatement(
+                "SHOW FUNCTIONS IN CATALOG `catalog1` SCHEMA LIKE 'testSchema' LIKE 'test'")
             .setSessionHandle(SESSION_HANDLE)
             .setCanReadArrowResult(true)
             .setCanDecompressLZ4Result(true)

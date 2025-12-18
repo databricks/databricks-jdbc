@@ -101,7 +101,7 @@ public class DatabricksConnectionTest {
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
     when(databricksClient.executeStatement(
-            eq("SET CATALOG hive_metastore"),
+            eq("SET CATALOG `hive_metastore`"),
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<>()),
             eq(StatementType.SQL),
@@ -109,7 +109,7 @@ public class DatabricksConnectionTest {
             any()))
         .thenReturn(resultSet);
     when(databricksClient.executeStatement(
-            eq("USE SCHEMA default"),
+            eq("USE SCHEMA `default`"),
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<>()),
             eq(StatementType.SQL),
@@ -122,6 +122,56 @@ public class DatabricksConnectionTest {
     assertEquals(connection.getSchema(), SCHEMA);
     connection.setSchema(DEFAULT_SCHEMA);
     assertEquals(connection.getSchema(), DEFAULT_SCHEMA);
+  }
+
+  @Test
+  public void testSetCatalogAndSchemaWithHyphenatedIdentifiers() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+
+    String catalogWithHyphen = "catalog-with-hyphen";
+    when(databricksClient.executeStatement(
+            eq("SET CATALOG `" + catalogWithHyphen + "`"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any()))
+        .thenReturn(resultSet);
+    connection.setCatalog(catalogWithHyphen);
+    assertEquals(connection.getCatalog(), catalogWithHyphen);
+
+    String schemaWithHyphen = "schema-with-hyphen";
+    when(databricksClient.executeStatement(
+            eq("USE SCHEMA `" + schemaWithHyphen + "`"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any()))
+        .thenReturn(resultSet);
+    connection.setSchema(schemaWithHyphen);
+    assertEquals(connection.getSchema(), schemaWithHyphen);
+
+    verify(databricksClient)
+        .executeStatement(
+            eq("SET CATALOG `" + catalogWithHyphen + "`"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any());
+    verify(databricksClient)
+        .executeStatement(
+            eq("USE SCHEMA `" + schemaWithHyphen + "`"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any());
   }
 
   @Test
@@ -156,7 +206,7 @@ public class DatabricksConnectionTest {
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
     when(databricksClient.executeStatement(
-            eq("SET CATALOG invalid catalog"),
+            eq("SET CATALOG `invalid catalog`"),
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<>()),
             eq(StatementType.SQL),
@@ -167,7 +217,7 @@ public class DatabricksConnectionTest {
                 "[PARSE_SYNTAX_ERROR] Syntax error at or near 'schema'",
                 DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED));
     when(databricksClient.executeStatement(
-            eq("USE SCHEMA invalid schema"),
+            eq("USE SCHEMA `invalid schema`"),
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<>()),
             eq(StatementType.SQL),

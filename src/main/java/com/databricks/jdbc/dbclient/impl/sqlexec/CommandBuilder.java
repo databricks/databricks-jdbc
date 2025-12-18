@@ -87,7 +87,7 @@ public class CommandBuilder {
     } else {
       showSchemasSQL = String.format(SHOW_SCHEMAS_IN_CATALOG_SQL, catalogName);
     }
-    if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
+    if (schemaPattern != null) {
       showSchemasSQL += String.format(LIKE_SQL, schemaPattern);
     }
     return showSchemasSQL;
@@ -107,10 +107,10 @@ public class CommandBuilder {
     } else {
       showTablesSQL = String.format(SHOW_TABLES_SQL, catalogName);
     }
-    if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
+    if (schemaPattern != null) {
       showTablesSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
     }
-    if (!WildcardUtil.isNullOrEmpty(tablePattern)) {
+    if (tablePattern != null) {
       showTablesSQL += String.format(LIKE_SQL, tablePattern);
     }
     return showTablesSQL;
@@ -125,15 +125,15 @@ public class CommandBuilder {
     throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showColumnsSQL = String.format(SHOW_COLUMNS_SQL, catalogName);
 
-    if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
+    if (schemaPattern != null) {
       showColumnsSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
     }
 
-    if (!WildcardUtil.isNullOrEmpty(tablePattern)) {
+    if (tablePattern != null) {
       showColumnsSQL += String.format(TABLE_LIKE_SQL, tablePattern);
     }
 
-    if (!WildcardUtil.isNullOrEmpty(columnPattern)) {
+    if (columnPattern != null) {
       showColumnsSQL += String.format(LIKE_SQL, columnPattern);
     }
     return showColumnsSQL;
@@ -148,10 +148,10 @@ public class CommandBuilder {
     LOGGER.debug(contextString);
     throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showFunctionsSQL = String.format(SHOW_FUNCTIONS_SQL, catalogName);
-    if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
+    if (schemaPattern != null) {
       showFunctionsSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
     }
-    if (!WildcardUtil.isNullOrEmpty(functionPattern)) {
+    if (functionPattern != null) {
       showFunctionsSQL += String.format(LIKE_SQL, functionPattern);
     }
     return showFunctionsSQL;

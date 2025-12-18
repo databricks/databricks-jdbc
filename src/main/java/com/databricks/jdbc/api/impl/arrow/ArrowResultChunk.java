@@ -158,7 +158,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       double speedMBps = (contentLength / 1024.0 / 1024.0) / (downloadTimeMs / 1000.0);
       String baseUrl = url.split("\\?")[0];
 
-      LOGGER.info(
+      LOGGER.debug(
           String.format(
               "CloudFetch download: %.4f MB/s, %d bytes in %dms from %s",
               speedMBps, contentLength, downloadTimeMs, baseUrl));
@@ -193,6 +193,23 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       this.chunkIndex = baseChunkInfo.getChunkIndex();
       this.numRows = baseChunkInfo.getRowCount();
       this.rowOffset = baseChunkInfo.getRowOffset();
+      this.status = status == null ? ChunkStatus.PENDING : status;
+      return this;
+    }
+
+    /**
+     * Sets chunk metadata directly without requiring a BaseChunkInfo object. Useful for streaming
+     * chunk creation where metadata comes from ExternalLink.
+     *
+     * @param chunkIndex The index of this chunk
+     * @param rowCount The number of rows in this chunk
+     * @param rowOffset The starting row offset for this chunk
+     * @return this builder
+     */
+    public Builder withChunkMetadata(long chunkIndex, long rowCount, long rowOffset) {
+      this.chunkIndex = chunkIndex;
+      this.numRows = rowCount;
+      this.rowOffset = rowOffset;
       this.status = status == null ? ChunkStatus.PENDING : status;
       return this;
     }

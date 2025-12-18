@@ -1,0 +1,21 @@
+{
+  "id" : "429b1c92-5678-9012-abcd-ef1234567890",
+  "name" : "api_2.0_sql_sessions_429",
+  "request" : {
+    "url" : "/api/2.0/sql/sessions/",
+    "method" : "POST"
+  },
+  "response" : {
+    "status" : 429,
+    "body" : "{\"error_code\":\"RESOURCE_EXHAUSTED\",\"message\":\"Rate limit exceeded for session creation. Please retry after some time.\"}",
+    "headers" : {
+      "x-request-id" : "test-429-request-id",
+      "date" : "Mon, 09 Dec 2025 12:00:00 GMT",
+      "server" : "databricks",
+      "content-type" : "application/json",
+      "retry-after" : "60"
+    }
+  },
+  "uuid" : "429b1c92-5678-9012-abcd-ef1234567890",
+  "priority" : 1
+}

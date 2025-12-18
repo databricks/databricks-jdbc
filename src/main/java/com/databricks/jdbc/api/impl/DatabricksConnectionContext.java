@@ -4,12 +4,14 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_SCOPE;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
+import static com.databricks.jdbc.common.util.StringUtil.parseIntegerSet;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
+import com.databricks.jdbc.common.SeaCircuitBreakerManager;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -28,6 +30,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.util.*;
+import java.util.Collections;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import org.apache.http.client.utils.URIBuilder;
@@ -455,6 +458,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       }
     }
     // Now, user has not provided a value, we will decide based on our checks
+    // Check if circuit breaker is open due to recent 429 rate limit failures
+    if (SeaCircuitBreakerManager.isCircuitOpen()) {
+      long remainingMs = SeaCircuitBreakerManager.getTimeRemainingMs();
+      LOGGER.info(
+          "SEA circuit breaker is OPEN due to recent 429 rate limit failures. "
+              + "Using THRIFT client. Circuit will close in {} ({}ms)",
+          SeaCircuitBreakerManager.getTimeRemainingFormatted(),
+          remainingMs);
+      return DatabricksClientType.THRIFT;
+    }
     // Check if Arrow is disabled - Thrift is required for inline mode
     if (!Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_ARROW), "1")) {
       return DatabricksClientType.THRIFT;
@@ -670,6 +683,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getRateLimitRetryTimeout() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.RATE_LIMIT_RETRY_TIMEOUT));
+  }
+
+  @Override
+  public Set<Integer> getApiRetriableHttpCodes() {
+    String codes = getParameter(DatabricksJdbcUrlParams.API_RETRIABLE_HTTP_CODES);
+    return parseIntegerSet(codes);
+  }
+
+  @Override
+  public int getApiRetryTimeout() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.API_RETRY_TIMEOUT));
   }
 
   @Override
@@ -1171,5 +1195,15 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isTokenFederationEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_TOKEN_FEDERATION, "1").equals("1");
+  }
+
+  @Override
+  public boolean isStreamingChunkProviderEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_STREAMING_CHUNK_PROVIDER).equals("1");
+  }
+
+  @Override
+  public int getLinkPrefetchWindow() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.LINK_PREFETCH_WINDOW));
   }
 }

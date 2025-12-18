@@ -90,6 +90,14 @@ public class MetadataResultSetBuilder {
         getRows(resultSet, TABLE_COLUMNS, defaultAdapter).stream()
             .filter(row -> allowedTableTypes.contains(row.get(3))) // Filtering based on table type
             .collect(Collectors.toList());
+
+    // Sort in order TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME (matching Thrift mode)
+    rows.sort(
+        Comparator.comparing((List<Object> r) -> (String) r.get(3)) // TABLE_TYPE
+            .thenComparing(r -> (String) r.get(0)) // TABLE_CAT
+            .thenComparing(r -> (String) r.get(1)) // TABLE_SCHEM
+            .thenComparing(r -> (String) r.get(2))); // TABLE_NAME
+
     return buildResultSet(
         TABLE_COLUMNS,
         rows,

@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.EnvironmentVariables.*;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 
@@ -541,64 +542,109 @@ final class DatabricksThriftAccessor {
     }
   }
 
+  /**
+   * Fetches results using FETCH_ABSOLUTE orientation starting from the given row offset.
+   *
+   * <p>This method is used by the streaming chunk provider to seek to a specific row position and
+   * fetch a batch of results.
+   *
+   * @param operationHandle The operation handle for the statement
+   * @param startRowOffset The row offset to start fetching from (0-indexed)
+   * @return The fetch results response
+   * @throws DatabricksHttpException if the fetch fails
+   */
+  TFetchResultsResp fetchResultsWithAbsoluteOffset(
+      TOperationHandle operationHandle, long startRowOffset) throws DatabricksHttpException {
+    String statementId = StatementId.loggableStatementId(operationHandle);
+    LOGGER.debug(
+        "Fetching results with FETCH_ABSOLUTE at offset {} for statement {}",
+        startRowOffset,
+        statementId);
+
+    TFetchResultsReq request =
+        new TFetchResultsReq()
+            .setOperationHandle(operationHandle)
+            .setStartRowOffset(startRowOffset)
+            .setFetchType((short) 0) // 0 represents Query output
+            .setMaxRows(maxRowsPerBlock)
+            .setMaxBytes(DEFAULT_BYTE_LIMIT);
+
+    TFetchResultsResp response;
+    try {
+      response = getThriftClient().FetchResults(request);
+    } catch (TException e) {
+      String errorMessage =
+          String.format(
+              "Error while fetching results from Thrift server with FETCH_ABSOLUTE. "
+                  + "startRowOffset=%d, maxRows=%d, Error {%s}",
+              startRowOffset, request.getMaxRows(), e.getMessage());
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
+    }
+
+    verifySuccessStatus(
+        response.getStatus(),
+        String.format(
+            "Error while fetching results with FETCH_ABSOLUTE. startRowOffset=%d, hasMoreRows=%s",
+            startRowOffset, response.hasMoreRows),
+        statementId);
+
+    return response;
+  }
+
   private TFetchResultsResp listFunctions(TGetFunctionsReq request)
-      throws TException, DatabricksSQLException {
+      throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetFunctionsResp response = getThriftClient().GetFunctions(request);
     return fetchMetadataResults(response, response.toString());
   }
 
   private TFetchResultsResp listPrimaryKeys(TGetPrimaryKeysReq request)
-      throws TException, DatabricksSQLException {
+      throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetPrimaryKeysResp response = getThriftClient().GetPrimaryKeys(request);
     return fetchMetadataResults(response, response.toString());
   }
 
   private TFetchResultsResp listCrossReferences(TGetCrossReferenceReq request)
-      throws TException, DatabricksSQLException {
+      throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetCrossReferenceResp response = getThriftClient().GetCrossReference(request);
     return fetchMetadataResults(response, response.toString());
   }
 
-  private TFetchResultsResp getTables(TGetTablesReq request)
-      throws TException, DatabricksSQLException {
+  private TFetchResultsResp getTables(TGetTablesReq request) throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetTablesResp response = getThriftClient().GetTables(request);
     return fetchMetadataResults(response, response.toString());
   }
 
   private TFetchResultsResp getTableTypes(TGetTableTypesReq request)
-      throws TException, DatabricksSQLException {
+      throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetTableTypesResp response = getThriftClient().GetTableTypes(request);
     return fetchMetadataResults(response, response.toString());
   }
 
-  private TFetchResultsResp getCatalogs(TGetCatalogsReq request)
-      throws TException, DatabricksSQLException {
+  private TFetchResultsResp getCatalogs(TGetCatalogsReq request) throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetCatalogsResp response = getThriftClient().GetCatalogs(request);
     return fetchMetadataResults(response, response.toString());
   }
 
-  private TFetchResultsResp listSchemas(TGetSchemasReq request)
-      throws TException, DatabricksSQLException {
+  private TFetchResultsResp listSchemas(TGetSchemasReq request) throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetSchemasResp response = getThriftClient().GetSchemas(request);
     return fetchMetadataResults(response, response.toString());
   }
 
-  private TFetchResultsResp getTypeInfo(TGetTypeInfoReq request)
-      throws TException, DatabricksSQLException {
+  private TFetchResultsResp getTypeInfo(TGetTypeInfoReq request) throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetTypeInfoResp response = getThriftClient().GetTypeInfo(request);
     return fetchMetadataResults(response, response.toString());
   }
 
-  private TFetchResultsResp listColumns(TGetColumnsReq request)
-      throws TException, DatabricksSQLException {
+  private TFetchResultsResp listColumns(TGetColumnsReq request) throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetColumnsResp response = getThriftClient().GetColumns(request);
     return fetchMetadataResults(response, response.toString());
@@ -637,7 +683,7 @@ final class DatabricksThriftAccessor {
    */
   private <TResp extends TBase<TResp, FResp>, FResp extends TFieldIdEnum>
       TFetchResultsResp fetchMetadataResults(TResp response, String contextDescription)
-          throws TException, DatabricksSQLException {
+          throws TException, SQLException {
     checkResponseForErrors(response);
 
     // Get the operation status from direct results if present
@@ -713,7 +759,7 @@ final class DatabricksThriftAccessor {
   }
 
   private void checkOperationStatusForErrors(TGetOperationStatusResp statusResp, String statementId)
-      throws DatabricksSQLException {
+      throws SQLException {
     if (statusResp != null
         && statusResp.isSetOperationState()
         && isErrorOperationState(statusResp.getOperationState())) {
@@ -722,7 +768,14 @@ final class DatabricksThriftAccessor {
               "Operation failed with error: [%s] for statement [%s], with response [%s]",
               statusResp.getErrorMessage(), statementId, statusResp);
       LOGGER.error(errorMsg);
-      throw new DatabricksSQLException(errorMsg, statusResp.getSqlState());
+
+      String sqlState = statusResp.getSqlState();
+      if (QUERY_EXECUTION_TIMEOUT_SQLSTATE.equals(sqlState)) {
+        throw new DatabricksTimeoutException(
+            errorMsg, null, DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
+      }
+
+      throw new DatabricksSQLException(errorMsg, sqlState);
     }
   }
 

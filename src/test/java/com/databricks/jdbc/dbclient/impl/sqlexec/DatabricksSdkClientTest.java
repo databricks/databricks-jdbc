@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.TestConstants.TEST_STRING;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import static com.databricks.jdbc.model.core.ColumnInfoTypeName.DECIMAL;
@@ -439,6 +440,59 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testServerSideTimeoutThrowsTimeoutException() throws Exception {
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        spy(new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient));
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+
+    // Mock session creation
+    CreateSessionResponse sessionResponse = new CreateSessionResponse().setSessionId(SESSION_ID);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(sessionResponse);
+    connection.open();
+
+    // Create statement with a long client timeout (server times out first)
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setMaxRows(100);
+    statement.setQueryTimeout(300); // 300 seconds - server will timeout before this
+
+    // Mock server-side timeout: server returns FAILED state with sqlState="57KD0"
+    ExecuteStatementResponse executeResponse =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(
+                new StatementStatus()
+                    .setState(StatementState.FAILED)
+                    .setSqlState(QUERY_EXECUTION_TIMEOUT_SQLSTATE) // Server-side timeout SQL state
+                    .setError(
+                        new ServiceError()
+                            .setMessage("Statement has timed out after 10 seconds.")
+                            .setErrorCode(ServiceErrorCode.BAD_REQUEST)));
+
+    // Set up mock response
+    when(apiClient.execute(
+            argThat(req -> req != null && STATEMENT_PATH.equals(req.getUrl())),
+            eq(ExecuteStatementResponse.class)))
+        .thenReturn(executeResponse);
+
+    // Verify that DatabricksTimeoutException is thrown
+    assertThrows(
+        DatabricksTimeoutException.class,
+        () ->
+            databricksSdkClient.executeStatement(
+                STATEMENT,
+                warehouse,
+                sqlParams,
+                StatementType.QUERY,
+                connection.getSession(),
+                statement));
+  }
+
+  @Test
   public void testDecimalTypeWithValidPrecisionAndScale() throws DatabricksSQLException {
     BigDecimal decimalValue = new BigDecimal("123.45"); // precision: 5, scale: 2
     IDatabricksConnectionContext connectionContext =
@@ -721,5 +775,115 @@ public class DatabricksSdkClientTest {
                       || !headers.containsKey("x-databricks-sea-can-run-fully-sync");
                 }),
             eq(ExecuteStatementResponse.class));
+  }
+
+  @Test
+  public void testExecuteStatementWithClosedStatus() throws Exception {
+    // Set up connection and statement
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+
+    // Mock session creation
+    CreateSessionResponse sessionResponse = new CreateSessionResponse().setSessionId(SESSION_ID);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(sessionResponse);
+    connection.open();
+
+    DatabricksStatement statement = spy(new DatabricksStatement(connection));
+    statement.setMaxRows(100);
+
+    // Create a response with CLOSED status
+    StatementStatus closedStatus = new StatementStatus().setState(StatementState.CLOSED);
+    ExecuteStatementResponse closedResponse =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(closedStatus)
+            .setResult(resultData)
+            .setManifest(
+                new ResultManifest()
+                    .setFormat(Format.JSON_ARRAY)
+                    .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L))
+                    .setTotalRowCount(0L));
+
+    when(apiClient.execute(any(Request.class), any()))
+        .thenAnswer(
+            invocationOnMock -> {
+              Request req = invocationOnMock.getArgument(0, Request.class);
+              if (req.getUrl().equals(STATEMENT_PATH)) {
+                return closedResponse;
+              } else if (req.getUrl().equals(SESSION_PATH)) {
+                return sessionResponse;
+              }
+              return null;
+            });
+
+    // Execute statement
+    databricksSdkClient.executeStatement(
+        STATEMENT,
+        warehouse,
+        new HashMap<>(),
+        StatementType.QUERY,
+        connection.getSession(),
+        statement);
+
+    // Verify that markAsClosed was called on the statement
+    verify(statement, times(1)).markAsClosed();
+  }
+
+  @Test
+  public void testExecuteStatementWithClosedStatusAndNoParentStatement() throws Exception {
+    // Set up connection without parent statement
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+
+    // Mock session creation
+    CreateSessionResponse sessionResponse = new CreateSessionResponse().setSessionId(SESSION_ID);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(sessionResponse);
+    connection.open();
+
+    // Create a response with CLOSED status
+    StatementStatus closedStatus = new StatementStatus().setState(StatementState.CLOSED);
+    ExecuteStatementResponse closedResponse =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(closedStatus)
+            .setResult(resultData)
+            .setManifest(
+                new ResultManifest()
+                    .setFormat(Format.JSON_ARRAY)
+                    .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L))
+                    .setTotalRowCount(0L));
+
+    when(apiClient.execute(any(Request.class), any()))
+        .thenAnswer(
+            invocationOnMock -> {
+              Request req = invocationOnMock.getArgument(0, Request.class);
+              if (req.getUrl().equals(STATEMENT_PATH)) {
+                return closedResponse;
+              } else if (req.getUrl().equals(SESSION_PATH)) {
+                return sessionResponse;
+              }
+              return null;
+            });
+
+    // Execute statement with null parent statement - should not throw
+    assertDoesNotThrow(
+        () ->
+            databricksSdkClient.executeStatement(
+                STATEMENT,
+                warehouse,
+                new HashMap<>(),
+                StatementType.QUERY,
+                connection.getSession(),
+                null));
   }
 }

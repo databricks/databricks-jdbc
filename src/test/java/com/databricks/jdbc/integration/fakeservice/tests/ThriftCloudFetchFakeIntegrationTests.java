@@ -131,7 +131,7 @@ public class ThriftCloudFetchFakeIntegrationTests extends AbstractFakeServiceInt
 
     // Fetch from the startRowOffset of the target chunk
     Collection<ExternalLink> refetchedLinks =
-        client.getResultChunks(statementId, chunkIndex, chunkStartRowOffset);
+        client.getResultChunks(statementId, chunkIndex, chunkStartRowOffset).getChunkLinks();
 
     assertNotNull(refetchedLinks, "Refetched links should not be null");
     assertFalse(refetchedLinks.isEmpty(), "Refetched links should not be empty");

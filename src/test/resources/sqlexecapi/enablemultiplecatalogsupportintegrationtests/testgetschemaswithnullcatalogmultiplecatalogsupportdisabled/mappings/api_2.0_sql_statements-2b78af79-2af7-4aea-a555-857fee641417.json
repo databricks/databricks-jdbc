@@ -5,7 +5,7 @@
     "url" : "/api/2.0/sql/statements/",
     "method" : "POST",
     "bodyPatterns" : [ {
-      "equalToJson" : "{\"statement\":\"SHOW SCHEMAS IN hive_metastore\",\"warehouse_id\":\"6e681b20741e4674\",\"session_id\":\"01f0a40a-1175-1540-aec7-4e8dcc518dd4\",\"disposition\":\"INLINE_OR_EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "equalToJson" : "{\"statement\":\"SHOW SCHEMAS IN `hive_metastore`\",\"warehouse_id\":\"6e681b20741e4674\",\"session_id\":\"01f0a40a-1175-1540-aec7-4e8dcc518dd4\",\"disposition\":\"INLINE_OR_EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
       "ignoreArrayOrder" : true,
       "ignoreExtraElements" : true
     } ]
