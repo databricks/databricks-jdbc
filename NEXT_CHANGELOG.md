@@ -14,6 +14,7 @@
 - Fix driver crash when using `INTERVAL` types.
 - Fix connection failure in restricted environments when `LogLevel.OFF` is used.
 - Fix U2M by including SDK OAuth HTML callback resources.
+- [PECOBLR-1131] Fix incorrect refetching of expired CloudFetch links when using Thrift protocol.
 
 ---
 *Note: When making changes, please add your change under the appropriate section with a brief description.*
