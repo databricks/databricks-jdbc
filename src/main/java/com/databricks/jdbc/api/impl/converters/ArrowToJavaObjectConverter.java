@@ -140,8 +140,9 @@ public class ArrowToJavaObjectConverter {
         IntervalConverter ic = new IntervalConverter(arrowMetadata);
         return ic.toLiteral(object);
       case GEOMETRY:
+        return new GeospatialConverter().toDatabricksGeometry(object);
       case GEOGRAPHY:
-        return convertToGeospatial(object, requiredType);
+        return new GeospatialConverter().toDatabricksGeography(object);
       case NULL:
         return null;
       default:
@@ -167,21 +168,6 @@ public class ArrowToJavaObjectConverter {
       throws DatabricksParsingException {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
     return parser.parseJsonStringToDbStruct(object.toString(), arrowMetadata);
-  }
-
-  private static AbstractDatabricksGeospatial convertToGeospatial(
-      Object object, ColumnInfoTypeName type) throws DatabricksSQLException {
-    String ewkt = convertToString(object);
-
-    // Parse EWKT to extract SRID from data
-    // SRID is always present in EWKT unless it's 0, in which case it is handled in
-    // WKTConverter.extractSRIDFromEWKT()
-    int srid = WKTConverter.extractSRIDFromEWKT(ewkt);
-    String cleanWkt = WKTConverter.removeSRIDFromEWKT(ewkt);
-
-    return type == ColumnInfoTypeName.GEOMETRY
-        ? new DatabricksGeometry(cleanWkt, srid)
-        : new DatabricksGeography(cleanWkt, srid);
   }
 
   private static Object convertToTimestamp(Object object, Optional<String> timeZoneOpt)
