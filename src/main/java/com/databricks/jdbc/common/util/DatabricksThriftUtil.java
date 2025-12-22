@@ -1,6 +1,5 @@
 package com.databricks.jdbc.common.util;
 
-import static com.databricks.jdbc.api.impl.DatabricksResultSet.isComplexType;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_KEY;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
