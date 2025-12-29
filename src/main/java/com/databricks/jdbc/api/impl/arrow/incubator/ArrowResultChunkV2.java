@@ -236,7 +236,7 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
     if (currentAttempt < retryConfig.maxAttempts) {
       long delayMs = calculateBackoffDelay(currentAttempt, retryConfig);
       LOGGER.warn(
-          "Retryable error during %s for chunk %s (attempt %s/%s), retrying in %s ms. Error: %s",
+          "Retryable error during {} for chunk {} (attempt {}/{}), retrying in {} ms. Error: {}",
           phase.getDescription(),
           chunkIndex,
           currentAttempt,

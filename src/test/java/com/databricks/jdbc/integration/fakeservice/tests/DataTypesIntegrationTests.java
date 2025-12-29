@@ -362,8 +362,8 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
     ResultSetMetaData rsmd = rs.getMetaData();
 
     // Validate metadata
-    assertEquals("GEOMETRY", rsmd.getColumnTypeName(2));
-    assertEquals("GEOGRAPHY", rsmd.getColumnTypeName(3));
+    assertEquals("STRING", rsmd.getColumnTypeName(2));
+    assertEquals("STRING", rsmd.getColumnTypeName(3));
 
     // Validate data
     int rowCount = 0;

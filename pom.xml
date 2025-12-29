@@ -5,7 +5,7 @@
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
   <!-- This value may be modified by a release script to reflect the current version of the driver. -->
-  <version>3.0.4</version>
+  <version>3.0.7</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver</name>
   <description>Databricks JDBC Driver.</description>
@@ -61,7 +61,7 @@
     <databricks-sdk.version>0.69.0</databricks-sdk.version>
     <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
     <sql-logic-test.version>0.3</sql-logic-test.version>
-    <lz4-compression.version>1.8.0</lz4-compression.version>
+    <lz4-compression.version>1.10.1</lz4-compression.version>
     <thrift.version>0.19.0</thrift.version>
     <annotation.version>1.3.5</annotation.version>
     <slt.executor>dbsql</slt.executor>
@@ -230,7 +230,7 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.lz4</groupId>
+      <groupId>at.yawk.lz4</groupId>
       <artifactId>lz4-java</artifactId>
       <version>${lz4-compression.version}</version>
     </dependency>
@@ -554,6 +554,10 @@
                   <pattern>org.osgi</pattern>
                   <shadedPattern>com.databricks.internal.osgi</shadedPattern>
                 </relocation>
+                <relocation>
+                  <pattern>org.slf4j</pattern>
+                  <shadedPattern>com.databricks.internal.slf4j</shadedPattern>
+                </relocation>
               </relocations>
               <filters>
                 <filter>
@@ -574,7 +578,6 @@
                     <exclude>javax/**</exclude>
                     <exclude>jakarta/**</exclude>
                     <exclude>net/jcip/**</exclude>
-                    <exclude>oauth/**</exclude>
                   </excludes>
                 </filter>
               </filters>

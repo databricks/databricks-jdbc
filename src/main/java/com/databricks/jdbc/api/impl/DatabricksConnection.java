@@ -87,7 +87,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   }
 
   @Override
-  public Statement createStatement() {
+  public Statement createStatement() throws SQLException {
     LOGGER.debug("public Statement createStatement()");
     DatabricksStatement statement = new DatabricksStatement(this);
     statementSet.add(statement);
@@ -95,7 +95,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   }
 
   @Override
-  public PreparedStatement prepareStatement(String sql) {
+  public PreparedStatement prepareStatement(String sql) throws SQLException {
     LOGGER.debug(
         String.format("public PreparedStatement prepareStatement(String sql = {%s})", sql));
     DatabricksPreparedStatement statement = new DatabricksPreparedStatement(this, sql);
@@ -132,14 +132,14 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
    *   <li>After each COMMIT or ROLLBACK statement
    * </ul>
    *
-   * <h3>Thread Safety</h3>
+   * <p><b>Thread Safety</b>
    *
    * <p><b>This method is not thread-safe.</b> The {@code Connection} object should not be shared
    * across multiple threads. Concurrent access may lead to undefined behavior and server-side
    * transaction aborts due to sequence ID mismatches. Each thread should obtain its own {@code
    * Connection} from a connection pool.
    *
-   * <h3>Example Usage</h3>
+   * <p><b>Example Usage</b>
    *
    * <pre>{@code
    * // Disable auto-commit to start a transaction
@@ -446,7 +446,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       return;
     }
     Statement statement = this.createStatement();
-    statement.execute("SET CATALOG " + catalog);
+    statement.execute("SET CATALOG `" + catalog + "`");
     this.session.setCatalog(catalog);
   }
 
@@ -811,7 +811,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void setSchema(String schema) throws SQLException {
     Statement statement = this.createStatement();
-    statement.execute("USE SCHEMA " + schema);
+    statement.execute("USE SCHEMA `" + schema + "`");
     session.setSchema(schema);
   }
 

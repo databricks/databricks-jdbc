@@ -1,5 +1,6 @@
 package com.databricks.jdbc.telemetry;
 
+import static com.databricks.jdbc.telemetry.TelemetryHelper.DEFAULT_HOST;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.isTelemetryAllowedForConnection;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -19,7 +20,6 @@ public class TelemetryClientFactory {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(TelemetryClientFactory.class);
-  private static final String DEFAULT_HOST = "unknown-host";
 
   private static final TelemetryClientFactory INSTANCE = new TelemetryClientFactory();
 
@@ -60,40 +60,51 @@ public class TelemetryClientFactory {
     DatabricksConfig databricksConfig =
         TelemetryHelper.getDatabricksConfigSafely(connectionContext);
     if (databricksConfig != null) {
-      String key = keyOf(connectionContext);
+      String key = TelemetryHelper.keyOf(connectionContext);
       TelemetryClientHolder holder =
           telemetryClientHolders.compute(
               key,
               (k, existing) -> {
                 if (existing == null) {
-                  return new TelemetryClientHolder(
-                      new TelemetryClient(
-                          connectionContext, getTelemetryExecutorService(), databricksConfig),
-                      1);
+                  try {
+                    return new TelemetryClientHolder(
+                        new TelemetryClient(
+                            connectionContext, getTelemetryExecutorService(), databricksConfig),
+                        1);
+                  } catch (Exception e) {
+                    // Validation or other errors during client creation - fail silently
+                    return null;
+                  }
                 }
                 existing.refCount.incrementAndGet();
                 return existing;
               });
-      return holder.client;
+      return holder != null ? holder.client : NoopTelemetryClient.getInstance();
     }
     // Use no-auth telemetry client if connection creation failed.
-    String key = keyOf(connectionContext);
+    String key = TelemetryHelper.keyOf(connectionContext);
     TelemetryClientHolder holder =
         noauthTelemetryClientHolders.compute(
             key,
             (k, existing) -> {
               if (existing == null) {
-                return new TelemetryClientHolder(
-                    new TelemetryClient(connectionContext, getTelemetryExecutorService()), 1);
+                try {
+                  return new TelemetryClientHolder(
+                      new TelemetryClient(connectionContext, getTelemetryExecutorService()), 1);
+                } catch (Exception e) {
+                  // Validation or other errors during client creation - fail silently
+                  LOGGER.trace("Skipping telemetry, client creation failed {}", e);
+                  return null;
+                }
               }
               existing.refCount.incrementAndGet();
               return existing;
             });
-    return holder.client;
+    return holder != null ? holder.client : NoopTelemetryClient.getInstance();
   }
 
   public void closeTelemetryClient(IDatabricksConnectionContext connectionContext) {
-    String key = keyOf(connectionContext);
+    String key = TelemetryHelper.keyOf(connectionContext);
     telemetryClientHolders.computeIfPresent(
         key,
         (k, holder) -> {
@@ -175,6 +186,7 @@ public class TelemetryClientFactory {
   }
 
   private static String keyOf(IDatabricksConnectionContext context) {
-    return context.getHostForOAuth();
+    String host = context.getHostForOAuth();
+    return host != null ? host : DEFAULT_HOST;
   }
 }

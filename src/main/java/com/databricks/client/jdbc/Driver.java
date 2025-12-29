@@ -21,7 +21,6 @@ import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
-import java.util.TimeZone;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
@@ -39,8 +38,6 @@ public class Driver implements IDatabricksDriver {
   }
 
   public static void main(String[] args) {
-    TimeZone.setDefault(
-        TimeZone.getTimeZone("UTC")); // Logging, timestamps are in UTC across the application
     System.out.printf("The driver {%s} has been initialized.%n", Driver.class);
   }
 

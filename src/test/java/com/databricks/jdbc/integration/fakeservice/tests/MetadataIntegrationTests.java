@@ -6,6 +6,7 @@ import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.common.DatabricksClientType;
@@ -24,7 +25,11 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
 
   @BeforeEach
   void setUp() throws SQLException {
-    connection = getValidJDBCConnection();
+    try {
+      connection = getValidJDBCConnection();
+    } catch (SQLException e) {
+      connection = null;
+    }
   }
 
   @AfterEach
@@ -190,6 +195,54 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
           .verify(
               new CountMatchingStrategy(CountMatchingStrategy.GREATER_THAN_OR_EQUAL, 7),
               postRequestedFor(urlEqualTo(STATEMENT_PATH)));
+    }
+  }
+
+  @Test
+  void testMetadataOperationsWithHyphenatedIdentifiers() throws SQLException {
+    assumeTrue(isSqlExecSdkClient(), "This test only runs for SQL Execution API");
+    Connection testConnection = connection;
+    if (testConnection == null) {
+      testConnection = getValidJDBCConnection();
+    }
+    DatabaseMetaData metaData = testConnection.getMetaData();
+
+    String existingCatalog = "main";
+    String schemaWithHyphens = "test-schema-hyphen";
+    String tableWithHyphens = "test-table-hyphen";
+
+    try {
+      executeSQL(
+          testConnection,
+          "CREATE SCHEMA IF NOT EXISTS `" + existingCatalog + "`.`" + schemaWithHyphens + "`");
+
+      executeSQL(
+          testConnection,
+          "CREATE TABLE IF NOT EXISTS `"
+              + existingCatalog
+              + "`.`"
+              + schemaWithHyphens
+              + "`.`"
+              + tableWithHyphens
+              + "` (id INT, name STRING)");
+
+      try (ResultSet tables = metaData.getTables(existingCatalog, schemaWithHyphens, "%", null)) {
+        assertTrue(tables.next(), "Should retrieve tables from schema with hyphens");
+        String tableName = tables.getString("TABLE_NAME");
+        assertNotNull(tableName, "Table name should not be null");
+      }
+
+      try (ResultSet columns =
+          metaData.getColumns(existingCatalog, schemaWithHyphens, tableWithHyphens, null)) {
+        assertTrue(columns.next(), "Should retrieve columns from table with hyphens");
+        String columnName = columns.getString("COLUMN_NAME");
+        assertNotNull(columnName, "Column name should not be null");
+      }
+
+    } finally {
+      executeSQL(
+          testConnection,
+          "DROP SCHEMA IF EXISTS `" + existingCatalog + "`.`" + schemaWithHyphens + "` CASCADE");
     }
   }
 }

@@ -43,34 +43,71 @@ public interface IDatabricksSession {
   /** Closes the session. */
   void close() throws DatabricksSQLException;
 
-  /** Returns the client for connecting to Databricks server */
+  /**
+   * Returns the client for connecting to Databricks server
+   *
+   * @return the Databricks client
+   */
   IDatabricksClient getDatabricksClient();
 
-  /** Returns the metadata client */
+  /**
+   * Returns the metadata client
+   *
+   * @return the Databricks metadata client
+   */
   IDatabricksMetadataClient getDatabricksMetadataClient();
 
-  /** Returns default catalog associated with the session */
+  /**
+   * Returns default catalog associated with the session
+   *
+   * @return the default catalog
+   */
   String getCatalog();
 
-  /** Returns the compression algorithm used on results data */
+  /**
+   * Returns the compression algorithm used on results data
+   *
+   * @return the compression codec
+   */
   CompressionCodec getCompressionCodec();
 
-  /** Returns default schema associated with the session */
+  /**
+   * Returns default schema associated with the session
+   *
+   * @return the default schema
+   */
   String getSchema();
 
-  /** Sets the default catalog */
+  /**
+   * Sets the default catalog
+   *
+   * @param catalog the catalog to set
+   */
   void setCatalog(String catalog);
 
-  /** Sets the default schema */
+  /**
+   * Sets the default schema
+   *
+   * @param schema the schema to set
+   */
   void setSchema(String schema);
 
   /** Extracts session to a string */
   String toString();
 
-  /** Returns the session configs */
+  /**
+   * Returns the session configs
+   *
+   * @return map of session configuration key-value pairs
+   */
   Map<String, String> getSessionConfigs();
 
-  /** Sets the session config */
+  /**
+   * Sets the session config
+   *
+   * @param name the configuration name
+   * @param value the configuration value
+   */
   void setSessionConfig(String name, String value);
 
   /** Returns the client info properties */

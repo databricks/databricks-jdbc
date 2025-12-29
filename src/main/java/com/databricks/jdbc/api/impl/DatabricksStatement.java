@@ -47,8 +47,9 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private boolean allowInputStreamForUCVolume = false;
   private final DatabricksBatchExecutor databricksBatchExecutor;
   private boolean noMoreResults = false; // JDBC end-of-results indicator
+  private long updateCount = -1; // Update count for DML statements, -1 for SELECT or no results
 
-  public DatabricksStatement(DatabricksConnection connection) {
+  public DatabricksStatement(DatabricksConnection connection) throws DatabricksValidationException {
     this.connection = connection;
     this.resultSet = null;
     this.statementId = null;
@@ -58,7 +59,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         new DatabricksBatchExecutor(this, connection.getConnectionContext().getMaxBatchSize());
   }
 
-  public DatabricksStatement(DatabricksConnection connection, StatementId statementId) {
+  public DatabricksStatement(DatabricksConnection connection, StatementId statementId)
+      throws DatabricksValidationException {
     this.connection = connection;
     this.statementId = statementId;
     this.resultSet = null;
@@ -106,8 +108,12 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @Override
   public void close(boolean removeFromSession) throws DatabricksSQLException {
     LOGGER.debug("public void close(boolean removeFromSession)");
-
-    if (statementId == null) {
+    if (isClosed) {
+      if (resultSet != null) {
+        this.resultSet.close();
+        this.resultSet = null;
+      }
+    } else if (statementId == null) {
       String warningMsg = "The statement you are trying to close does not have an ID yet.";
       LOGGER.warn(warningMsg);
       warnings = WarningUtil.addWarning(warnings, warningMsg);
@@ -125,6 +131,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     }
 
     shutDownExecutor();
+    this.updateCount = -1; // Reset update count when statement is closed
     this.isClosed = true;
   }
 
@@ -243,17 +250,15 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   public int getUpdateCount() throws SQLException {
     LOGGER.debug("public int getUpdateCount()");
     checkIfClosed();
-    if (noMoreResults || resultSet == null) { // <-- terminal state: must be -1
-      return -1;
-    }
-    return resultSet.hasUpdateCount() ? (int) resultSet.getUpdateCount() : -1;
+    // Return SUCCESS_NO_INFO if update count exceeds int range, per JDBC spec
+    return updateCount > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : (int) updateCount;
   }
 
   @Override
   public long getLargeUpdateCount() throws SQLException {
     LOGGER.debug("public long getLargeUpdateCount()");
     checkIfClosed();
-    return resultSet.getUpdateCount();
+    return updateCount;
   }
 
   @Override
@@ -263,6 +268,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     // We only produce a single result. Advancing means: go past the last result.
     if (!noMoreResults) {
       noMoreResults = true; // mark end-of-results so getUpdateCount() returns -1
+      updateCount = -1; // Reset update count to -1 when no more results
       // Per JDBC, advancing implicitly closes current ResultSet
       if (resultSet != null) {
         try {
@@ -546,7 +552,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
   @Override
   public void setStatementId(StatementId statementId) {
-    LOGGER.debug("void setStatementId {%s}", statementId);
+    LOGGER.debug("void setStatementId(Statement statementId = {})", statementId);
     this.statementId = statementId;
   }
 
@@ -695,7 +701,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         || GET_PATTERN.matcher(trimmedQuery).find()
         || REMOVE_PATTERN.matcher(trimmedQuery).find()
         || LIST_PATTERN.matcher(trimmedQuery).find()
-        || BEGIN_PATTERN_FOR_SQL_SCRIPT.matcher(trimmedQuery).find();
+        || BEGIN_PATTERN_FOR_SQL_SCRIPT.matcher(trimmedQuery).find()
+        || CALL_PATTERN.matcher(trimmedQuery).find();
 
     // Otherwise, it should not return a ResultSet
   }
@@ -753,11 +760,11 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           timeoutErrorMessage, e, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
     } catch (InterruptedException | ExecutionException e) {
       Throwable cause = e;
-      // Look for underlying DatabricksSQL exception
+      // Look for underlying SQLException (includes DatabricksSQLException and other SQL exceptions)
       while (cause.getCause() != null) {
         cause = cause.getCause();
-        if (cause instanceof DatabricksSQLException) {
-          throw (DatabricksSQLException) cause;
+        if (cause instanceof SQLException) {
+          throw (SQLException) cause;
         }
       }
       String errMsg =
@@ -776,7 +783,16 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       throws SQLException {
     noMoreResults = false; // reset before each execution
     DatabricksThreadContextHolder.setStatementType(statementType);
-    return executeInternal(sql, params, statementType, true);
+    DatabricksResultSet result = executeInternal(sql, params, statementType, true);
+
+    // Update the updateCount field based on the result
+    if (result != null && result.hasUpdateCount()) {
+      updateCount = result.getUpdateCount();
+    } else {
+      updateCount = -1; // SELECT query or no update count
+    }
+
+    return result;
   }
 
   CompletableFuture<DatabricksResultSet> getFutureResult(
@@ -813,6 +829,24 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       throw new DatabricksSQLException(
           "Statement is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
     }
+  }
+
+  /**
+   * Marks the statement as closed without attempting to close it on the server or clean up local
+   * resources. This should be used when the server has already indicated the statement is closed.
+   *
+   * <p>This method sets the closed flag to prevent further operations, but defers resource cleanup
+   * (result set, executor) to the {@link #close(boolean)} method. When {@code close()} is
+   * subsequently called, it will detect the statement is already closed and skip the server-side
+   * close operation while still cleaning up local resources.
+   *
+   * @see #close(boolean)
+   */
+  public void markAsClosed() {
+    LOGGER.debug("Marking statement {} as closed (server already closed)", statementId);
+    this.connection.closeStatement(this);
+    DatabricksThreadContextHolder.clearStatementInfo();
+    this.isClosed = true;
   }
 
   /**

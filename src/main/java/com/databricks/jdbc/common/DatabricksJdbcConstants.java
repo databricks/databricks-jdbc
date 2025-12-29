@@ -104,6 +104,7 @@ public final class DatabricksJdbcConstants {
   public static final String GCP_GOOGLE_CREDENTIALS_AUTH_TYPE = "google-credentials";
   public static final String GCP_GOOGLE_ID_AUTH_TYPE = "google-id";
   public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = "08000";
+  public static final String QUERY_EXECUTION_TIMEOUT_SQLSTATE = "57KD0";
   public static final int TEMPORARY_REDIRECT_STATUS_CODE = 307;
   public static final String REDACTED_TOKEN = "****";
   public static final int MAX_DEFAULT_STRING_COLUMN_LENGTH = 32767;
@@ -159,15 +160,17 @@ public final class DatabricksJdbcConstants {
   public static final Pattern DECLARE_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*DECLARE", Pattern.CASE_INSENSITIVE);
   public static final Pattern PUT_PATTERN =
-      Pattern.compile("^(\\s*\\()*\\s*GET", Pattern.CASE_INSENSITIVE);
-  public static final Pattern GET_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*PUT", Pattern.CASE_INSENSITIVE);
+  public static final Pattern GET_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*GET", Pattern.CASE_INSENSITIVE);
   public static final Pattern REMOVE_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*REMOVE", Pattern.CASE_INSENSITIVE);
   public static final Pattern LIST_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*LIST", Pattern.CASE_INSENSITIVE);
   public static final Pattern INSERT_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*INSERT\\s+INTO", Pattern.CASE_INSENSITIVE);
+  public static final Pattern CALL_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*CALL", Pattern.CASE_INSENSITIVE);
 
   /** Maximum number of parameters allowed in a single Databricks query */
   public static final int MAX_QUERY_PARAMETERS = 256;

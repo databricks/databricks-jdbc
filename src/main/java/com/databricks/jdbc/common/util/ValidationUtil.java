@@ -4,7 +4,6 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.exception.DatabricksHttpException;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -22,7 +21,7 @@ public class ValidationUtil {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ValidationUtil.class);
 
   public static <T extends Number> void checkIfNonNegative(T number, String fieldName)
-      throws DatabricksSQLException {
+      throws DatabricksValidationException {
     if (number.longValue() < 0) {
       String errorMessage =
           String.format("Invalid input for %s, : %d", fieldName, number.longValue());
@@ -31,8 +30,51 @@ public class ValidationUtil {
     }
   }
 
+  /**
+   * Validates that a number is positive (greater than 0).
+   *
+   * @param number the number to validate
+   * @param fieldName the name of the field being validated
+   * @throws DatabricksValidationException if the number is not positive
+   */
+  public static <T extends Number> void checkIfPositive(T number, String fieldName)
+      throws DatabricksValidationException {
+    if (number.longValue() <= 0) {
+      String errorMessage =
+          String.format(
+              "Invalid value for %s: %d. Value must be a positive integer (> 0).",
+              fieldName, number.longValue());
+      LOGGER.error(errorMessage);
+      throw new DatabricksValidationException(errorMessage);
+    }
+  }
+
+  /**
+   * Parses a string to an integer and validates that it is positive (greater than 0).
+   *
+   * @param value the string value to parse
+   * @param fieldName the name of the field being validated
+   * @return the parsed positive integer
+   * @throws DatabricksValidationException if the value cannot be parsed or is not positive
+   */
+  public static int validateAndParsePositiveInteger(String value, String fieldName)
+      throws DatabricksValidationException {
+    try {
+      int parsedValue = Integer.parseInt(value);
+      checkIfPositive(parsedValue, fieldName);
+      return parsedValue;
+    } catch (NumberFormatException e) {
+      String errorMessage =
+          String.format(
+              "Invalid value for %s: '%s'. Value must be a valid positive integer.",
+              fieldName, value);
+      LOGGER.error(errorMessage);
+      throw new DatabricksValidationException(errorMessage);
+    }
+  }
+
   public static void throwErrorIfNull(Map<String, String> fields, String context)
-      throws DatabricksSQLException {
+      throws DatabricksValidationException {
     for (Map.Entry<String, String> field : fields.entrySet()) {
       if (field.getValue() == null) {
         String errorMessage =
@@ -44,7 +86,8 @@ public class ValidationUtil {
     }
   }
 
-  public static void throwErrorIfNull(String field, Object value) throws DatabricksSQLException {
+  public static void throwErrorIfNull(String field, Object value)
+      throws DatabricksValidationException {
     if (value != null) {
       return;
     }
@@ -116,10 +159,10 @@ public class ValidationUtil {
    * maintainability and extensibility.
    *
    * @param parameters Map of JDBC connection parameters to validate
-   * @throws DatabricksSQLException if any validation fails
+   * @throws DatabricksValidationException if any validation fails
    */
   public static void validateInputProperties(Map<String, String> parameters)
-      throws DatabricksSQLException {
+      throws DatabricksValidationException {
     // Validate UID parameter
     validateUidParameter(parameters);
 
@@ -131,10 +174,10 @@ public class ValidationUtil {
    * "token".
    *
    * @param parameters Map of JDBC connection parameters
-   * @throws DatabricksSQLException if UID validation fails
+   * @throws DatabricksValidationException if UID validation fails
    */
   public static void validateUidParameter(Map<String, String> parameters)
-      throws DatabricksSQLException {
+      throws DatabricksValidationException {
     String uid = parameters.get(DatabricksJdbcUrlParams.UID.getParamName());
     // UID must either be omitted or set to "token"
     if (uid != null && !uid.equals(VALID_UID_VALUE)) {

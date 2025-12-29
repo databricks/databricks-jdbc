@@ -76,8 +76,10 @@ public class CommandBuilder {
 
   private String fetchSchemaSQL() {
     LOGGER.debug(
-        "Building command for fetching schema. Catalog %s, SchemaPattern %s and session context %s",
-        catalogName, schemaPattern, sessionContext);
+        "Building command for fetching schema. Catalog {}, SchemaPattern {} and session context {}",
+        catalogName,
+        schemaPattern,
+        sessionContext);
     String showSchemasSQL;
     if (WildcardUtil.isNullOrWildcard(catalogName)) {
       // SHOW SCHEMAS IN ALL CATALOGS
@@ -85,7 +87,7 @@ public class CommandBuilder {
     } else {
       showSchemasSQL = String.format(SHOW_SCHEMAS_IN_CATALOG_SQL, catalogName);
     }
-    if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
+    if (schemaPattern != null) {
       showSchemasSQL += String.format(LIKE_SQL, schemaPattern);
     }
     return showSchemasSQL;
@@ -93,8 +95,11 @@ public class CommandBuilder {
 
   private String fetchTablesSQL() {
     LOGGER.debug(
-        "Building command for fetching tables. Catalog %s, SchemaPattern %s, TablePattern %s and session context %s",
-        catalogName, schemaPattern, tablePattern, sessionContext);
+        "Building command for fetching tables. Catalog {}, SchemaPattern {}, TablePattern {} and session context {}",
+        catalogName,
+        schemaPattern,
+        tablePattern,
+        sessionContext);
     String showTablesSQL;
     if (WildcardUtil.isNullOrWildcard(catalogName)) {
       // SHOW TABLES IN ALL CATALOGS
@@ -102,10 +107,10 @@ public class CommandBuilder {
     } else {
       showTablesSQL = String.format(SHOW_TABLES_SQL, catalogName);
     }
-    if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
+    if (schemaPattern != null) {
       showTablesSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
     }
-    if (!WildcardUtil.isNullOrEmpty(tablePattern)) {
+    if (tablePattern != null) {
       showTablesSQL += String.format(LIKE_SQL, tablePattern);
     }
     return showTablesSQL;
@@ -120,15 +125,15 @@ public class CommandBuilder {
     throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showColumnsSQL = String.format(SHOW_COLUMNS_SQL, catalogName);
 
-    if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
+    if (schemaPattern != null) {
       showColumnsSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
     }
 
-    if (!WildcardUtil.isNullOrEmpty(tablePattern)) {
+    if (tablePattern != null) {
       showColumnsSQL += String.format(TABLE_LIKE_SQL, tablePattern);
     }
 
-    if (!WildcardUtil.isNullOrEmpty(columnPattern)) {
+    if (columnPattern != null) {
       showColumnsSQL += String.format(LIKE_SQL, columnPattern);
     }
     return showColumnsSQL;
@@ -143,10 +148,10 @@ public class CommandBuilder {
     LOGGER.debug(contextString);
     throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showFunctionsSQL = String.format(SHOW_FUNCTIONS_SQL, catalogName);
-    if (!WildcardUtil.isNullOrEmpty(schemaPattern)) {
+    if (schemaPattern != null) {
       showFunctionsSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
     }
-    if (!WildcardUtil.isNullOrEmpty(functionPattern)) {
+    if (functionPattern != null) {
       showFunctionsSQL += String.format(LIKE_SQL, functionPattern);
     }
     return showFunctionsSQL;

@@ -91,6 +91,9 @@ public class DriverConnectionParameters {
   @JsonProperty("enable_complex_datatype_support")
   boolean enableComplexDatatypeSupport;
 
+  @JsonProperty("enable_geospatial_support")
+  boolean enableGeoSpatialSupport;
+
   @JsonProperty("azure_workspace_resource_id")
   String azureWorkspaceResourceId;
 
@@ -132,6 +135,9 @@ public class DriverConnectionParameters {
 
   @JsonProperty("async_poll_interval_millis")
   int asyncPollIntervalMillis;
+
+  @JsonProperty("enable_metric_view_metadata")
+  boolean enableMetricViewMetadata;
 
   public DriverConnectionParameters setHttpPath(String httpPath) {
     this.httpPath = httpPath;
@@ -278,6 +284,11 @@ public class DriverConnectionParameters {
     return this;
   }
 
+  public DriverConnectionParameters setEnableGeoSpatialSupport(boolean enableGeoSpatialSupport) {
+    this.enableGeoSpatialSupport = enableGeoSpatialSupport;
+    return this;
+  }
+
   public DriverConnectionParameters setAzureWorkspaceResourceId(String azureWorkspaceResourceId) {
     this.azureWorkspaceResourceId = azureWorkspaceResourceId;
     return this;
@@ -348,6 +359,11 @@ public class DriverConnectionParameters {
     return this;
   }
 
+  public DriverConnectionParameters setEnableMetricViewMetadata(boolean enableMetricViewMetadata) {
+    this.enableMetricViewMetadata = enableMetricViewMetadata;
+    return this;
+  }
+
   @Override
   public String toString() {
     return new ToStringer(DriverConnectionParameters.class)
@@ -379,6 +395,7 @@ public class DriverConnectionParameters {
         .add("googleCredentialFilePath", googleCredentialFilePath)
         .add("allowedVolumeIngestionPaths", allowedVolumeIngestionPaths)
         .add("enableComplexDatatypeSupport", enableComplexDatatypeSupport)
+        .add("enableGeoSpatialSupport", enableGeoSpatialSupport)
         .add("azureWorkspaceResourceId", azureWorkspaceResourceId)
         .add("azureTenantId", azureTenantId)
         .add("stringColumnLength", stringColumnLength)
@@ -393,6 +410,7 @@ public class DriverConnectionParameters {
         .add("useSystemTrustStore", useSystemTrustStore)
         .add("rowsFetchedPerBlock", rowsFetchedPerBlock)
         .add("asyncPollIntervalMillis", asyncPollIntervalMillis)
+        .add("enableMetricViewMetadata", enableMetricViewMetadata)
         .toString();
   }
 }

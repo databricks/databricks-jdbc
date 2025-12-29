@@ -124,6 +124,10 @@ public enum DatabricksJdbcUrlParams {
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",
       "0"),
+  ENABLE_GEOSPATIAL_SUPPORT(
+      "EnableGeoSpatialSupport",
+      "flag to enable native support of GEOMETRY and GEOGRAPHY data types. Requires EnableComplexDatatypeSupport=1",
+      "0"),
   ROWS_FETCHED_PER_BLOCK(
       "RowsFetchedPerBlock",
       "The maximum number of rows that a query returns at a time.",
@@ -181,7 +185,25 @@ public enum DatabricksJdbcUrlParams {
   DISABLE_OAUTH_REFRESH_TOKEN(
       "DisableOauthRefreshToken",
       "Disable requesting OAuth refresh tokens (omit offline_access unless explicitly provided)",
-      "1");
+      "1"),
+  ENABLE_TOKEN_FEDERATION(
+      "EnableTokenFederation", "Enable token federation for authentication", "1"),
+  ENABLE_STREAMING_CHUNK_PROVIDER(
+      "EnableStreamingChunkProvider",
+      "Enable streaming chunk provider for result fetching (experimental)",
+      "0"),
+  LINK_PREFETCH_WINDOW(
+      "LinkPrefetchWindow",
+      "Number of chunk links to prefetch ahead of consumption. "
+          + "Higher values reduce latency by having links ready sooner. "
+          + "Lower values reduce risk of link expiry for slow processing workloads",
+      "128"),
+  API_RETRIABLE_HTTP_CODES(
+      "ApiRetriableHttpCodes",
+      "Comma-separated list of HTTP status codes that should be retried irrespective of Retry-After header.",
+      ""),
+  API_RETRY_TIMEOUT(
+      "ApiRetryTimeout", "Timeout for retrying API retriable codes in seconds", "300");
 
   private final String paramName;
   private final String defaultValue;

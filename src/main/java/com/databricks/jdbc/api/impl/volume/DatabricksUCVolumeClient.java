@@ -253,8 +253,7 @@ public class DatabricksUCVolumeClient implements IDatabricksVolumeClient {
    * @param prefix the prefix of the filenames to list. This includes the relative path from the
    *     volume as the root directory
    * @param caseSensitive a boolean indicating whether the check should be case-sensitive or not
-   * @return List<String> a list of strings indicating the filenames that start with the specified
-   *     prefix
+   * @return a list of strings indicating the filenames that start with the specified prefix
    */
   @Override
   public List<String> listObjects(

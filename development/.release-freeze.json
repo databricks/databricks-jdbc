@@ -1,4 +1,4 @@
 {
-  "freeze": false,
-  "reason": ""
+  "freeze": true,
+  "reason": "3.0.7 release in progress"
 }

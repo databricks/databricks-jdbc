@@ -20,15 +20,19 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.collect.ImmutableMap;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class DatabricksConnectionContextTest {
 
@@ -84,7 +88,10 @@ class DatabricksConnectionContextTest {
     assertEquals(LogLevel.DEBUG, connectionContext.getLogLevel());
     assertNull(connectionContext.getClientSecret());
     assertEquals("./test1", connectionContext.getLogPathString());
-    assertNull(connectionContext.getOAuthScopesForU2M());
+    assertEquals(
+        Arrays.asList(
+            DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE),
+        connectionContext.getOAuthScopesForU2M());
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
 
@@ -101,7 +108,10 @@ class DatabricksConnectionContextTest {
     assertEquals(LogLevel.OFF, connectionContext.getLogLevel());
     assertEquals(System.getProperty("user.dir"), connectionContext.getLogPathString());
     assertEquals("3", connectionContext.parameters.get("authmech"));
-    assertNull(connectionContext.getOAuthScopesForU2M());
+    assertEquals(
+        Arrays.asList(
+            DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE),
+        connectionContext.getOAuthScopesForU2M());
     assertFalse(connectionContext.isAllPurposeCluster());
     assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
 
@@ -369,30 +379,34 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testRowsFetchedPerBlock() throws DatabricksSQLException {
+  public void testRowsFetchedPerBlockDefault() throws DatabricksSQLException {
     // Test with default value
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
     assertEquals(100000, connectionContext.getRowsFetchedPerBlock());
+  }
 
-    // Test with custom value
-    Properties properties = new Properties();
-    properties.setProperty("password", "passwd");
-    properties.setProperty("RowsFetchedPerBlock", "500000");
+  @ParameterizedTest
+  @MethodSource("rowsFetchedPerBlockTestCases")
+  public void testRowsFetchedPerBlock(String value, Integer expectedResult)
+      throws DatabricksSQLException {
+    Properties testProperties = new Properties();
+    testProperties.setProperty("password", "passwd");
+    testProperties.setProperty("RowsFetchedPerBlock", value);
 
-    connectionContext =
+    DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
-    assertEquals(500000, connectionContext.getRowsFetchedPerBlock());
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, testProperties);
+    assertEquals(expectedResult, connectionContext.getRowsFetchedPerBlock());
+  }
 
-    // Test with invalid value (should fall back to default)
-    properties.setProperty("RowsFetchedPerBlock", "invalid");
-
-    connectionContext =
-        (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
-    assertEquals(2000000, connectionContext.getRowsFetchedPerBlock());
+  private static Stream<Arguments> rowsFetchedPerBlockTestCases() {
+    return Stream.of(
+        Arguments.of("500000", 500000), // Valid positive value
+        Arguments.of("1", 1), // Valid minimum positive value
+        Arguments.of("0", 2000000), // Zero returns default
+        Arguments.of("-100", 2000000)); // Negative returns default
   }
 
   @Test
@@ -1152,5 +1166,48 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
     assertFalse(ctx.getDisableOauthRefreshToken());
+  }
+
+  @Test
+  public void testEnableTokenFederation() throws DatabricksSQLException {
+    // Test default value (should be enabled by default)
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertTrue(ctx.isTokenFederationEnabled()); // Default should be true
+
+    // Test via URL parameter - enabled
+    String urlWithTokenFederationEnabled =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;httpPath=/sql/1.0/warehouses/999999999;EnableTokenFederation=1";
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithTokenFederationEnabled, properties);
+    assertTrue(ctx.isTokenFederationEnabled());
+
+    // Test via URL parameter - disabled
+    String urlWithTokenFederationDisabled =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;httpPath=/sql/1.0/warehouses/999999999;EnableTokenFederation=0";
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithTokenFederationDisabled, properties);
+    assertFalse(ctx.isTokenFederationEnabled());
+
+    // Test via Properties - enabled
+    Properties props = new Properties();
+    props.setProperty("password", "passwd");
+    props.setProperty("EnableTokenFederation", "1");
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
+    assertTrue(ctx.isTokenFederationEnabled());
+
+    // Test via Properties - disabled
+    props = new Properties();
+    props.setProperty("password", "passwd");
+    props.setProperty("EnableTokenFederation", "0");
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
+    assertFalse(ctx.isTokenFederationEnabled());
   }
 }

@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSSLException;
+import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -33,6 +34,13 @@ public class DatabricksClientConfiguratorManager {
                   String.format("client configurator failed due to SSL error: %s", e.getMessage());
               LOGGER.error(e, message);
               throw new DatabricksDriverException(message, DatabricksDriverErrorCode.AUTH_ERROR);
+            } catch (DatabricksValidationException e) {
+              String message =
+                  String.format(
+                      "client configurator failed due to validation error: %s", e.getMessage());
+              LOGGER.error(e, message);
+              throw new DatabricksDriverException(
+                  message, DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
             }
           });
     } catch (Exception ex) {

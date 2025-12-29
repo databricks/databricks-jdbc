@@ -3,8 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import static com.databricks.jdbc.TestConstants.*;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
@@ -21,6 +20,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TRowSet;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
+import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ExternalLink;
@@ -214,6 +214,8 @@ public class ArrowStreamResultTest {
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.ARRAY));
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.MAP));
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.STRUCT));
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOMETRY));
+    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOGRAPHY));
 
     // Non-complex types should return false
     assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.INT));
@@ -223,13 +225,32 @@ public class ArrowStreamResultTest {
     assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.TIMESTAMP));
   }
 
+  @Test
+  public void testGeospatialTypeHandling() {
+    // Geospatial types should return true
+    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOMETRY));
+    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOGRAPHY));
+
+    // Non-geospatial types should return false
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.ARRAY));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.MAP));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.STRUCT));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.INT));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.STRING));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.DOUBLE));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.BOOLEAN));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.TIMESTAMP));
+  }
+
   private List<ExternalLink> getChunkLinks(long chunkIndex, boolean isLast) {
     List<ExternalLink> chunkLinks = new ArrayList<>();
     ExternalLink chunkLink =
         new ExternalLink()
             .setChunkIndex(chunkIndex)
             .setExternalLink(CHUNK_URL_PREFIX + chunkIndex)
-            .setExpiration(Instant.now().plusSeconds(3600L).toString());
+            .setExpiration(Instant.now().plusSeconds(3600L).toString())
+            .setRowOffset(chunkIndex * this.rowsInChunk)
+            .setRowCount(this.rowsInChunk);
     if (!isLast) {
       chunkLink.setNextChunkIndex(chunkIndex + 1);
     }
@@ -264,9 +285,22 @@ public class ArrowStreamResultTest {
   private void setupResultChunkMocks() throws DatabricksSQLException {
     for (int chunkIndex = 1; chunkIndex < numberOfChunks; chunkIndex++) {
       boolean isLastChunk = (chunkIndex == (numberOfChunks - 1));
-      when(mockedSdkClient.getResultChunks(STATEMENT_ID, chunkIndex))
-          .thenReturn(getChunkLinks(chunkIndex, isLastChunk));
+      when(mockedSdkClient.getResultChunks(eq(STATEMENT_ID), eq((long) chunkIndex), anyLong()))
+          .thenReturn(buildChunkLinkFetchResult(getChunkLinks(chunkIndex, isLastChunk)));
     }
+  }
+
+  private ChunkLinkFetchResult buildChunkLinkFetchResult(List<ExternalLink> links) {
+    if (links == null || links.isEmpty()) {
+      return ChunkLinkFetchResult.endOfStream();
+    }
+
+    ExternalLink lastLink = links.get(links.size() - 1);
+    boolean hasMore = lastLink.getNextChunkIndex() != null;
+    long nextFetchIndex = hasMore ? lastLink.getNextChunkIndex() : -1;
+    long nextRowOffset = lastLink.getRowOffset() + lastLink.getRowCount();
+
+    return ChunkLinkFetchResult.of(links, hasMore, nextFetchIndex, nextRowOffset);
   }
 
   private File createTestArrowFile(
@@ -319,6 +353,94 @@ public class ArrowStreamResultTest {
   }
 
   @Test
+  public void testGeospatialTypeWithGeoSpatialSupportDisabled() throws Exception {
+    // Setup connection context with geospatial support disabled
+    // (EnableComplexDatatypeSupport=1, but EnableGeoSpatialSupport=0)
+    Properties props = new Properties();
+    props.setProperty("EnableComplexDatatypeSupport", "1");
+    props.setProperty("EnableGeoSpatialSupport", "0");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+
+    // Verify the flags are set correctly
+    assertTrue(connectionContext.isComplexDatatypeSupportEnabled());
+    assertFalse(connectionContext.isGeoSpatialSupportEnabled());
+
+    // Test with GEOMETRY column
+    List<ColumnInfo> geometryColumnInfos = new ArrayList<>();
+    geometryColumnInfos.add(
+        new ColumnInfo()
+            .setName("geometry_col")
+            .setTypeText("GEOMETRY")
+            .setTypeName(ColumnInfoTypeName.GEOMETRY));
+
+    ResultManifest geometryManifest =
+        new ResultManifest()
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(1L)
+            .setSchema(new ResultSchema().setColumns(geometryColumnInfos).setColumnCount(1L));
+    ResultData geometryData = new ResultData().setExternalLinks(new ArrayList<>());
+
+    ArrowStreamResult geometryResult =
+        new ArrowStreamResult(geometryManifest, geometryData, STATEMENT_ID, session);
+
+    // Verify that GEOMETRY type is converted to STRING when geospatial support is disabled
+    // The actual conversion happens in getObject(), but we're testing the flag behavior here
+    assertFalse(geometryResult.hasNext());
+
+    // Test with GEOGRAPHY column
+    List<ColumnInfo> geographyColumnInfos = new ArrayList<>();
+    geographyColumnInfos.add(
+        new ColumnInfo()
+            .setName("geography_col")
+            .setTypeText("GEOGRAPHY")
+            .setTypeName(ColumnInfoTypeName.GEOGRAPHY));
+
+    ResultManifest geographyManifest =
+        new ResultManifest()
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(1L)
+            .setSchema(new ResultSchema().setColumns(geographyColumnInfos).setColumnCount(1L));
+    ResultData geographyData = new ResultData().setExternalLinks(new ArrayList<>());
+
+    ArrowStreamResult geographyResult =
+        new ArrowStreamResult(geographyManifest, geographyData, STATEMENT_ID, session);
+
+    // Verify that GEOGRAPHY type is handled when geospatial support is disabled
+    assertFalse(geographyResult.hasNext());
+  }
+
+  @Test
+  public void testGeospatialTypeWithBothFlagsEnabled() throws Exception {
+    // Setup connection context with both complex datatype and geospatial support enabled
+    Properties props = new Properties();
+    props.setProperty("EnableComplexDatatypeSupport", "1");
+    props.setProperty("EnableGeoSpatialSupport", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    // Verify both flags are enabled
+    assertTrue(connectionContext.isComplexDatatypeSupportEnabled());
+    assertTrue(connectionContext.isGeoSpatialSupportEnabled());
+  }
+
+  @Test
+  public void testGeospatialSupportRequiresComplexDatatypeSupport() throws Exception {
+    // Test that EnableGeoSpatialSupport=1 alone (without EnableComplexDatatypeSupport) doesn't
+    // enable geospatial
+    Properties props = new Properties();
+    props.setProperty("EnableComplexDatatypeSupport", "0");
+    props.setProperty("EnableGeoSpatialSupport", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    // Verify that geospatial support is disabled because complex datatype support is disabled
+    assertFalse(connectionContext.isComplexDatatypeSupportEnabled());
+    assertFalse(connectionContext.isGeoSpatialSupportEnabled());
+  }
+
+  @Test
   public void testNullComplexTypeWithComplexDatatypeSupportDisabled() throws Exception {
     // Setup connection context with complex datatype support disabled
     IDatabricksConnectionContext connectionContext =
@@ -349,6 +471,127 @@ public class ArrowStreamResultTest {
     assertDoesNotThrow(result::close);
   }
 
+  // ==================== StreamingChunkProvider Instantiation Tests ====================
+
+  @Test
+  public void testStreamingChunkProviderEnabledForSeaResult() throws Exception {
+    // Enable StreamingChunkProvider via connection property
+    Properties props = new Properties();
+    props.setProperty("EnableStreamingChunkProvider", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    assertTrue(
+        connectionContext.isStreamingChunkProviderEnabled(),
+        "StreamingChunkProvider should be enabled via property");
+
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    // Setup result manifest with external links (triggers remote chunk provider path)
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(1L)
+            .setTotalRowCount(110L)
+            .setTotalByteCount(1000L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setChunks(this.chunkInfos.subList(0, 1))
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+
+    ResultData localResultData = new ResultData().setExternalLinks(getChunkLinks(0L, true));
+
+    setupMockResponse();
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    // Verify result was created successfully with StreamingChunkProvider
+    assertNotNull(result);
+    assertTrue(result.hasNext(), "Result should have data");
+    assertTrue(result.next());
+    assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testStreamingChunkProviderDisabledUsesRemoteChunkProvider() throws Exception {
+    // Default properties - StreamingChunkProvider disabled
+    Properties props = new Properties();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    assertFalse(
+        connectionContext.isStreamingChunkProviderEnabled(),
+        "StreamingChunkProvider should be disabled by default");
+
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(1L)
+            .setTotalRowCount(110L)
+            .setTotalByteCount(1000L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setChunks(this.chunkInfos.subList(0, 1))
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+
+    ResultData localResultData = new ResultData().setExternalLinks(getChunkLinks(0L, true));
+
+    setupMockResponse();
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    // Verify result was created successfully with RemoteChunkProvider
+    assertNotNull(result);
+    assertTrue(result.hasNext(), "Result should have data");
+    assertTrue(result.next());
+    assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testStreamingChunkProviderEnabledForThriftResult() throws Exception {
+    // Enable StreamingChunkProvider via connection property
+    Properties props = new Properties();
+    props.setProperty("EnableStreamingChunkProvider", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    assertTrue(
+        connectionContext.isStreamingChunkProviderEnabled(),
+        "StreamingChunkProvider should be enabled via property");
+
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
+
+    // Create result links for cloud fetch path (non-inline)
+    TSparkArrowResultLink resultLink =
+        new TSparkArrowResultLink()
+            .setFileLink("http://test-url/chunk-0")
+            .setStartRowOffset(0L)
+            .setRowCount(100L)
+            .setExpiryTime(
+                java.time.Instant.now().plusSeconds(3600).toEpochMilli()); // 1 hour from now
+    when(resultData.getResultLinks()).thenReturn(Collections.singletonList(resultLink));
+    when(fetchResultsResp.getResults()).thenReturn(resultData);
+    when(fetchResultsResp.getResultSetMetadata()).thenReturn(metadataResp);
+    when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
+
+    setupMockResponse();
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(fetchResultsResp, false, parentStatement, session, mockHttpClient);
+
+    // Verify result was created successfully with StreamingChunkProvider for Thrift
+    assertNotNull(result);
+    assertTrue(result.hasNext(), "Result should have data");
+    assertTrue(result.next());
+    assertDoesNotThrow(result::close);
+  }
+
   private Object[][] createTestData(Schema schema, int rows) {
     int cols = schema.getFields().size();
     Object[][] data = new Object[cols][rows];
@@ -365,5 +608,71 @@ public class ArrowStreamResultTest {
       }
     }
     return data;
+  }
+
+  // ==================== End of Stream Conversion Tests ====================
+
+  @Test
+  public void testSeaEmptyLinksWithZeroChunkCountReturnsEndOfStream() throws Exception {
+    // Enable StreamingChunkProvider
+    Properties props = new Properties();
+    props.setProperty("EnableStreamingChunkProvider", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    assertTrue(connectionContext.isStreamingChunkProviderEnabled());
+
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    // Create result manifest with zero chunks and empty external links
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(0L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+
+    ResultData localResultData = new ResultData().setExternalLinks(new ArrayList<>());
+
+    // Should create result successfully with end-of-stream signal
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    assertNotNull(result);
+    assertFalse(result.hasNext(), "Empty result should have no data");
+    assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testSeaNullLinksWithZeroChunkCountReturnsEndOfStream() throws Exception {
+    // Enable StreamingChunkProvider
+    Properties props = new Properties();
+    props.setProperty("EnableStreamingChunkProvider", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    assertTrue(connectionContext.isStreamingChunkProviderEnabled());
+
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    // Create result manifest with zero chunks and null external links
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(0L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+
+    ResultData localResultData = new ResultData().setExternalLinks(null);
+
+    // Should create result successfully with end-of-stream signal
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    assertNotNull(result);
+    assertFalse(result.hasNext(), "Empty result should have no data");
+    assertDoesNotThrow(result::close);
   }
 }

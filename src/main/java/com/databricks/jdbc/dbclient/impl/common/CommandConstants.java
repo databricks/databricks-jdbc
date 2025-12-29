@@ -8,11 +8,11 @@ public class CommandConstants {
   public static final String GET_FUNCTIONS_STATEMENT_ID = "getfunctions-metadata";
   public static final String SHOW_CATALOGS_SQL = "SHOW CATALOGS";
   public static final String SHOW_TABLE_TYPES_SQL = "SHOW TABLE_TYPES";
-  public static final String IN_CATALOG_SQL = " IN CATALOG %s";
-  public static final String IN_ABSOLUTE_SCHEMA_SQL = " IN SCHEMA %s";
-  public static final String IN_ABSOLUTE_TABLE_SQL = " IN TABLE %s";
+  public static final String IN_CATALOG_SQL = " IN CATALOG `%s`";
+  public static final String IN_ABSOLUTE_SCHEMA_SQL = " IN SCHEMA `%s`";
+  public static final String IN_ABSOLUTE_TABLE_SQL = " IN TABLE `%s`";
   public static final String IN_ALL_CATALOGS_SQL = " IN ALL CATALOGS";
-  public static final String SHOW_SCHEMAS_IN_CATALOG_SQL = "SHOW SCHEMAS IN %s";
+  public static final String SHOW_SCHEMAS_IN_CATALOG_SQL = "SHOW SCHEMAS IN `%s`";
   public static final String LIKE_SQL = " LIKE '%s'";
   public static final String SCHEMA_LIKE_SQL = " SCHEMA" + LIKE_SQL;
   public static final String TABLE_LIKE_SQL = " TABLE" + LIKE_SQL;

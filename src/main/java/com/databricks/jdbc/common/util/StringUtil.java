@@ -1,7 +1,10 @@
 package com.databricks.jdbc.common.util;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class StringUtil {
   public static String convertJdbcEscapeSequences(String sql) {
@@ -87,5 +90,24 @@ public class StringUtil {
     // Match whitespace + ESCAPE + whitespace + empty string ('') or ("")
     // followed by delimiter (whitespace, semicolon, end-of-string, closing paren, or comma)
     return sql.replaceAll("(?i)\\s+ESCAPE\\s+['\"]['\"](?=\\s|;|$|\\)|,)", "");
+  }
+
+  /**
+   * Parses a comma-separated string of integers into a Set.
+   *
+   * @param input comma-separated string of integers (e.g., "500, 503, 504")
+   * @return Set of parsed integers, or empty set if input is null/empty or all values are invalid
+   * @throws NumberFormatException if any value cannot be parsed as an integer (after validation)
+   */
+  public static Set<Integer> parseIntegerSet(String input) {
+    if (input.trim().isEmpty()) {
+      return Collections.emptySet();
+    }
+    return Arrays.stream(input.split(","))
+        .map(String::trim)
+        .filter(s -> !s.isEmpty())
+        .filter(num -> num.matches("\\d+")) // Ensure only positive integers
+        .map(Integer::parseInt)
+        .collect(Collectors.toSet());
   }
 }
