@@ -10,7 +10,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class TelemetryClient implements ITelemetryClient {
   private static final int MINIMUM_TELEMETRY_FLUSH_MILLISECONDS = 1000;
@@ -26,30 +25,17 @@ public class TelemetryClient implements ITelemetryClient {
   private ScheduledFuture<?> flushTask;
   private final int flushIntervalMillis;
 
-  private static ThreadFactory createSchedulerThreadFactory() {
-    return new ThreadFactory() {
-      private final AtomicInteger threadNumber = new AtomicInteger(1);
-
-      @Override
-      public Thread newThread(Runnable r) {
-        Thread thread = new Thread(r, "Telemetry-Scheduler-" + threadNumber.getAndIncrement());
-        thread.setDaemon(true);
-        return thread;
-      }
-    };
-  }
-
   public TelemetryClient(
       IDatabricksConnectionContext connectionContext,
       ExecutorService executorService,
+      ScheduledExecutorService scheduledExecutorService,
       DatabricksConfig config) {
     this.eventsBatch = new LinkedList<>();
     this.eventsBatchSize = connectionContext.getTelemetryBatchSize();
     this.context = connectionContext;
     this.databricksConfig = config;
     this.executorService = executorService;
-    this.scheduledExecutorService =
-        Executors.newSingleThreadScheduledExecutor(createSchedulerThreadFactory());
+    this.scheduledExecutorService = scheduledExecutorService;
     this.flushIntervalMillis =
         Math.max(
             context.getTelemetryFlushIntervalInMilliseconds(),
@@ -62,14 +48,15 @@ public class TelemetryClient implements ITelemetryClient {
   }
 
   public TelemetryClient(
-      IDatabricksConnectionContext connectionContext, ExecutorService executorService) {
+      IDatabricksConnectionContext connectionContext,
+      ExecutorService executorService,
+      ScheduledExecutorService scheduledExecutorService) {
     this.eventsBatch = new LinkedList<>();
     eventsBatchSize = connectionContext.getTelemetryBatchSize();
     this.context = connectionContext;
     this.databricksConfig = null;
     this.executorService = executorService;
-    this.scheduledExecutorService =
-        Executors.newSingleThreadScheduledExecutor(createSchedulerThreadFactory());
+    this.scheduledExecutorService = scheduledExecutorService;
     this.flushIntervalMillis =
         Math.max(
             context.getTelemetryFlushIntervalInMilliseconds(),
@@ -132,18 +119,8 @@ public class TelemetryClient implements ITelemetryClient {
       flushTask.cancel(false);
     }
 
-    // Shut down the scheduler.
-    // The executorService is assumed to be a shared resource and is not shut down here.
-    scheduledExecutorService.shutdown();
-    try {
-      if (!scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS)) {
-        scheduledExecutorService.shutdownNow();
-      }
-    } catch (InterruptedException ie) {
-      LOGGER.trace("Interrupted while waiting for flush to finish. Error: {}", ie);
-      Thread.currentThread().interrupt();
-      scheduledExecutorService.shutdownNow();
-    }
+    // Note: Both executorService and scheduledExecutorService are shared resources
+    // managed by TelemetryClientFactory and should not be shut down here.
   }
 
   /**

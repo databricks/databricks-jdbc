@@ -13,7 +13,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TelemetryClientFactory {
@@ -30,6 +32,7 @@ public class TelemetryClientFactory {
   final Map<String, TelemetryClientHolder> noauthTelemetryClientHolders = new ConcurrentHashMap<>();
 
   private final ExecutorService telemetryExecutorService;
+  private ScheduledExecutorService sharedSchedulerService;
 
   private static ThreadFactory createThreadFactory() {
     return new ThreadFactory() {
@@ -45,8 +48,23 @@ public class TelemetryClientFactory {
     };
   }
 
+  private static ThreadFactory createSchedulerThreadFactory() {
+    return new ThreadFactory() {
+      private final AtomicInteger threadNumber = new AtomicInteger(1);
+
+      @Override
+      public Thread newThread(Runnable r) {
+        Thread thread = new Thread(r, "Telemetry-Scheduler-" + threadNumber.getAndIncrement());
+        thread.setDaemon(true);
+        return thread;
+      }
+    };
+  }
+
   private TelemetryClientFactory() {
     telemetryExecutorService = Executors.newFixedThreadPool(10, createThreadFactory());
+    sharedSchedulerService =
+        Executors.newSingleThreadScheduledExecutor(createSchedulerThreadFactory());
   }
 
   public static TelemetryClientFactory getInstance() {
@@ -69,7 +87,10 @@ public class TelemetryClientFactory {
                   try {
                     return new TelemetryClientHolder(
                         new TelemetryClient(
-                            connectionContext, getTelemetryExecutorService(), databricksConfig),
+                            connectionContext,
+                            getTelemetryExecutorService(),
+                            getSharedSchedulerService(),
+                            databricksConfig),
                         1);
                   } catch (Exception e) {
                     // Validation or other errors during client creation - fail silently
@@ -90,7 +111,11 @@ public class TelemetryClientFactory {
               if (existing == null) {
                 try {
                   return new TelemetryClientHolder(
-                      new TelemetryClient(connectionContext, getTelemetryExecutorService()), 1);
+                      new TelemetryClient(
+                          connectionContext,
+                          getTelemetryExecutorService(),
+                          getSharedSchedulerService()),
+                      1);
                 } catch (Exception e) {
                   // Validation or other errors during client creation - fail silently
                   LOGGER.trace("Skipping telemetry, client creation failed {}", e);
@@ -133,6 +158,10 @@ public class TelemetryClientFactory {
     return telemetryExecutorService;
   }
 
+  public ScheduledExecutorService getSharedSchedulerService() {
+    return sharedSchedulerService;
+  }
+
   static ITelemetryPushClient getTelemetryPushClient(
       Boolean isAuthenticated,
       IDatabricksConnectionContext connectionContext,
@@ -158,7 +187,7 @@ public class TelemetryClientFactory {
 
   @VisibleForTesting
   public void reset() {
-    // Close all existing clients
+    // Close all existing clients (cancels their scheduled tasks)
     telemetryClientHolders.values().forEach(holder -> holder.client.close());
     noauthTelemetryClientHolders.values().forEach(holder -> holder.client.close());
 
@@ -168,6 +197,21 @@ public class TelemetryClientFactory {
 
     // Clear cached connection parameters
     TelemetryHelper.clearConnectionParameterCache();
+
+    // Shutdown shared scheduler service (test cleanup only)
+    sharedSchedulerService.shutdown();
+    try {
+      if (!sharedSchedulerService.awaitTermination(5, TimeUnit.SECONDS)) {
+        sharedSchedulerService.shutdownNow();
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      sharedSchedulerService.shutdownNow();
+    }
+
+    // Recreate the scheduler for subsequent tests
+    sharedSchedulerService =
+        Executors.newSingleThreadScheduledExecutor(createSchedulerThreadFactory());
   }
 
   private void closeTelemetryClient(ITelemetryClient client, String clientType) {
