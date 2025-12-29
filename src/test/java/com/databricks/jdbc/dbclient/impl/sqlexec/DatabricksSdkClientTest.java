@@ -776,4 +776,114 @@ public class DatabricksSdkClientTest {
                 }),
             eq(ExecuteStatementResponse.class));
   }
+
+  @Test
+  public void testExecuteStatementWithClosedStatus() throws Exception {
+    // Set up connection and statement
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+
+    // Mock session creation
+    CreateSessionResponse sessionResponse = new CreateSessionResponse().setSessionId(SESSION_ID);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(sessionResponse);
+    connection.open();
+
+    DatabricksStatement statement = spy(new DatabricksStatement(connection));
+    statement.setMaxRows(100);
+
+    // Create a response with CLOSED status
+    StatementStatus closedStatus = new StatementStatus().setState(StatementState.CLOSED);
+    ExecuteStatementResponse closedResponse =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(closedStatus)
+            .setResult(resultData)
+            .setManifest(
+                new ResultManifest()
+                    .setFormat(Format.JSON_ARRAY)
+                    .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L))
+                    .setTotalRowCount(0L));
+
+    when(apiClient.execute(any(Request.class), any()))
+        .thenAnswer(
+            invocationOnMock -> {
+              Request req = invocationOnMock.getArgument(0, Request.class);
+              if (req.getUrl().equals(STATEMENT_PATH)) {
+                return closedResponse;
+              } else if (req.getUrl().equals(SESSION_PATH)) {
+                return sessionResponse;
+              }
+              return null;
+            });
+
+    // Execute statement
+    databricksSdkClient.executeStatement(
+        STATEMENT,
+        warehouse,
+        new HashMap<>(),
+        StatementType.QUERY,
+        connection.getSession(),
+        statement);
+
+    // Verify that markAsClosed was called on the statement
+    verify(statement, times(1)).markAsClosed();
+  }
+
+  @Test
+  public void testExecuteStatementWithClosedStatusAndNoParentStatement() throws Exception {
+    // Set up connection without parent statement
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+
+    // Mock session creation
+    CreateSessionResponse sessionResponse = new CreateSessionResponse().setSessionId(SESSION_ID);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(sessionResponse);
+    connection.open();
+
+    // Create a response with CLOSED status
+    StatementStatus closedStatus = new StatementStatus().setState(StatementState.CLOSED);
+    ExecuteStatementResponse closedResponse =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(closedStatus)
+            .setResult(resultData)
+            .setManifest(
+                new ResultManifest()
+                    .setFormat(Format.JSON_ARRAY)
+                    .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L))
+                    .setTotalRowCount(0L));
+
+    when(apiClient.execute(any(Request.class), any()))
+        .thenAnswer(
+            invocationOnMock -> {
+              Request req = invocationOnMock.getArgument(0, Request.class);
+              if (req.getUrl().equals(STATEMENT_PATH)) {
+                return closedResponse;
+              } else if (req.getUrl().equals(SESSION_PATH)) {
+                return sessionResponse;
+              }
+              return null;
+            });
+
+    // Execute statement with null parent statement - should not throw
+    assertDoesNotThrow(
+        () ->
+            databricksSdkClient.executeStatement(
+                STATEMENT,
+                warehouse,
+                new HashMap<>(),
+                StatementType.QUERY,
+                connection.getSession(),
+                null));
+  }
 }

@@ -5,7 +5,7 @@
     "url" : "/api/2.0/sql/statements/",
     "method" : "POST",
     "bodyPatterns" : [ {
-      "equalToJson" : "{\"statement\":\"SHOW TABLES IN CATALOG main SCHEMA LIKE 'jdbc.test.schema' LIKE 'catalog.and.schema.test.table'\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01f099d8-f747-16e2-b654-e71d76b5d16d\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "equalToJson" : "{\"statement\":\"SHOW TABLES IN CATALOG `main` SCHEMA LIKE 'jdbc.test.schema' LIKE 'catalog.and.schema.test.table'\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01f099d8-f747-16e2-b654-e71d76b5d16d\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
       "ignoreArrayOrder" : true,
       "ignoreExtraElements" : true
     } ]

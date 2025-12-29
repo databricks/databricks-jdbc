@@ -333,13 +333,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     if (getParameter(AUTH_SCOPE) != null) {
       return Collections.singletonList(getAuthScope());
     }
-    if (getCloud() == Cloud.AWS || getCloud() == Cloud.GCP) {
-      return Arrays.asList(
-          DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
-    } else {
-      // Default scope is already being set for Azure in databricks-sdk.
-      return null;
-    }
+    // Use uniform default scopes for all clouds: sql and offline_access
+    return Arrays.asList(
+        DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE);
   }
 
   @Override

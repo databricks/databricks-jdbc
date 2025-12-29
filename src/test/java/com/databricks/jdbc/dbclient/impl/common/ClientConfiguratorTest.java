@@ -671,4 +671,51 @@ public class ClientConfiguratorTest {
     // PAT auth doesn't use Token federation provider, so it should be SDK default provider
     assertFalse(config.getCredentialsProvider() instanceof DatabricksTokenFederationProvider);
   }
+
+  @Test
+  void testAuthScope_U2MWithCustomScope()
+      throws DatabricksParsingException, DatabricksSSLException, DatabricksValidationException {
+    // Test that custom Auth_Scope is used for U2M authentication
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
+    when(mockContext.getHostForOAuth()).thenReturn("https://test.databricks.com");
+    when(mockContext.getClientId()).thenReturn("test-client-id");
+    when(mockContext.getClientSecret()).thenReturn("test-client-secret");
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(List.of("custom_scope"));
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
+
+    configurator = new ClientConfigurator(mockContext);
+    DatabricksConfig config = configurator.getDatabricksConfig();
+
+    assertEquals(List.of("custom_scope"), config.getScopes());
+  }
+
+  @Test
+  void testAuthScope_U2MWithDefaultScopes()
+      throws DatabricksParsingException, DatabricksSSLException, DatabricksValidationException {
+    // Test that default scopes are used when Auth_Scope is not provided
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+    when(mockContext.getAuthFlow()).thenReturn(AuthFlow.BROWSER_BASED_AUTHENTICATION);
+    when(mockContext.getHostForOAuth()).thenReturn("https://test.databricks.com");
+    when(mockContext.getClientId()).thenReturn("test-client-id");
+    when(mockContext.getClientSecret()).thenReturn("test-client-secret");
+    when(mockContext.getOAuthScopesForU2M())
+        .thenReturn(
+            List.of(
+                DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE));
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getDisableOauthRefreshToken()).thenReturn(false);
+
+    configurator = new ClientConfigurator(mockContext);
+    DatabricksConfig config = configurator.getDatabricksConfig();
+
+    assertEquals(
+        List.of(DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE),
+        config.getScopes());
+  }
 }

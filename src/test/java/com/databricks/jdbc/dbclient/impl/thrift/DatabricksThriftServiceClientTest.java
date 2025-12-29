@@ -611,7 +611,8 @@ public class DatabricksThriftServiceClientTest {
             .setTimestampAsArrow(true);
     TExecuteStatementReq executeStatementReq =
         new TExecuteStatementReq()
-            .setStatement("SHOW FUNCTIONS IN CATALOG catalog1 SCHEMA LIKE 'testSchema' LIKE 'test'")
+            .setStatement(
+                "SHOW FUNCTIONS IN CATALOG `catalog1` SCHEMA LIKE 'testSchema' LIKE 'test'")
             .setSessionHandle(SESSION_HANDLE)
             .setCanReadArrowResult(true)
             .setCanDecompressLZ4Result(true)

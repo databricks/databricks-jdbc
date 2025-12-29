@@ -127,7 +127,7 @@ public class ClientConfigurator {
     httpClientBuilder.withConnectionManager(connManager);
   }
 
-  /** Setup proxy settings in the databricks config. */
+  /** Set up proxy settings in the databricks config. */
   public void setupProxyConfig(CommonsHttpClient.Builder httpClientBuilder) {
     ProxyConfig proxyConfig =
         new ProxyConfig().setUseSystemProperties(connectionContext.getUseSystemProxy());
@@ -152,7 +152,7 @@ public class ClientConfigurator {
     return new WorkspaceClient(databricksConfig);
   }
 
-  /** Setup the workspace authentication settings in the databricks config. */
+  /** Set up the workspace authentication settings in the databricks config. */
   public void setupAuthConfig() {
     AuthMech authMech = connectionContext.getAuthMech();
     try {
@@ -171,7 +171,7 @@ public class ClientConfigurator {
     }
   }
 
-  /** Setup the OAuth authentication settings in the databricks config. */
+  /** Set up the OAuth authentication settings in the databricks config. */
   public void setupOAuthConfig() throws DatabricksParsingException {
     switch (this.connectionContext.getAuthFlow()) {
       case TOKEN_PASSTHROUGH:
@@ -193,7 +193,7 @@ public class ClientConfigurator {
     }
   }
 
-  /** Setup the OAuth U2M authentication settings in the databricks config. */
+  /** Set up the OAuth U2M authentication settings in the databricks config. */
   public void setupU2MConfig() throws DatabricksParsingException {
     int redirectPort = findAvailablePort(connectionContext.getOAuth2RedirectUrlPorts());
     String redirectUrl = String.format("http://localhost:%d", redirectPort);
@@ -211,14 +211,6 @@ public class ClientConfigurator {
         .setOAuthRedirectUrl(redirectUrl);
 
     LOGGER.info("Using OAuth redirect URL: {}", redirectUrl);
-
-    if (databricksConfig.isAzure()) {
-      LOGGER.debug("Using Azure U2M Auth");
-      databricksConfig.setCredentialsProvider(
-          wrapWithTokenFederationIfEnabled(
-              new AzureExternalBrowserProvider(connectionContext, redirectPort)));
-      return;
-    }
     databricksConfig.setScopes(connectionContext.getOAuthScopesForU2M());
     TokenCache tokenCache;
     if (connectionContext.isTokenCacheEnabled()) {
@@ -297,7 +289,7 @@ public class ClientConfigurator {
     }
   }
 
-  /** Setup the PAT authentication settings in the databricks config. */
+  /** Set up the PAT authentication settings in the databricks config. */
   public void setupAccessTokenConfig() throws DatabricksParsingException {
 
     databricksConfig
@@ -325,7 +317,7 @@ public class ClientConfigurator {
     this.databricksConfig.resolve();
   }
 
-  /** Setup the OAuth U2M refresh token authentication settings in the databricks config. */
+  /** Set up the OAuth U2M refresh token authentication settings in the databricks config. */
   public void setupU2MRefreshConfig() throws DatabricksParsingException {
     databricksConfig
         .setHost(connectionContext.getHostForOAuth())
@@ -341,7 +333,7 @@ public class ClientConfigurator {
         .setCredentialsProvider(wrappedProvider);
   }
 
-  /** Setup the OAuth M2M authentication settings in the databricks config. */
+  /** Set up the OAuth M2M authentication settings in the databricks config. */
   public void setupM2MConfig() throws DatabricksParsingException {
     if (DriverUtil.isRunningAgainstFake()) {
       databricksConfig.setHost(

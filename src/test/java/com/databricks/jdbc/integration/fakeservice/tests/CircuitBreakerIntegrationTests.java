@@ -47,7 +47,7 @@ public class CircuitBreakerIntegrationTests extends AbstractFakeServiceIntegrati
   }
 
   @Test
-  void testthriftwithcircuitopen() throws SQLException {
+  void testThriftWithCircuitOpen() throws SQLException {
     // Open the circuit breaker by recording a 429 failure
     SeaCircuitBreakerManager.record429Failure();
 
@@ -88,7 +88,10 @@ public class CircuitBreakerIntegrationTests extends AbstractFakeServiceIntegrati
     connectionProperties.put(DatabricksJdbcUrlParams.UID.getParamName(), getDatabricksUser());
     connectionProperties.put(DatabricksJdbcUrlParams.PASSWORD.getParamName(), getDatabricksToken());
     connectionProperties.put(
-        DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), '0');
+        DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS.getParamName(), "0");
+    connectionProperties.put(
+        DatabricksJdbcUrlParams.OIDC_DISCOVERY_MODE.getParamName(),
+        "0"); // Disable OIDC discovery for fake service tests
 
     if (DriverUtil.isRunningAgainstFake()) {
       connectionProperties.putIfAbsent(
@@ -109,7 +112,7 @@ public class CircuitBreakerIntegrationTests extends AbstractFakeServiceIntegrati
   }
 
   @Test
-  void testcircuitremainsopen() throws SQLException {
+  void testCircuitRemainsOpen() throws SQLException {
     // Open circuit breaker
     SeaCircuitBreakerManager.record429Failure();
     assertTrue(SeaCircuitBreakerManager.isCircuitOpen());
@@ -146,7 +149,7 @@ public class CircuitBreakerIntegrationTests extends AbstractFakeServiceIntegrati
   }
 
   @Test
-  void testmultipleconnectionswithcircuitopen() throws SQLException {
+  void testMultipleConnectionsWithCircuitOpen() throws SQLException {
     // Open circuit breaker
     SeaCircuitBreakerManager.record429Failure();
     assertTrue(SeaCircuitBreakerManager.isCircuitOpen());

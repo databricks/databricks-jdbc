@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -22,6 +23,9 @@ public class MultiChunkExecutionIntegrationTests extends AbstractFakeServiceInte
 
   @Test
   void testMultiChunkSelect() throws SQLException, InterruptedException {
+    // Ensure fake service property is set to skip link expiry checks in tests
+    System.setProperty(DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP, "true");
+
     final String table = "samples.tpch.lineitem";
 
     // To save on the size of stub mappings, the test uses just enough rows to span multiple chunks.
