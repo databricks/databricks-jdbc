@@ -125,6 +125,8 @@ public class TelemetryClientFactory {
           holder.refCount.decrementAndGet();
           return holder;
         });
+    // Clean up cached connection parameters to prevent memory leaks
+    TelemetryHelper.removeConnectionParameters(connectionContext.getConnectionUuid());
   }
 
   public ExecutorService getTelemetryExecutorService() {
@@ -163,6 +165,9 @@ public class TelemetryClientFactory {
     // Clear the maps
     telemetryClientHolders.clear();
     noauthTelemetryClientHolders.clear();
+
+    // Clear cached connection parameters
+    TelemetryHelper.clearConnectionParameterCache();
   }
 
   private void closeTelemetryClient(ITelemetryClient client, String clientType) {

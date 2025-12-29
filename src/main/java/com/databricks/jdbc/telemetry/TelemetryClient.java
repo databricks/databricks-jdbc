@@ -50,7 +50,10 @@ public class TelemetryClient implements ITelemetryClient {
     this.executorService = executorService;
     this.scheduledExecutorService =
         Executors.newSingleThreadScheduledExecutor(createSchedulerThreadFactory());
-    this.flushIntervalMillis = context.getTelemetryFlushIntervalInMilliseconds();
+    this.flushIntervalMillis =
+        Math.max(
+            context.getTelemetryFlushIntervalInMilliseconds(),
+            MINIMUM_TELEMETRY_FLUSH_MILLISECONDS); // To avoid illegalArgument exception in any case
     this.lastFlushedTime = System.currentTimeMillis();
     this.telemetryPushClient =
         TelemetryClientFactory.getTelemetryPushClient(

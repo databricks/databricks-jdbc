@@ -392,4 +392,22 @@ public class TelemetryHelper {
     }
     return context.getHost();
   }
+
+  /**
+   * Removes cached connection parameters for the given connection UUID. Should be called when a
+   * connection is closed to prevent memory leaks.
+   *
+   * @param connectionUuid The connection UUID whose cached parameters should be removed
+   */
+  public static void removeConnectionParameters(String connectionUuid) {
+    if (connectionUuid != null) {
+      connectionParameterCache.remove(connectionUuid);
+    }
+  }
+
+  /** Clears all cached connection parameters. This should only be used for testing purposes. */
+  @VisibleForTesting
+  static void clearConnectionParameterCache() {
+    connectionParameterCache.clear();
+  }
 }
