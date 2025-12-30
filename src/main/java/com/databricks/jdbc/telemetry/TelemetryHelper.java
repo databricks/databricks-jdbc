@@ -505,6 +505,34 @@ public class TelemetryHelper {
   }
 
   /**
+   * Records a result set iteration from a parent statement. Extracts connection context safely and
+   * silently ignores all errors.
+   *
+   * @param parentStatement The parent statement (can be null)
+   * @param statementId The statement ID
+   * @param chunkCount The total number of chunks (can be null)
+   * @param hasNext Whether there are more rows
+   */
+  public static void recordResultSetIteration(
+      com.databricks.jdbc.api.internal.IDatabricksStatementInternal parentStatement,
+      com.databricks.jdbc.dbclient.impl.common.StatementId statementId,
+      Long chunkCount,
+      boolean hasNext) {
+    try {
+      if (parentStatement != null && chunkCount != null) {
+        IDatabricksConnectionContext connectionContext =
+            ((com.databricks.jdbc.api.impl.DatabricksConnection)
+                    parentStatement.getStatement().getConnection())
+                .getConnectionContext();
+        recordResultSetIteration(
+            connectionContext, statementId.toSQLExecStatementId(), chunkCount, hasNext);
+      }
+    } catch (Exception e) {
+      LOGGER.trace("Error getting connection context for telemetry: {}", e.getMessage());
+    }
+  }
+
+  /**
    * Records get operation status latency. Silently ignores errors.
    *
    * @param connectionContext The connection context

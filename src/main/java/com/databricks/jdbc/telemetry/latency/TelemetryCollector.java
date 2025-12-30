@@ -29,8 +29,11 @@ public class TelemetryCollector {
   private final ConcurrentHashMap<String, StatementTelemetryDetails> statementTrackers =
       new ConcurrentHashMap<>();
 
-  public TelemetryCollector() {
-    // Constructor for per-host instances
+  /**
+   * Package-private constructor - instances should only be created via TelemetryCollectorManager
+   */
+  TelemetryCollector() {
+    // Constructor for per-connection instances
   }
 
   /**

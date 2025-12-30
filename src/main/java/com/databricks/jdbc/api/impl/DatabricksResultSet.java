@@ -266,18 +266,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public boolean next() throws SQLException {
     checkIfClosed();
     boolean hasNext = this.executionResult.next();
-    try {
-      if (parentStatement != null) {
-        TelemetryHelper.recordResultSetIteration(
-            ((DatabricksConnection) parentStatement.getStatement().getConnection())
-                .getConnectionContext(),
-            statementId.toSQLExecStatementId(),
-            resultSetMetaData.getChunkCount(),
-            hasNext);
-      }
-    } catch (Exception e) {
-      LOGGER.trace("Error getting connection context for telemetry: {}", e.getMessage());
-    }
+    TelemetryHelper.recordResultSetIteration(
+        parentStatement, statementId, resultSetMetaData.getChunkCount(), hasNext);
     return hasNext;
   }
 

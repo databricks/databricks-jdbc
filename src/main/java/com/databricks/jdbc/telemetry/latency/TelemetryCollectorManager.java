@@ -23,27 +23,17 @@ public class TelemetryCollectorManager {
   }
 
   /**
-   * Gets or creates a TelemetryCollector for the given connection.
-   *
-   * @param connectionUuid the connection UUID
-   * @return the TelemetryCollector instance for this connection
-   */
-  public TelemetryCollector getOrCreateCollector(String connectionUuid) {
-    String key = connectionUuid != null ? connectionUuid : DEFAULT_CONNECTION;
-    return collectors.computeIfAbsent(key, k -> new TelemetryCollector());
-  }
-
-  /**
    * Gets or creates a TelemetryCollector for the given connection context.
    *
    * @param context the connection context
    * @return the TelemetryCollector instance for this connection
    */
   public TelemetryCollector getOrCreateCollector(IDatabricksConnectionContext context) {
-    if (context == null) {
-      return getOrCreateCollector(DEFAULT_CONNECTION);
-    }
-    return getOrCreateCollector(context.getConnectionUuid());
+    String key =
+        (context != null && context.getConnectionUuid() != null)
+            ? context.getConnectionUuid()
+            : DEFAULT_CONNECTION;
+    return collectors.computeIfAbsent(key, k -> new TelemetryCollector());
   }
 
   /**
