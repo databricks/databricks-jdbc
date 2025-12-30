@@ -18,6 +18,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.*;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
@@ -147,7 +148,9 @@ public class TelemetryHelper {
     if (statementId == null) {
       telemetryDetails = new StatementTelemetryDetails(null);
     } else {
-      telemetryDetails = TelemetryCollector.getInstance().getOrCreateTelemetryDetails(statementId);
+      TelemetryCollector collector =
+          TelemetryCollectorManager.getInstance().getOrCreateCollector(connectionContext);
+      telemetryDetails = collector.getOrCreateTelemetryDetails(statementId);
     }
     exportTelemetryEvent(connectionContext, telemetryDetails, errorInfo, chunkIndex, logLevel);
   }
@@ -409,5 +412,139 @@ public class TelemetryHelper {
   @VisibleForTesting
   static void clearConnectionParameterCache() {
     connectionParameterCache.clear();
+  }
+
+  // Simplified telemetry recording methods that handle getting the collector internally
+
+  /**
+   * Records the total chunks for a statement. Silently ignores errors.
+   *
+   * @param connectionContext The connection context
+   * @param statementId The statement ID
+   * @param chunkCount The total number of chunks
+   */
+  public static void recordTotalChunks(
+      IDatabricksConnectionContext connectionContext, StatementId statementId, long chunkCount) {
+    try {
+      if (connectionContext != null) {
+        TelemetryCollectorManager.getInstance()
+            .getOrCreateCollector(connectionContext)
+            .recordTotalChunks(statementId, chunkCount);
+      }
+    } catch (Exception e) {
+      LOGGER.trace("Error recording total chunks telemetry: {}", e.getMessage());
+    }
+  }
+
+  /**
+   * Sets the result format for a statement (SQL Execution API). Silently ignores errors.
+   *
+   * @param connectionContext The connection context
+   * @param statementId The statement ID
+   * @param format The result format
+   */
+  public static void setResultFormat(
+      IDatabricksConnectionContext connectionContext,
+      StatementId statementId,
+      com.databricks.sdk.service.sql.Format format) {
+    try {
+      if (connectionContext != null) {
+        TelemetryCollectorManager.getInstance()
+            .getOrCreateCollector(connectionContext)
+            .setResultFormat(statementId, format);
+      }
+    } catch (Exception e) {
+      LOGGER.trace("Error setting result format telemetry: {}", e.getMessage());
+    }
+  }
+
+  /**
+   * Sets the result format for a statement (Thrift API). Silently ignores errors.
+   *
+   * @param connectionContext The connection context
+   * @param parentStatement The parent statement
+   * @param format The result format
+   */
+  public static void setResultFormat(
+      IDatabricksConnectionContext connectionContext,
+      com.databricks.jdbc.api.internal.IDatabricksStatementInternal parentStatement,
+      com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType format) {
+    try {
+      if (connectionContext != null) {
+        TelemetryCollectorManager.getInstance()
+            .getOrCreateCollector(connectionContext)
+            .setResultFormat(parentStatement, format);
+      }
+    } catch (Exception e) {
+      LOGGER.trace("Error setting result format telemetry: {}", e.getMessage());
+    }
+  }
+
+  /**
+   * Records a result set iteration. Silently ignores errors.
+   *
+   * @param connectionContext The connection context
+   * @param statementId The statement ID
+   * @param chunkCount The total number of chunks
+   * @param hasNext Whether there are more rows
+   */
+  public static void recordResultSetIteration(
+      IDatabricksConnectionContext connectionContext,
+      String statementId,
+      long chunkCount,
+      boolean hasNext) {
+    try {
+      if (connectionContext != null) {
+        TelemetryCollectorManager.getInstance()
+            .getOrCreateCollector(connectionContext)
+            .recordResultSetIteration(statementId, chunkCount, hasNext);
+      }
+    } catch (Exception e) {
+      LOGGER.trace("Error recording result set iteration telemetry: {}", e.getMessage());
+    }
+  }
+
+  /**
+   * Records get operation status latency. Silently ignores errors.
+   *
+   * @param connectionContext The connection context
+   * @param statementId The statement ID
+   * @param latencyMillis The operation latency in milliseconds
+   */
+  public static void recordGetOperationStatus(
+      IDatabricksConnectionContext connectionContext, String statementId, long latencyMillis) {
+    try {
+      if (connectionContext != null) {
+        TelemetryCollectorManager.getInstance()
+            .getOrCreateCollector(connectionContext)
+            .recordGetOperationStatus(statementId, latencyMillis);
+      }
+    } catch (Exception e) {
+      LOGGER.trace("Error recording get operation status telemetry: {}", e.getMessage());
+    }
+  }
+
+  /**
+   * Records chunk download latency. Silently ignores errors.
+   *
+   * @param connectionContext The connection context
+   * @param statementId The statement ID
+   * @param chunkIndex The chunk index
+   * @param latencyMillis The download latency in milliseconds
+   */
+  public static void recordChunkDownloadLatency(
+      IDatabricksConnectionContext connectionContext,
+      String statementId,
+      long chunkIndex,
+      long latencyMillis) {
+    try {
+      if (connectionContext != null) {
+        TelemetryCollectorManager.getInstance()
+            .getOrCreateCollector(connectionContext)
+            .recordChunkDownloadLatency(statementId, chunkIndex, latencyMillis);
+      }
+    } catch (Exception e) {
+      LOGGER.trace("Error recording chunk download latency telemetry: {}", e.getMessage());
+    }
   }
 }

@@ -5,6 +5,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.util.LinkedList;
 import java.util.List;
@@ -98,8 +99,10 @@ public class TelemetryClient implements ITelemetryClient {
 
   @Override
   public void close() {
-    // Export any pending latency telemetry before flushing
-    TelemetryCollector.getInstance().exportAllPendingTelemetryDetails();
+    // Export any pending latency telemetry before flushing for this connection
+    TelemetryCollector collector =
+        TelemetryCollectorManager.getInstance().getOrCreateCollector(context);
+    collector.exportAllPendingTelemetryDetails();
 
     try {
       // Synchronously flush the remaining events and wait for the task to complete

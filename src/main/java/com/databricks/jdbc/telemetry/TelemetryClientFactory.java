@@ -7,6 +7,8 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
@@ -150,6 +152,15 @@ public class TelemetryClientFactory {
           holder.refCount.decrementAndGet();
           return holder;
         });
+
+    // Export and remove the TelemetryCollector for this connection
+    TelemetryCollector collector =
+        TelemetryCollectorManager.getInstance().removeCollector(connectionContext);
+    if (collector != null) {
+      // Export any remaining telemetry before removing
+      collector.exportAllPendingTelemetryDetails();
+    }
+
     // Clean up cached connection parameters to prevent memory leaks
     TelemetryHelper.removeConnectionParameters(connectionContext.getConnectionUuid());
   }

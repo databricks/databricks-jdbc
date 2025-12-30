@@ -300,6 +300,7 @@ class StreamingChunkProviderTest {
         linkPrefetchWindow,
         CHUNK_READY_TIMEOUT_SECONDS,
         CLOUD_FETCH_SPEED_THRESHOLD,
+        null, // connectionContext - not needed for tests
         initialLinks);
   }
 
