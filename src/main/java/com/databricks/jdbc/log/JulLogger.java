@@ -233,6 +233,19 @@ public class JulLogger implements JdbcLogger {
     if (prefix != null && !prefix.isEmpty()) {
       return prefix;
     }
+    // Auto-detect the actual package prefix by using the current class
+    // This handles shaded JARs where the package might be relocated
+    String actualPackageName = JulLogger.class.getPackage().getName();
+    // Extract the root prefix (e.g., "jdbc.shaded.v1.0.12.OSS.com.databricks.jdbc"
+    // or "com.databricks.jdbc")
+    if (actualPackageName.contains(DEFAULT_PACKAGE_PREFIX)) {
+      // Find the actual prefix including any shading prefix
+      int defaultPrefixIndex = actualPackageName.indexOf(DEFAULT_PACKAGE_PREFIX);
+      if (defaultPrefixIndex > 0) {
+        // Include everything up to and including the default prefix
+        return actualPackageName.substring(0, defaultPrefixIndex + DEFAULT_PACKAGE_PREFIX.length());
+      }
+    }
     return DEFAULT_PACKAGE_PREFIX;
   }
 
@@ -240,6 +253,17 @@ public class JulLogger implements JdbcLogger {
     String prefix = System.getenv("JDBC_DRIVER_PACKAGE_PREFIX");
     if (StringUtils.isNotEmpty(prefix)) {
       return prefix;
+    }
+    // Auto-detect the actual driver package prefix
+    // Try to determine if the driver package is also shaded
+    String mainPackagePrefix = getPackagePrefix();
+    // Check if we have a shaded prefix
+    if (!mainPackagePrefix.equals(DEFAULT_PACKAGE_PREFIX)
+        && mainPackagePrefix.contains(DEFAULT_PACKAGE_PREFIX)) {
+      // Extract the shading prefix and apply it to the driver package
+      String shadingPrefix =
+          mainPackagePrefix.substring(0, mainPackagePrefix.indexOf(DEFAULT_PACKAGE_PREFIX));
+      return shadingPrefix + DEFAULT_DRIVER_PACKAGE_PREFIX;
     }
     return DEFAULT_DRIVER_PACKAGE_PREFIX;
   }
