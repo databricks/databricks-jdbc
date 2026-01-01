@@ -13,6 +13,8 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.SocketException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -186,7 +188,9 @@ public class StreamingChunkDownloadTaskTest {
     ExternalLink mockExternalLink = mock(ExternalLink.class);
     when(mockExternalLink.getExternalLink()).thenReturn("https://test-url.com/chunk");
     when(mockExternalLink.getHttpHeaders()).thenReturn(Collections.emptyMap());
-    when(mockExternalLink.getExpiration()).thenReturn("2025-12-31T23:59:59Z");
+
+    Instant expiry = Instant.now().plus(1, ChronoUnit.DAYS);
+    when(mockExternalLink.getExpiration()).thenReturn(expiry.toString());
 
     ArrowResultChunk realChunk =
         ArrowResultChunk.builder()
