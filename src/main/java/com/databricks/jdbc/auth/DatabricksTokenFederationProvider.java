@@ -143,8 +143,9 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
     LOGGER.debug("Fetching and exchanging token");
 
     if (this.externalHeaderFactory == null) {
-      // Lazy-initialize if configure(databricksConfig) was not called yet
-      this.externalHeaderFactory = this.credentialsProvider.configure(this.config);
+      throw new DatabricksDriverException(
+          "ExternalHeaderFactory not initialized. Call configure() first.",
+          DatabricksDriverErrorCode.AUTH_ERROR);
     }
     this.externalProviderHeaders = this.externalHeaderFactory.headers();
     String[] tokenInfo = extractTokenInfoFromHeader(this.externalProviderHeaders);
