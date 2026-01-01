@@ -183,4 +183,74 @@ public class JulLoggerTest {
   private String[] info() {
     return JulLogger.getCaller();
   }
+
+  @Test
+  void testPackagePrefixDetectionForUnshadedJar() {
+    // Test that package prefix detection works for unshaded JARs
+    String packagePrefix = JulLogger.PARENT_CLASS_PREFIX;
+    // For unshaded JARs, it should be the default prefix
+    assertTrue(
+        packagePrefix.endsWith("com.databricks.jdbc"),
+        "Package prefix should end with com.databricks.jdbc, got: " + packagePrefix);
+  }
+
+  @Test
+  void testPackagePrefixDetectionForShadedJar() {
+    // Test that the package prefix includes any shading prefix
+    // The JulLogger should be able to detect its own package correctly
+    String actualPackageName = JulLogger.class.getPackage().getName();
+    String packagePrefix = JulLogger.PARENT_CLASS_PREFIX;
+
+    // Verify that the package prefix matches the actual runtime package structure
+    assertTrue(
+        actualPackageName.startsWith(packagePrefix),
+        String.format(
+            "Actual package '%s' should start with detected prefix '%s'",
+            actualPackageName, packagePrefix));
+
+    // If the jar is shaded, the prefix should include the shading prefix
+    if (actualPackageName.contains(".") && !actualPackageName.startsWith("com.databricks.jdbc")) {
+      // This means we have a shaded jar
+      assertTrue(
+          packagePrefix.contains("com.databricks.jdbc"),
+          "Shaded package prefix should still contain com.databricks.jdbc");
+    }
+  }
+
+  @Test
+  void testInitLoggerConfiguresCorrectPackageForShadedJar() throws IOException {
+    // This test verifies that when initLogger is called, it configures loggers
+    // for the correct package prefix (whether shaded or unshaded)
+    JulLogger.initLogger(Level.OFF, JulLogger.STDOUT, 1024, 1);
+
+    // Get the configured logger
+    Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
+
+    // Verify it was configured with the correct level
+    assertEquals(
+        Level.OFF,
+        jdbcLogger.getLevel(),
+        "Logger should be configured with Level.OFF to suppress all logs");
+
+    // Verify that a logger created with the actual package name inherits the settings
+    String testLoggerName =
+        JulLogger.class.getPackage().getName() + ".api.impl.ExecutionResultFactory";
+    Logger testLogger = Logger.getLogger(testLoggerName);
+
+    // The effective level should be OFF (inherited from parent)
+    Level effectiveLevel = testLogger.getLevel();
+    // If the local level is null, it inherits from parent
+    if (effectiveLevel == null) {
+      Logger parent = testLogger.getParent();
+      while (parent != null && effectiveLevel == null) {
+        effectiveLevel = parent.getLevel();
+        parent = parent.getParent();
+      }
+    }
+
+    assertEquals(
+        Level.OFF,
+        effectiveLevel,
+        "Child loggers should inherit Level.OFF from properly configured parent logger");
+  }
 }
