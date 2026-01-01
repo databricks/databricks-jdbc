@@ -243,6 +243,9 @@ public class StreamingChunkDownloadTaskTest {
               }
             });
 
+    // Mock linkFetcher.refetchLink() in case the chunk link becomes invalid during retries
+    when(linkFetcher.refetchLink(anyLong(), anyLong())).thenReturn(mockExternalLink);
+
     // Create task with the spied chunk
     StreamingChunkDownloadTask task =
         new StreamingChunkDownloadTask(

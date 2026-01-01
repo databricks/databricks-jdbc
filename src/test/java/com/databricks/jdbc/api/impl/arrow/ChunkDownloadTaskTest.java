@@ -172,6 +172,11 @@ public class ChunkDownloadTaskTest {
 
     when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
 
+    // Mock chunkLinkDownloadService.getLinkForChunk() in case the chunk link becomes invalid
+    CompletableFuture<ExternalLink> linkFuture =
+        CompletableFuture.completedFuture(mockExternalLink);
+    when(chunkLinkDownloadService.getLinkForChunk(anyLong())).thenReturn(linkFuture);
+
     // Create task with the spied chunk
     ChunkDownloadTask task =
         new ChunkDownloadTask(
@@ -183,14 +188,20 @@ public class ChunkDownloadTaskTest {
     // Verify HTTP client was called 3 times (2 failures + 1 success)
     verify(httpClient, times(3)).execute(any(HttpGet.class), eq(true));
 
-    // Verify status progression: DOWNLOAD_FAILED -> DOWNLOAD_RETRY -> DOWNLOAD_FAILED ->
-    // DOWNLOAD_RETRY -> DOWNLOAD_SUCCEEDED -> PROCESSING_SUCCEEDED
-    assertEquals(6, statusHistory.size());
-    assertEquals(ChunkStatus.DOWNLOAD_FAILED, statusHistory.get(0));
-    assertEquals(ChunkStatus.DOWNLOAD_RETRY, statusHistory.get(1)); // First retry
-    assertEquals(ChunkStatus.DOWNLOAD_FAILED, statusHistory.get(2));
-    assertEquals(ChunkStatus.DOWNLOAD_RETRY, statusHistory.get(3)); // Second retry
-    assertEquals(ChunkStatus.DOWNLOAD_SUCCEEDED, statusHistory.get(4)); // Download success
+    // Verify status progression includes link refetching:
+    // URL_FETCHED -> DOWNLOAD_FAILED -> DOWNLOAD_RETRY -> URL_FETCHED (refetch) ->
+    // DOWNLOAD_FAILED -> DOWNLOAD_RETRY -> URL_FETCHED (refetch) ->
+    // DOWNLOAD_SUCCEEDED -> PROCESSING_SUCCEEDED
+    assertEquals(9, statusHistory.size());
+    assertEquals(ChunkStatus.URL_FETCHED, statusHistory.get(0)); // Initial chunk link set
+    assertEquals(ChunkStatus.DOWNLOAD_FAILED, statusHistory.get(1));
+    assertEquals(ChunkStatus.DOWNLOAD_RETRY, statusHistory.get(2));
+    assertEquals(ChunkStatus.URL_FETCHED, statusHistory.get(3)); // Link refetched after retry
+    assertEquals(ChunkStatus.DOWNLOAD_FAILED, statusHistory.get(4));
+    assertEquals(ChunkStatus.DOWNLOAD_RETRY, statusHistory.get(5));
+    assertEquals(ChunkStatus.URL_FETCHED, statusHistory.get(6)); // Link refetched again
+    assertEquals(ChunkStatus.DOWNLOAD_SUCCEEDED, statusHistory.get(7)); // Download success
+    assertEquals(ChunkStatus.PROCESSING_SUCCEEDED, statusHistory.get(8)); // Processing success
 
     // The chunk should eventually reach PROCESSING_SUCCEEDED after parsing the Arrow data
     assertEquals(ChunkStatus.PROCESSING_SUCCEEDED, spiedChunk.getStatus());
