@@ -411,10 +411,9 @@ public class DatabricksThriftUtil {
           .map(e -> e.get(ARROW_METADATA_KEY))
           .collect(Collectors.toList());
     } catch (IOException e) {
-      throw new DatabricksSQLException(
-          "Failed to deserialize Arrow schema: " + e.getMessage(),
-          e,
-          DatabricksDriverErrorCode.RESULT_SET_ERROR);
+      String errorMessage = "Failed to deserialize Arrow schema: " + e.getMessage();
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.RESULT_SET_ERROR);
     }
   }
 }

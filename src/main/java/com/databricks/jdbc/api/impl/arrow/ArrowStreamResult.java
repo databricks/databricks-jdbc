@@ -365,17 +365,18 @@ public class ArrowStreamResult implements IExecutionResult {
     return chunkProvider.getChunkCount();
   }
 
-    /**
-     * Returns the chunk provider for testing purposes.
-     *
-     * @return the chunk provider
-     */
-    @VisibleForTesting
-    public ChunkProvider getChunkProvider() {
-        return chunkProvider;
-    }
+  /**
+   * Returns the chunk provider for testing purposes.
+   *
+   * @return the chunk provider
+   */
+  @VisibleForTesting
+  public ChunkProvider getChunkProvider() {
+    return chunkProvider;
+  }
 
-  private void setColumnInfo(TGetResultSetMetadataResp resultManifest) throws DatabricksSQLException {
+  private void setColumnInfo(TGetResultSetMetadataResp resultManifest)
+      throws DatabricksSQLException {
     columnInfos = new ArrayList<>();
     List<String> arrowMetadataList = DatabricksThriftUtil.getArrowMetadata(resultManifest);
     if (resultManifest.getSchema() == null) {
