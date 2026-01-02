@@ -8,6 +8,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.HeaderFactory;
@@ -57,10 +58,12 @@ public class OAuthRefreshCredentialsProviderTest {
                 "https://oauth.example.com/oidc/v1/authorize"));
     credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     when(context.getOAuthRefreshToken()).thenReturn(null);
+    when(databricksConfig.getHttpClient()).thenReturn(httpClient);
     OAuthRefreshCredentialsProvider providerWithNullRefreshToken =
         new OAuthRefreshCredentialsProvider(context, databricksConfig);
-    DatabricksException exception =
-        assertThrows(DatabricksException.class, providerWithNullRefreshToken::getToken);
+    providerWithNullRefreshToken.configure(databricksConfig);
+    DatabricksDriverException exception =
+        assertThrows(DatabricksDriverException.class, providerWithNullRefreshToken::getToken);
     assertEquals("oauth2: token expired and refresh token is not set", exception.getMessage());
   }
 

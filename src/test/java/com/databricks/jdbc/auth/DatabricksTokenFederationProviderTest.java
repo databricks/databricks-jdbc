@@ -2,6 +2,7 @@ package com.databricks.jdbc.auth;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -42,10 +43,10 @@ public class DatabricksTokenFederationProviderTest {
 
   @BeforeEach
   public void setUp() {
+    lenient().when(mockContext.getConnectionUuid()).thenReturn("test-uuid");
+    lenient().when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     databricksTokenFederationProvider =
-        spy(
-            new DatabricksTokenFederationProvider(
-                mockContext, mockCredentialsProvider, mockConfig));
+        spy(new DatabricksTokenFederationProvider(mockContext, mockCredentialsProvider));
   }
 
   @Test
@@ -89,11 +90,14 @@ public class DatabricksTokenFederationProviderTest {
 
   @Test
   public void testExchangeToken() throws Exception {
+    // Use the 4-parameter test constructor that sets the config field
     when(mockConfig.getHost()).thenReturn("https://host.com");
-    doReturn(testToken())
-        .when(databricksTokenFederationProvider)
-        .retrieveToken(any(), any(), any(), any());
-    Token exchangedToken = databricksTokenFederationProvider.exchangeToken("thirdPartyToken");
+    DatabricksTokenFederationProvider providerWithConfig =
+        spy(
+            new DatabricksTokenFederationProvider(
+                mockContext, mockCredentialsProvider, mockConfig));
+    doReturn(testToken()).when(providerWithConfig).retrieveToken(any(), any(), any(), any());
+    Token exchangedToken = providerWithConfig.exchangeToken("thirdPartyToken");
     assertEquals("tokenType", exchangedToken.getTokenType());
     assertEquals("accessToken", exchangedToken.getAccessToken());
     assertEquals("refreshToken", exchangedToken.getRefreshToken());

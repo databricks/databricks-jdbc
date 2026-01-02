@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Added token caching for all authentication providers to reduce token endpoint calls.
 
 ### Updated
 

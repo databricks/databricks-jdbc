@@ -6,6 +6,7 @@ import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.oauth.CachedTokenSource;
 import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.Token;
 import com.databricks.sdk.core.oauth.TokenSource;
@@ -51,8 +52,14 @@ public class AzureMSICredentials implements TokenSource {
   /** The client ID for user-assigned managed identity (null for system-assigned) */
   private final String clientId;
 
+  /** In-memory token cache for Databricks scope tokens */
+  private final CachedTokenSource databricksTokenCache;
+
+  /** In-memory token cache for management endpoint tokens */
+  private final CachedTokenSource managementTokenCache;
+
   /**
-   * Constructs a new AzureMSICredentials instance.
+   * Constructs a new AzureMSICredentials instance with token caching.
    *
    * @param hc The HTTP client to use for making token requests
    * @param clientId The client ID for user-assigned managed identity, or null for system-assigned
@@ -60,23 +67,33 @@ public class AzureMSICredentials implements TokenSource {
   AzureMSICredentials(IDatabricksHttpClient hc, String clientId) {
     this.hc = hc;
     this.clientId = clientId;
+
+    // Initialize in-memory token caches
+    TokenSource databricksRefreshLogic = () -> getTokenForResource(AZURE_DATABRICKS_SCOPE);
+    this.databricksTokenCache = new CachedTokenSource.Builder(databricksRefreshLogic).build();
+
+    TokenSource managementRefreshLogic = () -> getTokenForResource(AZURE_MANAGEMENT_ENDPOINT);
+    this.managementTokenCache = new CachedTokenSource.Builder(managementRefreshLogic).build();
   }
 
   /**
-   * Refreshes the Databricks access token.
+   * Retrieves the Databricks access token.
    *
-   * <p>This method is called automatically when the token expires or when a token is requested for
-   * the first time.
+   * <p>This method uses an in-memory cache for fast token retrieval. Tokens are refreshed
+   * automatically when expired.
    *
-   * @return A new Token object containing the refreshed access token
+   * @return A Token object containing the access token
    */
   @Override
   public Token getToken() {
-    return getTokenForResource(AZURE_DATABRICKS_SCOPE);
+    return databricksTokenCache.getToken();
   }
 
   /**
    * Retrieves a token for accessing the Azure Management endpoint.
+   *
+   * <p>This method uses an in-memory cache for fast token retrieval. Tokens are refreshed
+   * automatically when expired.
    *
    * <p>This token is used for operations that require access to Azure Resource Manager, such as
    * managing workspace resources.
@@ -84,7 +101,7 @@ public class AzureMSICredentials implements TokenSource {
    * @return A Token object containing the access token for the Azure Management endpoint
    */
   public Token getManagementEndpointToken() {
-    return getTokenForResource(AZURE_MANAGEMENT_ENDPOINT);
+    return managementTokenCache.getToken();
   }
 
   /**
