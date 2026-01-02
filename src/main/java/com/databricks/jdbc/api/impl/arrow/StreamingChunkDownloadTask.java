@@ -53,7 +53,7 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
           if (chunk.isChunkLinkInvalid()) {
             LOGGER.debug("Link invalid for chunk {}, refetching", chunk.getChunkIndex());
             ExternalLink freshLink =
-                linkFetcher.refetchLink(chunk.getChunkIndex(), chunk.getRowOffset());
+                linkFetcher.refetchLink(chunk.getChunkIndex(), chunk.getStartRowOffset());
             chunk.setChunkLink(freshLink);
           }
 

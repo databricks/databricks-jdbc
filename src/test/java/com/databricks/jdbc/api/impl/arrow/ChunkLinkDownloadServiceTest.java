@@ -56,14 +56,8 @@ class ChunkLinkDownloadServiceTest {
     when(mockSession.getDatabricksClient()).thenReturn(mockClient);
 
     // Mock the response to link requests
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(1L), eq(0L)))
+    when(mockClient.getResultChunks(eq(mockStatementId), eq(1L), anyLong()))
         .thenReturn(buildChunkLinkFetchResult(Collections.singletonList(linkForChunkIndex_1)));
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(2L), eq(0L)))
-        .thenReturn(buildChunkLinkFetchResult(Collections.singletonList(linkForChunkIndex_2)));
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(3L), eq(0L)))
-        .thenReturn(buildChunkLinkFetchResult(Collections.singletonList(linkForChunkIndex_3)));
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(4L), eq(0L)))
-        .thenReturn(buildChunkLinkFetchResult(Collections.singletonList(linkForChunkIndex_4)));
 
     long chunkIndex = 1L;
     when(mockChunkMap.get(chunkIndex)).thenReturn(mock(ArrowResultChunk.class));
@@ -135,16 +129,13 @@ class ChunkLinkDownloadServiceTest {
   void testAutoTriggerForSEAClient() throws DatabricksSQLException, InterruptedException {
     when(mockSession.getDatabricksClient()).thenReturn(mockClient);
     // Mock the response to link requests
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(1L), eq(0L)))
+    when(mockClient.getResultChunks(eq(mockStatementId), eq(1L), anyLong()))
         .thenReturn(buildChunkLinkFetchResult(Collections.singletonList(linkForChunkIndex_1)));
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(2L), eq(0L)))
-        .thenReturn(buildChunkLinkFetchResult(Collections.singletonList(linkForChunkIndex_2)));
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(3L), eq(0L)))
-        .thenReturn(buildChunkLinkFetchResult(Collections.singletonList(linkForChunkIndex_3)));
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(4L), eq(0L)))
-        .thenReturn(buildChunkLinkFetchResult(Collections.singletonList(linkForChunkIndex_4)));
     // Download chain will be triggered immediately in the constructor
     when(mockSession.getConnectionContext().getClientType()).thenReturn(DatabricksClientType.SEA);
+
+    long chunkIndex = 1L;
+    when(mockChunkMap.get(chunkIndex)).thenReturn(mock(ArrowResultChunk.class));
 
     new ChunkLinkDownloadService<>(
         mockSession, mockStatementId, TOTAL_CHUNKS, mockChunkMap, NEXT_BATCH_START_INDEX);
@@ -168,12 +159,6 @@ class ChunkLinkDownloadServiceTest {
     when(mockClient.getResultChunks(eq(mockStatementId), eq(1L), anyLong()))
         .thenReturn(
             buildChunkLinkFetchResult(Collections.singletonList(expiredLinkForChunkIndex_1)));
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(2L), anyLong()))
-        .thenReturn(buildChunkLinkFetchResult(Collections.singletonList(linkForChunkIndex_2)));
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(3L), anyLong()))
-        .thenReturn(buildChunkLinkFetchResult(Collections.singletonList(linkForChunkIndex_3)));
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(4L), anyLong()))
-        .thenReturn(buildChunkLinkFetchResult(Collections.singletonList(linkForChunkIndex_4)));
 
     long chunkIndex = 1L;
     ArrowResultChunk mockChunk = mock(ArrowResultChunk.class);
@@ -188,7 +173,7 @@ class ChunkLinkDownloadServiceTest {
     TimeUnit.MILLISECONDS.sleep(500);
 
     // Mock a new valid link for chunk index 1
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(1L), eq(0L)))
+    when(mockClient.getResultChunks(eq(mockStatementId), eq(1L), anyLong()))
         .thenReturn(buildChunkLinkFetchResult(Collections.singletonList(linkForChunkIndex_1)));
     // Try to get the link for chunk index 1. Download chain will be re-triggered because the link
     // is expired
@@ -225,15 +210,15 @@ class ChunkLinkDownloadServiceTest {
     when(mockSession.getDatabricksClient()).thenReturn(mockClient);
     // Mock the links for the first batch. The link futures for both chunks will be completed at the
     // same time
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(1L), eq(0L)))
+    when(mockClient.getResultChunks(eq(mockStatementId), eq(1L), anyLong()))
         .thenReturn(
             buildChunkLinkFetchResult(Arrays.asList(linkForChunkIndex_1, linkForChunkIndex_2)));
     // Mock the links for the second batch.
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(3L), eq(0L)))
+    when(mockClient.getResultChunks(eq(mockStatementId), eq(3L), anyLong()))
         .thenReturn(
             buildChunkLinkFetchResult(Arrays.asList(linkForChunkIndex_3, linkForChunkIndex_4)));
     // Mock the links for the third batch.
-    when(mockClient.getResultChunks(eq(mockStatementId), eq(5L), eq(0L)))
+    when(mockClient.getResultChunks(eq(mockStatementId), eq(5L), anyLong()))
         .thenReturn(
             buildChunkLinkFetchResult(Arrays.asList(linkForChunkIndex_5, linkForChunkIndex_6)));
 

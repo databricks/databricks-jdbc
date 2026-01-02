@@ -59,6 +59,7 @@ public final class DatabricksJdbcConstants {
   public static final String SCHEMA = "schema";
   public static final String TABLE = "table";
   public static final String USER_NAME = "User";
+  public static final String USER_HOME_PROPERTY = "user.home";
   public static final String PORT = "port";
   public static final int DEFAULT_PORT = 443;
   public static final String THRIFT_ERROR_MESSAGE_HEADER = "X-Thriftserver-Error-Message";

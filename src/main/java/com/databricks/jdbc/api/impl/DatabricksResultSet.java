@@ -6,6 +6,8 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IExecutionStatus;
+import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
+import com.databricks.jdbc.api.impl.arrow.ChunkProvider;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.GeospatialConverter;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
@@ -39,6 +41,7 @@ import java.time.*;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
 import org.apache.http.entity.InputStreamEntity;
 
@@ -1984,6 +1987,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return bigDecimal;
     }
     return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
+  }
+
+  @VisibleForTesting
+  public Optional<ChunkProvider> getChunkProvider() {
+    if (executionResult instanceof ArrowStreamResult) {
+      return Optional.ofNullable(((ArrowStreamResult) executionResult).getChunkProvider());
+    }
+    return Optional.empty();
   }
 
   @Override

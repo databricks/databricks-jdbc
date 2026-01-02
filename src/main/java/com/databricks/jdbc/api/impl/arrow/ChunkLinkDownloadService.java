@@ -4,6 +4,7 @@ import static com.databricks.jdbc.api.impl.arrow.ArrowResultChunk.SECONDS_BUFFER
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -214,15 +215,18 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
       return;
     }
 
+    // Calculate row offset for this batch
+    final long batchStartRowOffset = getChunkStartRowOffset(batchStartIndex);
+
     LOGGER.info("Starting batch download from index {}", batchStartIndex);
     currentDownloadTask =
         CompletableFuture.runAsync(
             () -> {
               try {
-                // rowOffset is 0 here as this service is used by RemoteChunkProvider (SEA-only)
-                // which fetches by chunkIndex, not rowOffset
                 ChunkLinkFetchResult result =
-                    session.getDatabricksClient().getResultChunks(statementId, batchStartIndex, 0);
+                    session
+                        .getDatabricksClient()
+                        .getResultChunks(statementId, batchStartIndex, batchStartRowOffset);
                 LOGGER.info(
                     "Retrieved {} links for batch starting at {} for statement id {}",
                     result.getChunkLinks().size(),
@@ -418,11 +422,39 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
     isDownloadChainStarted.set(false);
   }
 
+  /**
+   * Gets the start row offset for a given chunk index.
+   *
+   * @param chunkIndex the chunk index to get the row offset for
+   * @return the start row offset for the chunk
+   */
+  private long getChunkStartRowOffset(long chunkIndex) {
+    T chunk = chunkIndexToChunksMap.get(chunkIndex);
+    if (chunk == null) {
+      // Should never happen.
+      throw new IllegalStateException(
+          "Chunk not found in map for index "
+              + chunkIndex
+              + ". "
+              + "Total chunks: "
+              + totalChunks
+              + ", StatementId: "
+              + statementId);
+    }
+    return chunk.getStartRowOffset();
+  }
+
   private boolean isChunkLinkExpired(ExternalLink link) {
     if (link == null || link.getExpiration() == null) {
       LOGGER.warn("Link or expiration is null, assuming link is expired");
       return true;
     }
+
+    // Skip expiry check when running against fake service (tests)
+    if (DriverUtil.isRunningAgainstFake()) {
+      return false;
+    }
+
     Instant expirationWithBuffer =
         Instant.parse(link.getExpiration()).minusSeconds(SECONDS_BUFFER_FOR_EXPIRY);
 

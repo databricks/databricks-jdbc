@@ -371,8 +371,7 @@ public class DatabricksThriftServiceClientTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
-    when(thriftAccessor.fetchResultsWithAbsoluteOffset(any(), anyLong(), any()))
-        .thenReturn(response);
+    when(thriftAccessor.fetchResultsWithAbsoluteOffset(any(), anyLong())).thenReturn(response);
     when(resultData.getResultLinks())
         .thenReturn(
             Collections.singletonList(new TSparkArrowResultLink().setFileLink(TEST_STRING)));
@@ -392,12 +391,42 @@ public class DatabricksThriftServiceClientTest {
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
             .setResults(resultData)
             .setResultSetMetadata(resultMetadataData);
-    when(thriftAccessor.fetchResultsWithAbsoluteOffset(any(), anyLong(), any()))
-        .thenReturn(response);
+    when(thriftAccessor.fetchResultsWithAbsoluteOffset(any(), anyLong())).thenReturn(response);
     when(resultData.getResultLinks()).thenReturn(null);
     ChunkLinkFetchResult result = client.getResultChunks(TEST_STMT_ID, 0, 0);
     assertTrue(result.isEndOfStream());
     assertEquals(0, result.getChunkLinks().size());
+  }
+
+  @Test
+  void testGetResultChunksRowOffsetMismatchThrowsException() throws SQLException {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+
+    long requestedStartRowOffset = 1000L;
+    long actualStartRowOffset = 500L;
+
+    TSparkArrowResultLink resultLink =
+        new TSparkArrowResultLink()
+            .setFileLink(TEST_STRING)
+            .setStartRowOffset(actualStartRowOffset)
+            .setRowCount(100)
+            .setBytesNum(1024)
+            .setExpiryTime(System.currentTimeMillis() + 3600000);
+
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setHasMoreRows(false)
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(thriftAccessor.fetchResultsWithAbsoluteOffset(any(), eq(requestedStartRowOffset)))
+        .thenReturn(response);
+    when(resultData.getResultLinks()).thenReturn(Collections.singletonList(resultLink));
+
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> client.getResultChunks(TEST_STMT_ID, 5, requestedStartRowOffset));
   }
 
   @Test

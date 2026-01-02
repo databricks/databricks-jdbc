@@ -12,6 +12,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.oauth.CachedTokenSource;
 import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.Token;
 import com.databricks.sdk.core.oauth.TokenSource;
@@ -130,6 +131,12 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
   private final String jwtKeyPassphrase;
   private final JWSAlgorithm jwtAlgorithm;
 
+  // Cache the parsed private key to avoid repeated file I/O
+  private final PrivateKey privateKey;
+
+  // In-memory token cache
+  private final CachedTokenSource cachedTokenSource;
+
   private JwtPrivateKeyClientCredentials(
       IDatabricksHttpClient hc,
       String clientId,
@@ -147,10 +154,28 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
     this.jwtAlgorithm = determineSignatureAlgorithm(jwtAlgorithm);
     this.tokenUrl = tokenUrl;
     this.scopes = scopes;
+
+    // Load and cache the private key once during construction
+    this.privateKey = loadPrivateKey();
+
+    // Initialize in-memory token cache
+    TokenSource refreshLogic = this::generateToken;
+    this.cachedTokenSource = new CachedTokenSource.Builder(refreshLogic).build();
   }
 
   @Override
   public Token getToken() {
+    return cachedTokenSource.getToken();
+  }
+
+  /**
+   * Generates a new JWT M2M token. This method is wrapped by CachedTokenSource for in-memory
+   * caching.
+   */
+  private Token generateToken() {
+    LOGGER.debug("Generating new JWT M2M token");
+
+    // Generate new JWT and retrieve token
     Map<String, String> params = new HashMap<>();
     params.put("grant_type", "client_credentials");
     if (scopes != null) {
@@ -161,7 +186,11 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
     if (DriverUtil.isRunningAgainstFake()) {
       params.put("client_assertion", "my-private-key");
     }
-    return retrieveToken(hc, tokenUrl, params, new HashMap<>());
+
+    Token newToken = retrieveToken(hc, tokenUrl, params, new HashMap<>());
+    LOGGER.debug("Successfully generated new JWT M2M token");
+
+    return newToken;
   }
 
   @VisibleForTesting
@@ -193,8 +222,8 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
   }
 
   private String getSerialisedSignedJWT() {
-    PrivateKey privateKey = getPrivateKey();
-    SignedJWT signedJWT = fetchSignedJWT(privateKey);
+    // Use the cached private key instead of reading from file
+    SignedJWT signedJWT = fetchSignedJWT(this.privateKey);
     return signedJWT.serialize();
   }
 
@@ -235,7 +264,14 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
     }
   }
 
-  private PrivateKey getPrivateKey() {
+  /**
+   * Loads the private key from file once during construction. The key is cached to avoid repeated
+   * file I/O operations.
+   *
+   * @return The parsed PrivateKey
+   * @throws DatabricksException if the key cannot be loaded or parsed
+   */
+  private PrivateKey loadPrivateKey() {
     try (Reader reader = new FileReader(jwtKeyFile);
         PEMParser pemParser = new PEMParser(reader)) {
       Object object = pemParser.readObject();

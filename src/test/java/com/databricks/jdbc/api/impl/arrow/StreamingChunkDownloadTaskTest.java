@@ -13,6 +13,8 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.SocketException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -129,7 +131,7 @@ public class StreamingChunkDownloadTaskTest {
   void testLinkRefreshWhenLinkIsInvalid() throws Exception {
     when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
     when(chunk.getChunkIndex()).thenReturn(5L);
-    when(chunk.getRowOffset()).thenReturn(100L);
+    when(chunk.getStartRowOffset()).thenReturn(100L);
 
     // First call: link is invalid, second call: link is valid
     when(chunk.isChunkLinkInvalid()).thenReturn(true, false);
@@ -156,7 +158,7 @@ public class StreamingChunkDownloadTaskTest {
   void testLinkRefreshFailureAndRetry() throws Exception {
     when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
     when(chunk.getChunkIndex()).thenReturn(5L);
-    when(chunk.getRowOffset()).thenReturn(100L);
+    when(chunk.getStartRowOffset()).thenReturn(100L);
     when(chunk.isChunkLinkInvalid()).thenReturn(true, true, false);
 
     ExternalLink freshLink = mock(ExternalLink.class);
@@ -186,7 +188,9 @@ public class StreamingChunkDownloadTaskTest {
     ExternalLink mockExternalLink = mock(ExternalLink.class);
     when(mockExternalLink.getExternalLink()).thenReturn("https://test-url.com/chunk");
     when(mockExternalLink.getHttpHeaders()).thenReturn(Collections.emptyMap());
-    when(mockExternalLink.getExpiration()).thenReturn("2025-12-31T23:59:59Z");
+
+    Instant expiry = Instant.now().plus(1, ChronoUnit.DAYS);
+    when(mockExternalLink.getExpiration()).thenReturn(expiry.toString());
 
     ArrowResultChunk realChunk =
         ArrowResultChunk.builder()

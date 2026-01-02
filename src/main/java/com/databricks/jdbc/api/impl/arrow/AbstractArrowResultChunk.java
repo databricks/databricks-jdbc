@@ -117,11 +117,11 @@ public abstract class AbstractArrowResultChunk {
   }
 
   /**
-   * Returns the starting row offset for this chunk.
+   * Returns the start row offset of this chunk in the overall result set.
    *
-   * @return the row offset
+   * @return row offset
    */
-  public long getRowOffset() {
+  public long getStartRowOffset() {
     return rowOffset;
   }
 
@@ -154,6 +154,10 @@ public abstract class AbstractArrowResultChunk {
     setStatus(ChunkStatus.CHUNK_RELEASED);
 
     return true;
+  }
+
+  public ExternalLink getChunkLink() {
+    return chunkLink;
   }
 
   /**

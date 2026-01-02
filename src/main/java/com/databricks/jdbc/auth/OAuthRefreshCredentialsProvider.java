@@ -7,15 +7,17 @@ import static com.databricks.sdk.core.oauth.TokenEndpointClient.retrieveToken;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DatabricksAuthUtil;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
-import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.HeaderFactory;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.oauth.AuthParameterPosition;
+import com.databricks.sdk.core.oauth.CachedTokenSource;
 import com.databricks.sdk.core.oauth.Token;
 import com.databricks.sdk.core.oauth.TokenSource;
 import java.time.Duration;
@@ -27,11 +29,13 @@ import org.apache.http.HttpHeaders;
 public class OAuthRefreshCredentialsProvider implements TokenSource, CredentialsProvider {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(OAuthRefreshCredentialsProvider.class);
+
   private HttpClient hc;
   private final String tokenEndpoint;
   private final String clientId;
   private final String clientSecret;
   private final Token token;
+  private CachedTokenSource cachedTokenSource;
 
   public OAuthRefreshCredentialsProvider(
       IDatabricksConnectionContext context, DatabricksConfig databricksConfig) {
@@ -41,7 +45,8 @@ public class OAuthRefreshCredentialsProvider implements TokenSource, Credentials
     } catch (DatabricksParsingException e) {
       String exceptionMessage = "Failed to parse client id";
       LOGGER.error(exceptionMessage);
-      throw new DatabricksException(exceptionMessage, e);
+      throw new DatabricksDriverException(
+          exceptionMessage, e, DatabricksDriverErrorCode.AUTH_ERROR);
     }
     this.clientSecret = context.getClientSecret();
     // Create an expired dummy token object with the refresh token to use
@@ -63,34 +68,64 @@ public class OAuthRefreshCredentialsProvider implements TokenSource, Credentials
     if (this.hc == null) {
       this.hc = databricksConfig.getHttpClient();
     }
+
+    // Initialize CachedTokenSource if not already done
+    if (this.cachedTokenSource == null) {
+      TokenSource refreshLogic = this::refreshToken;
+      this.cachedTokenSource = new CachedTokenSource.Builder(refreshLogic).build();
+    }
+
     return () -> {
       Map<String, String> headers = new HashMap<>();
+      Token token = getToken();
       // An example header looks like: "Authorization: Bearer <access-token>"
-      headers.put(
-          HttpHeaders.AUTHORIZATION, getToken().getTokenType() + " " + getToken().getAccessToken());
+      headers.put(HttpHeaders.AUTHORIZATION, token.getTokenType() + " " + token.getAccessToken());
       return headers;
     };
   }
 
   @Override
   public Token getToken() {
+    if (this.cachedTokenSource == null) {
+      throw new DatabricksDriverException(
+          "CachedTokenSource not initialized. Call configure() first.",
+          DatabricksDriverErrorCode.AUTH_ERROR);
+    }
+    return cachedTokenSource.getToken();
+  }
+
+  /**
+   * Performs the actual token refresh operation. This method is wrapped by CachedTokenSource for
+   * in-memory caching.
+   */
+  private Token refreshToken() {
+    LOGGER.debug("Refreshing OAuth token");
+
+    // Validate refresh token is available
     if (this.token == null) {
       String exceptionMessage = "oauth2: token is not set";
       LOGGER.error(exceptionMessage);
-      throw new DatabricksException(exceptionMessage);
+      throw new DatabricksDriverException(exceptionMessage, DatabricksDriverErrorCode.AUTH_ERROR);
     }
     String refreshToken = this.token.getRefreshToken();
     if (refreshToken == null) {
       String exceptionMessage = "oauth2: token expired and refresh token is not set";
       LOGGER.error(exceptionMessage);
-      throw new DatabricksException(exceptionMessage);
+      throw new DatabricksDriverException(exceptionMessage, DatabricksDriverErrorCode.AUTH_ERROR);
     }
 
+    // Build request parameters
     Map<String, String> params = new HashMap<>();
     params.put(GRANT_TYPE_KEY, GRANT_TYPE_REFRESH_TOKEN_KEY);
     params.put(GRANT_TYPE_REFRESH_TOKEN_KEY, refreshToken);
     Map<String, String> headers = new HashMap<>();
-    return retrieveToken(
-        hc, clientId, clientSecret, tokenEndpoint, params, headers, AuthParameterPosition.BODY);
+
+    // Retrieve new token
+    Token newToken =
+        retrieveToken(
+            hc, clientId, clientSecret, tokenEndpoint, params, headers, AuthParameterPosition.BODY);
+
+    LOGGER.debug("Successfully refreshed OAuth token");
+    return newToken;
   }
 }
