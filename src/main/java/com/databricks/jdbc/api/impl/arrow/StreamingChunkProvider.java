@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -60,7 +61,7 @@ public class StreamingChunkProvider implements ChunkProvider {
   private final CompressionCodec compressionCodec;
   private final StatementId statementId;
   private final double cloudFetchSpeedThreshold;
-  private final com.databricks.jdbc.api.internal.IDatabricksConnectionContext connectionContext;
+  private final IDatabricksConnectionContext connectionContext;
 
   // Chunk storage
   private final ConcurrentMap<Long, ArrowResultChunk> chunks = new ConcurrentHashMap<>();
@@ -126,7 +127,7 @@ public class StreamingChunkProvider implements ChunkProvider {
       int linkPrefetchWindow,
       int chunkReadyTimeoutSeconds,
       double cloudFetchSpeedThreshold,
-      com.databricks.jdbc.api.internal.IDatabricksConnectionContext connectionContext,
+      IDatabricksConnectionContext connectionContext,
       ChunkLinkFetchResult initialLinks)
       throws DatabricksParsingException {
 

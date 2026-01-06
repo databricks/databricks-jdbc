@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExterna
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.getStatementIdString;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DecompressionUtil;
@@ -28,7 +29,7 @@ import org.apache.http.client.utils.URIBuilder;
 
 public class ArrowResultChunk extends AbstractArrowResultChunk {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunk.class);
-  private final com.databricks.jdbc.api.internal.IDatabricksConnectionContext connectionContext;
+  private final IDatabricksConnectionContext connectionContext;
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
     super(
@@ -184,15 +185,14 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     private InputStream inputStream;
     private int chunkReadyTimeoutSeconds =
         Integer.parseInt(DatabricksJdbcUrlParams.CHUNK_READY_TIMEOUT_SECONDS.getDefaultValue());
-    private com.databricks.jdbc.api.internal.IDatabricksConnectionContext connectionContext;
+    private IDatabricksConnectionContext connectionContext;
 
     public Builder withStatementId(StatementId statementId) {
       this.statementId = statementId;
       return this;
     }
 
-    public Builder withConnectionContext(
-        com.databricks.jdbc.api.internal.IDatabricksConnectionContext connectionContext) {
+    public Builder withConnectionContext(IDatabricksConnectionContext connectionContext) {
       this.connectionContext = connectionContext;
       return this;
     }

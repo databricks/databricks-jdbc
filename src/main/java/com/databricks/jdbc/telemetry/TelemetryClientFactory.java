@@ -12,13 +12,13 @@ import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class TelemetryClientFactory {
 
@@ -93,13 +93,15 @@ public class TelemetryClientFactory {
                             getTelemetryExecutorService(),
                             getSharedSchedulerService(),
                             databricksConfig),
-                        1);
+                        connectionContext.getConnectionUuid());
                   } catch (Exception e) {
                     // Validation or other errors during client creation - fail silently
+                    LOGGER.trace("Skipping telemetry, client creation failed {}", e);
                     return null;
                   }
                 }
-                existing.refCount.incrementAndGet();
+                // Track this unique connection
+                existing.connectionUuids.add(connectionContext.getConnectionUuid());
                 return existing;
               });
       return holder != null ? holder.client : NoopTelemetryClient.getInstance();
@@ -117,14 +119,15 @@ public class TelemetryClientFactory {
                           connectionContext,
                           getTelemetryExecutorService(),
                           getSharedSchedulerService()),
-                      1);
+                      connectionContext.getConnectionUuid());
                 } catch (Exception e) {
                   // Validation or other errors during client creation - fail silently
-                  LOGGER.trace("Skipping telemetry, client creation failed {}", e);
+                  LOGGER.trace("Skipping no-auth telemetry, client creation failed {}", e);
                   return null;
                 }
               }
-              existing.refCount.incrementAndGet();
+              // Track this unique connection
+              existing.connectionUuids.add(connectionContext.getConnectionUuid());
               return existing;
             });
     return holder != null ? holder.client : NoopTelemetryClient.getInstance();
@@ -132,24 +135,25 @@ public class TelemetryClientFactory {
 
   public void closeTelemetryClient(IDatabricksConnectionContext connectionContext) {
     String key = TelemetryHelper.keyOf(connectionContext);
+    String connectionUuid = connectionContext.getConnectionUuid();
     telemetryClientHolders.computeIfPresent(
         key,
         (k, holder) -> {
-          if (holder.refCount.get() <= 1) {
+          holder.connectionUuids.remove(connectionUuid);
+          if (holder.connectionUuids.isEmpty()) {
             closeTelemetryClient(holder.client, "telemetry client");
             return null;
           }
-          holder.refCount.decrementAndGet();
           return holder;
         });
     noauthTelemetryClientHolders.computeIfPresent(
         key,
         (k, holder) -> {
-          if (holder.refCount.get() <= 1) {
+          holder.connectionUuids.remove(connectionUuid);
+          if (holder.connectionUuids.isEmpty()) {
             closeTelemetryClient(holder.client, "unauthenticated telemetry client");
             return null;
           }
-          holder.refCount.decrementAndGet();
           return holder;
         });
 
@@ -237,11 +241,12 @@ public class TelemetryClientFactory {
 
   private static final class TelemetryClientHolder {
     final TelemetryClient client;
-    final AtomicInteger refCount;
+    final Set<String> connectionUuids; // Track unique connections
 
-    TelemetryClientHolder(TelemetryClient client, int initialCount) {
+    TelemetryClientHolder(TelemetryClient client, String connectionUuid) {
       this.client = client;
-      this.refCount = new AtomicInteger(initialCount);
+      this.connectionUuids = ConcurrentHashMap.newKeySet();
+      this.connectionUuids.add(connectionUuid);
     }
   }
 

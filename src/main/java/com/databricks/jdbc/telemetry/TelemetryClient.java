@@ -36,6 +36,12 @@ public class TelemetryClient implements ITelemetryClient {
     this.context = connectionContext;
     this.databricksConfig = config;
     this.executorService = executorService;
+    /*
+     * The scheduledExecutorService is shared across all telemetry clients and only schedules
+     * periodic flush checks. The actual flush work (network I/O) is submitted asynchronously
+     * to the executorService (10-thread pool), so a slow flush on one statement does not block
+     * flushes for other statements as long as worker threads are available in the pool.
+     */
     this.scheduledExecutorService = scheduledExecutorService;
     this.flushIntervalMillis =
         Math.max(
