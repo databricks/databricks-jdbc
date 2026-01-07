@@ -302,17 +302,18 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
 
   @Override
   public ChunkLinkFetchResult getResultChunks(
-      StatementId statementId, long chunkIndex, long rowOffset) throws DatabricksSQLException {
+      StatementId statementId, long chunkIndex, long chunkStartRowOffset)
+      throws DatabricksSQLException {
     // Thrift uses rowOffset with FETCH_ABSOLUTE; chunkIndex is used for link metadata
     LOGGER.debug(
         "getResultChunks(statementId={}, chunkIndex={}, rowOffset={}) using Thrift client",
         statementId,
         chunkIndex,
-        rowOffset);
+        chunkStartRowOffset);
 
     TFetchResultsResp fetchResultsResp =
         thriftAccessor.fetchResultsWithAbsoluteOffset(
-            getOperationHandle(statementId), rowOffset, "getResultChunks");
+            getOperationHandle(statementId), chunkStartRowOffset);
 
     boolean hasMoreRows = fetchResultsResp.hasMoreRows;
     List<TSparkArrowResultLink> resultLinks = fetchResultsResp.getResults().getResultLinks();
@@ -322,12 +323,13 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
           "No result links returned for statement {}, hasMoreRows={}", statementId, hasMoreRows);
       // For Thrift, hasMoreRows is the source of truth. Even with no links,
       // if hasMoreRows is true, we should indicate continuation with the same offset.
-      return ChunkLinkFetchResult.of(new ArrayList<>(), hasMoreRows, chunkIndex, rowOffset);
+      return ChunkLinkFetchResult.of(
+          new ArrayList<>(), hasMoreRows, chunkIndex, chunkStartRowOffset);
     }
 
     List<ExternalLink> chunkLinks = new ArrayList<>();
     int lastIndex = resultLinks.size() - 1;
-    long nextRowOffset = rowOffset;
+    long nextRowOffset = chunkStartRowOffset;
     long nextFetchIndex = chunkIndex;
 
     for (int linkIndex = 0; linkIndex < resultLinks.size(); linkIndex++) {
@@ -350,6 +352,15 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       }
 
       chunkLinks.add(externalLink);
+    }
+
+    if (chunkLinks.get(0).getRowOffset() != chunkStartRowOffset) {
+      String error =
+          "Chunk start row offset mismatch expected="
+              + chunkStartRowOffset
+              + " actual="
+              + chunkLinks.get(0).getRowOffset();
+      throw new DatabricksSQLException(error, DatabricksDriverErrorCode.INVALID_STATE);
     }
 
     LOGGER.debug(

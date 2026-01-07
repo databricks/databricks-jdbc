@@ -40,9 +40,10 @@ import org.junit.jupiter.api.*;
 public class TransactionTests {
 
   // Configuration from environment variables
-  private static final String DATABRICKS_HOST = "e2-dogfood.staging.cloud.databricks.com";
+  private static final String DATABRICKS_HOST =
+      "benchmarking-staging-aws-aux8.staging.cloud.databricks.com";
   private static final String DATABRICKS_TOKEN = "token";
-  private static final String DATABRICKS_HTTP_PATH = "sql/1.0/warehouses/58aa1b363649e722";
+  private static final String DATABRICKS_HTTP_PATH = "sql/1.0/warehouses/275c4479d5d48ce8";
   private static final String DATABRICKS_CATALOG = "main";
   private static final String DATABRICKS_SCHEMA = "default";
 
@@ -70,7 +71,7 @@ public class TransactionTests {
             + fullyQualifiedTableName
             + " (id INT, value VARCHAR(255)) "
             + "USING DELTA "
-            + "TBLPROPERTIES ('delta.feature.catalogOwned-preview' = 'supported')");
+            + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
     stmt.close();
   }
 
@@ -574,7 +575,7 @@ public class TransactionTests {
             + fullyQualifiedTable2Name
             + " (id INT, category VARCHAR(255)) "
             + "USING DELTA "
-            + "TBLPROPERTIES ('delta.feature.catalogOwned-preview' = 'supported')");
+            + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
     stmt.close();
 
     try {
@@ -646,7 +647,7 @@ public class TransactionTests {
             + fullyQualifiedTable2Name
             + " (id INT, category VARCHAR(255)) "
             + "USING DELTA "
-            + "TBLPROPERTIES ('delta.feature.catalogOwned-preview' = 'supported')");
+            + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
     stmt.close();
 
     try {
@@ -722,7 +723,7 @@ public class TransactionTests {
             + fullyQualifiedTable2Name
             + " (id INT, category VARCHAR(255)) "
             + "USING DELTA "
-            + "TBLPROPERTIES ('delta.feature.catalogOwned-preview' = 'supported')");
+            + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
     stmt.close();
 
     try {
@@ -795,7 +796,7 @@ public class TransactionTests {
             + fullyQualifiedSourceTable
             + " (id INT, value VARCHAR(255)) "
             + "USING DELTA "
-            + "TBLPROPERTIES ('delta.feature.catalogOwned-preview' = 'supported')");
+            + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
 
     // Create target table
     stmt.execute("DROP TABLE IF EXISTS " + fullyQualifiedTargetTable);
@@ -804,7 +805,7 @@ public class TransactionTests {
             + fullyQualifiedTargetTable
             + " (id INT, value VARCHAR(255)) "
             + "USING DELTA "
-            + "TBLPROPERTIES ('delta.feature.catalogOwned-preview' = 'supported')");
+            + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
 
     // Insert initial data
     stmt.execute(
@@ -873,7 +874,7 @@ public class TransactionTests {
             + fullyQualifiedTable2Name
             + " (id INT, category VARCHAR(255)) "
             + "USING DELTA "
-            + "TBLPROPERTIES ('delta.feature.catalogOwned-preview' = 'supported')");
+            + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
 
     // Insert initial data
     stmt.execute(
@@ -996,7 +997,7 @@ public class TransactionTests {
             + fullyQualifiedCheckingTable
             + " (account_id INT, balance INT) "
             + "USING DELTA "
-            + "TBLPROPERTIES ('delta.feature.catalogOwned-preview' = 'supported')");
+            + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
     setupStmt.execute("INSERT INTO " + fullyQualifiedCheckingTable + " VALUES (1, 100)");
 
     // Create savings account table
@@ -1006,7 +1007,7 @@ public class TransactionTests {
             + fullyQualifiedSavingsTable
             + " (account_id INT, balance INT) "
             + "USING DELTA "
-            + "TBLPROPERTIES ('delta.feature.catalogOwned-preview' = 'supported')");
+            + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
     setupStmt.execute("INSERT INTO " + fullyQualifiedSavingsTable + " VALUES (1, 100)");
 
     setupStmt.close();
@@ -1163,7 +1164,7 @@ public class TransactionTests {
             + fullyQualifiedAccountsTable
             + " (account_id INT, balance INT) "
             + "USING DELTA "
-            + "TBLPROPERTIES ('delta.feature.catalogOwned-preview' = 'supported')");
+            + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
 
     // Insert initial data: Two rows
     setupStmt.execute("INSERT INTO " + fullyQualifiedAccountsTable + " VALUES (1, 100), (2, 100)");

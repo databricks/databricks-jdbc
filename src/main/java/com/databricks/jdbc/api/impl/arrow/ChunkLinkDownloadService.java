@@ -215,15 +215,18 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
       return;
     }
 
+    // Calculate row offset for this batch
+    final long batchStartRowOffset = getChunkStartRowOffset(batchStartIndex);
+
     LOGGER.info("Starting batch download from index {}", batchStartIndex);
     currentDownloadTask =
         CompletableFuture.runAsync(
             () -> {
               try {
-                // rowOffset is 0 here as this service is used by RemoteChunkProvider (SEA-only)
-                // which fetches by chunkIndex, not rowOffset
                 ChunkLinkFetchResult result =
-                    session.getDatabricksClient().getResultChunks(statementId, batchStartIndex, 0);
+                    session
+                        .getDatabricksClient()
+                        .getResultChunks(statementId, batchStartIndex, batchStartRowOffset);
                 LOGGER.info(
                     "Retrieved {} links for batch starting at {} for statement id {}",
                     result.getChunkLinks().size(),
@@ -417,6 +420,28 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
     nextBatchStartIndex.set(startIndex);
     isDownloadInProgress.set(false);
     isDownloadChainStarted.set(false);
+  }
+
+  /**
+   * Gets the start row offset for a given chunk index.
+   *
+   * @param chunkIndex the chunk index to get the row offset for
+   * @return the start row offset for the chunk
+   */
+  private long getChunkStartRowOffset(long chunkIndex) {
+    T chunk = chunkIndexToChunksMap.get(chunkIndex);
+    if (chunk == null) {
+      // Should never happen.
+      throw new IllegalStateException(
+          "Chunk not found in map for index "
+              + chunkIndex
+              + ". "
+              + "Total chunks: "
+              + totalChunks
+              + ", StatementId: "
+              + statementId);
+    }
+    return chunk.getStartRowOffset();
   }
 
   private boolean isChunkLinkExpired(ExternalLink link) {

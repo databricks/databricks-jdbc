@@ -1,0 +1,35 @@
+{
+  "id" : "b5612470-09ce-4e6b-b413-c4bf6c48601d",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAAAxGZXRjaFJlc3VsdHMAAAAKDAABDAABDAABCwABAAAAEIC3dQ8yO07IpXjM6IVSu1gLAAIAAAAQiWX788MERfeM5ug7ZFos+wAIAAIAAAAIAgADAAAIAAIAAAAACgADAAAAAAAehIAGAAQAAAoFAQAAAAAYIaMACgUCAAAAAABZtz8AAA=="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAAAxGZXRjaFJlc3VsdHMAAAAKDAAADAABCAABAAAAAAACAAIADAADCgABAAAAAABZtz8PAAIMAAAAAA8FAgwAAAABCwABAAAGT2h0dHBzOi8vZTItZG9nZm9vZC1jb3JlLnMzLnVzLXdlc3QtMi5hbWF6b25hd3MuY29tL29yZWdvbi1zdGFnaW5nLzYwNTE5MjE0MTg0MTg4OTMuam9icy9zcWwvMjAyNS0xMi0wNC8wNC9yZXN1bHRzXzIwMjUtMTItMDRUMDQlM0E1MSUzQTA4Wl81ZGJkMDJkNy01OGVlLTRkODgtYTgwNi04MWZhOWFhNTA5OTQ/WC1BbXotU2VjdXJpdHktVG9rZW49SVFvSmIzSnBaMmx1WDJWakVIVWFEblZ6TFhkbGMzUXRNaTFtYVhCeklrY3dSUUloQU5mSHNsdzBvSWRMUUkxczBMNDI5b3Q4cCUyQk9rUWpEY3dMWTAlMkZ2QndRSllOQWlBMXgyRHZ6N3FBOGlUQko2WnhpMzlpdjJaTnJINGVhJTJGbzkzJTJGWmhIYkRyVHlyWEF3ZyUyQkVBQWFERFUwT0RFeU5UQTNNekUyTmlJTUtGQ1k0Z21GeEh1b05Ob3ZLclFEYkx0bWVYU0dnVnN0NjBOV3IweW13Wk1CWkZtRjVLMDkyRFpGTExuWDhuVlRvNDN1czJKcG96blBrUk5ycG5MNTV4UXRDbHB3SSUyQjg3dXR4ZkFVRWljN20lMkIxZFpNeXZJRWZLRXVRVXlzOXpTMzZWZmdXMThERGROdkdONCUyQjBQd0MxQnZtJTJGTDUzeEFkJTJGYiUyQkZZWThqeVM2TkxFd1UlMkZQT1c2bTFRZ2J1RiUyQnFyVG9aM3VRbGhCQ1NNdWtwbmlOT0N0TWlzYzZjZVZNYmwlMkJ2ZFF0WWpiT2slMkJTZmUxYzNOeDY2ZVVod3MxYmtOTkNoMnJKb3YlMkZ0amhLaVZTMU5ZU3hRN3VnTmdocUladW8xamI0b2pmNngwUGl1cFdGTWlpQnVaTUtDYUM0alVBYTM0JTJCbXFoU2VOcUFCVyUyQmp5Y2NOcU9CSUYwbGNhTUpyRTE3M21qVEVHUExLZ2hmYXhPVG5RQ09DJTJCWTBZUVBPTTljcEJxbUVsZkglMkY1bmdaWFcxbmt0WnFvdWdTODBRUHhheXM3R1NlSDV5aHR5RDBSbnFGRXhUMXRrZ0xJOWFvcCUyQkFLOCUyRmNVUzJmeGdSVUU2OUVvRm9YOFg0QXRGRzNEMlVJWmpHRjRLbmVTaXBwQjFYSUpSV2VXdm5GdUplWXBiMjNKbFMlMkZXdWNiWmFBWE1MYkZ0ZVlrenVCT0ZKY3FFa1EyMVVQUE0yeGZOelM3WWtEZ0FOMDNOZWdqb3NBaTI5RUY5U0s5cnIyelhWUVYlMkZHdUkwMXBJMXFicHgxcnpEb29NVEpCanJpQVZ6OE9tWFNPbThQSm1lN0Nsdm00MzBnZ3Q3eVZlQzVsN3Bwdmw3T1puQUJTcXJmSU02V0oxbnp2QUlCM3FITk9WSE54enFtWGdTU29sTmVsT29Ka1dsJTJCYmJnamh5OSUyQmxnR3glMkJhdDclMkJHeVVWV1dEZ2N3emVVdXZaWEo4ZHZyUzYyeHNqQnNXV2FDcHdTT04yV2gyVWZOaUZVRHQ4YTRLcWN1Z0EzbzhyYThWb0ZwU2huaCUyQkF6RWlCU2lxa1p3elR4RnJmSiUyRkZYdFJZaTJzb3FGbyUyRjRlMWpobWpUZW55a0ExY2xxWUp5Q01HbTB1ODdIZkVJQjNuNlIycUFvVnBxMDZweDFRSFJGQjRBbllRYkZMWTNuRTIxV3ElMkJYelYzYnh4U01nZ3NOM3UlMkJkMHMwJTNEJlgtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LURhdGU9MjAyNTEyMDRUMDQ1MTM1WiZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QmWC1BbXotRXhwaXJlcz04OTkmWC1BbXotQ3JlZGVudGlhbD1BU0lBWDdIV00zNEhMTUlJR0NXNiUyRjIwMjUxMjA0JTJGdXMtd2VzdC0yJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotU2lnbmF0dXJlPThjNzBkYjNiZWI0ZTc0ZWM1M2ZhZTlhZDI3YTM0YjhlZDFmOWNkNjlmZmU3NDBkNjFmNWIzMjVjODA3OGQxNGQKAAIAAAGa58FHvAoAAwAAAAAAWbc/CgAEAAAAAAAB1kEKAAUAAAAAAUCwWA0ABgsLAAAAAAAAAAA=",
+    "headers" : {
+      "x-request-id" : "d0a9900a-28bd-9dfb-86f4-e057bb746316",
+      "date" : "Thu, 04 Dec 2025 04:51:35 GMT,Thu, 04 Dec 2025 04:51:35 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-popp-shadow-routing-reason" : "spog-domain-checker-false",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "server-timing" : "request_id;dur=0;desc=\"d0a9900a-28bd-4dfb-86f4-e057bb746316\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "b5612470-09ce-4e6b-b413-c4bf6c48601d",
+  "insertionIndex" : 5
+}

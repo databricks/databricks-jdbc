@@ -11,6 +11,9 @@ import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import java.io.IOException;
+import java.nio.file.Path;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -25,13 +28,29 @@ public class PrivateKeyClientCredentialProviderTest {
 
   @Mock IDatabricksConnectionContext context;
 
+  private static Path tempKeyFile;
+
+  @BeforeAll
+  public static void generateTestKeyFile() throws Exception {
+    tempKeyFile = TestKeyGenerator.generateTemporaryKeyFile();
+  }
+
+  @AfterAll
+  public static void cleanupTestKeyFile() throws Exception {
+    TestKeyGenerator.cleanupKeyFile(tempKeyFile);
+  }
+
   void setup() {
-    when(context.getAuthScope()).thenReturn(TEST_SCOPE);
-    when(context.getKID()).thenReturn(TEST_JWT_KID);
-    when(context.getJWTKeyFile()).thenReturn(TEST_JWT_KEY_FILE);
-    when(context.getJWTAlgorithm()).thenReturn(TEST_JWT_ALGORITHM);
-    when(context.getJWTPassphrase()).thenReturn(null);
-    when(config.getClientId()).thenReturn(TEST_CLIENT_ID);
+    lenient().when(context.getAuthScope()).thenReturn(TEST_SCOPE);
+    lenient().when(context.getKID()).thenReturn(TEST_JWT_KID);
+    lenient().when(context.getJWTKeyFile()).thenReturn(tempKeyFile.toString());
+    lenient().when(context.getJWTAlgorithm()).thenReturn(TEST_JWT_ALGORITHM);
+    lenient().when(context.getJWTPassphrase()).thenReturn(null);
+    lenient().when(context.getConnectionUuid()).thenReturn("test-connection-uuid");
+    lenient().when(context.getTokenCachePassPhrase()).thenReturn(null);
+    lenient().when(context.getHostForOAuth()).thenReturn("https://test.databricks.com");
+    lenient().when(config.getClientId()).thenReturn(TEST_CLIENT_ID);
+    lenient().when(config.getHost()).thenReturn("https://test.databricks.com");
   }
 
   @Test

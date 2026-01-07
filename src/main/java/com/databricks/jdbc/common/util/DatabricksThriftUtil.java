@@ -94,7 +94,6 @@ public class DatabricksThriftUtil {
                   "Error thrift response received [%s] for statementId [%s]",
                   errorContext, statementId)
               : String.format("Error thrift response received [%s]", errorContext);
-      LOGGER.error(errorMessage);
       throw new DatabricksHttpException(errorMessage, status.getSqlState());
     }
   }

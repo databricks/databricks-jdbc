@@ -215,6 +215,10 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
     return allowedChunksInMemory;
   }
 
+  public T getChunkByIndex(long chunkIndex) {
+    return chunkIndexToChunksMap.get(chunkIndex);
+  }
+
   /** Subclasses should override this method to perform their specific cleanup. */
   protected void doClose() {
     // Default implementation does nothing

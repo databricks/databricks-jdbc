@@ -109,7 +109,7 @@ public class ArrowStreamResultTest {
             .setChunks(this.chunkInfos)
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
 
-    ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, false));
+    ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, 0L, false));
 
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
@@ -189,7 +189,7 @@ public class ArrowStreamResultTest {
                             new ColumnInfo().setTypeName(ColumnInfoTypeName.DOUBLE)))
                     .setColumnCount(2L));
 
-    ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, false));
+    ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, 0L, false));
 
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
@@ -242,11 +242,12 @@ public class ArrowStreamResultTest {
     assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.TIMESTAMP));
   }
 
-  private List<ExternalLink> getChunkLinks(long chunkIndex, boolean isLast) {
+  private List<ExternalLink> getChunkLinks(long chunkIndex, long chunkRowOffset, boolean isLast) {
     List<ExternalLink> chunkLinks = new ArrayList<>();
     ExternalLink chunkLink =
         new ExternalLink()
             .setChunkIndex(chunkIndex)
+            .setRowOffset(chunkRowOffset)
             .setExternalLink(CHUNK_URL_PREFIX + chunkIndex)
             .setExpiration(Instant.now().plusSeconds(3600L).toString())
             .setRowOffset(chunkIndex * this.rowsInChunk)
@@ -285,8 +286,10 @@ public class ArrowStreamResultTest {
   private void setupResultChunkMocks() throws DatabricksSQLException {
     for (int chunkIndex = 1; chunkIndex < numberOfChunks; chunkIndex++) {
       boolean isLastChunk = (chunkIndex == (numberOfChunks - 1));
-      when(mockedSdkClient.getResultChunks(eq(STATEMENT_ID), eq((long) chunkIndex), anyLong()))
-          .thenReturn(buildChunkLinkFetchResult(getChunkLinks(chunkIndex, isLastChunk)));
+      long chunkRowOffset = chunkInfos.get(chunkIndex).getRowOffset();
+      when(mockedSdkClient.getResultChunks(STATEMENT_ID, chunkIndex, chunkRowOffset))
+          .thenReturn(
+              buildChunkLinkFetchResult(getChunkLinks(chunkIndex, chunkRowOffset, isLastChunk)));
     }
   }
 
@@ -497,7 +500,7 @@ public class ArrowStreamResultTest {
             .setChunks(this.chunkInfos.subList(0, 1))
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
 
-    ResultData localResultData = new ResultData().setExternalLinks(getChunkLinks(0L, true));
+    ResultData localResultData = new ResultData().setExternalLinks(getChunkLinks(0L, 0L, true));
 
     setupMockResponse();
     when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
@@ -535,7 +538,7 @@ public class ArrowStreamResultTest {
             .setChunks(this.chunkInfos.subList(0, 1))
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
 
-    ResultData localResultData = new ResultData().setExternalLinks(getChunkLinks(0L, true));
+    ResultData localResultData = new ResultData().setExternalLinks(getChunkLinks(0L, 0L, true));
 
     setupMockResponse();
     when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);

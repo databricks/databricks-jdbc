@@ -129,14 +129,32 @@ final class DatabricksThriftAccessor {
     }
   }
 
-  TFetchResultsResp getResultSetResp(TOperationHandle operationHandle, String context)
+  /**
+   * Fetch the next set of results for the given operation handle with default settings.
+   *
+   * @param operationHandle the operation handle
+   * @return TFetchResultsResp containing the results
+   * @throws DatabricksHttpException if fetch fails
+   */
+  TFetchResultsResp getResultSetResp(TOperationHandle operationHandle)
       throws DatabricksHttpException {
-    return getResultSetResp(
-        new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
-        operationHandle,
-        context,
-        maxRowsPerBlock,
-        false);
+    TFetchResultsReq req = createFetchResultsReqWithDefaults(operationHandle);
+    return executeFetchRequest(req);
+  }
+
+  /**
+   * Fetches results starting from a specific row offset.
+   *
+   * @param operationHandle the operation handle
+   * @param startRowOffset the row offset to start fetching from
+   * @return TFetchResultsResp containing the results
+   * @throws DatabricksHttpException if fetch fails
+   */
+  TFetchResultsResp getResultSetResp(TOperationHandle operationHandle, long startRowOffset)
+      throws DatabricksHttpException {
+    TFetchResultsReq req = createFetchResultsReqWithDefaults(operationHandle);
+    req.setStartRowOffset(startRowOffset);
+    return executeFetchRequest(req);
   }
 
   TCancelOperationResp cancelOperation(TCancelOperationReq req) throws DatabricksHttpException {
@@ -167,16 +185,10 @@ final class DatabricksThriftAccessor {
 
   TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
       throws DatabricksSQLException {
-    String context =
-        String.format(
-            "Fetching more results as it has more rows %s",
-            parentStatement.getStatementId().toSQLExecStatementId());
-    return getResultSetResp(
-        new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS),
-        getOperationHandle(parentStatement.getStatementId()),
-        context,
-        maxRowsPerBlock,
-        true);
+    TFetchResultsReq req =
+        createFetchResultsReqWithDefaults(getOperationHandle(parentStatement.getStatementId()));
+    setFetchMetadata(req);
+    return executeFetchRequest(req);
   }
 
   DatabricksResultSet execute(
@@ -228,15 +240,16 @@ final class DatabricksThriftAccessor {
         resultSet = response.getDirectResults().getResultSet();
         resultSet.setResultSetMetadata(response.getDirectResults().getResultSetMetadata());
       } else {
+        verifySuccessStatus(
+            response.getStatus(), "executeStatement", statementId.toSQLExecStatementId());
+
         // Fetch the result data after polling
+        TFetchResultsReq resultsReq =
+            createFetchResultsReqWithDefaults(response.getOperationHandle());
+        setFetchMetadata(resultsReq);
         long fetchStartTime = System.nanoTime();
-        resultSet =
-            getResultSetResp(
-                response.getStatus(),
-                response.getOperationHandle(),
-                "executeStatement",
-                maxRowsPerBlock,
-                true);
+        resultSet = executeFetchRequest(resultsReq);
+
         long fetchEndTime = System.nanoTime();
         long fetchLatencyNanos = fetchEndTime - fetchStartTime;
         long fetchLatencyMillis = fetchLatencyNanos / 1_000_000;
@@ -392,9 +405,16 @@ final class DatabricksThriftAccessor {
       response = getOperationStatus(request, statementId);
       TOperationState operationState = response.getOperationState();
       if (operationState == TOperationState.FINISHED_STATE) {
+        verifySuccessStatus(
+            response.getStatus(), "getStatementResult", statementId.toSQLExecStatementId());
+
         long fetchStartTime = System.nanoTime();
-        resultSet =
-            getResultSetResp(response.getStatus(), operationHandle, "getStatementResult", -1, true);
+
+        TFetchResultsReq resultsReq = createFetchResultsReqWithDefaults(operationHandle);
+        resultsReq.setMaxRows(-1);
+        setFetchMetadata(resultsReq);
+        resultSet = executeFetchRequest(resultsReq);
+
         long fetchEndTime = System.nanoTime();
         long fetchLatencyNanos = fetchEndTime - fetchStartTime;
         long fetchLatencyMillis = fetchLatencyNanos / 1_000_000;
@@ -482,44 +502,44 @@ final class DatabricksThriftAccessor {
     this.databricksConfig = newConfig;
   }
 
-  TFetchResultsResp getResultSetResp(
-      TStatus responseStatus,
-      TOperationHandle operationHandle,
-      String context,
-      int maxRowsPerBlock,
-      boolean fetchMetadata)
+  private TFetchResultsResp executeFetchRequest(TFetchResultsReq request)
       throws DatabricksHttpException {
-    String statementId = StatementId.loggableStatementId(operationHandle);
-    verifySuccessStatus(responseStatus, context, statementId);
-    TFetchResultsReq request =
-        new TFetchResultsReq()
-            .setOperationHandle(operationHandle)
-            .setFetchType((short) 0) // 0 represents Query output. 1 represents Log
-            .setMaxRows(
-                maxRowsPerBlock) // Max number of rows that should be returned in the rowset.
-            .setMaxBytes(DEFAULT_BYTE_LIMIT);
-    if (fetchMetadata
-        && ProtocolFeatureUtil.supportsResultSetMetadataFromFetch(serverProtocolVersion)) {
-      request.setIncludeResultSetMetadata(true); // fetch metadata if supported
-    }
     TFetchResultsResp response;
     try {
       response = getThriftClient().FetchResults(request);
     } catch (TException e) {
       String errorMessage =
           String.format(
-              "Error while fetching results from Thrift server. Request maxRows=%d, maxBytes=%d, Error {%s}",
+              "Error while fetching results from Thrift server. Request maxRows=%d, "
+                  + "maxBytes=%d, Error {%s}",
               request.getMaxRows(), request.getMaxBytes(), e.getMessage());
-      LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
+
+    String statementId = StatementId.loggableStatementId(request.getOperationHandle());
     verifySuccessStatus(
         response.getStatus(),
         String.format(
-            "Error while fetching results Request maxRows=%d, maxBytes=%d. Response hasMoreRows=%s",
+            "Error while fetching results Request maxRows=%d, maxBytes=%d. "
+                + "Response hasMoreRows=%s",
             request.getMaxRows(), request.getMaxBytes(), response.hasMoreRows),
         statementId);
+
     return response;
+  }
+
+  private TFetchResultsReq createFetchResultsReqWithDefaults(TOperationHandle operationHandle) {
+    return new TFetchResultsReq()
+        .setOperationHandle(operationHandle)
+        .setFetchType((short) 0) // 0 represents Query output. 1 represents Log
+        .setMaxRows(maxRowsPerBlock) // Max number of rows that should be returned in the rowset.
+        .setMaxBytes(DEFAULT_BYTE_LIMIT);
+  }
+
+  private void setFetchMetadata(TFetchResultsReq request) {
+    if (ProtocolFeatureUtil.supportsResultSetMetadataFromFetch(serverProtocolVersion)) {
+      request.setIncludeResultSetMetadata(true);
+    }
   }
 
   /**
@@ -530,13 +550,11 @@ final class DatabricksThriftAccessor {
    *
    * @param operationHandle The operation handle for the statement
    * @param startRowOffset The row offset to start fetching from (0-indexed)
-   * @param context Context string for logging
    * @return The fetch results response
    * @throws DatabricksHttpException if the fetch fails
    */
   TFetchResultsResp fetchResultsWithAbsoluteOffset(
-      TOperationHandle operationHandle, long startRowOffset, String context)
-      throws DatabricksHttpException {
+      TOperationHandle operationHandle, long startRowOffset) throws DatabricksHttpException {
     String statementId = StatementId.loggableStatementId(operationHandle);
     LOGGER.debug(
         "Fetching results with FETCH_ABSOLUTE at offset {} for statement {}",
@@ -711,8 +729,11 @@ final class DatabricksThriftAccessor {
       // Fetch the result data after polling
       FResp statusField = response.fieldForId(statusFieldId);
       TStatus status = (TStatus) response.getFieldValue(statusField);
-      return getResultSetResp(
-          status, operationHandle, contextDescription, DEFAULT_ROW_LIMIT_PER_BLOCK, false);
+      verifySuccessStatus(status, contextDescription, statementId);
+
+      TFetchResultsReq resultsReq = createFetchResultsReqWithDefaults(operationHandle);
+      resultsReq.setMaxRows(DEFAULT_ROW_LIMIT_PER_BLOCK);
+      return executeFetchRequest(resultsReq);
     }
   }
 

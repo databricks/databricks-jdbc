@@ -70,9 +70,12 @@ public class ClientConfigurator {
    * @return The path for the token cache file
    */
   public static Path getTokenCachePath(String host, String clientId, List<String> scopes) {
-    String userHome = System.getProperty("user.home");
+    String userHome = System.getProperty(USER_HOME_PROPERTY);
     Path homeDir = Paths.get(userHome);
-    Path databricksDir = homeDir.resolve(".config/databricks-jdbc/oauth");
+    // Use .config on Unix/Mac, databricks-jdbc on Windows
+    String configDir =
+        System.getProperty("os.name").toLowerCase().contains("win") ? "databricks-jdbc" : ".config";
+    Path databricksDir = homeDir.resolve(configDir).resolve("databricks-jdbc").resolve("oauth");
 
     // Create a unique string identifier from the combination of parameters
     String uniqueIdentifier = createUniqueIdentifier(host, clientId, scopes);
@@ -83,14 +86,16 @@ public class ClientConfigurator {
   }
 
   /**
-   * Creates a unique identifier string from the given parameters. Uses a hash function to create a
-   * compact representation.
+   * Creates a unique identifier string from the given parameters.
    *
    * @param host The host URL
    * @param clientId The OAuth client ID
    * @param scopes The OAuth scopes
    * @return A unique identifier string
+   * @deprecated This method is deprecated in favor of using connection UUID for cache
+   *     identification
    */
+  @Deprecated
   private static String createUniqueIdentifier(String host, String clientId, List<String> scopes) {
     // Normalize inputs to handle null values
     host = (host != null) ? host : EMPTY_STRING;
@@ -318,6 +323,7 @@ public class ClientConfigurator {
         .setHost(connectionContext.getHostForOAuth())
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret());
+
     CredentialsProvider provider =
         new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     CredentialsProvider wrappedProvider = wrapWithTokenFederationIfEnabled(provider);

@@ -128,11 +128,11 @@ public interface IDatabricksClient {
    * </ul>
    *
    * @param statementId statement-Id for which chunk should be fetched
-   * @param chunkIndex chunkIndex for which chunk should be fetched (used by SEA)
-   * @param rowOffset row offset for fetching results (used by Thrift with FETCH_ABSOLUTE)
-   * @return ChunkLinkFetchResult containing links and continuation information
+   * @param chunkIndex chunkIndex for which chunk should be fetched
+   * @param chunkStartRowOffset the row offset where the chunk starts in the result set
    */
-  ChunkLinkFetchResult getResultChunks(StatementId statementId, long chunkIndex, long rowOffset)
+  ChunkLinkFetchResult getResultChunks(
+      StatementId statementId, long chunkIndex, long chunkStartRowOffset)
       throws DatabricksSQLException;
 
   /**
