@@ -6,6 +6,19 @@ The release notes summarize enhancements, new features, known issues, workflow c
 
 Version History ==============================================================
 
+3.1.0 ========================================================================
+Released 2026-01-07
+
+Enhancements & New Features
+
+ * Added token caching for all authentication providers to reduce token endpoint calls.
+
+Resolved Issues
+
+ * [PECOBLR-1131] Fix incorrect refetching of expired CloudFetch links when using Thrift protocol.
+ * Fixed logging to respect params when the driver is shaded.
+ * Fixed `isWildcard` to return true only when the value is `*`
+
 3.0.7 ========================================================================
 Released 2025-12-18
 
