@@ -1,5 +1,5 @@
 # Version Changelog
-## [v3.1.0] - 2026-01-07
+## [v3.1.1] - 2026-01-07
 
 ### Added
 - Added token caching for all authentication providers to reduce token endpoint calls.

@@ -6,7 +6,7 @@ The release notes summarize enhancements, new features, known issues, workflow c
 
 Version History ==============================================================
 
-3.1.0 ========================================================================
+3.1.1 ========================================================================
 Released 2026-01-07
 
 Enhancements & New Features
