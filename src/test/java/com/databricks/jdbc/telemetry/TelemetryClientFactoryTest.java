@@ -257,6 +257,28 @@ public class TelemetryClientFactoryTest {
     }
   }
 
+  @Test
+  void testSameConnectionCallingGetClientMultipleTimes() throws Exception {
+    String host = "test-host.databricks.net";
+
+    try (MockedStatic<TelemetryHelper> mockedStatic = mockStatic(TelemetryHelper.class)) {
+      setupTelemetryHelperMock(mockedStatic);
+
+      IDatabricksConnectionContext conn = createMockContext("uuid-1", host, false);
+
+      // Call getTelemetryClient multiple times with same connection (e.g., retry logic)
+      TelemetryClientFactory.getInstance().getTelemetryClient(conn);
+      TelemetryClientFactory.getInstance().getTelemetryClient(conn);
+      TelemetryClientFactory.getInstance().getTelemetryClient(conn);
+
+      assertEquals(1, TelemetryClientFactory.getInstance().noauthTelemetryClientHolders.size());
+
+      // Single close should remove client - UUID set deduplicates, old refCount would leak
+      TelemetryClientFactory.getInstance().closeTelemetryClient(conn);
+      assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClientHolders.size());
+    }
+  }
+
   // Helper methods
 
   private IDatabricksConnectionContext createMockContext(
