@@ -12,6 +12,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.google.common.annotations.VisibleForTesting;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -114,6 +115,24 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
     }
 
     this.chunkIndexToChunksMap = chunkIndexToChunksMap;
+
+    // Complete futures for chunks that already have their links (upfront-fetched)
+    if (nextBatchStartIndex > 0) {
+      LOGGER.info("Completing futures for {} upfront-fetched links", nextBatchStartIndex);
+      int completedCount = 0;
+      for (long i = 0; i < Math.min(nextBatchStartIndex, totalChunks); i++) {
+        T chunk = chunkIndexToChunksMap.get(i);
+        if (chunk != null) {
+          ExternalLink link = chunk.getChunkLink();
+          if (link != null) {
+            LOGGER.debug("Completing link future for chunk {} in constructor", i);
+            chunkIndexToLinkFuture.get(i).complete(link);
+            completedCount++;
+          }
+        }
+      }
+      LOGGER.info("Completed {} futures for upfront-fetched links", completedCount);
+    }
 
     if (session.getConnectionContext().getClientType() == DatabricksClientType.SEA
         && isDownloadChainStarted.compareAndSet(false, true)) {
@@ -339,7 +358,7 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
         LOGGER.info(
             "Detected expired link for chunk {}, re-triggering batch download from the smallest index with the expired link",
             chunkIndex);
-        for (long i = 1; i < totalChunks; i++) {
+        for (long i = 0; i < totalChunks; i++) {
           if (isChunkLinkExpiredForPendingDownload(i)) {
             LOGGER.info("Found the smallest index {} with the expired link, initiating reset", i);
             cancelCurrentDownloadTask();
@@ -459,5 +478,16 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
         Instant.parse(link.getExpiration()).minusSeconds(SECONDS_BUFFER_FOR_EXPIRY);
 
     return expirationWithBuffer.isBefore(Instant.now());
+  }
+
+  /**
+   * Returns the CompletableFuture for a specific chunk index for testing purposes.
+   *
+   * @param chunkIndex The index of the chunk
+   * @return The CompletableFuture associated with the chunk index, or null if not found
+   */
+  @VisibleForTesting
+  CompletableFuture<ExternalLink> getLinkFutureForTest(long chunkIndex) {
+    return chunkIndexToLinkFuture.get(chunkIndex);
   }
 }

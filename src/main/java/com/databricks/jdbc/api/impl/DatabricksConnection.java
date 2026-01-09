@@ -180,6 +180,12 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       return;
     }
 
+    // Skip server round-trip if using cached values and already in the requested state
+    if (!connectionContext.getFetchAutoCommitFromServer() && getAutoCommit() == autoCommit) {
+      LOGGER.debug("AutoCommit already set to {}, skipping server call", autoCommit);
+      return;
+    }
+
     // Execute SET AUTOCOMMIT command
     Statement statement = null;
     try {

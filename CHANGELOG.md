@@ -65,10 +65,10 @@
 
 ---
 
-## [v3.0.4] - 2025-11-12
+## [v3.0.4] - 2025-11-12: DEPRECATED, Use v3.0.5 instead
 
 ### Added
-- Added support for geospatial data types.
+- Added support for geospatial data types. (Use v3.0.5+ for OGC compliant WKB support)
 - Added support for telemetry log levels, which can be controlled via the connection parameter `TelemetryLogLevel`. This allows users to configure the verbosity of telemetry logging from OFF to TRACE.
 - Added full support for JDBC transaction control methods in Databricks. Transaction support in Databricks is currently available as a Private Preview. The `IgnoreTransactions` connection parameter can be set to `1` to disable or no-op transaction control methods.
 - Added a new config attribute `DisableOauthRefreshToken` to control whether refresh tokens are requested in OAuth exchanges. By default, the driver does not include the `offline_access` scope. If `offline_access` is explicitly provided by the user, it is preserved and not removed.

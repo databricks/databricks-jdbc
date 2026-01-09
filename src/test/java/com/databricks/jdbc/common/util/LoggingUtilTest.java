@@ -20,8 +20,9 @@ public class LoggingUtilTest {
 
   @Test
   void testSetupLoggerWithOffLevel() {
-    // When log level is OFF, setupLogger should return early without initializing handlers
-    // This should not throw an exception even if the log path is not writable
+    // When log level is OFF, setupLogger initializes logger with Level.OFF to suppress all output.
+    // It uses STDOUT to avoid file system access issues in restricted environments.
+    // This should not throw an exception even if the log path is not writable.
     assertDoesNotThrow(() -> LoggingUtil.setupLogger("/", 1, 1, LogLevel.OFF));
     assertDoesNotThrow(() -> LoggingUtil.setupLogger("/invalid/path", 1, 1, LogLevel.OFF));
   }

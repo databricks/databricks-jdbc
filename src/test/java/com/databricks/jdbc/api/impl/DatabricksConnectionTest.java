@@ -1013,4 +1013,74 @@ public class DatabricksConnectionTest {
 
     spyConnection.close();
   }
+
+  // ==================== SetAutoCommit Optimization Tests ====================
+
+  @Test
+  public void testSetAutoCommitSkipsServerCallWhenAlreadyTrue() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+
+    DatabricksConnection spyConnection = spy(connection);
+
+    assertTrue(spyConnection.getAutoCommit());
+
+    spyConnection.setAutoCommit(true);
+
+    // Verify createStatement was never called (no server round-trip)
+    verify(spyConnection, never()).createStatement();
+
+    spyConnection.close();
+  }
+
+  @Test
+  public void testSetAutoCommitSkipsServerCallWhenAlreadyFalse() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+
+    DatabricksConnection spyConnection = spy(connection);
+
+    spyConnection.getSession().setAutoCommit(false);
+    assertFalse(spyConnection.getAutoCommit());
+
+    spyConnection.setAutoCommit(false);
+
+    // Verify createStatement was never called
+    verify(spyConnection, never()).createStatement();
+
+    spyConnection.close();
+  }
+
+  @Test
+  public void testSetAutoCommitDoesNotSkipWithFetchFromServerEnabled() throws SQLException {
+    // Create connection with FetchAutoCommitFromServer=1
+    String urlWithFetch = CATALOG_SCHEMA_JDBC_URL + ";FetchAutoCommitFromServer=1";
+    IDatabricksConnectionContext contextWithFetch =
+        DatabricksConnectionContext.parse(urlWithFetch, new Properties());
+
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(contextWithFetch, databricksClient);
+    connection.open();
+
+    DatabricksConnection spyConnection = spy(connection);
+    DatabricksStatement mockStatement = mock(DatabricksStatement.class);
+    doReturn(mockStatement).when(spyConnection).createStatement();
+    when(mockStatement.execute("SET AUTOCOMMIT = TRUE")).thenReturn(true);
+
+    // Even though autoCommit is already true, server should be called
+    spyConnection.setAutoCommit(true);
+
+    // Verify server was called
+    verify(mockStatement).execute("SET AUTOCOMMIT = TRUE");
+
+    spyConnection.close();
+  }
 }
