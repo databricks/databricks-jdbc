@@ -169,7 +169,7 @@ public enum DatabricksJdbcUrlParams {
       "EnableSQLValidationForIsValid",
       "Enable SQL query execution for connection validation in isValid() method",
       "0"),
-  IGNORE_TRANSACTIONS("IgnoreTransactions", "Ignore transaction-related method calls", "0"),
+  IGNORE_TRANSACTIONS("IgnoreTransactions", "Ignore transaction-related method calls", "1"),
   FETCH_AUTOCOMMIT_FROM_SERVER(
       "FetchAutoCommitFromServer",
       "Fetch auto-commit state from server using SQL query instead of using cached value",

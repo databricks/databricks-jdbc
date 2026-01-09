@@ -438,7 +438,20 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
-  public void supportsTransactions_returnsFalse() throws Exception {
+  public void supportsTransactions_returnsFalseByDefault() throws Exception {
+    // Default IgnoreTransactions=1 means transactions are ignored, so supportsTransactions returns
+    // false
+    boolean supportsTransactions = metaData.supportsTransactions();
+    assertFalse(supportsTransactions);
+  }
+
+  @Test
+  public void supportsTransactions_returnsTrueWhenTransactionsEnabled() throws Exception {
+    // When IgnoreTransactions=0, transactions are enabled, so supportsTransactions returns true
+    String urlWithTransactionsEnabled = WAREHOUSE_JDBC_URL + ";IgnoreTransactions=0";
+    when(session.getConnectionContext())
+        .thenReturn(
+            DatabricksConnectionContext.parse(urlWithTransactionsEnabled, new Properties()));
     boolean supportsTransactions = metaData.supportsTransactions();
     assertTrue(supportsTransactions);
   }

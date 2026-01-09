@@ -834,7 +834,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public boolean supportsTransactions() throws SQLException {
     LOGGER.debug("public boolean supportsTransactions()");
     throwExceptionIfConnectionIsClosed();
-    return true;
+    return !session.getConnectionContext().getIgnoreTransactions();
   }
 
   @Override

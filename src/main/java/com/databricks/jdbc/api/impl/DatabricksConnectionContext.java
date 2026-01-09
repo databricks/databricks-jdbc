@@ -1164,7 +1164,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean getIgnoreTransactions() {
-    return getParameter(DatabricksJdbcUrlParams.IGNORE_TRANSACTIONS, "0").equals("1");
+    return getParameter(DatabricksJdbcUrlParams.IGNORE_TRANSACTIONS).equals("1");
   }
 
   @Override
