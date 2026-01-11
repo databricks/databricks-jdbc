@@ -42,7 +42,8 @@ public class WildcardUtilTest {
 
   @Test
   public void testIsWildcard() {
-    assertTrue(wildcardUtil.isWildcard("*Test*"));
+    assertTrue(wildcardUtil.isWildcard("*"));
+    assertFalse(wildcardUtil.isWildcard("*Test*"));
     assertFalse(wildcardUtil.isWildcard("Test"));
     assertFalse(wildcardUtil.isWildcard(null));
   }
