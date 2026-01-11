@@ -134,9 +134,14 @@ public class TelemetryClientFactory {
     return holder != null ? holder.client : NoopTelemetryClient.getInstance();
   }
 
+  /**
+   * Closes telemetry client for a connection. Thread-safe: computeIfPresent ensures atomic
+   * locking, preventing race conditions between connection removal and addition.
+   */
   public void closeTelemetryClient(IDatabricksConnectionContext connectionContext) {
     String key = TelemetryHelper.keyOf(connectionContext);
     String connectionUuid = connectionContext.getConnectionUuid();
+    // Atomically remove connection and close client if no connections remain for this key
     telemetryClientHolders.computeIfPresent(
         key,
         (k, holder) -> {
@@ -147,6 +152,7 @@ public class TelemetryClientFactory {
           }
           return holder;
         });
+    // Atomically remove connection and close client if no connections remain for this key
     noauthTelemetryClientHolders.computeIfPresent(
         key,
         (k, holder) -> {
