@@ -457,7 +457,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     // Check if circuit breaker is open due to recent 429 rate limit failures
     if (SeaCircuitBreakerManager.isCircuitOpen()) {
       long remainingMs = SeaCircuitBreakerManager.getTimeRemainingMs();
-      LOGGER.info(
+      LOGGER.debug(
           "SEA circuit breaker is OPEN due to recent 429 rate limit failures. "
               + "Using THRIFT client. Circuit will close in {} ({}ms)",
           SeaCircuitBreakerManager.getTimeRemainingFormatted(),
