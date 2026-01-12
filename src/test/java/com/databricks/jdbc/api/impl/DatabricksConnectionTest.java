@@ -61,6 +61,10 @@ public class DatabricksConnectionTest {
               .collect(Collectors.joining(";")));
   private static final String IGNORE_TRANSACTIONS_JDBC_URL =
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;IgnoreTransactions=1";
+  private static final String TRANSACTIONS_ENABLED_JDBC_URL =
+      String.format(
+          "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/%s;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;ConnCatalog=%s;ConnSchema=%s;logLevel=FATAL;IgnoreTransactions=0",
+          SCHEMA, CATALOG, SCHEMA);
   private static final ImmutableSessionInfo IMMUTABLE_SESSION_INFO =
       ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(SESSION_ID).build();
   @Mock DatabricksSdkClient databricksClient;
@@ -69,11 +73,14 @@ public class DatabricksConnectionTest {
   private static DatabricksConnection connection;
 
   private static IDatabricksConnectionContext connectionContext;
+  private static IDatabricksConnectionContext transactionsEnabledContext;
 
   @BeforeAll
   static void setup() throws DatabricksSQLException {
     connectionContext =
         DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
+    transactionsEnabledContext =
+        DatabricksConnectionContext.parse(TRANSACTIONS_ENABLED_JDBC_URL, new Properties());
   }
 
   @Test
@@ -441,9 +448,9 @@ public class DatabricksConnectionTest {
               ResultSet.CONCUR_READ_ONLY,
               ResultSet.CLOSE_CURSORS_AT_COMMIT);
         });
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.setSavepoint("1"));
-    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::setSavepoint);
+    // With default IgnoreTransactions=1, savepoint methods return null (no-op)
+    assertNull(connection.setSavepoint("1"));
+    assertNull(connection.setSavepoint());
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createClob);
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createBlob);
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createNClob);
@@ -454,10 +461,9 @@ public class DatabricksConnectionTest {
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> connection.prepareStatement(SQL, new String[0]));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.rollback(null));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.releaseSavepoint(null));
+    // With default IgnoreTransactions=1, these are no-ops
+    assertDoesNotThrow(() -> connection.rollback(null));
+    assertDoesNotThrow(() -> connection.releaseSavepoint(null));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> connection.setNetworkTimeout(null, 1));
@@ -646,7 +652,7 @@ public class DatabricksConnectionTest {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
-    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection = new DatabricksConnection(transactionsEnabledContext, databricksClient);
     connection.open();
 
     DatabricksConnection spyConnection = spy(connection);
@@ -671,7 +677,7 @@ public class DatabricksConnectionTest {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
-    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection = new DatabricksConnection(transactionsEnabledContext, databricksClient);
     connection.open();
 
     DatabricksConnection spyConnection = spy(connection);
@@ -697,7 +703,7 @@ public class DatabricksConnectionTest {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
-    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection = new DatabricksConnection(transactionsEnabledContext, databricksClient);
     connection.open();
 
     DatabricksConnection spyConnection = spy(connection);
@@ -744,7 +750,7 @@ public class DatabricksConnectionTest {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
-    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection = new DatabricksConnection(transactionsEnabledContext, databricksClient);
     connection.open();
 
     DatabricksConnection spyConnection = spy(connection);
@@ -785,7 +791,7 @@ public class DatabricksConnectionTest {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
-    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection = new DatabricksConnection(transactionsEnabledContext, databricksClient);
     connection.open();
 
     DatabricksConnection spyConnection = spy(connection);
@@ -812,7 +818,7 @@ public class DatabricksConnectionTest {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
-    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection = new DatabricksConnection(transactionsEnabledContext, databricksClient);
     connection.open();
 
     DatabricksConnection spyConnection = spy(connection);
@@ -853,7 +859,7 @@ public class DatabricksConnectionTest {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
-    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection = new DatabricksConnection(transactionsEnabledContext, databricksClient);
     connection.open();
 
     DatabricksConnection spyConnection = spy(connection);
@@ -879,7 +885,7 @@ public class DatabricksConnectionTest {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
-    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection = new DatabricksConnection(transactionsEnabledContext, databricksClient);
     connection.open();
 
     DatabricksConnection spyConnection = spy(connection);
@@ -1059,8 +1065,9 @@ public class DatabricksConnectionTest {
 
   @Test
   public void testSetAutoCommitDoesNotSkipWithFetchFromServerEnabled() throws SQLException {
-    // Create connection with FetchAutoCommitFromServer=1
-    String urlWithFetch = CATALOG_SCHEMA_JDBC_URL + ";FetchAutoCommitFromServer=1";
+    // Create connection with FetchAutoCommitFromServer=1 and IgnoreTransactions=0
+    String urlWithFetch =
+        CATALOG_SCHEMA_JDBC_URL + ";FetchAutoCommitFromServer=1;IgnoreTransactions=0";
     IDatabricksConnectionContext contextWithFetch =
         DatabricksConnectionContext.parse(urlWithFetch, new Properties());
 

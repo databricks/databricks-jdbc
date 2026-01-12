@@ -108,6 +108,7 @@ public final class DatabricksJdbcConstants {
   public static final String QUERY_EXECUTION_TIMEOUT_SQLSTATE = "57KD0";
   public static final int TEMPORARY_REDIRECT_STATUS_CODE = 307;
   public static final String REDACTED_TOKEN = "****";
+  public static final String QUERY_TAGS = "query_tags";
   public static final int MAX_DEFAULT_STRING_COLUMN_LENGTH = 32767;
   public static final int DEFUALT_STRING_COLUMN_LENGTH = 255;
   public static final int DEFAULT_MAX_CONCURRENT_PRESIGNED_REQUESTS = 50;
