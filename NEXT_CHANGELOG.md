@@ -11,7 +11,7 @@
 
 ### Fixed
 - Fixed complex types not being returned as objects in SEA Inline mode when `EnableComplexDatatypeSupport=true`.
-- Fixed errors with complex data types in Thrift CloudFetch mode.
+- Fixed `StringIndexOutOfBoundsException` when parsing complex data types in Thrift CloudFetch mode. The issue occurred when metadata contained incomplete type information (e.g., "ARRAY" instead of "ARRAY<INT>"). Now retrieves complete type information from Arrow metadata.
 
 - [PECOBLR-1131] Fix incorrect refetching of expired CloudFetch links when using Thrift protocol.
 - Fixed logging to respect params when the driver is shaded.

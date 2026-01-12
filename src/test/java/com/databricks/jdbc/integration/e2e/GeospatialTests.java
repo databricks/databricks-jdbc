@@ -152,6 +152,61 @@ public class GeospatialTests {
     rs.close();
   }
 
+  @ParameterizedTest(name = "{5}")
+  @MethodSource("provideAllConfigurations")
+  void testGeometryAny(
+      int useThrift,
+      int enableArrow,
+      int cloudFetch,
+      int enableGeoSupport,
+      int enableComplexSupport,
+      String desc)
+      throws SQLException {
+
+    setupConnection(useThrift, enableArrow, enableGeoSupport, enableComplexSupport);
+
+    // Build SQL query - GEOMETRY(ANY) with mixed SRIDs
+    String sql;
+    if (cloudFetch == 1) {
+      sql =
+          "SELECT CASE WHEN col % 2 = 1 "
+              + "  THEN ST_GeomFromText('POINT(17 7)', 4326) "
+              + "  ELSE ST_GeomFromText('POINT(5 5)', 0) "
+              + "END as geom "
+              + "FROM explode(sequence(1, 1000000)) AS t(col)";
+    } else {
+      sql =
+          "SELECT * FROM VALUES "
+              + "(ST_GeomFromText('POINT(17 7)', 4326)), "
+              + "(ST_GeomFromText('POINT(5 5)', 0)) AS t(geom)";
+    }
+
+    ResultSet rs = executeQuery(connection, sql);
+    assertNotNull(rs);
+
+    ResultSetMetaData rsm = rs.getMetaData();
+    assertEquals(1, rsm.getColumnCount());
+
+    // Assert CloudFetch usage when configured
+    if (cloudFetch == 1) {
+      assertTrue(((DatabricksResultSetMetaData) rsm).getIsCloudFetchUsed());
+    }
+
+    // Geospatial objects returned only when:
+    // 1. Both EnableGeoSpatialSupport=1 AND EnableComplexDatatypeSupport=1
+    // 2. NOT in Thrift + Inline mode
+    boolean shouldReturnGeospatialObjects =
+        enableGeoSupport == 1 && enableComplexSupport == 1 && !(useThrift == 1 && enableArrow == 0);
+
+    if (shouldReturnGeospatialObjects) {
+      validateGeometryAnyEnabled(rs, rsm);
+    } else {
+      validateGeometryAnyDisabled(rs, rsm);
+    }
+
+    rs.close();
+  }
+
   /** Validates geospatial objects are returned (IGeometry/IGeography with correct metadata). */
   private void validateGeospatialEnabled(ResultSet rs, ResultSetMetaData rsm) throws SQLException {
 
@@ -212,5 +267,64 @@ public class GeospatialTests {
 
     String geogStr = (String) geogObj;
     assertEquals("SRID=4326;POINT(-122.4194 37.7749)", geogStr);
+  }
+
+  /** Validates GEOMETRY(ANY) objects are returned with mixed SRIDs. */
+  private void validateGeometryAnyEnabled(ResultSet rs, ResultSetMetaData rsm) throws SQLException {
+
+    // Column metadata assertions
+    assertEquals("geom", rsm.getColumnName(1));
+    assertEquals(Types.OTHER, rsm.getColumnType(1));
+    assertEquals("GEOMETRY(ANY)", rsm.getColumnTypeName(1));
+    assertEquals("com.databricks.jdbc.api.IGeometry", rsm.getColumnClassName(1));
+
+    // Row 1: POINT(17 7) with SRID 4326
+    assertTrue(rs.next());
+    Object geomObj1 = rs.getObject("geom");
+    assertNotNull(geomObj1);
+    assertInstanceOf(IGeometry.class, geomObj1);
+
+    IGeometry geom1 = (IGeometry) geomObj1;
+    assertEquals(4326, geom1.getSRID());
+    assertEquals("POINT(17 7)", geom1.getWKT());
+
+    // Row 2: POINT(5 5) with SRID 0
+    assertTrue(rs.next());
+    Object geomObj2 = rs.getObject("geom");
+    assertNotNull(geomObj2);
+    assertInstanceOf(IGeometry.class, geomObj2);
+
+    IGeometry geom2 = (IGeometry) geomObj2;
+    assertEquals(0, geom2.getSRID());
+    assertEquals("POINT(5 5)", geom2.getWKT());
+  }
+
+  /** Validates GEOMETRY(ANY) data is returned as STRING. */
+  private void validateGeometryAnyDisabled(ResultSet rs, ResultSetMetaData rsm)
+      throws SQLException {
+
+    // Column metadata assertions
+    assertEquals("geom", rsm.getColumnName(1));
+    assertEquals(Types.VARCHAR, rsm.getColumnType(1));
+    assertEquals("STRING", rsm.getColumnTypeName(1));
+    assertEquals("java.lang.String", rsm.getColumnClassName(1));
+
+    // Row 1: POINT(17 7) with SRID 4326 (as STRING)
+    assertTrue(rs.next());
+    Object geomObj1 = rs.getObject("geom");
+    assertNotNull(geomObj1);
+    assertInstanceOf(String.class, geomObj1);
+
+    String geomStr1 = (String) geomObj1;
+    assertEquals("SRID=4326;POINT(17 7)", geomStr1);
+
+    // Row 2: POINT(5 5) with SRID 0 (as STRING)
+    assertTrue(rs.next());
+    Object geomObj2 = rs.getObject("geom");
+    assertNotNull(geomObj2);
+    assertInstanceOf(String.class, geomObj2);
+
+    String geomStr2 = (String) geomObj2;
+    assertEquals("POINT(5 5)", geomStr2);
   }
 }

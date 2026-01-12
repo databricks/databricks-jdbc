@@ -9,7 +9,6 @@ import com.databricks.jdbc.api.IExecutionStatus;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.arrow.ChunkProvider;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
-import com.databricks.jdbc.api.impl.converters.GeospatialConverter;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
@@ -526,9 +525,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     } else if (columnName.startsWith(STRUCT)) {
       return parser.parseJsonStringToDbStruct(obj.toString(), columnName);
     } else if (columnName.startsWith(GEOMETRY)) {
-      return new GeospatialConverter().toDatabricksGeometry(obj);
+      return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOMETRY)
+          .toDatabricksGeometry(obj);
     } else if (columnName.startsWith(GEOGRAPHY)) {
-      return new GeospatialConverter().toDatabricksGeography(obj);
+      return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOGRAPHY)
+          .toDatabricksGeography(obj);
     }
     throw new DatabricksParsingException(
         "Unexpected metadata format. Type is not a COMPLEX: " + columnName,

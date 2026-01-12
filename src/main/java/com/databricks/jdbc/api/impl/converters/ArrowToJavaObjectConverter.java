@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -140,9 +141,11 @@ public class ArrowToJavaObjectConverter {
         IntervalConverter ic = new IntervalConverter(arrowMetadata);
         return ic.toLiteral(object);
       case GEOMETRY:
-        return new GeospatialConverter().toDatabricksGeometry(object);
+        return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOMETRY)
+            .toDatabricksGeometry(object);
       case GEOGRAPHY:
-        return new GeospatialConverter().toDatabricksGeography(object);
+        return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOGRAPHY)
+            .toDatabricksGeography(object);
       case NULL:
         return null;
       default:
