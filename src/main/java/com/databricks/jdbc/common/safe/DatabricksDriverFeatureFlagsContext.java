@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
+import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -90,6 +91,12 @@ public class DatabricksDriverFeatureFlagsContext {
       IDatabricksHttpClient httpClient =
           DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
       HttpGet request = new HttpGet(featureFlagEndpoint);
+
+      // Set custom User-Agent for connector service (includes custom user agent without client
+      // type)
+      String userAgent = UserAgentManager.buildUserAgentForConnectorService(connectionContext);
+      request.setHeader("User-Agent", userAgent);
+
       DatabricksClientConfiguratorManager.getInstance()
           .getConfigurator(connectionContext)
           .getDatabricksConfig()

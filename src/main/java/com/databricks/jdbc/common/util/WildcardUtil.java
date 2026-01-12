@@ -32,7 +32,7 @@ public class WildcardUtil {
    * @return true if the input string is wildcard
    */
   public static boolean isWildcard(String s) {
-    return s != null && s.contains(ASTERISK);
+    return s != null && s.equals(ASTERISK);
   }
 
   public static String jdbcPatternToHive(String pattern) {

@@ -139,6 +139,9 @@ public class DriverConnectionParameters {
   @JsonProperty("enable_metric_view_metadata")
   boolean enableMetricViewMetadata;
 
+  @JsonProperty("query_tags")
+  String queryTags;
+
   public DriverConnectionParameters setHttpPath(String httpPath) {
     this.httpPath = httpPath;
     return this;
@@ -364,6 +367,11 @@ public class DriverConnectionParameters {
     return this;
   }
 
+  public DriverConnectionParameters setQueryTags(String queryTags) {
+    this.queryTags = queryTags;
+    return this;
+  }
+
   @Override
   public String toString() {
     return new ToStringer(DriverConnectionParameters.class)
@@ -411,6 +419,7 @@ public class DriverConnectionParameters {
         .add("rowsFetchedPerBlock", rowsFetchedPerBlock)
         .add("asyncPollIntervalMillis", asyncPollIntervalMillis)
         .add("enableMetricViewMetadata", enableMetricViewMetadata)
+        .add("queryTags", queryTags)
         .toString();
   }
 }
