@@ -213,6 +213,10 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
     return retrieveToken(hc, tokenUrl, params, headers);
   }
 
+  private static final String TOKEN_EXCHANGE_ERROR_MESSAGE =
+      "Failed to retrieve the exchanged token from OIDC token endpoint. %s "
+          + "This may indicate network connectivity issues, invalid credentials, or token exchange service unavailability.";
+
   @VisibleForTesting
   Token retrieveToken(
       IDatabricksHttpClient hc,
@@ -230,13 +234,25 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
               StandardCharsets.UTF_8));
       headers.forEach(postRequest::setHeader);
       HttpResponse response = hc.execute(postRequest);
+
+      // Check for HTTP errors and build detailed error message
+      String httpError = ValidationUtil.checkHTTPErrorWithoutThrowingError(response);
+      if (!httpError.equals(DatabricksJdbcConstants.EMPTY_STRING)) {
+        String errorMessage = String.format(TOKEN_EXCHANGE_ERROR_MESSAGE, httpError);
+        LOGGER.error(errorMessage);
+        throw new DatabricksDriverException(errorMessage, DatabricksDriverErrorCode.AUTH_ERROR);
+      }
+
       OAuthResponse resp =
           JsonUtil.getMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
       return createToken(resp.getAccessToken(), resp.getTokenType());
+    } catch (DatabricksDriverException e) {
+      // Already logged and has telemetry, just re-throw
+      throw e;
     } catch (Exception e) {
-      LOGGER.error(e, "Failed to retrieve the exchanged token");
-      throw new DatabricksDriverException(
-          "Failed to retrieve the exchanged token", e, DatabricksDriverErrorCode.AUTH_ERROR);
+      String errorMessage = String.format(TOKEN_EXCHANGE_ERROR_MESSAGE, "Error: " + e);
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksDriverException(errorMessage, e, DatabricksDriverErrorCode.AUTH_ERROR);
     }
   }
 

@@ -96,13 +96,12 @@ public class ValidationUtil {
     throw new DatabricksValidationException(errorMessage);
   }
 
-  public static void checkHTTPError(HttpResponse response)
-      throws DatabricksHttpException, IOException {
+  public static String checkHTTPErrorWithoutThrowingError(HttpResponse response) {
     int statusCode = response.getStatusLine().getStatusCode();
-    String statusLine = response.getStatusLine().toString();
     if (statusCode >= 200 && statusCode < 300) {
-      return;
+      return EMPTY_STRING;
     }
+    String statusLine = response.getStatusLine().toString();
     String errorReason =
         String.format("HTTP request failed by code: %d, status line: %s.", statusCode, statusLine);
     if (response.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
@@ -123,7 +122,15 @@ public class ValidationUtil {
         LOGGER.warn("Unable to parse JSON from response entity", e);
       }
     }
+    return errorReason;
+  }
 
+  public static void checkHTTPError(HttpResponse response)
+      throws DatabricksHttpException, IOException {
+    String errorReason = checkHTTPErrorWithoutThrowingError(response);
+    if (errorReason.equals(EMPTY_STRING)) {
+      return;
+    }
     LOGGER.error(errorReason);
     throw new DatabricksHttpException(errorReason, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }

@@ -5,6 +5,7 @@
 ### Added
 
 ### Updated
+- Enhanced error logging for token exchange failures.
 
 ### Fixed
 
