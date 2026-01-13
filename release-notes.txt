@@ -12,6 +12,7 @@ Released 2026-01-07
 Enhancements & New Features
 
  * Added token caching for all authentication providers to reduce token endpoint calls.
+ * Databricks SQL Execution API may be used for executing statements on Databricks Warehouses. Statements execution on All Purpose Clusters will continue using Databricks Thrift Server mode.
  * Changed default value of `IgnoreTransactions` from `0` to `1` to disable multi-statement transactions by default. Preview participants can opt-in by setting `IgnoreTransactions=0`. Also updated `supportsTransactions()` to respect this flag.
 
 Resolved Issues
