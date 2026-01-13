@@ -3,7 +3,7 @@
 
 ### Added
 - Added token caching for all authentication providers to reduce token endpoint calls.
-- Databricks SQL Execution API may be used by default for queries submitted on DBSQL. To continue using Thrift Server for execution, set `UseThriftClient` to 1.
+- Databricks SQL Execution API will be used by default for queries submitted on DBSQL. To continue using Databricks Thrift Server backend for execution, set `UseThriftClient` to `1`.
 
 ### Updated
 - Changed default value of `IgnoreTransactions` from `0` to `1` to disable multi-statement transactions by default. Preview participants can opt-in by setting `IgnoreTransactions=0`. Also updated `supportsTransactions()` to respect this flag.
