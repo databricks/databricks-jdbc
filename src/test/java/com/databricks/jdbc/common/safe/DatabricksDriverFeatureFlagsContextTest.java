@@ -37,7 +37,7 @@ class DatabricksDriverFeatureFlagsContextTest {
   @Mock private ObjectMapper objectMapperMock;
   private static final String FEATURE_FLAG_NAME = "featureFlagName";
   private static final String FEATURE_FLAGS_ENDPOINT =
-      "https://test-host/api/2.0/connector-service/feature-flags/OSS_JDBC/3.0.7";
+      "https://test-host/api/2.0/connector-service/feature-flags/OSS_JDBC/3.1.1";
 
   private DatabricksDriverFeatureFlagsContext context;
 
