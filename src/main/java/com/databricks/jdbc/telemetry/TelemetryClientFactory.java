@@ -135,8 +135,8 @@ public class TelemetryClientFactory {
   }
 
   /**
-   * Closes telemetry client for a connection. Thread-safe: computeIfPresent ensures atomic
-   * locking, preventing race conditions between connection removal and addition.
+   * Closes telemetry client for a connection. Thread-safe: computeIfPresent ensures atomic locking,
+   * preventing race conditions between connection removal and addition.
    */
   public void closeTelemetryClient(IDatabricksConnectionContext connectionContext) {
     String key = TelemetryHelper.keyOf(connectionContext);

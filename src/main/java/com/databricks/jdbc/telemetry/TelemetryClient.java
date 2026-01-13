@@ -133,8 +133,8 @@ public class TelemetryClient implements ITelemetryClient {
   }
 
   /**
-   * Submits a flush task to the executor service. Non-blocking: uses a shared thread pool
-   * (10 threads) so slow flushes don't block other statements.
+   * Submits a flush task to the executor service. Non-blocking: uses a shared thread pool (10
+   * threads) so slow flushes don't block other statements.
    *
    * @param forceFlush - Flushes the eventsBatch for all size variations if forceFlush, otherwise
    *     only flushes if eventsBatch size has breached

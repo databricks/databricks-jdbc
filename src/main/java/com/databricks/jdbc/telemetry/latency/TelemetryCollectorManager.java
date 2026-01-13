@@ -23,8 +23,8 @@ public class TelemetryCollectorManager {
   }
 
   /**
-   * Gets or creates a TelemetryCollector for the given connection context.
-   * Null checks are retained due to ThreadLocal usage patterns that may result in null context.
+   * Gets or creates a TelemetryCollector for the given connection context. Null checks are retained
+   * due to ThreadLocal usage patterns that may result in null context.
    *
    * @param context the connection context
    * @return the TelemetryCollector instance for this connection
