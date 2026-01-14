@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
+import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -214,8 +215,7 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
   }
 
   private static final String TOKEN_EXCHANGE_ERROR_MESSAGE =
-      "Failed to retrieve the exchanged token from OIDC token endpoint. %s "
-          + "This may indicate network connectivity issues, invalid credentials, or token exchange service unavailability.";
+      "Failed to retrieve the exchanged token from OIDC token endpoint. %s ";
 
   @VisibleForTesting
   Token retrieveToken(
