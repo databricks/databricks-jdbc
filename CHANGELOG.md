@@ -1,4 +1,18 @@
 # Version Changelog
+## [v3.1.1] - 2026-01-07
+
+### Added
+- Added token caching for all authentication providers to reduce token endpoint calls.
+- We will be rolling out the use of Databricks SQL Execution API by default for queries submitted on DBSQL. To continue using Databricks Thrift Server backend for execution, set `UseThriftClient` to `1`.
+
+### Updated
+- Changed default value of `IgnoreTransactions` from `0` to `1` to disable multi-statement transactions by default. Preview participants can opt-in by setting `IgnoreTransactions=0`. Also updated `supportsTransactions()` to respect this flag.
+
+### Fixed
+- [PECOBLR-1131] Fix incorrect refetching of expired CloudFetch links when using Thrift protocol.
+- Fixed logging to respect params when the driver is shaded.
+- Fixed `isWildcard` to return true only when the value is `*`
+
 ## [v3.0.7] - 2025-12-18
 
 ### Updated

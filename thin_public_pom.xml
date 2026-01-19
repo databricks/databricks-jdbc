@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc-thin</artifactId>
-  <version>3.0.7</version>
+  <version>3.1.1</version>
   <packaging>jar</packaging>
   <name>Databricks JDBC Driver Thin</name>
   <description>Databricks JDBC Driver Thin JAR - requires external dependencies.</description>
