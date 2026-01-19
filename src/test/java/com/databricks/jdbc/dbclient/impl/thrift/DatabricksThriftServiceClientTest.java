@@ -164,6 +164,9 @@ public class DatabricksThriftServiceClientTest {
   void testGetRequestWithDifferentProtocolVersions(TProtocolVersion protocolVersion)
       throws SQLException {
     when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    // Use lenient() because isCloudFetchEnabled() is only called for protocols that support
+    // CloudFetch
+    org.mockito.Mockito.lenient().when(connectionContext.isCloudFetchEnabled()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
@@ -243,6 +246,7 @@ public class DatabricksThriftServiceClientTest {
   @Test
   void testExecute() throws SQLException {
     when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    when(connectionContext.isCloudFetchEnabled()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
@@ -284,6 +288,7 @@ public class DatabricksThriftServiceClientTest {
   @Test
   void testExecuteAsync() throws SQLException {
     when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    when(connectionContext.isCloudFetchEnabled()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
@@ -630,6 +635,7 @@ public class DatabricksThriftServiceClientTest {
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(connectionContext.enableShowCommandsForGetFunctions()).thenReturn(true);
     when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    when(connectionContext.isCloudFetchEnabled()).thenReturn(true);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);
     TSparkArrowTypes arrowNativeTypes =
         new TSparkArrowTypes()

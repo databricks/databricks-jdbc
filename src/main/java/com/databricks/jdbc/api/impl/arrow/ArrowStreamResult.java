@@ -388,7 +388,6 @@ public class ArrowStreamResult implements IExecutionResult {
 
     if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
       LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
-
       Object result =
           chunkIterator.getColumnObjectAtCurrentRow(
               columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);

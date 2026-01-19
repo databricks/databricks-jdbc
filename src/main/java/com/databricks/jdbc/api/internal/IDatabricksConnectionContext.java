@@ -427,6 +427,29 @@ public interface IDatabricksConnectionContext {
   boolean isStreamingChunkProviderEnabled();
 
   /**
+   * Returns whether streaming mode is enabled for inline results (Thrift columnar and inline
+   * Arrow).
+   */
+  boolean isInlineStreamingEnabled();
+
+  /**
+   * Returns whether CloudFetch (URL-based result download) is enabled.
+   *
+   * <p>When enabled (default), the server may return URL_BASED_SET results that are downloaded from
+   * cloud storage. When disabled, the server returns ARROW_BASED_SET with inline Arrow data.
+   *
+   * @return true if CloudFetch is enabled, false otherwise
+   */
+  boolean isCloudFetchEnabled();
+
+  /**
+   * Returns the maximum number of batches to keep in memory for Thrift streaming.
+   *
+   * @return the max batches in memory (default: 3)
+   */
+  int getThriftMaxBatchesInMemory();
+
+  /**
    * Returns the number of chunk links to prefetch ahead of consumption.
    *
    * <p>This controls how far ahead the streaming chunk provider fetches links before they are

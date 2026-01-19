@@ -99,6 +99,8 @@ public class ExecutionResultFactoryTest {
   public void testGetResultSet_thriftColumnar() throws SQLException {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.COLUMN_BASED_SET);
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(resultSetMetadataResp);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isInlineStreamingEnabled()).thenReturn(false);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(fetchResultsResp, session, parentStatement);
     assertInstanceOf(LazyThriftResult.class, result);
@@ -131,6 +133,8 @@ public class ExecutionResultFactoryTest {
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ARROW_BASED_SET);
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(resultSetMetadataResp);
     when(fetchResultsResp.getResults()).thenReturn(tRowSet);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isInlineStreamingEnabled()).thenReturn(false);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(fetchResultsResp, session, parentStatement);
     assertInstanceOf(LazyThriftInlineArrowResult.class, result);

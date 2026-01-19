@@ -2,7 +2,9 @@ package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.arrow.LazyThriftInlineArrowResult;
+import com.databricks.jdbc.api.impl.arrow.StreamingInlineArrowResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.DatabricksThriftUtil;
@@ -95,9 +97,9 @@ class ExecutionResultFactory {
     LOGGER.info("Processing result of format {} from Thrift server", resultFormat);
     switch (resultFormat) {
       case COLUMN_BASED_SET:
-        return new LazyThriftResult(resultsResp, parentStatement, session);
+        return createThriftColumnarResult(resultsResp, parentStatement, session);
       case ARROW_BASED_SET:
-        return new LazyThriftInlineArrowResult(resultsResp, parentStatement, session);
+        return createInlineArrowResult(resultsResp, parentStatement, session);
       case URL_BASED_SET:
         return new ArrowStreamResult(resultsResp, parentStatement, session);
       case ROW_BASED_SET:
@@ -106,6 +108,54 @@ class ExecutionResultFactory {
       default:
         throw new DatabricksSQLFeatureNotImplementedException(
             "Invalid thrift response format " + resultFormat);
+    }
+  }
+
+  /**
+   * Creates the appropriate result handler for Thrift columnar results. Uses
+   * StreamingColumnarResult by default for improved throughput, otherwise falls back to
+   * LazyThriftResult if disabled.
+   */
+  private static IExecutionResult createThriftColumnarResult(
+      TFetchResultsResp resultsResp,
+      IDatabricksStatementInternal parentStatement,
+      IDatabricksSession session)
+      throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+
+    // Streaming is enabled by default (ENABLE_INLINE_STREAMING defaults to "1")
+    if (connectionContext.isInlineStreamingEnabled()) {
+      LOGGER.info("Using StreamingColumnarResult for improved throughput (default)");
+      int maxBatchesInMemory = connectionContext.getThriftMaxBatchesInMemory();
+      return new StreamingColumnarResult(
+          resultsResp, parentStatement, session, maxBatchesInMemory, 300); // 5 minute timeout
+    } else {
+      LOGGER.info("Using LazyThriftResult (streaming explicitly disabled)");
+      return new LazyThriftResult(resultsResp, parentStatement, session);
+    }
+  }
+
+  /**
+   * Creates the appropriate result handler for inline Arrow results. Uses
+   * StreamingInlineArrowResult by default for improved throughput, otherwise falls back to
+   * LazyThriftInlineArrowResult.
+   */
+  private static IExecutionResult createInlineArrowResult(
+      TFetchResultsResp resultsResp,
+      IDatabricksStatementInternal parentStatement,
+      IDatabricksSession session)
+      throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+
+    // Streaming is enabled by default (ENABLE_INLINE_STREAMING defaults to "1")
+    if (connectionContext.isInlineStreamingEnabled()) {
+      LOGGER.info("Using StreamingInlineArrowResult for improved throughput (default)");
+      int maxBatchesInMemory = connectionContext.getThriftMaxBatchesInMemory();
+      return new StreamingInlineArrowResult(
+          resultsResp, parentStatement, session, maxBatchesInMemory, 300); // 5 minute timeout
+    } else {
+      LOGGER.info("Using LazyThriftInlineArrowResult (streaming explicitly disabled)");
+      return new LazyThriftInlineArrowResult(resultsResp, parentStatement, session);
     }
   }
 

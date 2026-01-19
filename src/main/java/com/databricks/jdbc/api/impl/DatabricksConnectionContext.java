@@ -1199,6 +1199,26 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean isInlineStreamingEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_INLINE_STREAMING).equals("1");
+  }
+
+  @Override
+  public boolean isCloudFetchEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_CLOUD_FETCH).equals("1");
+  }
+
+  @Override
+  public int getThriftMaxBatchesInMemory() {
+    try {
+      return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.THRIFT_MAX_BATCHES_IN_MEMORY));
+    } catch (NumberFormatException e) {
+      LOGGER.warn("Invalid value for ThriftMaxBatchesInMemory, using default value 3");
+      return 3;
+    }
+  }
+
+  @Override
   public int getLinkPrefetchWindow() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.LINK_PREFETCH_WINDOW));
   }
