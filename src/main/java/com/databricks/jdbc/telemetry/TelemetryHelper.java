@@ -450,9 +450,7 @@ public class TelemetryHelper {
    * @param format The result format
    */
   public static void setResultFormat(
-      IDatabricksConnectionContext connectionContext,
-      StatementId statementId,
-      Format format) {
+      IDatabricksConnectionContext connectionContext, StatementId statementId, Format format) {
     try {
       if (connectionContext != null) {
         TelemetryCollectorManager.getInstance()
