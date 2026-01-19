@@ -115,4 +115,39 @@ public class DatabricksEmptyMetadataClientTest {
     assertEquals(resultSet.getMetaData().getColumnName(2), "TABLE_SCHEM");
     assertEquals(resultSet.getMetaData().getColumnName(3), "TABLE_NAME");
   }
+
+  @Test
+  void testListImportedKeys() throws SQLException {
+    ResultSet resultSet = mockClient.listImportedKeys(session, "catalog", "schema", "table");
+    assertNotNull(resultSet);
+    assertFalse(resultSet.next()); // empty result set
+    assertEquals(14, resultSet.getMetaData().getColumnCount());
+    assertEquals("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
+  }
+
+  @Test
+  void testListExportedKeys() throws SQLException {
+    ResultSet resultSet = mockClient.listExportedKeys(session, "catalog", "schema", "table");
+    assertNotNull(resultSet);
+    assertFalse(resultSet.next()); // empty result set
+    assertEquals(14, resultSet.getMetaData().getColumnCount());
+    assertEquals("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
+  }
+
+  @Test
+  void testListCrossReferences() throws SQLException {
+    ResultSet resultSet =
+        mockClient.listCrossReferences(
+            session,
+            "parentCatalog",
+            "parentSchema",
+            "parentTable",
+            "foreignCatalog",
+            "foreignSchema",
+            "foreignTable");
+    assertNotNull(resultSet);
+    assertFalse(resultSet.next()); // empty result set
+    assertEquals(14, resultSet.getMetaData().getColumnCount());
+    assertEquals("PKTABLE_CAT", resultSet.getMetaData().getColumnName(1));
+  }
 }

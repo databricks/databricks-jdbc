@@ -16,7 +16,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.*;
@@ -260,5 +262,57 @@ public class ArrowResultChunkTest {
     assertEquals(
         10, iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", intColumnInfo));
     assertFalse(iterator.hasNextRow());
+  }
+
+  @Test
+  public void testMetadataExtractionWithZeroRows() throws Exception {
+    // Arrange - Create schema with Arrow metadata
+    // This test verifies that VectorSchemaRoot metadata is available even when there are 0 rows
+    Map<String, String> metadata1 = new HashMap<>();
+    metadata1.put("Spark:DataType:SqlName", "ARRAY<INT>");
+    FieldType fieldType1 = new FieldType(false, Types.MinorType.INT.getType(), null, metadata1);
+
+    Map<String, String> metadata2 = new HashMap<>();
+    metadata2.put("Spark:DataType:SqlName", "MAP<STRING,STRING>");
+    FieldType fieldType2 = new FieldType(false, Types.MinorType.INT.getType(), null, metadata2);
+
+    List<Field> fieldList = new ArrayList<>();
+    fieldList.add(new Field("col1", fieldType1, null));
+    fieldList.add(new Field("col2", fieldType2, null));
+    Schema schema = new Schema(fieldList);
+
+    // Create Arrow file with 0 rows
+    Object[][] emptyData = new Object[2][0]; // 2 columns, 0 rows
+    File arrowFile =
+        createTestArrowFile(
+            "TestZeroRowsMetadata", schema, emptyData, new RootAllocator(Integer.MAX_VALUE));
+
+    // Create chunk info for 0 rows
+    BaseChunkInfo chunkInfo =
+        new BaseChunkInfo().setChunkIndex(0L).setByteCount(200L).setRowOffset(0L).setRowCount(0L);
+
+    ArrowResultChunk arrowResultChunk =
+        ArrowResultChunk.builder()
+            .withStatementId(TEST_STATEMENT_ID)
+            .withChunkInfo(chunkInfo)
+            .withChunkStatus(ChunkStatus.PROCESSING_SUCCEEDED)
+            .build();
+
+    // Act
+    arrowResultChunk.initializeData(new FileInputStream(arrowFile));
+
+    // Assert - Metadata should be available even with 0 rows
+    List<String> metadata = arrowResultChunk.getArrowMetadata();
+    assertNotNull(metadata, "Metadata should not be null even with 0 rows");
+    assertEquals(2, metadata.size(), "Should have metadata for 2 columns");
+    assertEquals("ARRAY<INT>", metadata.get(0), "First column metadata should be ARRAY<INT>");
+    assertEquals(
+        "MAP<STRING,STRING>",
+        metadata.get(1),
+        "Second column metadata should be MAP<STRING,STRING>");
+
+    // Cleanup
+    arrowResultChunk.releaseChunk();
+    arrowFile.delete();
   }
 }
