@@ -2,6 +2,7 @@ package com.databricks.jdbc.telemetry.latency;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 /**
  * Manages TelemetryCollector instances per connection. Each connection gets its own
@@ -70,7 +71,7 @@ public class TelemetryCollectorManager {
    * @return the TelemetryCollector, or null if an error occurred
    */
   public TelemetryCollector getCollectorSafely(
-      java.util.function.Supplier<IDatabricksConnectionContext> connectionContextSupplier) {
+      Supplier<IDatabricksConnectionContext> connectionContextSupplier) {
     try {
       IDatabricksConnectionContext context = connectionContextSupplier.get();
       return getOrCreateCollector(context);
