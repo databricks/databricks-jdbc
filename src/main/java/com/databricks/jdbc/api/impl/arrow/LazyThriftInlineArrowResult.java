@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getColumnInfoFromTColumnDesc;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 
@@ -8,6 +9,7 @@ import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -418,15 +420,18 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
     return new Field(columnDesc.getColumnName(), fieldType, null);
   }
 
-  private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {
+  private void setColumnInfo(TGetResultSetMetadataResp resultManifest)
+      throws DatabricksSQLException {
     columnInfos = new ArrayList<>();
     if (resultManifest.getSchema() == null) {
       return;
     }
-    for (TColumnDesc tColumnDesc : resultManifest.getSchema().getColumns()) {
-      columnInfos.add(
-          com.databricks.jdbc.common.util.DatabricksThriftUtil.getColumnInfoFromTColumnDesc(
-              tColumnDesc));
+    List<String> arrowMetadata = DatabricksThriftUtil.getArrowMetadata(resultManifest);
+    List<TColumnDesc> columns = resultManifest.getSchema().getColumns();
+    for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
+      TColumnDesc tColumnDesc = columns.get(columnIndex);
+      String columnArrowMetadata = arrowMetadata != null ? arrowMetadata.get(columnIndex) : null;
+      columnInfos.add(getColumnInfoFromTColumnDesc(tColumnDesc, columnArrowMetadata));
     }
   }
 
