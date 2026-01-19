@@ -179,7 +179,7 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
     this.maxBatchesInMemory = Math.max(2, maxBatchesInMemory);
     this.batchReadyTimeoutSeconds = timeoutSeconds;
 
-    LOGGER.info(
+    LOGGER.debug(
         "Creating ThriftStreamingProvider: maxBatches={}, timeout={}s, processor={}",
         this.maxBatchesInMemory,
         timeoutSeconds,
@@ -193,14 +193,14 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
     totalRowsFetched.addAndGet(initialBatch.getRowCount());
     nextRowOffset.set(initialBatch.getRowCount());
 
-    LOGGER.info(
+    LOGGER.debug(
         "Initial batch processed: rows={}, hasMoreRows={}",
         initialBatch.getRowCount(),
         initialBatch.hasMoreRows());
 
     if (!initialBatch.hasMoreRows()) {
       endOfStreamReached = true;
-      LOGGER.info("Single batch result - all data in initial response");
+      LOGGER.debug("Single batch result - all data in initial response");
     }
 
     // Start prefetch thread
@@ -337,14 +337,21 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
   public void close() {
     if (closed) return;
 
-    LOGGER.info("Closing ThriftStreamingProvider, total rows: {}", totalRowsFetched.get());
+    LOGGER.debug("Closing ThriftStreamingProvider, total rows: {}", totalRowsFetched.get());
     closed = true;
 
     notifyConsumerAdvanced();
     notifyBatchAvailable();
 
+    // Interrupt and wait for prefetch thread to terminate before releasing resources
     if (prefetchThread != null) {
       prefetchThread.interrupt();
+      try {
+        prefetchThread.join(5000); // Wait up to 5s for clean shutdown
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        LOGGER.debug("Interrupted while waiting for prefetch thread to terminate");
+      }
     }
 
     // Release all batches using type-safe release action
@@ -431,7 +438,7 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
 
     if (!batch.hasMoreRows()) {
       endOfStreamReached = true;
-      LOGGER.info("End of stream at batch {}", batchIndex);
+      LOGGER.debug("End of stream at batch {}", batchIndex);
     }
 
     notifyBatchAvailable();

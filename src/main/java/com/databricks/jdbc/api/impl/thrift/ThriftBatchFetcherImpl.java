@@ -47,7 +47,9 @@ public class ThriftBatchFetcherImpl implements ThriftBatchFetcher {
           "ThriftBatchFetcher is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
     }
 
-    LOGGER.debug("Fetching next batch for statement {}", statement.getStatementId());
+    LOGGER.debug(
+        "Fetching next batch for statement {}",
+        statement != null ? statement.getStatementId() : "null");
     long startTime = System.currentTimeMillis();
 
     TFetchResultsResp response = session.getDatabricksClient().getMoreResults(statement);

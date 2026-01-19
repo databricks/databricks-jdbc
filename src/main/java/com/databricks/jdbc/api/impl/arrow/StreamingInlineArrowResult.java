@@ -134,7 +134,7 @@ public class StreamingInlineArrowResult implements IExecutionResult {
       }
     }
 
-    LOGGER.info(
+    LOGGER.debug(
         "[STREAMING] StreamingInlineArrowResult initialized - firstBatchRows={}, maxRows={}, maxBatchesInMemory={}",
         currentBatch != null ? currentBatch.getRowCount() : 0,
         maxRows,
@@ -236,7 +236,7 @@ public class StreamingInlineArrowResult implements IExecutionResult {
         currentChunkIterator = chunk.getChunkIterator();
         currentChunkIterator.nextRow();
 
-        LOGGER.info(
+        LOGGER.debug(
             "[CONSUMER] Moved to batch {} - globalRow={}, batchesInMemory={}",
             currentBatch.getBatchIndex(),
             globalRowIndex,
@@ -295,7 +295,7 @@ public class StreamingInlineArrowResult implements IExecutionResult {
       provider.close();
     }
 
-    LOGGER.info(
+    LOGGER.debug(
         "[STREAMING] Closed - totalRowsFetched={}, rowsConsumed={}", totalRows, globalRowIndex + 1);
   }
 

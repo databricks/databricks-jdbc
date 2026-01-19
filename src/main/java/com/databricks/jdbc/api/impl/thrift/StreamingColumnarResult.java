@@ -114,7 +114,7 @@ public class StreamingColumnarResult implements IExecutionResult {
       currentBatch = provider.getCurrentBatch();
     }
 
-    LOGGER.info(
+    LOGGER.debug(
         "[STREAMING] StreamingColumnarResult initialized - firstBatchRows={}, maxRows={}, maxBatchesInMemory={}",
         currentBatch != null ? currentBatch.getRowCount() : 0,
         maxRows,
@@ -204,7 +204,7 @@ public class StreamingColumnarResult implements IExecutionResult {
         currentBatchRowIndex = 0;
 
         // Log batch transition
-        LOGGER.info(
+        LOGGER.debug(
             "[CONSUMER] Moved to batch {} - globalRow={}, batchesInMemory={}",
             currentBatch.getBatchIndex(),
             globalRowIndex,
@@ -220,7 +220,7 @@ public class StreamingColumnarResult implements IExecutionResult {
 
     // Log progress periodically (every 500K rows)
     if (globalRowIndex > 0 && globalRowIndex % 500000 == 0) {
-      LOGGER.info(
+      LOGGER.debug(
           "[CONSUMER] Progress - rows={}, batch={}, batchesInMemory={}",
           globalRowIndex,
           currentBatch.getBatchIndex(),
@@ -274,7 +274,7 @@ public class StreamingColumnarResult implements IExecutionResult {
       provider.close();
     }
 
-    LOGGER.info(
+    LOGGER.debug(
         "[STREAMING] Closed - totalRowsFetched={}, rowsConsumed={}", totalRows, globalRowIndex + 1);
   }
 
