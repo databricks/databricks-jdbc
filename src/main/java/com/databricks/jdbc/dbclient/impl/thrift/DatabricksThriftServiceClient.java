@@ -232,7 +232,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       request.setCanDecompressLZ4Result(true);
     }
     if (ProtocolFeatureUtil.supportsCloudFetch(serverProtocolVersion)) {
-      request.setCanDownloadResult(true);
+      // Use EnableQueryResultDownload param to control CloudFetch vs inline Arrow
+      request.setCanDownloadResult(this.connectionContext.isCloudFetchEnabled());
     }
     if (ProtocolFeatureUtil.supportsAdvancedArrowTypes(serverProtocolVersion)) {
       arrowNativeTypes

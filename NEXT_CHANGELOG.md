@@ -4,6 +4,7 @@
 
 ### Added
 - Added token caching for all authentication providers to reduce token endpoint calls.
+- Added support for disabling CloudFetch via `EnableQueryResultDownload=0` to use inline Arrow results instead.
 
 ### Updated
 

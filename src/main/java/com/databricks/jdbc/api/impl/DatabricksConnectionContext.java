@@ -1199,6 +1199,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean isCloudFetchEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_CLOUD_FETCH).equals("1");
+  }
+
+  @Override
   public int getLinkPrefetchWindow() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.LINK_PREFETCH_WINDOW));
   }
