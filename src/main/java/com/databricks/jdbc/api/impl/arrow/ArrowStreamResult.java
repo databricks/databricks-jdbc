@@ -143,13 +143,11 @@ public class ArrowStreamResult implements IExecutionResult {
 
   public ArrowStreamResult(
       TFetchResultsResp resultsResp,
-      boolean isInlineArrow,
       IDatabricksStatementInternal parentStatementId,
       IDatabricksSession session)
       throws DatabricksSQLException {
     this(
         resultsResp,
-        isInlineArrow,
         parentStatementId,
         session,
         DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext()));
@@ -158,19 +156,14 @@ public class ArrowStreamResult implements IExecutionResult {
   @VisibleForTesting
   ArrowStreamResult(
       TFetchResultsResp resultsResp,
-      boolean isInlineArrow,
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
       throws DatabricksSQLException {
     this.session = session;
     setColumnInfo(resultsResp.getResultSetMetadata());
-    if (isInlineArrow) {
-      this.chunkProvider = new InlineChunkProvider(resultsResp, parentStatement, session);
-    } else {
-      this.chunkProvider =
-          createThriftRemoteChunkProvider(resultsResp, parentStatement, session, httpClient);
-    }
+    this.chunkProvider =
+        createThriftRemoteChunkProvider(resultsResp, parentStatement, session, httpClient);
   }
 
   /**
@@ -238,48 +231,15 @@ public class ArrowStreamResult implements IExecutionResult {
   /** {@inheritDoc} */
   @Override
   public Object getObject(int columnIndex) throws DatabricksSQLException {
-    ColumnInfoTypeName requiredType = columnInfos.get(columnIndex).getTypeName();
+    ColumnInfo columnInfo = columnInfos.get(columnIndex);
+    ColumnInfoTypeName requiredType = columnInfo.getTypeName();
     String arrowMetadata = chunkIterator.getType(columnIndex);
     if (arrowMetadata == null) {
-      arrowMetadata = columnInfos.get(columnIndex).getTypeText();
+      arrowMetadata = columnInfo.getTypeText();
     }
 
-    // Handle complex type conversion when complex datatype support is disabled
-    boolean isComplexDatatypeSupportEnabled =
-        this.session.getConnectionContext().isComplexDatatypeSupportEnabled();
-    boolean isGeoSpatialSupportEnabled =
-        this.session.getConnectionContext().isGeoSpatialSupportEnabled();
-
-    // Check if we need to convert geospatial types to string when geospatial support is disabled
-    // This check must come before the general complex type check
-    if (!isGeoSpatialSupportEnabled && isGeospatialType(requiredType)) {
-      LOGGER.debug("Geospatial support is disabled, converting {} to STRING", requiredType);
-
-      Object result =
-          chunkIterator.getColumnObjectAtCurrentRow(
-              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfos.get(columnIndex));
-      if (result == null) {
-        return null;
-      }
-      // Return raw string for geospatial types when support is disabled
-      return result;
-    }
-
-    if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
-      LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
-
-      Object result =
-          chunkIterator.getColumnObjectAtCurrentRow(
-              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfos.get(columnIndex));
-      if (result == null) {
-        return null;
-      }
-      ComplexDataTypeParser parser = new ComplexDataTypeParser();
-      return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
-    }
-
-    return chunkIterator.getColumnObjectAtCurrentRow(
-        columnIndex, requiredType, arrowMetadata, columnInfos.get(columnIndex));
+    return getObjectWithComplexTypeHandling(
+        session, chunkIterator, columnIndex, requiredType, arrowMetadata, columnInfo);
   }
 
   /**
@@ -382,6 +342,66 @@ public class ArrowStreamResult implements IExecutionResult {
     for (TColumnDesc tColumnDesc : resultManifest.getSchema().getColumns()) {
       columnInfos.add(getColumnInfoFromTColumnDesc(tColumnDesc));
     }
+  }
+
+  /**
+   * Helper method to handle complex type and geospatial type conversion when support is disabled.
+   *
+   * <p>This method is also used by LazyThriftInlineArrowResult for consistent type handling.
+   *
+   * @param session The databricks session
+   * @param chunkIterator The chunk iterator
+   * @param columnIndex The column index
+   * @param requiredType The required column type
+   * @param arrowMetadata The arrow metadata
+   * @param columnInfo The column info
+   * @return The object value (converted if complex/geospatial type and support disabled)
+   * @throws DatabricksSQLException if an error occurs
+   */
+  protected static Object getObjectWithComplexTypeHandling(
+      IDatabricksSession session,
+      ArrowResultChunkIterator chunkIterator,
+      int columnIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata,
+      ColumnInfo columnInfo)
+      throws DatabricksSQLException {
+    boolean isComplexDatatypeSupportEnabled =
+        session.getConnectionContext().isComplexDatatypeSupportEnabled();
+    boolean isGeoSpatialSupportEnabled =
+        session.getConnectionContext().isGeoSpatialSupportEnabled();
+
+    // Check if we need to convert geospatial types to string when geospatial support is disabled
+    // This check must come before the general complex type check
+    if (!isGeoSpatialSupportEnabled && isGeospatialType(requiredType)) {
+      LOGGER.debug("Geospatial support is disabled, converting {} to STRING", requiredType);
+
+      Object result =
+          chunkIterator.getColumnObjectAtCurrentRow(
+              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
+      if (result == null) {
+        return null;
+      }
+      // Return raw string for geospatial types when support is disabled
+      return result;
+    }
+
+    if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
+      LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
+
+      Object result =
+          chunkIterator.getColumnObjectAtCurrentRow(
+              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
+      if (result == null) {
+        return null;
+      }
+      ComplexDataTypeParser parser = new ComplexDataTypeParser();
+
+      return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
+    }
+
+    return chunkIterator.getColumnObjectAtCurrentRow(
+        columnIndex, requiredType, arrowMetadata, columnInfo);
   }
 
   /**

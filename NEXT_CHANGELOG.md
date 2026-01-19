@@ -3,16 +3,14 @@
 ## [Unreleased]
 
 ### Added
-- Added token caching for all authentication providers to reduce token endpoint calls.
 - Added support for disabling CloudFetch via `EnableQueryResultDownload=0` to use inline Arrow results instead.
 
 ### Updated
+- Implemented lazy loading for inline Arrow results, fetching arrow batches on demand instead of all at once. This improves memory usage and initial response time for large result sets when using the Thrift protocol with Arrow format.
 
 ### Fixed
-
-- [PECOBLR-1131] Fix incorrect refetching of expired CloudFetch links when using Thrift protocol.
-- Fixed logging to respect params when the driver is shaded.
-- Fixed `isWildcard` to return true only when the value is `*`
+- Fixed complex data type metadata support when retrieving 0 rows in Arrow format
+- Normalized TIMESTAMP_NTZ to TIMESTAMP in Thrift path for consistency with SEA behavior
 
 ---
 *Note: When making changes, please add your change under the appropriate section

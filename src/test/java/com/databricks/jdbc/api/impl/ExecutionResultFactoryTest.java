@@ -1,10 +1,10 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.TestConstants.ARROW_BATCH_LIST;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
+import com.databricks.jdbc.api.impl.arrow.LazyThriftInlineArrowResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -128,14 +128,11 @@ public class ExecutionResultFactoryTest {
 
   @Test
   public void testGetResultSet_thriftInlineArrow() throws SQLException {
-    when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
     when(resultSetMetadataResp.getResultFormat()).thenReturn(TSparkRowSetType.ARROW_BASED_SET);
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(resultSetMetadataResp);
     when(fetchResultsResp.getResults()).thenReturn(tRowSet);
-    when(session.getConnectionContext()).thenReturn(connectionContext);
-    when(tRowSet.getArrowBatches()).thenReturn(ARROW_BATCH_LIST);
     IExecutionResult result =
         ExecutionResultFactory.getResultSet(fetchResultsResp, session, parentStatement);
-    assertInstanceOf(ArrowStreamResult.class, result);
+    assertInstanceOf(LazyThriftInlineArrowResult.class, result);
   }
 }

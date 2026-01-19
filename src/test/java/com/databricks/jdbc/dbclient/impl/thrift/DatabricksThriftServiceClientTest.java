@@ -166,7 +166,7 @@ public class DatabricksThriftServiceClientTest {
     when(connectionContext.shouldEnableArrow()).thenReturn(true);
     // Use lenient() because isCloudFetchEnabled() is only called for protocols that support
     // CloudFetch
-    org.mockito.Mockito.lenient().when(connectionContext.isCloudFetchEnabled()).thenReturn(true);
+    lenient().when(connectionContext.isCloudFetchEnabled()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(session.getSessionInfo()).thenReturn(SESSION_INFO);

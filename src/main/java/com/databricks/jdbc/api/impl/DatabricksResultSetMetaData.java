@@ -201,6 +201,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                       && arrowMetadata.get(columnIndex) != null)
                   ? arrowMetadata.get(columnIndex)
                   : getTypeTextFromTypeDesc(columnDesc.getTypeDesc());
+
+          // Normalize TIMESTAMP_NTZ to TIMESTAMP for consistency with SEA path
+          if (columnTypeText != null && columnTypeText.equalsIgnoreCase(TIMESTAMP_NTZ)) {
+            columnTypeText = TIMESTAMP;
+          }
+
           columnBuilder
               .columnName(columnInfo.getName())
               .columnTypeClassName(

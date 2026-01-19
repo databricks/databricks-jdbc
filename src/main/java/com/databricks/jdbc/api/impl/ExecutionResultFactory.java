@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
+import com.databricks.jdbc.api.impl.arrow.LazyThriftInlineArrowResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -96,9 +97,9 @@ class ExecutionResultFactory {
       case COLUMN_BASED_SET:
         return new LazyThriftResult(resultsResp, parentStatement, session);
       case ARROW_BASED_SET:
-        return new ArrowStreamResult(resultsResp, true, parentStatement, session);
+        return new LazyThriftInlineArrowResult(resultsResp, parentStatement, session);
       case URL_BASED_SET:
-        return new ArrowStreamResult(resultsResp, false, parentStatement, session);
+        return new ArrowStreamResult(resultsResp, parentStatement, session);
       case ROW_BASED_SET:
         throw new DatabricksSQLFeatureNotSupportedException(
             "Invalid state - row based set cannot be received");

@@ -7,6 +7,7 @@ import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IExecutionStatus;
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
 import com.databricks.jdbc.api.impl.arrow.ChunkProvider;
+import com.databricks.jdbc.api.impl.arrow.LazyThriftInlineArrowResult;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
@@ -155,6 +156,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<String> arrowMetadata = null;
       if (executionResult instanceof ArrowStreamResult) {
         arrowMetadata = ((ArrowStreamResult) executionResult).getArrowMetadata();
+      } else if (executionResult instanceof LazyThriftInlineArrowResult) {
+        arrowMetadata = ((LazyThriftInlineArrowResult) executionResult).getArrowMetadata();
       }
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
