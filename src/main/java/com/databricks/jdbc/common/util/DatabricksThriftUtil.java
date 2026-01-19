@@ -400,7 +400,9 @@ public class DatabricksThriftUtil {
    */
   public static List<String> getArrowMetadata(TGetResultSetMetadataResp metadata)
       throws DatabricksSQLException {
-    if (metadata == null || metadata.getArrowSchema() == null) {
+    if (metadata == null
+        || metadata.getArrowSchema() == null
+        || metadata.getArrowSchema().length == 0) {
       return null;
     }
     byte[] arrowSchemaBytes = metadata.getArrowSchema();
