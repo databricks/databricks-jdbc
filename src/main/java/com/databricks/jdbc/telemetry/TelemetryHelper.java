@@ -3,7 +3,9 @@ package com.databricks.jdbc.telemetry;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_TAGS;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
+import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
@@ -16,6 +18,7 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
 import com.databricks.jdbc.model.telemetry.*;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
@@ -23,6 +26,7 @@ import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
+import com.databricks.sdk.service.sql.Format;
 import com.google.common.annotations.VisibleForTesting;
 import java.nio.charset.Charset;
 import java.time.Instant;
@@ -448,7 +452,7 @@ public class TelemetryHelper {
   public static void setResultFormat(
       IDatabricksConnectionContext connectionContext,
       StatementId statementId,
-      com.databricks.sdk.service.sql.Format format) {
+      Format format) {
     try {
       if (connectionContext != null) {
         TelemetryCollectorManager.getInstance()
@@ -469,8 +473,8 @@ public class TelemetryHelper {
    */
   public static void setResultFormat(
       IDatabricksConnectionContext connectionContext,
-      com.databricks.jdbc.api.internal.IDatabricksStatementInternal parentStatement,
-      com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType format) {
+      IDatabricksStatementInternal parentStatement,
+      TSparkRowSetType format) {
     try {
       if (connectionContext != null) {
         TelemetryCollectorManager.getInstance()
@@ -516,15 +520,14 @@ public class TelemetryHelper {
    * @param hasNext Whether there are more rows
    */
   public static void recordResultSetIteration(
-      com.databricks.jdbc.api.internal.IDatabricksStatementInternal parentStatement,
-      com.databricks.jdbc.dbclient.impl.common.StatementId statementId,
+      IDatabricksStatementInternal parentStatement,
+      StatementId statementId,
       Long chunkCount,
       boolean hasNext) {
     try {
       if (parentStatement != null && chunkCount != null) {
         IDatabricksConnectionContext connectionContext =
-            ((com.databricks.jdbc.api.impl.DatabricksConnection)
-                    parentStatement.getStatement().getConnection())
+            ((DatabricksConnection) parentStatement.getStatement().getConnection())
                 .getConnectionContext();
         recordResultSetIteration(
             connectionContext, statementId.toSQLExecStatementId(), chunkCount, hasNext);
