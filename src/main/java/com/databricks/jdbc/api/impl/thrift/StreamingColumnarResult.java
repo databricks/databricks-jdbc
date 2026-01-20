@@ -195,13 +195,23 @@ public class StreamingColumnarResult implements IExecutionResult {
     globalRowIndex++;
 
     // Check if we need to move to next batch
-    if (currentBatch != null && currentBatchRowIndex >= currentBatch.getData().getRowCount()) {
+    ColumnarRowView batchData = currentBatch != null ? currentBatch.getData() : null;
+    long batchRowCount = batchData != null ? batchData.getRowCount() : 0;
+    if (currentBatch != null && currentBatchRowIndex >= batchRowCount) {
 
       // Try to move to next batch
       if (provider.hasNextBatch()) {
         provider.nextBatch();
         currentBatch = provider.getCurrentBatch();
         currentBatchRowIndex = 0;
+
+        if (currentBatch == null) {
+          LOGGER.warn("[CONSUMER] Got null batch after nextBatch()");
+          hasReachedEnd = true;
+          globalRowIndex--;
+          currentBatchRowIndex--;
+          return false;
+        }
 
         // Log batch transition
         LOGGER.debug(
@@ -219,7 +229,7 @@ public class StreamingColumnarResult implements IExecutionResult {
     }
 
     // Log progress periodically (every 500K rows)
-    if (globalRowIndex > 0 && globalRowIndex % 500000 == 0) {
+    if (globalRowIndex > 0 && globalRowIndex % 500000 == 0 && currentBatch != null) {
       LOGGER.debug(
           "[CONSUMER] Progress - rows={}, batch={}, batchesInMemory={}",
           globalRowIndex,

@@ -44,7 +44,8 @@ public class InlineArrowResponseProcessor implements ThriftResponseProcessor<Arr
       JdbcLoggerFactory.getLogger(InlineArrowResponseProcessor.class);
 
   private final StatementId statementId;
-  private byte[] cachedSchema; // Cache schema from first response
+  private volatile byte[]
+      cachedSchema; // Cache schema from first response, volatile for visibility across threads
 
   /**
    * Creates a new inline Arrow response processor.

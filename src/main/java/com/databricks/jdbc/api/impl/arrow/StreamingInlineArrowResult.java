@@ -238,6 +238,12 @@ public class StreamingInlineArrowResult implements IExecutionResult {
       if (currentBatch != null) {
         // Type-safe: getData() returns ArrowResultChunk directly!
         ArrowResultChunk chunk = currentBatch.getData();
+        if (chunk == null) {
+          LOGGER.warn("[CONSUMER] Batch {} has null data", currentBatch.getBatchIndex());
+          hasReachedEnd = true;
+          globalRowIndex--;
+          return false;
+        }
         currentChunkIterator = chunk.getChunkIterator();
         currentChunkIterator.nextRow();
 
