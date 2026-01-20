@@ -101,6 +101,7 @@ public class InlineArrowResponseProcessor implements ThriftResponseProcessor<Arr
       return batch;
 
     } catch (DatabricksParsingException e) {
+      LOGGER.error("Failed to process inline Arrow batch {}: {}", batchIndex, e.getMessage(), e);
       batch.setError(e);
       throw new DatabricksSQLException(
           "Failed to process Arrow data", e, DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
@@ -141,6 +142,7 @@ public class InlineArrowResponseProcessor implements ThriftResponseProcessor<Arr
 
       return new ByteArrayInputStream(baos.toByteArray());
     } catch (DatabricksSQLException | IOException e) {
+      LOGGER.error("Failed to create Arrow byte stream: {}", e.getMessage(), e);
       throw new DatabricksParsingException(
           "Failed to create Arrow byte stream: " + e.getMessage(),
           e,
@@ -204,13 +206,17 @@ public class InlineArrowResponseProcessor implements ThriftResponseProcessor<Arr
       throws DatabricksParsingException {
     List<Field> fields = new ArrayList<>();
     if (hiveSchema == null) {
+      LOGGER.debug("Hive schema is null, returning empty Arrow schema");
       return new Schema(fields);
     }
     try {
+      LOGGER.debug(
+          "Converting Hive schema to Arrow schema with {} columns", hiveSchema.getColumnsSize());
       for (TColumnDesc columnDesc : hiveSchema.getColumns()) {
         fields.add(getArrowField(columnDesc));
       }
     } catch (SQLException e) {
+      LOGGER.error("Failed to convert Hive schema to Arrow: {}", e.getMessage(), e);
       throw new DatabricksParsingException(
           "Failed to convert Hive schema to Arrow: " + e.getMessage(),
           e,

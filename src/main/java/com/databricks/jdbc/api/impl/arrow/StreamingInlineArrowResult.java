@@ -167,18 +167,23 @@ public class StreamingInlineArrowResult implements IExecutionResult {
   /** Validates state before getting an object. */
   private void validateGetObjectState(int columnIndex) throws DatabricksSQLException {
     if (isClosed) {
+      LOGGER.debug("[STREAMING] Attempted to access closed result");
       throw new DatabricksSQLException(
           "Result is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
     }
     if (globalRowIndex == -1) {
+      LOGGER.debug("[STREAMING] Attempted to access data before first row");
       throw new DatabricksSQLException(
           "Cursor is before first row", DatabricksDriverErrorCode.INVALID_STATE);
     }
     if (currentChunkIterator == null) {
+      LOGGER.debug("[STREAMING] No current chunk available at row {}", globalRowIndex);
       throw new DatabricksSQLException(
           "No current chunk available", DatabricksDriverErrorCode.INVALID_STATE);
     }
     if (columnIndex < 0 || columnIndex >= columnInfos.size()) {
+      LOGGER.debug(
+          "[STREAMING] Column index {} out of bounds (0-{})", columnIndex, columnInfos.size() - 1);
       throw new DatabricksSQLException(
           "Column index out of bounds: " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE);
     }

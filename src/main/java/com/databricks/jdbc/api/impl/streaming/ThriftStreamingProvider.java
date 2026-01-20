@@ -174,6 +174,17 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
       int timeoutSeconds)
       throws DatabricksSQLException {
 
+    // Validate required parameters
+    if (initialResponse == null) {
+      throw new IllegalArgumentException("initialResponse cannot be null");
+    }
+    if (fetcher == null) {
+      throw new IllegalArgumentException("fetcher cannot be null");
+    }
+    if (processor == null) {
+      throw new IllegalArgumentException("processor cannot be null");
+    }
+
     this.batchFetcher = fetcher;
     this.processor = processor;
     this.maxBatchesInMemory = Math.max(2, maxBatchesInMemory);
@@ -355,13 +366,22 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
     }
 
     // Release all batches using type-safe release action
+    // Continue releasing subsequent batches even if one fails
     for (StreamingBatch<T> batch : batches.values()) {
-      batch.release();
+      try {
+        batch.release();
+      } catch (Exception e) {
+        LOGGER.warn("Error releasing batch during close: {}", e.getMessage(), e);
+      }
     }
     batches.clear();
 
     if (batchFetcher != null) {
-      batchFetcher.close();
+      try {
+        batchFetcher.close();
+      } catch (Exception e) {
+        LOGGER.warn("Error closing batchFetcher: {}", e.getMessage(), e);
+      }
     }
   }
 
@@ -459,6 +479,9 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
   private void waitForBatchCreation(long batchIndex) throws DatabricksSQLException {
     prefetchLock.lock();
     try {
+      long waitStartTime = System.currentTimeMillis();
+      long timeoutMillis = batchReadyTimeoutSeconds * 1000L;
+
       while (!closed && !batches.containsKey(batchIndex)) {
         checkPrefetchError();
         if (endOfStreamReached && batchIndex > highestFetchedBatchIndex.get()) {
@@ -470,8 +493,22 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
                   + ")",
               DatabricksDriverErrorCode.CHUNK_READY_ERROR);
         }
+
+        // Check for timeout
+        long elapsedMillis = System.currentTimeMillis() - waitStartTime;
+        if (elapsedMillis >= timeoutMillis) {
+          throw new DatabricksSQLException(
+              "Timeout waiting for batch "
+                  + batchIndex
+                  + " to be created (timeout: "
+                  + batchReadyTimeoutSeconds
+                  + "s)",
+              DatabricksDriverErrorCode.CHUNK_READY_ERROR);
+        }
+
         try {
-          batchAvailable.await();
+          long remainingMillis = timeoutMillis - elapsedMillis;
+          batchAvailable.await(remainingMillis, java.util.concurrent.TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           throw new DatabricksSQLException(

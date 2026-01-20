@@ -26,6 +26,9 @@ class ExecutionResultFactory {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(ExecutionResultFactory.class);
 
+  /** Default timeout in seconds for waiting for a batch to be ready in streaming mode. */
+  private static final int DEFAULT_STREAMING_BATCH_TIMEOUT_SECONDS = 300;
+
   static IExecutionResult getResultSet(
       ResultData data,
       ResultManifest manifest,
@@ -129,7 +132,11 @@ class ExecutionResultFactory {
       LOGGER.info("Using StreamingColumnarResult for improved throughput (default)");
       int maxBatchesInMemory = connectionContext.getThriftMaxBatchesInMemory();
       return new StreamingColumnarResult(
-          resultsResp, parentStatement, session, maxBatchesInMemory, 300); // 5 minute timeout
+          resultsResp,
+          parentStatement,
+          session,
+          maxBatchesInMemory,
+          DEFAULT_STREAMING_BATCH_TIMEOUT_SECONDS);
     } else {
       LOGGER.info("Using LazyThriftResult (streaming explicitly disabled)");
       return new LazyThriftResult(resultsResp, parentStatement, session);
@@ -153,7 +160,11 @@ class ExecutionResultFactory {
       LOGGER.info("Using StreamingInlineArrowResult for improved throughput (default)");
       int maxBatchesInMemory = connectionContext.getThriftMaxBatchesInMemory();
       return new StreamingInlineArrowResult(
-          resultsResp, parentStatement, session, maxBatchesInMemory, 300); // 5 minute timeout
+          resultsResp,
+          parentStatement,
+          session,
+          maxBatchesInMemory,
+          DEFAULT_STREAMING_BATCH_TIMEOUT_SECONDS);
     } else {
       LOGGER.info("Using LazyThriftInlineArrowResult (streaming explicitly disabled)");
       return new LazyThriftInlineArrowResult(resultsResp, parentStatement, session);
