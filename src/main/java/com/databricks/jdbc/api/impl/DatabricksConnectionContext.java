@@ -469,7 +469,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return DatabricksClientType.THRIFT;
     }
     // Check if CloudFetch is disabled - Thrift is required for inline mode
-    if (!Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_CLOUD_FETCH), "1")) {
+    if (!isCloudFetchEnabled()) {
       return DatabricksClientType.THRIFT;
     }
     // Check feature flag to determine if SEA client should be enabled
