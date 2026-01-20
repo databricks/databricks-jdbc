@@ -427,6 +427,16 @@ public interface IDatabricksConnectionContext {
   boolean isStreamingChunkProviderEnabled();
 
   /**
+   * Returns whether CloudFetch (URL-based result download) is enabled.
+   *
+   * <p>When enabled (default), the server may return URL_BASED_SET results that are downloaded from
+   * cloud storage. When disabled, the server returns ARROW_BASED_SET with inline Arrow data.
+   *
+   * @return true if CloudFetch is enabled, false otherwise
+   */
+  boolean isCloudFetchEnabled();
+
+  /**
    * Returns the number of chunk links to prefetch ahead of consumption.
    *
    * <p>This controls how far ahead the streaming chunk provider fetches links before they are

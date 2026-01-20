@@ -469,7 +469,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return DatabricksClientType.THRIFT;
     }
     // Check if CloudFetch is disabled - Thrift is required for inline mode
-    if (!Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_CLOUD_FETCH), "1")) {
+    if (!isCloudFetchEnabled()) {
       return DatabricksClientType.THRIFT;
     }
     // Check feature flag to determine if SEA client should be enabled
@@ -1196,6 +1196,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isStreamingChunkProviderEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_STREAMING_CHUNK_PROVIDER).equals("1");
+  }
+
+  @Override
+  public boolean isCloudFetchEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_CLOUD_FETCH).equals("1");
   }
 
   @Override

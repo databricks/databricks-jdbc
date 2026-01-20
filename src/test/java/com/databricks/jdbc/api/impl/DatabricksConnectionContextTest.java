@@ -1210,4 +1210,47 @@ class DatabricksConnectionContextTest {
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
     assertFalse(ctx.isTokenFederationEnabled());
   }
+
+  @Test
+  public void testIsCloudFetchEnabled() throws DatabricksSQLException {
+    // Test default value (should be enabled by default)
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertTrue(ctx.isCloudFetchEnabled()); // Default should be true
+
+    // Test via URL parameter - enabled
+    String urlWithCloudFetchEnabled =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;httpPath=/sql/1.0/warehouses/999999999;EnableQueryResultDownload=1";
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithCloudFetchEnabled, properties);
+    assertTrue(ctx.isCloudFetchEnabled());
+
+    // Test via URL parameter - disabled
+    String urlWithCloudFetchDisabled =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;httpPath=/sql/1.0/warehouses/999999999;EnableQueryResultDownload=0";
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(urlWithCloudFetchDisabled, properties);
+    assertFalse(ctx.isCloudFetchEnabled());
+
+    // Test via Properties - enabled
+    Properties props = new Properties();
+    props.setProperty("password", "passwd");
+    props.setProperty("EnableQueryResultDownload", "1");
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
+    assertTrue(ctx.isCloudFetchEnabled());
+
+    // Test via Properties - disabled
+    props = new Properties();
+    props.setProperty("password", "passwd");
+    props.setProperty("EnableQueryResultDownload", "0");
+    ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
+    assertFalse(ctx.isCloudFetchEnabled());
+  }
 }
