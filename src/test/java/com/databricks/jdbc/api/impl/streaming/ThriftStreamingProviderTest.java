@@ -142,23 +142,28 @@ public class ThriftStreamingProviderTest {
         new DatabricksSQLException("Network failure", DatabricksDriverErrorCode.CONNECTION_ERROR);
     when(batchFetcher.fetchNextBatch()).thenThrow(fetchError);
 
+    // The prefetch thread starts during construction and may fail before or after
+    // the first nextBatch() call. We need to handle both cases.
+    DatabricksSQLException caughtException = null;
     ThriftStreamingProvider<ColumnarRowView> provider =
         ThriftStreamingProvider.forColumnar(batchFetcher, initialResponse, 3, 30);
 
     try {
-      // Move to initial batch
-      provider.nextBatch();
-
-      // Give prefetch thread time to fail
-      Thread.sleep(100);
-
-      // Next call should propagate the error
-      DatabricksSQLException thrown =
-          assertThrows(DatabricksSQLException.class, provider::nextBatch);
-      assertTrue(thrown.getMessage().contains("Prefetch failed"));
+      // Consume batches until we hit the error
+      while (provider.nextBatch()) {
+        // Keep iterating - error will be thrown when we need a batch that failed to prefetch
+      }
+    } catch (DatabricksSQLException e) {
+      caughtException = e;
     } finally {
       provider.close();
     }
+
+    // Verify we caught the expected error
+    assertNotNull(caughtException, "Expected DatabricksSQLException to be thrown");
+    assertTrue(
+        caughtException.getMessage().contains("Prefetch failed"),
+        "Exception should contain 'Prefetch failed': " + caughtException.getMessage());
   }
 
   @Test
@@ -399,6 +404,8 @@ public class ThriftStreamingProviderTest {
         new DatabricksSQLException("Server error", DatabricksDriverErrorCode.CONNECTION_ERROR);
     when(batchFetcher.fetchNextBatch()).thenThrow(fetchError);
 
+    // The prefetch thread starts during construction and may fail at any point.
+    DatabricksSQLException caughtException = null;
     ThriftStreamingProvider<ColumnarRowView> provider =
         ThriftStreamingProvider.forColumnar(batchFetcher, initialResponse, 3, 30);
 
@@ -409,13 +416,21 @@ public class ThriftStreamingProviderTest {
       // Let prefetch thread fail
       Thread.sleep(100);
 
-      // getCurrentBatch should propagate the prefetch error
-      DatabricksSQLException thrown =
-          assertThrows(DatabricksSQLException.class, provider::getCurrentBatch);
-      assertTrue(thrown.getMessage().contains("Prefetch failed"));
+      // Either nextBatch or getCurrentBatch should propagate the prefetch error
+      while (provider.nextBatch()) {
+        provider.getCurrentBatch();
+      }
+    } catch (DatabricksSQLException e) {
+      caughtException = e;
     } finally {
       provider.close();
     }
+
+    // Verify we caught the expected error
+    assertNotNull(caughtException, "Expected DatabricksSQLException to be thrown");
+    assertTrue(
+        caughtException.getMessage().contains("Prefetch failed"),
+        "Exception should contain 'Prefetch failed': " + caughtException.getMessage());
   }
 
   @Test
@@ -483,13 +498,13 @@ public class ThriftStreamingProviderTest {
         ThriftStreamingProvider.forColumnar(batchFetcher, initialResponse, 3, 30);
 
     try {
-      // Initial batch has 3 rows
-      assertEquals(3, provider.getTotalRowsFetched());
+      // Initial batch has at least 3 rows (prefetch may have already fetched more)
+      assertTrue(provider.getTotalRowsFetched() >= 3);
 
       // Let prefetch run
       Thread.sleep(100);
 
-      // After prefetch, should have 8 total rows
+      // After prefetch, should have 8 total rows (3 + 5)
       assertEquals(8, provider.getTotalRowsFetched());
     } finally {
       provider.close();
@@ -508,13 +523,13 @@ public class ThriftStreamingProviderTest {
         ThriftStreamingProvider.forColumnar(batchFetcher, initialResponse, 3, 30);
 
     try {
-      // Initial: 1 batch in memory
-      assertEquals(1, provider.getBatchesInMemory());
+      // Initial: at least 1 batch in memory (prefetch may have already fetched more)
+      assertTrue(provider.getBatchesInMemory() >= 1);
 
       // Let prefetch run
       Thread.sleep(100);
 
-      // After prefetch of 2 more batches
+      // After prefetch of 2 more batches (3 total), should be within bounds
       assertTrue(provider.getBatchesInMemory() >= 1);
       assertTrue(provider.getBatchesInMemory() <= 3);
     } finally {

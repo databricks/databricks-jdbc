@@ -258,20 +258,27 @@ public class StreamingColumnarResultTest {
         new DatabricksSQLException("Network error", DatabricksDriverErrorCode.CONNECTION_ERROR);
     when(databricksClient.getMoreResults(statement)).thenThrow(expectedException);
 
+    // The prefetch thread starts during construction and may fail at any point.
+    DatabricksSQLException caughtException = null;
     StreamingColumnarResult result = new StreamingColumnarResult(firstBatch, statement, session);
 
     try {
-      // Consume first batch
-      assertTrue(result.next());
-
-      // Give prefetch thread time to encounter the error
-      Thread.sleep(100);
-
-      // Should throw on attempt to move to next batch
-      assertThrows(DatabricksSQLException.class, result::next);
+      // Consume rows until we hit the error
+      while (result.next()) {
+        // Keep iterating - error will be thrown when we need a batch that failed to prefetch
+      }
+    } catch (DatabricksSQLException e) {
+      caughtException = e;
     } finally {
       result.close();
     }
+
+    // Verify we caught the expected error
+    assertNotNull(caughtException, "Expected DatabricksSQLException to be thrown");
+    assertTrue(
+        caughtException.getMessage().contains("Prefetch failed")
+            || caughtException.getMessage().contains("Network error"),
+        "Exception should contain error details: " + caughtException.getMessage());
   }
 
   @Test
