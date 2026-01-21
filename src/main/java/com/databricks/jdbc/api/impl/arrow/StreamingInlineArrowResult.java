@@ -100,14 +100,11 @@ public class StreamingInlineArrowResult implements IExecutionResult {
             session.getConnectionContext().getThriftMaxBatchesInMemory(),
             DEFAULT_STREAMING_BATCH_TIMEOUT_SECONDS);
 
-    // Move to first batch
-    if (provider.hasNextBatch()) {
-      provider.nextBatch();
+    // Move to first batch (check nextBatch() return value to handle empty initial batches)
+    if (provider.nextBatch()) {
       currentBatch = provider.getCurrentBatch();
-      if (currentBatch != null) {
-        // Type-safe: getData() returns ArrowResultChunk directly!
-        currentChunkIterator = currentBatch.getData().getChunkIterator();
-      }
+      // Type-safe: getData() returns ArrowResultChunk directly!
+      currentChunkIterator = currentBatch.getData().getChunkIterator();
     }
 
     LOGGER.debug(

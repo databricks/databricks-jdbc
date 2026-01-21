@@ -87,9 +87,8 @@ public class StreamingColumnarResult implements IExecutionResult {
             session.getConnectionContext().getThriftMaxBatchesInMemory(),
             DEFAULT_STREAMING_BATCH_TIMEOUT_SECONDS);
 
-    // Move to first batch
-    if (provider.hasNextBatch()) {
-      provider.nextBatch();
+    // Move to first batch (check nextBatch() return value to handle empty initial batches)
+    if (provider.nextBatch()) {
       currentBatch = provider.getCurrentBatch();
     }
 

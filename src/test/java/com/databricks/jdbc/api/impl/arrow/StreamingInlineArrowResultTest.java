@@ -387,7 +387,166 @@ public class StreamingInlineArrowResultTest {
     }
   }
 
+  @Test
+  void testGetTotalRowsFetched() throws DatabricksSQLException, InterruptedException {
+    byte[] arrowData1 = createValidArrowData(1, 3);
+    byte[] arrowData2 = createValidArrowData(1, 2);
+    TFetchResultsResp firstBatch = createFetchResultsResp(arrowData1, 3, true);
+    TFetchResultsResp secondBatch = createFetchResultsResp(arrowData2, 2, false);
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+
+    StreamingInlineArrowResult result =
+        new StreamingInlineArrowResult(firstBatch, statement, session);
+
+    try {
+      // Initial batch has at least 3 rows
+      assertTrue(result.getTotalRowsFetched() >= 3);
+
+      // Give prefetch thread time to fetch second batch
+      Thread.sleep(100);
+
+      // After prefetch completes, should have 5 total rows fetched
+      assertEquals(5, result.getTotalRowsFetched());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testIsCompletelyFetched() throws DatabricksSQLException, InterruptedException {
+    byte[] arrowData1 = createValidArrowData(1, 2);
+    byte[] arrowData2 = createValidArrowData(1, 2);
+    TFetchResultsResp firstBatch = createFetchResultsResp(arrowData1, 2, true);
+    TFetchResultsResp secondBatch = createFetchResultsResp(arrowData2, 2, false);
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+
+    StreamingInlineArrowResult result =
+        new StreamingInlineArrowResult(firstBatch, statement, session);
+
+    try {
+      // Give prefetch thread time to fetch second batch
+      Thread.sleep(100);
+
+      // After fetching final batch (hasMoreRows=false), should be completely fetched
+      assertTrue(result.isCompletelyFetched());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testBatchesInMemoryTracking() throws DatabricksSQLException {
+    byte[] arrowData = createValidArrowData(1, 2);
+    TFetchResultsResp response = createFetchResultsResp(arrowData, 2, false);
+
+    StreamingInlineArrowResult result =
+        new StreamingInlineArrowResult(response, statement, session);
+
+    try {
+      // Should have at least initial batch
+      assertTrue(result.getBatchesInMemory() > 0);
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testChunkCount() throws DatabricksSQLException {
+    byte[] arrowData = createValidArrowData(1, 2);
+    TFetchResultsResp response = createFetchResultsResp(arrowData, 2, false);
+
+    StreamingInlineArrowResult result =
+        new StreamingInlineArrowResult(response, statement, session);
+
+    try {
+      // Streaming results always return 0 for chunk count (not applicable)
+      assertEquals(0, result.getChunkCount());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testGetRowCount() throws DatabricksSQLException {
+    byte[] arrowData = createValidArrowData(1, 5);
+    TFetchResultsResp response = createFetchResultsResp(arrowData, 5, false);
+
+    StreamingInlineArrowResult result =
+        new StreamingInlineArrowResult(response, statement, session);
+
+    try {
+      assertTrue(result.next());
+      assertEquals(5, result.getRowCount());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testInitializationWithEmptyInitialBatch()
+      throws DatabricksSQLException, InterruptedException {
+    // Initial batch is EMPTY but hasMoreRows=true
+    TFetchResultsResp emptyInitial = createEmptyArrowResponse(true);
+
+    // Second batch has actual data
+    byte[] arrowData = createValidArrowData(1, 3);
+    TFetchResultsResp dataBatch = createFetchResultsResp(arrowData, 3, false);
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(dataBatch);
+
+    StreamingInlineArrowResult result =
+        new StreamingInlineArrowResult(emptyInitial, statement, session);
+
+    try {
+      // Give prefetch time to fetch the data batch
+      Thread.sleep(100);
+
+      // Should have skipped empty batch and positioned on data batch
+      assertTrue(result.hasNext());
+      assertTrue(result.next());
+      assertEquals(0, result.getObject(0)); // First int value
+
+      assertTrue(result.next());
+      assertTrue(result.next());
+      assertFalse(result.next()); // Only 3 rows
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testDoubleClose() throws DatabricksSQLException {
+    byte[] arrowData = createValidArrowData(1, 2);
+    TFetchResultsResp response = createFetchResultsResp(arrowData, 2, false);
+
+    StreamingInlineArrowResult result =
+        new StreamingInlineArrowResult(response, statement, session);
+
+    // First close
+    result.close();
+    // Second close should not throw
+    assertDoesNotThrow(result::close);
+  }
+
   // ==================== Helper Methods ====================
+
+  private TFetchResultsResp createEmptyArrowResponse(boolean hasMoreRows) {
+    // Create valid Arrow data with schema and 1 batch of 0 rows
+    // The Arrow data includes its own schema via ArrowStreamWriter
+    byte[] emptyArrowData = createValidArrowData(1, 0);
+    TSparkArrowBatch arrowBatch = new TSparkArrowBatch().setRowCount(0).setBatch(emptyArrowData);
+    TRowSet rowSet = new TRowSet().setArrowBatches(Collections.singletonList(arrowBatch));
+
+    // Use empty arrowSchema so cachedSchema won't be prepended (Arrow data has its own schema)
+    TGetResultSetMetadataResp metadata =
+        new TGetResultSetMetadataResp().setSchema(TWO_COLUMN_SCHEMA).setArrowSchema(new byte[0]);
+    TFetchResultsResp response =
+        new TFetchResultsResp().setResultSetMetadata(metadata).setResults(rowSet);
+    response.hasMoreRows = hasMoreRows;
+    return response;
+  }
 
   private static byte[] createValidArrowData(int batchCount, int rowsPerBatch) {
     try (BufferAllocator allocator = new RootAllocator();

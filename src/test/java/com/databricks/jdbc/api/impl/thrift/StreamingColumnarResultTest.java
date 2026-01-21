@@ -429,6 +429,116 @@ public class StreamingColumnarResultTest {
     }
   }
 
+  @Test
+  void testGetRowCount() throws DatabricksSQLException {
+    TFetchResultsResp response =
+        createResponseWithStringData(
+            Arrays.asList("row1_col1", "row1_col2"),
+            Arrays.asList("row2_col1", "row2_col2"),
+            Arrays.asList("row3_col1", "row3_col2"),
+            false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    try {
+      assertTrue(result.next());
+      assertEquals(3, result.getRowCount());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testDoubleClose() throws DatabricksSQLException {
+    TFetchResultsResp response =
+        createResponseWithStringData(Arrays.asList("row1_col1", "row1_col2"), false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    // First close
+    result.close();
+    // Second close should not throw
+    assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  void testEmptyResultNoMoreRows() throws DatabricksSQLException {
+    // Single row result to verify end-of-stream detection works
+    TFetchResultsResp singleRowResponse =
+        createResponseWithStringData(Arrays.asList("only_value"), false);
+
+    StreamingColumnarResult result =
+        new StreamingColumnarResult(singleRowResponse, statement, session);
+
+    try {
+      // Should have exactly one row
+      assertTrue(result.hasNext());
+      assertTrue(result.next());
+      assertEquals("only_value", result.getObject(0));
+
+      // No more rows
+      assertFalse(result.hasNext());
+      assertFalse(result.next());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testHasNextAfterExhausted() throws DatabricksSQLException {
+    TFetchResultsResp response = createResponseWithStringData(Arrays.asList("value"), false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    try {
+      // Consume all rows
+      assertTrue(result.next());
+      assertFalse(result.next());
+
+      // hasNext should consistently return false after exhausted
+      assertFalse(result.hasNext());
+      assertFalse(result.hasNext());
+      assertFalse(result.next());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testMultipleConsecutiveEmptyBatches() throws DatabricksSQLException, InterruptedException {
+    // First batch empty
+    TFetchResultsResp emptyBatch1 = createEmptyResponse(true);
+    // Second batch also empty
+    TFetchResultsResp emptyBatch2 = createEmptyResponse(true);
+    // Third batch has data
+    TFetchResultsResp dataBatch =
+        createResponseWithStringData(
+            Arrays.asList("row1_col1", "row1_col2"),
+            Arrays.asList("row2_col1", "row2_col2"),
+            false);
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(emptyBatch2).thenReturn(dataBatch);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(emptyBatch1, statement, session);
+
+    try {
+      // Give prefetch time
+      Thread.sleep(100);
+
+      // Should skip both empty batches and find data
+      assertTrue(result.hasNext());
+      assertTrue(result.next());
+      assertEquals("row1_col1", result.getObject(0));
+
+      assertTrue(result.next());
+      assertEquals("row2_col1", result.getObject(0));
+
+      assertFalse(result.next());
+    } finally {
+      result.close();
+    }
+  }
+
   // ==================== Helper Methods ====================
 
   private TFetchResultsResp createEmptyResponse(boolean hasMoreRows) {
