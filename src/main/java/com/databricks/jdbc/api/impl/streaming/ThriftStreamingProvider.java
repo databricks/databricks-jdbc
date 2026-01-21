@@ -9,10 +9,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
@@ -39,8 +36,7 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(ThriftStreamingProvider.class);
-  private static final String PREFETCH_THREAD_NAME = "databricks-streaming-prefetcher";
-  private static final int DEFAULT_BATCH_READY_TIMEOUT_SECONDS = 300;
+  private static final String PREFETCH_THREAD_NAME = "databricks-inline-prefetcher";
 
   // Configuration
   private final int maxBatchesInMemory;
@@ -99,22 +95,6 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
   }
 
   /**
-   * Creates a streaming provider for Thrift Columnar results with default timeout.
-   *
-   * @param fetcher The batch fetcher for retrieving data from server
-   * @param initialResponse The initial Thrift fetch response
-   * @param maxBatchesInMemory Maximum batches to keep in memory (sliding window)
-   * @return A type-safe provider that produces ColumnarRowView data
-   * @throws DatabricksSQLException if initialization fails
-   */
-  public static ThriftStreamingProvider<ColumnarRowView> forColumnar(
-      ThriftBatchFetcher fetcher, TFetchResultsResp initialResponse, int maxBatchesInMemory)
-      throws DatabricksSQLException {
-    return forColumnar(
-        fetcher, initialResponse, maxBatchesInMemory, DEFAULT_BATCH_READY_TIMEOUT_SECONDS);
-  }
-
-  /**
    * Creates a streaming provider for Inline Arrow results.
    *
    * @param fetcher The batch fetcher for retrieving data from server
@@ -140,30 +120,6 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
         timeoutSeconds);
   }
 
-  /**
-   * Creates a streaming provider for Inline Arrow results with default timeout.
-   *
-   * @param fetcher The batch fetcher for retrieving data from server
-   * @param initialResponse The initial Thrift fetch response
-   * @param statementId The statement ID for chunk creation
-   * @param maxBatchesInMemory Maximum batches to keep in memory (sliding window)
-   * @return A type-safe provider that produces ArrowResultChunk data
-   * @throws DatabricksSQLException if initialization fails
-   */
-  public static ThriftStreamingProvider<ArrowResultChunk> forInlineArrow(
-      ThriftBatchFetcher fetcher,
-      TFetchResultsResp initialResponse,
-      StatementId statementId,
-      int maxBatchesInMemory)
-      throws DatabricksSQLException {
-    return forInlineArrow(
-        fetcher,
-        initialResponse,
-        statementId,
-        maxBatchesInMemory,
-        DEFAULT_BATCH_READY_TIMEOUT_SECONDS);
-  }
-
   // ==================== Constructor ====================
 
   private ThriftStreamingProvider(
@@ -176,17 +132,22 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
 
     // Validate required parameters
     if (initialResponse == null) {
+      LOGGER.error("Cannot create ThriftStreamingProvider: initialResponse is null");
       throw new IllegalArgumentException("initialResponse cannot be null");
     }
     if (fetcher == null) {
+      LOGGER.error("Cannot create ThriftStreamingProvider: fetcher is null");
       throw new IllegalArgumentException("fetcher cannot be null");
     }
     if (processor == null) {
+      LOGGER.error("Cannot create ThriftStreamingProvider: processor is null");
       throw new IllegalArgumentException("processor cannot be null");
     }
 
     this.batchFetcher = fetcher;
     this.processor = processor;
+    // We need at least 2 batches in memory to perform any kind of prefetching, else just use the
+    // lazy implementation.
     this.maxBatchesInMemory = Math.max(2, maxBatchesInMemory);
     this.batchReadyTimeoutSeconds = timeoutSeconds;
 
@@ -238,7 +199,11 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
   /**
    * Moves to the next batch. Releases the previous batch.
    *
-   * @return true if moved to next batch, false if no more batches
+   * <p>This method automatically skips empty batches (rowCount == 0), continuing to advance until a
+   * non-empty batch is found or no more batches are available. This ensures consumers never see
+   * empty batches and matches the behavior of lazy result implementations.
+   *
+   * @return true if moved to a non-empty batch, false if no more batches
    * @throws DatabricksSQLException if an error occurred during prefetch
    */
   public boolean nextBatch() throws DatabricksSQLException {
@@ -252,12 +217,22 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
       releaseBatch(prevIndex);
     }
 
-    if (!hasNextBatch()) return false;
+    // Keep advancing until we find a non-empty batch or run out of batches
+    while (hasNextBatch()) {
+      currentBatchIndex.incrementAndGet();
+      notifyConsumerAdvanced();
 
-    currentBatchIndex.incrementAndGet();
-    notifyConsumerAdvanced();
+      StreamingBatch<T> batch = getCurrentBatch();
+      if (batch != null && batch.getRowCount() > 0) {
+        return true; // Found a non-empty batch
+      }
 
-    return true;
+      // Empty batch - release it and try next
+      LOGGER.debug("Skipping empty batch {}", currentBatchIndex.get());
+      releaseBatch(currentBatchIndex.get());
+    }
+
+    return false; // No more non-empty batches available
   }
 
   /**
@@ -283,6 +258,7 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
     }
 
     if (batch == null) {
+      LOGGER.error("Batch {} not found after waiting", batchIdx);
       throw new DatabricksSQLException(
           "Batch " + batchIdx + " not found after waiting",
           DatabricksDriverErrorCode.CHUNK_READY_ERROR);
@@ -294,16 +270,20 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
         batch.waitUntilReady(batchReadyTimeoutSeconds);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
+        LOGGER.warn("Interrupted waiting for batch {}", batchIdx);
         throw new DatabricksSQLException(
             "Interrupted waiting for batch " + batchIdx,
             e,
             DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
       } catch (ExecutionException e) {
+        LOGGER.error("Failed to fetch batch {}: {}", batchIdx, e.getCause().getMessage(), e);
         throw new DatabricksSQLException(
             "Failed to fetch batch " + batchIdx,
             e.getCause(),
             DatabricksDriverErrorCode.CHUNK_READY_ERROR);
       } catch (TimeoutException e) {
+        LOGGER.error(
+            "Timeout waiting for batch {} (timeout: {}s)", batchIdx, batchReadyTimeoutSeconds);
         throw new DatabricksSQLException(
             "Timeout waiting for batch "
                 + batchIdx
@@ -355,14 +335,12 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
     notifyBatchAvailable();
 
     // Interrupt and wait for prefetch thread to terminate before releasing resources
-    if (prefetchThread != null) {
-      prefetchThread.interrupt();
-      try {
-        prefetchThread.join(5000); // Wait up to 5s for clean shutdown
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        LOGGER.debug("Interrupted while waiting for prefetch thread to terminate");
-      }
+    prefetchThread.interrupt();
+    try {
+      prefetchThread.join(5000); // Wait up to 5s for clean shutdown
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      LOGGER.debug("Interrupted while waiting for prefetch thread to terminate");
     }
 
     // Release all batches using type-safe release action
@@ -376,12 +354,10 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
     }
     batches.clear();
 
-    if (batchFetcher != null) {
-      try {
-        batchFetcher.close();
-      } catch (Exception e) {
-        LOGGER.warn("Error closing batchFetcher: {}", e.getMessage(), e);
-      }
+    try {
+      batchFetcher.close();
+    } catch (Exception e) {
+      LOGGER.warn("Error closing batchFetcher: {}", e.getMessage(), e);
     }
   }
 
@@ -469,8 +445,13 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
   private void releaseBatch(long batchIndex) {
     StreamingBatch<T> batch = batches.remove(batchIndex);
     if (batch != null) {
-      batch.release(); // Uses type-safe Consumer<T> internally
+      // Decrement counter BEFORE release to prevent prefetch stall if release() throws
       batchesInMemory.decrementAndGet();
+      try {
+        batch.release(); // Uses type-safe Consumer<T> internally
+      } catch (Exception e) {
+        LOGGER.warn("Error releasing batch {}: {}", batchIndex, e.getMessage(), e);
+      }
       LOGGER.debug("Released batch {}, batches in memory: {}", batchIndex, batchesInMemory.get());
       notifyConsumerAdvanced();
     }
@@ -485,6 +466,10 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
       while (!closed && !batches.containsKey(batchIndex)) {
         checkPrefetchError();
         if (endOfStreamReached && batchIndex > highestFetchedBatchIndex.get()) {
+          LOGGER.error(
+              "Batch {} does not exist (highest fetched: {})",
+              batchIndex,
+              highestFetchedBatchIndex.get());
           throw new DatabricksSQLException(
               "Batch "
                   + batchIndex
@@ -497,6 +482,10 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
         // Check for timeout
         long elapsedMillis = System.currentTimeMillis() - waitStartTime;
         if (elapsedMillis >= timeoutMillis) {
+          LOGGER.error(
+              "Timeout waiting for batch {} to be created (timeout: {}s)",
+              batchIndex,
+              batchReadyTimeoutSeconds);
           throw new DatabricksSQLException(
               "Timeout waiting for batch "
                   + batchIndex
@@ -508,9 +497,10 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
 
         try {
           long remainingMillis = timeoutMillis - elapsedMillis;
-          batchAvailable.await(remainingMillis, java.util.concurrent.TimeUnit.MILLISECONDS);
+          batchAvailable.await(remainingMillis, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
+          LOGGER.warn("Interrupted waiting for batch {} creation", batchIndex);
           throw new DatabricksSQLException(
               "Interrupted waiting for batch",
               e,
@@ -524,6 +514,7 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
 
   private void checkPrefetchError() throws DatabricksSQLException {
     if (prefetchError != null) {
+      LOGGER.error("Prefetch failed: {}", prefetchError.getMessage(), prefetchError);
       throw new DatabricksSQLException(
           "Prefetch failed: " + prefetchError.getMessage(),
           prefetchError,

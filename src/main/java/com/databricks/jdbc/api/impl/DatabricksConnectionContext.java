@@ -1213,8 +1213,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     try {
       return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.THRIFT_MAX_BATCHES_IN_MEMORY));
     } catch (NumberFormatException e) {
-      LOGGER.warn("Invalid value for ThriftMaxBatchesInMemory, using default value 3");
-      return 3;
+      LOGGER.warn("Invalid value for ThriftMaxBatchesInMemory, using default value");
+      return Integer.parseInt(
+          DatabricksJdbcUrlParams.THRIFT_MAX_BATCHES_IN_MEMORY.getDefaultValue());
     }
   }
 

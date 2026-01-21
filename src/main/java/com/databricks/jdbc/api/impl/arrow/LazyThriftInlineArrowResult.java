@@ -1,13 +1,13 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
-import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
-import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
+import static com.databricks.jdbc.common.util.ArrowUtil.createArrowByteStream;
+import static com.databricks.jdbc.common.util.ArrowUtil.getSerializedSchema;
+import static com.databricks.jdbc.common.util.ArrowUtil.getTotalRowsInResponse;
 
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
-import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -16,18 +16,9 @@ import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.FieldType;
-import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.vector.util.SchemaUtility;
 
 /**
  * Lazy implementation for thrift-based inline Arrow results that fetches arrow batches on demand.
@@ -48,6 +39,7 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
   private boolean isClosed;
   private long totalRowsFetched;
   private List<ColumnInfo> columnInfos;
+  private byte[] cachedSchema; // Cache schema from first response for subsequent batches
 
   /**
    * Creates a new LazyThriftInlineArrowResult that lazily fetches arrow data on demand.
@@ -73,6 +65,15 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
 
     // Initialize column info from metadata
     setColumnInfo(initialResponse.getResultSetMetadata());
+
+    // Cache the schema from the first response for use in subsequent batches
+    try {
+      this.cachedSchema = getSerializedSchema(initialResponse.getResultSetMetadata());
+    } catch (DatabricksParsingException e) {
+      LOGGER.error("Failed to cache Arrow schema: {}", e.getMessage(), e);
+      throw new DatabricksSQLException(
+          "Failed to cache Arrow schema", e, DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+    }
 
     // Load initial chunk
     loadCurrentChunk();
@@ -271,7 +272,8 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
 
   private void loadCurrentChunk() throws DatabricksSQLException {
     try {
-      ByteArrayInputStream byteStream = createArrowByteStream(currentResponse);
+      ByteArrayInputStream byteStream =
+          createArrowByteStream(cachedSchema, currentResponse, getClass());
       long rowCount = getTotalRowsInResponse(currentResponse);
 
       ArrowResultChunk.Builder builder =
@@ -329,95 +331,6 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
     }
   }
 
-  private ByteArrayInputStream createArrowByteStream(TFetchResultsResp resultsResp)
-      throws DatabricksParsingException {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    CompressionCodec compressionType =
-        CompressionCodec.getCompressionMapping(resultsResp.getResultSetMetadata());
-    try {
-      byte[] serializedSchema = getSerializedSchema(resultsResp.getResultSetMetadata());
-      if (serializedSchema != null) {
-        baos.write(serializedSchema);
-      }
-      writeArrowBatchesToStream(compressionType, resultsResp.getResults().getArrowBatches(), baos);
-      return new ByteArrayInputStream(baos.toByteArray());
-    } catch (DatabricksSQLException | IOException e) {
-      handleError(e);
-    }
-    return null;
-  }
-
-  private void writeArrowBatchesToStream(
-      CompressionCodec compressionCodec,
-      List<TSparkArrowBatch> arrowBatchList,
-      ByteArrayOutputStream baos)
-      throws DatabricksSQLException, IOException {
-    for (TSparkArrowBatch arrowBatch : arrowBatchList) {
-      byte[] decompressedBytes =
-          decompress(
-              arrowBatch.getBatch(),
-              compressionCodec,
-              String.format(
-                  "Data fetch for lazy inline arrow batch [%d] and statement [%s] with decompression algorithm : [%s]",
-                  arrowBatch.getRowCount(), statement, compressionCodec));
-      baos.write(decompressedBytes);
-    }
-  }
-
-  private long getTotalRowsInResponse(TFetchResultsResp resultsResp) {
-    long totalRows = 0;
-    if (resultsResp.getResults() != null && resultsResp.getResults().getArrowBatches() != null) {
-      for (TSparkArrowBatch arrowBatch : resultsResp.getResults().getArrowBatches()) {
-        totalRows += arrowBatch.getRowCount();
-      }
-    }
-    return totalRows;
-  }
-
-  private byte[] getSerializedSchema(TGetResultSetMetadataResp metadata)
-      throws DatabricksSQLException {
-    if (metadata.getArrowSchema() != null) {
-      return metadata.getArrowSchema();
-    }
-    Schema arrowSchema = hiveSchemaToArrowSchema(metadata.getSchema());
-    try {
-      return SchemaUtility.serialize(arrowSchema);
-    } catch (IOException e) {
-      handleError(e);
-    }
-    return null;
-  }
-
-  private Schema hiveSchemaToArrowSchema(TTableSchema hiveSchema)
-      throws DatabricksParsingException {
-    List<Field> fields = new ArrayList<>();
-    if (hiveSchema == null) {
-      return new Schema(fields);
-    }
-    try {
-      hiveSchema
-          .getColumns()
-          .forEach(
-              columnDesc -> {
-                try {
-                  fields.add(getArrowField(columnDesc));
-                } catch (SQLException e) {
-                  throw new RuntimeException(e);
-                }
-              });
-    } catch (RuntimeException e) {
-      handleError(e);
-    }
-    return new Schema(fields);
-  }
-
-  private Field getArrowField(TColumnDesc columnDesc) throws SQLException {
-    TPrimitiveTypeEntry primitiveTypeEntry = getTPrimitiveTypeOrDefault(columnDesc.getTypeDesc());
-    ArrowType arrowType = mapThriftToArrowType(primitiveTypeEntry.getType());
-    FieldType fieldType = new FieldType(true, arrowType, null);
-    return new Field(columnDesc.getColumnName(), fieldType, null);
-  }
-
   private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {
     columnInfos = new ArrayList<>();
     if (resultManifest.getSchema() == null) {
@@ -428,15 +341,6 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
           com.databricks.jdbc.common.util.DatabricksThriftUtil.getColumnInfoFromTColumnDesc(
               tColumnDesc));
     }
-  }
-
-  @VisibleForTesting
-  void handleError(Exception e) throws DatabricksParsingException {
-    String errorMessage =
-        String.format("Cannot process lazy thrift inline arrow format. Error: %s", e.getMessage());
-    LOGGER.error(errorMessage);
-    throw new DatabricksParsingException(
-        errorMessage, e, DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
   }
 
   /**

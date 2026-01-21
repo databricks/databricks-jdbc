@@ -43,6 +43,7 @@ public class ThriftBatchFetcherImpl implements ThriftBatchFetcher {
   @Override
   public TFetchResultsResp fetchNextBatch() throws DatabricksSQLException {
     if (closed) {
+      LOGGER.error("Attempted to fetch batch from closed ThriftBatchFetcher");
       throw new DatabricksSQLException(
           "ThriftBatchFetcher is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
     }

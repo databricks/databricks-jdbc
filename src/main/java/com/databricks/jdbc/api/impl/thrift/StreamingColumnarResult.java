@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.thrift;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_STREAMING_BATCH_TIMEOUT_SECONDS;
 
 import com.databricks.jdbc.api.impl.ColumnarRowView;
 import com.databricks.jdbc.api.impl.IExecutionResult;
@@ -38,10 +39,6 @@ public class StreamingColumnarResult implements IExecutionResult {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(StreamingColumnarResult.class);
 
-  // Configuration defaults
-  private static final int DEFAULT_MAX_BATCHES_IN_MEMORY = 3;
-  private static final int DEFAULT_BATCH_READY_TIMEOUT_SECONDS = 300;
-
   // Streaming infrastructure - type-safe generic provider
   private final ThriftStreamingProvider<ColumnarRowView> provider;
 
@@ -58,7 +55,10 @@ public class StreamingColumnarResult implements IExecutionResult {
   private volatile boolean isClosed;
 
   /**
-   * Creates a new StreamingColumnarResult with default configuration.
+   * Creates a new StreamingColumnarResult.
+   *
+   * <p>Configuration values (maxBatchesInMemory, timeout) are read from the session's connection
+   * context.
    *
    * @param initialResponse The initial Thrift response containing the first batch
    * @param statement The statement that generated this result
@@ -70,33 +70,9 @@ public class StreamingColumnarResult implements IExecutionResult {
       IDatabricksStatementInternal statement,
       IDatabricksSession session)
       throws DatabricksSQLException {
-    this(
-        initialResponse,
-        statement,
-        session,
-        DEFAULT_MAX_BATCHES_IN_MEMORY,
-        DEFAULT_BATCH_READY_TIMEOUT_SECONDS);
-  }
-
-  /**
-   * Creates a new StreamingColumnarResult with custom configuration.
-   *
-   * @param initialResponse The initial Thrift response containing the first batch
-   * @param statement The statement that generated this result
-   * @param session The session for fetching additional batches
-   * @param maxBatchesInMemory Maximum batches to keep in memory (sliding window)
-   * @param batchReadyTimeoutSeconds Timeout waiting for batch to be ready
-   * @throws DatabricksSQLException if initialization fails
-   */
-  public StreamingColumnarResult(
-      TFetchResultsResp initialResponse,
-      IDatabricksStatementInternal statement,
-      IDatabricksSession session,
-      int maxBatchesInMemory,
-      int batchReadyTimeoutSeconds)
-      throws DatabricksSQLException {
 
     this.maxRows = statement != null ? statement.getMaxRows() : DEFAULT_RESULT_ROW_LIMIT;
+
     this.globalRowIndex = -1;
     this.currentBatchRowIndex = -1;
     this.hasReachedEnd = false;
@@ -106,7 +82,10 @@ public class StreamingColumnarResult implements IExecutionResult {
     ThriftBatchFetcher fetcher = new ThriftBatchFetcherImpl(session, statement);
     this.provider =
         ThriftStreamingProvider.forColumnar(
-            fetcher, initialResponse, maxBatchesInMemory, batchReadyTimeoutSeconds);
+            fetcher,
+            initialResponse,
+            session.getConnectionContext().getThriftMaxBatchesInMemory(),
+            DEFAULT_STREAMING_BATCH_TIMEOUT_SECONDS);
 
     // Move to first batch
     if (provider.hasNextBatch()) {
@@ -115,10 +94,10 @@ public class StreamingColumnarResult implements IExecutionResult {
     }
 
     LOGGER.debug(
-        "[STREAMING] StreamingColumnarResult initialized - firstBatchRows={}, maxRows={}, maxBatchesInMemory={}",
+        "StreamingColumnarResult initialized - firstBatchRows={}, maxRows={}, maxBatchesInMemory={}",
         currentBatch != null ? currentBatch.getRowCount() : 0,
         maxRows,
-        maxBatchesInMemory);
+        session.getConnectionContext().getThriftMaxBatchesInMemory());
   }
 
   /**
@@ -131,14 +110,18 @@ public class StreamingColumnarResult implements IExecutionResult {
   @Override
   public Object getObject(int columnIndex) throws DatabricksSQLException {
     if (isClosed) {
+      LOGGER.error("Attempted to access closed result");
       throw new DatabricksSQLException(
           "Result is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
     }
     if (globalRowIndex == -1) {
+      LOGGER.error("Attempted to access data before first row");
       throw new DatabricksSQLException(
           "Cursor is before first row", DatabricksDriverErrorCode.INVALID_STATE);
     }
     if (currentBatch == null || currentBatchRowIndex < 0) {
+      LOGGER.error(
+          "Invalid cursor position: batch={}, rowIndex={}", currentBatch, currentBatchRowIndex);
       throw new DatabricksSQLException(
           "Invalid cursor position", DatabricksDriverErrorCode.INVALID_STATE);
     }
@@ -146,10 +129,12 @@ public class StreamingColumnarResult implements IExecutionResult {
     // Type-safe: getData() returns ColumnarRowView directly, no casting!
     ColumnarRowView view = currentBatch.getData();
     if (view == null) {
+      LOGGER.error("Batch data not available at row {}", globalRowIndex);
       throw new DatabricksSQLException(
           "Batch data not available", DatabricksDriverErrorCode.INVALID_STATE);
     }
     if (columnIndex < 0 || columnIndex >= view.getColumnCount()) {
+      LOGGER.error("Column index {} out of bounds (0-{})", columnIndex, view.getColumnCount() - 1);
       throw new DatabricksSQLException(
           "Column index out of bounds: " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE);
     }
@@ -206,7 +191,7 @@ public class StreamingColumnarResult implements IExecutionResult {
         currentBatchRowIndex = 0;
 
         if (currentBatch == null) {
-          LOGGER.warn("[CONSUMER] Got null batch after nextBatch()");
+          LOGGER.warn("Got null batch after nextBatch()");
           hasReachedEnd = true;
           globalRowIndex--;
           currentBatchRowIndex--;
@@ -215,7 +200,7 @@ public class StreamingColumnarResult implements IExecutionResult {
 
         // Log batch transition
         LOGGER.debug(
-            "[CONSUMER] Moved to batch {} - globalRow={}, batchesInMemory={}",
+            "Moved to batch {} - globalRow={}, batchesInMemory={}",
             currentBatch.getBatchIndex(),
             globalRowIndex,
             provider.getBatchesInMemory());
@@ -231,7 +216,7 @@ public class StreamingColumnarResult implements IExecutionResult {
     // Log progress periodically (every 500K rows)
     if (globalRowIndex > 0 && globalRowIndex % 500000 == 0 && currentBatch != null) {
       LOGGER.debug(
-          "[CONSUMER] Progress - rows={}, batch={}, batchesInMemory={}",
+          "Progress - rows={}, batch={}, batchesInMemory={}",
           globalRowIndex,
           currentBatch.getBatchIndex(),
           provider.getBatchesInMemory());
@@ -276,16 +261,13 @@ public class StreamingColumnarResult implements IExecutionResult {
       return;
     }
 
-    long totalRows = provider != null ? provider.getTotalRowsFetched() : 0;
+    long totalRows = provider.getTotalRowsFetched();
     isClosed = true;
     currentBatch = null;
 
-    if (provider != null) {
-      provider.close();
-    }
+    provider.close();
 
-    LOGGER.debug(
-        "[STREAMING] Closed - totalRowsFetched={}, rowsConsumed={}", totalRows, globalRowIndex + 1);
+    LOGGER.debug("Closed - totalRowsFetched={}, rowsConsumed={}", totalRows, globalRowIndex + 1);
   }
 
   /**
@@ -315,7 +297,7 @@ public class StreamingColumnarResult implements IExecutionResult {
    * @return the total rows fetched
    */
   public long getTotalRowsFetched() {
-    return provider != null ? provider.getTotalRowsFetched() : 0;
+    return provider.getTotalRowsFetched();
   }
 
   /**
@@ -324,7 +306,7 @@ public class StreamingColumnarResult implements IExecutionResult {
    * @return true if end of stream reached
    */
   public boolean isCompletelyFetched() {
-    return hasReachedEnd || (provider != null && provider.isEndOfStreamReached());
+    return hasReachedEnd || provider.isEndOfStreamReached();
   }
 
   /**
@@ -333,6 +315,6 @@ public class StreamingColumnarResult implements IExecutionResult {
    * @return the batch count in memory
    */
   public int getBatchesInMemory() {
-    return provider != null ? provider.getBatchesInMemory() : 0;
+    return provider.getBatchesInMemory();
   }
 }

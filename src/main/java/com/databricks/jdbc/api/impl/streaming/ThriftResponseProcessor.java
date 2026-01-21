@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl.streaming;
 
-import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import java.util.function.Consumer;
@@ -52,14 +51,4 @@ public interface ThriftResponseProcessor<T> {
    * @return A Consumer that releases the data
    */
   Consumer<T> getReleaseAction();
-
-  /**
-   * Gets the compression codec from metadata.
-   *
-   * @param response The Thrift fetch response
-   * @return The compression codec used for the data
-   */
-  default CompressionCodec getCompressionCodec(TFetchResultsResp response) {
-    return CompressionCodec.getCompressionMapping(response.getResultSetMetadata());
-  }
 }

@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
+import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_STREAMING_BATCH_TIMEOUT_SECONDS;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getColumnInfoFromTColumnDesc;
 
 import com.databricks.jdbc.api.impl.IExecutionResult;
@@ -45,10 +46,6 @@ public class StreamingInlineArrowResult implements IExecutionResult {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(StreamingInlineArrowResult.class);
 
-  // Configuration defaults
-  private static final int DEFAULT_MAX_BATCHES_IN_MEMORY = 3;
-  private static final int DEFAULT_BATCH_READY_TIMEOUT_SECONDS = 300;
-
   // Streaming infrastructure - type-safe generic provider
   private final ThriftStreamingProvider<ArrowResultChunk> provider;
   private final IDatabricksSession session;
@@ -67,7 +64,10 @@ public class StreamingInlineArrowResult implements IExecutionResult {
   private volatile boolean isClosed;
 
   /**
-   * Creates a new StreamingInlineArrowResult with default configuration.
+   * Creates a new StreamingInlineArrowResult.
+   *
+   * <p>Configuration values (maxBatchesInMemory, timeout) are read from the session's connection
+   * context.
    *
    * @param initialResponse The initial Thrift response containing the first Arrow batch
    * @param statement The statement that generated this result
@@ -79,34 +79,10 @@ public class StreamingInlineArrowResult implements IExecutionResult {
       IDatabricksStatementInternal statement,
       IDatabricksSession session)
       throws DatabricksSQLException {
-    this(
-        initialResponse,
-        statement,
-        session,
-        DEFAULT_MAX_BATCHES_IN_MEMORY,
-        DEFAULT_BATCH_READY_TIMEOUT_SECONDS);
-  }
-
-  /**
-   * Creates a new StreamingInlineArrowResult with custom configuration.
-   *
-   * @param initialResponse The initial Thrift response containing the first Arrow batch
-   * @param statement The statement that generated this result
-   * @param session The session for fetching additional batches
-   * @param maxBatchesInMemory Maximum batches to keep in memory (sliding window)
-   * @param batchReadyTimeoutSeconds Timeout waiting for batch to be ready
-   * @throws DatabricksSQLException if initialization fails
-   */
-  public StreamingInlineArrowResult(
-      TFetchResultsResp initialResponse,
-      IDatabricksStatementInternal statement,
-      IDatabricksSession session,
-      int maxBatchesInMemory,
-      int batchReadyTimeoutSeconds)
-      throws DatabricksSQLException {
 
     this.session = session;
     this.maxRows = statement != null ? statement.getMaxRows() : DEFAULT_RESULT_ROW_LIMIT;
+
     this.globalRowIndex = -1;
     this.hasReachedEnd = false;
     this.isClosed = false;
@@ -121,8 +97,8 @@ public class StreamingInlineArrowResult implements IExecutionResult {
             fetcher,
             initialResponse,
             statement != null ? statement.getStatementId() : null,
-            maxBatchesInMemory,
-            batchReadyTimeoutSeconds);
+            session.getConnectionContext().getThriftMaxBatchesInMemory(),
+            DEFAULT_STREAMING_BATCH_TIMEOUT_SECONDS);
 
     // Move to first batch
     if (provider.hasNextBatch()) {
@@ -135,10 +111,10 @@ public class StreamingInlineArrowResult implements IExecutionResult {
     }
 
     LOGGER.debug(
-        "[STREAMING] StreamingInlineArrowResult initialized - firstBatchRows={}, maxRows={}, maxBatchesInMemory={}",
+        "StreamingInlineArrowResult initialized - firstBatchRows={}, maxRows={}, maxBatchesInMemory={}",
         currentBatch != null ? currentBatch.getRowCount() : 0,
         maxRows,
-        maxBatchesInMemory);
+        session.getConnectionContext().getThriftMaxBatchesInMemory());
   }
 
   /**
@@ -167,23 +143,22 @@ public class StreamingInlineArrowResult implements IExecutionResult {
   /** Validates state before getting an object. */
   private void validateGetObjectState(int columnIndex) throws DatabricksSQLException {
     if (isClosed) {
-      LOGGER.debug("[STREAMING] Attempted to access closed result");
+      LOGGER.error("Attempted to access closed result");
       throw new DatabricksSQLException(
           "Result is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
     }
     if (globalRowIndex == -1) {
-      LOGGER.debug("[STREAMING] Attempted to access data before first row");
+      LOGGER.error("Attempted to access data before first row");
       throw new DatabricksSQLException(
           "Cursor is before first row", DatabricksDriverErrorCode.INVALID_STATE);
     }
     if (currentChunkIterator == null) {
-      LOGGER.debug("[STREAMING] No current chunk available at row {}", globalRowIndex);
+      LOGGER.error("No current chunk available at row {}", globalRowIndex);
       throw new DatabricksSQLException(
           "No current chunk available", DatabricksDriverErrorCode.INVALID_STATE);
     }
     if (columnIndex < 0 || columnIndex >= columnInfos.size()) {
-      LOGGER.debug(
-          "[STREAMING] Column index {} out of bounds (0-{})", columnIndex, columnInfos.size() - 1);
+      LOGGER.error("Column index {} out of bounds (0-{})", columnIndex, columnInfos.size() - 1);
       throw new DatabricksSQLException(
           "Column index out of bounds: " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE);
     }
@@ -239,7 +214,7 @@ public class StreamingInlineArrowResult implements IExecutionResult {
         // Type-safe: getData() returns ArrowResultChunk directly!
         ArrowResultChunk chunk = currentBatch.getData();
         if (chunk == null) {
-          LOGGER.warn("[CONSUMER] Batch {} has null data", currentBatch.getBatchIndex());
+          LOGGER.warn("Batch {} has null data", currentBatch.getBatchIndex());
           hasReachedEnd = true;
           globalRowIndex--;
           return false;
@@ -248,7 +223,7 @@ public class StreamingInlineArrowResult implements IExecutionResult {
         currentChunkIterator.nextRow();
 
         LOGGER.debug(
-            "[CONSUMER] Moved to batch {} - globalRow={}, batchesInMemory={}",
+            "Moved to batch {} - globalRow={}, batchesInMemory={}",
             currentBatch.getBatchIndex(),
             globalRowIndex,
             provider.getBatchesInMemory());
@@ -296,18 +271,15 @@ public class StreamingInlineArrowResult implements IExecutionResult {
       return;
     }
 
-    long totalRows = provider != null ? provider.getTotalRowsFetched() : 0;
+    long totalRows = provider.getTotalRowsFetched();
     isClosed = true;
     currentBatch = null;
     currentChunkIterator = null;
 
-    if (provider != null) {
-      // Provider will release all Arrow chunks using the type-safe Consumer<ArrowResultChunk>
-      provider.close();
-    }
+    // Provider will release all Arrow chunks using the type-safe Consumer<ArrowResultChunk>
+    provider.close();
 
-    LOGGER.debug(
-        "[STREAMING] Closed - totalRowsFetched={}, rowsConsumed={}", totalRows, globalRowIndex + 1);
+    LOGGER.debug("Closed - totalRowsFetched={}, rowsConsumed={}", totalRows, globalRowIndex + 1);
   }
 
   /**
@@ -350,7 +322,7 @@ public class StreamingInlineArrowResult implements IExecutionResult {
    * @return the total rows fetched
    */
   public long getTotalRowsFetched() {
-    return provider != null ? provider.getTotalRowsFetched() : 0;
+    return provider.getTotalRowsFetched();
   }
 
   /**
@@ -359,7 +331,7 @@ public class StreamingInlineArrowResult implements IExecutionResult {
    * @return true if end of stream reached
    */
   public boolean isCompletelyFetched() {
-    return hasReachedEnd || (provider != null && provider.isEndOfStreamReached());
+    return hasReachedEnd || provider.isEndOfStreamReached();
   }
 
   /**
@@ -368,7 +340,7 @@ public class StreamingInlineArrowResult implements IExecutionResult {
    * @return the batch count in memory
    */
   public int getBatchesInMemory() {
-    return provider != null ? provider.getBatchesInMemory() : 0;
+    return provider.getBatchesInMemory();
   }
 
   /** Sets up column info from Thrift metadata. */

@@ -1,0 +1,460 @@
+package com.databricks.jdbc.api.impl.thrift;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.util.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+/**
+ * Unit tests for StreamingColumnarResult. Tests behavior parity with LazyThriftResult and
+ * streaming-specific behaviors.
+ */
+@ExtendWith(MockitoExtension.class)
+public class StreamingColumnarResultTest {
+
+  @Mock private IDatabricksSession session;
+  @Mock private IDatabricksStatementInternal statement;
+  @Mock private IDatabricksClient databricksClient;
+  @Mock private IDatabricksConnectionContext connectionContext;
+
+  @BeforeEach
+  void setUp() throws DatabricksSQLException {
+    lenient().when(session.getDatabricksClient()).thenReturn(databricksClient);
+    lenient().when(session.getConnectionContext()).thenReturn(connectionContext);
+    lenient().when(connectionContext.getThriftMaxBatchesInMemory()).thenReturn(3);
+    lenient().when(statement.getMaxRows()).thenReturn(0); // No limit by default
+  }
+
+  @Test
+  void testBasicIteration() throws DatabricksSQLException {
+    TFetchResultsResp response =
+        createResponseWithStringData(
+            Arrays.asList("row1_col1", "row1_col2"),
+            Arrays.asList("row2_col1", "row2_col2"),
+            false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    try {
+      // Initial state
+      assertEquals(-1, result.getCurrentRow());
+      assertEquals(2, result.getRowCount());
+      assertTrue(result.hasNext());
+
+      // First row
+      assertTrue(result.next());
+      assertEquals(0, result.getCurrentRow());
+      assertEquals("row1_col1", result.getObject(0));
+      assertEquals("row1_col2", result.getObject(1));
+
+      // Second row
+      assertTrue(result.next());
+      assertEquals(1, result.getCurrentRow());
+      assertEquals("row2_col1", result.getObject(0));
+      assertEquals("row2_col2", result.getObject(1));
+
+      // End
+      assertFalse(result.hasNext());
+      assertFalse(result.next());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testMultiBatchFetching() throws DatabricksSQLException, InterruptedException {
+    TFetchResultsResp firstBatch =
+        createResponseWithStringData(
+            Arrays.asList("row1_col1", "row1_col2"), Arrays.asList("row2_col1", "row2_col2"), true);
+
+    TFetchResultsResp secondBatch =
+        createResponseWithStringData(
+            Arrays.asList("row3_col1", "row3_col2"),
+            Arrays.asList("row4_col1", "row4_col2"),
+            false);
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(firstBatch, statement, session);
+
+    try {
+      // Give prefetch thread time to start
+      Thread.sleep(100);
+
+      // Consume first batch
+      assertTrue(result.next());
+      assertEquals("row1_col1", result.getObject(0));
+      assertTrue(result.next());
+      assertEquals("row2_col1", result.getObject(0));
+
+      // Move to second batch
+      assertTrue(result.next());
+      assertEquals(2, result.getCurrentRow());
+      assertEquals("row3_col1", result.getObject(0));
+
+      assertTrue(result.next());
+      assertEquals("row4_col1", result.getObject(0));
+
+      // End
+      assertFalse(result.next());
+
+      verify(databricksClient, atLeastOnce()).getMoreResults(statement);
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testMaxRowsLimit() throws DatabricksSQLException {
+    when(statement.getMaxRows()).thenReturn(2);
+
+    // Use hasMoreRows=false so the prefetch thread doesn't try to fetch
+    TFetchResultsResp response =
+        createResponseWithStringData(
+            Arrays.asList("row1_col1", "row1_col2"),
+            Arrays.asList("row2_col1", "row2_col2"),
+            Arrays.asList("row3_col1", "row3_col2"),
+            false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    try {
+      // Should only get 2 rows due to maxRows limit
+      assertTrue(result.next());
+      assertEquals("row1_col1", result.getObject(0));
+
+      assertTrue(result.next());
+      assertEquals("row2_col1", result.getObject(0));
+
+      // Should stop due to maxRows limit even though there's more data
+      assertFalse(result.hasNext());
+      assertFalse(result.next());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testAccessAfterClose() throws DatabricksSQLException {
+    TFetchResultsResp response =
+        createResponseWithStringData(Arrays.asList("row1_col1", "row1_col2"), false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+    result.next();
+    result.close();
+
+    assertThrows(DatabricksSQLException.class, () -> result.getObject(0));
+    assertFalse(result.hasNext());
+    assertFalse(result.next());
+  }
+
+  @Test
+  void testAccessBeforeFirstRow() throws DatabricksSQLException {
+    TFetchResultsResp response =
+        createResponseWithStringData(Arrays.asList("row1_col1", "row1_col2"), false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    try {
+      DatabricksSQLException thrown =
+          assertThrows(DatabricksSQLException.class, () -> result.getObject(0));
+      assertTrue(thrown.getMessage().contains("before first row"));
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testInvalidColumnIndex() throws DatabricksSQLException {
+    TFetchResultsResp response = createResponseWithStringData(Arrays.asList("col1", "col2"), false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    try {
+      result.next();
+
+      // Valid indices
+      assertDoesNotThrow(() -> result.getObject(0));
+      assertDoesNotThrow(() -> result.getObject(1));
+
+      // Invalid indices
+      assertThrows(DatabricksSQLException.class, () -> result.getObject(2));
+      assertThrows(DatabricksSQLException.class, () -> result.getObject(-1));
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testNullHandling() throws DatabricksSQLException {
+    TFetchResultsResp response = createResponseWithNulls();
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    try {
+      assertTrue(result.next());
+      assertEquals("value1", result.getObject(0));
+      assertNull(result.getObject(1));
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testChunkCount() throws DatabricksSQLException {
+    TFetchResultsResp response =
+        createResponseWithStringData(Arrays.asList("row1_col1", "row1_col2"), false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    try {
+      // StreamingColumnarResult doesn't use chunks like Arrow results
+      assertEquals(0, result.getChunkCount());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testSingleRowResult() throws DatabricksSQLException {
+    // Test single row iteration (empty results have different behavior in streaming due to init)
+    TFetchResultsResp response =
+        createResponseWithStringData(Arrays.asList("only_row_col1", "only_row_col2"), false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    try {
+      assertEquals(1, result.getRowCount());
+      assertTrue(result.hasNext());
+      assertTrue(result.next());
+      assertEquals(0, result.getCurrentRow());
+      assertEquals("only_row_col1", result.getObject(0));
+
+      assertFalse(result.hasNext());
+      assertFalse(result.next());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testErrorDuringFetch() throws DatabricksSQLException, InterruptedException {
+    TFetchResultsResp firstBatch =
+        createResponseWithStringData(Arrays.asList("row1_col1", "row1_col2"), true);
+
+    DatabricksSQLException expectedException =
+        new DatabricksSQLException("Network error", DatabricksDriverErrorCode.CONNECTION_ERROR);
+    when(databricksClient.getMoreResults(statement)).thenThrow(expectedException);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(firstBatch, statement, session);
+
+    try {
+      // Consume first batch
+      assertTrue(result.next());
+
+      // Give prefetch thread time to encounter the error
+      Thread.sleep(100);
+
+      // Should throw on attempt to move to next batch
+      assertThrows(DatabricksSQLException.class, result::next);
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testMaxRowsLimitAcrossBatches() throws DatabricksSQLException, InterruptedException {
+    // MaxRows limit of 3, spanning across 2 batches (2 rows each)
+    when(statement.getMaxRows()).thenReturn(3);
+
+    TFetchResultsResp firstBatch =
+        createResponseWithStringData(
+            Arrays.asList("row1_col1", "row1_col2"),
+            Arrays.asList("row2_col1", "row2_col2"),
+            true); // hasMoreRows = true
+
+    TFetchResultsResp secondBatch =
+        createResponseWithStringData(
+            Arrays.asList("row3_col1", "row3_col2"),
+            Arrays.asList("row4_col1", "row4_col2"),
+            false);
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(firstBatch, statement, session);
+
+    try {
+      // Give prefetch thread time to start
+      Thread.sleep(100);
+
+      // Consume first batch (rows 0 and 1)
+      assertTrue(result.next());
+      assertEquals("row1_col1", result.getObject(0));
+      assertTrue(result.next());
+      assertEquals("row2_col1", result.getObject(0));
+
+      // Get one row from second batch (row 2)
+      assertTrue(result.next());
+      assertEquals("row3_col1", result.getObject(0));
+
+      // Should stop at maxRows=3
+      assertFalse(result.hasNext());
+      assertFalse(result.next());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testBatchesInMemoryTracking() throws DatabricksSQLException {
+    TFetchResultsResp response =
+        createResponseWithStringData(
+            Arrays.asList("row1_col1", "row1_col2"),
+            Arrays.asList("row2_col1", "row2_col2"),
+            false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    try {
+      // Should have at least initial batch
+      assertTrue(result.getBatchesInMemory() > 0);
+    } finally {
+      result.close();
+    }
+    // Note: getBatchesInMemory() may return a small number after close due to cleanup timing
+    // The important thing is that close() was called without exception
+  }
+
+  @Test
+  void testInitializationWithEmptyInitialBatch()
+      throws DatabricksSQLException, InterruptedException {
+    // Initial batch is EMPTY but hasMoreRows=true
+    TFetchResultsResp emptyInitial = createEmptyResponse(true);
+
+    // Second batch has actual data
+    TFetchResultsResp dataBatch =
+        createResponseWithStringData(
+            Arrays.asList("row1_col1", "row1_col2"),
+            Arrays.asList("row2_col1", "row2_col2"),
+            false);
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(dataBatch);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(emptyInitial, statement, session);
+
+    try {
+      // Give prefetch time to fetch the data batch
+      Thread.sleep(100);
+
+      // Should have skipped empty batch and positioned on data batch
+      assertTrue(result.hasNext());
+      assertTrue(result.next());
+      assertEquals("row1_col1", result.getObject(0));
+      assertEquals("row1_col2", result.getObject(1));
+
+      assertTrue(result.next());
+      assertEquals("row2_col1", result.getObject(0));
+      assertEquals("row2_col2", result.getObject(1));
+
+      assertFalse(result.next());
+    } finally {
+      result.close();
+    }
+  }
+
+  // ==================== Helper Methods ====================
+
+  private TFetchResultsResp createEmptyResponse(boolean hasMoreRows) {
+    TFetchResultsResp response = new TFetchResultsResp();
+    response.hasMoreRows = hasMoreRows;
+    TRowSet emptyRowSet = new TRowSet();
+    emptyRowSet.setColumns(Collections.emptyList());
+    response.setResults(emptyRowSet);
+    return response;
+  }
+
+  private TFetchResultsResp createResponseWithStringData(List<String> row, boolean hasMoreRows) {
+    return createResponseWithStringRows(Arrays.asList(row), hasMoreRows);
+  }
+
+  private TFetchResultsResp createResponseWithStringData(
+      List<String> row1, List<String> row2, boolean hasMoreRows) {
+    return createResponseWithStringRows(Arrays.asList(row1, row2), hasMoreRows);
+  }
+
+  private TFetchResultsResp createResponseWithStringData(
+      List<String> row1, List<String> row2, List<String> row3, boolean hasMoreRows) {
+    return createResponseWithStringRows(Arrays.asList(row1, row2, row3), hasMoreRows);
+  }
+
+  private TFetchResultsResp createResponseWithStringRows(
+      List<List<String>> rows, boolean hasMoreRows) {
+    TFetchResultsResp response = new TFetchResultsResp();
+    response.hasMoreRows = hasMoreRows;
+
+    if (rows.isEmpty()) {
+      return createEmptyResponse(hasMoreRows);
+    }
+
+    TRowSet rowSet = new TRowSet();
+    int numColumns = rows.get(0).size();
+    List<TColumn> columns = new ArrayList<>(numColumns);
+
+    for (int col = 0; col < numColumns; col++) {
+      TColumn column = new TColumn();
+      TStringColumn stringCol = new TStringColumn();
+      List<String> colValues = new ArrayList<>();
+
+      for (List<String> row : rows) {
+        colValues.add(col < row.size() ? row.get(col) : null);
+      }
+
+      stringCol.setValues(colValues);
+      column.setStringVal(stringCol);
+      columns.add(column);
+    }
+
+    rowSet.setColumns(columns);
+    response.setResults(rowSet);
+    return response;
+  }
+
+  private TFetchResultsResp createResponseWithNulls() {
+    TFetchResultsResp response = new TFetchResultsResp();
+    response.hasMoreRows = false;
+
+    TRowSet rowSet = new TRowSet();
+    List<TColumn> columns = new ArrayList<>();
+
+    // First column - no nulls
+    TColumn col1 = new TColumn();
+    TStringColumn stringCol1 = new TStringColumn();
+    stringCol1.setValues(Arrays.asList("value1"));
+    col1.setStringVal(stringCol1);
+    columns.add(col1);
+
+    // Second column - with null
+    TColumn col2 = new TColumn();
+    TStringColumn stringCol2 = new TStringColumn();
+    stringCol2.setValues(Arrays.asList("placeholder"));
+    stringCol2.setNulls(new byte[] {0x01});
+    col2.setStringVal(stringCol2);
+    columns.add(col2);
+
+    rowSet.setColumns(columns);
+    response.setResults(rowSet);
+    return response;
+  }
+}
