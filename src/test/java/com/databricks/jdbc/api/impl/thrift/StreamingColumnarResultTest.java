@@ -539,6 +539,135 @@ public class StreamingColumnarResultTest {
     }
   }
 
+  @Test
+  void testExhaustAllRowsInSingleBatch() throws DatabricksSQLException {
+    // Single batch with 3 rows, no more data
+    TFetchResultsResp response =
+        createResponseWithStringData(
+            Arrays.asList("row1"), Arrays.asList("row2"), Arrays.asList("row3"), false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    try {
+      // Consume all 3 rows
+      assertTrue(result.next());
+      assertEquals("row1", result.getObject(0));
+      assertTrue(result.next());
+      assertEquals("row2", result.getObject(0));
+      assertTrue(result.next());
+      assertEquals("row3", result.getObject(0));
+
+      // No more rows - should return false
+      assertFalse(result.next());
+      // Calling again should still return false
+      assertFalse(result.next());
+
+      // hasNext should also be false
+      assertFalse(result.hasNext());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testExhaustAllRowsAcrossMultipleBatches()
+      throws DatabricksSQLException, InterruptedException {
+    // First batch with 2 rows
+    TFetchResultsResp firstBatch =
+        createResponseWithStringData(
+            Arrays.asList("batch1_row1"), Arrays.asList("batch1_row2"), true);
+
+    // Second batch with 1 row - final batch
+    TFetchResultsResp secondBatch =
+        createResponseWithStringData(Arrays.asList("batch2_row1"), false);
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(firstBatch, statement, session);
+
+    try {
+      // Give prefetch time
+      Thread.sleep(100);
+
+      // Consume batch 1
+      assertTrue(result.next());
+      assertEquals("batch1_row1", result.getObject(0));
+      assertTrue(result.next());
+      assertEquals("batch1_row2", result.getObject(0));
+
+      // Consume batch 2
+      assertTrue(result.next());
+      assertEquals("batch2_row1", result.getObject(0));
+
+      // No more rows - triggers end of stream detection
+      assertFalse(result.next());
+      assertFalse(result.hasNext());
+
+      // Multiple calls should consistently return false
+      assertFalse(result.next());
+      assertFalse(result.next());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testBatchTransitionAtExactBoundary() throws DatabricksSQLException, InterruptedException {
+    // First batch with exactly 1 row
+    TFetchResultsResp firstBatch =
+        createResponseWithStringData(Arrays.asList("only_row_in_batch1"), true);
+
+    // Second batch with 1 row
+    TFetchResultsResp secondBatch =
+        createResponseWithStringData(Arrays.asList("only_row_in_batch2"), false);
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(firstBatch, statement, session);
+
+    try {
+      // Give prefetch time
+      Thread.sleep(100);
+
+      // Row 1 - from batch 1
+      assertTrue(result.next());
+      assertEquals("only_row_in_batch1", result.getObject(0));
+      assertEquals(0, result.getCurrentRow());
+
+      // Row 2 - requires batch transition
+      assertTrue(result.next());
+      assertEquals("only_row_in_batch2", result.getObject(0));
+      assertEquals(1, result.getCurrentRow());
+
+      // End - no more batches
+      assertFalse(result.next());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testNextAfterEndReturnsConsistentFalse() throws DatabricksSQLException {
+    TFetchResultsResp response = createResponseWithStringData(Arrays.asList("single_row"), false);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
+
+    try {
+      // Consume the only row
+      assertTrue(result.next());
+
+      // Multiple calls to next() after exhaustion should all return false
+      assertFalse(result.next());
+      assertFalse(result.next());
+      assertFalse(result.next());
+
+      // hasReachedEnd should be set
+      assertFalse(result.hasNext());
+    } finally {
+      result.close();
+    }
+  }
+
   // ==================== Helper Methods ====================
 
   private TFetchResultsResp createEmptyResponse(boolean hasMoreRows) {

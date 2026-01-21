@@ -212,15 +212,6 @@ public class StreamingColumnarResult implements IExecutionResult {
       }
     }
 
-    // Log progress periodically (every 500K rows)
-    if (globalRowIndex > 0 && globalRowIndex % 500000 == 0 && currentBatch != null) {
-      LOGGER.debug(
-          "Progress - rows={}, batch={}, batchesInMemory={}",
-          globalRowIndex,
-          currentBatch.getBatchIndex(),
-          provider.getBatchesInMemory());
-    }
-
     return true;
   }
 

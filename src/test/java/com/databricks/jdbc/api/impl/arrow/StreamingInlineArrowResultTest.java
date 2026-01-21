@@ -530,6 +530,138 @@ public class StreamingInlineArrowResultTest {
     assertDoesNotThrow(result::close);
   }
 
+  @Test
+  void testExhaustAllRowsInSingleBatch() throws DatabricksSQLException {
+    // Single batch with 3 rows, no more data
+    byte[] arrowData = createValidArrowData(1, 3);
+    TFetchResultsResp response = createFetchResultsResp(arrowData, 3, false);
+
+    StreamingInlineArrowResult result =
+        new StreamingInlineArrowResult(response, statement, session);
+
+    try {
+      // Consume all 3 rows
+      assertTrue(result.next());
+      assertEquals(0, result.getObject(0)); // First row
+      assertTrue(result.next());
+      assertEquals(1, result.getObject(0)); // Second row
+      assertTrue(result.next());
+      assertEquals(2, result.getObject(0)); // Third row
+
+      // No more rows - should return false
+      assertFalse(result.next());
+      // Calling again should still return false
+      assertFalse(result.next());
+
+      // hasNext should also be false
+      assertFalse(result.hasNext());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testExhaustAllRowsAcrossMultipleBatches()
+      throws DatabricksSQLException, InterruptedException {
+    // First batch with 2 rows
+    byte[] arrowData1 = createValidArrowData(1, 2);
+    TFetchResultsResp firstBatch = createFetchResultsResp(arrowData1, 2, true);
+
+    // Second batch with 1 row - final batch
+    byte[] arrowData2 = createValidArrowData(1, 1);
+    TFetchResultsResp secondBatch = createFetchResultsResp(arrowData2, 1, false);
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+
+    StreamingInlineArrowResult result =
+        new StreamingInlineArrowResult(firstBatch, statement, session);
+
+    try {
+      // Give prefetch time
+      Thread.sleep(100);
+
+      // Consume batch 1 (2 rows)
+      assertTrue(result.next());
+      assertEquals(0, result.getObject(0));
+      assertTrue(result.next());
+      assertEquals(1, result.getObject(0));
+
+      // Consume batch 2 (1 row)
+      assertTrue(result.next());
+      assertEquals(0, result.getObject(0)); // First row of second batch
+
+      // No more rows - triggers end of stream detection
+      assertFalse(result.next());
+      assertFalse(result.hasNext());
+
+      // Multiple calls should consistently return false
+      assertFalse(result.next());
+      assertFalse(result.next());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testBatchTransitionAtExactBoundary() throws DatabricksSQLException, InterruptedException {
+    // First batch with exactly 1 row
+    byte[] arrowData1 = createValidArrowData(1, 1);
+    TFetchResultsResp firstBatch = createFetchResultsResp(arrowData1, 1, true);
+
+    // Second batch with 1 row
+    byte[] arrowData2 = createValidArrowData(1, 1);
+    TFetchResultsResp secondBatch = createFetchResultsResp(arrowData2, 1, false);
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+
+    StreamingInlineArrowResult result =
+        new StreamingInlineArrowResult(firstBatch, statement, session);
+
+    try {
+      // Give prefetch time
+      Thread.sleep(100);
+
+      // Row 1 - from batch 1
+      assertTrue(result.next());
+      assertEquals(0, result.getObject(0));
+      assertEquals(0, result.getCurrentRow());
+
+      // Row 2 - requires batch transition
+      assertTrue(result.next());
+      assertEquals(0, result.getObject(0)); // First row of second batch
+      assertEquals(1, result.getCurrentRow());
+
+      // End - no more batches
+      assertFalse(result.next());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testNextAfterEndReturnsConsistentFalse() throws DatabricksSQLException {
+    byte[] arrowData = createValidArrowData(1, 1);
+    TFetchResultsResp response = createFetchResultsResp(arrowData, 1, false);
+
+    StreamingInlineArrowResult result =
+        new StreamingInlineArrowResult(response, statement, session);
+
+    try {
+      // Consume the only row
+      assertTrue(result.next());
+
+      // Multiple calls to next() after exhaustion should all return false
+      assertFalse(result.next());
+      assertFalse(result.next());
+      assertFalse(result.next());
+
+      // hasReachedEnd should be set
+      assertFalse(result.hasNext());
+    } finally {
+      result.close();
+    }
+  }
+
   // ==================== Helper Methods ====================
 
   private TFetchResultsResp createEmptyArrowResponse(boolean hasMoreRows) {
