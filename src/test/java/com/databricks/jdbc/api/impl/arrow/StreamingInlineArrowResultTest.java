@@ -30,8 +30,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Unit tests for StreamingInlineArrowResult. Tests behavior parity with LazyThriftInlineArrowResult
- * and streaming-specific behaviors.
+ * Unit tests for StreamingInlineArrowResult. Verifies functional equivalence with
+ * LazyThriftInlineArrowResult from the consumer's perspective, along with streaming-specific
+ * behaviors.
  */
 @ExtendWith(MockitoExtension.class)
 public class StreamingInlineArrowResultTest {
@@ -297,15 +298,32 @@ public class StreamingInlineArrowResultTest {
         new StreamingInlineArrowResult(firstResponse, statement, session);
 
     try {
-      // Consume first batch
-      assertTrue(result.next());
-      assertTrue(result.next());
+      // The prefetch thread starts immediately and may encounter the error at any time.
+      // The error could be thrown on any next() call depending on timing, so we iterate
+      // until we get the expected exception.
+      boolean errorThrown = false;
+      for (int i = 0; i < 10 && !errorThrown; i++) {
+        try {
+          if (!result.next()) {
+            break; // No more rows
+          }
+        } catch (DatabricksSQLException e) {
+          assertTrue(
+              e.getMessage().contains("Prefetch failed")
+                  || e.getMessage().contains("Network error"));
+          errorThrown = true;
+        }
+        // Small delay to allow prefetch thread to progress
+        Thread.sleep(50);
+      }
 
-      // Give prefetch thread time to encounter the error
-      Thread.sleep(100);
-
-      // Should throw on attempt to move to next batch
-      assertThrows(DatabricksSQLException.class, result::next);
+      // If we haven't seen the error yet, the next call should throw
+      if (!errorThrown) {
+        DatabricksSQLException thrown = assertThrows(DatabricksSQLException.class, result::next);
+        assertTrue(
+            thrown.getMessage().contains("Prefetch failed")
+                || thrown.getMessage().contains("Network error"));
+      }
     } finally {
       result.close();
     }

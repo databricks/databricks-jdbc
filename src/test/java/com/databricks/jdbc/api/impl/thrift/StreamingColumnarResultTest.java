@@ -18,8 +18,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
- * Unit tests for StreamingColumnarResult. Tests behavior parity with LazyThriftResult and
- * streaming-specific behaviors.
+ * Unit tests for StreamingColumnarResult. Tests functional parity with LazyThriftResult from the
+ * consumer's perspective, along with streaming-specific behaviors (such as background prefetch).
  */
 @ExtendWith(MockitoExtension.class)
 public class StreamingColumnarResultTest {
@@ -335,6 +335,64 @@ public class StreamingColumnarResultTest {
     }
     // Note: getBatchesInMemory() may return a small number after close due to cleanup timing
     // The important thing is that close() was called without exception
+  }
+
+  @Test
+  void testGetTotalRowsFetched() throws DatabricksSQLException, InterruptedException {
+    TFetchResultsResp firstBatch =
+        createResponseWithStringData(
+            Arrays.asList("row1_col1", "row1_col2"), Arrays.asList("row2_col1", "row2_col2"), true);
+
+    TFetchResultsResp secondBatch =
+        createResponseWithStringData(
+            Arrays.asList("row3_col1", "row3_col2"),
+            Arrays.asList("row4_col1", "row4_col2"),
+            false);
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(firstBatch, statement, session);
+
+    try {
+      // Initial batch has 2 rows
+      assertEquals(2, result.getTotalRowsFetched());
+
+      // Give prefetch thread time to fetch second batch
+      Thread.sleep(100);
+
+      // After prefetch, should have 4 total rows fetched
+      assertEquals(4, result.getTotalRowsFetched());
+    } finally {
+      result.close();
+    }
+  }
+
+  @Test
+  void testIsCompletelyFetched() throws DatabricksSQLException, InterruptedException {
+    TFetchResultsResp firstBatch =
+        createResponseWithStringData(
+            Arrays.asList("row1_col1", "row1_col2"), true); // hasMoreRows = true
+
+    TFetchResultsResp secondBatch =
+        createResponseWithStringData(
+            Arrays.asList("row2_col1", "row2_col2"), false); // hasMoreRows = false
+
+    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
+
+    StreamingColumnarResult result = new StreamingColumnarResult(firstBatch, statement, session);
+
+    try {
+      // Initially not completely fetched (hasMoreRows was true)
+      assertFalse(result.isCompletelyFetched());
+
+      // Give prefetch thread time to fetch second batch
+      Thread.sleep(100);
+
+      // After fetching final batch, should be completely fetched
+      assertTrue(result.isCompletelyFetched());
+    } finally {
+      result.close();
+    }
   }
 
   @Test

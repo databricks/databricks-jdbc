@@ -146,9 +146,14 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
 
     this.batchFetcher = fetcher;
     this.processor = processor;
-    // We need at least 2 batches in memory to perform any kind of prefetching, else just use the
-    // lazy implementation.
-    this.maxBatchesInMemory = Math.max(2, maxBatchesInMemory);
+    // We need at least 2 batches in memory to perform any kind of prefetching
+    int effectiveMaxBatchesInMemory = Math.max(2, maxBatchesInMemory);
+    if (maxBatchesInMemory < 2) {
+      LOGGER.warn(
+          "Configured maxBatchesInMemory={} is less than the minimum of 2; using 2 instead to enable prefetching.",
+          maxBatchesInMemory);
+    }
+    this.maxBatchesInMemory = effectiveMaxBatchesInMemory;
     this.batchReadyTimeoutSeconds = timeoutSeconds;
 
     LOGGER.debug(
