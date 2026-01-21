@@ -18,7 +18,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.MockedStatic;
 
 public class TelemetryCollectorTest {
-  private final TelemetryCollector handler = TelemetryCollector.getInstance();
+  private final TelemetryCollector handler = new TelemetryCollector();
   private static final String TEST_STATEMENT_ID = "test-statement-id";
 
   @BeforeEach

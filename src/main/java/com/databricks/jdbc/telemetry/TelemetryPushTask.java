@@ -1,12 +1,12 @@
 package com.databricks.jdbc.telemetry;
 
+import static com.databricks.jdbc.common.util.JsonUtil.getTelemetryMapper;
+
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
 import com.databricks.jdbc.model.telemetry.TelemetryRequest;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -17,8 +17,6 @@ class TelemetryPushTask implements Runnable {
 
   private final List<TelemetryFrontendLog> queueToBePushed;
   private final ITelemetryPushClient telemetryPushClient;
-  private final ObjectMapper objectMapper =
-      new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
   TelemetryPushTask(
       List<TelemetryFrontendLog> eventsQueue, ITelemetryPushClient telemetryPushClient) {
@@ -41,7 +39,7 @@ class TelemetryPushTask implements Runnable {
                   .map(
                       event -> {
                         try {
-                          return objectMapper.writeValueAsString(event);
+                          return getTelemetryMapper().writeValueAsString(event);
                         } catch (JsonProcessingException e) {
                           LOGGER.trace(
                               "Failed to serialize Telemetry event {} with error: {}", event, e);

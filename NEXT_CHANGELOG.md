@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Added support for disabling CloudFetch via `EnableQueryResultDownload=0` to use inline Arrow results instead.
 
 ### Updated
 - Geospatial column type names now include SRID information (e.g., `GEOMETRY(4326)` instead of `GEOMETRY`).

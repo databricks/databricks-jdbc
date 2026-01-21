@@ -17,7 +17,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -83,7 +83,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
             chunkCount,
             chunkIndexToChunksMap,
             resultData.getExternalLinks() != null ? resultData.getExternalLinks().size() : 1);
-    TelemetryCollector.getInstance().recordTotalChunks(statementId, chunkCount);
+    TelemetryHelper.recordTotalChunks(session.getConnectionContext(), statementId, chunkCount);
     initializeData();
   }
 
@@ -271,7 +271,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
       resultsResp = session.getDatabricksClient().getMoreResults(parentStatement);
       populateChunkIndexMap(resultsResp.getResults(), chunkIndexMap);
     }
-    TelemetryCollector.getInstance().recordTotalChunks(statementId, chunkCount);
+    TelemetryHelper.recordTotalChunks(session.getConnectionContext(), statementId, chunkCount);
     return chunkIndexMap;
   }
 

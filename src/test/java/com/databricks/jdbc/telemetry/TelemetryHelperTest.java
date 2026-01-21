@@ -220,6 +220,13 @@ public class TelemetryHelperTest {
   }
 
   @Test
+  public void testConnectionParameterCacheCleanup() {
+    assertDoesNotThrow(() -> TelemetryHelper.removeConnectionParameters("test-uuid"));
+    assertDoesNotThrow(() -> TelemetryHelper.removeConnectionParameters(null));
+    assertDoesNotThrow(() -> TelemetryHelper.clearConnectionParameterCache());
+  }
+
+  @Test
   public void testTelemetryNotAllowedUsecase() {
     // Clear thread context to ensure telemetry is not allowed
     when(connectionContext.forceEnableTelemetry()).thenReturn(false);

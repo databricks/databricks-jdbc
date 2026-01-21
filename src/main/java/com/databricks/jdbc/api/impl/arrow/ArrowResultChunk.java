@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExterna
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.getStatementIdString;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DecompressionUtil;
@@ -15,7 +16,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
-import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,6 +29,7 @@ import org.apache.http.client.utils.URIBuilder;
 
 public class ArrowResultChunk extends AbstractArrowResultChunk {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunk.class);
+  private final IDatabricksConnectionContext connectionContext;
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
     super(
@@ -39,6 +41,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
         builder.chunkLink,
         builder.expiryTime,
         builder.chunkReadyTimeoutSeconds);
+    this.connectionContext = builder.connectionContext;
     if (builder.inputStream != null) {
       // Data is already available
       try {
@@ -80,10 +83,9 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       checkHTTPError(response);
       long downloadTimeMs = (System.nanoTime() - startTime) / 1_000_000;
 
-      // Add telemetry for the time to first byte for chunk download
-      TelemetryCollector.getInstance()
-          .recordChunkDownloadLatency(
-              getStatementIdString(statementId), chunkIndex, downloadTimeMs);
+      // Record chunk download latency telemetry
+      TelemetryHelper.recordChunkDownloadLatency(
+          connectionContext, getStatementIdString(statementId), chunkIndex, downloadTimeMs);
 
       // Read compressed stream fully (download latency excludes decompression)
       byte[] compressed = IOUtils.toByteArray(response.getEntity().getContent());
@@ -183,9 +185,15 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     private InputStream inputStream;
     private int chunkReadyTimeoutSeconds =
         Integer.parseInt(DatabricksJdbcUrlParams.CHUNK_READY_TIMEOUT_SECONDS.getDefaultValue());
+    private IDatabricksConnectionContext connectionContext;
 
     public Builder withStatementId(StatementId statementId) {
       this.statementId = statementId;
+      return this;
+    }
+
+    public Builder withConnectionContext(IDatabricksConnectionContext connectionContext) {
+      this.connectionContext = connectionContext;
       return this;
     }
 
