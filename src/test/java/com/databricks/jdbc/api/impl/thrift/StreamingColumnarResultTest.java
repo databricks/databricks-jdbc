@@ -354,13 +354,13 @@ public class StreamingColumnarResultTest {
     StreamingColumnarResult result = new StreamingColumnarResult(firstBatch, statement, session);
 
     try {
-      // Initial batch has 2 rows
-      assertEquals(2, result.getTotalRowsFetched());
+      // Initial batch has at least 2 rows (prefetch may have already fetched more)
+      assertTrue(result.getTotalRowsFetched() >= 2);
 
       // Give prefetch thread time to fetch second batch
       Thread.sleep(100);
 
-      // After prefetch, should have 4 total rows fetched
+      // After prefetch completes, should have 4 total rows fetched
       assertEquals(4, result.getTotalRowsFetched());
     } finally {
       result.close();
@@ -382,13 +382,10 @@ public class StreamingColumnarResultTest {
     StreamingColumnarResult result = new StreamingColumnarResult(firstBatch, statement, session);
 
     try {
-      // Initially not completely fetched (hasMoreRows was true)
-      assertFalse(result.isCompletelyFetched());
-
       // Give prefetch thread time to fetch second batch
       Thread.sleep(100);
 
-      // After fetching final batch, should be completely fetched
+      // After fetching final batch (hasMoreRows=false), should be completely fetched
       assertTrue(result.isCompletelyFetched());
     } finally {
       result.close();
