@@ -286,7 +286,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testErrorDuringFetch() throws DatabricksSQLException, InterruptedException {
+  void testErrorDuringFetch() throws Exception {
     byte[] arrowData = createValidArrowData(1, 2);
     TFetchResultsResp firstResponse = createFetchResultsResp(arrowData, 2, true);
 
@@ -294,39 +294,33 @@ public class StreamingInlineArrowResultTest {
         new DatabricksSQLException("Network error", DatabricksDriverErrorCode.CONNECTION_ERROR);
     when(databricksClient.getMoreResults(statement)).thenThrow(expectedException);
 
-    StreamingInlineArrowResult result =
-        new StreamingInlineArrowResult(firstResponse, statement, session);
+    // The prefetch thread starts during construction and may fail before or after
+    // the constructor completes. We need to handle both cases.
+    DatabricksSQLException caughtException = null;
+    StreamingInlineArrowResult result = null;
 
     try {
-      // The prefetch thread starts immediately and may encounter the error at any time.
-      // The error could be thrown on any next() call depending on timing, so we iterate
-      // until we get the expected exception.
-      boolean errorThrown = false;
-      for (int i = 0; i < 10 && !errorThrown; i++) {
-        try {
-          if (!result.next()) {
-            break; // No more rows
-          }
-        } catch (DatabricksSQLException e) {
-          assertTrue(
-              e.getMessage().contains("Prefetch failed")
-                  || e.getMessage().contains("Network error"));
-          errorThrown = true;
-        }
-        // Small delay to allow prefetch thread to progress
-        Thread.sleep(50);
-      }
+      result = new StreamingInlineArrowResult(firstResponse, statement, session);
 
-      // If we haven't seen the error yet, the next call should throw
-      if (!errorThrown) {
-        DatabricksSQLException thrown = assertThrows(DatabricksSQLException.class, result::next);
-        assertTrue(
-            thrown.getMessage().contains("Prefetch failed")
-                || thrown.getMessage().contains("Network error"));
+      // If construction succeeded, consume rows until we hit the error
+      while (result.next()) {
+        // Keep iterating - error will be thrown when we need the next batch
       }
+    } catch (DatabricksSQLException e) {
+      // Error thrown during construction or iteration
+      caughtException = e;
     } finally {
-      result.close();
+      if (result != null) {
+        result.close();
+      }
     }
+
+    // Verify we caught the expected error
+    assertNotNull(caughtException, "Expected DatabricksSQLException to be thrown");
+    assertTrue(
+        caughtException.getMessage().contains("Prefetch failed")
+            || caughtException.getMessage().contains("Network error"),
+        "Exception message should contain error details: " + caughtException.getMessage());
   }
 
   @Test
