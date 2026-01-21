@@ -32,7 +32,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
@@ -275,9 +275,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public boolean next() throws SQLException {
     checkIfClosed();
     boolean hasNext = this.executionResult.next();
-    TelemetryCollector.getInstance()
-        .recordResultSetIteration(
-            statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), hasNext);
+    TelemetryHelper.recordResultSetIteration(
+        parentStatement, statementId, resultSetMetaData.getChunkCount(), hasNext);
     return hasNext;
   }
 

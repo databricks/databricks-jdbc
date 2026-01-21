@@ -128,6 +128,7 @@ public class ArrowStreamResult implements IExecutionResult {
           linkPrefetchWindow,
           chunkReadyTimeoutSeconds,
           cloudFetchSpeedThreshold,
+          connectionContext,
           initialLinks);
     } else {
       // Use the original RemoteChunkProvider
@@ -208,6 +209,7 @@ public class ArrowStreamResult implements IExecutionResult {
           linkPrefetchWindow,
           chunkReadyTimeoutSeconds,
           cloudFetchSpeedThreshold,
+          connectionContext,
           initialLinks);
     } else {
       // Use the original RemoteChunkProvider

@@ -66,6 +66,7 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
         .withStatementId(statementId)
         .withChunkInfo(chunkInfo)
         .withChunkReadyTimeoutSeconds(chunkReadyTimeoutSeconds)
+        .withConnectionContext(session.getConnectionContext())
         .build();
   }
 
@@ -78,6 +79,7 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
         .withStatementId(statementId)
         .withThriftChunkInfo(chunkIndex, resultLink)
         .withChunkReadyTimeoutSeconds(chunkReadyTimeoutSeconds)
+        .withConnectionContext(session.getConnectionContext())
         .build();
   }
 

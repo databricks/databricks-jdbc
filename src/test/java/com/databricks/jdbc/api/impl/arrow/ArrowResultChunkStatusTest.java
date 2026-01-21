@@ -9,7 +9,7 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.core.ExternalLink;
-import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -39,7 +39,7 @@ public class ArrowResultChunkStatusTest {
 
   @AfterEach
   void clearTelemetry() {
-    TelemetryCollector.getInstance().exportAllPendingTelemetryDetails();
+    TelemetryCollectorManager.getInstance().clear();
   }
 
   @Test
