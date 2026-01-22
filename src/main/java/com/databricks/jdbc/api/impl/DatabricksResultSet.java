@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getArrowMetadata;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.api.IDatabricksResultSet;
@@ -27,10 +28,7 @@ import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
-import com.databricks.jdbc.model.core.ColumnMetadata;
-import com.databricks.jdbc.model.core.ResultData;
-import com.databricks.jdbc.model.core.ResultManifest;
-import com.databricks.jdbc.model.core.StatementStatus;
+import com.databricks.jdbc.model.core.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.support.ToStringer;
@@ -155,14 +153,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       this.executionResult =
           ExecutionResultFactory.getResultSet(resultsResp, session, parentStatement);
       long rowSize = executionResult.getRowCount();
-      List<String> arrowMetadata = null;
-      if (executionResult instanceof ArrowStreamResult) {
-        arrowMetadata = ((ArrowStreamResult) executionResult).getArrowMetadata();
-      } else if (executionResult instanceof LazyThriftInlineArrowResult) {
-        arrowMetadata = ((LazyThriftInlineArrowResult) executionResult).getArrowMetadata();
-      } else if (executionResult instanceof StreamingInlineArrowResult) {
-        arrowMetadata = ((StreamingInlineArrowResult) executionResult).getArrowMetadata();
-      }
+      List<String> arrowMetadata = getArrowMetadata(resultsResp.getResultSetMetadata());
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
               statementId,
@@ -485,22 +476,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   /**
-   * Checks if the given type name represents a complex type (ARRAY, MAP, STRUCT, GEOMETRY, or
-   * GEOGRAPHY).
-   *
-   * @param typeName The type name to check
-   * @return true if the type name starts with ARRAY, MAP, STRUCT, GEOMETRY, or GEOGRAPHY, false
-   *     otherwise
-   */
-  private static boolean isComplexType(String typeName) {
-    return typeName.startsWith(ARRAY)
-        || typeName.startsWith(MAP)
-        || typeName.startsWith(STRUCT)
-        || typeName.startsWith(GEOMETRY)
-        || typeName.startsWith(GEOGRAPHY);
-  }
-
-  /**
    * Checks if the given type name represents a geospatial type (GEOMETRY or GEOGRAPHY).
    *
    * @param typeName The type name to check
@@ -535,27 +510,28 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   private Object handleComplexDataTypes(Object obj, String columnName)
-      throws DatabricksParsingException {
-    if (complexDatatypeSupport) return obj;
+      throws DatabricksSQLException {
     if (resultSetType == ResultSetType.SEA_INLINE) {
-      return handleComplexDataTypesForSEAInline(obj, columnName);
+      obj = convertToComplexDataTypesForSEAInline(obj, columnName);
     }
-    return obj.toString();
+    return complexDatatypeSupport ? obj : obj.toString();
   }
 
-  private Object handleComplexDataTypesForSEAInline(Object obj, String columnName)
-      throws DatabricksParsingException {
+  private Object convertToComplexDataTypesForSEAInline(Object obj, String columnName)
+      throws DatabricksSQLException {
     ComplexDataTypeParser parser = new ComplexDataTypeParser();
     if (columnName.startsWith(ARRAY)) {
-      return parser.parseJsonStringToDbArray(obj.toString(), columnName).toString();
+      return parser.parseJsonStringToDbArray(obj.toString(), columnName);
     } else if (columnName.startsWith(MAP)) {
-      return parser.parseJsonStringToDbMap(obj.toString(), columnName).toString();
+      return parser.parseJsonStringToDbMap(obj.toString(), columnName);
     } else if (columnName.startsWith(STRUCT)) {
-      return parser.parseJsonStringToDbStruct(obj.toString(), columnName).toString();
+      return parser.parseJsonStringToDbStruct(obj.toString(), columnName);
     } else if (columnName.startsWith(GEOMETRY)) {
-      return obj;
+      return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOMETRY)
+          .toDatabricksGeometry(obj);
     } else if (columnName.startsWith(GEOGRAPHY)) {
-      return obj;
+      return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOGRAPHY)
+          .toDatabricksGeography(obj);
     }
     throw new DatabricksParsingException(
         "Unexpected metadata format. Type is not a COMPLEX: " + columnName,

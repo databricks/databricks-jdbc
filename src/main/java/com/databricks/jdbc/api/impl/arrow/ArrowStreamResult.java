@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -336,13 +337,19 @@ public class ArrowStreamResult implements IExecutionResult {
     return chunkProvider;
   }
 
-  private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {
+  private void setColumnInfo(TGetResultSetMetadataResp resultManifest)
+      throws DatabricksSQLException {
     columnInfos = new ArrayList<>();
+    List<String> arrowMetadataList = DatabricksThriftUtil.getArrowMetadata(resultManifest);
     if (resultManifest.getSchema() == null) {
       return;
     }
-    for (TColumnDesc tColumnDesc : resultManifest.getSchema().getColumns()) {
-      columnInfos.add(getColumnInfoFromTColumnDesc(tColumnDesc));
+    List<TColumnDesc> columns = resultManifest.getSchema().getColumns();
+    for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
+      TColumnDesc tColumnDesc = columns.get(columnIndex);
+      String columnArrowMetadata =
+          arrowMetadataList != null ? arrowMetadataList.get(columnIndex) : null;
+      columnInfos.add(getColumnInfoFromTColumnDesc(tColumnDesc, columnArrowMetadata));
     }
   }
 
