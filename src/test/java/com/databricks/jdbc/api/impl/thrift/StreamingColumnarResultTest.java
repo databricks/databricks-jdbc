@@ -259,10 +259,12 @@ public class StreamingColumnarResultTest {
     when(databricksClient.getMoreResults(statement)).thenThrow(expectedException);
 
     // The prefetch thread starts during construction and may fail at any point.
+    // The error can surface during construction (if prefetch thread runs fast) or during iteration.
     DatabricksSQLException caughtException = null;
-    StreamingColumnarResult result = new StreamingColumnarResult(firstBatch, statement, session);
+    StreamingColumnarResult result = null;
 
     try {
+      result = new StreamingColumnarResult(firstBatch, statement, session);
       // Consume rows until we hit the error
       while (result.next()) {
         // Keep iterating - error will be thrown when we need a batch that failed to prefetch
@@ -270,7 +272,9 @@ public class StreamingColumnarResultTest {
     } catch (DatabricksSQLException e) {
       caughtException = e;
     } finally {
-      result.close();
+      if (result != null) {
+        result.close();
+      }
     }
 
     // Verify we caught the expected error
