@@ -81,6 +81,7 @@ public final class ArrowUtil {
     try {
       return SchemaUtility.serialize(arrowSchema);
     } catch (IOException e) {
+      LOGGER.error(e, "Failed to serialize arrow schema");
       throw new DatabricksParsingException(
           "Failed to serialize Arrow schema: " + e.getMessage(),
           e,
