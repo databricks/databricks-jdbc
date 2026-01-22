@@ -1,5 +1,6 @@
 package com.databricks.jdbc.common.util;
 
+import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getColumnInfoFromTColumnDesc;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getTPrimitiveTypeOrDefault;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.mapThriftToArrowType;
 import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
@@ -15,6 +16,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataRe
 import com.databricks.jdbc.model.client.thrift.generated.TPrimitiveTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowBatch;
 import com.databricks.jdbc.model.client.thrift.generated.TTableSchema;
+import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -219,5 +221,32 @@ public final class ArrowUtil {
       }
     }
     return totalRows;
+  }
+
+  // ==================== Column Info Operations ====================
+
+  /**
+   * Extracts column information from Thrift result set metadata.
+   *
+   * <p>Converts each column descriptor in the Thrift schema to a {@link ColumnInfo} object.
+   *
+   * @param resultManifest The Thrift result set metadata containing schema information
+   * @return A list of ColumnInfo objects, empty list if schema is null
+   */
+  public static List<ColumnInfo> getColumnInfoList(TGetResultSetMetadataResp resultManifest)
+      throws DatabricksSQLException {
+    List<ColumnInfo> columnInfos = new ArrayList<>();
+    List<String> arrowMetadataList = DatabricksThriftUtil.getArrowMetadata(resultManifest);
+    if (resultManifest.getSchema() == null) {
+      return columnInfos;
+    }
+    List<TColumnDesc> columns = resultManifest.getSchema().getColumns();
+    for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
+      TColumnDesc tColumnDesc = columns.get(columnIndex);
+      String columnArrowMetadata =
+          arrowMetadataList != null ? arrowMetadataList.get(columnIndex) : null;
+      columnInfos.add(getColumnInfoFromTColumnDesc(tColumnDesc, columnArrowMetadata));
+    }
+    return columnInfos;
   }
 }

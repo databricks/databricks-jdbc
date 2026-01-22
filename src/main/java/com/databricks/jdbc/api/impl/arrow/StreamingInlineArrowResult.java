@@ -2,7 +2,7 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_STREAMING_BATCH_TIMEOUT_SECONDS;
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getColumnInfoFromTColumnDesc;
+import static com.databricks.jdbc.common.util.ArrowUtil.getColumnInfoList;
 
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.impl.streaming.StreamingBatch;
@@ -14,13 +14,10 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
-import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -88,7 +85,7 @@ public class StreamingInlineArrowResult implements IExecutionResult {
     this.isClosed = false;
 
     // Initialize column info from metadata
-    setColumnInfo(initialResponse.getResultSetMetadata());
+    this.columnInfos = getColumnInfoList(initialResponse.getResultSetMetadata());
 
     // Create batch fetcher and type-safe generic provider for Arrow
     ThriftBatchFetcher fetcher = new ThriftBatchFetcherImpl(session, statement);
@@ -338,16 +335,5 @@ public class StreamingInlineArrowResult implements IExecutionResult {
    */
   public int getBatchesInMemory() {
     return provider.getBatchesInMemory();
-  }
-
-  /** Sets up column info from Thrift metadata. */
-  private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {
-    columnInfos = new ArrayList<>();
-    if (resultManifest.getSchema() == null) {
-      return;
-    }
-    for (TColumnDesc tColumnDesc : resultManifest.getSchema().getColumns()) {
-      columnInfos.add(getColumnInfoFromTColumnDesc(tColumnDesc));
-    }
   }
 }

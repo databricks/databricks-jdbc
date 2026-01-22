@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import static com.databricks.jdbc.common.util.ArrowUtil.getColumnInfoList;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getColumnInfoFromTColumnDesc;
 
 import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
 import com.databricks.jdbc.api.impl.IExecutionResult;
@@ -9,16 +9,13 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
-import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
-import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ColumnInfo;
@@ -163,7 +160,7 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksHttpClient httpClient)
       throws DatabricksSQLException {
     this.session = session;
-    setColumnInfo(resultsResp.getResultSetMetadata());
+    this.columnInfos = getColumnInfoList(resultsResp.getResultSetMetadata());
     this.chunkProvider =
         createThriftRemoteChunkProvider(resultsResp, parentStatement, session, httpClient);
   }
@@ -335,22 +332,6 @@ public class ArrowStreamResult implements IExecutionResult {
   @VisibleForTesting
   public ChunkProvider getChunkProvider() {
     return chunkProvider;
-  }
-
-  private void setColumnInfo(TGetResultSetMetadataResp resultManifest)
-      throws DatabricksSQLException {
-    columnInfos = new ArrayList<>();
-    List<String> arrowMetadataList = DatabricksThriftUtil.getArrowMetadata(resultManifest);
-    if (resultManifest.getSchema() == null) {
-      return;
-    }
-    List<TColumnDesc> columns = resultManifest.getSchema().getColumns();
-    for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
-      TColumnDesc tColumnDesc = columns.get(columnIndex);
-      String columnArrowMetadata =
-          arrowMetadataList != null ? arrowMetadataList.get(columnIndex) : null;
-      columnInfos.add(getColumnInfoFromTColumnDesc(tColumnDesc, columnArrowMetadata));
-    }
   }
 
   /**

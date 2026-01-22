@@ -2,27 +2,22 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.ArrowUtil.createArrowByteStream;
+import static com.databricks.jdbc.common.util.ArrowUtil.getColumnInfoList;
 import static com.databricks.jdbc.common.util.ArrowUtil.getSerializedSchema;
 import static com.databricks.jdbc.common.util.ArrowUtil.getTotalRowsInResponse;
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getColumnInfoFromTColumnDesc;
-import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
-import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
-import com.databricks.jdbc.common.CompressionCodec;
-import com.databricks.jdbc.common.util.DatabricksThriftUtil;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -69,7 +64,7 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
     this.totalRowsFetched = 0;
 
     // Initialize column info from metadata
-    setColumnInfo(initialResponse.getResultSetMetadata());
+    this.columnInfos = getColumnInfoList(initialResponse.getResultSetMetadata());
 
     // Cache the schema from the first response for use in subsequent batches
     try {
@@ -333,20 +328,6 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
       LOGGER.error("Failed to fetch next arrow chunk: {}", e.getMessage());
       hasReachedEnd = true;
       throw e;
-    }
-  }
-
-  private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {
-    columnInfos = new ArrayList<>();
-    if (resultManifest.getSchema() == null) {
-      return;
-    }
-    List<String> arrowMetadata = DatabricksThriftUtil.getArrowMetadata(resultManifest);
-    List<TColumnDesc> columns = resultManifest.getSchema().getColumns();
-    for (int columnIndex = 0; columnIndex < columns.size(); columnIndex++) {
-      TColumnDesc tColumnDesc = columns.get(columnIndex);
-      String columnArrowMetadata = arrowMetadata != null ? arrowMetadata.get(columnIndex) : null;
-      columnInfos.add(getColumnInfoFromTColumnDesc(tColumnDesc, columnArrowMetadata));
     }
   }
 
