@@ -10,7 +10,9 @@ import java.util.Map;
 public class MetadataResultConstants {
   public static String NULL_STRING = "NULL";
   public static final String PARSE_SYNTAX_ERROR_SQL_STATE = "42601";
-  public static final String[] DEFAULT_TABLE_TYPES = {"TABLE", "VIEW", "SYSTEM TABLE"};
+  public static final String[] DEFAULT_TABLE_TYPES = {
+    "TABLE", "VIEW", "SYSTEM TABLE", "METRIC_VIEW"
+  };
   public static final ResultColumn CATALOG_COLUMN =
       new ResultColumn("TABLE_CAT", "catalogName", Types.VARCHAR);
   public static final ResultColumn CATALOG_FULL_COLUMN =

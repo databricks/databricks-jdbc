@@ -7,6 +7,7 @@
 - Added `EnableInlineStreaming` connection parameter to enable/disable streaming mode (default: enabled).
 - Added `ThriftMaxBatchesInMemory` connection parameter to control the sliding window size for streaming (default: 3).
 - Added support for disabling CloudFetch via `EnableQueryResultDownload=0` to use inline Arrow results instead.
+- Added `EnableMetricViewSupport` connection parameter to enable/disable Metric View table type (default: disabled).
 
 ### Updated
 - Geospatial column type names now include SRID information (e.g., `GEOMETRY(4326)` instead of `GEOMETRY`).
