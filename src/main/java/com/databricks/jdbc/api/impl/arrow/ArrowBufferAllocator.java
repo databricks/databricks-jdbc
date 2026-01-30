@@ -73,4 +73,11 @@ public class ArrowBufferAllocator {
       return new DatabricksBufferAllocator();
     }
   }
+
+  /**
+   * @return true iff the patched Databricks allocator is being used.
+   */
+  public static boolean isUsingPatchedAllocator() {
+    return !canUseRootAllocator;
+  }
 }

@@ -2,7 +2,9 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import static java.util.Arrays.asList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -39,6 +41,8 @@ public class ArrowBufferAllocatorTest {
       assertInstanceOf(RootAllocator.class, allocator, "Should create RootAllocator");
       readAndWriteArrowData(allocator);
     }
+
+    assertFalse(ArrowBufferAllocator.isUsingPatchedAllocator(), "Should use RootAllocator");
   }
 
   /**
@@ -54,6 +58,9 @@ public class ArrowBufferAllocatorTest {
           DatabricksBufferAllocator.class, allocator, "Should create DatabricksBufferAllocator");
       readAndWriteArrowData(allocator);
     }
+
+    assertTrue(
+        ArrowBufferAllocator.isUsingPatchedAllocator(), "Should use DatabricksBufferAllocator");
   }
 
   /** Write and read a sample arrow data to validate that the BufferAllocator works. */
