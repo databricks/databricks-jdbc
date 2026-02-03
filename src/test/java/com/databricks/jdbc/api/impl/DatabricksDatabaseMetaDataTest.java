@@ -103,7 +103,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void getDatabaseMinorVersion_returnsCorrectVersion() throws Exception {
     int minorVersion = metaData.getDatabaseMinorVersion();
-    assertEquals(1, minorVersion);
+    assertEquals(2, minorVersion);
   }
 
   @Test
