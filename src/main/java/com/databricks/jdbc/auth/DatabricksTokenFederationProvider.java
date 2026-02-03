@@ -214,9 +214,6 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
     return retrieveToken(hc, tokenUrl, params, headers);
   }
 
-  private static final String TOKEN_EXCHANGE_ERROR_MESSAGE =
-      "Failed to retrieve the exchanged token from OIDC token endpoint. %s ";
-
   @VisibleForTesting
   Token retrieveToken(
       IDatabricksHttpClient hc,
@@ -238,7 +235,9 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
       // Check for HTTP errors and build detailed error message
       String httpError = ValidationUtil.checkHTTPErrorWithoutThrowingError(response);
       if (!httpError.equals(DatabricksJdbcConstants.EMPTY_STRING)) {
-        String errorMessage = String.format(TOKEN_EXCHANGE_ERROR_MESSAGE, httpError);
+        String errorMessage =
+            String.format(
+                "Failed to retrieve the exchanged token from OIDC token endpoint. %s", httpError);
         LOGGER.error(errorMessage);
         throw new DatabricksDriverException(errorMessage, DatabricksDriverErrorCode.AUTH_ERROR);
       }
@@ -250,7 +249,9 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
       // Already logged and has telemetry, just re-throw
       throw e;
     } catch (Exception e) {
-      String errorMessage = String.format(TOKEN_EXCHANGE_ERROR_MESSAGE, "Error: " + e);
+      String errorMessage =
+          String.format(
+              "Failed to parse token response from OIDC token endpoint. Error: %s", e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksDriverException(errorMessage, e, DatabricksDriverErrorCode.AUTH_ERROR);
     }
