@@ -1,5 +1,6 @@
 package com.databricks.jdbc.telemetry.latency;
 
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.lang.reflect.InvocationHandler;
@@ -74,8 +75,12 @@ public class DatabricksMetricsTimedProcessor {
               argsStr,
               executionTimeMillis);
           try {
-            TelemetryCollector.getInstance()
-                .recordOperationLatency(executionTimeMillis, methodName);
+            TelemetryCollector collector =
+                TelemetryCollectorManager.getInstance()
+                    .getCollectorSafely(DatabricksThreadContextHolder::getConnectionContext);
+            if (collector != null) {
+              collector.recordOperationLatency(executionTimeMillis, methodName);
+            }
           } catch (Exception e) {
             LOGGER.trace(
                 "Failed to export latency metrics for method {}: {}", methodName, e.getMessage());

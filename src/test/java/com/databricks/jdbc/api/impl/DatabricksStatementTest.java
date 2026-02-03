@@ -19,7 +19,10 @@ import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.InputStream;
 import java.sql.*;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -503,196 +506,211 @@ public class DatabricksStatementTest {
   @Test
   public void testShouldReturnResultSet_SelectQuery() {
     String query = "-- comment\nSELECT * FROM table;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_ShowQuery() {
     String query = "SHOW TABLES;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_DescribeQuery() {
     String query = "DESCRIBE table;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_ExplainQuery() {
     String query = "EXPLAIN SELECT * FROM table;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_WithQuery() {
     String query = "WITH cte AS (SELECT * FROM table) SELECT * FROM cte;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_SetQuery() {
     String query = "SET @var = (SELECT COUNT(*) FROM table);";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_MapQuery() {
     String query = "MAP table USING some_mapping;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_FromQuery() {
     String query = "SELECT * FROM table;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_ValuesQuery() {
     String query = "VALUES (1, 2, 3);";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_UnionQuery() {
     String query = "SELECT * FROM table1 UNION SELECT * FROM table2;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_IntersectQuery() {
     String query = "SELECT * FROM table1 INTERSECT SELECT * FROM table2;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_ExceptQuery() {
     String query = "SELECT * FROM table1 EXCEPT SELECT * FROM table2;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_DeclareQuery() {
     String query = "DECLARE @var INT;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_PutQuery() {
     String query = "PUT some_data INTO table;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_GetQuery() {
     String query = "GET some_data FROM table;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_RemoveQuery() {
     String query = "REMOVE some_data FROM table;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_ListQuery() {
     String query = "LIST TABLES;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_UpdateQuery() {
     String query = "UPDATE table SET column = value;";
-    assertFalse(DatabricksStatement.shouldReturnResultSet(query));
+    // Without prefix configuration, UPDATE should not return result set
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+    // With UPDATE prefix, it should return result set
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Arrays.asList("UPDATE")));
   }
 
   @Test
   public void testShouldReturnResultSet_DeleteQuery() {
     String query = "DELETE FROM table WHERE condition;";
-    assertFalse(DatabricksStatement.shouldReturnResultSet(query));
+    // Without prefix configuration, DELETE should not return result set
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+    // With DELETE prefix, it should return result set
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Arrays.asList("DELETE")));
   }
 
   @Test
   public void testShouldReturnResultSet_SingleLineCommentAtStart() {
     String query = "-- This is a comment\nSELECT * FROM table;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_SingleLineCommentAtEnd() {
     String query = "SELECT * FROM table; -- This is a comment";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_SingleLineCommentInMiddle() {
     String query = "SELECT * FROM table -- This is a comment\nWHERE id = 1;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_MultiLineCommentAtStart() {
     String query = "/* This is a comment */ SELECT * FROM table;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_MultiLineCommentAtEnd() {
     String query = "SELECT * FROM table; /* This is a comment */";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_MultiLineCommentInMiddle() {
     String query = "SELECT * FROM table /* This is a comment */ WHERE id = 1;";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_MultipleSingleLineComments() {
     String query = "-- Comment 1\nSELECT * FROM table; -- Comment 2\n-- Comment 3";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_MultipleMultiLineComments() {
     String query = "/* Comment 1 */ SELECT * FROM table; /* Comment 2 */ /* Comment 3 */";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_SingleAndMultiLineComments() {
     String query = "-- Single-line comment\nSELECT * FROM table; /* Multi-line comment */";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_CommentSurroundingQuery() {
     String query =
         "-- Single-line comment\n/* Multi-line comment */ SELECT * FROM table; /* Another comment */ -- End comment";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_CallStatement() {
     String query =
         "-- Single-line comment\n/* Multi-line comment */ CALL send_notifications(12); /* Another comment */ -- End comment";
-    assertTrue(DatabricksStatement.shouldReturnResultSet(query));
-    assertTrue(DatabricksStatement.shouldReturnResultSet("CALL send_notifications(12);"));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+    assertTrue(
+        DatabricksStatement.shouldReturnResultSet(
+            "CALL send_notifications(12);", Collections.emptyList()));
   }
 
   @Test
   public void testShouldReturnResultSet_StartWithBegin() {
-    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN"));
-    assertTrue(DatabricksStatement.shouldReturnResultSet("   begin   "));
-    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN; WORK; END"));
-    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN; SELECT 1"));
+    assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN", Collections.emptyList()));
+    assertTrue(DatabricksStatement.shouldReturnResultSet("   begin   ", Collections.emptyList()));
+    assertTrue(
+        DatabricksStatement.shouldReturnResultSet("BEGIN; WORK; END", Collections.emptyList()));
+    assertTrue(
+        DatabricksStatement.shouldReturnResultSet("BEGIN; SELECT 1", Collections.emptyList()));
     // Not supporting for transaction statements
-    assertFalse(DatabricksStatement.shouldReturnResultSet("BEGIN TRANSACTION"));
-    assertFalse(DatabricksStatement.shouldReturnResultSet("   BeGiN    TRANSACTION"));
-    assertFalse(DatabricksStatement.shouldReturnResultSet("BEGIN    transaction "));
+    assertFalse(
+        DatabricksStatement.shouldReturnResultSet("BEGIN TRANSACTION", Collections.emptyList()));
+    assertFalse(
+        DatabricksStatement.shouldReturnResultSet(
+            "   BeGiN    TRANSACTION", Collections.emptyList()));
+    assertFalse(
+        DatabricksStatement.shouldReturnResultSet(
+            "BEGIN    transaction ", Collections.emptyList()));
   }
 
   @Test
@@ -1050,5 +1068,129 @@ public class DatabricksStatementTest {
 
     // After loop, should be able to call getLargeUpdateCount() without exception
     assertEquals(-1, statement.getLargeUpdateCount());
+  }
+
+  @Test
+  public void testShouldReturnResultSet_WithNonRowcountQueryPrefixes_Insert() {
+    List<String> prefixes = Arrays.asList("INSERT", "UPDATE", "DELETE");
+    String query = "INSERT INTO table VALUES (1, 2, 3)";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, prefixes));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_WithNonRowcountQueryPrefixes_Update() {
+    List<String> prefixes = Arrays.asList("INSERT", "UPDATE", "DELETE");
+    String query = "UPDATE table SET col = 1 WHERE id = 2";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, prefixes));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_WithNonRowcountQueryPrefixes_Delete() {
+    List<String> prefixes = Arrays.asList("INSERT", "UPDATE", "DELETE");
+    String query = "DELETE FROM table WHERE id = 1";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, prefixes));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_WithNonRowcountQueryPrefixes_Merge() {
+    List<String> prefixes = Arrays.asList("MERGE");
+    String query = "MERGE INTO target USING source ON target.id = source.id";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, prefixes));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_WithNonRowcountQueryPrefixes_CaseInsensitive() {
+    List<String> prefixes = Arrays.asList("INSERT", "UPDATE");
+    String query = "insert into table values (1, 2, 3)";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, prefixes));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_WithNonRowcountQueryPrefixes_WithComments() {
+    List<String> prefixes = Arrays.asList("INSERT", "UPDATE", "DELETE");
+    String query = "-- Comment\n/* Block comment */ INSERT INTO table VALUES (1, 2, 3)";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, prefixes));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_WithNonRowcountQueryPrefixes_NoMatch() {
+    List<String> prefixes = Arrays.asList("INSERT", "UPDATE", "DELETE");
+    String query = "CREATE TABLE test (id INT)";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, prefixes));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_WithNonRowcountQueryPrefixes_EmptyList() {
+    List<String> prefixes = Collections.emptyList();
+    String query = "INSERT INTO table VALUES (1, 2, 3)";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, prefixes));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_WithNonRowcountQueryPrefixes_SelectStillWorks() {
+    List<String> prefixes = Arrays.asList("INSERT", "UPDATE", "DELETE");
+    String query = "SELECT * FROM table";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, prefixes));
+  }
+
+  @Test
+  public void testExecuteInsertWithNonRowcountQueryPrefixes() throws Exception {
+    // Create connection with NonRowcountQueryPrefixes=INSERT
+    String jdbcUrlWithPrefix = JDBC_URL + "NonRowcountQueryPrefixes=INSERT";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(jdbcUrlWithPrefix, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    String insertStatement = "INSERT INTO table VALUES (1, 2, 3)";
+
+    when(client.executeStatement(
+            eq(insertStatement),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    // Execute INSERT statement
+    boolean hasResultSet = statement.execute(insertStatement);
+
+    // With NonRowcountQueryPrefixes=INSERT, execute() should return true (has result set)
+    assertTrue(hasResultSet, "INSERT with NonRowcountQueryPrefixes=INSERT should return true");
+    assertNotNull(statement.getResultSet(), "ResultSet should be available");
+    assertEquals(
+        -1, statement.getUpdateCount(), "Update count should be -1 when result set is returned");
+
+    statement.close();
+  }
+
+  @Test
+  public void testExecuteInsertWithoutNonRowcountQueryPrefixes() throws Exception {
+    // Create connection without NonRowcountQueryPrefixes
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    String insertStatement = "INSERT INTO table VALUES (1, 2, 3)";
+
+    when(client.executeStatement(
+            eq(insertStatement),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+
+    // Execute INSERT statement
+    boolean hasResultSet = statement.execute(insertStatement);
+
+    // Without NonRowcountQueryPrefixes, execute() should return false (update count, not result
+    // set)
+    assertFalse(hasResultSet, "INSERT without NonRowcountQueryPrefixes should return false");
+
+    statement.close();
   }
 }

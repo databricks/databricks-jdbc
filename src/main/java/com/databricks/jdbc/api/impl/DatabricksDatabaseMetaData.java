@@ -2,7 +2,6 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
-import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.CLIENT_INFO_PROPERTIES_RESULT;
 
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
@@ -1529,7 +1528,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public ResultSet getClientInfoProperties() throws SQLException {
     LOGGER.debug("public ResultSet getClientInfoProperties()");
     throwExceptionIfConnectionIsClosed();
-    return CLIENT_INFO_PROPERTIES_RESULT;
+    return metadataResultSetBuilder.getClientInfoPropertiesResult();
   }
 
   @Override

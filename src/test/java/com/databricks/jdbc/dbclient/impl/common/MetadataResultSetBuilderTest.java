@@ -2,12 +2,11 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
+import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.ResultSet;
@@ -728,5 +727,43 @@ public class MetadataResultSetBuilderTest {
     assertTrue(tableTypes.contains("TABLE"));
     assertTrue(tableTypes.contains("VIEW"));
     assertFalse(tableTypes.contains("METRIC_VIEW"));
+  }
+
+  @Test
+  void shouldAllowCatalogAccessWhenMultipleCatalogSupportEnabled() throws SQLException {
+    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+
+    assertTrue(metadataResultSetBuilder.shouldAllowCatalogAccess("cat_a", "cat_b", session));
+    verify(session, never()).getCurrentCatalog();
+  }
+
+  @Test
+  void shouldAllowCatalogAccessWhenCatalogIsNull() throws SQLException {
+    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(false);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+
+    assertTrue(metadataResultSetBuilder.shouldAllowCatalogAccess(null, "cat_b", session));
+    verify(session, never()).getCurrentCatalog();
+  }
+
+  @Test
+  void shouldAllowCatalogAccessWhenCurrentCatalogMatchesSession() throws SQLException {
+    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(false);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getCurrentCatalog()).thenReturn("main");
+
+    assertTrue(metadataResultSetBuilder.shouldAllowCatalogAccess("main", null, session));
+    verify(session).getCurrentCatalog();
+  }
+
+  @Test
+  void shouldDenyCatalogAccessWhenCatalogDiffers() throws SQLException {
+    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(false);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getCurrentCatalog()).thenReturn("main");
+
+    assertFalse(metadataResultSetBuilder.shouldAllowCatalogAccess("other", null, session));
+    verify(session).getCurrentCatalog();
   }
 }

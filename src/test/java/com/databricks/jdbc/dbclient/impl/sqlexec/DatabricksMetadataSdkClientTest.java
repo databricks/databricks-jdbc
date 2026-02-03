@@ -5,8 +5,12 @@ import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
@@ -193,6 +197,39 @@ public class DatabricksMetadataSdkClientTest {
     assertEquals(actualResult.getStatementStatus().getState(), StatementState.SUCCEEDED);
     assertEquals(actualResult.getStatementId(), GET_CATALOGS_STATEMENT_ID);
     assertEquals(((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), 2);
+  }
+
+  @Test
+  void listTablesReturnsEmptyWhenCatalogAccessDenied() throws SQLException {
+    IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
+    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(false);
+    when(mockClient.getConnectionContext()).thenReturn(connectionContext);
+    when(session.getCurrentCatalog()).thenReturn("main");
+
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+
+    DatabricksResultSet result =
+        metadataClient.listTables(session, "other", null, null, new String[] {"TABLE"});
+
+    assertNotNull(result);
+    assertFalse(result.next(), "Expected no rows when catalog access is denied");
+    verify(mockClient, never()).executeStatement(anyString(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void listSchemasReturnsEmptyWhenCatalogIsEmptyString() throws SQLException {
+    IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
+    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(false);
+    when(mockClient.getConnectionContext()).thenReturn(connectionContext);
+    when(session.getCurrentCatalog()).thenReturn("main");
+
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+
+    DatabricksResultSet result = metadataClient.listSchemas(session, "", null);
+
+    assertNotNull(result);
+    assertFalse(result.next(), "Expected no rows when catalog is empty string");
+    verify(mockClient, never()).executeStatement(anyString(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -672,7 +709,9 @@ public class DatabricksMetadataSdkClientTest {
         new DatabricksSQLException(
             "syntax error at or near \"foreign\"", PARSE_SYNTAX_ERROR_SQL_STATE);
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
-    when(mockClient.getConnectionContext()).thenReturn(mock(IDatabricksConnectionContext.class));
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
             "SHOW FOREIGN KEYS IN CATALOG `catalog1` IN SCHEMA `testSchema` IN TABLE `testTable`",
@@ -1079,7 +1118,9 @@ public class DatabricksMetadataSdkClientTest {
             "syntax error at or near \"foreign\"", (String) null); // null SQL state
 
     when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
-    when(mockClient.getConnectionContext()).thenReturn(mock(IDatabricksConnectionContext.class));
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
 
     DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
     when(mockClient.executeStatement(
@@ -1103,5 +1144,114 @@ public class DatabricksMetadataSdkClientTest {
                 TEST_CATALOG,
                 TEST_SCHEMA,
                 TEST_TABLE));
+  }
+
+  @Test
+  void testListCatalogsWithMultipleCatalogSupportDisabled() throws SQLException {
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    when(session.getCurrentCatalog()).thenReturn("my_catalog");
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(false);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+
+    String expectedSQL = "SELECT 'my_catalog' AS catalog";
+    when(mockClient.executeStatement(
+            expectedSQL,
+            mockedComputeResource,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenReturn(mockedCatalogResultSet);
+
+    when(mockedCatalogResultSet.next()).thenReturn(true, false);
+    when(mockedCatalogResultSet.getObject("catalog")).thenReturn("my_catalog");
+    doReturn(1).when(mockedMetaData).getColumnCount();
+    doReturn("catalog").when(mockedMetaData).getColumnName(1);
+    doReturn(255).when(mockedMetaData).getPrecision(1);
+    doReturn(0).when(mockedMetaData).getScale(1);
+    when(mockedCatalogResultSet.getMetaData()).thenReturn(mockedMetaData);
+
+    DatabricksResultSet actualResult = metadataClient.listCatalogs(session);
+
+    assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+    assertEquals(GET_CATALOGS_STATEMENT_ID, actualResult.getStatementId());
+    assertEquals(1, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+  }
+
+  @Test
+  void testListTablesWithMultipleCatalogSupportDisabledAndDifferentCatalog() throws SQLException {
+    when(session.getCurrentCatalog()).thenReturn("current_catalog");
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(false);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+
+    // Try to access a different catalog - should return empty
+    DatabricksResultSet actualResult =
+        metadataClient.listTables(session, "different_catalog", null, null, null);
+
+    assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+    assertEquals(GET_TABLES_STATEMENT_ID, actualResult.getStatementId());
+    // Should return empty result set
+    assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+  }
+
+  @Test
+  void testListPrimaryKeysWithMultipleCatalogSupportDisabledAndDifferentCatalog()
+      throws SQLException {
+    when(session.getCurrentCatalog()).thenReturn("current_catalog");
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(false);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+
+    // Try to access a different catalog - should return empty
+    DatabricksResultSet actualResult =
+        metadataClient.listPrimaryKeys(session, "different_catalog", "schema", "table");
+
+    assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+    assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
+    // Should return empty result set
+    assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+  }
+
+  @Test
+  void testNoUnnecessaryGetCurrentCatalogCallWhenSupportEnabled() throws SQLException {
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataSdkClient metadataClient = new DatabricksMetadataSdkClient(mockClient);
+
+    String expectedSQL = "SHOW SCHEMAS IN `test_catalog`";
+    when(mockClient.executeStatement(
+            expectedSQL,
+            mockedComputeResource,
+            new HashMap<>(),
+            StatementType.METADATA,
+            session,
+            null))
+        .thenReturn(mockedResultSet);
+
+    when(mockedResultSet.next()).thenReturn(true, false);
+    when(mockedResultSet.getObject("databaseName")).thenReturn("schema1");
+    doReturn(2).when(mockedMetaData).getColumnCount();
+    doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
+    doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    when(mockedResultSet.findColumn(CATALOG_RESULT_COLUMN.getResultSetColumnName()))
+        .thenThrow(DatabricksSQLException.class);
+
+    DatabricksResultSet actualResult = metadataClient.listSchemas(session, "test_catalog", null);
+
+    assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+    // Verify getCurrentCatalog was NEVER called when support is enabled
+    verify(session, never()).getCurrentCatalog();
   }
 }

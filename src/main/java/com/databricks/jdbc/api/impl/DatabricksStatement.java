@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import java.sql.*;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 import org.apache.http.entity.InputStreamEntity;
@@ -75,7 +76,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     // TODO (PECO-1731): Can it fail fast without executing SQL query?
     checkIfClosed();
     ResultSet rs = executeInternal(sql, new HashMap<>(), StatementType.QUERY);
-    if (!shouldReturnResultSet(sql)) {
+    if (!shouldReturnResultSetWithConfig(sql)) {
       String errorMessage =
           "A ResultSet was expected but not generated from query. However, query "
               + "execution was successful.";
@@ -236,7 +237,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   public boolean execute(String sql) throws SQLException {
     checkIfClosed();
     resultSet = executeInternal(sql, new HashMap<>(), StatementType.SQL);
-    return shouldReturnResultSet(sql);
+    return shouldReturnResultSetWithConfig(sql);
   }
 
   @Override
@@ -680,8 +681,14 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   }
 
   @VisibleForTesting
-  static boolean shouldReturnResultSet(String query) {
+  static boolean shouldReturnResultSet(String query, List<String> nonRowcountQueryPrefixes) {
     String trimmedQuery = trimCommentsAndWhitespaces(query);
+
+    // Check configured non-rowcount prefixes first
+    String upperQuery = trimmedQuery.toUpperCase();
+    if (nonRowcountQueryPrefixes.stream().anyMatch(upperQuery::startsWith)) {
+      return true;
+    }
 
     // Check if the query matches any of the patterns that return a ResultSet
     return SELECT_PATTERN.matcher(trimmedQuery).find()
@@ -705,6 +712,11 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         || CALL_PATTERN.matcher(trimmedQuery).find();
 
     // Otherwise, it should not return a ResultSet
+  }
+
+  protected boolean shouldReturnResultSetWithConfig(String query) {
+    return shouldReturnResultSet(
+        query, connection.getConnectionContext().getNonRowcountQueryPrefixes());
   }
 
   static boolean isSelectQuery(String query) {

@@ -134,25 +134,6 @@ public class ArrowStreamResultTest {
   }
 
   @Test
-  public void testInlineArrow() throws DatabricksSQLException {
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
-    when(session.getConnectionContext()).thenReturn(connectionContext);
-    when(metadataResp.getSchema()).thenReturn(TEST_TABLE_SCHEMA);
-    when(fetchResultsResp.getResults()).thenReturn(resultData);
-    when(fetchResultsResp.getResultSetMetadata()).thenReturn(metadataResp);
-    ArrowStreamResult result =
-        new ArrowStreamResult(fetchResultsResp, true, parentStatement, session);
-    assertEquals(-1, result.getCurrentRow());
-    assertTrue(result.hasNext());
-    assertFalse(result.next());
-    assertEquals(0, result.getCurrentRow());
-    assertFalse(result.hasNext());
-    assertDoesNotThrow(result::close);
-    assertFalse(result.hasNext());
-  }
-
-  @Test
   public void testCloudFetchArrow() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
@@ -164,7 +145,7 @@ public class ArrowStreamResultTest {
     when(fetchResultsResp.getResultSetMetadata()).thenReturn(metadataResp);
     when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
     ArrowStreamResult result =
-        new ArrowStreamResult(fetchResultsResp, false, parentStatement, session, mockHttpClient);
+        new ArrowStreamResult(fetchResultsResp, parentStatement, session, mockHttpClient);
     assertEquals(-1, result.getCurrentRow());
     assertTrue(result.hasNext());
     assertDoesNotThrow(result::close);
@@ -586,7 +567,7 @@ public class ArrowStreamResultTest {
     when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
 
     ArrowStreamResult result =
-        new ArrowStreamResult(fetchResultsResp, false, parentStatement, session, mockHttpClient);
+        new ArrowStreamResult(fetchResultsResp, parentStatement, session, mockHttpClient);
 
     // Verify result was created successfully with StreamingChunkProvider for Thrift
     assertNotNull(result);

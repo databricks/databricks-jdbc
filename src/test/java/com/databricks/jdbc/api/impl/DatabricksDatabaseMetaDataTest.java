@@ -30,6 +30,8 @@ public class DatabricksDatabaseMetaDataTest {
   private IDatabricksSession session;
   private DatabricksDatabaseMetaData metaData;
   private IDatabricksMetadataClient metadataClient;
+  private com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder
+      metadataResultSetBuilder;
 
   @BeforeEach
   public void setup() throws SQLException {
@@ -49,7 +51,13 @@ public class DatabricksDatabaseMetaDataTest {
         .thenReturn(DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL, new Properties()));
     when(metadataClient.listCatalogs(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listTableTypes(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
-    when(metadataClient.listTypeInfo(any())).thenReturn(Mockito.mock(DatabricksResultSet.class));
+
+    // Create a real MetadataResultSetBuilder for TYPE_INFO and CLIENT_INFO_PROPERTIES
+    metadataResultSetBuilder =
+        new com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder(
+            session.getConnectionContext());
+    when(metadataClient.listTypeInfo(any()))
+        .thenAnswer(invocation -> metadataResultSetBuilder.getTypeInfoResult());
     when(metadataClient.listFunctions(any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listColumns(any(), any(), any(), any(), any()))
@@ -1155,6 +1163,101 @@ public class DatabricksDatabaseMetaDataTest {
 
     // No more than 3 rows
     assertFalse(resultSet.next());
+  }
+
+  @Test
+  public void testGetTypeInfoMultipleCalls() throws SQLException {
+    // This test verifies issue #1178 fix: ResultSets should be usable multiple times per session
+
+    // First call to getTypeInfo()
+    ResultSet resultSet1 = metaData.getTypeInfo();
+    assertNotNull(resultSet1);
+
+    // Consume all rows from first ResultSet
+    int rowCount1 = 0;
+    while (resultSet1.next()) {
+      rowCount1++;
+    }
+    assertTrue(rowCount1 > 0, "TYPE_INFO should have at least one row");
+
+    // Close first ResultSet
+    resultSet1.close();
+    assertTrue(resultSet1.isClosed(), "ResultSet should be closed");
+
+    // Second call to getTypeInfo() should return a NEW, usable ResultSet
+    ResultSet resultSet2 = metaData.getTypeInfo();
+    assertNotNull(resultSet2);
+    assertFalse(resultSet2.isClosed(), "Second ResultSet should not be closed");
+
+    // Should be able to iterate through second ResultSet
+    int rowCount2 = 0;
+    while (resultSet2.next()) {
+      rowCount2++;
+    }
+    assertEquals(rowCount1, rowCount2, "Both calls should return the same number of rows");
+
+    // Third call should also work
+    ResultSet resultSet3 = metaData.getTypeInfo();
+    assertNotNull(resultSet3);
+    assertFalse(resultSet3.isClosed(), "Third ResultSet should not be closed");
+    assertTrue(resultSet3.next(), "Third ResultSet should have data");
+  }
+
+  @Test
+  public void testGetClientInfoPropertiesMultipleCalls() throws SQLException {
+    // This test verifies issue #1178 fix: ResultSets should be usable multiple times per session
+
+    // First call to getClientInfoProperties()
+    ResultSet resultSet1 = metaData.getClientInfoProperties();
+    assertNotNull(resultSet1);
+
+    // Consume all rows from first ResultSet
+    int rowCount1 = 0;
+    while (resultSet1.next()) {
+      rowCount1++;
+    }
+    assertEquals(3, rowCount1, "CLIENT_INFO_PROPERTIES should have exactly 3 rows");
+
+    // Close first ResultSet
+    resultSet1.close();
+    assertTrue(resultSet1.isClosed(), "ResultSet should be closed");
+
+    // Second call to getClientInfoProperties() should return a NEW, usable ResultSet
+    ResultSet resultSet2 = metaData.getClientInfoProperties();
+    assertNotNull(resultSet2);
+    assertFalse(resultSet2.isClosed(), "Second ResultSet should not be closed");
+
+    // Should be able to iterate through second ResultSet
+    int rowCount2 = 0;
+    while (resultSet2.next()) {
+      rowCount2++;
+    }
+    assertEquals(rowCount1, rowCount2, "Both calls should return the same number of rows");
+
+    // Verify non-nullable columns (per JDBC spec) - get metadata from second ResultSet
+    ResultSetMetaData metaData = resultSet2.getMetaData();
+    assertEquals(
+        ResultSetMetaData.columnNoNulls,
+        metaData.isNullable(1),
+        "NAME column should be non-nullable");
+    assertEquals(
+        ResultSetMetaData.columnNoNulls,
+        metaData.isNullable(2),
+        "MAX_LEN column should be non-nullable");
+    assertEquals(
+        ResultSetMetaData.columnNullable,
+        metaData.isNullable(3),
+        "DEFAULT_VALUE column should be nullable");
+    assertEquals(
+        ResultSetMetaData.columnNullable,
+        metaData.isNullable(4),
+        "DESCRIPTION column should be nullable");
+
+    // Third call to verify data integrity
+    ResultSet resultSet3 = this.metaData.getClientInfoProperties();
+    assertNotNull(resultSet3);
+    assertTrue(resultSet3.next(), "Third ResultSet should have data");
+    assertEquals("APPLICATIONNAME", resultSet3.getString(1), "First row should be APPLICATIONNAME");
   }
 
   @Test

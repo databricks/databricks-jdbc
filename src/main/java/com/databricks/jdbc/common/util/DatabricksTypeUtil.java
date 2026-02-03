@@ -555,4 +555,20 @@ public class DatabricksTypeUtil {
     }
     return DECIMAL + "(" + precision + "," + scale + ")";
   }
+
+  /**
+   * Checks if the given type name represents a complex type (ARRAY, MAP, STRUCT, GEOMETRY, or
+   * GEOGRAPHY).
+   *
+   * @param typeName The type name to check
+   * @return true if the type name starts with ARRAY, MAP, STRUCT, GEOMETRY, or GEOGRAPHY, false
+   *     otherwise
+   */
+  public static boolean isComplexType(String typeName) {
+    return typeName.startsWith(ARRAY)
+        || typeName.startsWith(MAP)
+        || typeName.startsWith(STRUCT)
+        || typeName.startsWith(GEOMETRY)
+        || typeName.startsWith(GEOGRAPHY);
+  }
 }

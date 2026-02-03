@@ -16,6 +16,7 @@ import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.StatementState;
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.Base64;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -308,7 +309,8 @@ public class DatabricksThriftUtilTest {
   public void testGetTypeFromTypeDesc(TTypeId type, ColumnInfoTypeName typeName) {
     TColumnDesc columnDesc = new TColumnDesc().setTypeDesc(createTypeDesc(type));
     assertEquals(
-        typeName, DatabricksThriftUtil.getColumnInfoFromTColumnDesc(columnDesc).getTypeName());
+        typeName,
+        DatabricksThriftUtil.getColumnInfoFromTColumnDesc(columnDesc, null).getTypeName());
   }
 
   @ParameterizedTest
@@ -489,5 +491,54 @@ public class DatabricksThriftUtilTest {
     for (int i = 0; i < expected.size(); i++) {
       assertEquals(expected.get(i), actual.get(i), "Mismatch in row " + i);
     }
+  }
+
+  /**
+   * Real arrow schema captured from Databricks Thrift client execution.
+   *
+   * <p>Query: SELECT ST_POINT(1, 2, 4326) as geom, ST_GeogFromText('POINT(-122.4194 37.7749)') as
+   * geog_point, array(1, 2, 3) as arr, map('red', 1, 'green', 2) as mp, named_struct('name',
+   * 'Mumbai', 'population', 20000000) AS city
+   *
+   * <p>Execution: useThriftClient=true, enableArrow=true, cloudFetch=false
+   *
+   * <p>Expected metadata (5 fields): Field[0]: GEOMETRY(4326) Field[1]: GEOGRAPHY(4326) Field[2]:
+   * ARRAY<INT> Field[3]: MAP<STRING, INT> Field[4]: STRUCT<name: STRING NOT NULL, population: INT
+   * NOT NULL>
+   */
+  private static final String REAL_ARROW_SCHEMA_BASE64 =
+      "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";
+
+  /** Helper method to create TGetResultSetMetadataResp with arrow schema bytes from base64. */
+  private TGetResultSetMetadataResp createMetadataWithArrowSchema(String base64ArrowSchema) {
+    byte[] arrowSchemaBytes = Base64.getDecoder().decode(base64ArrowSchema);
+    return new TGetResultSetMetadataResp().setArrowSchema(arrowSchemaBytes);
+  }
+
+  @Test
+  public void testGetArrowMetadataWithRealData() throws DatabricksSQLException {
+    TGetResultSetMetadataResp metadata = createMetadataWithArrowSchema(REAL_ARROW_SCHEMA_BASE64);
+    List<String> result = DatabricksThriftUtil.getArrowMetadata(metadata);
+
+    List<String> expected =
+        List.of(
+            "GEOMETRY(4326)",
+            "GEOGRAPHY(4326)",
+            "ARRAY<INT>",
+            "MAP<STRING, INT>",
+            "STRUCT<name: STRING NOT NULL, population: INT NOT NULL>");
+
+    assertEquals(expected, result);
+  }
+
+  @Test
+  public void testGetArrowMetadataWithNullMetadata() throws DatabricksSQLException {
+    assertNull(DatabricksThriftUtil.getArrowMetadata(null));
+  }
+
+  @Test
+  public void testGetArrowMetadataWithNullArrowSchema() throws DatabricksSQLException {
+    TGetResultSetMetadataResp metadata = new TGetResultSetMetadataResp();
+    assertNull(DatabricksThriftUtil.getArrowMetadata(metadata));
   }
 }

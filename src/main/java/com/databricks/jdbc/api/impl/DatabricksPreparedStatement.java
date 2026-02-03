@@ -339,7 +339,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     checkIfClosed();
     checkIfBatchOperation();
     interpolateIfRequiredAndExecute(StatementType.SQL);
-    return shouldReturnResultSet(sql);
+    return shouldReturnResultSetWithConfig(sql);
   }
 
   @Override

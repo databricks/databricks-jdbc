@@ -55,8 +55,12 @@ public class EnableMultipleCatalogSupportIntegrationTests
         } while (schemas.next());
 
         assertTrue(
-            schemaCount > 1,
-            "With enableMultipleCatalogSupport=1, should find schemas from multiple catalogs");
+            schemaCount >= 1,
+            "With enableMultipleCatalogSupport=1, should find at least one schema");
+        assertTrue(
+            distinctCatalogs.size() > 1,
+            "With enableMultipleCatalogSupport=1, should find schemas from multiple catalogs. Found: "
+                + distinctCatalogs);
       }
     }
   }
@@ -94,7 +98,11 @@ public class EnableMultipleCatalogSupportIntegrationTests
 
         assertTrue(
             schemaCount >= 1,
-            "With enableMultipleCatalogSupport=0, should find schemas from single catalog");
+            "With enableMultipleCatalogSupport=0, should find at least one schema");
+        assertTrue(
+            distinctCatalogs.size() <= 2,
+            "With enableMultipleCatalogSupport=0, should find schemas from at most 2 catalogs (current catalog + possibly empty). Found: "
+                + distinctCatalogs);
       }
     }
   }

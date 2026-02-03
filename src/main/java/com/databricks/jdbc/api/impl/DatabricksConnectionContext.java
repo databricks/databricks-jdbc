@@ -469,7 +469,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return DatabricksClientType.THRIFT;
     }
     // Check if CloudFetch is disabled - Thrift is required for inline mode
-    if (!Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_CLOUD_FETCH), "1")) {
+    if (!isCloudFetchEnabled()) {
       return DatabricksClientType.THRIFT;
     }
     // Check feature flag to determine if SEA client should be enabled
@@ -1163,6 +1163,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public List<String> getNonRowcountQueryPrefixes() {
+    String prefixesStr = getParameter(DatabricksJdbcUrlParams.NON_ROWCOUNT_QUERY_PREFIXES);
+    return Arrays.stream(prefixesStr.split(","))
+        .map(String::trim)
+        .map(String::toUpperCase)
+        .filter(s -> !s.isEmpty())
+        .collect(Collectors.toList());
+  }
+
+  @Override
   public boolean getIgnoreTransactions() {
     return getParameter(DatabricksJdbcUrlParams.IGNORE_TRANSACTIONS).equals("1");
   }
@@ -1196,6 +1206,27 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isStreamingChunkProviderEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_STREAMING_CHUNK_PROVIDER).equals("1");
+  }
+
+  @Override
+  public boolean isInlineStreamingEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_INLINE_STREAMING).equals("1");
+  }
+
+  @Override
+  public boolean isCloudFetchEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_CLOUD_FETCH).equals("1");
+  }
+
+  @Override
+  public int getThriftMaxBatchesInMemory() {
+    try {
+      return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.THRIFT_MAX_BATCHES_IN_MEMORY));
+    } catch (NumberFormatException e) {
+      LOGGER.warn("Invalid value for ThriftMaxBatchesInMemory, using default value");
+      return Integer.parseInt(
+          DatabricksJdbcUrlParams.THRIFT_MAX_BATCHES_IN_MEMORY.getDefaultValue());
+    }
   }
 
   @Override

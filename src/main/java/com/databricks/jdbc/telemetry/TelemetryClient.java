@@ -5,12 +5,12 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class TelemetryClient implements ITelemetryClient {
   private static final int MINIMUM_TELEMETRY_FLUSH_MILLISECONDS = 1000;
@@ -26,31 +26,27 @@ public class TelemetryClient implements ITelemetryClient {
   private ScheduledFuture<?> flushTask;
   private final int flushIntervalMillis;
 
-  private static ThreadFactory createSchedulerThreadFactory() {
-    return new ThreadFactory() {
-      private final AtomicInteger threadNumber = new AtomicInteger(1);
-
-      @Override
-      public Thread newThread(Runnable r) {
-        Thread thread = new Thread(r, "Telemetry-Scheduler-" + threadNumber.getAndIncrement());
-        thread.setDaemon(true);
-        return thread;
-      }
-    };
-  }
-
   public TelemetryClient(
       IDatabricksConnectionContext connectionContext,
       ExecutorService executorService,
+      ScheduledExecutorService scheduledExecutorService,
       DatabricksConfig config) {
     this.eventsBatch = new LinkedList<>();
     this.eventsBatchSize = connectionContext.getTelemetryBatchSize();
     this.context = connectionContext;
     this.databricksConfig = config;
     this.executorService = executorService;
-    this.scheduledExecutorService =
-        Executors.newSingleThreadScheduledExecutor(createSchedulerThreadFactory());
-    this.flushIntervalMillis = context.getTelemetryFlushIntervalInMilliseconds();
+    /*
+     * The scheduledExecutorService is shared across all telemetry clients and only schedules
+     * periodic flush checks. The actual flush work (network I/O) is submitted asynchronously
+     * to the executorService (10-thread pool), so a slow flush on one statement does not block
+     * flushes for other statements as long as worker threads are available in the pool.
+     */
+    this.scheduledExecutorService = scheduledExecutorService;
+    this.flushIntervalMillis =
+        Math.max(
+            context.getTelemetryFlushIntervalInMilliseconds(),
+            MINIMUM_TELEMETRY_FLUSH_MILLISECONDS); // To avoid illegalArgument exception in any case
     this.lastFlushedTime = System.currentTimeMillis();
     this.telemetryPushClient =
         TelemetryClientFactory.getTelemetryPushClient(
@@ -59,14 +55,15 @@ public class TelemetryClient implements ITelemetryClient {
   }
 
   public TelemetryClient(
-      IDatabricksConnectionContext connectionContext, ExecutorService executorService) {
+      IDatabricksConnectionContext connectionContext,
+      ExecutorService executorService,
+      ScheduledExecutorService scheduledExecutorService) {
     this.eventsBatch = new LinkedList<>();
     eventsBatchSize = connectionContext.getTelemetryBatchSize();
     this.context = connectionContext;
     this.databricksConfig = null;
     this.executorService = executorService;
-    this.scheduledExecutorService =
-        Executors.newSingleThreadScheduledExecutor(createSchedulerThreadFactory());
+    this.scheduledExecutorService = scheduledExecutorService;
     this.flushIntervalMillis =
         Math.max(
             context.getTelemetryFlushIntervalInMilliseconds(),
@@ -108,8 +105,10 @@ public class TelemetryClient implements ITelemetryClient {
 
   @Override
   public void close() {
-    // Export any pending latency telemetry before flushing
-    TelemetryCollector.getInstance().exportAllPendingTelemetryDetails();
+    // Export any pending latency telemetry before flushing for this connection
+    TelemetryCollector collector =
+        TelemetryCollectorManager.getInstance().getOrCreateCollector(context);
+    collector.exportAllPendingTelemetryDetails();
 
     try {
       // Synchronously flush the remaining events and wait for the task to complete
@@ -129,22 +128,13 @@ public class TelemetryClient implements ITelemetryClient {
       flushTask.cancel(false);
     }
 
-    // Shut down the scheduler.
-    // The executorService is assumed to be a shared resource and is not shut down here.
-    scheduledExecutorService.shutdown();
-    try {
-      if (!scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS)) {
-        scheduledExecutorService.shutdownNow();
-      }
-    } catch (InterruptedException ie) {
-      LOGGER.trace("Interrupted while waiting for flush to finish. Error: {}", ie);
-      Thread.currentThread().interrupt();
-      scheduledExecutorService.shutdownNow();
-    }
+    // Note: Both executorService and scheduledExecutorService are shared resources
+    // managed by TelemetryClientFactory and should not be shut down here.
   }
 
   /**
-   * Submits a flush task to the executor service.
+   * Submits a flush task to the executor service. Non-blocking: uses a shared thread pool (10
+   * threads) so slow flushes don't block other statements.
    *
    * @param forceFlush - Flushes the eventsBatch for all size variations if forceFlush, otherwise
    *     only flushes if eventsBatch size has breached

@@ -22,7 +22,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
@@ -849,8 +849,8 @@ final class DatabricksThriftAccessor {
         "Statement [{}] Thrift operation status latency: {}ms",
         statementId,
         operationStatusLatencyMillis);
-    TelemetryCollector.getInstance()
-        .recordGetOperationStatus(statementId.toSQLExecStatementId(), operationStatusLatencyMillis);
+    TelemetryHelper.recordGetOperationStatus(
+        connectionContext, statementId.toSQLExecStatementId(), operationStatusLatencyMillis);
     return operationStatus;
   }
 }

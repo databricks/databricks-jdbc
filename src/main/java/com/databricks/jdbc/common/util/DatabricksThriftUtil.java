@@ -1,5 +1,6 @@
 package com.databricks.jdbc.common.util;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_KEY;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.model.client.thrift.generated.TTypeId.*;
@@ -20,9 +21,14 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.*;
+import java.util.stream.Collectors;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.SchemaUtility;
 
 public class DatabricksThriftUtil {
 
@@ -210,16 +216,30 @@ public class DatabricksThriftUtil {
     return primitiveTypeEntry.getType().name().replace("_TYPE", "");
   }
 
-  public static ColumnInfo getColumnInfoFromTColumnDesc(TColumnDesc columnDesc) {
+  public static ColumnInfo getColumnInfoFromTColumnDesc(
+      TColumnDesc columnDesc, String arrowMetadata) {
     TPrimitiveTypeEntry primitiveTypeEntry = getTPrimitiveTypeOrDefault(columnDesc.getTypeDesc());
     ColumnInfoTypeName columnInfoTypeName =
         T_TYPE_ID_COLUMN_INFO_TYPE_NAME_MAP.get(primitiveTypeEntry.getType());
+
+    String typeText = getTypeTextFromTypeDesc(columnDesc.getTypeDesc());
+
+    if (arrowMetadata != null && isComplexType(arrowMetadata)) {
+      typeText = arrowMetadata;
+      if (arrowMetadata.startsWith(GEOMETRY)) {
+        columnInfoTypeName = ColumnInfoTypeName.GEOMETRY;
+      } else if (arrowMetadata.startsWith(GEOGRAPHY)) {
+        columnInfoTypeName = ColumnInfoTypeName.GEOGRAPHY;
+      }
+    }
+
     ColumnInfo columnInfo =
         new ColumnInfo()
             .setName(columnDesc.getColumnName())
             .setPosition((long) columnDesc.getPosition())
             .setTypeName(columnInfoTypeName)
-            .setTypeText(getTypeTextFromTypeDesc(columnDesc.getTypeDesc()));
+            .setTypeText(typeText);
+
     if (primitiveTypeEntry.isSetTypeQualifiers()) {
       TTypeQualifiers typeQualifiers = primitiveTypeEntry.getTypeQualifiers();
       String scaleQualifierKey = TCLIServiceConstants.SCALE,
@@ -369,6 +389,33 @@ public class DatabricksThriftUtil {
       LOGGER.debug(
           "direct result set being verified for success response for statementId {}", statementId);
       verifySuccessStatus(directResults.getResultSet().getStatus(), context, statementId);
+    }
+  }
+
+  /**
+   * Deserializes the Arrow schema from TGetResultSetMetadataResp.
+   *
+   * @param metadata the TGetResultSetMetadataResp containing the binary Arrow schema
+   * @return the deserialized Arrow Schema
+   */
+  public static List<String> getArrowMetadata(TGetResultSetMetadataResp metadata)
+      throws DatabricksSQLException {
+    if (metadata == null
+        || metadata.getArrowSchema() == null
+        || metadata.getArrowSchema().length == 0) {
+      return null;
+    }
+    byte[] arrowSchemaBytes = metadata.getArrowSchema();
+    try {
+      Schema arrowSchema = SchemaUtility.deserialize(arrowSchemaBytes, null);
+      return arrowSchema.getFields().stream()
+          .map(Field::getMetadata)
+          .map(e -> e.get(ARROW_METADATA_KEY))
+          .collect(Collectors.toList());
+    } catch (IOException e) {
+      String errorMessage = "Failed to deserialize Arrow schema: " + e.getMessage();
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.RESULT_SET_ERROR);
     }
   }
 }

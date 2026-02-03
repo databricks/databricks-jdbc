@@ -192,6 +192,14 @@ public enum DatabricksJdbcUrlParams {
       "EnableStreamingChunkProvider",
       "Enable streaming chunk provider for result fetching (experimental)",
       "0"),
+  ENABLE_INLINE_STREAMING(
+      "EnableInlineStreaming",
+      "Enable streaming mode with background prefetching for inline results (Thrift columnar and inline Arrow)",
+      "1"),
+  THRIFT_MAX_BATCHES_IN_MEMORY(
+      "ThriftMaxBatchesInMemory",
+      "Maximum number of batches to keep in memory for Thrift streaming (sliding window size)",
+      "3"),
   LINK_PREFETCH_WINDOW(
       "LinkPrefetchWindow",
       "Number of chunk links to prefetch ahead of consumption. "
@@ -203,7 +211,11 @@ public enum DatabricksJdbcUrlParams {
       "Comma-separated list of HTTP status codes that should be retried irrespective of Retry-After header.",
       ""),
   API_RETRY_TIMEOUT(
-      "ApiRetryTimeout", "Timeout for retrying API retriable codes in seconds", "300");
+      "ApiRetryTimeout", "Timeout for retrying API retriable codes in seconds", "300"),
+  NON_ROWCOUNT_QUERY_PREFIXES(
+      "NonRowcountQueryPrefixes",
+      "Comma-separated list of query prefixes (like INSERT,UPDATE,DELETE) that should return result sets instead of row counts",
+      "");
 
   private final String paramName;
   private final String defaultValue;
