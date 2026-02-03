@@ -1,4 +1,4 @@
 {
-  "freeze": false,
-  "reason": "Release freeze disabled"
+  "freeze": true,
+  "reason": "Release version 3.2.1"
 }
