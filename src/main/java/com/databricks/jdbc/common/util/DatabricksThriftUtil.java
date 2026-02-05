@@ -104,7 +104,7 @@ public class DatabricksThriftUtil {
               : String.format("Error thrift response received [%s]", errorContext);
 
       String sqlState = status.getSqlState();
-      if (QUERY_EXECUTION_TIMEOUT_SQLSTATE.equals(sqlState)) {
+      if (sqlState != null && QUERY_EXECUTION_TIMEOUT_SQLSTATE.equals(sqlState)) {
         throw new DatabricksTimeoutException(
             errorMessage, sqlState, null, DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
       }
