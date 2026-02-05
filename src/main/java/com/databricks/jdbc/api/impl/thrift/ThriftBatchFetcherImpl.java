@@ -7,6 +7,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.sql.SQLException;
 
 /**
  * Default implementation of ThriftBatchFetcher that uses the session's Databricks client to fetch
@@ -41,7 +42,7 @@ public class ThriftBatchFetcherImpl implements ThriftBatchFetcher {
   }
 
   @Override
-  public TFetchResultsResp fetchNextBatch() throws DatabricksSQLException {
+  public TFetchResultsResp fetchNextBatch() throws SQLException {
     if (closed) {
       LOGGER.error("Attempted to fetch batch from closed ThriftBatchFetcher");
       throw new DatabricksSQLException(

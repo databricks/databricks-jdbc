@@ -28,6 +28,7 @@ import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -131,7 +132,7 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public void open() throws DatabricksSQLException {
+  public void open() throws SQLException {
     LOGGER.debug("public void open()");
 
     // Skip for tests, it would be already set
@@ -205,7 +206,7 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public void close() throws DatabricksSQLException {
+  public void close() throws SQLException {
     LOGGER.debug("public void close()");
     synchronized (this) {
       if (isSessionOpen) {
@@ -361,7 +362,7 @@ public class DatabricksSession implements IDatabricksSession {
   public void forceClose() {
     try {
       this.close();
-    } catch (DatabricksSQLException e) {
+    } catch (SQLException e) {
       LOGGER.error("Error closing session resources, but marking the session as closed.");
     } finally {
       this.isSessionOpen = false;

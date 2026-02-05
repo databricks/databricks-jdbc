@@ -6,6 +6,7 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import java.sql.SQLException;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -38,10 +39,10 @@ public interface IDatabricksSession {
   boolean isOpen();
 
   /** Opens a new session. */
-  void open() throws DatabricksSQLException;
+  void open() throws SQLException;
 
   /** Closes the session. */
-  void close() throws DatabricksSQLException;
+  void close() throws SQLException;
 
   /**
    * Returns the client for connecting to Databricks server

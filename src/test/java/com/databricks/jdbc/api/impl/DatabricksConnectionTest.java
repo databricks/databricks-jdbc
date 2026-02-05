@@ -318,7 +318,7 @@ public class DatabricksConnectionTest {
   }
 
   @Test
-  public void testStatement() throws DatabricksSQLException {
+  public void testStatement() throws SQLException {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
@@ -510,7 +510,7 @@ public class DatabricksConnectionTest {
   }
 
   @Test
-  void testTranslationIsolation() throws DatabricksSQLException {
+  void testTranslationIsolation() throws SQLException {
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
     assertDoesNotThrow(
@@ -522,7 +522,7 @@ public class DatabricksConnectionTest {
   }
 
   @Test
-  void testReadOnlyAndAbort() throws DatabricksSQLException {
+  void testReadOnlyAndAbort() throws SQLException {
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
     assertDoesNotThrow(() -> connection.setReadOnly(false));

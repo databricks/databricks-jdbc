@@ -11,7 +11,6 @@ import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ResultData;
@@ -46,7 +45,7 @@ public class ExecutionResultFactoryTest {
   @Mock TFetchResultsResp fetchResultsResp;
 
   @Test
-  public void testGetResultSet_jsonInline() throws DatabricksSQLException {
+  public void testGetResultSet_jsonInline() throws SQLException {
     ResultManifest manifest = new ResultManifest();
     manifest.setFormat(Format.JSON_ARRAY);
     ResultData data = new ResultData();
@@ -57,7 +56,7 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_externalLink() throws DatabricksSQLException {
+  public void testGetResultSet_externalLink() throws SQLException {
     when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
     when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(session.getConnectionContext()).thenReturn(connectionContext);
@@ -75,7 +74,7 @@ public class ExecutionResultFactoryTest {
   }
 
   @Test
-  public void testGetResultSet_volumeOperation() throws DatabricksSQLException {
+  public void testGetResultSet_volumeOperation() throws SQLException {
     when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
     when(session.getConnectionContext()).thenReturn(connectionContext);
     ResultData data = new ResultData();

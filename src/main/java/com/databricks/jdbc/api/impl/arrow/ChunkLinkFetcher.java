@@ -1,8 +1,8 @@
 package com.databricks.jdbc.api.impl.arrow;
 
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
+import java.sql.SQLException;
 
 /**
  * Abstraction for fetching chunk links from either SEA or Thrift backend. Implementations handle
@@ -26,10 +26,9 @@ public interface ChunkLinkFetcher {
    * @param startRowOffset The row offset to start fetching from (used by Thrift with
    *     FETCH_ABSOLUTE)
    * @return ChunkLinkFetchResult containing the fetched links and continuation information
-   * @throws DatabricksSQLException if the fetch operation fails
+   * @throws SQLException if the fetch operation fails
    */
-  ChunkLinkFetchResult fetchLinks(long startChunkIndex, long startRowOffset)
-      throws DatabricksSQLException;
+  ChunkLinkFetchResult fetchLinks(long startChunkIndex, long startRowOffset) throws SQLException;
 
   /**
    * Refetches a specific chunk link that may have expired.
@@ -42,9 +41,9 @@ public interface ChunkLinkFetcher {
    * @param chunkIndex The specific chunk index to refetch (used by SEA)
    * @param rowOffset The row offset of the chunk to refetch (used by Thrift)
    * @return The refreshed ExternalLink with a new expiration time
-   * @throws DatabricksSQLException if the refetch operation fails
+   * @throws SQLException if the refetch operation fails
    */
-  ExternalLink refetchLink(long chunkIndex, long rowOffset) throws DatabricksSQLException;
+  ExternalLink refetchLink(long chunkIndex, long rowOffset) throws SQLException;
 
   /** Closes any resources held by the fetcher. */
   void close();

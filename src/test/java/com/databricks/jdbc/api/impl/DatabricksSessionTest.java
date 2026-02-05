@@ -21,6 +21,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
+import java.sql.SQLException;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,12 +44,12 @@ public class DatabricksSessionTest {
       "jdbc:databricks://sample-host.cloud.databricks.com:443/default;transportMode=http;ssl=1;httpPath=sql/protocolv1/o/9999999999999999/9999999999999999999;AuthMech=3;conncatalog=field_demos;connschema=ossjdbc";
   private static IDatabricksConnectionContext connectionContext;
 
-  static void setupWarehouse(boolean useThrift) throws DatabricksSQLException {
+  static void setupWarehouse(boolean useThrift) throws SQLException {
     String url = useThrift ? WAREHOUSE_JDBC_URL : WAREHOUSE_JDBC_URL_WITH_SEA;
     connectionContext = DatabricksConnectionContext.parse(url, new Properties());
   }
 
-  private void setupCluster() throws DatabricksSQLException {
+  private void setupCluster() throws SQLException {
     connectionContext = DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties());
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
@@ -60,7 +61,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testOpenAndCloseSession() throws DatabricksSQLException {
+  public void testOpenAndCloseSession() throws SQLException {
     setupWarehouse(true /* useThrift */);
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
@@ -82,7 +83,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testOpenRedirectedThriftSession() throws DatabricksSQLException {
+  public void testOpenRedirectedThriftSession() throws SQLException {
     setupWarehouse(false /* useThrift */);
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
@@ -119,7 +120,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testOpenAndCloseSessionUsingThrift() throws DatabricksSQLException {
+  public void testOpenAndCloseSessionUsingThrift() throws SQLException {
     setupWarehouse(true /* useThrift */);
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
@@ -143,7 +144,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testOpenAndCloseSessionForAllPurposeCluster() throws DatabricksSQLException {
+  public void testOpenAndCloseSessionForAllPurposeCluster() throws SQLException {
     setupCluster();
     DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
     assertFalse(session.isOpen());
@@ -158,7 +159,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testCloseIgnoresInvalidSession() throws DatabricksSQLException {
+  public void testCloseIgnoresInvalidSession() throws SQLException {
     setupWarehouse(true /* useThrift */);
 
     ImmutableSessionInfo sessionInfo =
@@ -185,7 +186,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testSessionConstructorForWarehouse() throws DatabricksSQLException {
+  public void testSessionConstructorForWarehouse() throws SQLException {
     DatabricksSession session =
         new DatabricksSession(
             DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL, new Properties()));
@@ -202,7 +203,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testCatalogAndSchema() throws DatabricksSQLException {
+  public void testCatalogAndSchema() throws SQLException {
     setupWarehouse(false /* useThrift */);
     DatabricksSession session = new DatabricksSession(connectionContext);
     session.setCatalog(NEW_CATALOG);
@@ -213,7 +214,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testSessionToString() throws DatabricksSQLException {
+  public void testSessionToString() throws SQLException {
     setupWarehouse(false /* useThrift */);
     DatabricksSession session = new DatabricksSession(connectionContext);
     assertEquals(
@@ -222,7 +223,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testSetClientInfoProperty() throws DatabricksSQLException {
+  public void testSetClientInfoProperty() throws SQLException {
     DatabricksSession session =
         new DatabricksSession(
             DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), sdkClient);
@@ -231,7 +232,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testGetClientInfoProperty_ApplicationName() throws DatabricksSQLException {
+  public void testGetClientInfoProperty_ApplicationName() throws SQLException {
     DatabricksSession session =
         new DatabricksSession(
             DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), sdkClient);
@@ -241,7 +242,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testSetClientInfoProperty_AuthAccessToken() throws DatabricksSQLException {
+  public void testSetClientInfoProperty_AuthAccessToken() throws SQLException {
     DatabricksSession session =
         new DatabricksSession(
             DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), sdkClient);
@@ -251,7 +252,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testSetClientInfoProperty_AuthAccessTokenThrift() throws DatabricksSQLException {
+  public void testSetClientInfoProperty_AuthAccessTokenThrift() throws SQLException {
     DatabricksSession session =
         new DatabricksSession(
             DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties()), thriftClient);
@@ -263,7 +264,7 @@ public class DatabricksSessionTest {
   // ===== Lazy Client Type Integration Tests =====
 
   @Test
-  public void testSessionOpensWithLazyClientType() throws DatabricksSQLException {
+  public void testSessionOpensWithLazyClientType() throws SQLException {
     // Create connection context with conditions for SEA client
     String url =
         "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;AuthMech=3;"
@@ -279,7 +280,7 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testSessionOpensWithLazyClientTypeForCluster() throws DatabricksSQLException {
+  public void testSessionOpensWithLazyClientTypeForCluster() throws SQLException {
     // Create connection context for all-purpose cluster
     String url =
         "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"

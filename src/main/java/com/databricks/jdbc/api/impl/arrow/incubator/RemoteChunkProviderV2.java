@@ -14,6 +14,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
+import java.sql.SQLException;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -51,7 +52,7 @@ public class RemoteChunkProviderV2 extends AbstractRemoteChunkProvider<ArrowResu
       IDatabricksHttpClient httpClient,
       int maxParallelChunkDownloadsPerQuery,
       CompressionCodec compressionCodec)
-      throws DatabricksSQLException {
+      throws SQLException {
     super(
         parentStatement,
         resultsResp,

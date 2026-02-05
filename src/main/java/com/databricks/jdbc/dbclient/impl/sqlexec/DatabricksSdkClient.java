@@ -366,7 +366,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       StatementId typedStatementId,
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
-      throws DatabricksSQLException {
+      throws SQLException {
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     String statementId = typedStatementId.toSQLExecStatementId();

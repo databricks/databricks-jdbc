@@ -8,7 +8,6 @@ import com.databricks.jdbc.api.impl.thrift.ThriftBatchFetcher;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import java.sql.SQLException;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,7 +24,7 @@ public class ThriftStreamingProviderTest {
   @Mock private ThriftBatchFetcher batchFetcher;
 
   @Test
-  void testSingleBatchNoMoreRows() throws SQLException {
+  void testSingleBatchNoMoreRows() throws DatabricksSQLException {
     TFetchResultsResp response = createResponseWithStringData(2, false);
 
     ThriftStreamingProvider<ColumnarRowView> provider =
@@ -54,7 +53,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testSlidingWindowBoundsMemory() throws SQLException, InterruptedException {
+  void testSlidingWindowBoundsMemory() throws DatabricksSQLException, InterruptedException {
     int maxBatchesInMemory = 3;
 
     // Initial batch
@@ -107,7 +106,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testEmptyBatchesSkippedByNextBatch() throws SQLException {
+  void testEmptyBatchesSkippedByNextBatch() throws DatabricksSQLException {
     // Initial response with empty batch
     TFetchResultsResp emptyBatch = createEmptyResponse(true);
 
@@ -136,7 +135,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testPrefetchErrorPropagated() throws SQLException, InterruptedException {
+  void testPrefetchErrorPropagated() throws DatabricksSQLException, InterruptedException {
     TFetchResultsResp initialResponse = createResponseWithStringData(2, true);
 
     DatabricksSQLException fetchError =
@@ -168,7 +167,8 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testCloseStopsPrefetchAndClosesFetcher() throws SQLException, InterruptedException {
+  void testCloseStopsPrefetchAndClosesFetcher()
+      throws DatabricksSQLException, InterruptedException {
     TFetchResultsResp initialResponse = createResponseWithStringData(2, true);
     TFetchResultsResp batch2 = createResponseWithStringData(2, false);
 
@@ -207,7 +207,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testWaitForBatchCreationTimeout() throws SQLException {
+  void testWaitForBatchCreationTimeout() throws DatabricksSQLException {
     // Initial batch with hasMoreRows=true so prefetch thread starts
     TFetchResultsResp initialResponse = createResponseWithStringData(1, true);
 
@@ -239,7 +239,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testWaitForBatchInterrupted() throws SQLException, InterruptedException {
+  void testWaitForBatchInterrupted() throws DatabricksSQLException, InterruptedException {
     TFetchResultsResp initialResponse = createResponseWithStringData(1, true);
 
     // Mock fetcher to block
@@ -282,7 +282,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testGetCurrentBatchWaitsForReady() throws SQLException, InterruptedException {
+  void testGetCurrentBatchWaitsForReady() throws DatabricksSQLException, InterruptedException {
     TFetchResultsResp initialResponse = createResponseWithStringData(2, true);
     TFetchResultsResp batch2 = createResponseWithStringData(2, false);
 
@@ -315,7 +315,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testCloseWhileWaiting() throws SQLException, InterruptedException {
+  void testCloseWhileWaiting() throws DatabricksSQLException, InterruptedException {
     TFetchResultsResp initialResponse = createResponseWithStringData(1, true);
 
     // Mock fetcher to block indefinitely
@@ -358,7 +358,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testGetCurrentBatchBeforeFirstBatch() throws SQLException {
+  void testGetCurrentBatchBeforeFirstBatch() throws DatabricksSQLException {
     TFetchResultsResp initialResponse = createResponseWithStringData(2, false);
 
     ThriftStreamingProvider<ColumnarRowView> provider =
@@ -375,7 +375,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testGetCurrentBatchAfterNextBatch() throws SQLException {
+  void testGetCurrentBatchAfterNextBatch() throws DatabricksSQLException {
     TFetchResultsResp initialResponse = createResponseWithStringData(2, false);
 
     ThriftStreamingProvider<ColumnarRowView> provider =
@@ -397,7 +397,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testGetCurrentBatchWithPrefetchError() throws SQLException, InterruptedException {
+  void testGetCurrentBatchWithPrefetchError() throws DatabricksSQLException, InterruptedException {
     TFetchResultsResp initialResponse = createResponseWithStringData(1, true);
 
     DatabricksSQLException fetchError =
@@ -434,7 +434,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testGetCurrentBatchMultipleCalls() throws SQLException {
+  void testGetCurrentBatchMultipleCalls() throws DatabricksSQLException {
     TFetchResultsResp initialResponse = createResponseWithStringData(2, false);
 
     ThriftStreamingProvider<ColumnarRowView> provider =
@@ -456,7 +456,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testBatchReadyTimeout() throws SQLException, InterruptedException {
+  void testBatchReadyTimeout() throws DatabricksSQLException, InterruptedException {
     TFetchResultsResp initialResponse = createResponseWithStringData(1, true);
 
     // Create a batch that will never become ready by making fetcher very slow
@@ -488,7 +488,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testTotalRowsFetched() throws SQLException, InterruptedException {
+  void testTotalRowsFetched() throws DatabricksSQLException, InterruptedException {
     TFetchResultsResp initialResponse = createResponseWithStringData(3, true);
     TFetchResultsResp batch2 = createResponseWithStringData(5, false);
 
@@ -512,7 +512,7 @@ public class ThriftStreamingProviderTest {
   }
 
   @Test
-  void testBatchesInMemoryCount() throws SQLException, InterruptedException {
+  void testBatchesInMemoryCount() throws DatabricksSQLException, InterruptedException {
     TFetchResultsResp initialResponse = createResponseWithStringData(1, true);
     TFetchResultsResp batch2 = createResponseWithStringData(1, true);
     TFetchResultsResp batch3 = createResponseWithStringData(1, false);

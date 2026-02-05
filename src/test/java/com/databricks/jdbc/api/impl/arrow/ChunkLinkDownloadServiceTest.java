@@ -14,6 +14,7 @@ import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -53,7 +54,7 @@ class ChunkLinkDownloadServiceTest {
 
   @Test
   void testGetLinkForChunk_Success()
-      throws DatabricksSQLException, InterruptedException, ExecutionException, TimeoutException {
+      throws SQLException, InterruptedException, ExecutionException, TimeoutException {
     when(mockSession.getDatabricksClient()).thenReturn(mockClient);
 
     // Mock the response to link requests
@@ -105,7 +106,7 @@ class ChunkLinkDownloadServiceTest {
 
   @Test
   void testGetLinkForChunk_ClientError()
-      throws DatabricksSQLException, ExecutionException, InterruptedException {
+      throws SQLException, ExecutionException, InterruptedException {
     long chunkIndex = 1L;
     DatabricksSQLException expectedError =
         new DatabricksSQLException("Test error", DatabricksDriverErrorCode.INVALID_STATE);
@@ -127,7 +128,7 @@ class ChunkLinkDownloadServiceTest {
   }
 
   @Test
-  void testAutoTriggerForSEAClient() throws DatabricksSQLException, InterruptedException {
+  void testAutoTriggerForSEAClient() throws SQLException, InterruptedException {
     when(mockSession.getDatabricksClient()).thenReturn(mockClient);
     // Mock the response to link requests
     when(mockClient.getResultChunks(eq(mockStatementId), eq(1L), anyLong()))
@@ -149,7 +150,7 @@ class ChunkLinkDownloadServiceTest {
 
   @Test
   void testHandleExpiredLinks()
-      throws DatabricksSQLException, ExecutionException, InterruptedException, TimeoutException {
+      throws SQLException, ExecutionException, InterruptedException, TimeoutException {
     when(mockSession.getConnectionContext().getClientType()).thenReturn(DatabricksClientType.SEA);
     // Create an expired link for chunk index 1
     ExternalLink expiredLinkForChunkIndex_1 =
@@ -189,7 +190,7 @@ class ChunkLinkDownloadServiceTest {
 
   @Test
   void testBatchDownloadChaining()
-      throws DatabricksSQLException, ExecutionException, InterruptedException, TimeoutException {
+      throws SQLException, ExecutionException, InterruptedException, TimeoutException {
     // Use a far future date to ensure links are never considered expired
     String farFutureExpiration = Instant.now().plus(10, ChronoUnit.MINUTES).toString();
 

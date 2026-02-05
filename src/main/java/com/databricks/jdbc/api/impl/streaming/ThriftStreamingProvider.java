@@ -9,6 +9,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.sql.SQLException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -412,7 +413,7 @@ public class ThriftStreamingProvider<T> implements AutoCloseable {
     LOGGER.debug("Prefetch thread exiting");
   }
 
-  private void fetchNextBatchInternal() throws DatabricksSQLException {
+  private void fetchNextBatchInternal() throws SQLException {
     long batchIndex = nextBatchToFetch.getAndIncrement();
     long rowOffset = nextRowOffset.get();
 

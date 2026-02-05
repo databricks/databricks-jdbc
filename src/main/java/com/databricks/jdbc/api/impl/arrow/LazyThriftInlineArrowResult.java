@@ -18,6 +18,7 @@ import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
+import java.sql.SQLException;
 import java.util.List;
 
 /**
@@ -153,7 +154,7 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
    * @throws DatabricksSQLException if an error occurs while fetching data
    */
   @Override
-  public boolean next() throws DatabricksSQLException {
+  public boolean next() throws SQLException {
     if (isClosed || hasReachedEnd) {
       return false;
     }
@@ -306,9 +307,9 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
   /**
    * Fetches the next chunk of data from the server and creates arrow chunks.
    *
-   * @throws DatabricksSQLException if the fetch operation fails
+   * @throws SQLException if the fetch operation fails
    */
-  private void fetchNextChunk() throws DatabricksSQLException {
+  private void fetchNextChunk() throws SQLException {
     try {
       LOGGER.debug("Fetching next arrow chunk, current total rows fetched: {}", totalRowsFetched);
       currentResponse = session.getDatabricksClient().getMoreResults(statement);
