@@ -102,13 +102,18 @@ public class ValidationUtil {
       return EMPTY_STRING;
     }
     String statusLine = response.getStatusLine().toString();
-    String errorReason =
-        String.format("HTTP request failed by code: %d, status line: %s.", statusCode, statusLine);
+    StringBuilder errorBuilder = new StringBuilder();
+    errorBuilder.append(
+        String.format("HTTP request failed by code: %d, status line: %s.", statusCode, statusLine));
     if (response.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
-      errorReason +=
+      errorBuilder.append(
           String.format(
               " Thrift Header : %s",
-              response.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue());
+              response.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue()));
+    }
+    if (response.containsHeader(REQUEST_ID_HEADER)) {
+      String requestId = response.getFirstHeader(REQUEST_ID_HEADER).getValue();
+      errorBuilder.append(String.format(" Request ID: %s.", requestId));
     }
     if (response.getEntity() != null) {
       try {
@@ -116,13 +121,13 @@ public class ValidationUtil {
             JsonUtil.getMapper().readTree(EntityUtils.toString(response.getEntity()));
         JsonNode errorNode = jsonNode.path("message");
         if (errorNode.isTextual()) {
-          errorReason += String.format(" Error message: %s", errorNode.textValue());
+          errorBuilder.append(String.format(" Error message: %s", errorNode.textValue()));
         }
       } catch (Exception e) {
         LOGGER.warn("Unable to parse JSON from response entity", e);
       }
     }
-    return errorReason;
+    return errorBuilder.toString();
   }
 
   public static void checkHTTPError(HttpResponse response)
