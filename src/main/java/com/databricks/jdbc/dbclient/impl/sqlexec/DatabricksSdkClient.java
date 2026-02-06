@@ -254,6 +254,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
         try {
           Thread.sleep(connectionContext.getAsyncExecPollInterval());
         } catch (InterruptedException e) {
+          // Cancel the statement on the server before throwing - it may still be running
+          tryCancelStatement(typedStatementId, "thread interruption");
           String timeoutErrorMessage =
               String.format(
                   "Thread interrupted due to statement timeout. StatementID %s", statementId);
@@ -268,6 +270,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
         req.withHeaders(getHeaders("getStatement"));
         response = wrapGetStatementResponse(apiClient.execute(req, GetStatementResponse.class));
       } catch (IOException e) {
+        // Cancel the statement on the server before throwing - it may still be running
+        tryCancelStatement(typedStatementId, "polling error");
         String errorMessage = "Error while processing the get statement response";
         LOGGER.error(errorMessage, e);
         throw new DatabricksSQLException(
@@ -425,6 +429,33 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String errorMessage = "Error while processing the cancel statement request";
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    }
+  }
+
+  /**
+   * Attempts to cancel a statement, logging any errors but not throwing.
+   *
+   * <p>This method is used during error handling to ensure statements are cancelled on the server
+   * when the client encounters transient errors during polling. Since the statement may still be
+   * running on the server, we attempt to cancel it to avoid resource leaks.
+   *
+   * @param statementId The statement ID to cancel
+   * @param reason The reason for cancellation (for logging)
+   */
+  private void tryCancelStatement(StatementId statementId, String reason) {
+    try {
+      LOGGER.debug(
+          "Attempting to cancel statement {} due to {}",
+          statementId.toSQLExecStatementId(),
+          reason);
+      cancelStatement(statementId);
+      LOGGER.debug("Successfully cancelled statement {} due to {}", statementId, reason);
+    } catch (Exception e) {
+      LOGGER.warn(
+          "Failed to cancel statement {} after {}: {}",
+          statementId.toSQLExecStatementId(),
+          reason,
+          e.getMessage());
     }
   }
 

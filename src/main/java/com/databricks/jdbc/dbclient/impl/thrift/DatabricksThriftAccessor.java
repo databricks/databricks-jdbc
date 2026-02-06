@@ -169,6 +169,36 @@ final class DatabricksThriftAccessor {
     }
   }
 
+  /**
+   * Attempts to cancel an operation, logging any errors but not throwing.
+   *
+   * <p>This method is used during error handling to ensure operations are cancelled on the server
+   * when the client encounters transient errors during polling. Since the operation may still be
+   * running on the server, we attempt to cancel it to avoid resource leaks.
+   *
+   * @param operationHandle The operation handle to cancel
+   * @param statementId The statement ID (for logging)
+   * @param reason The reason for cancellation (for logging)
+   */
+  private void tryCancelOperation(
+      TOperationHandle operationHandle, StatementId statementId, String reason) {
+    try {
+      LOGGER.debug(
+          "Attempting to cancel operation for statement {} due to {}",
+          statementId.toSQLExecStatementId(),
+          reason);
+      cancelOperation(new TCancelOperationReq().setOperationHandle(operationHandle));
+      LOGGER.debug(
+          "Successfully cancelled operation for statement {} due to {}", statementId, reason);
+    } catch (Exception e) {
+      LOGGER.warn(
+          "Failed to cancel operation for statement {} after {}: {}",
+          statementId.toSQLExecStatementId(),
+          reason,
+          e.getMessage());
+    }
+  }
+
   TCloseOperationResp closeOperation(TCloseOperationReq req) throws DatabricksHttpException {
     try {
       return getThriftClient().CloseOperation(req);
@@ -310,7 +340,14 @@ final class DatabricksThriftAccessor {
       timeoutHandler.checkTimeout();
 
       // Polling for operation status
-      statusResp = getOperationStatus(statusReq, statementId);
+      try {
+        statusResp = getOperationStatus(statusReq, statementId);
+      } catch (TException e) {
+        // Cancel the statement on the server before re-throwing. Unlikely the cancel will succeed,
+        // at least it will print an error message indicating the operation is still running.
+        tryCancelOperation(response.getOperationHandle(), statementId, "polling error");
+        throw e;
+      }
       checkOperationStatusForErrors(statusResp, statementId.toSQLExecStatementId());
       // Save some time if sleep isn't required by breaking.
       if (!shouldContinuePolling(statusResp)) {
@@ -320,8 +357,7 @@ final class DatabricksThriftAccessor {
         TimeUnit.MILLISECONDS.sleep(asyncPollIntervalMillis);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt(); // Restore interrupt flag
-        cancelOperation(
-            new TCancelOperationReq().setOperationHandle(response.getOperationHandle()));
+        tryCancelOperation(response.getOperationHandle(), statementId, "thread interruption");
         throw new DatabricksSQLException(
             "Query execution interrupted", e, DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
       }

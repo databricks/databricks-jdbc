@@ -886,4 +886,67 @@ public class DatabricksSdkClientTest {
                 connection.getSession(),
                 null));
   }
+
+  @Test
+  public void testPollingErrorCancelsStatement() throws Exception {
+    // Test that when polling fails with an IOException, the statement is cancelled
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+
+    // Mock session creation
+    CreateSessionResponse sessionResponse = new CreateSessionResponse().setSessionId(SESSION_ID);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(sessionResponse);
+    connection.open();
+
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    // Create initial response with RUNNING status (requires polling)
+    StatementStatus runningStatus = new StatementStatus().setState(StatementState.RUNNING);
+    ExecuteStatementResponse executeResponse =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(runningStatus);
+
+    // Track cancel calls
+    final boolean[] cancelCalled = {false};
+
+    when(apiClient.execute(any(Request.class), any()))
+        .thenAnswer(
+            invocation -> {
+              Request req = invocation.getArgument(0);
+              if (req.getUrl().equals(STATEMENT_PATH)) {
+                return executeResponse;
+              } else if (req.getUrl().equals(SESSION_PATH)) {
+                return sessionResponse;
+              } else if (req.getUrl().contains("/statements/")
+                  && req.getUrl().contains("/cancel")) {
+                cancelCalled[0] = true;
+                return null;
+              } else if (req.getUrl().contains("/statements/")) {
+                // Simulate polling error - throw IOException
+                throw new IOException("Network error during polling");
+              }
+              return null;
+            });
+
+    // Execute should throw due to polling error
+    assertThrows(
+        DatabricksSQLException.class,
+        () ->
+            databricksSdkClient.executeStatement(
+                STATEMENT,
+                warehouse,
+                new HashMap<>(),
+                StatementType.QUERY,
+                connection.getSession(),
+                statement));
+
+    // Verify that cancel was called
+    assertTrue(cancelCalled[0], "Cancel should have been called when polling failed");
+  }
 }

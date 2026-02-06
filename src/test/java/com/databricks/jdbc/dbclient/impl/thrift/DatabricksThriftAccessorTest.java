@@ -953,4 +953,38 @@ public class DatabricksThriftAccessorTest {
     }
     return request;
   }
+
+  @Test
+  public void testPollingErrorCancelsOperation() throws Exception {
+    // Test that when GetOperationStatus fails with TException, the operation is cancelled
+    TExecuteStatementReq request = new TExecuteStatementReq();
+
+    // Response with RUNNING state - requires polling
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+
+    // First GetOperationStatus returns RUNNING, second throws TException
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(operationStatusRunningResp)
+        .thenThrow(new TException("Network error during polling"));
+
+    // Mock CancelOperation to succeed
+    when(thriftClient.CancelOperation(any(TCancelOperationReq.class)))
+        .thenReturn(new TCancelOperationResp());
+
+    // Execute should throw due to polling error
+    assertThrows(
+        DatabricksHttpException.class,
+        () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+
+    // Verify that CancelOperation was called
+    verify(thriftClient).CancelOperation(any(TCancelOperationReq.class));
+  }
 }
