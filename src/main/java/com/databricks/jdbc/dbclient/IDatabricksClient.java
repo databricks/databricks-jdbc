@@ -34,7 +34,7 @@ public interface IDatabricksClient {
       String catalog,
       String schema,
       Map<String, String> sessionConf)
-      throws DatabricksSQLException;
+      throws SQLException;
 
   /**
    * Deletes a session for given session-Id
@@ -42,7 +42,7 @@ public interface IDatabricksClient {
    * @param sessionInfo for which the session should be deleted
    */
   @DatabricksMetricsTimed
-  void deleteSession(ImmutableSessionInfo sessionInfo) throws DatabricksSQLException;
+  void deleteSession(ImmutableSessionInfo sessionInfo) throws SQLException;
 
   /**
    * Executes a statement in Databricks server
@@ -132,8 +132,7 @@ public interface IDatabricksClient {
    * @param chunkStartRowOffset the row offset where the chunk starts in the result set
    */
   ChunkLinkFetchResult getResultChunks(
-      StatementId statementId, long chunkIndex, long chunkStartRowOffset)
-      throws DatabricksSQLException;
+      StatementId statementId, long chunkIndex, long chunkStartRowOffset) throws SQLException;
 
   /**
    * Fetches the result data for given chunk index and statement-Id.
@@ -155,7 +154,7 @@ public interface IDatabricksClient {
   void resetAccessToken(String newAccessToken);
 
   TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
-      throws DatabricksSQLException;
+      throws SQLException;
 
   /** Retrieves underlying DatabricksConfig */
   DatabricksConfig getDatabricksConfig();

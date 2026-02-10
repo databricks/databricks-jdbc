@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl.thrift;
 
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
+import java.sql.SQLException;
 
 /**
  * Interface for fetching Thrift columnar result batches from the server.
@@ -24,9 +24,9 @@ public interface ThriftBatchFetcher {
    * the server maintains a cursor that advances with each call.
    *
    * @return The fetch response containing the batch data and hasMoreRows flag
-   * @throws DatabricksSQLException if the fetch fails due to network or server errors
+   * @throws SQLException if the fetch fails due to network or server errors
    */
-  TFetchResultsResp fetchNextBatch() throws DatabricksSQLException;
+  TFetchResultsResp fetchNextBatch() throws SQLException;
 
   /**
    * Closes the fetcher and releases any associated resources.

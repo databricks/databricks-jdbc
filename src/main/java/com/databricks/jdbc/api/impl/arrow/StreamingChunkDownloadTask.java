@@ -8,6 +8,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.concurrent.Callable;
 
 /**
@@ -63,7 +64,7 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
 
           LOGGER.debug("Successfully downloaded chunk {}", chunk.getChunkIndex());
 
-        } catch (IOException | DatabricksSQLException e) {
+        } catch (IOException | SQLException e) {
           retries++;
           if (retries >= MAX_RETRIES) {
             LOGGER.error(

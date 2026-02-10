@@ -18,4 +18,14 @@ public class DatabricksTimeoutException extends SQLTimeoutException {
         reason,
         TelemetryLogLevel.ERROR);
   }
+
+  public DatabricksTimeoutException(
+      String reason, String sqlState, Throwable cause, DatabricksDriverErrorCode internalError) {
+    super(reason, sqlState, cause);
+    TelemetryHelper.exportFailureLog(
+        DatabricksThreadContextHolder.getConnectionContext(),
+        internalError.name(),
+        reason,
+        TelemetryLogLevel.ERROR);
+  }
 }

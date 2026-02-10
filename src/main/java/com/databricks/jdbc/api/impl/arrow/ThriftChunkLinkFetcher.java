@@ -8,6 +8,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.sql.SQLException;
 
 /**
  * ChunkLinkFetcher implementation for the Thrift client.
@@ -32,7 +33,7 @@ public class ThriftChunkLinkFetcher implements ChunkLinkFetcher {
 
   @Override
   public ChunkLinkFetchResult fetchLinks(long startChunkIndex, long startRowOffset)
-      throws DatabricksSQLException {
+      throws SQLException {
     // Thrift uses startRowOffset with FETCH_ABSOLUTE; startChunkIndex is used for metadata
     LOGGER.debug(
         "Fetching links starting from chunk index {}, row offset {} for statement {}",
@@ -46,7 +47,7 @@ public class ThriftChunkLinkFetcher implements ChunkLinkFetcher {
   }
 
   @Override
-  public ExternalLink refetchLink(long chunkIndex, long rowOffset) throws DatabricksSQLException {
+  public ExternalLink refetchLink(long chunkIndex, long rowOffset) throws SQLException {
     // Thrift uses rowOffset with FETCH_ABSOLUTE
     LOGGER.info(
         "Refetching expired link for chunk {}, row offset {} of statement {}",

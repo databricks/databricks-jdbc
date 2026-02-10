@@ -6,13 +6,13 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.google.common.annotations.VisibleForTesting;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -282,7 +282,7 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
                     triggerNextBatchDownload();
                   }
                 }
-              } catch (DatabricksSQLException e) {
+              } catch (SQLException e) {
                 // If the download fails, complete exceptionally all pending futures
                 handleBatchDownloadError(batchStartIndex, e);
               }
@@ -295,7 +295,7 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
    * <p>Completes all pending futures exceptionally with the encountered error and resets the
    * download progress flag.
    */
-  private void handleBatchDownloadError(long batchStartIndex, DatabricksSQLException e) {
+  private void handleBatchDownloadError(long batchStartIndex, SQLException e) {
     LOGGER.error(
         e,
         "Failed to download links for batch starting at {} : {}",

@@ -10,6 +10,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.sql.SQLException;
 
 public class LazyThriftResult implements IExecutionResult {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(LazyThriftResult.class);
@@ -99,10 +100,10 @@ public class LazyThriftResult implements IExecutionResult {
    * Moves the cursor to the next row. Fetches additional data from server if needed.
    *
    * @return true if there is a next row, false if at the end
-   * @throws DatabricksSQLException if an error occurs while fetching data
+   * @throws SQLException if an error occurs while fetching data
    */
   @Override
-  public boolean next() throws DatabricksSQLException {
+  public boolean next() throws SQLException {
     if (isClosed || hasReachedEnd) {
       return false;
     }
@@ -221,9 +222,9 @@ public class LazyThriftResult implements IExecutionResult {
   /**
    * Fetches the next batch of data from the server and creates columnar views.
    *
-   * @throws DatabricksSQLException if the fetch operation fails
+   * @throws SQLException if the fetch operation fails
    */
-  private void fetchNextBatch() throws DatabricksSQLException {
+  private void fetchNextBatch() throws SQLException {
     try {
       LOGGER.debug("Fetching next batch, current total rows fetched: {}", totalRowsFetched);
       currentResponse = session.getDatabricksClient().getMoreResults(statement);

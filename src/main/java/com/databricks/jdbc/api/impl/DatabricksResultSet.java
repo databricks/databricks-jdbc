@@ -84,7 +84,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       StatementType statementType,
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
-      throws DatabricksSQLException {
+      throws SQLException {
     this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     if (resultData != null) {

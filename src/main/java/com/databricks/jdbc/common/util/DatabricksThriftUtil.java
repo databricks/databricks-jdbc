@@ -1,6 +1,7 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_KEY;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static com.databricks.jdbc.model.client.thrift.generated.TTypeId.*;
@@ -12,6 +13,7 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.*;
@@ -23,6 +25,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -86,13 +89,12 @@ public class DatabricksThriftUtil {
         .setRowCount(chunkInfo.getRowCount());
   }
 
-  public static void verifySuccessStatus(TStatus status, String errorContext)
-      throws DatabricksHttpException {
+  public static void verifySuccessStatus(TStatus status, String errorContext) throws SQLException {
     verifySuccessStatus(status, errorContext, null);
   }
 
   public static void verifySuccessStatus(TStatus status, String errorContext, String statementId)
-      throws DatabricksHttpException {
+      throws SQLException {
     if (!SUCCESS_STATUS_LIST.contains(status.getStatusCode())) {
       String errorMessage =
           statementId != null
@@ -100,7 +102,14 @@ public class DatabricksThriftUtil {
                   "Error thrift response received [%s] for statementId [%s]",
                   errorContext, statementId)
               : String.format("Error thrift response received [%s]", errorContext);
-      throw new DatabricksHttpException(errorMessage, status.getSqlState());
+
+      String sqlState = status.getSqlState();
+      if (sqlState != null && QUERY_EXECUTION_TIMEOUT_SQLSTATE.equals(sqlState)) {
+        throw new DatabricksTimeoutException(
+            errorMessage, sqlState, null, DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
+      }
+
+      throw new DatabricksHttpException(errorMessage, sqlState);
     }
   }
 
@@ -316,7 +325,7 @@ public class DatabricksThriftUtil {
       TFetchResultsResp resultsResp,
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
-      throws DatabricksSQLException {
+      throws SQLException {
     int statementMaxRows =
         parentStatement != null ? parentStatement.getMaxRows() : DEFAULT_RESULT_ROW_LIMIT;
     boolean hasRowLimit = statementMaxRows > 0;
@@ -365,8 +374,7 @@ public class DatabricksThriftUtil {
   }
 
   public static void checkDirectResultsForErrorStatus(
-      TSparkDirectResults directResults, String context, String statementId)
-      throws DatabricksHttpException {
+      TSparkDirectResults directResults, String context, String statementId) throws SQLException {
     if (directResults.isSetOperationStatus()) {
       LOGGER.debug(
           "direct result operation status being verified for success response for statementId {}",

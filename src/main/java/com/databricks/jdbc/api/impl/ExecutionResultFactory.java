@@ -32,7 +32,7 @@ class ExecutionResultFactory {
       StatementId statementId,
       IDatabricksSession session,
       IDatabricksStatementInternal statement)
-      throws DatabricksSQLException {
+      throws SQLException {
     IExecutionResult resultHandler = getResultHandler(data, manifest, statementId, session);
     if (manifest.getIsVolumeOperation() != null && manifest.getIsVolumeOperation()) {
       return new VolumeOperationResult(

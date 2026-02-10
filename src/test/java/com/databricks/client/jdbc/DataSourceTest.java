@@ -4,7 +4,6 @@ import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_MECH;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnection;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -35,7 +34,7 @@ public class DataSourceTest {
   }
 
   @Test
-  public void testGetConnection() throws DatabricksSQLException {
+  public void testGetConnection() throws SQLException {
     Properties properties = new Properties();
     properties.setProperty(AUTH_MECH.getParamName(), "3");
 

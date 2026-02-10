@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import java.sql.SQLException;
 
 /** Interface to provide methods over an underlying statement result */
 public interface IExecutionResult {
@@ -26,7 +27,7 @@ public interface IExecutionResult {
    *
    * @return true if cursor is moved at next row
    */
-  boolean next() throws DatabricksSQLException;
+  boolean next() throws SQLException;
 
   /** Returns if there is next row in the result set */
   boolean hasNext();

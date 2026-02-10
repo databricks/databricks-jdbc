@@ -10,6 +10,7 @@ import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.sql.SQLException;
 import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,7 +31,7 @@ public class StreamingColumnarResultTest {
   @Mock private IDatabricksConnectionContext connectionContext;
 
   @BeforeEach
-  void setUp() throws DatabricksSQLException {
+  void setUp() throws SQLException {
     lenient().when(session.getDatabricksClient()).thenReturn(databricksClient);
     lenient().when(session.getConnectionContext()).thenReturn(connectionContext);
     lenient().when(connectionContext.getThriftMaxBatchesInMemory()).thenReturn(3);
@@ -38,7 +39,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testBasicIteration() throws DatabricksSQLException {
+  void testBasicIteration() throws SQLException {
     TFetchResultsResp response =
         createResponseWithStringData(
             Arrays.asList("row1_col1", "row1_col2"),
@@ -74,7 +75,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testMultiBatchFetching() throws DatabricksSQLException, InterruptedException {
+  void testMultiBatchFetching() throws SQLException, InterruptedException {
     TFetchResultsResp firstBatch =
         createResponseWithStringData(
             Arrays.asList("row1_col1", "row1_col2"), Arrays.asList("row2_col1", "row2_col2"), true);
@@ -117,7 +118,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testMaxRowsLimit() throws DatabricksSQLException {
+  void testMaxRowsLimit() throws SQLException {
     when(statement.getMaxRows()).thenReturn(2);
 
     // Use hasMoreRows=false so the prefetch thread doesn't try to fetch
@@ -147,7 +148,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testAccessAfterClose() throws DatabricksSQLException {
+  void testAccessAfterClose() throws SQLException {
     TFetchResultsResp response =
         createResponseWithStringData(Arrays.asList("row1_col1", "row1_col2"), false);
 
@@ -161,7 +162,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testAccessBeforeFirstRow() throws DatabricksSQLException {
+  void testAccessBeforeFirstRow() throws SQLException {
     TFetchResultsResp response =
         createResponseWithStringData(Arrays.asList("row1_col1", "row1_col2"), false);
 
@@ -177,7 +178,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testInvalidColumnIndex() throws DatabricksSQLException {
+  void testInvalidColumnIndex() throws SQLException {
     TFetchResultsResp response = createResponseWithStringData(Arrays.asList("col1", "col2"), false);
 
     StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
@@ -198,7 +199,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testNullHandling() throws DatabricksSQLException {
+  void testNullHandling() throws SQLException {
     TFetchResultsResp response = createResponseWithNulls();
 
     StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
@@ -213,7 +214,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testChunkCount() throws DatabricksSQLException {
+  void testChunkCount() throws SQLException {
     TFetchResultsResp response =
         createResponseWithStringData(Arrays.asList("row1_col1", "row1_col2"), false);
 
@@ -228,7 +229,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testSingleRowResult() throws DatabricksSQLException {
+  void testSingleRowResult() throws SQLException {
     // Test single row iteration (empty results have different behavior in streaming due to init)
     TFetchResultsResp response =
         createResponseWithStringData(Arrays.asList("only_row_col1", "only_row_col2"), false);
@@ -250,7 +251,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testErrorDuringFetch() throws DatabricksSQLException, InterruptedException {
+  void testErrorDuringFetch() throws SQLException, InterruptedException {
     TFetchResultsResp firstBatch =
         createResponseWithStringData(Arrays.asList("row1_col1", "row1_col2"), true);
 
@@ -286,7 +287,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testMaxRowsLimitAcrossBatches() throws DatabricksSQLException, InterruptedException {
+  void testMaxRowsLimitAcrossBatches() throws SQLException, InterruptedException {
     // MaxRows limit of 3, spanning across 2 batches (2 rows each)
     when(statement.getMaxRows()).thenReturn(3);
 
@@ -329,7 +330,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testBatchesInMemoryTracking() throws DatabricksSQLException {
+  void testBatchesInMemoryTracking() throws SQLException {
     TFetchResultsResp response =
         createResponseWithStringData(
             Arrays.asList("row1_col1", "row1_col2"),
@@ -349,7 +350,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testGetTotalRowsFetched() throws DatabricksSQLException, InterruptedException {
+  void testGetTotalRowsFetched() throws SQLException, InterruptedException {
     TFetchResultsResp firstBatch =
         createResponseWithStringData(
             Arrays.asList("row1_col1", "row1_col2"), Arrays.asList("row2_col1", "row2_col2"), true);
@@ -379,7 +380,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testIsCompletelyFetched() throws DatabricksSQLException, InterruptedException {
+  void testIsCompletelyFetched() throws SQLException, InterruptedException {
     TFetchResultsResp firstBatch =
         createResponseWithStringData(
             Arrays.asList("row1_col1", "row1_col2"), true); // hasMoreRows = true
@@ -404,8 +405,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testInitializationWithEmptyInitialBatch()
-      throws DatabricksSQLException, InterruptedException {
+  void testInitializationWithEmptyInitialBatch() throws SQLException, InterruptedException {
     // Initial batch is EMPTY but hasMoreRows=true
     TFetchResultsResp emptyInitial = createEmptyResponse(true);
 
@@ -441,7 +441,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testGetRowCount() throws DatabricksSQLException {
+  void testGetRowCount() throws SQLException {
     TFetchResultsResp response =
         createResponseWithStringData(
             Arrays.asList("row1_col1", "row1_col2"),
@@ -460,7 +460,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testDoubleClose() throws DatabricksSQLException {
+  void testDoubleClose() throws SQLException {
     TFetchResultsResp response =
         createResponseWithStringData(Arrays.asList("row1_col1", "row1_col2"), false);
 
@@ -473,7 +473,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testEmptyResultNoMoreRows() throws DatabricksSQLException {
+  void testEmptyResultNoMoreRows() throws SQLException {
     // Single row result to verify end-of-stream detection works
     TFetchResultsResp singleRowResponse =
         createResponseWithStringData(Arrays.asList("only_value"), false);
@@ -496,7 +496,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testHasNextAfterExhausted() throws DatabricksSQLException {
+  void testHasNextAfterExhausted() throws SQLException {
     TFetchResultsResp response = createResponseWithStringData(Arrays.asList("value"), false);
 
     StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
@@ -516,7 +516,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testMultipleConsecutiveEmptyBatches() throws DatabricksSQLException, InterruptedException {
+  void testMultipleConsecutiveEmptyBatches() throws SQLException, InterruptedException {
     // First batch empty
     TFetchResultsResp emptyBatch1 = createEmptyResponse(true);
     // Second batch also empty
@@ -551,7 +551,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testExhaustAllRowsInSingleBatch() throws DatabricksSQLException {
+  void testExhaustAllRowsInSingleBatch() throws SQLException {
     // Single batch with 3 rows, no more data
     TFetchResultsResp response =
         createResponseWithStringData(
@@ -581,8 +581,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testExhaustAllRowsAcrossMultipleBatches()
-      throws DatabricksSQLException, InterruptedException {
+  void testExhaustAllRowsAcrossMultipleBatches() throws SQLException, InterruptedException {
     // First batch with 2 rows
     TFetchResultsResp firstBatch =
         createResponseWithStringData(
@@ -623,7 +622,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testBatchTransitionAtExactBoundary() throws DatabricksSQLException, InterruptedException {
+  void testBatchTransitionAtExactBoundary() throws SQLException, InterruptedException {
     // First batch with exactly 1 row
     TFetchResultsResp firstBatch =
         createResponseWithStringData(Arrays.asList("only_row_in_batch1"), true);
@@ -658,7 +657,7 @@ public class StreamingColumnarResultTest {
   }
 
   @Test
-  void testNextAfterEndReturnsConsistentFalse() throws DatabricksSQLException {
+  void testNextAfterEndReturnsConsistentFalse() throws SQLException {
     TFetchResultsResp response = createResponseWithStringData(Arrays.asList("single_row"), false);
 
     StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);

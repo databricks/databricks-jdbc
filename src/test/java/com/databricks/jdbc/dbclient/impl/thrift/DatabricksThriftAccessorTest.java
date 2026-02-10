@@ -118,7 +118,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testOpenSession() throws TException, DatabricksSQLException, DatabricksValidationException {
+  void testOpenSession() throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TOpenSessionReq request = new TOpenSessionReq();
     TOpenSessionResp response = new TOpenSessionResp();
@@ -127,7 +127,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testCloseSession() throws TException, DatabricksSQLException, DatabricksValidationException {
+  void testCloseSession() throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TCloseSessionReq request = new TCloseSessionReq();
     TCloseSessionResp response = new TCloseSessionResp();
@@ -323,8 +323,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testCancelOperation()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+  void testCancelOperation() throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TCancelOperationReq request =
         new TCancelOperationReq()
@@ -340,8 +339,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testCloseOperation()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+  void testCloseOperation() throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TCloseOperationReq request =
         new TCloseOperationReq()
@@ -387,8 +385,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testIncludeResultSetMetadataNotSetForOldProtocol()
-      throws TException, DatabricksSQLException {
+  void testIncludeResultSetMetadataNotSetForOldProtocol() throws TException, SQLException {
     TOperationHandle operationHandle =
         new TOperationHandle()
             .setOperationId(handleIdentifier)
@@ -453,8 +450,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testListPrimaryKeys()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+  void testListPrimaryKeys() throws TException, SQLException, DatabricksValidationException {
     setup(false);
     TGetPrimaryKeysReq request = new TGetPrimaryKeysReq();
     TGetPrimaryKeysResp tGetPrimaryKeysResp =
@@ -471,7 +467,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testListPrimaryKeysWithDirectResults()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+      throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TGetPrimaryKeysReq request = new TGetPrimaryKeysReq();
     TGetPrimaryKeysResp tGetPrimaryKeysResp =
@@ -485,8 +481,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testListFunctions()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+  void testListFunctions() throws TException, SQLException, DatabricksValidationException {
     setup(false);
     TGetFunctionsReq request = new TGetFunctionsReq();
     TGetFunctionsResp tGetFunctionsResp =
@@ -503,7 +498,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testListFunctionsWithDirectResults()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+      throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TGetFunctionsReq request = new TGetFunctionsReq();
     TGetFunctionsResp tGetFunctionsResp =
@@ -517,7 +512,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testListSchemas() throws TException, DatabricksSQLException, DatabricksValidationException {
+  void testListSchemas() throws TException, SQLException, DatabricksValidationException {
     setup(false);
     TGetSchemasReq request = new TGetSchemasReq();
     TGetSchemasResp tGetSchemasResp =
@@ -534,7 +529,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testListSchemasWithDirectResults()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+      throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TGetSchemasReq request = new TGetSchemasReq();
     TGetSchemasResp tGetSchemasResp =
@@ -548,7 +543,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testListColumns() throws TException, DatabricksSQLException, DatabricksValidationException {
+  void testListColumns() throws TException, SQLException, DatabricksValidationException {
     setup(false);
     TGetColumnsReq request = new TGetColumnsReq();
     TGetColumnsResp tGetColumnsResp =
@@ -565,7 +560,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testListColumnsWithDirectResults()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+      throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TGetColumnsReq request = new TGetColumnsReq();
     TGetColumnsResp tGetColumnsResp =
@@ -579,7 +574,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testListCatalogs() throws TException, DatabricksSQLException, DatabricksValidationException {
+  void testListCatalogs() throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TGetCatalogsReq request = new TGetCatalogsReq();
     TGetCatalogsResp tGetCatalogsResp =
@@ -596,7 +591,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testListCatalogsWithDirectResults()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+      throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TGetCatalogsReq request = new TGetCatalogsReq();
     TGetCatalogsResp tGetCatalogsResp =
@@ -610,7 +605,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testListTables() throws TException, DatabricksSQLException, DatabricksValidationException {
+  void testListTables() throws TException, SQLException, DatabricksValidationException {
     setup(false);
     TGetTablesReq request = new TGetTablesReq();
     TGetTablesResp tGetTablesResp =
@@ -627,7 +622,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testListTablesWithDirectResults()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+      throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TGetTablesReq request = new TGetTablesReq();
     TGetTablesResp tGetTablesResp =
@@ -641,8 +636,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testListTableTypes()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+  void testListTableTypes() throws TException, SQLException, DatabricksValidationException {
     setup(false);
     TGetTableTypesReq request = new TGetTableTypesReq();
     TGetTableTypesResp tGetTableTypesResp =
@@ -659,7 +653,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testListTableTypesWithDirectResults()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+      throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TGetTableTypesReq request = new TGetTableTypesReq();
     TGetTableTypesResp tGetTableTypesResp =
@@ -673,7 +667,7 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
-  void testTypeInfo() throws TException, DatabricksSQLException, DatabricksValidationException {
+  void testTypeInfo() throws TException, SQLException, DatabricksValidationException {
     setup(false);
     TGetTypeInfoReq request = new TGetTypeInfoReq();
     TGetTypeInfoResp tGetTypeInfoResp =
@@ -690,7 +684,7 @@ public class DatabricksThriftAccessorTest {
 
   @Test
   void testTypeInfoWithDirectResults()
-      throws TException, DatabricksSQLException, DatabricksValidationException {
+      throws TException, SQLException, DatabricksValidationException {
     setup(true);
     TGetTypeInfoReq request = new TGetTypeInfoReq();
     TGetTypeInfoResp tGetTypeInfoResp =

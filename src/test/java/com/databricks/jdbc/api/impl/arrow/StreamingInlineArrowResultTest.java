@@ -13,6 +13,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayOutputStream;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -60,7 +61,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testBasicIteration() throws DatabricksSQLException {
+  void testBasicIteration() throws SQLException {
     int rowCount = 5;
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp response = createFetchResultsResp(arrowData, rowCount, false);
@@ -89,7 +90,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testGetObjectReturnsCorrectValues() throws DatabricksSQLException {
+  void testGetObjectReturnsCorrectValues() throws SQLException {
     int rowCount = 3;
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp response = createFetchResultsResp(arrowData, rowCount, false);
@@ -120,7 +121,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testMultiColumnAccess() throws DatabricksSQLException {
+  void testMultiColumnAccess() throws SQLException {
     int rowCount = 2;
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp response = createFetchResultsResp(arrowData, rowCount, false);
@@ -147,7 +148,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testMaxRowsLimit() throws DatabricksSQLException {
+  void testMaxRowsLimit() throws SQLException {
     int totalRows = 10;
     int maxRows = 3;
     when(statement.getMaxRows()).thenReturn(maxRows);
@@ -173,7 +174,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testColumnIndexBounds() throws DatabricksSQLException {
+  void testColumnIndexBounds() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 1);
     TFetchResultsResp response = createFetchResultsResp(arrowData, 1, false);
 
@@ -198,7 +199,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testAccessAfterClose() throws DatabricksSQLException {
+  void testAccessAfterClose() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 1);
     TFetchResultsResp response = createFetchResultsResp(arrowData, 1, false);
 
@@ -212,7 +213,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testAccessBeforeFirstRow() throws DatabricksSQLException {
+  void testAccessBeforeFirstRow() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 1);
     TFetchResultsResp response = createFetchResultsResp(arrowData, 1, false);
 
@@ -229,7 +230,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testSingleRowResult() throws DatabricksSQLException {
+  void testSingleRowResult() throws SQLException {
     // Test single row instead of empty - streaming has different empty handling
     byte[] arrowData = createValidArrowData(1, 1);
     TFetchResultsResp response = createFetchResultsResp(arrowData, 1, false);
@@ -251,7 +252,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testMultiBatchFetching() throws DatabricksSQLException, InterruptedException {
+  void testMultiBatchFetching() throws SQLException, InterruptedException {
     int rowsPerChunk = 2;
     byte[] arrowData1 = createValidArrowData(1, rowsPerChunk);
     byte[] arrowData2 = createValidArrowData(1, rowsPerChunk);
@@ -324,7 +325,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testMaxRowsLimitAcrossBatches() throws DatabricksSQLException, InterruptedException {
+  void testMaxRowsLimitAcrossBatches() throws SQLException, InterruptedException {
     // MaxRows limit of 3, spanning across 2 batches (2 rows each)
     int rowsPerChunk = 2;
     when(statement.getMaxRows()).thenReturn(3);
@@ -363,7 +364,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testGetArrowMetadata() throws DatabricksSQLException {
+  void testGetArrowMetadata() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 2);
     TFetchResultsResp response = createFetchResultsResp(arrowData, 2, false);
 
@@ -382,7 +383,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testGetTotalRowsFetched() throws DatabricksSQLException, InterruptedException {
+  void testGetTotalRowsFetched() throws SQLException, InterruptedException {
     byte[] arrowData1 = createValidArrowData(1, 3);
     byte[] arrowData2 = createValidArrowData(1, 2);
     TFetchResultsResp firstBatch = createFetchResultsResp(arrowData1, 3, true);
@@ -408,7 +409,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testIsCompletelyFetched() throws DatabricksSQLException, InterruptedException {
+  void testIsCompletelyFetched() throws SQLException, InterruptedException {
     byte[] arrowData1 = createValidArrowData(1, 2);
     byte[] arrowData2 = createValidArrowData(1, 2);
     TFetchResultsResp firstBatch = createFetchResultsResp(arrowData1, 2, true);
@@ -431,7 +432,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testBatchesInMemoryTracking() throws DatabricksSQLException {
+  void testBatchesInMemoryTracking() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 2);
     TFetchResultsResp response = createFetchResultsResp(arrowData, 2, false);
 
@@ -447,7 +448,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testChunkCount() throws DatabricksSQLException {
+  void testChunkCount() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 2);
     TFetchResultsResp response = createFetchResultsResp(arrowData, 2, false);
 
@@ -463,7 +464,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testGetRowCount() throws DatabricksSQLException {
+  void testGetRowCount() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 5);
     TFetchResultsResp response = createFetchResultsResp(arrowData, 5, false);
 
@@ -479,8 +480,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testInitializationWithEmptyInitialBatch()
-      throws DatabricksSQLException, InterruptedException {
+  void testInitializationWithEmptyInitialBatch() throws SQLException, InterruptedException {
     // Initial batch is EMPTY but hasMoreRows=true
     TFetchResultsResp emptyInitial = createEmptyArrowResponse(true);
 
@@ -511,7 +511,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testDoubleClose() throws DatabricksSQLException {
+  void testDoubleClose() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 2);
     TFetchResultsResp response = createFetchResultsResp(arrowData, 2, false);
 
@@ -525,7 +525,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testExhaustAllRowsInSingleBatch() throws DatabricksSQLException {
+  void testExhaustAllRowsInSingleBatch() throws SQLException {
     // Single batch with 3 rows, no more data
     byte[] arrowData = createValidArrowData(1, 3);
     TFetchResultsResp response = createFetchResultsResp(arrowData, 3, false);
@@ -555,8 +555,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testExhaustAllRowsAcrossMultipleBatches()
-      throws DatabricksSQLException, InterruptedException {
+  void testExhaustAllRowsAcrossMultipleBatches() throws SQLException, InterruptedException {
     // First batch with 2 rows
     byte[] arrowData1 = createValidArrowData(1, 2);
     TFetchResultsResp firstBatch = createFetchResultsResp(arrowData1, 2, true);
@@ -597,7 +596,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testBatchTransitionAtExactBoundary() throws DatabricksSQLException, InterruptedException {
+  void testBatchTransitionAtExactBoundary() throws SQLException, InterruptedException {
     // First batch with exactly 1 row
     byte[] arrowData1 = createValidArrowData(1, 1);
     TFetchResultsResp firstBatch = createFetchResultsResp(arrowData1, 1, true);
@@ -633,7 +632,7 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
-  void testNextAfterEndReturnsConsistentFalse() throws DatabricksSQLException {
+  void testNextAfterEndReturnsConsistentFalse() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 1);
     TFetchResultsResp response = createFetchResultsResp(arrowData, 1, false);
 

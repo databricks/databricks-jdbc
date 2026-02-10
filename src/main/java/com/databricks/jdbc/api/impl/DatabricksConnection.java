@@ -63,7 +63,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   }
 
   @Override
-  public void open() throws DatabricksSQLException {
+  public void open() throws SQLException {
     this.session.open();
   }
 
@@ -401,7 +401,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   }
 
   @Override
-  public void close() throws DatabricksSQLException {
+  public void close() throws SQLException {
     LOGGER.debug("public void close()");
     for (IDatabricksStatementInternal statement : statementSet) {
       statement.close(false);

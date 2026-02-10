@@ -62,6 +62,7 @@ public final class DatabricksJdbcConstants {
   public static final String USER_HOME_PROPERTY = "user.home";
   public static final String PORT = "port";
   public static final int DEFAULT_PORT = 443;
+  public static final String REQUEST_ID_HEADER = "x-request-id";
   public static final String THRIFT_ERROR_MESSAGE_HEADER = "X-Thriftserver-Error-Message";
   public static final String ALLOWED_VOLUME_INGESTION_PATHS = "VolumeOperationAllowedLocalPaths";
   public static final String ENABLE_VOLUME_OPERATIONS = "enableVolumeOperations";

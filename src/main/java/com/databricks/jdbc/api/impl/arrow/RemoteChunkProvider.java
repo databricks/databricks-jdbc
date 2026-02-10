@@ -12,6 +12,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
+import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -47,7 +48,7 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
       IDatabricksHttpClient httpClient,
       int chunksDownloaderThreadPoolSize,
       CompressionCodec compressionCodec)
-      throws DatabricksSQLException {
+      throws SQLException {
     super(
         parentStatement,
         resultsResp,

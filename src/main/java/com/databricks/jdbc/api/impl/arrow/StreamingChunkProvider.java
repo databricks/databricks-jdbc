@@ -11,6 +11,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.sql.SQLException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -372,7 +373,7 @@ public class StreamingChunkProvider implements ChunkProvider {
     LOGGER.debug("Link prefetch thread exiting for statement {}", statementId);
   }
 
-  private void fetchNextLinkBatch() throws DatabricksSQLException {
+  private void fetchNextLinkBatch() throws SQLException {
     if (endOfStreamReached || closed) {
       return;
     }

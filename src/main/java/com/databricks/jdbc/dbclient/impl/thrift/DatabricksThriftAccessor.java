@@ -136,8 +136,7 @@ final class DatabricksThriftAccessor {
    * @return TFetchResultsResp containing the results
    * @throws DatabricksHttpException if fetch fails
    */
-  TFetchResultsResp getResultSetResp(TOperationHandle operationHandle)
-      throws DatabricksHttpException {
+  TFetchResultsResp getResultSetResp(TOperationHandle operationHandle) throws SQLException {
     TFetchResultsReq req = createFetchResultsReqWithDefaults(operationHandle);
     return executeFetchRequest(req);
   }
@@ -151,7 +150,7 @@ final class DatabricksThriftAccessor {
    * @throws DatabricksHttpException if fetch fails
    */
   TFetchResultsResp getResultSetResp(TOperationHandle operationHandle, long startRowOffset)
-      throws DatabricksHttpException {
+      throws SQLException {
     TFetchResultsReq req = createFetchResultsReqWithDefaults(operationHandle);
     req.setStartRowOffset(startRowOffset);
     return executeFetchRequest(req);
@@ -184,7 +183,7 @@ final class DatabricksThriftAccessor {
   }
 
   TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
-      throws DatabricksSQLException {
+      throws SQLException {
     TFetchResultsReq req =
         createFetchResultsReqWithDefaults(getOperationHandle(parentStatement.getStatementId()));
     setFetchMetadata(req);
@@ -502,8 +501,7 @@ final class DatabricksThriftAccessor {
     this.databricksConfig = newConfig;
   }
 
-  private TFetchResultsResp executeFetchRequest(TFetchResultsReq request)
-      throws DatabricksHttpException {
+  private TFetchResultsResp executeFetchRequest(TFetchResultsReq request) throws SQLException {
     TFetchResultsResp response;
     try {
       response = getThriftClient().FetchResults(request);
@@ -554,7 +552,7 @@ final class DatabricksThriftAccessor {
    * @throws DatabricksHttpException if the fetch fails
    */
   TFetchResultsResp fetchResultsWithAbsoluteOffset(
-      TOperationHandle operationHandle, long startRowOffset) throws DatabricksHttpException {
+      TOperationHandle operationHandle, long startRowOffset) throws SQLException {
     String statementId = StatementId.loggableStatementId(operationHandle);
     LOGGER.debug(
         "Fetching results with FETCH_ABSOLUTE at offset {} for statement {}",

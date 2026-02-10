@@ -1,8 +1,8 @@
 package com.databricks.jdbc.api.internal;
 
 import com.databricks.jdbc.api.IDatabricksStatement;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.Connection;
+import java.sql.SQLException;
 
 /** Interface providing Databricks specific Connection APIs. */
 public interface IDatabricksConnectionInternal extends Connection {
@@ -21,7 +21,7 @@ public interface IDatabricksConnectionInternal extends Connection {
   Connection getConnection();
 
   /** Opens the connection and initiates the underlying session */
-  void open() throws DatabricksSQLException;
+  void open() throws SQLException;
 
   /** Returns the connection context associated with the connection. */
   IDatabricksConnectionContext getConnectionContext();

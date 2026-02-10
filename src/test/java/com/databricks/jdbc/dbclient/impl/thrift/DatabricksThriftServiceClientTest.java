@@ -72,7 +72,7 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testCreateSession() throws DatabricksSQLException {
+  void testCreateSession() throws SQLException {
     when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
@@ -94,7 +94,7 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testCreateSessionHandlesProtocolVersion() throws DatabricksSQLException {
+  void testCreateSessionHandlesProtocolVersion() throws SQLException {
     when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
@@ -145,7 +145,7 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testCloseSession() throws DatabricksSQLException {
+  void testCloseSession() throws SQLException {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     TCloseSessionReq closeSessionReq = new TCloseSessionReq().setSessionHandle(SESSION_HANDLE);

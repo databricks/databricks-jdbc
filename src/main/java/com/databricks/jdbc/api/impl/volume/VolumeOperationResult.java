@@ -22,6 +22,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.http.HttpEntity;
@@ -48,7 +49,7 @@ public class VolumeOperationResult implements IExecutionResult {
       IDatabricksSession session,
       IExecutionResult resultHandler,
       IDatabricksStatementInternal statement)
-      throws DatabricksSQLException {
+      throws SQLException {
     this.rowCount = totalRows;
     this.columnCount = totalColumns;
     this.session = session;
@@ -68,7 +69,7 @@ public class VolumeOperationResult implements IExecutionResult {
       IExecutionResult resultHandler,
       IDatabricksHttpClient httpClient,
       IDatabricksStatementInternal statement)
-      throws DatabricksSQLException {
+      throws SQLException {
     this.rowCount = manifest.getTotalRowCount();
     this.columnCount = manifest.getSchema().getColumnCount();
     this.session = session;
@@ -210,7 +211,7 @@ public class VolumeOperationResult implements IExecutionResult {
     }
   }
 
-  private void completeVolumeOperation() throws DatabricksSQLException {
+  private void completeVolumeOperation() throws SQLException {
     while (resultHandler.hasNext()) {
       validateMetadata();
       resultHandler.next();
