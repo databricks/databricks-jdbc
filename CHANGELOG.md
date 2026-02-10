@@ -22,6 +22,7 @@
 - Normalized TIMESTAMP_NTZ to TIMESTAMP in Thrift path for consistency with SEA behavior
 - Fixed complex types not being returned as objects in SEA Inline mode when `EnableComplexDatatypeSupport=true`.
 - Fixed `StringIndexOutOfBoundsException` when parsing complex data types in Thrift CloudFetch mode. The issue occurred when metadata contained incomplete type information (e.g., "ARRAY" instead of "ARRAY<INT>"). Now retrieves complete type information from Arrow metadata.
+- Fixed timeout exception handling to throw `SQLTimeoutException` instead of `DatabricksHttpException` when queries timeout during result fetching phase. This completes the timeout exception fix to handle both query execution polling and result fetching phases.
 
 ## [v3.1.1] - 2026-01-07
 
