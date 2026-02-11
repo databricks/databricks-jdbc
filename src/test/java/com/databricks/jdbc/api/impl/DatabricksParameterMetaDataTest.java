@@ -249,4 +249,18 @@ public class DatabricksParameterMetaDataTest {
             .getMessage()
             .contains("Number of parameter bindings (3) exceeds parameter count (2)"));
   }
+
+  @Test
+  public void testParameterCountWithNestedBlockComment() throws SQLException {
+    String sql = "SELECT /* outer ? /* inner ? */ outer ? */ * FROM table WHERE id = ?";
+    DatabricksParameterMetaData metadata = new DatabricksParameterMetaData(sql);
+    assertEquals(1, metadata.getParameterCount());
+  }
+
+  @Test
+  public void testParameterCountWithTripleNestedBlockComment() throws SQLException {
+    String sql = "SELECT /* a ? /* b? /* c ? */ b ? */ a ? */ * FROM table WHERE id = ?";
+    DatabricksParameterMetaData metadata = new DatabricksParameterMetaData(sql);
+    assertEquals(1, metadata.getParameterCount());
+  }
 }
