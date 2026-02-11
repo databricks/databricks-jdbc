@@ -475,8 +475,11 @@ public class ExplicitTransactionStatementTests {
     ResultSet rs1 = stmt.executeQuery("SET AUTOCOMMIT");
     assertTrue(rs1.next(), "SET AUTOCOMMIT should return a result");
     // The result should indicate autocommit is TRUE (default)
+    // Note: The server may return "1"/"0" instead of "true"/"false"
     String value1 = rs1.getString(1);
-    assertTrue(Boolean.parseBoolean(value1), "Should return a value");
+    assertTrue(
+        "true".equalsIgnoreCase(value1) || "1".equals(value1),
+        "Default autocommit should be true/1. Got: " + value1);
     rs1.close();
 
     // Set autocommit to FALSE

@@ -252,13 +252,13 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       ResultSet rs = statement.executeQuery("SET AUTOCOMMIT");
 
       if (rs.next()) {
-        // The result should contain the value = "true" or "false"
+        // The result may contain "true"/"false" or "1"/"0" depending on the server
         String value = rs.getString(1); // Column 1: value
 
         LOGGER.debug(
             "Fetched autoCommit state from server: value={}. Updating session cache.", value);
 
-        boolean autoCommitState = "true".equalsIgnoreCase(value);
+        boolean autoCommitState = "true".equalsIgnoreCase(value) || "1".equals(value);
 
         // Update the session cache with the server value
         session.setAutoCommit(autoCommitState);
@@ -382,13 +382,20 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       return;
     }
 
+    // Rollback is not valid when auto-commit is enabled (no active transaction)
+    if (getAutoCommit()) {
+      throw new DatabricksTransactionException(
+          "Cannot use rollback while Connection is in auto-commit mode.",
+          new SQLException("Cannot use rollback while Connection is in auto-commit mode."),
+          DatabricksDriverErrorCode.TRANSACTION_ROLLBACK_ERROR);
+    }
+
     // Execute ROLLBACK command
     Statement statement = null;
     try {
       statement = createStatement();
       statement.execute("ROLLBACK");
       // Note: Server auto-starts new transaction if autocommit=false
-      // Note: ROLLBACK is more forgiving - typically succeeds even on unexpected states
 
     } catch (SQLException e) {
       LOGGER.error(e, "Error {} while rolling back transaction", e.getMessage());
