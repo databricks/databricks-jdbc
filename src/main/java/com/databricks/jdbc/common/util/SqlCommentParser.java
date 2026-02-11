@@ -1,9 +1,7 @@
 package com.databricks.jdbc.common.util;
 
 /**
- * Utility class for parsing SQL strings with awareness of comments and string literals. Provides a
- * state-machine iterator ({@link #forEach}) for tasks such as comment stripping and parameter
- * counting.
+ * Utility class for parsing out comments from SQL strings
  */
 public class SqlCommentParser {
 
@@ -21,21 +19,9 @@ public class SqlCommentParser {
   }
 
   /**
-   * Iterates over each character in the SQL string using a state machine that tracks comments and
-   * string literals. For each "visible" character (not part of a comment body or comment
-   * delimiter), calls the consumer with the current parsing state and the character.
-   *
-   * <p>Handles:
-   *
-   * <ul>
-   *   <li>Single-line comments ({@code --} to end of line)
-   *   <li>Block comments, including nested and multiline block comments
-   *   <li>Single-quoted string literals with escaped quote sequences
-   *   <li>Double-quoted identifiers with escaped quote sequences
-   * </ul>
-   *
-   * <p>When a comment ends, a synthetic space character is emitted in {@link State#NORMAL} state to
-   * prevent token fusion.
+   * Iterates over each character in the SQL string while keeping track of comment,
+   * string literal, and identifier state. Each character that is not part of a
+   * comment calls the consumer with the current state and character.
    *
    * @param sql the SQL string to parse
    * @param consumer called for each visible character with its parsing state
@@ -63,19 +49,19 @@ public class SqlCommentParser {
             i++; // skip '*'
           } else if (c == '\'') {
             state = State.IN_SINGLE_QUOTE;
-            consumer.accept(State.IN_SINGLE_QUOTE, c);
+            consumer.accept(state, c);
           } else if (c == '"') {
             state = State.IN_DOUBLE_QUOTE;
-            consumer.accept(State.IN_DOUBLE_QUOTE, c);
+            consumer.accept(state, c);
           } else {
-            consumer.accept(State.NORMAL, c);
+            consumer.accept(state, c);
           }
           break;
 
         case IN_SINGLE_QUOTE:
-          consumer.accept(State.IN_SINGLE_QUOTE, c);
+          consumer.accept(state, c);
           if (c == '\'' && next == '\'') {
-            consumer.accept(State.IN_SINGLE_QUOTE, next);
+            consumer.accept(state, next);
             i++; // skip escaped quote
           } else if (c == '\'') {
             state = State.NORMAL;
@@ -83,9 +69,9 @@ public class SqlCommentParser {
           break;
 
         case IN_DOUBLE_QUOTE:
-          consumer.accept(State.IN_DOUBLE_QUOTE, c);
+          consumer.accept(state, c);
           if (c == '"' && next == '"') {
-            consumer.accept(State.IN_DOUBLE_QUOTE, next);
+            consumer.accept(state, next);
             i++; // skip escaped quote
           } else if (c == '"') {
             state = State.NORMAL;
@@ -93,14 +79,12 @@ public class SqlCommentParser {
           break;
 
         case IN_LINE_COMMENT:
-          if (c == '\r' && next == '\n') {
-            // Treat \r\n as a single line ending
+          if (c == '\n' || c == '\r') {
             state = State.NORMAL;
-            consumer.accept(State.NORMAL, ' ');
-            i++; // skip '\n'
-          } else if (c == '\n' || c == '\r') {
-            state = State.NORMAL;
-            consumer.accept(State.NORMAL, ' ');
+            consumer.accept(state, ' ');
+            if (c == '\r' && next == '\n') {
+              i++; // Treat \r\n as a single line ending
+            }
           }
           // else: skip character (part of the comment)
           break;
@@ -114,7 +98,7 @@ public class SqlCommentParser {
             i++; // skip '/'
             if (blockCommentDepth == 0) {
               state = State.NORMAL;
-              consumer.accept(State.NORMAL, ' ');
+              consumer.accept(state, ' ');
             }
           }
           // else: skip character (part of the comment)
@@ -124,10 +108,10 @@ public class SqlCommentParser {
   }
 
   /**
-   * Removes all SQL comments and extra whitespace from the input string.
+   * Removes all comments and extra whitespace from the SQL string.
    *
-   * @param sql the SQL string to strip comments and extra whitespace from
-   * @return the SQL with all comments and extra whitespace removed
+   * @param sql the SQL string to remove comments and extra whitespace from
+   * @return the SQL string with all comments and extra whitespace removed
    */
   public static String stripCommentsAndWhitespaces(String sql) {
     if (sql == null || sql.isEmpty()) {
