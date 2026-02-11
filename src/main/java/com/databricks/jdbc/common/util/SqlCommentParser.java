@@ -1,8 +1,6 @@
 package com.databricks.jdbc.common.util;
 
-/**
- * Utility class for parsing out comments from SQL strings
- */
+/** Utility class for parsing out comments from SQL strings */
 public class SqlCommentParser {
 
   public enum State {
@@ -19,10 +17,9 @@ public class SqlCommentParser {
   }
 
   /**
-   * Iterates over each character in the SQL string while keeping track of comment,
-   * string literal, and identifier state. Each character that is not part of a
-   * comment calls the consumer with the current state and character. Emits a
-   * ' ' character after each comment to avoid token fusion.
+   * Iterates over each character in the SQL string while keeping track of comment, string literal,
+   * and identifier state. Each character that is not part of a comment calls the consumer with the
+   * current state and character. Emits a ' ' character after each comment to avoid token fusion.
    *
    * @param sql the SQL string to parse
    * @param consumer called for each visible character with its parsing state
@@ -120,7 +117,17 @@ public class SqlCommentParser {
     }
 
     StringBuilder result = new StringBuilder(sql.length());
-    forEach(sql, (state, c) -> result.append(c));
-    return result.toString().replaceAll("\\s+", " ").trim();
+    boolean[] lastWasSpace = {false};
+    forEach(
+        sql,
+        (state, c) -> {
+          boolean isNormalWhitespace = state == State.NORMAL && Character.isWhitespace(c);
+          if (isNormalWhitespace && lastWasSpace[0]) {
+            return;
+          }
+          lastWasSpace[0] = isNormalWhitespace;
+          result.append(c);
+        });
+    return result.toString().trim();
   }
 }

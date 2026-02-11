@@ -235,8 +235,7 @@ public class SqlCommentParserTest {
   @Test
   public void testMultiLineBlockCommentInsideSingleQuoteString() {
     String sql = "SELECT 'val /*\nnot a comment\n*/'";
-    assertEquals(
-        "SELECT 'val /* not a comment */'", SqlCommentParser.stripCommentsAndWhitespaces(sql));
+    assertEquals(sql, SqlCommentParser.stripCommentsAndWhitespaces(sql));
   }
 
   @Test
@@ -254,8 +253,7 @@ public class SqlCommentParserTest {
   @Test
   public void testEscapedSingleQuoteWithMultiLineBlockComment() {
     String sql = "SELECT 'it''s /*\nnot a comment\n*/'";
-    assertEquals(
-        "SELECT 'it''s /* not a comment */'", SqlCommentParser.stripCommentsAndWhitespaces(sql));
+    assertEquals(sql, SqlCommentParser.stripCommentsAndWhitespaces(sql));
   }
 
   @Test
