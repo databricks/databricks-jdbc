@@ -21,7 +21,8 @@ public class SqlCommentParser {
   /**
    * Iterates over each character in the SQL string while keeping track of comment,
    * string literal, and identifier state. Each character that is not part of a
-   * comment calls the consumer with the current state and character.
+   * comment calls the consumer with the current state and character. Emits a
+   * ' ' character after each comment to avoid token fusion.
    *
    * @param sql the SQL string to parse
    * @param consumer called for each visible character with its parsing state
