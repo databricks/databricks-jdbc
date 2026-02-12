@@ -33,8 +33,8 @@ public class SqlExecutionEvent {
   @JsonProperty("operation_detail")
   OperationDetail operationDetail;
 
-  @JsonProperty("jvm_use_patched_arrow")
-  Boolean jvmUsePatchedArrow;
+  @JsonProperty("java_uses_patched_arrow")
+  Boolean javaUsesPatchedArrow;
 
   public SqlExecutionEvent setDriverStatementType(StatementType driverStatementType) {
     this.driverStatementType = driverStatementType;
@@ -76,8 +76,8 @@ public class SqlExecutionEvent {
     return this;
   }
 
-  public SqlExecutionEvent setJvmUsePatchedArrow(Boolean jvmUsePatchedArrow) {
-    this.jvmUsePatchedArrow = jvmUsePatchedArrow;
+  public SqlExecutionEvent setJavaUsesPatchedArrow(Boolean javaUsesPatchedArrow) {
+    this.javaUsesPatchedArrow = javaUsesPatchedArrow;
     return this;
   }
 
@@ -92,7 +92,7 @@ public class SqlExecutionEvent {
         .add("chunk_details", chunkDetails)
         .add("result_latency", resultLatency)
         .add("operation_details", operationDetail)
-        .add("jvm_use_patched_arrow", jvmUsePatchedArrow)
+        .add("java_uses_patched_arrow", javaUsesPatchedArrow)
         .toString();
   }
 }

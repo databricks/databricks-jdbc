@@ -118,7 +118,7 @@ public class TelemetryHelper {
             .setResultLatency(telemetryDetails.getResultLatency())
             .setOperationDetail(telemetryDetails.getOperationDetail())
             .setExecutionResultFormat(telemetryDetails.getExecutionResultFormat())
-            .setJvmUsePatchedArrow(ArrowBufferAllocator.isUsingPatchedAllocator())
+            .setJavaUsesPatchedArrow(ArrowBufferAllocator.isUsingPatchedAllocator())
             .setChunkId(chunkIndex); // This is only set for chunk download failure logs
     telemetryEvent.setSqlOperation(sqlExecutionEvent);
 
