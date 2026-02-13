@@ -18,6 +18,7 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksTransactionException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.*;
 import java.util.*;
@@ -850,7 +851,8 @@ public class DatabricksConnectionTest {
     // Auto-commit is true by default — rollback should throw
     assertTrue(spyConnection.getAutoCommit());
 
-    SQLException thrown = assertThrows(SQLException.class, spyConnection::rollback);
+    DatabricksTransactionException thrown =
+        assertThrows(DatabricksTransactionException.class, spyConnection::rollback);
 
     assertTrue(
         thrown.getMessage().contains("auto-commit"),

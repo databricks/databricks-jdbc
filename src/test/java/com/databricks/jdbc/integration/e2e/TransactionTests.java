@@ -351,9 +351,9 @@ public class TransactionTests {
 
     // ROLLBACK should throw an exception when there is no active transaction
     // (connection is in auto-commit mode)
-    SQLException exception =
+    DatabricksTransactionException exception =
         assertThrows(
-            SQLException.class,
+            DatabricksTransactionException.class,
             () -> connection.rollback(),
             "ROLLBACK should throw exception when autocommit=true (no active transaction)");
 
