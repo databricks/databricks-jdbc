@@ -22,7 +22,7 @@ public class SqlCommentParserTest {
 
   @Test
   public void testNoComments() {
-    String sql = "SELECT 'foo', \"foo\" FROM table";
+    String sql = "SELECT 'foo', \"bar\", `baz` FROM table";
     assertEquals(sql, SqlCommentParser.stripCommentsAndWhitespaces(sql));
   }
 
@@ -31,25 +31,25 @@ public class SqlCommentParserTest {
   @Test
   public void testLineCommentAtStart() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "-- comment\nSELECT 'foo', \"foo\" FROM table"));
+            "-- comment\nSELECT 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
   public void testLineCommentInMiddle() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "SELECT 'foo', \"foo\" -- comment\nFROM table"));
+            "SELECT 'foo', \"bar\", `baz` -- comment\nFROM table"));
   }
 
   @Test
   public void testLineCommentAtEnd() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "SELECT 'foo', \"foo\" FROM table -- comment"));
+            "SELECT 'foo', \"bar\", `baz` FROM table -- comment"));
   }
 
   @Test
@@ -60,59 +60,59 @@ public class SqlCommentParserTest {
   @Test
   public void testNestedLineComment() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "-- comment -- comment\nSELECT 'foo', \"foo\" FROM table"));
+            "-- comment -- comment\nSELECT 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
   public void testLineCommentWithCarriageReturn() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "-- comment\rSELECT 'foo', \"foo\" FROM table"));
+            "-- comment\rSELECT 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
   public void testLineCommentWithCarriageReturnNewline() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "-- comment\r\nSELECT 'foo', \"foo\" FROM table"));
+            "-- comment\r\nSELECT 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
   public void testMultipleLineComments() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "-- comment\nSELECT 'foo', \"foo\" -- comment\n--comment\nFROM table -- comment\n-- comment"));
+            "-- comment\nSELECT 'foo', \"bar\", `baz` -- comment\n--comment\nFROM table -- comment\n-- comment"));
   }
 
-  // -- Single line block comment tests ---
+  // --- Single line block comment tests ---
 
   @Test
   public void testSingleLineBlockCommentAtStart() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "/* comment */ SELECT 'foo', \"foo\" FROM table"));
+            "/* comment */ SELECT 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
   public void testSingleLineBlockCommentInMiddle() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "SELECT /* comment */ 'foo', \"foo\" FROM table"));
+            "SELECT /* comment */ 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
   public void testSingleLineBlockCommentAtEnd() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "SELECT 'foo', \"foo\" FROM table /* comment */"));
+            "SELECT 'foo', \"bar\", `baz` FROM table /* comment */"));
   }
 
   @Test
@@ -123,33 +123,33 @@ public class SqlCommentParserTest {
   @Test
   public void testMultipleSingleLineBlockComment() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "/* a */ SELECT /* b */ 'foo', \"foo\" FROM table /* c */"));
+            "/* a */ SELECT /* b */ 'foo', \"bar\", `baz` FROM table /* c */"));
   }
 
   @Test
   public void testAdjacentSingleLineBlockComment() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "SELECT /* a */ /* b */ 'foo', \"foo\" FROM table"));
+            "SELECT /* a */ /* b */ 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
   public void testNestedSingleLineBlockComment() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "SELECT /* outer /* inner */ outer */ 'foo', \"foo\" FROM table"));
+            "SELECT /* outer /* inner */ outer */ 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
   public void testTripleNestedSingleLineBlockComment() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "SELECT /* a /* b /* c */ b */ a */ 'foo', \"foo\" FROM table"));
+            "SELECT /* a /* b /* c */ b */ a */ 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
@@ -157,30 +157,30 @@ public class SqlCommentParserTest {
     assertEquals("SELECT", SqlCommentParser.stripCommentsAndWhitespaces("SELECT /* never closed"));
   }
 
-  // -- Multi line block comment tests ---
+  // --- Multi line block comment tests ---
 
   @Test
   public void testMultiLineBlockCommentAtStart() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "/*\nmulti line\n*/ SELECT 'foo', \"foo\" FROM table"));
+            "/*\nmulti line\n*/ SELECT 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
   public void testMultiLineBlockCommentInMiddle() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "SELECT /*\nmulti line\n*/ 'foo', \"foo\" FROM table"));
+            "SELECT /*\nmulti line\n*/ 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
   public void testMultiLineBlockCommentAtEnd() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "SELECT 'foo', \"foo\" FROM table /*\nmulti line\n*/"));
+            "SELECT 'foo', \"bar\", `baz` FROM table /*\nmulti line\n*/"));
   }
 
   @Test
@@ -191,25 +191,25 @@ public class SqlCommentParserTest {
   @Test
   public void testMultipleMultiLineBlockComment() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "/*\nmulti line\n*/ SELECT /*\nmulti line\n*/ 'foo', \"foo\" FROM table /*\nmulti line\n*/"));
+            "/*\nmulti line\n*/ SELECT /*\nmulti line\n*/ 'foo', \"bar\", `baz` FROM table /*\nmulti line\n*/"));
   }
 
   @Test
   public void testAdjacentMultiLineBlockComment() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "SELECT /*\nmulti line\n*/ /*\nmulti line\n*/ 'foo', \"foo\" FROM table"));
+            "SELECT /*\nmulti line\n*/ /*\nmulti line\n*/ 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
   public void testNestedMultiLineBlockComment() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "SELECT /*\nouter\n/*\ninner\n*/\nouter\n*/ 'foo', \"foo\" FROM table"));
+            "SELECT /*\nouter\n/*\ninner\n*/\nouter\n*/ 'foo', \"bar\", `baz` FROM table"));
   }
 
   @Test
@@ -218,7 +218,7 @@ public class SqlCommentParserTest {
         "SELECT", SqlCommentParser.stripCommentsAndWhitespaces("SELECT /*\nnever\nclosed"));
   }
 
-  // -- Single quote string tests ---
+  // --- Single quote string tests ---
 
   @Test
   public void testLineCommentInsideSingleQuoteString() {
@@ -262,7 +262,7 @@ public class SqlCommentParserTest {
     assertEquals(sql, SqlCommentParser.stripCommentsAndWhitespaces(sql));
   }
 
-  // -- Double quote identifier tests ---
+  // --- Double quote identifier tests ---
 
   @Test
   public void testLineCommentInsideDoubleQuoteIdentifier() {
@@ -282,19 +282,40 @@ public class SqlCommentParserTest {
     assertEquals(sql, SqlCommentParser.stripCommentsAndWhitespaces(sql));
   }
 
+  // --- Backtick identifier tests ---
+
+  @Test
+  public void testLineCommentInsideBacktickIdentifier() {
+    String sql = "SELECT `col -- not a comment` FROM table";
+    assertEquals(sql, SqlCommentParser.stripCommentsAndWhitespaces(sql));
+  }
+
+  @Test
+  public void testEscapedBacktickWithLineComment() {
+    String sql = "SELECT `a``b -- not a comment` FROM table";
+    assertEquals(sql, SqlCommentParser.stripCommentsAndWhitespaces(sql));
+  }
+
+  @Test
+  public void testUnterminatedBacktick() {
+    String sql = "SELECT `never closed";
+    assertEquals(sql, SqlCommentParser.stripCommentsAndWhitespaces(sql));
+  }
+
   @Test
   public void testTokenFusionPrevention() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
-        SqlCommentParser.stripCommentsAndWhitespaces("SELECT/**/'foo', \"foo\" FROM table"));
+        "SELECT 'foo', \"bar\", `baz` FROM table",
+        SqlCommentParser.stripCommentsAndWhitespaces(
+            "SELECT/**/'foo',/**/\"foo\",/**/`bar` FROM table"));
   }
 
   @Test
   public void testMixedCommentTypes() {
     assertEquals(
-        "SELECT 'foo', \"foo\" FROM table",
+        "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "/*\nmulti line\n*/ /* single line */ -- comment\nSELECT 'foo', \"foo\" /*\nmulti line\n*/ -- comment\n/* single line */ FROM table -- comment\n/*\nmulti line\n*/ /* single line */"));
+            "/*\nmulti line\n*/ /* single line */ -- comment\nSELECT 'foo', \"bar\", `baz` /*\nmulti line\n*/ -- comment\n/* single line */ FROM table -- comment\n/*\nmulti line\n*/ /* single line */"));
   }
 
   // --- forEach tests ---

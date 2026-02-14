@@ -7,6 +7,7 @@ public class SqlCommentParser {
     NORMAL,
     IN_SINGLE_QUOTE,
     IN_DOUBLE_QUOTE,
+    IN_BACKTICK,
     IN_LINE_COMMENT,
     IN_BLOCK_COMMENT
   }
@@ -51,6 +52,9 @@ public class SqlCommentParser {
           } else if (c == '"') {
             state = State.IN_DOUBLE_QUOTE;
             consumer.accept(state, c);
+          } else if (c == '`') {
+            state = State.IN_BACKTICK;
+            consumer.accept(state, c);
           } else {
             consumer.accept(state, c);
           }
@@ -75,6 +79,15 @@ public class SqlCommentParser {
             state = State.NORMAL;
           }
           break;
+
+        case IN_BACKTICK:
+          consumer.accept(state, c);
+          if (c == '`' && next == '`') {
+            consumer.accept(state, next);
+            i++; // skip escaped backtick
+          } else if (c == '`') {
+            state = State.NORMAL;
+          }
 
         case IN_LINE_COMMENT:
           if (c == '\n' || c == '\r') {
