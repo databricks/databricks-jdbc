@@ -48,6 +48,7 @@ public class DatabricksPreparedStatementTest {
   private static final String WAREHOUSE_ID = "99999999";
   private static final String STATEMENT =
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
+  private static final String UPDATE_STATEMENT = "UPDATE orders SET status = ? WHERE user_id = ?";
   private static final String BATCH_STATEMENT =
       "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?)";
   private static final String JDBC_URL =
@@ -182,10 +183,11 @@ public class DatabricksPreparedStatementTest {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
-    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, UPDATE_STATEMENT);
     when(resultSet.getUpdateCount()).thenReturn(2L);
     when(client.executeStatement(
-            eq(STATEMENT),
+            eq(UPDATE_STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<Integer, ImmutableSqlParameter>()),
             eq(StatementType.UPDATE),
@@ -205,10 +207,11 @@ public class DatabricksPreparedStatementTest {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
-    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, UPDATE_STATEMENT);
     when(resultSet.getUpdateCount()).thenReturn(2L);
     when(client.executeStatement(
-            eq(STATEMENT),
+            eq(UPDATE_STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<Integer, ImmutableSqlParameter>()),
             eq(StatementType.UPDATE),
