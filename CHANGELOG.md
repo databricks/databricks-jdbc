@@ -1,6 +1,6 @@
 # Version Changelog
 
-## [v3.2.1] - 2026-02-03
+## [v3.2.1] - 2026-02-16
 
 ### Added
 - Added streaming prefetch mode for Thrift inline results (columnar and Arrow) with background batch prefetching and configurable sliding window for improved throughput.
@@ -23,6 +23,7 @@
 - Fixed complex types not being returned as objects in SEA Inline mode when `EnableComplexDatatypeSupport=true`.
 - Fixed `StringIndexOutOfBoundsException` when parsing complex data types in Thrift CloudFetch mode. The issue occurred when metadata contained incomplete type information (e.g., "ARRAY" instead of "ARRAY<INT>"). Now retrieves complete type information from Arrow metadata.
 - Fixed timeout exception handling to throw `SQLTimeoutException` instead of `DatabricksHttpException` when queries timeout during result fetching phase. This completes the timeout exception fix to handle both query execution polling and result fetching phases.
+- Fixed `getResultSet()` to return null in case of DML statements to honour JDBC spec.
 
 ## [v3.1.1] - 2026-01-07
 
