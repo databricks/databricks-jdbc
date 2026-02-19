@@ -67,9 +67,9 @@ class RetryTimeoutManagerTest {
 
   @Test
   void testOtherErrorCodesTimeout() {
-    // Test other error codes (e.g., 500) using the default 10-second timeout
-    int otherErrorsTimeout = 10; // RetryUtils.REQUEST_TIMEOUT_SECONDS
-    int delaySeconds = otherErrorsTimeout / 3;
+    // Test other error codes (e.g., 500) using the default 120-second timeout
+    int otherErrorsTimeout = 120; // RetryUtils.REQUEST_TIMEOUT_SECONDS
+    int delaySeconds = otherErrorsTimeout / 4;
     assertTrue(
         timeoutManager.evaluateRetryTimeoutForResponse(
             HttpStatus.SC_INTERNAL_SERVER_ERROR, delaySeconds * 1000, false));
@@ -87,9 +87,9 @@ class RetryTimeoutManagerTest {
 
   @Test
   void testExceptionTimeout() {
-    // Test exception timeout (default 10 seconds)
-    int exceptionTimeout = 10; // RetryUtils.REQUEST_EXCEPTION_TIMEOUT_SECONDS
-    int delaySeconds = exceptionTimeout / 3;
+    // Test exception timeout (default 120 seconds)
+    int exceptionTimeout = 120; // RetryUtils.REQUEST_EXCEPTION_TIMEOUT_SECONDS
+    int delaySeconds = exceptionTimeout / 4;
     assertTrue(timeoutManager.evaluateRetryTimeoutForException(delaySeconds * 1000));
     assertTrue(timeoutManager.evaluateRetryTimeoutForException(delaySeconds * 1000));
     assertTrue(timeoutManager.evaluateRetryTimeoutForException(delaySeconds * 1000));

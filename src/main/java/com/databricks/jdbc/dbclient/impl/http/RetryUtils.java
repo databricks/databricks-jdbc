@@ -7,8 +7,8 @@ import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
  * strategies and handlers.
  */
 public class RetryUtils {
-  public static final long REQUEST_TIMEOUT_SECONDS = 10;
-  public static final long REQUEST_EXCEPTION_TIMEOUT_SECONDS = 10;
+  public static final long REQUEST_TIMEOUT_SECONDS = 120;
+  public static final long REQUEST_EXCEPTION_TIMEOUT_SECONDS = 120;
 
   /**
    * Extracts DatabricksRetryHandlerException from the exception cause chain.
