@@ -13,6 +13,7 @@ public class RetryTimeoutManager {
   private long rateLimitTimeoutMillis;
   private long otherErrorCodesTimeoutMillis;
   private long exceptionTimeoutMillis;
+  private long apiRetriableCodesTimeoutMillis;
 
   /**
    * Creates a new RetryTimeoutManager with connection context.
@@ -26,6 +27,7 @@ public class RetryTimeoutManager {
     this.rateLimitTimeoutMillis = connectionContext.getRateLimitRetryTimeout() * 1000L;
     this.otherErrorCodesTimeoutMillis = RetryUtils.REQUEST_TIMEOUT_SECONDS * 1000L;
     this.exceptionTimeoutMillis = RetryUtils.REQUEST_EXCEPTION_TIMEOUT_SECONDS * 1000L;
+    this.apiRetriableCodesTimeoutMillis = connectionContext.getApiRetryTimeout() * 1000L;
   }
 
   /**
@@ -34,10 +36,18 @@ public class RetryTimeoutManager {
    *
    * @param statusCode the HTTP status code from the response
    * @param retryDelayMillis the retry delay in milliseconds to subtract from timeout
+   * @param isApiRetriableCode true if this is a custom API retriable code, false otherwise
    * @return true if the request should be retried, false otherwise
    */
-  public boolean evaluateRetryTimeoutForResponse(int statusCode, int retryDelayMillis) {
-    // Update the appropriate timeout based on status code
+  public boolean evaluateRetryTimeoutForResponse(
+      int statusCode, int retryDelayMillis, boolean isApiRetriableCode) {
+    // If this is a custom API retriable code, only deduct from API codes timeout
+    if (isApiRetriableCode) {
+      apiRetriableCodesTimeoutMillis -= retryDelayMillis;
+      return apiRetriableCodesTimeoutMillis > 0;
+    }
+
+    // Otherwise, update the appropriate timeout based on status code
     switch (statusCode) {
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
         tempUnavailableTimeoutMillis -= retryDelayMillis;
