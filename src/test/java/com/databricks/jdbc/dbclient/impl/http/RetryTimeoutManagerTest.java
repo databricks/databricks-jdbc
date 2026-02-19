@@ -10,82 +10,91 @@ import org.junit.jupiter.api.Test;
 
 class RetryTimeoutManagerTest {
 
+  private static final int TEMP_UNAVAILABLE_TIMEOUT_SECONDS = 120;
+  private static final int RATE_LIMIT_TIMEOUT_SECONDS = 300;
+  private static final int API_RETRIABLE_TIMEOUT_SECONDS = 300;
+
   private IDatabricksConnectionContext mockContext;
   private RetryTimeoutManager timeoutManager;
 
   @BeforeEach
   void setUp() {
     mockContext = mock(IDatabricksConnectionContext.class);
-    when(mockContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(120); // 120 seconds
-    when(mockContext.getRateLimitRetryTimeout()).thenReturn(300); // 300 seconds
-    when(mockContext.getApiRetryTimeout()).thenReturn(300); // 300 seconds for API retriable codes
+    when(mockContext.getTemporarilyUnavailableRetryTimeout())
+        .thenReturn(TEMP_UNAVAILABLE_TIMEOUT_SECONDS);
+    when(mockContext.getRateLimitRetryTimeout()).thenReturn(RATE_LIMIT_TIMEOUT_SECONDS);
+    when(mockContext.getApiRetryTimeout()).thenReturn(API_RETRIABLE_TIMEOUT_SECONDS);
     timeoutManager = new RetryTimeoutManager(mockContext);
   }
 
   @Test
   void testServiceUnavailableTimeoutExhausted() {
-    // Make multiple retries that exhaust the service unavailable timeout (120 seconds)
-    // Each retry delays for 30 seconds
+    // Make multiple retries that exhaust the service unavailable timeout
+    int delaySeconds = TEMP_UNAVAILABLE_TIMEOUT_SECONDS / 4;
     assertTrue(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_SERVICE_UNAVAILABLE, 30000, false));
+            HttpStatus.SC_SERVICE_UNAVAILABLE, delaySeconds * 1000, false));
     assertTrue(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_SERVICE_UNAVAILABLE, 30000, false));
+            HttpStatus.SC_SERVICE_UNAVAILABLE, delaySeconds * 1000, false));
     assertTrue(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_SERVICE_UNAVAILABLE, 30000, false));
-    // This should exhaust the timeout (30+30+30+31 > 120 seconds)
+            HttpStatus.SC_SERVICE_UNAVAILABLE, delaySeconds * 1000, false));
+    // This should exhaust the timeout
     assertFalse(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_SERVICE_UNAVAILABLE, 31000, false));
+            HttpStatus.SC_SERVICE_UNAVAILABLE, (delaySeconds + 1) * 1000, false));
   }
 
   @Test
   void testRateLimitTimeoutExhausted() {
-    // Make multiple retries that exhaust the rate limit timeout (300 seconds)
-    // Each retry delays for 80 seconds
+    // Make multiple retries that exhaust the rate limit timeout
+    int delaySeconds = RATE_LIMIT_TIMEOUT_SECONDS / 4;
     assertTrue(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_TOO_MANY_REQUESTS, 80000, false));
+            HttpStatus.SC_TOO_MANY_REQUESTS, delaySeconds * 1000, false));
     assertTrue(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_TOO_MANY_REQUESTS, 80000, false));
+            HttpStatus.SC_TOO_MANY_REQUESTS, delaySeconds * 1000, false));
     assertTrue(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_TOO_MANY_REQUESTS, 80000, false));
-    // This should exhaust the timeout (80+80+80+61 > 300 seconds)
+            HttpStatus.SC_TOO_MANY_REQUESTS, delaySeconds * 1000, false));
+    // This should exhaust the timeout
     assertFalse(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_TOO_MANY_REQUESTS, 61000, false));
+            HttpStatus.SC_TOO_MANY_REQUESTS, (delaySeconds + 1) * 1000, false));
   }
 
   @Test
   void testOtherErrorCodesTimeout() {
     // Test other error codes (e.g., 500) using the default 10-second timeout
+    int otherErrorsTimeout = 10; // RetryUtils.REQUEST_TIMEOUT_SECONDS
+    int delaySeconds = otherErrorsTimeout / 3;
     assertTrue(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_INTERNAL_SERVER_ERROR, 3000, false));
+            HttpStatus.SC_INTERNAL_SERVER_ERROR, delaySeconds * 1000, false));
     assertTrue(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_INTERNAL_SERVER_ERROR, 3000, false));
+            HttpStatus.SC_INTERNAL_SERVER_ERROR, delaySeconds * 1000, false));
     assertTrue(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_INTERNAL_SERVER_ERROR, 3000, false));
-    // This should exhaust the timeout (3+3+3+2 > 10 seconds)
+            HttpStatus.SC_INTERNAL_SERVER_ERROR, delaySeconds * 1000, false));
+    // This should exhaust the timeout
     assertFalse(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_INTERNAL_SERVER_ERROR, 2000, false));
+            HttpStatus.SC_INTERNAL_SERVER_ERROR, (delaySeconds + 1) * 1000, false));
   }
 
   @Test
   void testExceptionTimeout() {
     // Test exception timeout (default 10 seconds)
-    assertTrue(timeoutManager.evaluateRetryTimeoutForException(3000));
-    assertTrue(timeoutManager.evaluateRetryTimeoutForException(3000));
-    assertTrue(timeoutManager.evaluateRetryTimeoutForException(3000));
-    // This should exhaust the timeout (3+3+3+2 > 10 seconds)
-    assertFalse(timeoutManager.evaluateRetryTimeoutForException(2000));
+    int exceptionTimeout = 10; // RetryUtils.REQUEST_EXCEPTION_TIMEOUT_SECONDS
+    int delaySeconds = exceptionTimeout / 3;
+    assertTrue(timeoutManager.evaluateRetryTimeoutForException(delaySeconds * 1000));
+    assertTrue(timeoutManager.evaluateRetryTimeoutForException(delaySeconds * 1000));
+    assertTrue(timeoutManager.evaluateRetryTimeoutForException(delaySeconds * 1000));
+    // This should exhaust the timeout
+    assertFalse(timeoutManager.evaluateRetryTimeoutForException((delaySeconds + 1) * 1000));
   }
 
   @Test
@@ -113,36 +122,42 @@ class RetryTimeoutManagerTest {
     // A single large delay can exhaust the timeout
     assertFalse(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_SERVICE_UNAVAILABLE, 121000, false)); // > 120 seconds
+            HttpStatus.SC_SERVICE_UNAVAILABLE,
+            (TEMP_UNAVAILABLE_TIMEOUT_SECONDS + 1) * 1000,
+            false));
   }
 
   @Test
   void testApiRetriableCodesTimeout() {
-    // Test custom API retriable codes (e.g., 404) using the API retry timeout (300 seconds)
+    // Test custom API retriable codes (e.g., 404) using the API retry timeout
     // When isApiRetriableCode=true, only API codes timeout is used
-    assertTrue(timeoutManager.evaluateRetryTimeoutForResponse(404, 99000, true)); // 99s
-    assertTrue(timeoutManager.evaluateRetryTimeoutForResponse(404, 99000, true)); // 198s total
-    assertTrue(timeoutManager.evaluateRetryTimeoutForResponse(404, 99000, true)); // 297s total
-    // This should exhaust the timeout (99+99+99+4 > 300 seconds)
-    assertFalse(timeoutManager.evaluateRetryTimeoutForResponse(404, 4000, true));
+    int delaySeconds = API_RETRIABLE_TIMEOUT_SECONDS / 4;
+    assertTrue(timeoutManager.evaluateRetryTimeoutForResponse(404, delaySeconds * 1000, true));
+    assertTrue(timeoutManager.evaluateRetryTimeoutForResponse(404, delaySeconds * 1000, true));
+    assertTrue(timeoutManager.evaluateRetryTimeoutForResponse(404, delaySeconds * 1000, true));
+    // This should exhaust the timeout
+    assertFalse(
+        timeoutManager.evaluateRetryTimeoutForResponse(404, (delaySeconds + 1) * 1000, true));
   }
 
   @Test
   void testApiRetriableCodesIndependentTimeout() {
     // Test that API retriable codes have independent timeout from standard codes
-    // Exhaust standard 503 timeout (120 seconds)
+    // Exhaust standard 503 timeout
+    int delaySeconds = TEMP_UNAVAILABLE_TIMEOUT_SECONDS / 2;
     assertTrue(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_SERVICE_UNAVAILABLE, 60000, false));
+            HttpStatus.SC_SERVICE_UNAVAILABLE, delaySeconds * 1000, false));
     assertTrue(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_SERVICE_UNAVAILABLE, 59000, false)); // 119 seconds total
+            HttpStatus.SC_SERVICE_UNAVAILABLE, (delaySeconds - 1) * 1000, false));
     assertFalse(
         timeoutManager.evaluateRetryTimeoutForResponse(
-            HttpStatus.SC_SERVICE_UNAVAILABLE, 2000, false)); // Would exceed (119+2 > 120)
+            HttpStatus.SC_SERVICE_UNAVAILABLE, 2000, false));
 
-    // API retriable codes should still work (300 second timeout)
-    assertTrue(timeoutManager.evaluateRetryTimeoutForResponse(404, 99000, true));
-    assertTrue(timeoutManager.evaluateRetryTimeoutForResponse(404, 99000, true));
+    // API retriable codes should still work
+    int apiDelaySeconds = API_RETRIABLE_TIMEOUT_SECONDS / 3;
+    assertTrue(timeoutManager.evaluateRetryTimeoutForResponse(404, apiDelaySeconds * 1000, true));
+    assertTrue(timeoutManager.evaluateRetryTimeoutForResponse(404, apiDelaySeconds * 1000, true));
   }
 }
