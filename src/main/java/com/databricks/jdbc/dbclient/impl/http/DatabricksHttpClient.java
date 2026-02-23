@@ -46,6 +46,8 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksHttpClient.class);
   private static final int DEFAULT_MAX_HTTP_CONNECTIONS = 1000;
+  // Short timeout for telemetry HTTP client to avoid blocking connection.close() for too long.
+  private static final int TELEMETRY_TIMEOUT_MILLIS = 5000;
   private final PoolingHttpClientConnectionManager connectionManager;
   private final CloseableHttpClient httpClient;
   private IdleConnectionEvictor idleConnectionEvictor;
@@ -144,12 +146,18 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     }
   }
 
-  private RequestConfig makeRequestConfig(IDatabricksConnectionContext connectionContext) {
-    int timeoutMillis = connectionContext.getSocketTimeout() * 1000;
+  private RequestConfig makeRequestConfig(
+      IDatabricksConnectionContext connectionContext, HttpClientType type) {
+    int timeoutMillis =
+        type.equals(HttpClientType.TELEMETRY)
+            ? TELEMETRY_TIMEOUT_MILLIS
+            : connectionContext.getSocketTimeout() * 1000;
     int requestTimeout =
-        connectionContext.getHttpConnectionRequestTimeout() != null
-            ? connectionContext.getHttpConnectionRequestTimeout() * 1000
-            : timeoutMillis;
+        type.equals(HttpClientType.TELEMETRY)
+            ? TELEMETRY_TIMEOUT_MILLIS
+            : (connectionContext.getHttpConnectionRequestTimeout() != null
+                ? connectionContext.getHttpConnectionRequestTimeout() * 1000
+                : timeoutMillis);
     return RequestConfig.custom()
         .setConnectionRequestTimeout(requestTimeout)
         .setConnectTimeout(timeoutMillis)
@@ -160,14 +168,14 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private CloseableHttpClient makeClosableHttpClient(
       IDatabricksConnectionContext connectionContext, HttpClientType type) {
     DatabricksHttpRetryHandler retryHandler =
-        type.equals(HttpClientType.COMMON)
-            ? new DatabricksHttpRetryHandler(connectionContext)
-            : new UCVolumeHttpRetryHandler(connectionContext);
+        type.equals(HttpClientType.VOLUME)
+            ? new UCVolumeHttpRetryHandler(connectionContext)
+            : new DatabricksHttpRetryHandler(connectionContext);
     HttpClientBuilder builder =
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)
             .setUserAgent(UserAgentManager.getUserAgentString())
-            .setDefaultRequestConfig(makeRequestConfig(connectionContext))
+            .setDefaultRequestConfig(makeRequestConfig(connectionContext, type))
             .setRetryHandler(retryHandler)
             .addInterceptorFirst(retryHandler);
     setupProxy(connectionContext, builder);
