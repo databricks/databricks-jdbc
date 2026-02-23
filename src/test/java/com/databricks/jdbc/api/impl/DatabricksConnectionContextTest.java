@@ -65,16 +65,16 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext context =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
-    // Default is 5000ms
-    assertEquals(5000, context.getTelemetrySocketTimeout());
+    // Default is 5 seconds
+    assertEquals(5, context.getTelemetrySocketTimeout());
   }
 
   @Test
   public void testTelemetrySocketTimeoutCustom() throws DatabricksSQLException {
-    String url = TestConstants.VALID_URL_1 + ";TelemetrySocketTimeout=3000";
+    String url = TestConstants.VALID_URL_1 + ";TelemetrySocketTimeout=3";
     DatabricksConnectionContext context =
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, properties);
-    assertEquals(3000, context.getTelemetrySocketTimeout());
+    assertEquals(3, context.getTelemetrySocketTimeout());
   }
 
   @Test

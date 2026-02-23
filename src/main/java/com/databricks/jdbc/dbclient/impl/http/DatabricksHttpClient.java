@@ -148,11 +148,11 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
       IDatabricksConnectionContext connectionContext, HttpClientType type) {
     int timeoutMillis =
         type.equals(HttpClientType.TELEMETRY)
-            ? connectionContext.getTelemetrySocketTimeout()
+            ? connectionContext.getTelemetrySocketTimeout() * 1000
             : connectionContext.getSocketTimeout() * 1000;
     int requestTimeout =
         type.equals(HttpClientType.TELEMETRY)
-            ? connectionContext.getTelemetrySocketTimeout()
+            ? connectionContext.getTelemetrySocketTimeout() * 1000
             : (connectionContext.getHttpConnectionRequestTimeout() != null
                 ? connectionContext.getHttpConnectionRequestTimeout() * 1000
                 : timeoutMillis);
