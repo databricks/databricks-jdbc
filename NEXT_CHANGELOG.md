@@ -24,6 +24,7 @@
 - Normalized TIMESTAMP_NTZ to TIMESTAMP in Thrift path for consistency with SEA behavior
 - Fixed complex types not being returned as objects in SEA Inline mode when `EnableComplexDatatypeSupport=true`.
 - Fixed `StringIndexOutOfBoundsException` when parsing complex data types in Thrift CloudFetch mode. The issue occurred when metadata contained incomplete type information (e.g., "ARRAY" instead of "ARRAY<INT>"). Now retrieves complete type information from Arrow metadata.
+- Fixed `getResultSet()` to return null in case of DML statements to honour JDBC spec
 
 ---
 *Note: When making changes, please add your change under the appropriate section
