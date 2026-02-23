@@ -3,10 +3,13 @@ package com.databricks.jdbc.telemetry;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksTelemetryException;
@@ -28,7 +31,7 @@ public class TelemetryPushClientTest {
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
 
       IDatabricksHttpClient mockHttpClient = mock(IDatabricksHttpClient.class);
-      when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
+      when(mockFactory.getClient(any(), any())).thenReturn(mockHttpClient);
 
       CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
       StatusLine mockStatusLine = mock(StatusLine.class);
@@ -56,7 +59,7 @@ public class TelemetryPushClientTest {
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
 
       IDatabricksHttpClient mockHttpClient = mock(IDatabricksHttpClient.class);
-      when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
+      when(mockFactory.getClient(any(), any())).thenReturn(mockHttpClient);
 
       CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
       StatusLine mockStatusLine = mock(StatusLine.class);
@@ -85,7 +88,7 @@ public class TelemetryPushClientTest {
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
 
       IDatabricksHttpClient mockHttpClient = mock(IDatabricksHttpClient.class);
-      when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
+      when(mockFactory.getClient(any(), any())).thenReturn(mockHttpClient);
 
       CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
       StatusLine mockStatusLine = mock(StatusLine.class);
@@ -105,6 +108,35 @@ public class TelemetryPushClientTest {
     }
   }
 
+  @Test
+  public void pushEvent_usesTelemetryHttpClientType() throws Exception {
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        org.mockito.Mockito.mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+
+      IDatabricksHttpClient mockHttpClient = mock(IDatabricksHttpClient.class);
+      when(mockFactory.getClient(any(), any())).thenReturn(mockHttpClient);
+
+      CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
+      StatusLine mockStatusLine = mock(StatusLine.class);
+      when(mockResponse.getStatusLine()).thenReturn(mockStatusLine);
+      when(mockStatusLine.getStatusCode()).thenReturn(200);
+      when(mockHttpClient.execute(any())).thenReturn(mockResponse);
+
+      IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+      when(mockContext.getHostUrl()).thenReturn("https://example.com");
+      when(mockContext.isTelemetryCircuitBreakerEnabled()).thenReturn(false);
+
+      TelemetryPushClient client =
+          new TelemetryPushClient(false /* isAuthenticated */, mockContext, null);
+      client.pushEvent(new TelemetryRequest());
+
+      // Verify the TELEMETRY client type is used, not the default COMMON type
+      verify(mockFactory).getClient(eq(mockContext), eq(HttpClientType.TELEMETRY));
+    }
+  }
+
   @ParameterizedTest
   @ValueSource(ints = {400, 500, 502, 503, 504})
   public void pushEvent_doesNotThrow_onErrorCodes_whenCBDisabled(int statusCode) throws Exception {
@@ -114,7 +146,7 @@ public class TelemetryPushClientTest {
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
 
       IDatabricksHttpClient mockHttpClient = mock(IDatabricksHttpClient.class);
-      when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
+      when(mockFactory.getClient(any(), any())).thenReturn(mockHttpClient);
 
       CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);
       StatusLine mockStatusLine = mock(StatusLine.class);
