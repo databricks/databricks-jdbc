@@ -234,6 +234,9 @@ public interface IDatabricksConnectionContext {
   /** Returns the list of OAuth2 redirect URL ports used for OAuth authentication. */
   List<Integer> getOAuth2RedirectUrlPorts();
 
+  /** Returns the OAuth browser authentication timeout in seconds for U2M authentication. */
+  int getOAuthWebServerTimeout();
+
   String getGcpAuthType() throws DatabricksParsingException;
 
   String getGoogleServiceAccount();

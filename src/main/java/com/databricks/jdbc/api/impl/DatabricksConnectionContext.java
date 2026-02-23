@@ -810,6 +810,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     }
   }
 
+  /** {@inheritDoc} */
+  @Override
+  public int getOAuthWebServerTimeout() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.OAUTH_WEB_SERVER_TIMEOUT));
+  }
+
   @Override
   public Boolean getUseEmptyMetadata() {
     String param = getParameter(DatabricksJdbcUrlParams.USE_EMPTY_METADATA);

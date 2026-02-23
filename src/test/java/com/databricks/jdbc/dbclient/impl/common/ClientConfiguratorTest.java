@@ -191,6 +191,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
+    when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -217,6 +218,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8030));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
+    when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
 
     configurator = new ClientConfigurator(mockContext);
     DatabricksConfig config = configurator.getDatabricksConfig();
@@ -246,6 +248,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
+    when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
     assertNotNull(client);
@@ -491,6 +494,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
+    when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
 
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -501,7 +505,7 @@ public class ClientConfiguratorTest {
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
     assertEquals(List.of("scope1", "scope2"), config.getScopes());
-    assertEquals(Duration.ofHours(1), config.getOAuthBrowserAuthTimeout());
+    assertEquals(Duration.ofSeconds(120), config.getOAuthBrowserAuthTimeout());
     assertEquals("http://localhost:" + testPort, config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
   }
@@ -522,6 +526,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
     when(mockContext.isTokenFederationEnabled()).thenReturn(true);
+    when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
 
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -556,6 +561,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getTokenCachePassPhrase()).thenReturn(null);
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
+    when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
 
     assertThrows(DatabricksException.class, () -> new ClientConfigurator(mockContext));
   }
@@ -575,6 +581,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
     when(mockContext.isTokenFederationEnabled()).thenReturn(true);
+    when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
 
     configurator = new ClientConfigurator(mockContext);
     WorkspaceClient client = configurator.getWorkspaceClient();
@@ -686,6 +693,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
+    when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
 
     configurator = new ClientConfigurator(mockContext);
     DatabricksConfig config = configurator.getDatabricksConfig();
@@ -710,6 +718,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(List.of(8020));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(false);
+    when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
 
     configurator = new ClientConfigurator(mockContext);
     DatabricksConfig config = configurator.getDatabricksConfig();

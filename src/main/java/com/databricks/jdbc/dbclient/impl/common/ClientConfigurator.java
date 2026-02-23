@@ -206,7 +206,7 @@ public class ClientConfigurator {
         .setHost(host)
         .setClientId(clientId)
         .setOAuthBrowserAuthTimeout(
-            Duration.ofHours(1)) // TODO : add a browser timeout connection config
+            Duration.ofSeconds(connectionContext.getOAuthWebServerTimeout()))
         .setClientSecret(connectionContext.getClientSecret())
         .setOAuthRedirectUrl(redirectUrl);
 
