@@ -29,21 +29,40 @@ public class TelemetryPushClient implements ITelemetryPushClient {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TelemetryPushClient.class);
 
   private static final String REQUEST_ID_HEADER = "x-request-id";
+  private static final int DEFAULT_MAX_RETRIES = 3;
+  private static final long INITIAL_BACKOFF_MS =
+      1000; // 1 second - matches DatabricksHttpRetryHandler
+  private static final long MAX_BACKOFF_MS = 10000; // 10 seconds - matches codebase standard
+
   private final boolean isAuthenticated;
   private final IDatabricksConnectionContext connectionContext;
   private final DatabricksConfig databricksConfig;
+  private final int maxRetries;
 
   public TelemetryPushClient(
       boolean isAuthenticated,
       IDatabricksConnectionContext connectionContext,
       DatabricksConfig databricksConfig) {
+    this(isAuthenticated, connectionContext, databricksConfig, DEFAULT_MAX_RETRIES);
+  }
+
+  public TelemetryPushClient(
+      boolean isAuthenticated,
+      IDatabricksConnectionContext connectionContext,
+      DatabricksConfig databricksConfig,
+      int maxRetries) {
     this.isAuthenticated = isAuthenticated;
     this.connectionContext = connectionContext;
     this.databricksConfig = databricksConfig;
+    this.maxRetries = maxRetries;
   }
 
   @Override
   public void pushEvent(TelemetryRequest request) throws Exception {
+    pushEventWithRetry(request, maxRetries);
+  }
+
+  private void pushEventWithRetry(TelemetryRequest request, int remainingRetries) throws Exception {
     IDatabricksHttpClient httpClient =
         DatabricksHttpClientFactory.getInstance()
             .getClient(connectionContext, HttpClientType.TELEMETRY);
@@ -59,8 +78,8 @@ public class TelemetryPushClient implements ITelemetryPushClient {
     Map<String, String> authHeaders =
         isAuthenticated ? databricksConfig.authenticate() : Collections.emptyMap();
     authHeaders.forEach(post::addHeader);
+
     try (CloseableHttpResponse response = httpClient.execute(post)) {
-      // TODO: check response and add retry for partial failures
       if (!HttpUtil.isSuccessfulHttpResponse(response)) {
         LOGGER.trace(
             "Failed to push telemetry logs with error response: {}", response.getStatusLine());
@@ -82,13 +101,30 @@ public class TelemetryPushClient implements ITelemetryPushClient {
       if (!telResponse.getErrors().isEmpty()) {
         LOGGER.trace("Failed to push telemetry logs with error: {}", telResponse.getErrors());
       }
+
       if (request.getProtoLogs().size() != telResponse.getNumProtoSuccess()) {
         LOGGER.debug(
-            "Partial failure while pushing telemetry logs with error response: {}, request count: {}, upload count: {}",
-            telResponse.getErrors(),
+            "Partial failure while pushing telemetry logs: request count: {}, upload count: {}, remaining retries: {}",
             request.getProtoLogs().size(),
-            telResponse.getNumProtoSuccess());
+            telResponse.getNumProtoSuccess(),
+            remainingRetries);
+
+        if (remainingRetries > 0) {
+          long backoffMs = calculateBackoff(maxRetries - remainingRetries);
+          LOGGER.debug(
+              "Retrying telemetry push after {}ms ({} retries remaining)",
+              backoffMs,
+              remainingRetries);
+          Thread.sleep(backoffMs);
+          pushEventWithRetry(request, remainingRetries - 1);
+        } else {
+          LOGGER.debug(
+              "Max retries exhausted for telemetry push. Dropping {} events",
+              request.getProtoLogs().size() - telResponse.getNumProtoSuccess());
+        }
       }
+    } catch (DatabricksTelemetryException e) {
+      throw e;
     } catch (Exception e) {
       LOGGER.debug(
           "Failed to push telemetry logs with error: {}, request: {}",
@@ -98,5 +134,9 @@ public class TelemetryPushClient implements ITelemetryPushClient {
         throw new DatabricksTelemetryException("Exception while pushing telemetry logs", e);
       }
     }
+  }
+
+  private long calculateBackoff(int attempt) {
+    return Math.min(INITIAL_BACKOFF_MS * (1L << attempt), MAX_BACKOFF_MS);
   }
 }
