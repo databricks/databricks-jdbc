@@ -166,4 +166,48 @@ public class DatabricksTokenFederationProviderTest {
 
     return signedJWT.serialize();
   }
+
+  @Test
+  public void testGetCredentialsProvider() {
+    CredentialsProvider provider = databricksTokenFederationProvider.getCredentialsProvider();
+    assertSame(mockCredentialsProvider, provider);
+  }
+
+  @Test
+  public void testDifferentHostTokenExchange() throws Exception {
+    // Create JWT with different issuer than config host
+    RSAKey rsaJWK = new RSAKeyGenerator(2048).keyID("123").generate();
+    RSASSASigner signer = new RSASSASigner(rsaJWK);
+
+    JWTClaimsSet claims =
+        new JWTClaimsSet.Builder()
+            .issuer("https://different-host.com")
+            .subject("user@example.com")
+            .audience("https://api.host.com")
+            .issueTime(new Date(1713350400L * 1000))
+            .expirationTime(new Date(25340230079L * 1000))
+            .build();
+
+    SignedJWT signedJWT = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).build(), claims);
+    signedJWT.sign(signer);
+    String jwtToken = signedJWT.serialize();
+
+    Map<String, String> testExternalHeaders = Map.of("Authorization", "Bearer " + jwtToken);
+
+    when(mockConfig.getHost()).thenReturn("https://host.com");
+    when(mockCredentialsProvider.configure(any())).thenReturn(() -> testExternalHeaders);
+    doReturn(testToken()).when(databricksTokenFederationProvider).exchangeToken(any());
+
+    Map<String, String> headers = databricksTokenFederationProvider.configure(mockConfig).headers();
+
+    assertNotNull(headers);
+    verify(databricksTokenFederationProvider).exchangeToken(any());
+  }
+
+  @Test
+  public void testAuthType() {
+    when(mockCredentialsProvider.authType()).thenReturn("oauth");
+    String authType = databricksTokenFederationProvider.authType();
+    assertEquals("oauth", authType);
+  }
 }
