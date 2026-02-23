@@ -307,7 +307,7 @@ public class SqlCommentParserTest {
     assertEquals(
         "SELECT 'foo', \"bar\", `baz` FROM table",
         SqlCommentParser.stripCommentsAndWhitespaces(
-            "SELECT/**/'foo',/**/\"foo\",/**/`bar` FROM table"));
+            "SELECT/**/'foo',/**/\"bar\",/**/`baz` FROM table"));
   }
 
   @Test

@@ -88,6 +88,7 @@ public class SqlCommentParser {
           } else if (c == '`') {
             state = State.NORMAL;
           }
+          break;
 
         case IN_LINE_COMMENT:
           if (c == '\n' || c == '\r') {
