@@ -1,6 +1,8 @@
 package com.databricks.jdbc.dbclient.impl.http;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import org.apache.http.HttpStatus;
 
 /**
@@ -9,6 +11,7 @@ import org.apache.http.HttpStatus;
  * timeouts accordingly.
  */
 public class RetryTimeoutManager {
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(RetryTimeoutManager.class);
   private long tempUnavailableTimeoutMillis;
   private long rateLimitTimeoutMillis;
   private long otherErrorCodesTimeoutMillis;
@@ -25,8 +28,8 @@ public class RetryTimeoutManager {
     this.tempUnavailableTimeoutMillis =
         connectionContext.getTemporarilyUnavailableRetryTimeout() * 1000L;
     this.rateLimitTimeoutMillis = connectionContext.getRateLimitRetryTimeout() * 1000L;
-    this.otherErrorCodesTimeoutMillis = RetryUtils.REQUEST_TIMEOUT_SECONDS * 1000L;
-    this.exceptionTimeoutMillis = RetryUtils.REQUEST_EXCEPTION_TIMEOUT_SECONDS * 1000L;
+    this.otherErrorCodesTimeoutMillis = RetryUtils.DEFAULT_REQUEST_TIMEOUT_SECONDS * 1000L;
+    this.exceptionTimeoutMillis = RetryUtils.DEFAULT_REQUEST_EXCEPTION_TIMEOUT_SECONDS * 1000L;
     this.apiRetriableCodesTimeoutMillis = connectionContext.getApiRetryTimeout() * 1000L;
   }
 
@@ -44,32 +47,53 @@ public class RetryTimeoutManager {
     // If this is a custom API retriable code, only deduct from API codes timeout
     if (isApiRetriableCode) {
       apiRetriableCodesTimeoutMillis -= retryDelayMillis;
-      return apiRetriableCodesTimeoutMillis > 0;
+      if (apiRetriableCodesTimeoutMillis <= 0) {
+        LOGGER.debug(
+            "Retry stopped: API retriable codes timeout exhausted. Remaining: {}ms",
+            apiRetriableCodesTimeoutMillis);
+        return false;
+      }
+      return true;
     }
 
     // Otherwise, update the appropriate timeout based on status code
     switch (statusCode) {
       case HttpStatus.SC_SERVICE_UNAVAILABLE:
         tempUnavailableTimeoutMillis -= retryDelayMillis;
+        if (tempUnavailableTimeoutMillis <= 0) {
+          LOGGER.debug(
+              "Retry stopped: Service unavailable (503) timeout exhausted. Remaining: {}ms",
+              tempUnavailableTimeoutMillis);
+          return false;
+        }
         break;
       case HttpStatus.SC_TOO_MANY_REQUESTS:
         rateLimitTimeoutMillis -= retryDelayMillis;
+        if (rateLimitTimeoutMillis <= 0) {
+          LOGGER.debug(
+              "Retry stopped: Rate limit (429) timeout exhausted. Remaining: {}ms",
+              rateLimitTimeoutMillis);
+          return false;
+        }
         break;
       default:
         otherErrorCodesTimeoutMillis -= retryDelayMillis;
+        if (otherErrorCodesTimeoutMillis <= 0) {
+          LOGGER.debug(
+              "Retry stopped: Other error codes timeout exhausted for status {}. Remaining: {}ms",
+              statusCode,
+              otherErrorCodesTimeoutMillis);
+          return false;
+        }
         break;
     }
 
-    // Check if any timeout has been exceeded
-    return tempUnavailableTimeoutMillis > 0
-        && rateLimitTimeoutMillis > 0
-        && otherErrorCodesTimeoutMillis > 0;
+    return true;
   }
 
   /**
    * Evaluates retry decision based on an exception and updates timeout accordingly.
    *
-   * @param exception the exception that occurred during request execution
    * @param retryDelayMillis the retry delay in milliseconds to subtract from timeout
    * @return true if the request should be retried, false otherwise
    */
@@ -78,6 +102,11 @@ public class RetryTimeoutManager {
     exceptionTimeoutMillis -= retryDelayMillis;
 
     // Check if exception timeout has been exceeded
-    return exceptionTimeoutMillis > 0;
+    if (exceptionTimeoutMillis <= 0) {
+      LOGGER.debug(
+          "Retry stopped: Exception timeout exhausted. Remaining: {}ms", exceptionTimeoutMillis);
+      return false;
+    }
+    return true;
   }
 }

@@ -7,16 +7,18 @@ import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
  * strategies and handlers.
  */
 public class RetryUtils {
-  public static final long REQUEST_TIMEOUT_SECONDS = 120;
-  public static final long REQUEST_EXCEPTION_TIMEOUT_SECONDS = 120;
+  public static final long DEFAULT_REQUEST_TIMEOUT_SECONDS = 120;
+  public static final long DEFAULT_REQUEST_EXCEPTION_TIMEOUT_SECONDS = 120;
 
   /**
-   * Extracts DatabricksRetryHandlerException from the exception cause chain.
+   * Extracts DatabricksRetryHandlerException from the exception cause chain. Skips the top-level
+   * exception as it's typically a TTransportException wrapper.
    *
    * @param e the exception to search through
    * @return the DatabricksRetryHandlerException if found, null otherwise
    */
   public static DatabricksRetryHandlerException extractRetryException(Throwable e) {
+    // Start with cause to skip the top-level TTransportException wrapper
     Throwable cause = e.getCause();
     while (cause != null) {
       if (cause instanceof DatabricksRetryHandlerException) {
