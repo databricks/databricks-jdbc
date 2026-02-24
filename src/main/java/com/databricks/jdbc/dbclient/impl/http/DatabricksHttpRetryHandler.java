@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.http;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.THRIFT_ERROR_MESSAGE_HEADER;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.RetryUtil;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -31,9 +32,6 @@ public class DatabricksHttpRetryHandler
   private static final String RATE_LIMIT_ACCUMULATED_TIME_KEY = "rateLimitAccumulatedTime";
   private static final String API_CODES_ACCUMULATED_TIME_KEY = "apiCodesAccumulatedTime";
   static final String RETRY_AFTER_HEADER = "Retry-After";
-  private static final int DEFAULT_BACKOFF_FACTOR = 2; // Exponential factor
-  private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
-  private static final int MAX_RETRY_INTERVAL = 10 * 1000; // 10s
 
   private final IDatabricksConnectionContext connectionContext;
 
@@ -242,10 +240,9 @@ public class DatabricksHttpRetryHandler
     }
   }
 
+  @VisibleForTesting
   static long calculateExponentialBackoff(int executionCount) {
-    return Math.min(
-        MIN_BACKOFF_INTERVAL * (long) Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount),
-        MAX_RETRY_INTERVAL);
+    return RetryUtil.calculateExponentialBackoff(executionCount);
   }
 
   static int getErrorCodeFromException(IOException exception) {
@@ -273,13 +270,8 @@ public class DatabricksHttpRetryHandler
   }
 
   @VisibleForTesting
-  protected void doSleepForDelay(long delayMillis) {
-    try {
-      Thread.sleep(delayMillis);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt(); // Restore the interrupt status
-      throw new RuntimeException("Sleep interrupted", e);
-    }
+  void doSleepForDelay(long delayMillis) {
+    RetryUtil.doSleepForDelay(delayMillis);
   }
 
   /** Check if the request is retryable based on the status code and any connection preferences. */
