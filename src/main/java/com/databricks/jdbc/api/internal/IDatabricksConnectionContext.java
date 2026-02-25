@@ -331,6 +331,9 @@ public interface IDatabricksConnectionContext {
   /** Returns the socket timeout in seconds for HTTP connections. */
   int getSocketTimeout();
 
+  /** Returns the socket timeout in seconds for the telemetry HTTP client. */
+  int getTelemetrySocketTimeout();
+
   /**
    * Returns whether self-signed certificates are allowed for SSL connections.
    *

@@ -1,7 +1,7 @@
 package com.databricks.jdbc.auth;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -99,6 +99,124 @@ public class PrivateKeyClientCredentialProviderTest {
       JwtPrivateKeyClientCredentials clientCredentialObject =
           new PrivateKeyClientCredentialProvider(context, config).getClientCredentialObject(config);
       assertEquals(clientCredentialObject.getTokenEndpoint(), TEST_TOKEN_URL);
+    }
+  }
+
+  @Test
+  void should_ReturnCorrectAuthType() throws IOException {
+    setup();
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(httpClient);
+      when(config.getOidcEndpoints()).thenReturn(TEST_OIDC_ENDPOINTS);
+
+      PrivateKeyClientCredentialProvider provider =
+          new PrivateKeyClientCredentialProvider(context, config);
+
+      assertEquals("custom-oauth-m2m", provider.authType());
+    }
+  }
+
+  @Test
+  void should_BuildClientCredentialsWithAllParameters() throws IOException {
+    setup();
+    // Don't set passphrase since our test key file is not encrypted
+    when(context.getJWTPassphrase()).thenReturn(null);
+
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(httpClient);
+      when(config.getOidcEndpoints()).thenReturn(TEST_OIDC_ENDPOINTS);
+
+      PrivateKeyClientCredentialProvider provider =
+          new PrivateKeyClientCredentialProvider(context, config);
+
+      JwtPrivateKeyClientCredentials clientCredentials = provider.getClientCredentialObject(config);
+
+      assertEquals(TEST_TOKEN_URL, clientCredentials.getTokenEndpoint());
+    }
+  }
+
+  @Test
+  void should_ConfigureHeaderFactory_AndGenerateHeaders() throws Exception {
+    setup();
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(httpClient);
+      when(config.getOidcEndpoints()).thenReturn(TEST_OIDC_ENDPOINTS);
+
+      // Mock HTTP response for token generation
+      org.apache.http.HttpEntity httpEntity = mock(org.apache.http.HttpEntity.class);
+      org.apache.http.client.methods.CloseableHttpResponse httpResponse =
+          mock(org.apache.http.client.methods.CloseableHttpResponse.class);
+      when(httpClient.execute(any())).thenReturn(httpResponse);
+      when(httpResponse.getEntity()).thenReturn(httpEntity);
+      when(httpEntity.getContent())
+          .thenReturn(new java.io.ByteArrayInputStream(TEST_OAUTH_RESPONSE.getBytes()));
+
+      PrivateKeyClientCredentialProvider provider =
+          new PrivateKeyClientCredentialProvider(context, config);
+
+      // Test configure method returns a HeaderFactory
+      com.databricks.sdk.core.HeaderFactory headerFactory = provider.configure(config);
+      assertNotNull(headerFactory, "HeaderFactory should not be null");
+
+      // Call headers() to test the lambda and increase coverage
+      java.util.Map<String, String> headers = headerFactory.headers();
+      assertNotNull(headers);
+      assertTrue(headers.containsKey(org.apache.http.HttpHeaders.AUTHORIZATION));
+      assertTrue(headers.containsKey(org.apache.http.HttpHeaders.CONTENT_TYPE));
+      assertEquals(
+          "application/x-www-form-urlencoded",
+          headers.get(org.apache.http.HttpHeaders.CONTENT_TYPE));
+    }
+  }
+
+  @Test
+  void should_BuildClientCredentialsWithJWTAlgorithm() throws IOException {
+    setup();
+    when(context.getJWTAlgorithm()).thenReturn("ES256");
+
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(httpClient);
+      when(config.getOidcEndpoints()).thenReturn(TEST_OIDC_ENDPOINTS);
+
+      PrivateKeyClientCredentialProvider provider =
+          new PrivateKeyClientCredentialProvider(context, config);
+
+      JwtPrivateKeyClientCredentials clientCredentials = provider.getClientCredentialObject(config);
+
+      assertEquals(TEST_TOKEN_URL, clientCredentials.getTokenEndpoint());
+    }
+  }
+
+  @Test
+  void should_HandleNullScope() throws IOException {
+    setup();
+    when(context.getAuthScope()).thenReturn(null);
+
+    try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
+      factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
+      when(mockFactory.getClient(any())).thenReturn(httpClient);
+      when(config.getOidcEndpoints()).thenReturn(TEST_OIDC_ENDPOINTS);
+
+      PrivateKeyClientCredentialProvider provider =
+          new PrivateKeyClientCredentialProvider(context, config);
+
+      JwtPrivateKeyClientCredentials clientCredentials = provider.getClientCredentialObject(config);
+
+      assertEquals(TEST_TOKEN_URL, clientCredentials.getTokenEndpoint());
     }
   }
 }

@@ -11,5 +11,8 @@ public enum HttpClientType {
   COMMON,
 
   /** Specialized HTTP client implementation optimized for UC volume operations. */
-  VOLUME;
+  VOLUME,
+
+  /** Lightweight HTTP client for telemetry: short fixed timeout, with retries. */
+  TELEMETRY;
 }
