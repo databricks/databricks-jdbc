@@ -58,7 +58,7 @@ public class TelemetryClientTest {
         mockStatic(DatabricksHttpClientFactory.class)) {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
-      when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
+      when(mockFactory.getClient(any(), any())).thenReturn(mockHttpClient);
       when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(200);
@@ -98,7 +98,7 @@ public class TelemetryClientTest {
         mockStatic(DatabricksHttpClientFactory.class)) {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
-      when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
+      when(mockFactory.getClient(any(), any())).thenReturn(mockHttpClient);
       when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(200);
@@ -149,7 +149,7 @@ public class TelemetryClientTest {
         mockStatic(DatabricksHttpClientFactory.class)) {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
-      when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
+      when(mockFactory.getClient(any(), any())).thenReturn(mockHttpClient);
       when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(400);
@@ -176,7 +176,7 @@ public class TelemetryClientTest {
         mockStatic(DatabricksHttpClientFactory.class)) {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
-      when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
+      when(mockFactory.getClient(any(), any())).thenReturn(mockHttpClient);
       when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(200);
@@ -233,7 +233,7 @@ public class TelemetryClientTest {
         mockStatic(DatabricksHttpClientFactory.class)) {
       DatabricksHttpClientFactory mockFactory = mock(DatabricksHttpClientFactory.class);
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
-      when(mockFactory.getClient(any())).thenReturn(mockHttpClient);
+      when(mockFactory.getClient(any(), any())).thenReturn(mockHttpClient);
       when(mockHttpClient.execute(any())).thenReturn(mockHttpResponse);
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(200);

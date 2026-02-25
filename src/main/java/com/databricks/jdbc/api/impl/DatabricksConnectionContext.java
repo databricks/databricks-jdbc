@@ -1029,6 +1029,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.SOCKET_TIMEOUT));
   }
 
+  /** {@inheritDoc} */
+  @Override
+  public int getTelemetrySocketTimeout() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_SOCKET_TIMEOUT));
+  }
+
   @Override
   public String getTokenCachePassPhrase() {
     return getParameter(DatabricksJdbcUrlParams.TOKEN_CACHE_PASS_PHRASE);

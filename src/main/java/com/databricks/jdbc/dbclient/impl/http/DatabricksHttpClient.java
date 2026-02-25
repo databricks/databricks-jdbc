@@ -144,14 +144,20 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     }
   }
 
-  private RequestConfig makeRequestConfig(IDatabricksConnectionContext connectionContext) {
-    int timeoutMillis = connectionContext.getSocketTimeout() * 1000;
-    int requestTimeout =
-        connectionContext.getHttpConnectionRequestTimeout() != null
-            ? connectionContext.getHttpConnectionRequestTimeout() * 1000
-            : timeoutMillis;
+  private RequestConfig makeRequestConfig(
+      IDatabricksConnectionContext connectionContext, HttpClientType type) {
+    int timeoutMillis =
+        type.equals(HttpClientType.TELEMETRY)
+            ? connectionContext.getTelemetrySocketTimeout() * 1000
+            : connectionContext.getSocketTimeout() * 1000;
+    int requestTimeoutMillis =
+        type.equals(HttpClientType.TELEMETRY)
+            ? connectionContext.getTelemetrySocketTimeout() * 1000
+            : (connectionContext.getHttpConnectionRequestTimeout() != null
+                ? connectionContext.getHttpConnectionRequestTimeout() * 1000
+                : timeoutMillis);
     return RequestConfig.custom()
-        .setConnectionRequestTimeout(requestTimeout)
+        .setConnectionRequestTimeout(requestTimeoutMillis)
         .setConnectTimeout(timeoutMillis)
         .setSocketTimeout(timeoutMillis)
         .build();
@@ -160,14 +166,14 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   private CloseableHttpClient makeClosableHttpClient(
       IDatabricksConnectionContext connectionContext, HttpClientType type) {
     DatabricksHttpRetryHandler retryHandler =
-        type.equals(HttpClientType.COMMON)
-            ? new DatabricksHttpRetryHandler(connectionContext)
-            : new UCVolumeHttpRetryHandler(connectionContext);
+        type.equals(HttpClientType.VOLUME)
+            ? new UCVolumeHttpRetryHandler(connectionContext)
+            : new DatabricksHttpRetryHandler(connectionContext);
     HttpClientBuilder builder =
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)
             .setUserAgent(UserAgentManager.getUserAgentString())
-            .setDefaultRequestConfig(makeRequestConfig(connectionContext))
+            .setDefaultRequestConfig(makeRequestConfig(connectionContext, type))
             .setRetryHandler(retryHandler)
             .addInterceptorFirst(retryHandler);
     setupProxy(connectionContext, builder);

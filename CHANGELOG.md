@@ -1,4 +1,30 @@
 # Version Changelog
+
+## [v3.2.1] - 2026-02-16
+
+### Added
+- Added streaming prefetch mode for Thrift inline results (columnar and Arrow) with background batch prefetching and configurable sliding window for improved throughput.
+- Added `EnableInlineStreaming` connection parameter to enable/disable streaming mode (default: enabled).
+- Added `ThriftMaxBatchesInMemory` connection parameter to control the sliding window size for streaming (default: 3).
+- Added support for disabling CloudFetch via `EnableQueryResultDownload=0` to use inline Arrow results instead.
+- Added `EnableMetricViewSupport` connection parameter to enable/disable Metric View table type (default: disabled).
+- Added `NonRowcountQueryPrefixes` connection parameter to specify comma-separated query prefixes that should return result sets instead of row counts.
+
+### Updated
+- Enhanced error logging for token exchange failures.
+- Geospatial column type names now include SRID information (e.g., `GEOMETRY(4326)` instead of `GEOMETRY`).
+- Implemented lazy loading for inline Arrow results, fetching arrow batches on demand instead of all at once. This improves memory usage and initial response time for large result sets when using the Thrift protocol with Arrow format.
+- **Enhanced `enableMultipleCatalogSupport` behavior**: When this parameter is disabled (`enableMultipleCatalogSupport=0`), metadata operations (such as `getSchemas()`, `getTables()`, `getColumns()`, etc.) now return results only when the catalog parameter is either `null` or matches the current catalog. For any other catalog name, an empty result set is returned. This ensures metadata queries are restricted to the current catalog context. When enabled (`enableMultipleCatalogSupport=1`), metadata operations continue to work across all accessible catalogs.
+
+### Fixed
+- Fixed `getTypeInfo()` and `getClientInfoProperties()` to return fresh ResultSet instances on each call instead of shared static instances. This resolves issues where calling these methods multiple times would fail due to exhausted cursor state (Issue #1178).
+- Fixed complex data type metadata support when retrieving 0 rows in Arrow format
+- Normalized TIMESTAMP_NTZ to TIMESTAMP in Thrift path for consistency with SEA behavior
+- Fixed complex types not being returned as objects in SEA Inline mode when `EnableComplexDatatypeSupport=true`.
+- Fixed `StringIndexOutOfBoundsException` when parsing complex data types in Thrift CloudFetch mode. The issue occurred when metadata contained incomplete type information (e.g., "ARRAY" instead of "ARRAY<INT>"). Now retrieves complete type information from Arrow metadata.
+- Fixed timeout exception handling to throw `SQLTimeoutException` instead of `DatabricksHttpException` when queries timeout during result fetching phase. This completes the timeout exception fix to handle both query execution polling and result fetching phases.
+- Fixed `getResultSet()` to return null in case of DML statements to honour JDBC spec.
+
 ## [v3.1.1] - 2026-01-07
 
 ### Added

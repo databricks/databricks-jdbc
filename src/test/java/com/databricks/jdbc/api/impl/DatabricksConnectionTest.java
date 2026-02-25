@@ -18,6 +18,7 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksTransactionException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.*;
 import java.util.*;
@@ -824,12 +825,42 @@ public class DatabricksConnectionTest {
     DatabricksConnection spyConnection = spy(connection);
     DatabricksStatement mockStatement = mock(DatabricksStatement.class);
     doReturn(mockStatement).when(spyConnection).createStatement();
+    when(mockStatement.execute("SET AUTOCOMMIT = FALSE")).thenReturn(true);
     when(mockStatement.execute("ROLLBACK")).thenReturn(true);
 
+    // Must set autocommit to false first — rollback is not valid in auto-commit mode
+    spyConnection.setAutoCommit(false);
     spyConnection.rollback();
 
     verify(mockStatement).execute("ROLLBACK");
-    verify(mockStatement).close();
+    verify(mockStatement, atLeast(2)).close();
+
+    spyConnection.close();
+  }
+
+  @Test
+  public void testRollbackThrowsWhenAutoCommitEnabled() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(transactionsEnabledContext, databricksClient);
+    connection.open();
+
+    DatabricksConnection spyConnection = spy(connection);
+
+    // Auto-commit is true by default — rollback should throw
+    assertTrue(spyConnection.getAutoCommit());
+
+    DatabricksTransactionException thrown =
+        assertThrows(DatabricksTransactionException.class, spyConnection::rollback);
+
+    assertTrue(
+        thrown.getMessage().contains("auto-commit"),
+        "Exception should indicate rollback is not valid in auto-commit mode. Got: "
+            + thrown.getMessage());
+
+    // Connection should still be usable
+    assertFalse(spyConnection.isClosed());
 
     spyConnection.close();
   }
@@ -865,6 +896,10 @@ public class DatabricksConnectionTest {
     DatabricksConnection spyConnection = spy(connection);
     DatabricksStatement mockStatement = mock(DatabricksStatement.class);
     doReturn(mockStatement).when(spyConnection).createStatement();
+    when(mockStatement.execute("SET AUTOCOMMIT = FALSE")).thenReturn(true);
+
+    // Must set autocommit to false first — rollback is not valid in auto-commit mode
+    spyConnection.setAutoCommit(false);
 
     SQLException serverError = new SQLException("Unexpected rollback error", "HY000", 99999);
     when(mockStatement.execute("ROLLBACK")).thenThrow(serverError);
@@ -875,7 +910,7 @@ public class DatabricksConnectionTest {
     assertEquals("HY000", thrown.getSQLState());
     assertEquals(99999, thrown.getErrorCode()); // Vendor code preserved
 
-    verify(mockStatement).close();
+    verify(mockStatement, atLeast(2)).close();
 
     spyConnection.close();
   }
@@ -981,6 +1016,68 @@ public class DatabricksConnectionTest {
     assertFalse(result);
 
     // Verify cache was updated
+    assertFalse(spyConnection.getSession().getAutoCommit());
+
+    spyConnection.close();
+  }
+
+  @Test
+  public void testGetAutoCommitWithFetchFromServerEnabled_ReturnsNumeric1() throws SQLException {
+    // Server may return "1" instead of "true" for autocommit enabled
+    String urlWithFetch = CATALOG_SCHEMA_JDBC_URL + ";FetchAutoCommitFromServer=1";
+    IDatabricksConnectionContext contextWithFetch =
+        DatabricksConnectionContext.parse(urlWithFetch, new Properties());
+
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(contextWithFetch, databricksClient);
+    connection.open();
+
+    DatabricksConnection spyConnection = spy(connection);
+    DatabricksStatement mockStatement = mock(DatabricksStatement.class);
+    ResultSet mockResultSet = mock(ResultSet.class);
+
+    doReturn(mockStatement).when(spyConnection).createStatement();
+    when(mockStatement.executeQuery("SET AUTOCOMMIT")).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true);
+    when(mockResultSet.getString(1)).thenReturn("1"); // Server returns "1"
+
+    boolean result = spyConnection.getAutoCommit();
+
+    verify(mockStatement).executeQuery("SET AUTOCOMMIT");
+    assertTrue(result);
+    assertTrue(spyConnection.getSession().getAutoCommit());
+
+    spyConnection.close();
+  }
+
+  @Test
+  public void testGetAutoCommitWithFetchFromServerEnabled_ReturnsNumeric0() throws SQLException {
+    // Server may return "0" instead of "false" for autocommit disabled
+    String urlWithFetch = CATALOG_SCHEMA_JDBC_URL + ";FetchAutoCommitFromServer=1";
+    IDatabricksConnectionContext contextWithFetch =
+        DatabricksConnectionContext.parse(urlWithFetch, new Properties());
+
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(contextWithFetch, databricksClient);
+    connection.open();
+
+    DatabricksConnection spyConnection = spy(connection);
+    DatabricksStatement mockStatement = mock(DatabricksStatement.class);
+    ResultSet mockResultSet = mock(ResultSet.class);
+
+    doReturn(mockStatement).when(spyConnection).createStatement();
+    when(mockStatement.executeQuery("SET AUTOCOMMIT")).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true);
+    when(mockResultSet.getString(1)).thenReturn("0"); // Server returns "0"
+
+    boolean result = spyConnection.getAutoCommit();
+
+    verify(mockStatement).executeQuery("SET AUTOCOMMIT");
+    assertFalse(result);
     assertFalse(spyConnection.getSession().getAutoCommit());
 
     spyConnection.close();
