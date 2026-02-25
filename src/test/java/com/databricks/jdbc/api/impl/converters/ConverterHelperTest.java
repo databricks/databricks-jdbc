@@ -228,4 +228,19 @@ class ConverterHelperTest {
     ObjectConverter converter = ConverterHelper.getConverterForSqlType(Types.DECIMAL);
     assertInstanceOf(BigDecimalConverter.class, converter);
   }
+
+  @Test
+  void testConvertSqlTypeToSpecificJavaType_NullObject_ReturnsNull() throws DatabricksSQLException {
+    assertNull(ConverterHelper.convertSqlTypeToSpecificJavaType(Date.class, Types.DATE, null));
+    assertNull(
+        ConverterHelper.convertSqlTypeToSpecificJavaType(Timestamp.class, Types.TIMESTAMP, null));
+    assertNull(ConverterHelper.convertSqlTypeToSpecificJavaType(LocalDate.class, Types.DATE, null));
+    assertNull(ConverterHelper.convertSqlTypeToSpecificJavaType(String.class, Types.VARCHAR, null));
+    assertNull(
+        ConverterHelper.convertSqlTypeToSpecificJavaType(Integer.class, Types.INTEGER, null));
+    assertNull(ConverterHelper.convertSqlTypeToSpecificJavaType(Long.class, Types.BIGINT, null));
+    assertNull(ConverterHelper.convertSqlTypeToSpecificJavaType(Double.class, Types.DOUBLE, null));
+    assertNull(
+        ConverterHelper.convertSqlTypeToSpecificJavaType(BigDecimal.class, Types.DECIMAL, null));
+  }
 }

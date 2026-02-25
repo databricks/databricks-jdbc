@@ -242,15 +242,19 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
         CompletableFuture.runAsync(
             () -> {
               try {
+                long fetchStart = System.nanoTime();
                 ChunkLinkFetchResult result =
                     session
                         .getDatabricksClient()
                         .getResultChunks(statementId, batchStartIndex, batchStartRowOffset);
-                LOGGER.info(
-                    "Retrieved {} links for batch starting at {} for statement id {}",
-                    result.getChunkLinks().size(),
+                long fetchMs = (System.nanoTime() - fetchStart) / 1_000_000;
+                LOGGER.debug(
+                    "Link batch fetch: statementId={}, batchStartIndex={}, "
+                        + "linksRetrieved={}, fetchApiMs={}",
+                    statementId,
                     batchStartIndex,
-                    statementId);
+                    result.getChunkLinks().size(),
+                    fetchMs);
 
                 // Complete futures for all chunks in this batch
                 for (ExternalLink link : result.getChunkLinks()) {

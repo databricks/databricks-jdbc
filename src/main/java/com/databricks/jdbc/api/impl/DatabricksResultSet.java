@@ -1865,6 +1865,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return null;
+    }
     int columnSqlType = resultSetMetaData.getColumnType(columnIndex);
     try {
       return (T) ConverterHelper.convertSqlTypeToSpecificJavaType(type, columnSqlType, obj);

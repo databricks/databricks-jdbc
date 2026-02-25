@@ -1259,8 +1259,52 @@ public class DatabricksResultSetTest {
         structException.getSQLState());
   }
 
-  // --- Tests for TelemetryCollector caching in next() ---
+  @Test
+  void testGetObjectWithClassType_NullDate_ReturnsNull() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
 
+    assertNull(resultSet.getObject(1, Date.class));
+    assertTrue(resultSet.wasNull());
+  }
+
+  @Test
+  void testGetObjectWithClassType_NullTimestamp_ReturnsNull() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+
+    assertNull(resultSet.getObject(1, Timestamp.class));
+    assertTrue(resultSet.wasNull());
+  }
+
+  @Test
+  void testGetObjectWithClassType_NullLocalDate_ReturnsNull() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+
+    assertNull(resultSet.getObject(1, LocalDate.class));
+    assertTrue(resultSet.wasNull());
+  }
+
+  @Test
+  void testGetObjectWithClassType_NullInteger_ReturnsNull() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+
+    assertNull(resultSet.getObject(1, Integer.class));
+    assertTrue(resultSet.wasNull());
+  }
+
+  @Test
+  void testGetObjectWithClassType_NullString_ReturnsNull() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+
+    assertNull(resultSet.getObject(1, String.class));
+    assertTrue(resultSet.wasNull());
+  }
+  
+  // --- Tests for TelemetryCollector caching in next() ---
   private DatabricksResultSet getResultSetWithTelemetry() throws SQLException {
     DatabricksConnection mockConnection = mock(DatabricksConnection.class);
     IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);

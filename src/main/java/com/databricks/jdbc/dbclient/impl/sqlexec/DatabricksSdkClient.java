@@ -34,6 +34,7 @@ import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
+import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
@@ -279,12 +280,30 @@ public class DatabricksSdkClient implements IDatabricksClient {
       pollCount++;
     }
     long executionEndTime = Instant.now().toEpochMilli();
-    LOGGER.debug(
-        "Executed sql {} with status {}, total time taken {} and pollCount {}",
-        sql,
-        responseState,
-        (executionEndTime - executionStartTime),
-        pollCount);
+    {
+      ResultManifest manifest = response.getManifest();
+      ResultData resultData = response.getResult();
+      int numExternalLinks =
+          (resultData != null && resultData.getExternalLinks() != null)
+              ? resultData.getExternalLinks().size()
+              : 0;
+      LOGGER.debug(
+          "executeStatement complete: statementId={}, state={}, format={}, "
+              + "totalBytes={}, totalChunks={}, totalRows={}, "
+              + "hasInlineAttachment={}, numExternalLinks={}, compression={}, "
+              + "executionTimeMs={}, pollCount={}",
+          statementId,
+          responseState,
+          manifest != null ? manifest.getFormat() : "null",
+          manifest != null ? manifest.getTotalByteCount() : "null",
+          manifest != null ? manifest.getTotalChunkCount() : "null",
+          manifest != null ? manifest.getTotalRowCount() : "null",
+          resultData != null && resultData.getAttachment() != null,
+          numExternalLinks,
+          manifest != null ? manifest.getResultCompression() : "null",
+          (executionEndTime - executionStartTime),
+          pollCount);
+    }
     if (responseState != StatementState.SUCCEEDED && responseState != StatementState.CLOSED) {
       handleFailedExecution(response, statementId, sql);
     }
