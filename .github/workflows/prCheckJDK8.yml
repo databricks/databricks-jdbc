@@ -4,6 +4,21 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [jdk-8]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to checkout'
+        required: false
+        default: 'jdk-8'
+      repository:
+        description: 'Repository to checkout (e.g., user/repo)'
+        required: false
+        default: 'databricks/databricks-jdbc'
+      reason:
+        description: 'Reason for manual run'
+        required: false
+        default: 'Manual health check for JDK-8'
+
 
 jobs:
   jdk8-test:

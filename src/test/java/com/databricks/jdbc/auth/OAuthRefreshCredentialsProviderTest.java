@@ -117,4 +117,98 @@ public class OAuthRefreshCredentialsProviderTest {
       assertFalse(refreshedToken.getExpiry().isBefore(Instant.now()));
     }
   }
+
+  @Test
+  void should_ThrowException_When_GetTokenCalledBeforeConfigure() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(REFRESH_TOKEN_URL_DEFAULT, new Properties());
+    when(databricksConfig.getOidcEndpoints())
+        .thenReturn(
+            new OpenIDConnectEndpoints(
+                "https://oauth.example.com/oidc/v1/token",
+                "https://oauth.example.com/oidc/v1/authorize"));
+    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
+
+    // Calling getToken() before configure() should throw
+    assertThrows(DatabricksDriverException.class, () -> credentialsProvider.getToken());
+  }
+
+  @Test
+  void should_CacheTokenAcrossMultipleCalls() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(REFRESH_TOKEN_URL_DEFAULT, new Properties());
+    when(databricksConfig.getOidcEndpoints())
+        .thenReturn(new OpenIDConnectEndpoints(TEST_TOKEN_URL, TEST_AUTH_URL));
+    when(databricksConfig.getHttpClient()).thenReturn(httpClient);
+
+    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
+
+    try (MockedStatic<TokenEndpointClient> mocked = mockStatic(TokenEndpointClient.class)) {
+      Token fakeToken =
+          new Token("access-token", "Bearer", "refresh-token", Instant.now().plusSeconds(3600));
+      mocked
+          .when(
+              () ->
+                  TokenEndpointClient.retrieveToken(
+                      any(), any(), any(), any(), any(), any(), any()))
+          .thenReturn(fakeToken);
+
+      credentialsProvider.configure(databricksConfig);
+
+      // Call getToken multiple times
+      Token token1 = credentialsProvider.getToken();
+      Token token2 = credentialsProvider.getToken();
+      Token token3 = credentialsProvider.getToken();
+
+      // All tokens should have the same access token due to caching
+      assertEquals(token1.getAccessToken(), token2.getAccessToken());
+      assertEquals(token2.getAccessToken(), token3.getAccessToken());
+
+      // retrieveToken should only be called once due to caching
+      mocked.verify(
+          () -> TokenEndpointClient.retrieveToken(any(), any(), any(), any(), any(), any(), any()),
+          times(1));
+    }
+  }
+
+  @Test
+  void should_ReturnOAuthRefreshAsAuthType() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(REFRESH_TOKEN_URL_DEFAULT, new Properties());
+    when(databricksConfig.getOidcEndpoints())
+        .thenReturn(new OpenIDConnectEndpoints(TEST_TOKEN_URL, TEST_AUTH_URL));
+
+    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
+
+    assertEquals("oauth-refresh", credentialsProvider.authType());
+  }
+
+  @Test
+  void should_IncludeAuthorizationHeaderWithCorrectFormat() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(REFRESH_TOKEN_URL_DEFAULT, new Properties());
+    when(databricksConfig.getOidcEndpoints())
+        .thenReturn(new OpenIDConnectEndpoints(TEST_TOKEN_URL, TEST_AUTH_URL));
+    when(databricksConfig.getHttpClient()).thenReturn(httpClient);
+
+    credentialsProvider = new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
+
+    try (MockedStatic<TokenEndpointClient> mocked = mockStatic(TokenEndpointClient.class)) {
+      Token fakeToken =
+          new Token(
+              "test-access-token", "Bearer", "refresh-token", Instant.now().plusSeconds(3600));
+      mocked
+          .when(
+              () ->
+                  TokenEndpointClient.retrieveToken(
+                      any(), any(), any(), any(), any(), any(), any()))
+          .thenReturn(fakeToken);
+
+      HeaderFactory headerFactory = credentialsProvider.configure(databricksConfig);
+      Map<String, String> headers = headerFactory.headers();
+
+      assertTrue(headers.containsKey(HttpHeaders.AUTHORIZATION));
+      assertEquals("Bearer test-access-token", headers.get(HttpHeaders.AUTHORIZATION));
+    }
+  }
 }
