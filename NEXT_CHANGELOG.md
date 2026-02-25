@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Added connection property `OAuthWebServerTimeout` to configure the OAuth browser authentication timeout for U2M (user-to-machine) flows, and also updated hardcoded 1-hour timeout to default 120 seconds timeout.
 
 ### Updated
 
