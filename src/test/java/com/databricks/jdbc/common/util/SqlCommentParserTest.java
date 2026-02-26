@@ -323,35 +323,35 @@ public class SqlCommentParserTest {
   @Test
   public void testForEachNullInput() {
     List<Character> chars = new ArrayList<>();
-    SqlCommentParser.forEach(null, (state, c) -> chars.add(c));
+    SqlCommentParser.forEachNonCommentChar(null, (state, c) -> chars.add(c));
     assertTrue(chars.isEmpty());
   }
 
   @Test
   public void testForEachEmptyInput() {
     List<Character> chars = new ArrayList<>();
-    SqlCommentParser.forEach("", (state, c) -> chars.add(c));
+    SqlCommentParser.forEachNonCommentChar("", (state, c) -> chars.add(c));
     assertTrue(chars.isEmpty());
   }
 
   @Test
   public void testForEachNormalCharsHaveNormalState() {
     List<SqlCommentParser.State> states = new ArrayList<>();
-    SqlCommentParser.forEach("SELECT * FROM table", (state, c) -> states.add(state));
+    SqlCommentParser.forEachNonCommentChar("SELECT * FROM table", (state, c) -> states.add(state));
     assertTrue(states.stream().allMatch(s -> s == SqlCommentParser.State.NORMAL));
   }
 
   @Test
   public void testForEachLineCommentsAreIgnored() {
     List<SqlCommentParser.State> states = new ArrayList<>();
-    SqlCommentParser.forEach("-- comment", (state, c) -> states.add(state));
+    SqlCommentParser.forEachNonCommentChar("-- comment", (state, c) -> states.add(state));
     assertEquals(0, states.size());
   }
 
   @Test
   public void testForEachSingleLineBlockCommentsAreIgnored() {
     List<SqlCommentParser.State> states = new ArrayList<>();
-    SqlCommentParser.forEach("/* single line */", (state, c) -> states.add(state));
+    SqlCommentParser.forEachNonCommentChar("/* single line */", (state, c) -> states.add(state));
     assertEquals(1, states.size());
     assertEquals(SqlCommentParser.State.NORMAL, states.get(0));
   }
@@ -359,7 +359,7 @@ public class SqlCommentParserTest {
   @Test
   public void testForEachMultiLineBlockCommentsAreIgnored() {
     List<SqlCommentParser.State> states = new ArrayList<>();
-    SqlCommentParser.forEach("/*\nmulti line\n*/", (state, c) -> states.add(state));
+    SqlCommentParser.forEachNonCommentChar("/*\nmulti line\n*/", (state, c) -> states.add(state));
     assertEquals(1, states.size());
     assertEquals(SqlCommentParser.State.NORMAL, states.get(0));
   }
@@ -367,28 +367,29 @@ public class SqlCommentParserTest {
   @Test
   public void testForEachSingleQuotedCharsHaveSingleQuotedState() {
     List<SqlCommentParser.State> states = new ArrayList<>();
-    SqlCommentParser.forEach("'foo -- comment /* comment */'", (state, c) -> states.add(state));
+    SqlCommentParser.forEachNonCommentChar(
+        "'foo -- comment /* comment */'", (state, c) -> states.add(state));
     assertTrue(states.stream().allMatch(s -> s == SqlCommentParser.State.IN_SINGLE_QUOTE));
   }
 
   @Test
   public void testForEachDoubleQuotedCharsHaveDoubleQuotedState() {
     List<SqlCommentParser.State> states = new ArrayList<>();
-    SqlCommentParser.forEach("\"foo -- comment\"", (state, c) -> states.add(state));
+    SqlCommentParser.forEachNonCommentChar("\"foo -- comment\"", (state, c) -> states.add(state));
     assertTrue(states.stream().allMatch(s -> s == SqlCommentParser.State.IN_DOUBLE_QUOTE));
   }
 
   @Test
   public void testForEachEmitsSyntheticSpaceOnBlockCommentExit() {
     List<Character> chars = new ArrayList<>();
-    SqlCommentParser.forEach("a/*x*/b", (state, c) -> chars.add(c));
+    SqlCommentParser.forEachNonCommentChar("a/*x*/b", (state, c) -> chars.add(c));
     assertEquals(List.of('a', ' ', 'b'), chars);
   }
 
   @Test
   public void testForEachEmitsSyntheticSpaceOnLineCommentExit() {
     List<Character> chars = new ArrayList<>();
-    SqlCommentParser.forEach("a--x\nb", (state, c) -> chars.add(c));
+    SqlCommentParser.forEachNonCommentChar("a--x\nb", (state, c) -> chars.add(c));
     assertEquals(List.of('a', ' ', 'b'), chars);
   }
 }

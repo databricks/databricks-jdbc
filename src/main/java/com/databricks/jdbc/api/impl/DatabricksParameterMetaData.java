@@ -148,7 +148,7 @@ public class DatabricksParameterMetaData implements ParameterMetaData {
     }
 
     int[] count = {0};
-    SqlCommentParser.forEach(
+    SqlCommentParser.forEachNonCommentChar(
         sql,
         (state, c) -> {
           if (state == SqlCommentParser.State.NORMAL && c == '?') {

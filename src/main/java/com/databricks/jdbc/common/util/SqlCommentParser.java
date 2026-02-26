@@ -25,7 +25,7 @@ public class SqlCommentParser {
    * @param sql the SQL string to parse
    * @param consumer called for each visible character with its parsing state
    */
-  public static void forEach(String sql, SqlCharConsumer consumer) {
+  public static void forEachNonCommentChar(String sql, SqlCharConsumer consumer) {
     if (sql == null || sql.isEmpty()) {
       return;
     }
@@ -132,7 +132,7 @@ public class SqlCommentParser {
 
     StringBuilder result = new StringBuilder(sql.length());
     boolean[] lastWasSpace = {false};
-    forEach(
+    forEachNonCommentChar(
         sql,
         (state, c) -> {
           boolean isNormalWhitespace = state == State.NORMAL && Character.isWhitespace(c);
