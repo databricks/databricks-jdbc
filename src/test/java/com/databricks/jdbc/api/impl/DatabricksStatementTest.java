@@ -58,7 +58,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     ResultSet newResultSet = statement.executeQuery(STATEMENT);
@@ -82,7 +83,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     assertTrue(statement.execute(STATEMENT));
 
@@ -109,7 +111,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     int updateCount = statement.executeUpdate(updateSql);
@@ -135,7 +138,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     statement.executeQuery(STATEMENT);
@@ -157,7 +161,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // Execute DML statement
@@ -212,7 +217,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     assertTrue(statement.execute(STATEMENT));
 
@@ -777,7 +783,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // Execute a query to set up result set
@@ -828,7 +835,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(mockResultSet);
 
     // Execute a query to set up result set
@@ -894,7 +902,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // Execute query with empty ESCAPE clause
@@ -908,7 +917,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement));
+            eq(statement),
+            any());
   }
 
   private DatabricksConnection getTestConnection() throws DatabricksSQLException {
@@ -932,7 +942,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // Execute and get result set
@@ -959,7 +970,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // Execute SELECT query
@@ -983,7 +995,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     when(resultSet.getUpdateCount()).thenReturn(42L);
 
@@ -1007,7 +1020,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // Execute and advance past results
@@ -1033,7 +1047,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     when(resultSet.getUpdateCount()).thenReturn(largeCount);
 
@@ -1059,7 +1074,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // Execute query
@@ -1156,7 +1172,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // Execute INSERT statement
@@ -1187,7 +1204,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // Execute INSERT statement
@@ -1216,7 +1234,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // Execute DML statement
@@ -1260,7 +1279,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // executeQuery() with DML should throw exception
@@ -1285,7 +1305,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement));
+            eq(statement),
+            any());
 
     statement.close();
   }
@@ -1306,7 +1327,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // executeUpdate() with SELECT should throw exception
@@ -1331,7 +1353,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement));
+            eq(statement),
+            any());
 
     statement.close();
   }
@@ -1354,7 +1377,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // executeUpdate() with INSERT and NonRowcountQueryPrefixes=INSERT should throw exception
@@ -1376,7 +1400,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement));
+            eq(statement),
+            any());
 
     statement.close();
   }
@@ -1398,7 +1423,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // executeQuery() with INSERT and NonRowcountQueryPrefixes=INSERT should succeed
@@ -1426,7 +1452,8 @@ public class DatabricksStatementTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     // Execute INSERT with NonRowcountQueryPrefixes

@@ -810,6 +810,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     }
   }
 
+  /** {@inheritDoc} */
+  @Override
+  public int getOAuthWebServerTimeout() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.OAUTH_WEB_SERVER_TIMEOUT));
+  }
+
   @Override
   public Boolean getUseEmptyMetadata() {
     String param = getParameter(DatabricksJdbcUrlParams.USE_EMPTY_METADATA);
@@ -1027,6 +1033,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public int getSocketTimeout() {
     return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.SOCKET_TIMEOUT));
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public int getTelemetrySocketTimeout() {
+    return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.TELEMETRY_SOCKET_TIMEOUT));
   }
 
   @Override

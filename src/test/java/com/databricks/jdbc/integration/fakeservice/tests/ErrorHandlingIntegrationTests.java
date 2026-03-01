@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceConfigLoader;
@@ -135,5 +136,95 @@ public class ErrorHandlingIntegrationTests extends AbstractFakeServiceIntegratio
 
   private void getConnection(String url) throws SQLException {
     DriverManager.getConnection(url, "username", "password");
+  }
+
+  // --- Method mismatch tests (executeQuery with DML, executeUpdate with SELECT) ---
+
+  @Test
+  void testExecuteQuery_WithInsert_ThrowsSQLException() throws SQLException {
+    String tableName = "mismatch_insert_table";
+    setupDatabaseTable(connection, tableName);
+
+    Statement stmt = connection.createStatement();
+    String insertSQL =
+        "INSERT INTO "
+            + getFullyQualifiedTableName(tableName)
+            + " (id, col1, col2) VALUES (1, 'a', 'b')";
+
+    DatabricksSQLException e =
+        assertThrows(DatabricksSQLException.class, () -> stmt.executeQuery(insertSQL));
+    assertTrue(
+        e.getMessage().contains("ResultSet was expected but not generated"),
+        "Error message should indicate no ResultSet was generated, got: " + e.getMessage());
+
+    deleteTable(connection, tableName);
+  }
+
+  @Test
+  void testExecuteQuery_WithUpdate_ThrowsSQLException() throws SQLException {
+    String tableName = "mismatch_update_table";
+    setupDatabaseTable(connection, tableName);
+    insertTestData(connection, tableName);
+
+    Statement stmt = connection.createStatement();
+    String updateSQL =
+        "UPDATE " + getFullyQualifiedTableName(tableName) + " SET col1 = 'updated' WHERE id = 1";
+
+    DatabricksSQLException e =
+        assertThrows(DatabricksSQLException.class, () -> stmt.executeQuery(updateSQL));
+    assertTrue(
+        e.getMessage().contains("ResultSet was expected but not generated"),
+        "Error message should indicate no ResultSet was generated, got: " + e.getMessage());
+
+    deleteTable(connection, tableName);
+  }
+
+  @Test
+  void testExecuteQuery_WithDelete_ThrowsSQLException() throws SQLException {
+    String tableName = "mismatch_delete_table";
+    setupDatabaseTable(connection, tableName);
+    insertTestData(connection, tableName);
+
+    Statement stmt = connection.createStatement();
+    String deleteSQL = "DELETE FROM " + getFullyQualifiedTableName(tableName) + " WHERE id = 1";
+
+    DatabricksSQLException e =
+        assertThrows(DatabricksSQLException.class, () -> stmt.executeQuery(deleteSQL));
+    assertTrue(
+        e.getMessage().contains("ResultSet was expected but not generated"),
+        "Error message should indicate no ResultSet was generated, got: " + e.getMessage());
+
+    deleteTable(connection, tableName);
+  }
+
+  @Test
+  void testExecuteUpdate_WithSelect_ThrowsSQLException() throws SQLException {
+    Statement stmt = connection.createStatement();
+
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> stmt.executeUpdate("SELECT 1 AS num"),
+        "executeUpdate() with SELECT should throw because result has no update count column");
+  }
+
+  @Test
+  void testPreparedStatement_StatementMethodsWithSQL_ThrowException() throws SQLException {
+    String selectSQL = "SELECT 1";
+    PreparedStatement pstmt = connection.prepareStatement(selectSQL);
+
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> pstmt.executeQuery("SELECT 2"),
+        "PreparedStatement.executeQuery(String) should throw");
+
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> pstmt.executeUpdate("INSERT INTO dummy VALUES (1)"),
+        "PreparedStatement.executeUpdate(String) should throw");
+
+    assertThrows(
+        DatabricksSQLFeatureNotImplementedException.class,
+        () -> pstmt.execute("SELECT 3"),
+        "PreparedStatement.execute(String) should throw");
   }
 }

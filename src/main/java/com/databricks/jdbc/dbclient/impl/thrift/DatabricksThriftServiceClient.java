@@ -13,6 +13,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -149,9 +150,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatementInternal parentStatement)
+      IDatabricksStatementInternal parentStatement,
+      MetadataOperationType metadataOperationType)
       throws SQLException {
-
+    // Note: metadataOperationType is ignored in Thrift mode as metadata operations use native
+    // Thrift RPCs (GetTables, GetColumns, etc.) which are already logged correctly.
     LOGGER.debug(
         String.format(
             "public DatabricksResultSet executeStatement(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s}, StatementType statementType = {%s}, IDatabricksSession session)",
@@ -574,6 +577,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
               Collections.emptyMap(),
               StatementType.METADATA,
               session,
+              null,
               null)) {
         return metadataResultSetBuilder.getFunctionsResult(rs, catalog);
       }

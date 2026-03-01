@@ -192,7 +192,8 @@ public class DatabricksThriftServiceClientTest {
           Collections.emptyMap(),
           StatementType.SQL,
           session,
-          parentStatement);
+          parentStatement,
+          null);
     } catch (Exception e) {
       // expect this to throw since thriftAccessor is mocked
       // only interested in capturing the request
@@ -290,7 +291,8 @@ public class DatabricksThriftServiceClientTest {
             Collections.emptyMap(),
             StatementType.SQL,
             session,
-            parentStatement);
+            parentStatement,
+            null);
     assertEquals(resultSet, actualResultSet);
   }
 
@@ -332,7 +334,8 @@ public class DatabricksThriftServiceClientTest {
             Collections.emptyMap(),
             StatementType.SQL,
             session,
-            parentStatement);
+            parentStatement,
+            null);
     assertEquals(resultSet, actualResultSet);
   }
 
@@ -744,7 +747,13 @@ public class DatabricksThriftServiceClientTest {
         .thenReturn(resultSet);
 
     client.executeStatement(
-        TEST_STRING, CLUSTER_COMPUTE, Collections.emptyMap(), StatementType.SQL, session, null);
+        TEST_STRING,
+        CLUSTER_COMPUTE,
+        Collections.emptyMap(),
+        StatementType.SQL,
+        session,
+        null,
+        null);
 
     ArgumentCaptor<TExecuteStatementReq> requestCaptor =
         ArgumentCaptor.forClass(TExecuteStatementReq.class);
@@ -777,7 +786,8 @@ public class DatabricksThriftServiceClientTest {
         Collections.emptyMap(),
         StatementType.SQL,
         session,
-        parentStatement);
+        parentStatement,
+        null);
 
     ArgumentCaptor<TExecuteStatementReq> requestCaptor =
         ArgumentCaptor.forClass(TExecuteStatementReq.class);

@@ -3,7 +3,6 @@ package com.databricks.jdbc.telemetry;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_TAGS;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
-import com.databricks.jdbc.api.impl.DatabricksConnection;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
@@ -481,57 +480,6 @@ public class TelemetryHelper {
       }
     } catch (Exception e) {
       LOGGER.trace("Error setting result format telemetry: {}", e.getMessage());
-    }
-  }
-
-  /**
-   * Records a result set iteration. Silently ignores errors.
-   *
-   * @param connectionContext The connection context
-   * @param statementId The statement ID
-   * @param chunkCount The total number of chunks
-   * @param hasNext Whether there are more rows
-   */
-  public static void recordResultSetIteration(
-      IDatabricksConnectionContext connectionContext,
-      String statementId,
-      long chunkCount,
-      boolean hasNext) {
-    try {
-      if (connectionContext != null) {
-        TelemetryCollectorManager.getInstance()
-            .getOrCreateCollector(connectionContext)
-            .recordResultSetIteration(statementId, chunkCount, hasNext);
-      }
-    } catch (Exception e) {
-      LOGGER.trace("Error recording result set iteration telemetry: {}", e.getMessage());
-    }
-  }
-
-  /**
-   * Records a result set iteration from a parent statement. Extracts connection context safely and
-   * silently ignores all errors.
-   *
-   * @param parentStatement The parent statement (can be null)
-   * @param statementId The statement ID
-   * @param chunkCount The total number of chunks (can be null)
-   * @param hasNext Whether there are more rows
-   */
-  public static void recordResultSetIteration(
-      IDatabricksStatementInternal parentStatement,
-      StatementId statementId,
-      Long chunkCount,
-      boolean hasNext) {
-    try {
-      if (parentStatement != null && chunkCount != null) {
-        IDatabricksConnectionContext connectionContext =
-            ((DatabricksConnection) parentStatement.getStatement().getConnection())
-                .getConnectionContext();
-        recordResultSetIteration(
-            connectionContext, statementId.toSQLExecStatementId(), chunkCount, hasNext);
-      }
-    } catch (Exception e) {
-      LOGGER.trace("Error getting connection context for telemetry: {}", e.getMessage());
     }
   }
 

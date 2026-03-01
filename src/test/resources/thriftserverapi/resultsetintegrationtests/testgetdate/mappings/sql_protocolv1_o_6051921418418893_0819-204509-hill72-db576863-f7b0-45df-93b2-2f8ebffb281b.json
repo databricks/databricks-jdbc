@@ -1,0 +1,37 @@
+{
+  "id" : "db576863-f7b0-45df-93b2-2f8ebffb281b",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAQwAAQwAAQsAAQAAABBl3CE2vWZOXKebMX7+SDpWCwACAAAAEMwjIws/1EllrETdC5EwFYMAAAsAAgAAAC1TRUxFQ1QgQ0FTVCgnMjAyNC0wNi0xNScgQVMgREFURSkgQVMgZGF0ZV92YWwKAAUAAAAAAAAAAAwFAQoAAQAAAAAAHoSACgACAAAAABghowAAAgUCAQIFAwECBQQBDAUGAgABAQIAAgECAAMBAgAEAQIABQEADwUIDAAAAAAAAA=="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEE06X9EMWUOxmm06O94LXWgLAAIAAAAQzvmvzowtTY6bjj3PdDKH4QYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAggNAgAAAAAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAQsAAQAAAAhkYXRlX3ZhbAwAAg8AAQwAAAABDAABCAABAAAAEQAAAAgAAwAAAAELAAQAAAAAAAAIBQEAAAAAAgUCAQsFAwAAARj/////EAEAABAAAAAAAAoADgAGAA0ACAAKAAAAAAAEABAAAAAAAQoADAAAAAgABAAKAAAACAAAAAgAAAAAAAAAAQAAABgAAAAAABIAGAAUABMAEgAMAAAACAAEABIAAAAUAAAAjAAAAJQAAAAAAAgBlAAAAAIAAABEAAAABAAAAMz///8IAAAAEAAAAAYAAAAiZGF0ZSIAABcAAABTcGFyazpEYXRhVHlwZTpKc29uVHlwZQAIAAwACAAEAAgAAAAIAAAAEAAAAAQAAABEQVRFAAAAABYAAABTcGFyazpEYXRhVHlwZTpTcWxOYW1lAAAAAAAAAAAGAAgABgAGAAAAAAAAAAgAAABkYXRlX3ZhbAAAAAAAAAAACAUEAAAAAAoFBQAAAAAAAACgCgUGAAAAAAAAAIYCBQcACA0BAAAABQoNBQAAAAAAAAAAAg0RAAINEwEADAADDAABCAABAAAAAAACAAIADAADCgABAAAAAAAAAAAPAAIMAAAAAA8FAQwAAAABCwABAAAAhgQiTRh0cI5vAAAAov////+IAAAAFAABAPICDAAWAA4AFQAQAAQADAAAABAXAEIAAAAEDADDAwoAGAAMAAgABAAKOABROAAAAAEkAAICABICBwABAgAEGAARCA4AAEYAAAYAAgIAABwAAAQACAIABBAAgLFNAAAAAAAAgGFUYgAAAABsPWvsCgACAAAAAAAAAAEAAAAMAAQMAAEIAAEAAAAAAAAAAAA=",
+    "headers" : {
+      "x-request-id" : "790d3a30-046f-42a9-84a8-a33210539135",
+      "date" : "Tue, 17 Feb 2026 15:59:40 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-databricks-popp-fast-path-routing-reason" : "not_possible_fast_path_token",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-popp-shadow-routing-reason" : "spog-domain-checker-false",
+      "x-databricks-upstream-cluster" : "oregon-staging-h2",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "server-timing" : "request_id;dur=0;desc=\"790d3a30-046f-42a9-84a8-a33210539135\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "db576863-f7b0-45df-93b2-2f8ebffb281b",
+  "insertionIndex" : 21
+}

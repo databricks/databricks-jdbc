@@ -1,0 +1,37 @@
+{
+  "id" : "b3f21d85-3620-42b4-b98f-8ae7281a2f52",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAAAxHZXRGdW5jdGlvbnMAAAACDAABDAABDAABCwABAAAAEM67wywxtUdvsPMRfsXIx/4LAAIAAAAQEvSMh2DRRsGMG9ijUYaH6AAACwACAAAABG1haW4LAAMAAAAQamRiY190ZXN0X3NjaGVtYQsABAAAAAElDAUBCgABAAAAAAAehIAKAAIAAAAAGCGjAAACBQIBAAA="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAAAxHZXRGdW5jdGlvbnMAAAACDAAADAABCAABAAAAAAAMAAIMAAELAAEAAAAQc9nmqm9YQXut3fFmvOulZgsAAgAAABD2FgkfETxAVpxxMAIemv9MBg0BAAAACAACAAAABwIAAwEADAUBDAABDAABCAABAAAAAAAIAAIAAAACCA0CAAAAAAAMAAIMAAEIAAEAAAAAAAwAAg8AAQwAAAAGCwABAAAADEZVTkNUSU9OX0NBVAwAAg8AAQwAAAABDAABCAABAAAABwAAAAgAAwAAAAELAAQAAAAeRnVuY3Rpb24gY2F0YWxvZyAobWF5IGJlIG51bGwpAAsAAQAAAA5GVU5DVElPTl9TQ0hFTQwAAg8AAQwAAAABDAABCAABAAAABwAAAAgAAwAAAAILAAQAAAAdRnVuY3Rpb24gc2NoZW1hIChtYXkgYmUgbnVsbCkACwABAAAADUZVTkNUSU9OX05BTUUMAAIPAAEMAAAAAQwAAQgAAQAAAAcAAAAIAAMAAAADCwAEAAAAO0Z1bmN0aW9uIG5hbWUuIFRoaXMgaXMgdGhlIG5hbWUgdXNlZCB0byBpbnZva2UgdGhlIGZ1bmN0aW9uAAsAAQAAAAdSRU1BUktTDAACDwABDAAAAAEMAAEIAAEAAAAHAAAACAADAAAABAsABAAAACNFeHBsYW5hdG9yeSBjb21tZW50IG9uIHRoZSBmdW5jdGlvbgALAAEAAAANRlVOQ1RJT05fVFlQRQwAAg8AAQwAAAABDAABCAABAAAAAwAAAAgAAwAAAAULAAQAAAARS2luZCBvZiBmdW5jdGlvbi4ACwABAAAADVNQRUNJRklDX05BTUUMAAIPAAEMAAAAAQwAAQgAAQAAAAcAAAAIAAMAAAAGCwAEAAAAQlRoZSBuYW1lIHdoaWNoIHVuaXF1ZWx5IGlkZW50aWZpZXMgdGhpcyBmdW5jdGlvbiB3aXRoaW4gaXRzIHNjaGVtYQAACAUBAAAAAQgNAQAAAAgADAADDAABCAABAAAAAAACAAIADAADCgABAAAAAAAAAAAPAAIMAAAAAA8AAwwAAAAGDAAHDwABCwAAAAALAAIAAAABAAAADAAHDwABCwAAAAALAAIAAAABAAAADAAHDwABCwAAAAALAAIAAAABAAAADAAHDwABCwAAAAALAAIAAAABAAAADAAEDwABCAAAAAALAAIAAAABAAAADAAHDwABCwAAAAALAAIAAAABAAAAAAAMAAQMAAEIAAEAAAAAAAAAAAA=", // gitleaks:allow
+    "headers" : {
+      "x-request-id" : "44ce8fdc-f13d-4b48-8c05-6130dbe92c81",
+      "date" : "Thu, 26 Feb 2026 07:32:29 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-databricks-popp-fast-path-routing-reason" : "not_eligible",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-popp-shadow-routing-reason" : "spog-domain-checker-false",
+      "x-databricks-upstream-cluster" : "oregon-staging-h2",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "server-timing" : "request_id;dur=0;desc=\"44ce8fdc-f13d-4b48-8c05-6130dbe92c81\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "b3f21d85-3620-42b4-b98f-8ae7281a2f52",
+  "insertionIndex" : 18
+}

@@ -5,6 +5,7 @@ import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.JdbcThreadUtils;
 import com.databricks.jdbc.common.util.WildcardUtil;
@@ -59,13 +60,15 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
       }
       String SQL = String.format("SELECT '%s' AS catalog", currentCatalog);
       LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
-      return metadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session));
+      return metadataResultSetBuilder.getCatalogsResult(
+          getResultSet(SQL, session, MetadataOperationType.GET_CATALOGS));
     }
 
     CommandBuilder commandBuilder = new CommandBuilder(session);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_CATALOGS);
     LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
-    return metadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session));
+    return metadataResultSetBuilder.getCatalogsResult(
+        getResultSet(SQL, session, MetadataOperationType.GET_CATALOGS));
   }
 
   @Override
@@ -94,7 +97,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     String SQL = commandBuilder.getSQLString(CommandName.LIST_SCHEMAS);
     LOGGER.debug("SQL command to fetch schemas: {}", SQL);
     try {
-      return metadataResultSetBuilder.getSchemasResult(getResultSet(SQL, session), catalog);
+      return metadataResultSetBuilder.getSchemasResult(
+          getResultSet(SQL, session, MetadataOperationType.GET_SCHEMAS), catalog);
     } catch (SQLException e) {
       if (WildcardUtil.isNullOrWildcard(catalog)
           && PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())) {
@@ -139,7 +143,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     LOGGER.debug(String.format("SQL command to fetch tables: {%s}", SQL));
     try {
       return metadataResultSetBuilder.getTablesResult(
-          getResultSet(SQL, session), validatedTableTypes);
+          getResultSet(SQL, session, MetadataOperationType.GET_TABLES), validatedTableTypes);
     } catch (SQLException e) {
       if (PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())
           && (catalog == null || catalog.equals("*") || catalog.equals("%"))) {
@@ -190,7 +194,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             .setColumnPattern(columnNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_COLUMNS);
     LOGGER.debug("SQL command to fetch columns: {}", SQL);
-    return metadataResultSetBuilder.getColumnsResult(getResultSet(SQL, session));
+    return metadataResultSetBuilder.getColumnsResult(
+        getResultSet(SQL, session, MetadataOperationType.GET_COLUMNS));
   }
 
   @Override
@@ -229,7 +234,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
             .setFunctionPattern(functionNamePattern);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FUNCTIONS);
     LOGGER.debug("SQL command to fetch functions: {}", SQL);
-    return metadataResultSetBuilder.getFunctionsResult(getResultSet(SQL, session), catalog);
+    return metadataResultSetBuilder.getFunctionsResult(
+        getResultSet(SQL, session, MetadataOperationType.GET_FUNCTIONS), catalog);
   }
 
   @Override
@@ -261,7 +267,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
     LOGGER.debug("SQL command to fetch primary keys: {}", SQL);
-    return metadataResultSetBuilder.getPrimaryKeysResult(getResultSet(SQL, session));
+    return metadataResultSetBuilder.getPrimaryKeysResult(
+        getResultSet(SQL, session, MetadataOperationType.GET_PRIMARY_KEYS));
   }
 
   @Override
@@ -295,7 +302,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         new CommandBuilder(catalog, session).setSchema(schema).setTable(table);
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
     try {
-      return metadataResultSetBuilder.getImportedKeysResult(getResultSet(SQL, session));
+      return metadataResultSetBuilder.getImportedKeysResult(
+          getResultSet(SQL, session, MetadataOperationType.GET_CROSS_REFERENCE));
     } catch (SQLException e) {
       if (PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())) {
         // This is a workaround for the issue where the SQL command fails with "syntax error at or
@@ -350,7 +358,10 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
     try {
       return metadataResultSetBuilder.getCrossReferenceKeysResult(
-          getResultSet(SQL, session), parentCatalog, parentSchema, parentTable);
+          getResultSet(SQL, session, MetadataOperationType.GET_CROSS_REFERENCE),
+          parentCatalog,
+          parentSchema,
+          parentTable);
     } catch (SQLException e) {
       if (PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())) {
         // This is a workaround for the issue where the SQL command fails with "syntax error at or
@@ -392,7 +403,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
     return catalog;
   }
 
-  private DatabricksResultSet getResultSet(String SQL, IDatabricksSession session)
+  private DatabricksResultSet getResultSet(
+      String SQL, IDatabricksSession session, MetadataOperationType metadataOperationType)
       throws SQLException {
     return sdkClient.executeStatement(
         SQL,
@@ -400,7 +412,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
         new HashMap<>(),
         StatementType.METADATA,
         session,
-        null /* parentStatement */);
+        null /* parentStatement */,
+        metadataOperationType);
   }
 
   private DatabricksResultSet fetchSchemasAcrossCatalogs(

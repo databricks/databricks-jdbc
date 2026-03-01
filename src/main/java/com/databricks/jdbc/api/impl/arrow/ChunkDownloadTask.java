@@ -48,15 +48,23 @@ class ChunkDownloadTask implements DatabricksCallableTask {
     DatabricksThreadContextHolder.setConnectionContext(this.connectionContext);
     DatabricksThreadContextHolder.setStatementId(this.statementId);
 
+    long taskStartTime = System.nanoTime();
     try {
       DatabricksThreadContextHolder.setRetryCount(retries);
       while (!downloadSuccessful) {
         try {
           if (chunk.isChunkLinkInvalid()) {
+            long linkWaitStart = System.nanoTime();
             ExternalLink link =
                 linkDownloadService
                     .getLinkForChunk(chunk.getChunkIndex())
                     .get(); // Block until link is available
+            long linkWaitMs = (System.nanoTime() - linkWaitStart) / 1_000_000;
+            LOGGER.debug(
+                "Link wait: statementId={}, chunkIndex={}, linkWaitMs={}",
+                statementId,
+                chunk.getChunkIndex(),
+                linkWaitMs);
             chunk.setChunkLink(link);
           }
 
@@ -65,6 +73,13 @@ class ChunkDownloadTask implements DatabricksCallableTask {
               chunkDownloader.getCompressionCodec(),
               connectionContext != null ? connectionContext.getCloudFetchSpeedThreshold() : 0.1);
           downloadSuccessful = true;
+          long taskTotalMs = (System.nanoTime() - taskStartTime) / 1_000_000;
+          LOGGER.debug(
+              "ChunkDownloadTask complete: statementId={}, chunkIndex={}, totalTaskMs={}, retries={}",
+              statementId,
+              chunk.getChunkIndex(),
+              taskTotalMs,
+              retries);
         } catch (IOException | DatabricksSQLException e) {
           retries++;
           if (retries >= MAX_RETRIES) {

@@ -339,7 +339,8 @@ public class DatabricksSession implements IDatabricksSession {
               new HashMap<>(),
               StatementType.METADATA,
               this,
-              null);
+              null,
+              null /* metadataOperationType */);
 
       if (resultSet.next()) {
         String currentCatalog = resultSet.getString(1);

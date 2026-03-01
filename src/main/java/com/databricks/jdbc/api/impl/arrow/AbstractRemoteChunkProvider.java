@@ -156,6 +156,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
 
     T chunk = chunkIndexToChunksMap.get(currentChunkIndex);
 
+    long waitStart = System.nanoTime();
     try {
       chunk.waitForChunkReady();
     } catch (InterruptedException e) {
@@ -174,6 +175,12 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
       throw new DatabricksSQLException(
           "Failed to ready chunk", e.getCause(), DatabricksDriverErrorCode.CHUNK_READY_ERROR);
     }
+    long waitMs = (System.nanoTime() - waitStart) / 1_000_000;
+    LOGGER.debug(
+        "Chunk ready: statementId={}, chunkIndex={}, waitMs={}",
+        statementId,
+        chunk.getChunkIndex(),
+        waitMs);
 
     return chunk;
   }

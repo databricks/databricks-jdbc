@@ -1,0 +1,37 @@
+{
+  "id" : "17b22100-edc7-4aef-bc96-01dca0a24828",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAQwAAQwAAQsAAQAAABAadRgr+PBC/IIXasaP4iuRCwACAAAAENAiwlV6t0m0swvEm8Peg6QAAAsAAgAAAB9TRUxFQ1QgNDIgQVMgaWQsICd0ZXN0JyBBUyBuYW1lCgAFAAAAAAAAAAAMBQEKAAEAAAAAAB6EgAoAAgAAAAAYIaMAAAIFAgECBQMBAgUEAQwFBgIAAQECAAIBAgADAQIABAECAAUBAA8FCAwAAAAAAAA="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEDRRGKphp0mlkNMawP68aCELAAIAAAAQQ+69kR7FTx2z6nQZ9/TCUwYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAggNAgAAAAAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAgsAAQAAAAJpZAwAAg8AAQwAAAABDAABCAABAAAAAwAAAAgAAwAAAAELAAQAAAAAAAsAAQAAAARuYW1lDAACDwABDAAAAAEMAAEIAAEAAAAHAAAACAADAAAAAgsABAAAAAAAAAgFAQAAAAACBQIBCwUDAAABuP////+wAQAAEAAAAAAACgAOAAYADQAIAAoAAAAAAAQAEAAAAAABCgAMAAAACAAEAAoAAAAIAAAACAAAAAAAAAACAAAAwAAAAAQAAABa////FAAAAIgAAACMAAAAAAAABYgAAAACAAAAQAAAAAQAAAAQ////CAAAABQAAAAIAAAAInN0cmluZyIAAAAAFwAAAFNwYXJrOkRhdGFUeXBlOkpzb25UeXBlAEj///8IAAAAEAAAAAYAAABTVFJJTkcAABYAAABTcGFyazpEYXRhVHlwZTpTcWxOYW1lAAAAAAAABAAEAAQAAAAEAAAAbmFtZQAAEgAYABQAAAATAAwAAAAIAAQAEgAAABQAAACMAAAAlAAAAAAAAAKYAAAAAgAAAEgAAAAEAAAAyP///wgAAAAUAAAACQAAACJpbnRlZ2VyIgAAABcAAABTcGFyazpEYXRhVHlwZTpKc29uVHlwZQAIAAwACAAEAAgAAAAIAAAADAAAAAMAAABJTlQAFgAAAFNwYXJrOkRhdGFUeXBlOlNxbE5hbWUAAAAAAAAIAAwACAAHAAgAAAAAAAABIAAAAAIAAABpZAAACAUEAAAAAAoFBQAAAAAAAAD4CgUGAAAAAAAAAK0CBQcACA0BAAAABQoNBQAAAAAAAAAAAg0RAAINEwEADAADDAABCAABAAAAAAACAAIADAADCgABAAAAAAAAAAAPAAIMAAAAAA8FAQwAAAABCwABAAAArQQiTRh0cI6WAAAAov/////IAAAAFAABAPICDAAWAA4AFQAQAAQADAAAACgXAGAAAAAEABAIAMMDCgAYAAwACAAEAAo4AFBoAAAAARwAAwIAEwUIAAACAAQYABAIDQABRgABBwACTAAHOAARGA4ABigAECANAAcwAAACABcCMAAEAgAEYAAEAgAEEAATKhEABBAAAAIAAHwAgHRlc3QAAAAAVfkEjwAAAADkBLgeCgACAAAAAAAAAAEAAAAMAAQMAAEIAAEAAAAAAAAAAAA=", // gitleaks:allow
+    "headers" : {
+      "x-request-id" : "a59af77d-3b9f-421f-9085-a483f4fbdb36",
+      "date" : "Wed, 18 Feb 2026 04:58:43 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-databricks-popp-fast-path-routing-reason" : "not_eligible",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-popp-shadow-routing-reason" : "spog-domain-checker-false",
+      "x-databricks-upstream-cluster" : "oregon-staging-h2",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "server-timing" : "request_id;dur=0;desc=\"a59af77d-3b9f-421f-9085-a483f4fbdb36\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "17b22100-edc7-4aef-bc96-01dca0a24828",
+  "insertionIndex" : 33
+}

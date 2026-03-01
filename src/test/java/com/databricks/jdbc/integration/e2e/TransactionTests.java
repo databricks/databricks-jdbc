@@ -344,16 +344,25 @@ public class TransactionTests {
   }
 
   @Test
-  @DisplayName("Should safely handle ROLLBACK without active transaction (no-op)")
-  void testRollbackWithoutActiveTransactionIsNoOp() throws SQLException {
+  @DisplayName("Should throw exception when rolling back without active transaction")
+  void testRollbackWithoutActiveTransactionThrows() throws SQLException {
     // With autoCommit=true (no active transaction)
     assertTrue(connection.getAutoCommit());
 
-    // ROLLBACK is more forgiving than COMMIT - it should succeed as a no-op
-    // when there's no active transaction
-    assertDoesNotThrow(
-        () -> connection.rollback(),
-        "ROLLBACK should be a safe no-op when autocommit=true (no active transaction)");
+    // ROLLBACK should throw an exception when there is no active transaction
+    // (connection is in auto-commit mode)
+    DatabricksTransactionException exception =
+        assertThrows(
+            DatabricksTransactionException.class,
+            () -> connection.rollback(),
+            "ROLLBACK should throw exception when autocommit=true (no active transaction)");
+
+    assertTrue(
+        exception.getMessage().contains("auto-commit")
+            || exception.getMessage().contains("rollback")
+            || exception.getMessage().contains("No active transaction"),
+        "Exception message should indicate rollback is not valid in auto-commit mode. Got: "
+            + exception.getMessage());
 
     // Verify connection is still usable
     assertTrue(connection.getAutoCommit());

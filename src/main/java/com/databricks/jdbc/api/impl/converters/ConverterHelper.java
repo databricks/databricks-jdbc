@@ -472,6 +472,9 @@ public class ConverterHelper {
    */
   public static Object convertSqlTypeToSpecificJavaType(
       Class<?> javaType, int columnSqlType, Object obj) throws DatabricksSQLException {
+    if (obj == null) {
+      return null;
+    }
     // Get the appropriate converter for the SQL type
     ObjectConverter converter = getConverterForSqlType(columnSqlType);
     if (javaType == String.class) {
