@@ -32,6 +32,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -726,5 +727,47 @@ public class ClientConfiguratorTest {
     assertEquals(
         List.of(DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE),
         config.getScopes());
+  }
+
+  @Test
+  void testClose_ShutsDownSdkConnectionManager() throws Exception {
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
+    when(mockContext.getHostUrl()).thenReturn("https://test.databricks.com");
+    when(mockContext.getToken()).thenReturn("test-token");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+
+    configurator = new ClientConfigurator(mockContext);
+
+    PoolingHttpClientConnectionManager connManager = configurator.getSdkConnectionManager();
+    assertNotNull(connManager);
+
+    // getTotalStats() works on an active connection manager
+    assertDoesNotThrow(() -> connManager.getTotalStats());
+
+    configurator.close();
+
+    // After shutdown, leasing a connection should throw IllegalStateException
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            connManager.requestConnection(
+                new org.apache.http.conn.routing.HttpRoute(
+                    org.apache.http.HttpHost.create("https://test.databricks.com")),
+                null));
+  }
+
+  @Test
+  void testClose_IsIdempotent() throws Exception {
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
+    when(mockContext.getHostUrl()).thenReturn("https://test.databricks.com");
+    when(mockContext.getToken()).thenReturn("test-token");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+
+    configurator = new ClientConfigurator(mockContext);
+
+    assertDoesNotThrow(() -> configurator.close());
+    assertDoesNotThrow(() -> configurator.close());
   }
 }

@@ -60,6 +60,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private static final String ASYNC_TIMEOUT_VALUE = "0s";
+  private static final String HEADER_METADATA_OPERATION_TYPE =
+      "X-Databricks-Metadata-Operation-Type";
+
   private final IDatabricksConnectionContext connectionContext;
   private final ClientConfigurator clientConfigurator;
   private volatile WorkspaceClient workspaceClient;
@@ -181,16 +184,18 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatementInternal parentStatement)
+      IDatabricksStatementInternal parentStatement,
+      MetadataOperationType metadataOperationType)
       throws SQLException {
     LOGGER.debug(
-        "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session = {}, parentStatement = {})",
+        "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session = {}, parentStatement = {}, metadataOperationType = {})",
         sql,
         computeResource.toString(),
         parameters,
         statementType,
         session,
-        parentStatement);
+        parentStatement,
+        metadataOperationType);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
@@ -207,7 +212,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ExecuteStatementResponse response;
     try {
       Request req = new Request(Request.POST, STATEMENT_PATH, apiClient.serialize(request));
-      req.withHeaders(getHeaders("executeStatement", statementType, false));
+      Map<String, String> additionalHeaders = new HashMap<>();
+      if (metadataOperationType != null) {
+        additionalHeaders.put(
+            HEADER_METADATA_OPERATION_TYPE, metadataOperationType.getHeaderValue());
+      }
+      req.withHeaders(getHeaders("executeStatement", statementType, false, additionalHeaders));
       response = apiClient.execute(req, ExecuteStatementResponse.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement request";
@@ -549,11 +559,19 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   private Map<String, String> getHeaders(String method) {
-    return getHeaders(method, null, false);
+    return getHeaders(method, null, false, null);
   }
 
   private Map<String, String> getHeaders(
       String method, StatementType statementType, boolean isAsync) {
+    return getHeaders(method, statementType, isAsync, null);
+  }
+
+  private Map<String, String> getHeaders(
+      String method,
+      StatementType statementType,
+      boolean isAsync,
+      Map<String, String> additionalHeaders) {
     Map<String, String> headers = new HashMap<>(JSON_HTTP_HEADERS);
     if (connectionContext.isRequestTracingEnabled()) {
       String traceHeader = TracingUtil.getTraceHeader();
@@ -566,6 +584,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       headers.put("x-databricks-sea-can-run-fully-sync", "true");
       LOGGER.debug(
           "Adding x-databricks-sea-can-run-fully-sync header for synchronous metadata request");
+    }
+
+    // Add any additional headers passed by caller (e.g., metadata operation type)
+    if (additionalHeaders != null && !additionalHeaders.isEmpty()) {
+      headers.putAll(additionalHeaders);
+      LOGGER.debug("Adding additional headers: {}", additionalHeaders);
     }
 
     // Overriding with URL defined headers

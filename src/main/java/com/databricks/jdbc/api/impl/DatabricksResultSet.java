@@ -760,15 +760,19 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     Hence, we don't support it.*/
     LOGGER.debug("public void setFetchSize(int rows = {})", rows);
     checkIfClosed();
-    addWarningAndLog("As FetchSize is not supported in the Databricks JDBC, ignoring it");
+    String warningString = "As FetchSize is not supported in the Databricks JDBC, ignoring it";
+    LOGGER.debug(warningString);
+    warnings = WarningUtil.addWarning(warnings, warningString);
   }
 
   @Override
   public int getFetchSize() throws SQLException {
     LOGGER.debug("public int getFetchSize()");
     checkIfClosed();
-    addWarningAndLog(
-        "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place");
+    String warningString =
+        "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place";
+    LOGGER.debug(warningString);
+    warnings = WarningUtil.addWarning(warnings, warningString);
     return 0;
   }
 

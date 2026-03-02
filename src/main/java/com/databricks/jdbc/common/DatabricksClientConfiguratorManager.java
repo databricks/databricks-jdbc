@@ -75,6 +75,9 @@ public class DatabricksClientConfiguratorManager {
   }
 
   public void removeInstance(IDatabricksConnectionContext context) {
-    instances.remove(context.getConnectionUuid());
+    ClientConfigurator removed = instances.remove(context.getConnectionUuid());
+    if (removed != null) {
+      removed.close();
+    }
   }
 }

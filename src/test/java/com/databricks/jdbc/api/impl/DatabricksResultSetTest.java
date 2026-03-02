@@ -1303,7 +1303,7 @@ public class DatabricksResultSetTest {
     assertNull(resultSet.getObject(1, String.class));
     assertTrue(resultSet.wasNull());
   }
-  
+
   // --- Tests for TelemetryCollector caching in next() ---
   private DatabricksResultSet getResultSetWithTelemetry() throws SQLException {
     DatabricksConnection mockConnection = mock(DatabricksConnection.class);

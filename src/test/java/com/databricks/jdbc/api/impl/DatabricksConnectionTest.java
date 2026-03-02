@@ -114,6 +114,7 @@ public class DatabricksConnectionTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(),
+            any(),
             any()))
         .thenReturn(resultSet);
     when(databricksClient.executeStatement(
@@ -121,6 +122,7 @@ public class DatabricksConnectionTest {
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<>()),
             eq(StatementType.SQL),
+            any(),
             any(),
             any()))
         .thenReturn(resultSet);
@@ -147,6 +149,7 @@ public class DatabricksConnectionTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(),
+            any(),
             any()))
         .thenReturn(resultSet);
     connection.setCatalog(catalogWithHyphen);
@@ -158,6 +161,7 @@ public class DatabricksConnectionTest {
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<>()),
             eq(StatementType.SQL),
+            any(),
             any(),
             any()))
         .thenReturn(resultSet);
@@ -171,6 +175,7 @@ public class DatabricksConnectionTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(),
+            any(),
             any());
     verify(databricksClient)
         .executeStatement(
@@ -178,6 +183,7 @@ public class DatabricksConnectionTest {
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<>()),
             eq(StatementType.SQL),
+            any(),
             any(),
             any());
   }
@@ -199,6 +205,7 @@ public class DatabricksConnectionTest {
             eq(new HashMap<>()),
             eq(StatementType.QUERY),
             any(),
+            any(),
             any()))
         .thenReturn(resultSet);
     assertEquals(connection.getCatalog(), DEFAULT_CATALOG);
@@ -219,6 +226,7 @@ public class DatabricksConnectionTest {
             eq(new HashMap<>()),
             eq(StatementType.SQL),
             any(),
+            any(),
             any()))
         .thenThrow(
             new DatabricksSQLException(
@@ -229,6 +237,7 @@ public class DatabricksConnectionTest {
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<>()),
             eq(StatementType.SQL),
+            any(),
             any(),
             any()))
         .thenThrow(

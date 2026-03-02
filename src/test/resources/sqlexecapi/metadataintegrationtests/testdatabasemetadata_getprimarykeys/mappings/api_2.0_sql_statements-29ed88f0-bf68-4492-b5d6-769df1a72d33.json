@@ -1,0 +1,38 @@
+{
+  "id" : "29ed88f0-bf68-4492-b5d6-769df1a72d33",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SHOW KEYS IN CATALOG `main` IN SCHEMA `jdbc_test_schema` IN TABLE `meta_pk_test_table`\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01f10c19-0982-1c9f-afac-16991ea98b7f\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f10c19-0ccc-189d-9479-a17e6dc28097\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":14,\"columns\":[{\"name\":\"catalogName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":0},{\"name\":\"namespace\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":1},{\"name\":\"tableName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":2},{\"name\":\"col_name\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":3},{\"name\":\"keySeq\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":4},{\"name\":\"constraintName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":5},{\"name\":\"constraintType\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":6},{\"name\":\"parentCatalogName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":7},{\"name\":\"parentNamespace\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":8},{\"name\":\"parentTableName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":9},{\"name\":\"parentColName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":10},{\"name\":\"updateRule\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":11},{\"name\":\"deleteRule\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":12},{\"name\":\"deferrability\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":13}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":2224}],\"total_row_count\":1,\"total_byte_count\":2224,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":1087,\"external_link\":\"https://e2-dogfood-core.s3.us-west-2.amazonaws.com/oregon-staging/6051921418418893.jobs/sql/extended/results_2026-02-18T16%3A55%3A15Z_1405832c-9e72-4147-a383-6d5443383f04?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20260217T155515Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=cdb167c20930eaebfe7e1fa09bc5df6828b00f8b30d6f3e373172520aaa856c5\",\"expiration\":\"2026-02-17T16:10:15.842Z\"}]}}",
+    "headers" : {
+      "x-request-id" : "d68a46f9-f8e4-40fd-bf98-3a9fc6ca55bd",
+      "date" : "Tue, 17 Feb 2026 15:55:15 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-popp-fast-path-routing-reason" : "not_possible_fast_path_token",
+      "x-databricks-popp-shadow-routing-reason" : "spog-domain-checker-false",
+      "x-databricks-upstream-cluster" : "oregon-staging-h2",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "server-timing" : "request_id;dur=0;desc=\"d68a46f9-f8e4-40fd-bf98-3a9fc6ca55bd\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "29ed88f0-bf68-4492-b5d6-769df1a72d33",
+  "insertionIndex" : 18
+}
