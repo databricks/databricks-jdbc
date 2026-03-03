@@ -6,6 +6,7 @@
 - Added connection property `OAuthWebServerTimeout` to configure the OAuth browser authentication timeout for U2M (user-to-machine) flows, and also updated hardcoded 1-hour timeout to default 120 seconds timeout.
 
 ### Updated
+- Bumped `com.fasterxml.jackson.core:jackson-core` from 2.18.3 to 2.18.6.
 - Fat jar now routes SDK and Apache HTTP client logs through Java Util Logging (JUL), removing the need for external logging libraries.
 - PECOBLR-1121 Arrow patch to circumvent Arrow issues with JDK 16+.
 
