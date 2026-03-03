@@ -132,12 +132,12 @@ public class JulLoggerTest {
   }
 
   @Test
-  void testGetLogPatternStdout() throws IOException {
+  void testGetLogPatternStdout() {
     assertEquals(JulLogger.STDOUT, JulLogger.getLogPattern(JulLogger.STDOUT));
   }
 
   @Test
-  void testGetLogPatternWithDirectory(@TempDir Path tempDir) throws IOException {
+  void testGetLogPatternWithDirectory(@TempDir Path tempDir) {
     String logDir = tempDir.toString();
     String expected = tempDir.resolve(JulLogger.DATABRICKS_LOG_FILE).toString();
     assertEquals(expected, JulLogger.getLogPattern(logDir));
@@ -190,8 +190,8 @@ public class JulLoggerTest {
     String packagePrefix = JulLogger.PARENT_CLASS_PREFIX;
     // For unshaded JARs, it should be the default prefix
     assertTrue(
-        packagePrefix.endsWith("com.databricks.jdbc"),
-        "Package prefix should end with com.databricks.jdbc, got: " + packagePrefix);
+        packagePrefix.endsWith("com.databricks"),
+        "Package prefix should end with com.databricks, got: " + packagePrefix);
   }
 
   @Test
@@ -209,11 +209,11 @@ public class JulLoggerTest {
             actualPackageName, packagePrefix));
 
     // If the jar is shaded, the prefix should include the shading prefix
-    if (actualPackageName.contains(".") && !actualPackageName.startsWith("com.databricks.jdbc")) {
+    if (actualPackageName.contains(".") && !actualPackageName.startsWith("com.databricks")) {
       // This means we have a shaded jar
       assertTrue(
-          packagePrefix.contains("com.databricks.jdbc"),
-          "Shaded package prefix should still contain com.databricks.jdbc");
+          packagePrefix.contains("com.databricks"),
+          "Shaded package prefix should still contain com.databricks");
     }
   }
 

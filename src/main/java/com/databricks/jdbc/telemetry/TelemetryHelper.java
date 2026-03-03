@@ -3,6 +3,7 @@ package com.databricks.jdbc.telemetry;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_TAGS;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
+import com.databricks.jdbc.api.impl.arrow.ArrowBufferAllocator;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
@@ -116,6 +117,7 @@ public class TelemetryHelper {
             .setResultLatency(telemetryDetails.getResultLatency())
             .setOperationDetail(telemetryDetails.getOperationDetail())
             .setExecutionResultFormat(telemetryDetails.getExecutionResultFormat())
+            .setJavaUsesPatchedArrow(ArrowBufferAllocator.isUsingPatchedAllocator())
             .setChunkId(chunkIndex); // This is only set for chunk download failure logs
     telemetryEvent.setSqlOperation(sqlExecutionEvent);
 

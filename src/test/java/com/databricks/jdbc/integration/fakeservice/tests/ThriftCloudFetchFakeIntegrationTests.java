@@ -16,6 +16,8 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ExternalLink;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -26,8 +28,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,8 +40,8 @@ public class ThriftCloudFetchFakeIntegrationTests extends AbstractFakeServiceInt
   /** Table with a lot of rows to generate multiple CloudFetch chunks. */
   private static final String TABLE = "samples.tpch.lineitem";
 
-  private static final Logger LOGGER =
-      LogManager.getLogger(ThriftCloudFetchFakeIntegrationTests.class);
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(ThriftCloudFetchFakeIntegrationTests.class);
 
   @BeforeEach
   void setUp() throws Exception {

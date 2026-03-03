@@ -11,6 +11,7 @@ Notice - https://github.com/databricks/databricks-sdk-java/blob/main/NOTICE
 
 apache/arrow - https://github.com/apache/arrow/tree/main
 Copyright 2016-2025 The Apache Software Foundation
+*This software contains code modified by Databricks, Inc.*
 Notice - https://github.com/apache/arrow/blob/main/NOTICE.txt
 
 diffplug/spotless - https://github.com/diffplug/spotless/tree/main

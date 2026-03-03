@@ -48,7 +48,7 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Run Concurrency Execution Tests
-        run: mvn -B test -Dtest=com.databricks.jdbc.integration.e2e.ConcurrentExecutionTests -DargLine="-ea"
+        run: mvn -pl jdbc-core -B test -Dtest=com.databricks.jdbc.integration.e2e.ConcurrentExecutionTests -DargLine="-ea"
         env:
           DATABRICKS_TOKEN: ${{ secrets.JDBC_PAT_TEST_TOKEN }}
           DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}

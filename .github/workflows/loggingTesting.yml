@@ -45,13 +45,13 @@ jobs:
       - name: Find JAR file
         shell: bash
         run: |
-          # Find the main JAR file dynamically (fat JAR, not thin, not tests)
-          MAIN_JAR=$(find target -maxdepth 1 -name "databricks-jdbc-*.jar" \
+          # Find the main JAR file dynamically (uber JAR from assembly-uber module)
+          MAIN_JAR=$(find assembly-uber/target -maxdepth 1 -name "databricks-jdbc-*.jar" \
             -not -name "*-thin.jar" \
             -not -name "*-tests.jar" | head -1)
           if [ -z "$MAIN_JAR" ]; then
-            echo "ERROR: Could not find main JAR file in target directory"
-            ls -la target/
+            echo "ERROR: Could not find main JAR file in assembly-uber/target directory"
+            ls -la assembly-uber/target/
             exit 1
           fi
           echo "Using JAR file: $MAIN_JAR"
@@ -88,18 +88,18 @@ jobs:
       - name: Clean & Compile LoggingTest
         shell: bash
         run: |
-          rm -rf target/test-classes
-          mkdir -p target/test-classes
+          rm -rf jdbc-core/target/test-classes
+          mkdir -p jdbc-core/target/test-classes
           
           echo "Using JAR file: $MAIN_JAR"
           
           javac \
             -cp "$MAIN_JAR" \
-            -d target/test-classes \
-            src/test/java/com/databricks/client/jdbc/LoggingTest.java
+            -d jdbc-core/target/test-classes \
+            jdbc-core/src/test/java/com/databricks/client/jdbc/LoggingTest.java
           
           echo "==== Checking compiled classes ===="
-          find target/test-classes -type f
+          find jdbc-core/target/test-classes -type f
 
       - name: Run LoggingTest
         shell: bash
@@ -110,7 +110,7 @@ jobs:
           echo "Using classpath separator: '$SEP'"
           echo "Using JAR file: $MAIN_JAR"
           
-          CP="target/test-classes${SEP}$MAIN_JAR"
+          CP="jdbc-core/target/test-classes${SEP}$MAIN_JAR"
           
           java \
             --add-opens=java.base/java.nio=ALL-UNNAMED \
