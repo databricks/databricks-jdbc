@@ -210,7 +210,11 @@ public class ComplexDataTypeParser {
         } catch (IllegalArgumentException e) {
           // Arrow serializes DATE fields in nested types as epoch day integers.
           // Fall back to parsing as epoch day count (days since 1970-01-01).
-          return Date.valueOf(LocalDate.ofEpochDay(Long.parseLong(text)));
+          try {
+            return Date.valueOf(LocalDate.ofEpochDay(Long.parseLong(text)));
+          } catch (NumberFormatException nfe) {
+            throw e;
+          }
         }
       case DatabricksTypeUtil.TIMESTAMP:
         return parseTimestamp(text);

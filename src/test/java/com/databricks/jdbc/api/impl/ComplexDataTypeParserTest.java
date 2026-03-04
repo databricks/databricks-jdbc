@@ -205,6 +205,17 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
+  void testInvalidDateStringInStructThrowsOriginalException() {
+    // Non-numeric invalid date string should throw IllegalArgumentException, not
+    // NumberFormatException
+    String json = "[{\"event_date\":\"2026/02/03\"}]";
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> parser.parseJsonStringToDbArray(json, "ARRAY<STRUCT<event_date:DATE>>"));
+  }
+
+  @Test
   void testDateAsStringInStruct() throws DatabricksParsingException {
     // Ensure ISO-8601 date strings still work in nested structs
     String json = "[{\"event_date\":\"2026-02-03\"}]";
