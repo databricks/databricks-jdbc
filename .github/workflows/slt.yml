@@ -31,6 +31,6 @@ jobs:
         distribution: 'temurin'
         cache: maven
     - name: Build with Maven
-      run: mvn -B package --file pom.xml
+      run: mvn -pl jdbc-core -B package --file pom.xml -Dgroups='!Jvm17PlusAndArrowToNioReflectionDisabled'
     - name: Run SQL Logic Tests
-      run: mvn exec:exec -Dslt.token=${{ inputs.token }}
+      run: mvn -pl jdbc-core exec:exec -Dslt.token=${{ inputs.token }}

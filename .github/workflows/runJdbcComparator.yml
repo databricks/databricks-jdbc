@@ -47,7 +47,7 @@ jobs:
           echo "DATABRICKS_COMPARATOR_TOKEN=${DATABRICKS_COMPARATOR_TOKEN}" >> $GITHUB_ENV
 
       - name: Run Tests
-        run: mvn test -Dtest=JDBCDriverComparisonTest
+        run: mvn -pl jdbc-core test -Dtest=JDBCDriverComparisonTest
 
       - name: Format Email Content
         run: |

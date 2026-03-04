@@ -76,21 +76,51 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
+      - name: Set up Maven Toolchains
+        shell: bash
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/toolchains.xml <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <toolchains>
+            <toolchain>
+              <type>jdk</type>
+              <provides>
+                <version>${{ matrix.java-version }}</version>
+              </provides>
+              <configuration>
+                <jdkHome>$JAVA_HOME</jdkHome>
+              </configuration>
+            </toolchain>
+          </toolchains>
+          EOF
+
+      - name: Check Arrow Patch Tests
+        shell: bash
+        if: matrix.java-version >= 17
+        run: mvn -Pjdk${{ matrix.java-version }}-NioNotOpen -pl jdbc-core test -Dgroups='Jvm17PlusAndArrowToNioReflectionDisabled'
+
+      - name: Check Arrow Allocator Manager Tests
+        shell: bash
+        if: matrix.java-version >= 17
+        run: mvn -Pjdk${{ matrix.java-version }}-NioNotOpen -pl jdbc-core test -Dgroups='Jvm17PlusAndArrowToNioReflectionDisabled' -Dtest="ArrowBufferAllocatorNettyManagerTest,ArrowBufferAllocatorUnsafeManagerTest,ArrowBufferAllocatorUnknownManagerTest" -DforkCount=1 -DreuseForks=false
+
+      - name: Check Arrow Memory Tests
+        shell: bash
+        run: mvn -Plow-memory -pl jdbc-core test -Dtest='DatabricksArrowPatchMemoryUsageTest'
+
       - name: Check Unit Tests
         shell: bash
-        run: mvn test -Dtest='!**/integration/**,!**/DatabricksDriverExamples.java,!**/ProxyTest.java,!**/LoggingTest.java,!**/SSLTest.java'
+        run: mvn -pl jdbc-core clean test -Dgroups='!Jvm17PlusAndArrowToNioReflectionDisabled' jacoco:report
 
       - name: Install xmllint
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libxml2-utils
 
-      - name: JaCoCo report
-        run: mvn --batch-mode --errors jacoco:report --file pom.xml
-
       - name: Extract codeCov percentage
         shell: bash
         run: |
-          COVERAGE_FILE="target/site/jacoco/jacoco.xml"
+          COVERAGE_FILE="jdbc-core/target/site/jacoco/jacoco.xml"
           COVERED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@covered)" "$COVERAGE_FILE")
           MISSED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@missed)" "$COVERAGE_FILE")
           TOTAL=$((COVERED + MISSED))
@@ -115,3 +145,79 @@ jobs:
           else
             echo "Coverage is equal to or greater than 85%"
           fi
+
+  packaging-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        java-version: [ 17 ]
+        github-runner: [ linux-ubuntu-latest, windows-server-latest ]
+
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: ${{ matrix.github-runner }}
+
+    steps:
+      - name: Set up JDK ${{ matrix.java-version }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: 'adopt'
+
+      - name: Enable long paths
+        if: runner.os == 'Windows'
+        run: git config --system core.longpaths true
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          repository: ${{ github.event.pull_request.head.repo.full_name ||  github.repository }}
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Set up Maven Toolchains
+        shell: bash
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/toolchains.xml <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <toolchains>
+            <toolchain>
+              <type>jdk</type>
+              <provides>
+                <version>${{ matrix.java-version }}</version>
+              </provides>
+              <configuration>
+                <jdkHome>$JAVA_HOME</jdkHome>
+              </configuration>
+            </toolchain>
+          </toolchains>
+          EOF
+
+      - name: Install JDBC artifacts into maven local
+        shell: bash
+        run: mvn -B -pl jdbc-core,assembly-uber,assembly-thin install -DskipTests -Dmaven.javadoc.skip=true -Dmaven.source.skip=true -Ddependency-check.skip=true
+
+      - name: Check Uber Jar Packaging
+        shell: bash
+        run: mvn -pl test-assembly-uber test
+        env:
+          DATABRICKS_HOST: ${{ secrets.JDBC_PAT_TEST_HOST_NAME }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.JDBC_PAT_TEST_HTTP_PATH }}
+          DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+          DATABRICKS_TOKEN: ${{ secrets.JDBC_PAT_TEST_TOKEN }}
+
+      - name: Check Thin Jar Packaging
+        shell: bash
+        run:  mvn -pl test-assembly-thin test
+        env:
+          DATABRICKS_HOST: ${{ secrets.JDBC_PAT_TEST_HOST_NAME }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.JDBC_PAT_TEST_HTTP_PATH }}
+          DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+          DATABRICKS_TOKEN: ${{ secrets.JDBC_PAT_TEST_TOKEN }}
