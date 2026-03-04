@@ -18,8 +18,8 @@ Fix a GitHub issue with a minimal, well-tested change and create a PR linked to 
 
 ### Step 1: Fetch and Understand the Issue
 
-1. Determine the repo from the current git remote (default to `databricks/databricks-jdbc`).
-2. Use `gh issue view <number>` to fetch the issue title, description, reproduction steps, expected vs actual behavior, and environment details.
+1. Determine the target repo from the current git remote (default to `databricks/databricks-jdbc`) and use it as the resolved repo for all subsequent `gh` commands.
+2. Use `gh issue view <number> --repo <resolved-repo>` to fetch the issue title, description, reproduction steps, expected vs actual behavior, and environment details.
 3. Summarize your understanding of the bug to the user and ask for confirmation before proceeding.
 
 ### Step 2: Reproduce the Issue
@@ -59,10 +59,7 @@ Ensure adequate test coverage for the fix:
 
 ### Step 6: Create PR
 
-1. Ensure the correct GitHub account is active:
-   - For `databricks/*` repos (e.g., `databricks-jdbc`): use the non-EMU (personal) account.
-   - For `databricks-eng/*` repos: use the EMU (work) account.
-   - Check with `gh auth status` and switch if needed with `gh auth switch --user <account>`.
+1. Ensure the correct GitHub account is active for this repository, following `CLAUDE.md` guidance. Check with `gh auth status` and switch if needed with `gh auth switch --user <account>`.
 2. Create a descriptive branch: `fix/<issue-number>-<short-description>`
 3. Commit with DCO sign-off (`-s` flag) and a clear message referencing the issue.
 4. Push and create a PR with:
@@ -70,7 +67,7 @@ Ensure adequate test coverage for the fix:
    - Summary section explaining the bug and fix
    - Test plan section listing all tests added
    - `Closes #<issue-number>` in the body
-   - `NO_CHANGELOG=true` in the body if the fix is internal/minor (ask the user)
+   - A `NEXT_CHANGELOG.md` entry for user-facing changes, or `NO_CHANGELOG=true` for internal-only changes (see `CLAUDE.md` for guidance; ask the user if unclear)
 5. Share the PR URL with the user.
 
 ### Step 7: Research Related Issues
