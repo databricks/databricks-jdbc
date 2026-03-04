@@ -31,7 +31,9 @@ The `check-next-changelog` CI check verifies that either:
 - `NEXT_CHANGELOG.md` is modified in the PR, **or**
 - The PR description body contains `NO_CHANGELOG=true`
 
-For internal refactors, test-only changes, or fixes that don't need a changelog entry, add `NO_CHANGELOG=true` to the PR description.
+**When to add a changelog entry:** Any change visible to users — bug fixes, new features, behavior changes, dependency bumps, or API changes. Add a brief description under the appropriate section (`### Added`, `### Updated`, or `### Fixed`) in `NEXT_CHANGELOG.md`.
+
+**When to opt out with `NO_CHANGELOG=true`:** Internal refactors, test-only changes, CI/tooling updates, or documentation changes that don't affect driver behavior.
 
 ### 3. Release Freeze
 
