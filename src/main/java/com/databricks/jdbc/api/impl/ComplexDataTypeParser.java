@@ -12,12 +12,16 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.DateTimeException;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -144,6 +148,13 @@ public class ComplexDataTypeParser {
         return jsonText;
       }
     }
+    // Arrow serializes TIMESTAMP_NTZ inside nested types as a JSON array of components:
+    // [year, month, day, hour, minute, second] (and optionally nanoseconds as a 7th element).
+    // e.g., [{"event_ts_ntz":[2023,10,5,15,20,30]}]
+    // We must handle this before calling node.asText(), which returns "" for array nodes.
+    if (node.isArray() && expectedType.equalsIgnoreCase(DatabricksTypeUtil.TIMESTAMP_NTZ)) {
+      return convertTimestampNtzArray(node);
+    }
     return convertPrimitive(node.asText(), expectedType);
   }
 
@@ -219,15 +230,61 @@ public class ComplexDataTypeParser {
           }
         }
       case DatabricksTypeUtil.TIMESTAMP:
-        return parseTimestamp(text);
+      case DatabricksTypeUtil.TIMESTAMP_NTZ:
+        try {
+          return parseTimestamp(text);
+        } catch (IllegalArgumentException e) {
+          // Arrow serializes TIMESTAMP/TIMESTAMP_NTZ inside nested types as epoch microseconds.
+          // e.g., {"ts":1696519230000000} for 2023-10-05 15:20:30 UTC
+          try {
+            long micros = Long.parseLong(text);
+            long seconds = Math.floorDiv(micros, 1_000_000L);
+            long microsRemainder = Math.floorMod(micros, 1_000_000L);
+            Instant instant = Instant.ofEpochSecond(seconds, microsRemainder * 1_000);
+            return Timestamp.from(instant);
+          } catch (NumberFormatException nfe) {
+            LOGGER.error(e, "Failed to parse TIMESTAMP value '{}' as epoch microseconds", text);
+            throw e;
+          }
+        }
       case DatabricksTypeUtil.TIME:
         return Time.valueOf(text);
       case DatabricksTypeUtil.BINARY:
-        return text.getBytes();
+        // Arrow serializes BINARY inside nested types as base64-encoded strings.
+        // e.g., {"bin_data":"QUJD"} for CAST('ABC' AS BINARY)
+        try {
+          return Base64.getDecoder().decode(text);
+        } catch (IllegalArgumentException e) {
+          // Not base64 encoded, fall back to raw bytes
+          return text.getBytes(StandardCharsets.UTF_8);
+        }
       case DatabricksTypeUtil.STRING:
       default:
         return text;
     }
+  }
+
+  /**
+   * Converts a TIMESTAMP_NTZ value serialized as a JSON array of components
+   * [year,month,day,hour,minute,second] into a {@link Timestamp}.
+   */
+  private Timestamp convertTimestampNtzArray(JsonNode arrayNode) throws DatabricksParsingException {
+    if (arrayNode == null || !arrayNode.isArray() || arrayNode.size() < 6) {
+      throw new DatabricksParsingException(
+          "Invalid TIMESTAMP_NTZ array representation: expected at least 6 elements "
+              + "[year,month,day,hour,minute,second], but got: "
+              + arrayNode,
+          DatabricksDriverErrorCode.JSON_PARSING_ERROR);
+    }
+    int year = arrayNode.get(0).asInt();
+    int month = arrayNode.get(1).asInt();
+    int day = arrayNode.get(2).asInt();
+    int hour = arrayNode.get(3).asInt();
+    int minute = arrayNode.get(4).asInt();
+    int second = arrayNode.get(5).asInt();
+    int nano = arrayNode.size() > 6 && arrayNode.get(6) != null ? arrayNode.get(6).asInt(0) : 0;
+    LocalDateTime ldt = LocalDateTime.of(year, month, day, hour, minute, second, nano);
+    return Timestamp.valueOf(ldt);
   }
 
   private Timestamp parseTimestamp(String text) {
