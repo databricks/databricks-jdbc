@@ -122,20 +122,19 @@ public class QueryTagTest {
   }
 
   @Test
-  public void testJsonSerializationWithValue() throws Exception {
-    QueryTag tag = new QueryTag("team", "marketing");
-    String json = mapper.writeValueAsString(tag);
-    assertTrue(json.contains("\"key\":\"team\""));
-    assertTrue(json.contains("\"value\":\"marketing\""));
+  public void testJsonSerializationRoundTrip() throws Exception {
+    QueryTag original = new QueryTag("team", "marketing");
+    String json = mapper.writeValueAsString(original);
+    QueryTag deserialized = mapper.readValue(json, QueryTag.class);
+    assertEquals(original, deserialized);
   }
 
   @Test
-  public void testJsonSerializationNullValueOmitted() throws Exception {
-    // Jackson NON_NULL (from ApiClient) omits null fields; with default ObjectMapper
-    // null is serialized as null. Verify the field is present but null.
-    QueryTag tag = new QueryTag("debug", null);
-    String json = mapper.writeValueAsString(tag);
-    assertTrue(json.contains("\"key\":\"debug\""));
+  public void testJsonSerializationWithNullValue() throws Exception {
+    QueryTag original = new QueryTag("debug", null);
+    String json = mapper.writeValueAsString(original);
+    QueryTag deserialized = mapper.readValue(json, QueryTag.class);
+    assertEquals(original, deserialized);
   }
 
   @Test
@@ -183,9 +182,11 @@ public class ExecuteStatementRequestTest {
         new ExecuteStatementRequest().setStatement("SELECT 1").setQueryTags(tags);
 
     String json = mapper.writeValueAsString(request);
-    assertTrue(json.contains("\"query_tags\""));
-    assertTrue(json.contains("\"team\""));
-    assertTrue(json.contains("\"marketing\""));
+    ExecuteStatementRequest deserialized = mapper.readValue(json, ExecuteStatementRequest.class);
+    assertEquals(request, deserialized);
+    assertEquals(2, deserialized.getQueryTags().size());
+    assertEquals(new QueryTag("team", "marketing"), deserialized.getQueryTags().get(0));
+    assertEquals(new QueryTag("dashboard", "abc123"), deserialized.getQueryTags().get(1));
   }
 
   @Test
@@ -193,7 +194,9 @@ public class ExecuteStatementRequestTest {
     ExecuteStatementRequest request = new ExecuteStatementRequest().setStatement("SELECT 1");
 
     String json = mapper.writeValueAsString(request);
-    assertFalse(json.contains("query_tags"));
+    ExecuteStatementRequest deserialized = mapper.readValue(json, ExecuteStatementRequest.class);
+    assertEquals(request, deserialized);
+    assertNull(deserialized.getQueryTags());
   }
 
   @Test
@@ -203,10 +206,10 @@ public class ExecuteStatementRequestTest {
         new ExecuteStatementRequest().setStatement("SELECT 1").setQueryTags(tags);
 
     String json = mapper.writeValueAsString(request);
-    assertTrue(json.contains("\"query_tags\""));
-    assertTrue(json.contains("\"debug\""));
-    // "value" field should be omitted by NON_NULL inclusion
-    assertFalse(json.contains("\"value\""));
+    ExecuteStatementRequest deserialized = mapper.readValue(json, ExecuteStatementRequest.class);
+    assertEquals(1, deserialized.getQueryTags().size());
+    assertEquals("debug", deserialized.getQueryTags().get(0).getKey());
+    assertNull(deserialized.getQueryTags().get(0).getValue());
   }
 
   @Test
