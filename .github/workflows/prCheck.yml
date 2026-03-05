@@ -204,7 +204,9 @@ jobs:
         shell: bash
         run: mvn -B -pl jdbc-core,assembly-uber,assembly-thin install -DskipTests -Dmaven.javadoc.skip=true -Dmaven.source.skip=true -Ddependency-check.skip=true
 
+      # Only run on push to main; secrets are not available for fork PRs
       - name: Check Uber Jar Packaging
+        if: github.event_name == 'push'
         shell: bash
         run: mvn -pl test-assembly-uber test
         env:
@@ -213,7 +215,9 @@ jobs:
           DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
           DATABRICKS_TOKEN: ${{ secrets.JDBC_PAT_TEST_TOKEN }}
 
+      # Only run on push to main; secrets are not available for fork PRs
       - name: Check Thin Jar Packaging
+        if: github.event_name == 'push'
         shell: bash
         run:  mvn -pl test-assembly-thin test
         env:
