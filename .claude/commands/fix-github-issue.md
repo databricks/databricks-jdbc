@@ -50,7 +50,7 @@ Write a **minimal failing test** that demonstrates the bug:
 
 ### Step 5: Add Tests
 
-Ensure adequate test coverage for the fix:
+Ensure adequate test coverage for the fix. **Add tests to existing test suites whenever possible — only create a new test file if absolutely necessary.**
 
 1. The reproduction test from Step 2 should already cover the primary case.
 2. Add edge case tests as needed (e.g., null values, boundary conditions, alternate input formats). Prefer parameterised tests (e.g., JUnit `@ParameterizedTest`) wherever possible to cover multiple inputs concisely.
