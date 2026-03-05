@@ -53,7 +53,7 @@ Write a **minimal failing test** that demonstrates the bug:
 Ensure adequate test coverage for the fix:
 
 1. The reproduction test from Step 2 should already cover the primary case.
-2. Add edge case tests as needed (e.g., null values, boundary conditions, alternate input formats).
+2. Add edge case tests as needed (e.g., null values, boundary conditions, alternate input formats). Prefer parameterised tests (e.g., JUnit `@ParameterizedTest`) wherever possible to cover multiple inputs concisely.
 3. Add tests for related code paths if the same bug pattern applies (e.g., if a bug in STRUCT also affects ARRAY and MAP, test all three).
 4. Run the full test suite for affected test classes and confirm all pass.
 
