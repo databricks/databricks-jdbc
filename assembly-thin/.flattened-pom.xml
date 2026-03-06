@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.databricks</groupId>
+  <artifactId>databricks-jdbc-thin</artifactId>
+  <version>3.2.2-SNAPSHOT</version>
+  <name>Databricks JDBC thin jar</name>
+  <description>Databricks JDBC thin jar.</description>
+  <url>https://github.com/databricks/databricks-jdbc</url>
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>https://github.com/databricks/databricks-jdbc/blob/main/LICENSE</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>Databricks JDBC Team</name>
+      <email>eng-oss-sql-driver@databricks.com</email>
+      <organization>Databricks</organization>
+      <organizationUrl>https://www.databricks.com</organizationUrl>
+    </developer>
+  </developers>
+  <scm>
+    <connection>scm:git:https://github.com/databricks/databricks-jdbc.git</connection>
+    <developerConnection>scm:git:https://github.com/databricks/databricks-jdbc.git</developerConnection>
+    <url>https://github.com/databricks/databricks-jdbc</url>
+  </scm>
+  <issueManagement>
+    <system>GitHub Issues</system>
+    <url>https://github.com/databricks/databricks-jdbc/issues</url>
+  </issueManagement>
+  <dependencies>
+    <dependency>
+      <groupId>com.databricks</groupId>
+      <artifactId>databricks-jdbc-core</artifactId>
+      <version>3.2.2-SNAPSHOT</version>
+      <scope>compile</scope>
+    </dependency>
+  </dependencies>
+</project>
