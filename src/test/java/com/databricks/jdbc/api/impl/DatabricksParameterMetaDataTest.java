@@ -263,4 +263,11 @@ public class DatabricksParameterMetaDataTest {
     DatabricksParameterMetaData metadata = new DatabricksParameterMetaData(sql);
     assertEquals(1, metadata.getParameterCount());
   }
+
+  @Test
+  public void testParameterCountWithApostropheInColumnName() throws SQLException {
+    String sql = "select foo, sum(`x'y`) as sum from table where foo = ? group by foo;";
+    DatabricksParameterMetaData metadata = new DatabricksParameterMetaData(sql);
+    assertEquals(1, metadata.getParameterCount());
+  }
 }
