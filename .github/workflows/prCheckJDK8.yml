@@ -48,4 +48,4 @@ jobs:
           restore-keys: ${{ runner.os }}-jdk8-m2
 
       - name: Run Unit Tests
-        run: mvn -pl jdbc-core -Plocal clean test
+        run: mvn -pl jdbc-core clean test -Ddependency-check.skip=true -Dgroups='!Jvm17PlusAndArrowToNioReflectionDisabled' -Dexcludes='**/integration/**,org/apache/arrow/memory/**,com/databricks/client/jdbc/**'
