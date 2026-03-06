@@ -415,10 +415,15 @@
             <exclude>**/model/**</exclude>
             <exclude>**/thrift/generated/**</exclude>
 
-            <!-- Exclude patched Arrow classes from coverage -->
+            <!-- Exclude patched Arrow classes from coverage. All Arrow tests are tagged with
+                 Jvm17PlusAndArrowToNioReflectionDisabled and run only via dedicated CI steps
+                 (-Pjdk17-NioNotOpen, -Plow-memory), not the general coverage run. -->
             <exclude>org/apache/arrow/memory/util/MemoryUtil*</exclude>
             <exclude>org/apache/arrow/memory/ArrowBuf*</exclude>
             <exclude>org/apache/arrow/vector/util/DecimalUtility*</exclude>
+            <exclude>org/apache/arrow/memory/DatabricksAllocationReservation*</exclude>
+            <exclude>org/apache/arrow/memory/DatabricksBufferAllocator*</exclude>
+            <exclude>org/apache/arrow/memory/DatabricksReferenceManager*</exclude>
 
             <!-- Exclude DatabricksArrowBuf. We test only read paths -->
             <exclude>**/DatabricksArrowBuf*</exclude>
