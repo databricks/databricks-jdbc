@@ -1099,6 +1099,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean useQueryForMetadata() {
+    return getParameter(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA).equals("1");
+  }
+
+  @Override
   public boolean getEnableMetricViewMetadata() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_METRIC_VIEW_METADATA).equals("1");
   }

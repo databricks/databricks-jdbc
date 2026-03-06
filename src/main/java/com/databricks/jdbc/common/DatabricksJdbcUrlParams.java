@@ -168,6 +168,10 @@ public enum DatabricksJdbcUrlParams {
       "CloudFetchSpeedThreshold", "Minimum expected download speed in MB/s", "0.1"),
   ENABLE_SHOW_COMMAND_FOR_GET_FUNCTIONS(
       "EnableShowCommandForGetFunctions", "Use SQL command to fetch function list", "0"),
+  USE_QUERY_FOR_METADATA(
+      "UseQueryForMetadata",
+      "Use SQL SHOW commands instead of Thrift RPCs for metadata operations. When enabled, EnableShowCommandForGetFunctions is redundant",
+      "0"),
   ENABLE_BATCHED_INSERTS("EnableBatchedInserts", "Enable batched INSERT optimization", "0"),
   ENABLE_SQL_VALIDATION_FOR_IS_VALID(
       "EnableSQLValidationForIsValid",

@@ -25,20 +25,21 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /** Implementation for {@link IDatabricksMetadataClient} using {@link IDatabricksClient}. */
-public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
+public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient {
 
   private static final JdbcLogger LOGGER =
-      JdbcLoggerFactory.getLogger(DatabricksMetadataSdkClient.class);
+      JdbcLoggerFactory.getLogger(DatabricksMetadataQueryClient.class);
   private static final int DEFAULT_MAX_THREADS_METADATA_FETCH = 10;
   private static final int TASK_TIMEOUT_METADATA_FETCH_SEC = 90;
   private static final Object THREAD_POOL_LOCK = new Object();
   private static ExecutorService metadataThreadPool = null;
-  private final IDatabricksClient sdkClient;
+  private final IDatabricksClient queryExecutionClient;
   private final MetadataResultSetBuilder metadataResultSetBuilder;
 
-  public DatabricksMetadataSdkClient(IDatabricksClient sdkClient) {
-    this.sdkClient = sdkClient;
-    this.metadataResultSetBuilder = new MetadataResultSetBuilder(sdkClient.getConnectionContext());
+  public DatabricksMetadataQueryClient(IDatabricksClient queryExecutionClient) {
+    this.queryExecutionClient = queryExecutionClient;
+    this.metadataResultSetBuilder =
+        new MetadataResultSetBuilder(queryExecutionClient.getConnectionContext());
   }
 
   @Override
@@ -381,8 +382,8 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   }
 
   private boolean isMultipleCatalogSupportDisabled() {
-    return sdkClient.getConnectionContext() != null
-        && !sdkClient.getConnectionContext().getEnableMultipleCatalogSupport();
+    return queryExecutionClient.getConnectionContext() != null
+        && !queryExecutionClient.getConnectionContext().getEnableMultipleCatalogSupport();
   }
 
   /**
@@ -406,7 +407,7 @@ public class DatabricksMetadataSdkClient implements IDatabricksMetadataClient {
   private DatabricksResultSet getResultSet(
       String SQL, IDatabricksSession session, MetadataOperationType metadataOperationType)
       throws SQLException {
-    return sdkClient.executeStatement(
+    return queryExecutionClient.executeStatement(
         SQL,
         session.getComputeResource(),
         new HashMap<>(),
