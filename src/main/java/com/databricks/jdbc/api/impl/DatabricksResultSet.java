@@ -14,6 +14,7 @@ import com.databricks.jdbc.api.impl.converters.ConverterHelper;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.thrift.StreamingColumnarResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksResultSetInternal;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -30,7 +31,8 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.core.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.databricks.jdbc.telemetry.TelemetryHelper;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
@@ -75,6 +77,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private boolean complexDatatypeSupport = false;
 
+  // Cached telemetry collector resolved once at construction time to avoid
+  // per-row overhead in next(). The connection-to-collector mapping is stable
+  // for the lifetime of a result set.
+  private final TelemetryCollector cachedTelemetryCollector;
+
   // Constructor for SEA result set
   public DatabricksResultSet(
       StatementStatus statementStatus,
@@ -84,7 +91,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       StatementType statementType,
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
-      throws DatabricksSQLException {
+      throws SQLException {
     this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     if (resultData != null) {
@@ -113,6 +120,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
+    this.cachedTelemetryCollector = resolveTelemetryCollector(parentStatement);
     this.isClosed = false;
     this.wasNull = false;
   }
@@ -133,6 +141,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
+    this.cachedTelemetryCollector = resolveTelemetryCollector(parentStatement);
     this.isClosed = false;
     this.wasNull = false;
     this.complexDatatypeSupport = complexDatatypeSupport;
@@ -179,6 +188,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
+    this.cachedTelemetryCollector = resolveTelemetryCollector(parentStatement);
     this.isClosed = false;
     this.wasNull = false;
   }
@@ -209,6 +219,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = null;
+    this.cachedTelemetryCollector = null;
     this.isClosed = false;
     this.wasNull = false;
   }
@@ -239,6 +250,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = null;
+    this.cachedTelemetryCollector = null;
     this.isClosed = false;
     this.wasNull = false;
   }
@@ -258,6 +270,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = null;
+    this.cachedTelemetryCollector = null;
     this.isClosed = false;
     this.wasNull = false;
   }
@@ -266,8 +279,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public boolean next() throws SQLException {
     checkIfClosed();
     boolean hasNext = this.executionResult.next();
-    TelemetryHelper.recordResultSetIteration(
-        parentStatement, statementId, resultSetMetaData.getChunkCount(), hasNext);
+    if (cachedTelemetryCollector != null) {
+      cachedTelemetryCollector.recordResultSetIteration(
+          statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), hasNext);
+    }
     return hasNext;
   }
 
@@ -278,6 +293,23 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     if (parentStatement != null) {
       parentStatement.handleResultSetClose(this);
     }
+  }
+
+  private static TelemetryCollector resolveTelemetryCollector(
+      IDatabricksStatementInternal parentStatement) {
+    try {
+      if (parentStatement != null) {
+        IDatabricksConnectionContext connectionContext =
+            ((DatabricksConnection) parentStatement.getStatement().getConnection())
+                .getConnectionContext();
+        if (connectionContext != null) {
+          return TelemetryCollectorManager.getInstance().getOrCreateCollector(connectionContext);
+        }
+      }
+    } catch (Exception e) {
+      LOGGER.trace("Error resolving telemetry collector: {}", e.getMessage());
+    }
+    return null;
   }
 
   @Override
@@ -728,15 +760,19 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     Hence, we don't support it.*/
     LOGGER.debug("public void setFetchSize(int rows = {})", rows);
     checkIfClosed();
-    addWarningAndLog("As FetchSize is not supported in the Databricks JDBC, ignoring it");
+    String warningString = "As FetchSize is not supported in the Databricks JDBC, ignoring it";
+    LOGGER.debug(warningString);
+    warnings = WarningUtil.addWarning(warnings, warningString);
   }
 
   @Override
   public int getFetchSize() throws SQLException {
     LOGGER.debug("public int getFetchSize()");
     checkIfClosed();
-    addWarningAndLog(
-        "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place");
+    String warningString =
+        "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place";
+    LOGGER.debug(warningString);
+    warnings = WarningUtil.addWarning(warnings, warningString);
     return 0;
   }
 
@@ -1833,6 +1869,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
+    if (obj == null) {
+      return null;
+    }
     int columnSqlType = resultSetMetaData.getColumnType(columnIndex);
     try {
       return (T) ConverterHelper.convertSqlTypeToSpecificJavaType(type, columnSqlType, obj);

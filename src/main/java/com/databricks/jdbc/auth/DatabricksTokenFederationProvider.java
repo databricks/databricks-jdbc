@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
+import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -230,13 +231,29 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
               StandardCharsets.UTF_8));
       headers.forEach(postRequest::setHeader);
       HttpResponse response = hc.execute(postRequest);
+
+      // Check for HTTP errors and build detailed error message
+      String httpError = ValidationUtil.checkHTTPErrorWithoutThrowingError(response);
+      if (!httpError.equals(DatabricksJdbcConstants.EMPTY_STRING)) {
+        String errorMessage =
+            String.format(
+                "Failed to retrieve the exchanged token from OIDC token endpoint. %s", httpError);
+        LOGGER.error(errorMessage);
+        throw new DatabricksDriverException(errorMessage, DatabricksDriverErrorCode.AUTH_ERROR);
+      }
+
       OAuthResponse resp =
           JsonUtil.getMapper().readValue(response.getEntity().getContent(), OAuthResponse.class);
       return createToken(resp.getAccessToken(), resp.getTokenType());
+    } catch (DatabricksDriverException e) {
+      // Already logged and has telemetry, just re-throw
+      throw e;
     } catch (Exception e) {
-      LOGGER.error(e, "Failed to retrieve the exchanged token");
-      throw new DatabricksDriverException(
-          "Failed to retrieve the exchanged token", e, DatabricksDriverErrorCode.AUTH_ERROR);
+      String errorMessage =
+          String.format(
+              "Failed to parse token response from OIDC token endpoint. Error: %s", e.getMessage());
+      LOGGER.error(e, errorMessage);
+      throw new DatabricksDriverException(errorMessage, e, DatabricksDriverErrorCode.AUTH_ERROR);
     }
   }
 

@@ -124,4 +124,112 @@ public class JwtPrivateKeyClientCredentialsTest {
     assertEquals(TEST_CLIENT_ID, signedJWT.getJWTClaimsSet().getIssuer());
     assertEquals(TEST_TOKEN_URL, signedJWT.getJWTClaimsSet().getAudience().get(0));
   }
+
+  @Test
+  void should_CreateCredentialsWithScopes() {
+    JwtPrivateKeyClientCredentials credentials =
+        new JwtPrivateKeyClientCredentials.Builder()
+            .withHttpClient(httpClient)
+            .withClientId(TEST_CLIENT_ID)
+            .withJwtKid(TEST_JWT_KID)
+            .withJwtKeyFile(tempKeyFile.toString())
+            .withJwtAlgorithm("RS256")
+            .withTokenUrl(TEST_TOKEN_URL)
+            .withScopes(java.util.List.of("scope1", "scope2"))
+            .build();
+    assertNotNull(credentials);
+  }
+
+  @Test
+  void should_ThrowException_When_ClientIdIsNull() {
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            new JwtPrivateKeyClientCredentials.Builder()
+                .withHttpClient(httpClient)
+                .withJwtKid(TEST_JWT_KID)
+                .withJwtKeyFile(tempKeyFile.toString())
+                .build());
+  }
+
+  @Test
+  void should_ThrowException_When_JwtKeyFileIsNull() {
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            new JwtPrivateKeyClientCredentials.Builder()
+                .withHttpClient(httpClient)
+                .withClientId(TEST_CLIENT_ID)
+                .withJwtKid(TEST_JWT_KID)
+                .build());
+  }
+
+  @Test
+  void should_ThrowException_When_JwtKidIsNull() {
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            new JwtPrivateKeyClientCredentials.Builder()
+                .withHttpClient(httpClient)
+                .withClientId(TEST_CLIENT_ID)
+                .withJwtKeyFile(tempKeyFile.toString())
+                .build());
+  }
+
+  @Test
+  void should_HandleInvalidKeyFile() {
+    assertThrows(
+        DatabricksException.class,
+        () ->
+            new JwtPrivateKeyClientCredentials.Builder()
+                .withHttpClient(httpClient)
+                .withClientId(TEST_CLIENT_ID)
+                .withJwtKid(TEST_JWT_KID)
+                .withJwtKeyFile("/non/existent/key/file.pem")
+                .withTokenUrl(TEST_TOKEN_URL)
+                .build());
+  }
+
+  @Test
+  void should_FetchSignedJWT_WithECKey() throws Exception {
+    // Generate EC key for testing
+    java.security.KeyPairGenerator keyGen =
+        java.security.KeyPairGenerator.getInstance(
+            "EC", new org.bouncycastle.jce.provider.BouncyCastleProvider());
+    keyGen.initialize(256);
+    java.security.KeyPair keyPair = keyGen.generateKeyPair();
+    java.security.interfaces.ECPrivateKey ecPrivateKey =
+        (java.security.interfaces.ECPrivateKey) keyPair.getPrivate();
+
+    JwtPrivateKeyClientCredentials credentials =
+        new JwtPrivateKeyClientCredentials.Builder()
+            .withHttpClient(httpClient)
+            .withClientId(TEST_CLIENT_ID)
+            .withJwtKid(TEST_JWT_KID)
+            .withJwtKeyFile(tempKeyFile.toString())
+            .withJwtAlgorithm("ES256")
+            .withTokenUrl(TEST_TOKEN_URL)
+            .build();
+
+    SignedJWT signedJWT = credentials.fetchSignedJWT(ecPrivateKey);
+    assertNotNull(signedJWT);
+    assertEquals(JWSAlgorithm.ES256, signedJWT.getHeader().getAlgorithm());
+  }
+
+  @Test
+  void should_GetToken_UsesCache() throws Exception {
+    when(httpClient.execute(any())).thenReturn(httpResponse);
+    when(httpResponse.getEntity()).thenReturn(httpEntity);
+    when(httpEntity.getContent())
+        .thenReturn(new ByteArrayInputStream(TEST_OAUTH_RESPONSE.getBytes()));
+
+    JwtPrivateKeyClientCredentials credentials = createTestCredentials();
+    Token token1 = credentials.getToken();
+    Token token2 = credentials.getToken();
+
+    assertNotNull(token1);
+    assertNotNull(token2);
+    // Tokens should be the same object due to caching
+    assertEquals(token1.getAccessToken(), token2.getAccessToken());
+  }
 }

@@ -10,6 +10,7 @@ import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.sql.SQLException;
 import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,14 +26,14 @@ public class LazyThriftResultTest {
   @Mock private IDatabricksClient databricksClient;
 
   @BeforeEach
-  void setUp() throws DatabricksSQLException {
+  void setUp() throws SQLException {
     // Lenient stubbing to avoid unnecessary strictness
     lenient().when(session.getDatabricksClient()).thenReturn(databricksClient);
     lenient().when(statement.getMaxRows()).thenReturn(0); // No limit by default
   }
 
   @Test
-  void testConstructorWithEmptyResult() throws DatabricksSQLException {
+  void testConstructorWithEmptyResult() throws SQLException {
     TFetchResultsResp emptyResponse = createEmptyResponse(false);
 
     LazyThriftResult result = new LazyThriftResult(emptyResponse, statement, session);
@@ -46,7 +47,7 @@ public class LazyThriftResultTest {
   }
 
   @Test
-  void testBasicIteration() throws DatabricksSQLException {
+  void testBasicIteration() throws SQLException {
     TFetchResultsResp response =
         createResponseWithStringData(
             Arrays.asList("row1_col1", "row1_col2"),
@@ -81,7 +82,7 @@ public class LazyThriftResultTest {
   }
 
   @Test
-  void testLazyFetching() throws DatabricksSQLException {
+  void testLazyFetching() throws SQLException {
     // Setup first batch
     TFetchResultsResp firstBatch =
         createResponseWithStringData(
@@ -126,7 +127,7 @@ public class LazyThriftResultTest {
   }
 
   @Test
-  void testEmptyBatchHandling() throws DatabricksSQLException {
+  void testEmptyBatchHandling() throws SQLException {
     // Setup first batch (empty)
     TFetchResultsResp emptyBatch = createEmptyResponse(true); // hasMoreRows = true
 
@@ -151,7 +152,7 @@ public class LazyThriftResultTest {
   }
 
   @Test
-  void testMultipleEmptyBatches() throws DatabricksSQLException {
+  void testMultipleEmptyBatches() throws SQLException {
     // Setup first batch (empty)
     TFetchResultsResp emptyBatch1 = createEmptyResponse(true);
 
@@ -174,7 +175,7 @@ public class LazyThriftResultTest {
   }
 
   @Test
-  void testMaxRowsLimit() throws DatabricksSQLException {
+  void testMaxRowsLimit() throws SQLException {
     when(statement.getMaxRows()).thenReturn(2); // Limit to 2 rows
 
     TFetchResultsResp response =
@@ -202,7 +203,7 @@ public class LazyThriftResultTest {
   }
 
   @Test
-  void testMaxRowsLimitAcrossBatches() throws DatabricksSQLException {
+  void testMaxRowsLimitAcrossBatches() throws SQLException {
     when(statement.getMaxRows()).thenReturn(3); // Limit to 3 rows
 
     // First batch has 2 rows
@@ -238,7 +239,7 @@ public class LazyThriftResultTest {
   }
 
   @Test
-  void testErrorHandlingDuringFetch() throws DatabricksSQLException {
+  void testErrorHandlingDuringFetch() throws SQLException {
     TFetchResultsResp firstBatch =
         createResponseWithStringData(
             Arrays.asList("row1_col1", "row1_col2"), true); // hasMoreRows = true
@@ -259,7 +260,7 @@ public class LazyThriftResultTest {
   }
 
   @Test
-  void testClosedResultAccess() throws DatabricksSQLException {
+  void testClosedResultAccess() throws SQLException {
     TFetchResultsResp response =
         createResponseWithStringData(Arrays.asList("row1_col1", "row1_col2"), false);
 
@@ -274,7 +275,7 @@ public class LazyThriftResultTest {
   }
 
   @Test
-  void testInvalidColumnIndex() throws DatabricksSQLException {
+  void testInvalidColumnIndex() throws SQLException {
     TFetchResultsResp response =
         createResponseWithStringData(
             Arrays.asList("col1", "col2"), // 2 columns
@@ -293,7 +294,7 @@ public class LazyThriftResultTest {
   }
 
   @Test
-  void testAccessBeforeFirstRow() throws DatabricksSQLException {
+  void testAccessBeforeFirstRow() throws SQLException {
     TFetchResultsResp response =
         createResponseWithStringData(Arrays.asList("row1_col1", "row1_col2"), false);
 
@@ -306,7 +307,7 @@ public class LazyThriftResultTest {
   }
 
   @Test
-  void testNullHandling() throws DatabricksSQLException {
+  void testNullHandling() throws SQLException {
     TFetchResultsResp response = createResponseWithNulls();
 
     LazyThriftResult result = new LazyThriftResult(response, statement, session);
@@ -317,7 +318,7 @@ public class LazyThriftResultTest {
   }
 
   @Test
-  void testChunkCount() throws DatabricksSQLException {
+  void testChunkCount() throws SQLException {
     TFetchResultsResp response = createEmptyResponse(false);
     LazyThriftResult result = new LazyThriftResult(response, statement, session);
 

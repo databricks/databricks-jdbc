@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
@@ -99,7 +98,7 @@ public abstract class AbstractArrowResultChunk {
     this.rowOffset = rowOffset;
     this.chunkIndex = chunkIndex;
     this.statementId = statementId;
-    this.rootAllocator = new RootAllocator(Integer.MAX_VALUE);
+    this.rootAllocator = ArrowBufferAllocator.getBufferAllocator();
     this.chunkReadyFuture = new CompletableFuture<>();
     this.chunkLink = chunkLink;
     this.expiryTime = expiryTime;

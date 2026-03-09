@@ -48,6 +48,7 @@ public class DatabricksPreparedStatementTest {
   private static final String WAREHOUSE_ID = "99999999";
   private static final String STATEMENT =
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
+  private static final String UPDATE_STATEMENT = "UPDATE orders SET status = ? WHERE user_id = ?";
   private static final String BATCH_STATEMENT =
       "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?)";
   private static final String JDBC_URL =
@@ -92,7 +93,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     DatabricksResultSet newResultSet = (DatabricksResultSet) statement.executeQuery();
@@ -117,7 +119,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     DatabricksResultSet newResultSet = (DatabricksResultSet) statement.executeQuery();
@@ -142,7 +145,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     DatabricksResultSet newResultSet = (DatabricksResultSet) statement.executeQuery();
@@ -167,7 +171,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.QUERY),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     DatabricksResultSet newResultSet = (DatabricksResultSet) statement.executeQuery();
@@ -182,15 +187,17 @@ public class DatabricksPreparedStatementTest {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
-    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, UPDATE_STATEMENT);
     when(resultSet.getUpdateCount()).thenReturn(2L);
     when(client.executeStatement(
-            eq(STATEMENT),
+            eq(UPDATE_STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<Integer, ImmutableSqlParameter>()),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     int updateCount = statement.executeUpdate();
@@ -205,15 +212,17 @@ public class DatabricksPreparedStatementTest {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
-    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, UPDATE_STATEMENT);
     when(resultSet.getUpdateCount()).thenReturn(2L);
     when(client.executeStatement(
-            eq(STATEMENT),
+            eq(UPDATE_STATEMENT),
             eq(new Warehouse(WAREHOUSE_ID)),
             eq(new HashMap<Integer, ImmutableSqlParameter>()),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     long updateCount = statement.executeLargeUpdate();
@@ -247,7 +256,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     lenient()
         .when(resultSet.getUpdateCount())
@@ -305,7 +315,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenThrow(new SQLException());
 
     DatabricksBatchUpdateException exception =
@@ -342,7 +353,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     lenient()
         .when(resultSet.getUpdateCount())
@@ -381,7 +393,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenThrow(new SQLException());
 
     DatabricksBatchUpdateException exception =
@@ -687,7 +700,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     lenient()
         .when(resultSet.getUpdateCount())
@@ -753,7 +767,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     lenient().when(resultSet.getUpdateCount()).thenReturn(1L); // Each execution affects 1 row
 
@@ -798,7 +813,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     lenient()
         .when(resultSet.getUpdateCount())
@@ -953,7 +969,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     lenient().when(resultSet.getUpdateCount()).thenReturn(200L);
 
@@ -994,7 +1011,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     lenient().when(resultSet.getUpdateCount()).thenReturn((long) rowCount);
 
@@ -1037,7 +1055,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     lenient().when(resultSet.getUpdateCount()).thenReturn(50L);
 
@@ -1055,7 +1074,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement));
+            eq(statement),
+            any());
   }
 
   @Test
@@ -1095,7 +1115,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     lenient().when(resultSet.getUpdateCount()).thenReturn(64L);
 
@@ -1136,7 +1157,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
     lenient().when(resultSet.getUpdateCount()).thenReturn(2L);
 
@@ -1243,7 +1265,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     statement.executeUpdate();
@@ -1343,7 +1366,8 @@ public class DatabricksPreparedStatementTest {
             any(HashMap.class),
             eq(StatementType.UPDATE),
             any(IDatabricksSession.class),
-            eq(statement)))
+            eq(statement),
+            any()))
         .thenReturn(resultSet);
 
     statement.executeUpdate();

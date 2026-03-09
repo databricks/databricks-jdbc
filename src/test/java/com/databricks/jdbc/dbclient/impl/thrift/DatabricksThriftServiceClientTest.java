@@ -72,7 +72,7 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testCreateSession() throws DatabricksSQLException {
+  void testCreateSession() throws SQLException {
     when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
@@ -94,7 +94,7 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testCreateSessionHandlesProtocolVersion() throws DatabricksSQLException {
+  void testCreateSessionHandlesProtocolVersion() throws SQLException {
     when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
@@ -145,7 +145,7 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testCloseSession() throws DatabricksSQLException {
+  void testCloseSession() throws SQLException {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     TCloseSessionReq closeSessionReq = new TCloseSessionReq().setSessionHandle(SESSION_HANDLE);
@@ -192,7 +192,8 @@ public class DatabricksThriftServiceClientTest {
           Collections.emptyMap(),
           StatementType.SQL,
           session,
-          parentStatement);
+          parentStatement,
+          null);
     } catch (Exception e) {
       // expect this to throw since thriftAccessor is mocked
       // only interested in capturing the request
@@ -290,7 +291,51 @@ public class DatabricksThriftServiceClientTest {
             Collections.emptyMap(),
             StatementType.SQL,
             session,
-            parentStatement);
+            parentStatement,
+            null);
+    assertEquals(resultSet, actualResultSet);
+  }
+
+  @Test
+  void testExecuteWithCloudFetchDisabled() throws SQLException {
+    when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    when(connectionContext.isCloudFetchEnabled()).thenReturn(false);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(parentStatement.getMaxRows()).thenReturn(10);
+    when(statement.getQueryTimeout()).thenReturn(10);
+    TSparkArrowTypes arrowNativeTypes =
+        new TSparkArrowTypes()
+            .setComplexTypesAsArrow(true)
+            .setIntervalTypesAsArrow(true)
+            .setNullTypeAsArrow(true)
+            .setDecimalAsArrow(true)
+            .setTimestampAsArrow(true);
+    TExecuteStatementReq executeStatementReq =
+        new TExecuteStatementReq()
+            .setStatement(TEST_STRING)
+            .setSessionHandle(SESSION_HANDLE)
+            .setCanReadArrowResult(true)
+            .setQueryTimeout(10)
+            .setResultRowLimit(10)
+            .setCanDecompressLZ4Result(true)
+            .setCanDownloadResult(false)
+            .setParameters(Collections.emptyList())
+            .setRunAsync(true)
+            .setUseArrowNativeTypes(arrowNativeTypes);
+    when(thriftAccessor.execute(executeStatementReq, parentStatement, session, StatementType.SQL))
+        .thenReturn(resultSet);
+    DatabricksResultSet actualResultSet =
+        client.executeStatement(
+            TEST_STRING,
+            CLUSTER_COMPUTE,
+            Collections.emptyMap(),
+            StatementType.SQL,
+            session,
+            parentStatement,
+            null);
     assertEquals(resultSet, actualResultSet);
   }
 
@@ -744,7 +789,13 @@ public class DatabricksThriftServiceClientTest {
         .thenReturn(resultSet);
 
     client.executeStatement(
-        TEST_STRING, CLUSTER_COMPUTE, Collections.emptyMap(), StatementType.SQL, session, null);
+        TEST_STRING,
+        CLUSTER_COMPUTE,
+        Collections.emptyMap(),
+        StatementType.SQL,
+        session,
+        null,
+        null);
 
     ArgumentCaptor<TExecuteStatementReq> requestCaptor =
         ArgumentCaptor.forClass(TExecuteStatementReq.class);
@@ -777,7 +828,8 @@ public class DatabricksThriftServiceClientTest {
         Collections.emptyMap(),
         StatementType.SQL,
         session,
-        parentStatement);
+        parentStatement,
+        null);
 
     ArgumentCaptor<TExecuteStatementReq> requestCaptor =
         ArgumentCaptor.forClass(TExecuteStatementReq.class);

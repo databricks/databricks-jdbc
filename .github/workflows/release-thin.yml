@@ -31,111 +31,37 @@ jobs:
 
       - name: Set up Java for publishing to Maven Central Repository
         uses: actions/setup-java@v4
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         with:
           java-version: 11
-          distribution: "adopt"
           server-id: central
+          distribution: "adopt"
           server-username: MAVEN_CENTRAL_USERNAME
           server-password: MAVEN_CENTRAL_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
 
-      - name: Configure GPG
+      # Step 1: Build and install dependencies to local Maven repository
+      # This builds jdbc-core (and parent) without publishing them.
+      # The -am flag builds all dependencies needed by assembly-thin.
+      # We use -Prelease here to generate sources/javadoc JARs for jdbc-core,
+      # which assembly-thin needs for its own sources/javadoc artifacts.
+      # GPG signing is skipped since we're only installing locally, not publishing.
+      - name: Build dependencies
         run: |
-          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
-          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
-          gpg-connect-agent reloadagent /bye
+          mvn -Prelease clean install --batch-mode -pl jdbc-core -am -Dgpg.skip=true
 
-      - name: Build thin JAR with sources and javadocs
+      # Step 2: Deploy only the thin JAR module to Maven Central
+      # We don't use -am here to avoid the central-publishing-maven-plugin
+      # from collecting parent/jdbc-core artifacts into the deployment bundle.
+      # The jdbc-core dependency is already available from Step 1.
+      - name: Publish thin JAR to Maven Central
         run: |
-          # Build main artifacts including sources and javadocs
-          mvn -B -DskipTests package source:jar javadoc:jar
-
-      - name: Sign all thin JAR artifacts
-        run: |
-          VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
-
-          # Sign thin JAR
-          echo "$GPG_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 --pinentry-mode loopback \
-            --armor --detach-sign "target/databricks-jdbc-${VERSION}-thin.jar"
-
-          # Sign sources JAR
-          echo "$GPG_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 --pinentry-mode loopback \
-            --armor --detach-sign "target/databricks-jdbc-${VERSION}-sources.jar"
-
-          # Sign javadoc JAR
-          echo "$GPG_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 --pinentry-mode loopback \
-            --armor --detach-sign "target/databricks-jdbc-${VERSION}-javadoc.jar"
-        env:
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-
-      - name: Verify all required artifacts exist
-        run: |
-          VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
-          test -f "target/databricks-jdbc-${VERSION}-thin.jar"
-          test -f "target/databricks-jdbc-${VERSION}-thin.jar.asc"
-          test -f "target/databricks-jdbc-${VERSION}-sources.jar"
-          test -f "target/databricks-jdbc-${VERSION}-sources.jar.asc"
-          test -f "target/databricks-jdbc-${VERSION}-javadoc.jar"
-          test -f "target/databricks-jdbc-${VERSION}-javadoc.jar.asc"
-
-      - name: Publish Thin JAR as Separate Artifact to Maven Central
-        run: |
-          VERSION=$(grep -m1 '<version>' pom.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
-
-          echo "Creating deployment bundle for thin JAR..."
-
-          # Create staging directory
-          mkdir -p target/thin-staging/com/databricks/databricks-jdbc-thin/${VERSION}
-
-          # Copy thin JAR and its signature
-          cp "target/databricks-jdbc-${VERSION}-thin.jar" \
-            target/thin-staging/com/databricks/databricks-jdbc-thin/${VERSION}/databricks-jdbc-thin-${VERSION}.jar
-          cp "target/databricks-jdbc-${VERSION}-thin.jar.asc" \
-            target/thin-staging/com/databricks/databricks-jdbc-thin/${VERSION}/databricks-jdbc-thin-${VERSION}.jar.asc
-
-          # Copy sources JAR and its signature
-          cp "target/databricks-jdbc-${VERSION}-sources.jar" \
-            target/thin-staging/com/databricks/databricks-jdbc-thin/${VERSION}/databricks-jdbc-thin-${VERSION}-sources.jar
-          cp "target/databricks-jdbc-${VERSION}-sources.jar.asc" \
-            target/thin-staging/com/databricks/databricks-jdbc-thin/${VERSION}/databricks-jdbc-thin-${VERSION}-sources.jar.asc
-
-          # Copy javadoc JAR and its signature
-          cp "target/databricks-jdbc-${VERSION}-javadoc.jar" \
-            target/thin-staging/com/databricks/databricks-jdbc-thin/${VERSION}/databricks-jdbc-thin-${VERSION}-javadoc.jar
-          cp "target/databricks-jdbc-${VERSION}-javadoc.jar.asc" \
-            target/thin-staging/com/databricks/databricks-jdbc-thin/${VERSION}/databricks-jdbc-thin-${VERSION}-javadoc.jar.asc
-
-          # Copy POM and sign it
-          cp thin_public_pom.xml target/thin-staging/com/databricks/databricks-jdbc-thin/${VERSION}/databricks-jdbc-thin-${VERSION}.pom
-          echo "$GPG_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 --pinentry-mode loopback \
-            --armor --detach-sign \
-            target/thin-staging/com/databricks/databricks-jdbc-thin/${VERSION}/databricks-jdbc-thin-${VERSION}.pom
-
-          # Generate checksums for all files
-          cd target/thin-staging/com/databricks/databricks-jdbc-thin/${VERSION}
-          for file in databricks-jdbc-thin-*; do
-            md5sum "$file" | awk '{print $1}' > "${file}.md5"
-            sha1sum "$file" | awk '{print $1}' > "${file}.sha1"
-          done
-          cd $GITHUB_WORKSPACE
-
-          # Create bundle ZIP
-          cd target/thin-staging
-          zip -r ../central-thin-bundle.zip com/
-          cd $GITHUB_WORKSPACE
-
-          echo "Uploading bundle to Maven Central Portal..."
-
-          # Upload to new Maven Central Portal
-          curl -X POST \
-            -u "$MAVEN_CENTRAL_USERNAME:$MAVEN_CENTRAL_PASSWORD" \
-            -F "bundle=@target/central-thin-bundle.zip" \
-            -F "publishingType=AUTOMATIC" \
-            -w "\nHTTP_STATUS:%{http_code}\n" \
-            https://central.sonatype.com/api/v1/publisher/upload
-
-          echo "Thin JAR published successfully!"
+          mvn -Prelease deploy --batch-mode -pl assembly-thin \
+                      -Dnvd.api.key=${{ secrets.NVD_API_KEY }} \
+                      -Dossindex.username=${{ secrets.OSSINDEX_USERNAME }} \
+                      -Dossindex.password=${{ secrets.OSSINDEX_PASSWORD }}
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
@@ -174,5 +100,4 @@ jobs:
         with:
           tag_name: ${{ steps.get_tag.outputs.tag }}
           files: |
-            target/*-thin.jar
-
+            assembly-thin/target/databricks-jdbc-thin-*.jar

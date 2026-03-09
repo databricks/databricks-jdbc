@@ -78,12 +78,14 @@ public class DatabricksSQLException extends SQLException {
           reason,
           TelemetryLogLevel.ERROR);
     } else {
-      // These are errors that are thrown to call a fallback method, hence adding a lower log level.
+      // These are errors that are thrown to call a fallback method (e.g. metadata column not
+      // present in SEA response). Use TRACE so they are filtered out by the default telemetry
+      // log level (DEBUG) and only visible when telemetryLogLevel=TRACE is explicitly set.
       exportFailureLog(
           DatabricksThreadContextHolder.getConnectionContext(),
           sqlState,
           reason,
-          TelemetryLogLevel.WARN);
+          TelemetryLogLevel.TRACE);
     }
   }
 }

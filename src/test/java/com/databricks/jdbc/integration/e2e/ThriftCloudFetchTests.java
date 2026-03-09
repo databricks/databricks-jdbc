@@ -15,12 +15,12 @@ import com.databricks.jdbc.api.impl.arrow.ChunkProvider;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ExternalLink;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -138,7 +138,7 @@ public class ThriftCloudFetchTests {
       long chunkStartRowOffset,
       AbstractRemoteChunkProvider<ArrowResultChunk> chunkProvider,
       IDatabricksClient client)
-      throws DatabricksSQLException {
+      throws SQLException {
     // Fetch from the startRowOffset of the target chunk.
     Collection<ExternalLink> refetchedLinks =
         client.getResultChunks(statementId, chunkIndex, chunkStartRowOffset).getChunkLinks();

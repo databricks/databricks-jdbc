@@ -4,6 +4,21 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [jdk-8]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to checkout'
+        required: false
+        default: 'jdk-8'
+      repository:
+        description: 'Repository to checkout (e.g., user/repo)'
+        required: false
+        default: 'databricks/databricks-jdbc'
+      reason:
+        description: 'Reason for manual run'
+        required: false
+        default: 'Manual health check for JDK-8'
+
 
 jobs:
   jdk8-test:
@@ -33,4 +48,8 @@ jobs:
           restore-keys: ${{ runner.os }}-jdk8-m2
 
       - name: Run Unit Tests
-        run: mvn clean test
+        run: mvn -pl jdbc-core clean test -Dgroups='!Jvm17PlusAndArrowToNioReflectionDisabled'
+
+      - name: Check Arrow Memory Tests
+        shell: bash
+        run: mvn -Plow-memory -pl jdbc-core test -Dtest='DatabricksArrowPatchMemoryUsageTest'

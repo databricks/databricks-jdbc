@@ -97,6 +97,40 @@ public class MetadataResultConstants {
       new ResultColumn("IS_AUTOINCREMENT", "isAutoIncrement", Types.VARCHAR);
   public static final ResultColumn IS_GENERATED_COLUMN =
       new ResultColumn("IS_GENERATEDCOLUMN", "isGenerated", Types.VARCHAR);
+
+  // TYPE_INFO columns
+  private static final ResultColumn LITERAL_PREFIX_COLUMN =
+      new ResultColumn("LITERAL_PREFIX", "literalPrefix", Types.VARCHAR);
+  private static final ResultColumn LITERAL_SUFFIX_COLUMN =
+      new ResultColumn("LITERAL_SUFFIX", "literalSuffix", Types.VARCHAR);
+  private static final ResultColumn CREATE_PARAMS_COLUMN =
+      new ResultColumn("CREATE_PARAMS", "createParams", Types.VARCHAR);
+  private static final ResultColumn CASE_SENSITIVE_COLUMN =
+      new ResultColumn("CASE_SENSITIVE", "caseSensitive", Types.BIT);
+  private static final ResultColumn SEARCHABLE_COLUMN =
+      new ResultColumn("SEARCHABLE", "searchable", Types.SMALLINT);
+  private static final ResultColumn UNSIGNED_ATTRIBUTE_COLUMN =
+      new ResultColumn("UNSIGNED_ATTRIBUTE", "unsignedAttribute", Types.BIT);
+  private static final ResultColumn FIXED_PREC_SCALE_COLUMN =
+      new ResultColumn("FIXED_PREC_SCALE", "fixedPrecScale", Types.BIT);
+  private static final ResultColumn AUTO_INCREMENT_COLUMN =
+      new ResultColumn("AUTO_INCREMENT", "autoIncrement", Types.BIT);
+  private static final ResultColumn LOCAL_TYPE_NAME_COLUMN =
+      new ResultColumn("LOCAL_TYPE_NAME", "localTypeName", Types.VARCHAR);
+  private static final ResultColumn MINIMUM_SCALE_COLUMN =
+      new ResultColumn("MINIMUM_SCALE", "minimumScale", Types.SMALLINT);
+  private static final ResultColumn MAXIMUM_SCALE_COLUMN =
+      new ResultColumn("MAXIMUM_SCALE", "maximumScale", Types.SMALLINT);
+
+  // CLIENT_INFO_PROPERTIES columns
+  private static final ResultColumn NAME_COLUMN = new ResultColumn("NAME", "name", Types.VARCHAR);
+  private static final ResultColumn MAX_LEN_COLUMN =
+      new ResultColumn("MAX_LEN", "maxLen", Types.INTEGER);
+  private static final ResultColumn DEFAULT_VALUE_COLUMN =
+      new ResultColumn("DEFAULT_VALUE", "defaultValue", Types.VARCHAR);
+  private static final ResultColumn DESCRIPTION_COLUMN =
+      new ResultColumn("DESCRIPTION", "description", Types.VARCHAR);
+
   private static final ResultColumn ATTR_NAME =
       new ResultColumn("ATTR_NAME", "attrName", Types.VARCHAR);
   private static final ResultColumn ATTR_TYPE_NAME =
@@ -485,6 +519,30 @@ public class MetadataResultConstants {
           PK_NAME,
           DEFERRABILITY);
 
+  public static final List<ResultColumn> TYPE_INFO_COLUMNS =
+      List.of(
+          TYPE_NAME_COLUMN,
+          DATA_TYPE_COLUMN,
+          PRECISION_COLUMN,
+          LITERAL_PREFIX_COLUMN,
+          LITERAL_SUFFIX_COLUMN,
+          CREATE_PARAMS_COLUMN,
+          NULLABLE_COLUMN,
+          CASE_SENSITIVE_COLUMN,
+          SEARCHABLE_COLUMN,
+          UNSIGNED_ATTRIBUTE_COLUMN,
+          FIXED_PREC_SCALE_COLUMN,
+          AUTO_INCREMENT_COLUMN,
+          LOCAL_TYPE_NAME_COLUMN,
+          MINIMUM_SCALE_COLUMN,
+          MAXIMUM_SCALE_COLUMN,
+          SQL_DATA_TYPE_COLUMN,
+          SQL_DATETIME_SUB_COLUMN,
+          NUM_PREC_RADIX_COLUMN);
+
+  public static final List<ResultColumn> CLIENT_INFO_PROPERTIES_COLUMNS =
+      List.of(NAME_COLUMN, MAX_LEN_COLUMN, DEFAULT_VALUE_COLUMN, DESCRIPTION_COLUMN);
+
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
       new HashMap<>() {
         {
@@ -616,6 +674,7 @@ public class MetadataResultConstants {
                   FKCOLUMN_NAME,
                   KEY_SEQUENCE_COLUMN,
                   DEFERRABILITY));
+          put(CommandName.GET_CLIENT_INFO_PROPERTIES, List.of(NAME_COLUMN, MAX_LEN_COLUMN));
         }
       };
 }

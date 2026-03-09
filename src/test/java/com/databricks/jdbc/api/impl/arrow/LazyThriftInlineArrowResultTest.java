@@ -13,6 +13,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayOutputStream;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -140,7 +141,7 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testEmptyResultSet() throws DatabricksSQLException {
+  void testEmptyResultSet() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 0);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, 0, false);
 
@@ -161,7 +162,7 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testGetObjectThrowsWhenClosed() throws DatabricksSQLException {
+  void testGetObjectThrowsWhenClosed() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 1);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, 1, false);
 
@@ -184,7 +185,7 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testGetObjectThrowsWhenBeforeFirstRow() throws DatabricksSQLException {
+  void testGetObjectThrowsWhenBeforeFirstRow() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 1);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, 1, false);
 
@@ -201,7 +202,7 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testIsCompletelyFetchedWithMoreRows() throws DatabricksSQLException {
+  void testIsCompletelyFetchedWithMoreRows() throws SQLException {
     byte[] arrowData = createValidArrowData(1, 0);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, 0, true);
 
@@ -216,7 +217,7 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testIterateThroughRowsWithValidArrowData() throws DatabricksSQLException {
+  void testIterateThroughRowsWithValidArrowData() throws SQLException {
     int rowCount = 5;
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, rowCount, false);
@@ -245,7 +246,7 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testGetObjectReturnsCorrectIntegerValue() throws DatabricksSQLException {
+  void testGetObjectReturnsCorrectIntegerValue() throws SQLException {
     int rowCount = 3;
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, rowCount, false);
@@ -276,7 +277,7 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testGetObjectWithTwoColumns() throws DatabricksSQLException {
+  void testGetObjectWithTwoColumns() throws SQLException {
     int rowCount = 2;
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, rowCount, false);
@@ -303,7 +304,7 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testGetObjectThrowsForColumnIndexOutOfBounds() throws DatabricksSQLException {
+  void testGetObjectThrowsForColumnIndexOutOfBounds() throws SQLException {
     int rowCount = 1;
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, rowCount, false);
@@ -332,7 +333,7 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testMaxRowsLimitEnforced() throws DatabricksSQLException {
+  void testMaxRowsLimitEnforced() throws SQLException {
     int totalRows = 10;
     int maxRows = 3;
     byte[] arrowData = createValidArrowData(1, totalRows);
@@ -356,7 +357,7 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testGetArrowMetadataReturnsMetadata() throws DatabricksSQLException {
+  void testGetArrowMetadataReturnsMetadata() throws SQLException {
     int rowCount = 1;
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, rowCount, false);
@@ -374,7 +375,7 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testFetchNextChunkFromServer() throws DatabricksSQLException {
+  void testFetchNextChunkFromServer() throws SQLException {
     int rowsPerChunk = 2;
     byte[] arrowData1 = createValidArrowData(1, rowsPerChunk);
     byte[] arrowData2 = createValidArrowData(1, rowsPerChunk);
@@ -412,7 +413,7 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testGetRowCountReturnsCurrentChunkRowCount() throws DatabricksSQLException {
+  void testGetRowCountReturnsCurrentChunkRowCount() throws SQLException {
     int rowCount = 5;
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, rowCount, false);

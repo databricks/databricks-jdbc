@@ -24,6 +24,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.google.common.annotations.VisibleForTesting;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -144,7 +145,7 @@ public class ArrowStreamResult implements IExecutionResult {
       TFetchResultsResp resultsResp,
       IDatabricksStatementInternal parentStatementId,
       IDatabricksSession session)
-      throws DatabricksSQLException {
+      throws SQLException {
     this(
         resultsResp,
         parentStatementId,
@@ -158,7 +159,7 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
-      throws DatabricksSQLException {
+      throws SQLException {
     this.session = session;
     this.columnInfos = getColumnInfoList(resultsResp.getResultSetMetadata());
     this.chunkProvider =
@@ -179,7 +180,7 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
-      throws DatabricksSQLException {
+      throws SQLException {
 
     IDatabricksConnectionContext connectionContext = session.getConnectionContext();
     CompressionCodec compressionCodec =

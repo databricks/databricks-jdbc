@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.util.JsonUtil.getTelemetryMapper;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.util.HttpUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -44,7 +45,8 @@ public class TelemetryPushClient implements ITelemetryPushClient {
   @Override
   public void pushEvent(TelemetryRequest request) throws Exception {
     IDatabricksHttpClient httpClient =
-        DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
+        DatabricksHttpClientFactory.getInstance()
+            .getClient(connectionContext, HttpClientType.TELEMETRY);
     String path =
         isAuthenticated
             ? PathConstants.TELEMETRY_PATH

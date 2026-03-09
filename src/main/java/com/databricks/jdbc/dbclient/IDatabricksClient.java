@@ -5,6 +5,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -34,7 +35,7 @@ public interface IDatabricksClient {
       String catalog,
       String schema,
       Map<String, String> sessionConf)
-      throws DatabricksSQLException;
+      throws SQLException;
 
   /**
    * Deletes a session for given session-Id
@@ -42,7 +43,7 @@ public interface IDatabricksClient {
    * @param sessionInfo for which the session should be deleted
    */
   @DatabricksMetricsTimed
-  void deleteSession(ImmutableSessionInfo sessionInfo) throws DatabricksSQLException;
+  void deleteSession(ImmutableSessionInfo sessionInfo) throws SQLException;
 
   /**
    * Executes a statement in Databricks server
@@ -53,6 +54,10 @@ public interface IDatabricksClient {
    * @param statementType type of statement (metadata, update or generic SQL)
    * @param session underlying session
    * @param parentStatement statement instance if called from a statement
+   * @param metadataOperationType optional metadata operation type for CP-side logging (e.g.,
+   *     GET_TABLES, GET_COLUMNS). Pass null for non-metadata operations. When provided, adds
+   *     X-Databricks-Metadata-Operation-Type header to help distinguish metadata operations from
+   *     regular SQL queries in logs.
    * @return response for statement execution
    */
   @DatabricksMetricsTimed
@@ -62,7 +67,8 @@ public interface IDatabricksClient {
       Map<Integer, ImmutableSqlParameter> parameters,
       StatementType statementType,
       IDatabricksSession session,
-      IDatabricksStatementInternal parentStatement)
+      IDatabricksStatementInternal parentStatement,
+      MetadataOperationType metadataOperationType)
       throws SQLException;
 
   /**
@@ -132,8 +138,7 @@ public interface IDatabricksClient {
    * @param chunkStartRowOffset the row offset where the chunk starts in the result set
    */
   ChunkLinkFetchResult getResultChunks(
-      StatementId statementId, long chunkIndex, long chunkStartRowOffset)
-      throws DatabricksSQLException;
+      StatementId statementId, long chunkIndex, long chunkStartRowOffset) throws SQLException;
 
   /**
    * Fetches the result data for given chunk index and statement-Id.
@@ -155,7 +160,7 @@ public interface IDatabricksClient {
   void resetAccessToken(String newAccessToken);
 
   TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
-      throws DatabricksSQLException;
+      throws SQLException;
 
   /** Retrieves underlying DatabricksConfig */
   DatabricksConfig getDatabricksConfig();

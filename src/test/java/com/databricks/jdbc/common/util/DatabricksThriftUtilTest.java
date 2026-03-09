@@ -1,6 +1,7 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.checkDirectResultsForErrorStatus;
 import static org.junit.jupiter.api.Assertions.*;
@@ -11,10 +12,12 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.sdk.service.sql.StatementState;
 import java.nio.ByteBuffer;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.Base64;
 import java.util.stream.Stream;
@@ -88,6 +91,43 @@ public class DatabricksThriftUtilTest {
                     "test"));
 
     assertEquals("42S02", exception.getSQLState());
+  }
+
+  @Test
+  void testVerifySuccessStatusThrowsTimeoutException() {
+    // Test that timeout SQL state triggers DatabricksTimeoutException
+    DatabricksTimeoutException timeoutException =
+        assertThrows(
+            DatabricksTimeoutException.class,
+            () ->
+                DatabricksThriftUtil.verifySuccessStatus(
+                    new TStatus()
+                        .setStatusCode(TStatusCode.ERROR_STATUS)
+                        .setSqlState(QUERY_EXECUTION_TIMEOUT_SQLSTATE),
+                    "Error while fetching results Request maxRows=100000, maxBytes=404857600. "
+                        + "Response hasMoreRows=false"));
+
+    assertEquals(QUERY_EXECUTION_TIMEOUT_SQLSTATE, timeoutException.getSQLState());
+    assertTrue(
+        timeoutException
+            .getMessage()
+            .contains("Error thrift response received [Error while fetching results"));
+
+    // Test with statement ID
+    timeoutException =
+        assertThrows(
+            DatabricksTimeoutException.class,
+            () ->
+                DatabricksThriftUtil.verifySuccessStatus(
+                    new TStatus()
+                        .setStatusCode(TStatusCode.ERROR_STATUS)
+                        .setSqlState(QUERY_EXECUTION_TIMEOUT_SQLSTATE),
+                    "Error while fetching results Request maxRows=100000, maxBytes=404857600. "
+                        + "Response hasMoreRows=false",
+                    "f6c9348e-84fb-47e8-8dcd-07455ff39ff5"));
+
+    assertEquals(QUERY_EXECUTION_TIMEOUT_SQLSTATE, timeoutException.getSQLState());
+    assertTrue(timeoutException.getMessage().contains("f6c9348e-84fb-47e8-8dcd-07455ff39ff5"));
   }
 
   private static Stream<Arguments> resultDataTypes() {
@@ -218,14 +258,14 @@ public class DatabricksThriftUtilTest {
 
   @ParameterizedTest
   @MethodSource("resultDataTypes")
-  public void testRowCount(TRowSet resultData, int expectedRowCount) throws DatabricksSQLException {
+  public void testRowCount(TRowSet resultData, int expectedRowCount) throws SQLException {
     assertEquals(expectedRowCount, DatabricksThriftUtil.getRowCount(resultData));
   }
 
   @ParameterizedTest
   @MethodSource("resultDataTypesForGetColumnValue")
   public void testColumnCount(TRowSet resultData, List<List<Object>> expectedValues)
-      throws DatabricksSQLException {
+      throws SQLException {
     assertEquals(expectedValues, DatabricksThriftUtil.extractRowsFromColumnar(resultData));
   }
 
@@ -256,7 +296,7 @@ public class DatabricksThriftUtilTest {
   }
 
   @Test
-  public void testConvertColumnarToRowBased() throws DatabricksSQLException {
+  public void testConvertColumnarToRowBased() throws SQLException {
     when(fetchResultsResp.getResults()).thenReturn(BOOL_ROW_SET);
     when(parentStatement.getMaxRows()).thenReturn(DEFAULT_RESULT_ROW_LIMIT);
     List<List<Object>> rowBasedData =
@@ -283,7 +323,7 @@ public class DatabricksThriftUtilTest {
   }
 
   @Test
-  public void testMaxRowsInStatement() throws DatabricksSQLException {
+  public void testMaxRowsInStatement() throws SQLException {
     when(fetchResultsResp.getResults()).thenReturn(BOOL_ROW_SET);
     int maxRows = 2;
     when(parentStatement.getMaxRows()).thenReturn(maxRows);
@@ -406,7 +446,7 @@ public class DatabricksThriftUtilTest {
   }
 
   @Test
-  public void testExtractRowsWithNullsForAllTypes() throws DatabricksSQLException {
+  public void testExtractRowsWithNullsForAllTypes() throws SQLException {
     // Create a TRowSet with three columns: STRING, DOUBLE, and BOOLEAN.
     TRowSet rowSet = new TRowSet();
     List<TColumn> columns = new ArrayList<>();
@@ -455,7 +495,7 @@ public class DatabricksThriftUtilTest {
   }
 
   @Test
-  public void testExtractRowsWhenNullsArrayIsNull() throws DatabricksSQLException {
+  public void testExtractRowsWhenNullsArrayIsNull() throws SQLException {
     // Create a TRowSet with two columns: STRING and DOUBLE, where the nulls arrays are null.
     TRowSet rowSet = new TRowSet();
     List<TColumn> columns = new ArrayList<>();
@@ -516,7 +556,7 @@ public class DatabricksThriftUtilTest {
   }
 
   @Test
-  public void testGetArrowMetadataWithRealData() throws DatabricksSQLException {
+  public void testGetArrowMetadataWithRealData() throws SQLException {
     TGetResultSetMetadataResp metadata = createMetadataWithArrowSchema(REAL_ARROW_SCHEMA_BASE64);
     List<String> result = DatabricksThriftUtil.getArrowMetadata(metadata);
 
@@ -532,12 +572,12 @@ public class DatabricksThriftUtilTest {
   }
 
   @Test
-  public void testGetArrowMetadataWithNullMetadata() throws DatabricksSQLException {
+  public void testGetArrowMetadataWithNullMetadata() throws SQLException {
     assertNull(DatabricksThriftUtil.getArrowMetadata(null));
   }
 
   @Test
-  public void testGetArrowMetadataWithNullArrowSchema() throws DatabricksSQLException {
+  public void testGetArrowMetadataWithNullArrowSchema() throws SQLException {
     TGetResultSetMetadataResp metadata = new TGetResultSetMetadataResp();
     assertNull(DatabricksThriftUtil.getArrowMetadata(metadata));
   }
