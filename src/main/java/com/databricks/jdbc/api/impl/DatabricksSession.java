@@ -14,7 +14,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksEmptyMetadataClient;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
+import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataQueryClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -84,8 +84,9 @@ public class DatabricksSession implements IDatabricksSession {
   public DatabricksSession(
       IDatabricksConnectionContext connectionContext, IDatabricksClient testDatabricksClient) {
     this.databricksClient = testDatabricksClient;
-    if (databricksClient instanceof DatabricksSdkClient) {
-      this.databricksMetadataClient = new DatabricksMetadataSdkClient(databricksClient);
+    if (databricksClient instanceof DatabricksSdkClient
+        || connectionContext.useQueryForMetadata()) {
+      this.databricksMetadataClient = new DatabricksMetadataQueryClient(databricksClient);
     }
     this.isSessionOpen = false;
     this.sessionInfo = null;
@@ -141,12 +142,17 @@ public class DatabricksSession implements IDatabricksSession {
         this.databricksClient =
             DatabricksMetricsTimedProcessor.createProxy(
                 new DatabricksThriftServiceClient(connectionContext));
+        if (connectionContext.useQueryForMetadata()) {
+          this.databricksMetadataClient =
+              DatabricksMetricsTimedProcessor.createProxy(
+                  new DatabricksMetadataQueryClient(databricksClient));
+        }
       } else {
         this.databricksClient =
             DatabricksMetricsTimedProcessor.createProxy(new DatabricksSdkClient(connectionContext));
         this.databricksMetadataClient =
             DatabricksMetricsTimedProcessor.createProxy(
-                new DatabricksMetadataSdkClient(databricksClient));
+                new DatabricksMetadataQueryClient(databricksClient));
       }
     }
 
@@ -161,6 +167,13 @@ public class DatabricksSession implements IDatabricksSession {
           this.databricksClient =
               DatabricksMetricsTimedProcessor.createProxy(
                   new DatabricksThriftServiceClient(connectionContext));
+          if (connectionContext.useQueryForMetadata()) {
+            this.databricksMetadataClient =
+                DatabricksMetricsTimedProcessor.createProxy(
+                    new DatabricksMetadataQueryClient(databricksClient));
+          } else {
+            this.databricksMetadataClient = null;
+          }
           this.sessionInfo =
               this.databricksClient.createSession(
                   this.computeResource, this.catalog, this.schema, this.sessionConfigs);
@@ -180,7 +193,13 @@ public class DatabricksSession implements IDatabricksSession {
             this.databricksClient =
                 DatabricksMetricsTimedProcessor.createProxy(
                     new DatabricksThriftServiceClient(connectionContext));
-            this.databricksMetadataClient = null;
+            if (connectionContext.useQueryForMetadata()) {
+              this.databricksMetadataClient =
+                  DatabricksMetricsTimedProcessor.createProxy(
+                      new DatabricksMetadataQueryClient(databricksClient));
+            } else {
+              this.databricksMetadataClient = null;
+            }
             try {
               this.sessionInfo =
                   this.databricksClient.createSession(
@@ -239,7 +258,8 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public IDatabricksMetadataClient getDatabricksMetadataClient() {
     LOGGER.debug("public IDatabricksClient getDatabricksMetadataClient()");
-    if (this.connectionContext.getClientType() == DatabricksClientType.THRIFT) {
+    if (this.connectionContext.getClientType() == DatabricksClientType.THRIFT
+        && !this.connectionContext.useQueryForMetadata()) {
       return (IDatabricksMetadataClient) databricksClient;
     }
     return databricksMetadataClient;

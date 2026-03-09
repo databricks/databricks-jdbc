@@ -707,8 +707,8 @@ public class DatabricksThriftServiceClientTest {
             .setCanDecompressLZ4Result(true)
             .setCanDownloadResult(true)
             .setQueryTimeout(0)
+            .setRunAsync(false)
             .setParameters(Collections.emptyList())
-            .setRunAsync(true)
             .setUseArrowNativeTypes(arrowNativeTypes);
     when(thriftAccessor.execute(executeStatementReq, null, session, StatementType.METADATA))
         .thenReturn(resultSet);
@@ -1053,6 +1053,66 @@ public class DatabricksThriftServiceClientTest {
     assertEquals("STRING", result.getType());
     assertEquals(TEST_STRING, result.getValue().getStringValue());
     assertEquals(2, result.getOrdinal());
+  }
+
+  @Test
+  void testExecuteStatementWithMetadataTypeDoesNotSetRunAsync() throws SQLException {
+    when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    lenient().when(connectionContext.isCloudFetchEnabled()).thenReturn(true);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+
+    when(thriftAccessor.execute(
+            any(TExecuteStatementReq.class), eq(null), eq(session), eq(StatementType.METADATA)))
+        .thenReturn(resultSet);
+
+    client.executeStatement(
+        "SHOW TABLES",
+        CLUSTER_COMPUTE,
+        Collections.emptyMap(),
+        StatementType.METADATA,
+        session,
+        null,
+        null);
+
+    ArgumentCaptor<TExecuteStatementReq> requestCaptor =
+        ArgumentCaptor.forClass(TExecuteStatementReq.class);
+    verify(thriftAccessor)
+        .execute(requestCaptor.capture(), eq(null), eq(session), eq(StatementType.METADATA));
+    TExecuteStatementReq request = requestCaptor.getValue();
+
+    assertFalse(request.isRunAsync(), "Expected runAsync to be false for METADATA statement type");
+  }
+
+  @Test
+  void testExecuteStatementWithSqlTypeStillSetsRunAsync() throws SQLException {
+    when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    lenient().when(connectionContext.isCloudFetchEnabled()).thenReturn(true);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+
+    when(thriftAccessor.execute(
+            any(TExecuteStatementReq.class), eq(null), eq(session), eq(StatementType.SQL)))
+        .thenReturn(resultSet);
+
+    client.executeStatement(
+        "SELECT 1",
+        CLUSTER_COMPUTE,
+        Collections.emptyMap(),
+        StatementType.SQL,
+        session,
+        null,
+        null);
+
+    ArgumentCaptor<TExecuteStatementReq> requestCaptor =
+        ArgumentCaptor.forClass(TExecuteStatementReq.class);
+    verify(thriftAccessor)
+        .execute(requestCaptor.capture(), eq(null), eq(session), eq(StatementType.SQL));
+    TExecuteStatementReq request = requestCaptor.getValue();
+
+    assertTrue(request.isRunAsync(), "Expected runAsync to be true for SQL statement type");
   }
 
   @Test
