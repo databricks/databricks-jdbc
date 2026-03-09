@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -212,7 +213,8 @@ public class ComplexDataTypeParser {
           // Fall back to parsing as epoch day count (days since 1970-01-01).
           try {
             return Date.valueOf(LocalDate.ofEpochDay(Long.parseLong(text)));
-          } catch (NumberFormatException nfe) {
+          } catch (NumberFormatException | DateTimeException nfe) {
+            LOGGER.error(e, "Failed to parse DATE value '{}' as epoch day integer", text);
             throw e;
           }
         }
