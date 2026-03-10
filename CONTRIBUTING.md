@@ -92,12 +92,10 @@ We recommend using IntelliJ to develop the Databricks JDBC Driver. You can downl
 Once you have IntelliJ installed, open the Databricks JDBC Driver project by selecting `File -> Open` and selecting the
 `databricks-jdbc` folder. Ensure that you have the Maven plugin loaded.
 - Git Hooks - To ensure commit quality and enforce project policies (such as with our new post-commit hook), you must install the git hooks contained in scripts/githooks.
-  Please run the following command after cloning the repository:
+  Please run the following commands after cloning the repository:
   ```bash
-    chmod +x ./scripts/setup-git-hooks.sh
-  ````
-  ``` bash
-    ./scripts/setup-git-hooks.sh
+  chmod +x ./scripts/setup-git-hooks.sh
+  ./scripts/setup-git-hooks.sh
   ```
 
 ## Debugging
@@ -138,10 +136,10 @@ your real name as pseudonymous/anonymous contributions are not accepted.
 
 ```
 Signed-off-by: Holly Smith <holly.smith@email.com>
-Use your real name (sorry, no pseudonyms or anonymous contributions.)
+Use your real name (sorry, no pseudonyms or anonymous contributions).
 ```
 
-If you set your `user.name` and `user.email` git configs, you can sign your commit automatically with git commit -s:
+If you set your `user.name` and `user.email` git configs, you can sign your commit automatically with `git commit -s`:
 
 ```
 git commit -s -m "Your commit message"
