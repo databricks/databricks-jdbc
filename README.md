@@ -129,8 +129,32 @@ application or driver with the following JVM command option:
 
 For more detailed information about integration tests and fake services, see [Testing Documentation](./docs/TESTING.md).
 
+## Troubleshooting
+
+### Common Issues
+
+**JDK 16+ Compatibility Error**: If you see `InaccessibleObjectException` or similar reflection errors
+when using JDK 16 or later, add this JVM argument:
+```
+--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED
+```
+
+**Connection Timeout**: Ensure that your network allows outbound connections to your Databricks workspace
+host on port 443. If you are behind a corporate proxy, configure the proxy parameters in your connection
+string:
+```
+ProxyHost=proxy.example.com;ProxyPort=8080
+```
+
+**SSL Certificate Errors**: If connecting to a workspace with custom SSL certificates, you may need to
+import the certificate into your JVM's truststore:
+```bash
+keytool -import -alias databricks -keystore $JAVA_HOME/lib/security/cacerts -file your-cert.pem
+```
+
 ## Documentation
 
 For more information, see the following resources:
 - [Integration Tests Guide](./docs/TESTING.md)
 - [Logging Configuration](./docs/LOGGING.md)
+- [JDBC Method Inventory](./docs/JDBC_METHOD_INVENTORY.md)
