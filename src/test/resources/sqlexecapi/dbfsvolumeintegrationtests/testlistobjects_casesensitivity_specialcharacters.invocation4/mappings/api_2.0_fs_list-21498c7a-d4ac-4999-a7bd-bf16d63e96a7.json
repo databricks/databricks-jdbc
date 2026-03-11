@@ -1,0 +1,26 @@
+{
+  "id" : "21498c7a-d4ac-4999-a7bd-bf16d63e96a7",
+  "name" : "api_2.0_fs_list",
+  "request" : {
+    "url" : "/api/2.0/fs/list?path=%2FVolumes%2Fuc_volume_test_catalog%2Fuc_volume_test_schema%2Ftest_volume2%2F",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"files\":[{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume2/aBC_file3.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717406287000,\"name\":\"aBC_file3.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume2/abc_file2.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717406287000,\"name\":\"abc_file2.csv\"},{\"path\":\"/Volumes/uc_volume_test_catalog/uc_volume_test_schema/test_volume2/abc_file4.csv\",\"is_dir\":false,\"file_size\":13305,\"modification_time\":1717406287000,\"name\":\"abc_file4.csv\"}]}",
+    "headers" : {
+      "x-request-id" : "32fe22e6-b4df-4cfc-8e98-89c45245f50f",
+      "date" : "Thu, 9 Jan 2025 08:32:48 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "21498c7a-d4ac-4999-a7bd-bf16d63e96a7",
+  "insertionIndex" : 23
+}

@@ -1,0 +1,37 @@
+{
+  "id" : "b0870929-0762-48db-b6bf-2b77e5ebb092",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"DROP TABLE IF EXISTS main.jdbc_test_schema.prepared_statement_set_object_test_table\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01f01a47-07a5-1233-8c78-5070e5dfd62c\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f01a47-08b1-1cb2-b45b-8ece722d4bb5\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":0},\"total_chunk_count\":0,\"total_row_count\":0,\"total_byte_count\":0,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{}}",
+    "headers" : {
+      "x-request-id" : "b12b4478-07a2-475c-bdb6-036532820116",
+      "date" : "Tue, 15 Apr 2025 22:14:44 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "alt-svc" : "h3=\":5443\"; ma=86400, h3-29=\":5443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "b0870929-0762-48db-b6bf-2b77e5ebb092",
+  "scenarioName" : "scenario-1-api-2.0-sql-statements",
+  "requiredScenarioState" : "Started",
+  "newScenarioState" : "scenario-1-api-2.0-sql-statements-2",
+  "insertionIndex" : 11
+}

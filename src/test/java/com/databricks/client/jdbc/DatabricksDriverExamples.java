@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import com.databricks.jdbc.api.IDatabricksConnection;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IDatabricksStatement;
+import com.databricks.jdbc.api.IDatabricksVolumeClient;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
@@ -634,7 +635,7 @@ public class DatabricksDriverExamples {
     con.setClientInfo(DatabricksJdbcConstants.ENABLE_VOLUME_OPERATIONS, "1");
     System.out.println("Connection created.");
 
-    var client = DatabricksVolumeClientFactory.getVolumeClient(con);
+    IDatabricksVolumeClient client = DatabricksVolumeClientFactory.getVolumeClient(con);
 
     File file = new File("/tmp/put.txt");
     try {
@@ -685,7 +686,8 @@ public class DatabricksDriverExamples {
     p.setProperty("PWD", DATABRICKS_TOKEN);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(JDBC_URL_WAREHOUSE, p);
-    var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
+    IDatabricksVolumeClient client =
+        DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
     int numFiles = 2;
     List<String> objectPaths = new ArrayList<>();
     List<String> localPaths = new ArrayList<>();
@@ -741,7 +743,8 @@ public class DatabricksDriverExamples {
     p.setProperty("PWD", DATABRICKS_TOKEN);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(jdbcUrl, p);
-    var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
+    IDatabricksVolumeClient client =
+        DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
     File file = new File("/tmp/put.txt");
     try {
@@ -791,7 +794,8 @@ public class DatabricksDriverExamples {
     p.setProperty("PWD", DATABRICKS_TOKEN);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(jdbcUrl, p);
-    var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
+    IDatabricksVolumeClient client =
+        DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
     File file = new File("/tmp/put.txt");
     File fileGet = new File("/tmp/dbfs.txt");
@@ -845,7 +849,8 @@ public class DatabricksDriverExamples {
     String jdbcUrl = JDBC_URL_WAREHOUSE + "Loglevel=debug;enableVolumeOperations=1";
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(jdbcUrl, "TOKEN", DATABRICKS_TOKEN);
-    var client = DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
+    IDatabricksVolumeClient client =
+        DatabricksVolumeClientFactory.getVolumeClient(connectionContext);
 
     File file = new File("/tmp/put.txt");
     try {

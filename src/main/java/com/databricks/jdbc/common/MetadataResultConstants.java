@@ -485,7 +485,7 @@ public class MetadataResultConstants {
           DEFERRABILITY);
 
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
-      new HashMap<>() {
+      new HashMap<CommandName, List<ResultColumn>>() {
         {
           put(
               CommandName.LIST_TYPE_INFO,

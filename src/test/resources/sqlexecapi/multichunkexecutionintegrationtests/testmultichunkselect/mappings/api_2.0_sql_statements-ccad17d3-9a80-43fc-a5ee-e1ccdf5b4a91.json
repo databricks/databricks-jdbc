@@ -1,0 +1,31 @@
+{
+  "id" : "ccad17d3-9a80-43fc-a5ee-e1ccdf5b4a91",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SELECT * FROM samples.tpch.lineitem limit 122900\",\"warehouse_id\":\"dd43ee29fedd958d\",\"row_limit\":122900,\"session_id\":\"01ef9de2-da56-1767-88ae-11d43bea267c\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef9de2-db21-16af-b4cb-9ccf302d746b\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":16,\"columns\":[{\"name\":\"l_orderkey\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":0},{\"name\":\"l_partkey\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":1},{\"name\":\"l_suppkey\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":2},{\"name\":\"l_linenumber\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":3},{\"name\":\"l_quantity\",\"type_text\":\"DECIMAL(18,2)\",\"type_name\":\"DECIMAL\",\"position\":4,\"type_precision\":18,\"type_scale\":2},{\"name\":\"l_extendedprice\",\"type_text\":\"DECIMAL(18,2)\",\"type_name\":\"DECIMAL\",\"position\":5,\"type_precision\":18,\"type_scale\":2},{\"name\":\"l_discount\",\"type_text\":\"DECIMAL(18,2)\",\"type_name\":\"DECIMAL\",\"position\":6,\"type_precision\":18,\"type_scale\":2},{\"name\":\"l_tax\",\"type_text\":\"DECIMAL(18,2)\",\"type_name\":\"DECIMAL\",\"position\":7,\"type_precision\":18,\"type_scale\":2},{\"name\":\"l_returnflag\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":8},{\"name\":\"l_linestatus\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":9},{\"name\":\"l_shipdate\",\"type_text\":\"DATE\",\"type_name\":\"DATE\",\"position\":10},{\"name\":\"l_commitdate\",\"type_text\":\"DATE\",\"type_name\":\"DATE\",\"position\":11},{\"name\":\"l_receiptdate\",\"type_text\":\"DATE\",\"type_name\":\"DATE\",\"position\":12},{\"name\":\"l_shipinstruct\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":13},{\"name\":\"l_shipmode\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":14},{\"name\":\"l_comment\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":15}]},\"total_chunk_count\":2,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":122880,\"byte_count\":21017592},{\"chunk_index\":1,\"row_offset\":122880,\"row_count\":20,\"byte_count\":5576}],\"total_row_count\":122900,\"total_byte_count\":21023168,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":122880,\"byte_count\":21017592,\"next_chunk_index\":1,\"next_chunk_internal_link\":\"/api/2.0/sql/statements/01ef9de2-db21-16af-b4cb-9ccf302d746b/result/chunks/1\",\"external_link\":\"https://e2-dogfood-core.s3.us-west-2.amazonaws.com/oregon-staging/6051921418418893.jobs/sql/extended/results_2024-11-09T16%3A05%3A17Z_20e7d2a0-00c1-447c-a0cb-da72a2e40968?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20241108T150517Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=c8216940563de5d0a3a39f9b089d4f5e63480f1ab83c72bcb02c7a06b463ad56\",\"expiration\":\"2024-11-08T15:20:17.922Z\"}]}}",
+    "headers" : {
+      "x-request-id" : "ad5359e9-5fdb-4409-b9ab-0a35a70754d5",
+      "date" : "Fri, 8 Nov 2024 15:05:17 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "ccad17d3-9a80-43fc-a5ee-e1ccdf5b4a91",
+  "insertionIndex" : 4
+}

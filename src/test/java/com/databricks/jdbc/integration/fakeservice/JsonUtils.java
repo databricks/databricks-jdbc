@@ -15,7 +15,7 @@ public class JsonUtils {
 
   /** {@link ObjectMapper} instance holder. */
   private static final InheritableThreadLocal<ObjectMapper> objectMapperHolder =
-      new InheritableThreadLocal<>() {
+      new InheritableThreadLocal<ObjectMapper>() {
         @Override
         protected ObjectMapper initialValue() {
           ObjectMapper objectMapper =

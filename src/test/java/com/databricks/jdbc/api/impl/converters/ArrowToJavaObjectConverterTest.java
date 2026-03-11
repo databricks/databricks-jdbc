@@ -403,7 +403,7 @@ public class ArrowToJavaObjectConverterTest {
   private static Timestamp getTimestampAdjustedToTimeZone(long timestampMicro, String timeZone) {
     Instant instant = Instant.ofEpochMilli(timestampMicro / 1000);
     LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.of(timeZone));
-    var ts = Timestamp.valueOf(localDateTime);
+    Timestamp ts = Timestamp.valueOf(localDateTime);
     ts.setNanos((int) (timestampMicro % 1000_000) * 1000);
     return ts;
   }

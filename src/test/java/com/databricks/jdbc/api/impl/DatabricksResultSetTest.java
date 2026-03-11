@@ -470,7 +470,7 @@ public class DatabricksResultSetTest {
     // Test with Calendar argument
     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"));
     // Asia/Tokyo is GMT+9
-    var expectedTimestampWithTz =
+    Timestamp expectedTimestampWithTz =
         new Timestamp(OffsetDateTime.parse("2023-01-01T12:30:00+09:00").toEpochSecond() * 1000);
     expectedTimestampWithTz.setNanos(123456789);
     assertEquals(expectedTimestampWithTz, resultSet.getTimestamp(columnIndex, calendar));

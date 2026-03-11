@@ -1422,7 +1422,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       useCal.set(Calendar.SECOND, ldt.getSecond());
       useCal.set(Calendar.MILLISECOND, 0);
 
-      var ts = new Timestamp(useCal.getTimeInMillis());
+      Timestamp ts = new Timestamp(useCal.getTimeInMillis());
       ts.setNanos(timestamp.getNanos());
       return ts;
     }

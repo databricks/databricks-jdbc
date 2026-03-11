@@ -69,7 +69,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.computeResource = buildCompute();
     this.connectionUuid = UUID.randomUUID().toString();
     this.clientTypeSupplier =
-        new Supplier<>() {
+        new Supplier<DatabricksClientType>() {
           private DatabricksClientType cType;
 
           @Override

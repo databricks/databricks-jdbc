@@ -1,0 +1,31 @@
+{
+  "id" : "9dfafee0-540b-4246-a200-3785a7952602",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"UPDATE main.jdbc_test_schema.prepared_statement_complex_query_test_table SET col1 = ? WHERE id = ?\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01ef9de2-e6fc-1da7-ad46-06f25d7445da\",\"disposition\":\"INLINE\",\"format\":\"JSON_ARRAY\",\"on_wait_timeout\":\"CONTINUE\",\"wait_timeout\":\"10s\",\"parameters\":[{\"type\":\"STRING\",\"value\":\"Updated value\",\"ordinal\":1},{\"type\":\"INT\",\"value\":\"1\",\"ordinal\":2}],\"result_compression\":\"NONE\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01ef9de3-3882-14f1-96bd-04610abd70e4\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"JSON_ARRAY\",\"schema\":{\"column_count\":1,\"columns\":[{\"name\":\"num_affected_rows\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":0}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1}],\"total_row_count\":1,\"truncated\":false},\"result\":{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"data_array\":[[\"1\"]]}}",
+    "headers" : {
+      "x-request-id" : "c56c4f01-0431-4f5c-8975-d63870b2ef72",
+      "date" : "Fri, 8 Nov 2024 15:07:52 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "9dfafee0-540b-4246-a200-3785a7952602",
+  "insertionIndex" : 16
+}

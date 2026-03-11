@@ -1,0 +1,28 @@
+{
+  "id" : "b92255e3-9547-447f-aca3-b2501e762cca",
+  "name" : "api_2.0_fs_list",
+  "request" : {
+    "url" : "/api/2.0/fs/list?path=%2FVolumes%2Fuc_volume_test_catalog%2Fuc_volume_test_schema%2Ftest_volume5%2F",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 404,
+    "body" : "{\"error_code\":\"NOT_FOUND\",\"message\":\"Volume 'uc_volume_test_catalog.uc_volume_test_schema.test_volume5' does not exist.\",\"details\":[{\"@type\":\"type.googleapis.com/google.rpc.ErrorInfo\",\"reason\":\"FILES_API_RESOURCE_NOT_FOUND\",\"domain\":\"filesystem.databricks.com\",\"metadata\":{\"unity_catalog_error_message\":\"Volume 'uc_volume_test_catalog.uc_volume_test_schema.test_volume5' does not exist.\"}},{\"@type\":\"type.googleapis.com/google.rpc.RequestInfo\",\"request_id\":\"1bbc5c95-8854-42d1-b357-31caf179f998\",\"serving_data\":\"\"}]}",
+    "headers" : {
+      "x-request-id" : "1bbc5c95-8854-42d1-b357-31caf179f998",
+      "date" : "Mon, 24 Mar 2025 04:57:28 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "b92255e3-9547-447f-aca3-b2501e762cca",
+  "insertionIndex" : 5
+}

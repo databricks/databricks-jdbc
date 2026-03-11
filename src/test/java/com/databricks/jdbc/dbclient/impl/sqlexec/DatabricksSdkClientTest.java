@@ -62,7 +62,7 @@ public class DatabricksSdkClientTest {
   private static final String DEFAULT_KEYSTORE_PASSWORD = "changeit";
 
   private static final Map<Integer, ImmutableSqlParameter> sqlParams =
-      new HashMap<>() {
+      new HashMap<Integer, ImmutableSqlParameter>() {
         {
           put(1, getSqlParam(1, 100, DatabricksTypeUtil.BIGINT));
           put(2, getSqlParam(2, (short) 10, DatabricksTypeUtil.SMALLINT));
@@ -79,7 +79,7 @@ public class DatabricksSdkClientTest {
 
   private void setupClientMocks(boolean includeResults, boolean async) throws IOException {
     List<StatementParameterListItem> params =
-        new ArrayList<>() {
+        new ArrayList<StatementParameterListItem>() {
           {
             add(getParam("LONG", "100", 1));
             add(getParam("SHORT", "10", 2));
