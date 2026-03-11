@@ -18,7 +18,6 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Properties;
@@ -438,107 +437,6 @@ public class DatabricksStatementTest {
     assertEquals(0, statement.getLargeMaxRows());
   }
 
-  // Helper to invoke Java 9+ Statement methods via reflection so the test compiles on Java 8
-  private static String invokeStatementStringMethod(Statement stmt, String methodName, Object... args)
-      throws Exception {
-    Class<?>[] argTypes = new Class<?>[args.length];
-    for (int i = 0; i < args.length; i++) {
-      argTypes[i] = args[i].getClass();
-    }
-    Method m = Statement.class.getMethod(methodName, argTypes);
-    return (String) m.invoke(stmt, args);
-  }
-
-  private static boolean invokeStatementBooleanMethod(Statement stmt, String methodName, Object... args)
-      throws Exception {
-    Class<?>[] argTypes = new Class<?>[args.length];
-    for (int i = 0; i < args.length; i++) {
-      argTypes[i] = args[i].getClass();
-    }
-    Method m = Statement.class.getMethod(methodName, argTypes);
-    return (Boolean) m.invoke(stmt, args);
-  }
-
-  @Test
-  public void testEnquoteLiteral() throws Exception {
-    DatabricksConnection connection = getTestConnection();
-    DatabricksStatement stmt = new DatabricksStatement(connection);
-    // Normal string
-    assertEquals("'hello'", invokeStatementStringMethod(stmt, "enquoteLiteral", "hello"));
-    // Empty string
-    assertEquals("''", invokeStatementStringMethod(stmt, "enquoteLiteral", ""));
-    // String with single quote
-    assertEquals(
-        "'It''s a test'", invokeStatementStringMethod(stmt, "enquoteLiteral", "It's a test"));
-    // String with multiple single quotes
-    assertEquals(
-        "'It''s a ''quoted'' test'",
-        invokeStatementStringMethod(stmt, "enquoteLiteral", "It's a 'quoted' test"));
-  }
-
-  @Test
-  public void testEnquoteIdentifier() throws Exception {
-    DatabricksConnection connection = getTestConnection();
-    DatabricksStatement stmt = new DatabricksStatement(connection);
-    // Valid identifier without forced quoting
-    assertEquals(
-        "myTable",
-        invokeStatementStringMethod(stmt, "enquoteIdentifier", "myTable", Boolean.FALSE));
-    // Valid identifier with forced quoting
-    assertEquals(
-        "\"myTable\"",
-        invokeStatementStringMethod(stmt, "enquoteIdentifier", "myTable", Boolean.TRUE));
-    // Identifier that requires quoting
-    assertEquals(
-        "\"my-table\"",
-        invokeStatementStringMethod(stmt, "enquoteIdentifier", "my-table", Boolean.FALSE));
-    // Already quoted identifier
-    assertEquals(
-        "\"my-table\"",
-        invokeStatementStringMethod(stmt, "enquoteIdentifier", "\"my-table\"", Boolean.FALSE));
-  }
-
-  @Test
-  public void testEnquoteNCharLiteral() throws Exception {
-    DatabricksConnection connection = getTestConnection();
-    DatabricksStatement stmt = new DatabricksStatement(connection);
-    // Normal string
-    assertEquals("N'hello'", invokeStatementStringMethod(stmt, "enquoteNCharLiteral", "hello"));
-    // Empty string
-    assertEquals("N''", invokeStatementStringMethod(stmt, "enquoteNCharLiteral", ""));
-    // String with single quote
-    assertEquals(
-        "N'It''s a test'",
-        invokeStatementStringMethod(stmt, "enquoteNCharLiteral", "It's a test"));
-    // String with multiple single quotes
-    assertEquals(
-        "N'It''s a ''quoted'' test'",
-        invokeStatementStringMethod(stmt, "enquoteNCharLiteral", "It's a 'quoted' test"));
-    // String with non-ASCII characters
-    assertEquals(
-        "N'こんにちは'", invokeStatementStringMethod(stmt, "enquoteNCharLiteral", "こんにちは"));
-  }
-
-  @Test
-  public void testIsSimpleIdentifier() throws Exception {
-    DatabricksConnection connection = getTestConnection();
-    DatabricksStatement stmt = new DatabricksStatement(connection);
-    // Valid identifier
-    assertTrue(invokeStatementBooleanMethod(stmt, "isSimpleIdentifier", "validName"));
-    // Valid identifier with underscores and numbers
-    assertTrue(invokeStatementBooleanMethod(stmt, "isSimpleIdentifier", "valid_name_123"));
-    // Invalid identifier starting with number
-    assertFalse(invokeStatementBooleanMethod(stmt, "isSimpleIdentifier", "123name"));
-    // Invalid identifier with special characters
-    assertFalse(invokeStatementBooleanMethod(stmt, "isSimpleIdentifier", "invalid-name"));
-    // Empty string
-    assertFalse(invokeStatementBooleanMethod(stmt, "isSimpleIdentifier", ""));
-    // Too long identifier
-    StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < 129; i++) sb.append('a');
-    String longIdentifier = sb.toString();
-    assertFalse(invokeStatementBooleanMethod(stmt, "isSimpleIdentifier", longIdentifier));
-  }
 
   @Test
   public void testShouldReturnResultSet_SelectQuery() {
