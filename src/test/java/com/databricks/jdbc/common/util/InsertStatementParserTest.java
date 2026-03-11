@@ -154,13 +154,15 @@ class InsertStatementParserTest {
   void testInsertInfoEqualsAndHashCode() {
     InsertInfo info1 =
         new InsertInfo(
-            "users", List.of("id", "name"), "INSERT INTO users (id, name) VALUES (?, ?)");
+            "users", Arrays.asList("id", "name"), "INSERT INTO users (id, name) VALUES (?, ?)");
     InsertInfo info2 =
         new InsertInfo(
-            "users", List.of("id", "name"), "INSERT INTO users (id, name) VALUES (?, ?)");
+            "users", Arrays.asList("id", "name"), "INSERT INTO users (id, name) VALUES (?, ?)");
     InsertInfo info3 =
         new InsertInfo(
-            "users", List.of("id", "email"), "INSERT INTO users (id, email) VALUES (?, ?)");
+            "users",
+            Arrays.asList("id", "email"),
+            "INSERT INTO users (id, email) VALUES (?, ?)");
 
     assertEquals(info1, info2);
     assertNotEquals(info1, info3);

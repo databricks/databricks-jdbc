@@ -866,10 +866,10 @@ public class DatabricksPreparedStatementTest {
         () -> preparedStatement.setBinaryStream(1, null, 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1));
+        () -> preparedStatement.setBinaryStream(1, new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setBinaryStream(1, InputStream.nullInputStream(), 1L));
+        () -> preparedStatement.setBinaryStream(1, new ByteArrayInputStream(new byte[0]), 1L));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setBinaryStream(1, null));
@@ -878,16 +878,16 @@ public class DatabricksPreparedStatementTest {
         () -> preparedStatement.setNCharacterStream(1, null));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setUnicodeStream(1, InputStream.nullInputStream(), 1));
+        () -> preparedStatement.setUnicodeStream(1, new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setClob(1, Reader.nullReader()));
+        () -> preparedStatement.setClob(1, new StringReader("")));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setBlob(1, InputStream.nullInputStream()));
+        () -> preparedStatement.setBlob(1, new ByteArrayInputStream(new byte[0])));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setNClob(1, Reader.nullReader()));
+        () -> preparedStatement.setNClob(1, new StringReader("")));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setTime(1, null));
     assertThrows(

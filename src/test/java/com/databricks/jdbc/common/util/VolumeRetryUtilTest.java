@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,7 +20,7 @@ public class VolumeRetryUtilTest {
   public void testIsRetryableHttpCode_WithConnectionContext() {
     // Setup mock connection context
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(408, 429, 500, 502, 503, 504));
+        .thenReturn(Arrays.asList(408, 429, 500, 502, 503, 504));
 
     // Test retryable codes
     assertTrue(VolumeRetryUtil.isRetryableHttpCode(408, mockConnectionContext));
@@ -43,7 +44,7 @@ public class VolumeRetryUtilTest {
   public void testIsRetryableHttpCode_CustomRetryableCodes() {
     // Test with custom retryable codes
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(503, 504, 507)); // Custom list
+        .thenReturn(Arrays.asList(503, 504, 507)); // Custom list
 
     assertTrue(VolumeRetryUtil.isRetryableHttpCode(503, mockConnectionContext));
     assertTrue(VolumeRetryUtil.isRetryableHttpCode(504, mockConnectionContext));
@@ -95,7 +96,7 @@ public class VolumeRetryUtilTest {
   public void testIntegration_RetryScenario() {
     // Integration test simulating a real retry scenario
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(500, 502, 503, 504));
+        .thenReturn(Arrays.asList(500, 502, 503, 504));
     when(mockConnectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(60);
 
     long startTime = System.currentTimeMillis();
@@ -117,7 +118,7 @@ public class VolumeRetryUtilTest {
   @Test
   public void testIntegration_TimeoutScenario() {
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(500, 502, 503, 504));
+        .thenReturn(Arrays.asList(500, 502, 503, 504));
     when(mockConnectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(2); // 2 seconds
 
     // Start time 3 seconds ago (exceeds timeout)
