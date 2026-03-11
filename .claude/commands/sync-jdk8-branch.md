@@ -186,17 +186,25 @@ Check for any other JDBC 4.3 (Java 9+) APIs introduced from `main` — such as m
 
 ---
 
-#### 3i. Source code — remove Arrow patched classes
+#### 3i. Source code — remove all Arrow-specific code
 
-Delete these files if they were introduced or modified in the merge (they should not exist in the jdk-8 branch; Arrow 13.0.0 provides its own correct implementations for JDK 8):
+All of the following were introduced in PR #1243 ("Arrow patch to circumvent Arrow issues with JDK 16+"). The patch exists solely to work around NIO module restrictions introduced in JDK 16+ — it is not relevant to JDK 8, which predates the Java module system entirely. Do not carry these files into the jdk-8 branch. Arrow 13.0.0 (the last JDK 8 compatible version) works correctly without any patching.
 
+Delete these source files if present:
+
+**Patched Arrow internals** (forked from Arrow source to work around JDK 17+ NIO restrictions):
 - `src/main/java/org/apache/arrow/memory/util/MemoryUtil.java`
 - `src/main/java/org/apache/arrow/memory/ArrowBuf.java`
 - `src/main/java/org/apache/arrow/vector/util/DecimalUtility.java`
+
+**Databricks-custom Arrow allocator classes** (depend on the patched internals above):
 - `src/main/java/org/apache/arrow/memory/DatabricksAllocationReservation.java`
+- `src/main/java/org/apache/arrow/memory/DatabricksArrowBuf.java`
 - `src/main/java/org/apache/arrow/memory/DatabricksBufferAllocator.java`
 - `src/main/java/org/apache/arrow/memory/DatabricksReferenceManager.java`
-- `src/main/java/com/databricks/jdbc/api/impl/arrow/DatabricksArrowBuf.java` (if present)
+- `src/main/java/org/apache/arrow/memory/DatabricksReferenceManagerNOOP.java`
+
+For `src/main/java/com/databricks/jdbc/api/impl/arrow/ArrowBufferAllocator.java` and `AbstractArrowResultChunk.java` — these were modified in PR #1243 to use the custom allocator classes above. Revert any such changes so they use the standard Arrow 13.0.0 APIs only.
 
 ---
 
@@ -213,15 +221,35 @@ Also remove the associated WireMock test resource directories if no other tests 
 
 ---
 
-#### 3k. Test code — remove Arrow NIO and allocator manager tests
+#### 3k. Test code — remove all Arrow patch tests
 
-Delete these test files if they were introduced or modified in the merge:
+All of the following test files were introduced in PR #1243 alongside the Arrow patch code. Since the patch code is removed, these tests must be deleted:
+
+**Arrow allocator manager tests** (under `src/test/java/com/databricks/jdbc/api/impl/arrow/`):
 - `ArrowBufferAllocatorNettyManagerTest.java`
 - `ArrowBufferAllocatorUnsafeManagerTest.java`
 - `ArrowBufferAllocatorUnknownManagerTest.java`
-- `DatabricksArrowPatchMemoryUsageTest.java`
+- `ArrowBufferAllocatorTest.java`
 
-Remove any test methods or classes annotated with `@Tag("Jvm17PlusAndArrowToNioReflectionDisabled")`.
+**Databricks Arrow patch tests** (under `src/test/java/org/apache/arrow/memory/`):
+- `AbstractDatabricksArrowPatchTypesTest.java`
+- `ArrowParsingBenchmark.java`
+- `DatabricksAllocationReservationTest.java`
+- `DatabricksArrowBufTest.java`
+- `DatabricksArrowPatchBinaryStringTypesTest.java`
+- `DatabricksArrowPatchComplexTypesTest.java`
+- `DatabricksArrowPatchMemoryUsageTest.java`
+- `DatabricksArrowPatchNumericTypesTest.java`
+- `DatabricksArrowPatchTemporalTypesTest.java`
+- `DatabricksArrowPatchTest.java`
+- `DatabricksBufferAllocatorTest.java`
+- `DatabricksReferenceManagerNOOPTest.java`
+- `DatabricksReferenceManagerTest.java`
+
+**Arrow test resources**:
+- `src/test/resources/arrow/` (entire directory)
+
+Also remove any test methods or classes annotated with `@Tag("Jvm17PlusAndArrowToNioReflectionDisabled")`.
 
 ---
 
