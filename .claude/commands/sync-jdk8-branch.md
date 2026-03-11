@@ -163,4 +163,4 @@ Share the PR URL with the user.
 - Never run `mvn spotless:apply` on JDK 8 — the `jdk8` profile skips it automatically.
   - TODO: Investigate whether an older `spotless-maven-plugin` version (pre-2.28.0) supports JDK 8 so formatting can be enforced rather than skipped.
 - Never add JDBC 4.3+ APIs (`ShardingKey`, `ConnectionBuilder`, `PooledConnectionBuilder`).
-- Never carry over fakeservice or e2e tests — fakeservice depends on WireMock 3.x (Java 11+), and e2e tests are covered by comprehensive MultiDBR testing. Remove them and their test resources entirely.
+- Only unit tests belong in the jdk-8 branch. Never carry over fakeservice or e2e tests — fakeservice depends on WireMock 3.x (Java 11+), and e2e tests are covered by comprehensive MultiDBR testing. Remove them and their test resources entirely.
