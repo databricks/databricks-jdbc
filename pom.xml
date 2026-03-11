@@ -46,7 +46,7 @@
     <commons-lang3.version>3.18.0</commons-lang3.version>
     <maven.compiler.source>8</maven.compiler.source>
     <maven.compiler.target>8</maven.compiler.target>
-    <mockito.version>5.2.0</mockito.version>
+    <mockito.version>4.11.0</mockito.version>
     <jackson.version>2.18.3</jackson.version>
     <log4j.version>2.22.1</log4j.version>
     <slf4j.version>2.0.13</slf4j.version>
@@ -578,38 +578,6 @@
     </plugins>
   </build>
   <profiles>
-    <profile>
-      <!-- spotless-maven-plugin 2.39.0 requires Java 11+; skip on JDK 8 -->
-      <id>spotless</id>
-      <activation>
-        <jdk>[9,)</jdk>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>com.diffplug.spotless</groupId>
-            <artifactId>spotless-maven-plugin</artifactId>
-            <version>2.39.0</version>
-            <executions>
-              <execution>
-                <id>format</id>
-                <goals>
-                  <goal>apply</goal>
-                </goals>
-                <phase>compile</phase>
-              </execution>
-            </executions>
-            <configuration>
-              <java>
-                <googleJavaFormat>
-                  <version>1.18.1</version>
-                </googleJavaFormat>
-              </java>
-            </configuration>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
     <profile>
       <!-- Local deploy for testing -->
       <id>local-deploy</id>
