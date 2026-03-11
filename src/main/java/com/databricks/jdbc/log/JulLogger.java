@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Set;
 import java.util.logging.*;
-import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -41,7 +40,8 @@ public class JulLogger implements JdbcLogger {
 
   public static final String JAVA_UTIL_LOGGING_CONFIG_FILE = "java.util.logging.config.file";
 
-  private static final Set<String> logMethods = ImmutableSet.of("debug", "error", "info", "trace", "warn");
+  private static final Set<String> logMethods =
+      ImmutableSet.of("debug", "error", "info", "trace", "warn");
 
   protected Logger logger;
 
@@ -192,15 +192,21 @@ public class JulLogger implements JdbcLogger {
    * </ol>
    */
   protected static String[] getCaller() {
-    return Stream.of(Thread.currentThread().getStackTrace())
-        .dropWhile(stackTrace -> !logMethods.contains(stackTrace.getMethodName()))
-        .dropWhile(stackTrace -> logMethods.contains(stackTrace.getMethodName()))
-        .findFirst()
-        .map(stackTrace -> new String[] {stackTrace.getClassName(), stackTrace.getMethodName()})
-        .orElse(
-            new String[] {
-              "unknownClass", "unknownMethod"
-            }); // lost in the stack trace wonderland :)
+    StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+    boolean foundLogMethod = false;
+    for (StackTraceElement stackTrace : stackTraceElements) {
+      String methodName = stackTrace.getMethodName();
+      if (!foundLogMethod) {
+        if (logMethods.contains(methodName)) {
+          foundLogMethod = true;
+        }
+      } else {
+        if (!logMethods.contains(methodName)) {
+          return new String[] {stackTrace.getClassName(), methodName};
+        }
+      }
+    }
+    return new String[] {"unknownClass", "unknownMethod"}; // lost in the stack trace wonderland :)
   }
 
   /**

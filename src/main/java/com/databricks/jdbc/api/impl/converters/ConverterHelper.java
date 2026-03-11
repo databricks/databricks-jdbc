@@ -5,8 +5,8 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.GEOMETRY;
 
 import com.databricks.jdbc.api.impl.DatabricksGeography;
 import com.databricks.jdbc.api.impl.DatabricksGeometry;
-import com.google.common.collect.ImmutableList;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.google.common.collect.ImmutableList;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.*;
@@ -393,9 +393,9 @@ public class ConverterHelper {
             Types.LONGVARBINARY));
 
     // Complex types
-    SUPPORTED_CONVERSIONS.put(Types.OTHER, List.of(Types.OTHER));
-    SUPPORTED_CONVERSIONS.put(Types.STRUCT, List.of(Types.STRUCT, Types.VARCHAR));
-    SUPPORTED_CONVERSIONS.put(Types.ARRAY, List.of(Types.ARRAY, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.OTHER, ImmutableList.of(Types.OTHER));
+    SUPPORTED_CONVERSIONS.put(Types.STRUCT, ImmutableList.of(Types.STRUCT, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.ARRAY, ImmutableList.of(Types.ARRAY, Types.VARCHAR));
   }
 
   static {

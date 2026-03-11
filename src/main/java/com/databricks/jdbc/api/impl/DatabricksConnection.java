@@ -880,18 +880,6 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   }
 
   @Override
-  public void beginRequest() {
-    LOGGER.debug("public void beginRequest()");
-    LOGGER.warn("public void beginRequest() is a no-op method");
-  }
-
-  @Override
-  public void endRequest() {
-    LOGGER.debug("public void endRequest()");
-    LOGGER.warn("public void endRequest() is a no-op method");
-  }
-
-  @Override
   public Connection getConnection() {
     return this;
   }

@@ -2,8 +2,6 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
-import java.util.Optional;
-
 /**
  * Utility class for determining the current process name as it would appear in Activity Monitor.
  * Note : removing logging as it methods are called on static INIT and logging might not be fully
@@ -46,17 +44,15 @@ public class ProcessNameUtil {
         return getSimpleClassName(parts[0]);
       }
 
-      // Try to get application name from process command
-      Optional<String> cmdOptional = ProcessHandle.current().info().command();
-      if (cmdOptional.isPresent()) {
-        String cmd = cmdOptional.get();
-        // Handle both Windows and Unix paths
-        String filename = cmd.substring(Math.max(cmd.lastIndexOf('/'), cmd.lastIndexOf('\\')) + 1);
-        int dotIndex = filename.lastIndexOf('.');
-        if (dotIndex > 0) {
-          filename = filename.substring(0, dotIndex);
+      // Try to get application name from runtime MXBean (Java 8 compatible)
+      String runtimeName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
+      // runtimeName is typically "pid@hostname"
+      if (!isNullOrEmpty(runtimeName)) {
+        int atIndex = runtimeName.indexOf('@');
+        String hostname = (atIndex >= 0) ? runtimeName.substring(atIndex + 1) : runtimeName;
+        if (!isNullOrEmpty(hostname)) {
+          return hostname;
         }
-        return filename;
       }
       return null;
     } catch (Exception e) {

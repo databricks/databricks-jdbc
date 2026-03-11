@@ -33,7 +33,7 @@ public class UserAgentManager {
       String decodedUA =
           URLDecoder.decode(
               connectionContext.getCustomerUserAgent(),
-              StandardCharsets.UTF_8); // This is for encoded userAgentString
+              StandardCharsets.UTF_8.name()); // This is for encoded userAgentString
       int i = decodedUA.indexOf('/');
       String customerName = (i < 0) ? decodedUA : decodedUA.substring(0, i);
       String customerVersion = (i < 0) ? VERSION_FILLER : decodedUA.substring(i + 1);

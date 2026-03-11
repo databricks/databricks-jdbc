@@ -209,8 +209,7 @@ public class MetadataResultSetBuilderTest {
   private static Stream<Arguments> provideSpecialColumnsArguments() {
     return Stream.of(
         Arguments.of(
-            ImmutableList.of("INTEGER", "", "", 0, ""),
-            Arrays.asList("INTEGER", 4, null, 1, null)),
+            ImmutableList.of("INTEGER", "", "", 0, ""), Arrays.asList("INTEGER", 4, null, 1, null)),
         Arguments.of(
             ImmutableList.of("DATE", "", "", 1, ""), Arrays.asList("DATE", 91, 91, 2, null)));
   }

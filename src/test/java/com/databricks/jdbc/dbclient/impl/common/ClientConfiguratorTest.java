@@ -213,7 +213,8 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(ImmutableList.of("scope.read", "scope.write"));
+    when(mockContext.getOAuthScopesForU2M())
+        .thenReturn(ImmutableList.of("scope.read", "scope.write"));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(ImmutableList.of(8030));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
@@ -461,7 +462,8 @@ public class ClientConfiguratorTest {
 
       exception =
           assertThrows(
-              DatabricksException.class, () -> testConfigurator.findAvailablePort(ImmutableList.of(port1)));
+              DatabricksException.class,
+              () -> testConfigurator.findAvailablePort(ImmutableList.of(port1)));
       assertTrue(exception.getMessage().contains("No available port found"));
     }
   }
@@ -716,7 +718,8 @@ public class ClientConfiguratorTest {
     DatabricksConfig config = configurator.getDatabricksConfig();
 
     assertEquals(
-        ImmutableList.of(DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE),
+        ImmutableList.of(
+            DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE),
         config.getScopes());
   }
 }

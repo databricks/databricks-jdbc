@@ -785,7 +785,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       if (length != -1) {
         checkLength(length, bytesRead);
       }
-      return buffer.toString(charset);
+      return buffer.toString(charset.name());
     } catch (IOException e) {
       String message = "Error reading from the InputStream";
       LOGGER.error(message);

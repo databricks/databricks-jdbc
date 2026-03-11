@@ -201,7 +201,12 @@ public class InsertStatementParser {
         .append(") VALUES ");
 
     // Generate placeholders for each row
-    String valueClause = "(" + "?, ".repeat(insertInfo.getColumns().size() - 1) + "?)";
+    int repeatCount = insertInfo.getColumns().size() - 1;
+    StringBuilder placeholders = new StringBuilder();
+    for (int j = 0; j < repeatCount; j++) {
+      placeholders.append("?, ");
+    }
+    String valueClause = "(" + placeholders.toString() + "?)";
 
     for (int i = 0; i < numberOfRows; i++) {
       if (i > 0) {

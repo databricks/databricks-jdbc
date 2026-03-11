@@ -247,7 +247,10 @@ public class MetadataResultConstants {
 
   public static List<List<Object>> TABLE_TYPES_ROWS =
       Arrays.asList(
-          ImmutableList.of("SYSTEM TABLE"), ImmutableList.of("TABLE"), ImmutableList.of("VIEW"), ImmutableList.of("METRIC_VIEW"));
+          ImmutableList.of("SYSTEM TABLE"),
+          ImmutableList.of("TABLE"),
+          ImmutableList.of("VIEW"),
+          ImmutableList.of("METRIC_VIEW"));
 
   public static List<ResultColumn> TABLE_TYPE_COLUMNS = ImmutableList.of(TABLE_TYPE_COLUMN);
 
@@ -493,7 +496,9 @@ public class MetadataResultConstants {
                   MetadataResultConstants.TYPE_NAME_COLUMN,
                   MetadataResultConstants.DATA_TYPE_COLUMN,
                   MetadataResultConstants.PRECISION_COLUMN));
-          put(CommandName.LIST_CATALOGS, ImmutableList.of(MetadataResultConstants.CATALOG_RESULT_COLUMN));
+          put(
+              CommandName.LIST_CATALOGS,
+              ImmutableList.of(MetadataResultConstants.CATALOG_RESULT_COLUMN));
           put(
               CommandName.LIST_TABLES,
               ImmutableList.of(MetadataResultConstants.TABLE_NAME_COLUMN, TABLE_TYPE_COLUMN));
@@ -554,10 +559,13 @@ public class MetadataResultConstants {
                   SQL_DATA_TYPE_COLUMN,
                   ORDINAL_POSITION_COLUMN,
                   IS_NULLABLE_COLUMN));
-          put(CommandName.GET_TABLE_PRIVILEGES, ImmutableList.of(TABLE_NAME_COLUMN, GRANTEE, PRIVILEGE));
+          put(
+              CommandName.GET_TABLE_PRIVILEGES,
+              ImmutableList.of(TABLE_NAME_COLUMN, GRANTEE, PRIVILEGE));
           put(
               CommandName.GET_VERSION_COLUMNS,
-              ImmutableList.of(SCOPE, COL_NAME_COLUMN, DATA_TYPE_COLUMN, TYPE_NAME_COLUMN, PSEUDO_COLUMN));
+              ImmutableList.of(
+                  SCOPE, COL_NAME_COLUMN, DATA_TYPE_COLUMN, TYPE_NAME_COLUMN, PSEUDO_COLUMN));
           put(CommandName.GET_SUPER_TYPES, ImmutableList.of(TYPE_NAME_COLUMN, SUPERTYPE_NAME));
           put(
               CommandName.GET_PROCEDURES_COLUMNS,

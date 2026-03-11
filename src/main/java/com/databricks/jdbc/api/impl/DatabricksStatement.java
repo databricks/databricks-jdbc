@@ -628,43 +628,6 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         .getStatementResult(statementId, connection.getSession(), this);
   }
 
-  @Override
-  public String enquoteLiteral(String val) throws SQLException {
-    LOGGER.debug("String enquoteLiteral(String val = {})", val);
-    checkIfClosed();
-    return IDatabricksStatement.super.enquoteLiteral(val);
-  }
-
-  @Override
-  public String enquoteIdentifier(String identifier, boolean alwaysQuote)
-      throws DatabricksSQLException {
-    LOGGER.debug(
-        "String enquoteIdentifier(String identifier = {}, boolean alwaysQuote = {})",
-        identifier,
-        alwaysQuote);
-    checkIfClosed();
-    try {
-      return IDatabricksStatement.super.enquoteIdentifier(identifier, alwaysQuote);
-    } catch (SQLException e) {
-      throw new DatabricksSQLException(
-          e.getMessage(), DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
-    }
-  }
-
-  @Override
-  public String enquoteNCharLiteral(String val) throws SQLException {
-    LOGGER.debug("String enquoteNCharLiteral(String val = {})", val);
-    checkIfClosed();
-    return IDatabricksStatement.super.enquoteNCharLiteral(val);
-  }
-
-  @Override
-  public boolean isSimpleIdentifier(String identifier) throws SQLException {
-    LOGGER.debug("String isSimpleIdentifier(String identifier = {})", identifier);
-    checkIfClosed();
-    return IDatabricksStatement.super.isSimpleIdentifier(identifier);
-  }
-
   static String trimCommentsAndWhitespaces(String query) {
     if (query == null || query.trim().isEmpty()) {
       throw new DatabricksDriverException(

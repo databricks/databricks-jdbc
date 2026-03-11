@@ -149,7 +149,7 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
       if (!isSameHost(claims.getIssuer(), this.config.getHost())) {
         optionalToken = tryTokenExchange(accessToken, accessTokenType);
       }
-      if (optionalToken.isEmpty()) {
+      if (!optionalToken.isPresent()) {
         optionalToken = Optional.of(createToken(accessToken, accessTokenType));
       }
       return optionalToken.get();

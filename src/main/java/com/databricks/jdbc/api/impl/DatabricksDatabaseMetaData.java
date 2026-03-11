@@ -886,13 +886,6 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     return false;
   }
 
-  @Override
-  public boolean supportsSharding() throws SQLException {
-    LOGGER.debug("public boolean supportsSharding()");
-    throwExceptionIfConnectionIsClosed();
-    return false;
-  }
-
   /**
    * Builds the result set for stored procedures metadata.
    *

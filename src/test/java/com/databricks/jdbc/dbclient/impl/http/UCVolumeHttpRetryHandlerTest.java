@@ -8,7 +8,6 @@ import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.time.Instant;
-import java.util.List;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.ProtocolVersion;

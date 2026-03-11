@@ -116,7 +116,7 @@ public class SQLInterpolator {
       return sql;
     }
     // This pattern matches any '?' that is NOT already inside single quotes
-    StringBuilder sb = new StringBuilder();
+    StringBuffer sb = new StringBuffer();
     Matcher m = Pattern.compile("(?<!')\\?(?!')").matcher(sql);
     while (m.find()) {
       m.appendReplacement(sb, "'?'");

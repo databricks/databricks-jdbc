@@ -725,7 +725,7 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
       final int index = i; // Make effectively final for lambda usage
       Optional<UploadRequest> optionalRequest = uploadRequests.get(index);
 
-      if (optionalRequest.isEmpty()) {
+      if (!optionalRequest.isPresent()) {
         // Error case: create a failed result immediately
         String errorMessage = "File not found or not a file: " + originalPaths.get(index);
         futures[index] =
@@ -973,25 +973,28 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         elapsedSeconds,
         timeoutSeconds);
 
-    CompletableFuture.delayedExecutor(retryDelayMs, TimeUnit.MILLISECONDS)
-        .execute(
-            () -> {
-              // The retry will return a new future; we pipe its result into our original future.
-              requestPresignedUrlWithRetry(ucVolumePath, objectPath, attempt + 1, retryStartTime)
-                  .whenComplete(
-                      (response, ex) -> {
-                        if (ex != null) {
-                          LOGGER.error(
-                              ex,
-                              "Failed to get presigned URL for {} (attempt {})",
-                              objectPath,
-                              attempt + 1);
-                          future.completeExceptionally(ex);
-                        } else {
-                          future.complete(response);
-                        }
-                      });
-            });
+    ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    scheduler.schedule(
+        () -> {
+          // The retry will return a new future; we pipe its result into our original future.
+          requestPresignedUrlWithRetry(ucVolumePath, objectPath, attempt + 1, retryStartTime)
+              .whenComplete(
+                  (response, ex) -> {
+                    if (ex != null) {
+                      LOGGER.error(
+                          ex,
+                          "Failed to get presigned URL for {} (attempt {})",
+                          objectPath,
+                          attempt + 1);
+                      future.completeExceptionally(ex);
+                    } else {
+                      future.complete(response);
+                    }
+                  });
+          scheduler.shutdown();
+        },
+        retryDelayMs,
+        TimeUnit.MILLISECONDS);
   }
 
   // Helper method to calculate retry delay with exponential backoff and jitter

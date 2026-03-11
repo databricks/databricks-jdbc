@@ -12,6 +12,8 @@ import com.databricks.jdbc.model.client.filesystem.VolumePutResult;
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -175,93 +177,96 @@ public class VolumeUploadCallback implements FutureCallback<SimpleHttpResponse> 
    * @param delayMs Delay before retry in milliseconds
    */
   private void retry(long delayMs) {
-    CompletableFuture.delayedExecutor(delayMs, TimeUnit.MILLISECONDS)
-        .execute(
-            () -> {
-              // Handle stream reset if needed
-              if (!request.isFile() && request.inputStream.markSupported()) {
-                try {
-                  request.inputStream.reset();
-                } catch (IOException e) {
-                  LOGGER.warn("Could not reset input stream for retry: " + e.getMessage());
-                }
-              }
+    ScheduledExecutorService retryScheduler = Executors.newSingleThreadScheduledExecutor();
+    retryScheduler.schedule(
+        () -> {
+          retryScheduler.shutdown();
+          // Handle stream reset if needed
+          if (!request.isFile() && request.inputStream.markSupported()) {
+            try {
+              request.inputStream.reset();
+            } catch (IOException e) {
+              LOGGER.warn("Could not reset input stream for retry: " + e.getMessage());
+            }
+          }
 
-              // Get a new presigned URL and retry the upload
-              urlGenerator
-                  .apply(request.ucVolumePath, request.objectPath, 1)
-                  .thenAccept(
-                      response -> {
-                        String presignedUrl = response.getUrl();
-                        LOGGER.debug(
-                            "Got new presigned URL for retry of {} (attempt {})",
-                            request.objectPath,
-                            attempt + 1);
+          // Get a new presigned URL and retry the upload
+          urlGenerator
+              .apply(request.ucVolumePath, request.objectPath, 1)
+              .thenAccept(
+                  response -> {
+                    String presignedUrl = response.getUrl();
+                    LOGGER.debug(
+                        "Got new presigned URL for retry of {} (attempt {})",
+                        request.objectPath,
+                        attempt + 1);
 
-                        try {
-                          // Create upload producer
-                          AsyncRequestProducer uploadProducer;
-                          if (request.isFile()) {
-                            // File upload
-                            uploadProducer =
-                                AsyncRequestBuilder.put()
-                                    .setUri(URI.create(presignedUrl))
-                                    .setEntity(
-                                        AsyncEntityProducers.create(
-                                            request.file.toFile(), ContentType.DEFAULT_BINARY))
-                                    .build();
-                          } else {
-                            // Stream upload
-                            AsyncEntityProducer entity =
-                                new InputStreamFixedLenProducer(
-                                    request.inputStream, request.contentLength);
-                            uploadProducer =
-                                AsyncRequestBuilder.put()
-                                    .setUri(URI.create(presignedUrl))
-                                    .setEntity(entity)
-                                    .build();
-                          }
+                    try {
+                      // Create upload producer
+                      AsyncRequestProducer uploadProducer;
+                      if (request.isFile()) {
+                        // File upload
+                        uploadProducer =
+                            AsyncRequestBuilder.put()
+                                .setUri(URI.create(presignedUrl))
+                                .setEntity(
+                                    AsyncEntityProducers.create(
+                                        request.file.toFile(), ContentType.DEFAULT_BINARY))
+                                .build();
+                      } else {
+                        // Stream upload
+                        AsyncEntityProducer entity =
+                            new InputStreamFixedLenProducer(
+                                request.inputStream, request.contentLength);
+                        uploadProducer =
+                            AsyncRequestBuilder.put()
+                                .setUri(URI.create(presignedUrl))
+                                .setEntity(entity)
+                                .build();
+                      }
 
-                          AsyncResponseConsumer<SimpleHttpResponse> uploadConsumer =
-                              SimpleResponseConsumer.create();
+                      AsyncResponseConsumer<SimpleHttpResponse> uploadConsumer =
+                          SimpleResponseConsumer.create();
 
-                          // Create callback with incremented attempt count
-                          VolumeUploadCallback uploadCallback =
-                              new VolumeUploadCallback(
-                                  httpClient,
-                                  uploadFuture,
-                                  request,
-                                  semaphore,
-                                  urlGenerator,
-                                  retryDelayCalculator,
-                                  connectionContext,
-                                  attempt + 1,
-                                  retryStartTime);
+                      // Create callback with incremented attempt count
+                      VolumeUploadCallback uploadCallback =
+                          new VolumeUploadCallback(
+                              httpClient,
+                              uploadFuture,
+                              request,
+                              semaphore,
+                              urlGenerator,
+                              retryDelayCalculator,
+                              connectionContext,
+                              attempt + 1,
+                              retryStartTime);
 
-                          httpClient.executeAsync(uploadProducer, uploadConsumer, uploadCallback);
-                        } catch (Exception e) {
-                          String errorMessage =
-                              "Error setting up retry for "
-                                  + request.objectPath
-                                  + ": "
-                                  + e.getMessage();
-                          LOGGER.error(e, errorMessage);
-                          uploadFuture.complete(
-                              new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
-                        }
-                      })
-                  .exceptionally(
-                      e -> {
-                        String errorMessage =
-                            "Failed to get presigned URL for retry of "
-                                + request.objectPath
-                                + ": "
-                                + e.getMessage();
-                        LOGGER.error(e, errorMessage);
-                        uploadFuture.complete(
-                            new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
-                        return null;
-                      });
-            });
+                      httpClient.executeAsync(uploadProducer, uploadConsumer, uploadCallback);
+                    } catch (Exception e) {
+                      String errorMessage =
+                          "Error setting up retry for "
+                              + request.objectPath
+                              + ": "
+                              + e.getMessage();
+                      LOGGER.error(e, errorMessage);
+                      uploadFuture.complete(
+                          new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
+                    }
+                  })
+              .exceptionally(
+                  e -> {
+                    String errorMessage =
+                        "Failed to get presigned URL for retry of "
+                            + request.objectPath
+                            + ": "
+                            + e.getMessage();
+                    LOGGER.error(e, errorMessage);
+                    uploadFuture.complete(
+                        new VolumePutResult(500, VolumeOperationStatus.FAILED, errorMessage));
+                    return null;
+                  });
+        },
+        delayMs,
+        TimeUnit.MILLISECONDS);
   }
 }
