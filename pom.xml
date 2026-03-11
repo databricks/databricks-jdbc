@@ -600,6 +600,16 @@
   </build>
   <profiles>
     <profile>
+      <!-- Skip spotless on JDK 8: spotless-maven-plugin 2.39.0 requires Java 11+ -->
+      <id>jdk8</id>
+      <activation>
+        <jdk>1.8</jdk>
+      </activation>
+      <properties>
+        <spotless.skip>true</spotless.skip>
+      </properties>
+    </profile>
+    <profile>
       <!-- Local deploy for testing -->
       <id>local-deploy</id>
       <build>
