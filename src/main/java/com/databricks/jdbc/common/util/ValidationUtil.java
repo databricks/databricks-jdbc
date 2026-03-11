@@ -9,6 +9,7 @@ import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -136,7 +137,7 @@ public class ValidationUtil {
    */
   public static boolean isValidJdbcUrl(String url) {
     final List<Pattern> PATH_PATTERNS =
-        List.of(
+        ImmutableList.of(
             HTTP_CLUSTER_PATH_PATTERN,
             HTTP_WAREHOUSE_PATH_PATTERN,
             HTTP_ENDPOINT_PATH_PATTERN,

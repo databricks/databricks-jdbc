@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
@@ -36,7 +37,7 @@ public class UCVolumeHttpRetryHandlerTest {
   @Test
   void processUCVolumeRequestWithNonRetryableStatusCode() throws IOException {
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
+        .thenReturn(ImmutableList.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
 
     HttpResponse response = createResponse(HttpStatus.SC_OK);
     retryHandler.process(response, httpContext);
@@ -47,7 +48,7 @@ public class UCVolumeHttpRetryHandlerTest {
   @Test
   void processUCVolumeRequestWithRetryableStatusCode() throws IOException {
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
+        .thenReturn(ImmutableList.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
 
     HttpResponse response = createResponse(HttpStatus.SC_BAD_REQUEST);
     retryHandler.process(response, httpContext);
@@ -58,7 +59,7 @@ public class UCVolumeHttpRetryHandlerTest {
   @Test
   void retryUCVolumeRequestWithNonRetryableStatusCode() throws Exception {
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
+        .thenReturn(ImmutableList.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
 
     IOException exception = new DatabricksRetryHandlerException("Test", HttpStatus.SC_BAD_GATEWAY);
     assertFalse(retryHandler.retryRequest(exception, 1, httpContext));
@@ -67,7 +68,7 @@ public class UCVolumeHttpRetryHandlerTest {
   @Test
   void retryUCVolumeRequestWithRetryableStatusCodeTimeout() throws Exception {
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
+        .thenReturn(ImmutableList.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
     when(mockConnectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(60);
 
     httpContext.setAttribute(
@@ -81,7 +82,7 @@ public class UCVolumeHttpRetryHandlerTest {
   @Test
   void retryUCVolumeRequestWithRetryableStatusCode() throws Exception {
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
+        .thenReturn(ImmutableList.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
     when(mockConnectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(120);
 
     httpContext.setAttribute(
@@ -95,7 +96,7 @@ public class UCVolumeHttpRetryHandlerTest {
   @Test
   void testUCVolumeRetryTimeout() throws IOException {
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
+        .thenReturn(ImmutableList.of(HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_BAD_REQUEST));
     when(mockConnectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(10);
 
     httpContext.setAttribute(UCVolumeHttpRetryHandler.RETRY_START_TIME_KEY, Instant.now());

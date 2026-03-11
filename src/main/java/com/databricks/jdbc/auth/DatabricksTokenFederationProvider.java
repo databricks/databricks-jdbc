@@ -15,6 +15,7 @@ import com.databricks.sdk.core.oauth.OAuthResponse;
 import com.databricks.sdk.core.oauth.Token;
 import com.databricks.sdk.core.oauth.TokenSource;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import java.net.MalformedURLException;
@@ -48,7 +49,7 @@ public class DatabricksTokenFederationProvider implements CredentialsProvider, T
   private Token token;
   private HeaderFactory externalHeaderFactory;
   private static final Map<String, String> TOKEN_EXCHANGE_PARAMS =
-      Map.of(
+      ImmutableMap.of(
           "grant_type",
           "urn:ietf:params:oauth:grant-type:token-exchange",
           "scope",

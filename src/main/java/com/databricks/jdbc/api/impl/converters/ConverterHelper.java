@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.GEOMETRY;
 
 import com.databricks.jdbc.api.impl.DatabricksGeography;
 import com.databricks.jdbc.api.impl.DatabricksGeometry;
+import com.google.common.collect.ImmutableList;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -23,7 +24,7 @@ public class ConverterHelper {
     // Numeric Types
     SUPPORTED_CONVERSIONS.put(
         Types.TINYINT,
-        List.of(
+        ImmutableList.of(
             Types.TINYINT,
             Types.SMALLINT,
             Types.INTEGER,
@@ -42,7 +43,7 @@ public class ConverterHelper {
             Types.LONGVARCHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.SMALLINT,
-        List.of(
+        ImmutableList.of(
             Types.SMALLINT,
             Types.INTEGER,
             Types.BIGINT,
@@ -64,7 +65,7 @@ public class ConverterHelper {
             Types.LONGVARCHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.INTEGER,
-        List.of(
+        ImmutableList.of(
             Types.INTEGER,
             Types.BIGINT,
             Types.DECIMAL,
@@ -83,7 +84,7 @@ public class ConverterHelper {
             Types.NUMERIC));
     SUPPORTED_CONVERSIONS.put(
         Types.BIGINT,
-        List.of(
+        ImmutableList.of(
             Types.BIGINT,
             Types.DECIMAL,
             Types.DOUBLE,
@@ -102,7 +103,7 @@ public class ConverterHelper {
             Types.BIT));
     SUPPORTED_CONVERSIONS.put(
         Types.FLOAT,
-        List.of(
+        ImmutableList.of(
             Types.DOUBLE,
             Types.DECIMAL,
             Types.REAL,
@@ -121,7 +122,7 @@ public class ConverterHelper {
             Types.BIGINT));
     SUPPORTED_CONVERSIONS.put(
         Types.REAL,
-        List.of(
+        ImmutableList.of(
             Types.REAL,
             Types.DOUBLE,
             Types.DECIMAL,
@@ -140,7 +141,7 @@ public class ConverterHelper {
             Types.FLOAT));
     SUPPORTED_CONVERSIONS.put(
         Types.DOUBLE,
-        List.of(
+        ImmutableList.of(
             Types.DOUBLE,
             Types.DECIMAL,
             Types.REAL,
@@ -159,7 +160,7 @@ public class ConverterHelper {
             Types.BIGINT));
     SUPPORTED_CONVERSIONS.put(
         Types.DECIMAL,
-        List.of(
+        ImmutableList.of(
             Types.DECIMAL,
             Types.NUMERIC,
             Types.DOUBLE,
@@ -174,7 +175,7 @@ public class ConverterHelper {
             Types.FLOAT));
     SUPPORTED_CONVERSIONS.put(
         Types.NUMERIC,
-        List.of(
+        ImmutableList.of(
             Types.NUMERIC,
             Types.DECIMAL,
             Types.DOUBLE,
@@ -191,7 +192,7 @@ public class ConverterHelper {
     // Boolean/Bit Types
     SUPPORTED_CONVERSIONS.put(
         Types.BOOLEAN,
-        List.of(
+        ImmutableList.of(
             Types.BOOLEAN,
             Types.BIT,
             Types.INTEGER,
@@ -213,7 +214,7 @@ public class ConverterHelper {
             Types.LONGVARBINARY));
     SUPPORTED_CONVERSIONS.put(
         Types.BIT,
-        List.of(
+        ImmutableList.of(
             Types.BIT,
             Types.INTEGER,
             Types.VARCHAR,
@@ -235,7 +236,7 @@ public class ConverterHelper {
     // Date/Time TypesT
     SUPPORTED_CONVERSIONS.put(
         Types.DATE,
-        List.of(
+        ImmutableList.of(
             Types.DATE,
             Types.TIMESTAMP,
             Types.VARCHAR,
@@ -246,7 +247,7 @@ public class ConverterHelper {
             Types.CHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.TIME,
-        List.of(
+        ImmutableList.of(
             Types.TIME,
             Types.TIMESTAMP,
             Types.VARCHAR,
@@ -257,7 +258,7 @@ public class ConverterHelper {
             Types.BINARY));
     SUPPORTED_CONVERSIONS.put(
         Types.TIMESTAMP,
-        List.of(
+        ImmutableList.of(
             Types.TIMESTAMP,
             Types.DATE,
             Types.TIME,
@@ -271,7 +272,7 @@ public class ConverterHelper {
     // Binary Types
     SUPPORTED_CONVERSIONS.put(
         Types.BINARY,
-        List.of(
+        ImmutableList.of(
             Types.BINARY,
             Types.VARBINARY,
             Types.LONGVARBINARY,
@@ -281,7 +282,7 @@ public class ConverterHelper {
             Types.CHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.VARBINARY,
-        List.of(
+        ImmutableList.of(
             Types.VARBINARY,
             Types.LONGVARBINARY,
             Types.CHAR,
@@ -291,7 +292,7 @@ public class ConverterHelper {
             Types.VARCHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.LONGVARBINARY,
-        List.of(
+        ImmutableList.of(
             Types.LONGVARBINARY,
             Types.BINARY,
             Types.VARBINARY,
@@ -303,7 +304,7 @@ public class ConverterHelper {
     // Character Types
     SUPPORTED_CONVERSIONS.put(
         Types.CHAR,
-        List.of(
+        ImmutableList.of(
             Types.CHAR,
             Types.VARCHAR,
             Types.LONGVARCHAR,
@@ -326,7 +327,7 @@ public class ConverterHelper {
             Types.TIME));
     SUPPORTED_CONVERSIONS.put(
         Types.VARCHAR,
-        List.of(
+        ImmutableList.of(
             Types.VARCHAR,
             Types.CHAR,
             Types.LONGVARCHAR,
@@ -349,7 +350,7 @@ public class ConverterHelper {
             Types.DOUBLE));
     SUPPORTED_CONVERSIONS.put(
         Types.LONGVARCHAR,
-        List.of(
+        ImmutableList.of(
             Types.LONGVARCHAR,
             Types.VARCHAR,
             Types.NVARCHAR,
@@ -369,7 +370,7 @@ public class ConverterHelper {
             Types.TIMESTAMP));
     SUPPORTED_CONVERSIONS.put(
         Types.NVARCHAR,
-        List.of(
+        ImmutableList.of(
             Types.NVARCHAR,
             Types.VARCHAR,
             Types.TIMESTAMP,

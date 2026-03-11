@@ -1,6 +1,7 @@
 package com.databricks.jdbc.common;
 
 import com.databricks.jdbc.model.core.ResultColumn;
+import com.google.common.collect.ImmutableList;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -181,7 +182,7 @@ public class MetadataResultConstants {
       new ResultColumn("COLUMN_USAGE", "columnUsage", Types.VARCHAR);
 
   public static List<ResultColumn> FUNCTION_COLUMNS =
-      List.of(
+      ImmutableList.of(
           FUNCTION_CATALOG_COLUMN,
           FUNCTION_SCHEMA_COLUMN,
           FUNCTION_NAME_COLUMN,
@@ -190,7 +191,7 @@ public class MetadataResultConstants {
           SPECIFIC_NAME_COLUMN);
 
   public static List<ResultColumn> COLUMN_COLUMNS =
-      List.of(
+      ImmutableList.of(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -216,13 +217,13 @@ public class MetadataResultConstants {
           IS_AUTO_INCREMENT_COLUMN,
           IS_GENERATED_COLUMN);
 
-  public static List<ResultColumn> CATALOG_COLUMNS = List.of(CATALOG_RESULT_COLUMN);
+  public static List<ResultColumn> CATALOG_COLUMNS = ImmutableList.of(CATALOG_RESULT_COLUMN);
 
   public static List<ResultColumn> SCHEMA_COLUMNS =
-      List.of(SCHEMA_COLUMN_FOR_GET_SCHEMA, CATALOG_FULL_COLUMN);
+      ImmutableList.of(SCHEMA_COLUMN_FOR_GET_SCHEMA, CATALOG_FULL_COLUMN);
 
   public static List<ResultColumn> TABLE_COLUMNS =
-      List.of(
+      ImmutableList.of(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -236,7 +237,7 @@ public class MetadataResultConstants {
           REF_GENERATION_COLUMN);
 
   public static List<ResultColumn> PRIMARY_KEYS_COLUMNS =
-      List.of(
+      ImmutableList.of(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -246,12 +247,12 @@ public class MetadataResultConstants {
 
   public static List<List<Object>> TABLE_TYPES_ROWS =
       Arrays.asList(
-          List.of("SYSTEM TABLE"), List.of("TABLE"), List.of("VIEW"), List.of("METRIC_VIEW"));
+          ImmutableList.of("SYSTEM TABLE"), ImmutableList.of("TABLE"), ImmutableList.of("VIEW"), ImmutableList.of("METRIC_VIEW"));
 
-  public static List<ResultColumn> TABLE_TYPE_COLUMNS = List.of(TABLE_TYPE_COLUMN);
+  public static List<ResultColumn> TABLE_TYPE_COLUMNS = ImmutableList.of(TABLE_TYPE_COLUMN);
 
   public static final List<ResultColumn> NULL_COLUMN_COLUMNS =
-      List.of(
+      ImmutableList.of(
           SCOPE_CATALOG_COLUMN,
           SCOPE_SCHEMA_COLUMN,
           SCOPE_TABLE_COLUMN,
@@ -260,7 +261,7 @@ public class MetadataResultConstants {
           IS_GENERATED_COLUMN);
 
   public static final List<ResultColumn> NULL_TABLE_COLUMNS =
-      List.of(
+      ImmutableList.of(
           TYPE_CATALOG_COLUMN,
           TYPE_SCHEMA_COLUMN,
           TYPE_NAME_COLUMN,
@@ -268,7 +269,7 @@ public class MetadataResultConstants {
           REF_GENERATION_COLUMN);
 
   public static final List<ResultColumn> LARGE_DISPLAY_COLUMNS =
-      List.of(
+      ImmutableList.of(
           REMARKS_COLUMN,
           SPECIFIC_NAME_COLUMN,
           COLUMN_DEF_COLUMN,
@@ -280,7 +281,7 @@ public class MetadataResultConstants {
           COLUMN_USAGE);
 
   public static final List<ResultColumn> ATTRIBUTES_COLUMNS =
-      List.of(
+      ImmutableList.of(
           TYPE_CATALOG_COLUMN,
           TYPE_SCHEMA_COLUMN,
           TYPE_NAME_COLUMN,
@@ -304,7 +305,7 @@ public class MetadataResultConstants {
           SOURCE_DATA_TYPE);
 
   public static final List<ResultColumn> COLUMN_PRIVILEGES_COLUMNS =
-      List.of(
+      ImmutableList.of(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -315,7 +316,7 @@ public class MetadataResultConstants {
           IS_GRANTABLE);
 
   public static final List<ResultColumn> BEST_ROW_IDENTIFIER_COLUMNS =
-      List.of(
+      ImmutableList.of(
           SCOPE,
           COL_NAME_COLUMN,
           DATA_TYPE_COLUMN,
@@ -326,7 +327,7 @@ public class MetadataResultConstants {
           PSEUDO_COLUMN);
 
   public static List<ResultColumn> CROSS_REFERENCE_COLUMNS =
-      List.of(
+      ImmutableList.of(
           PKTABLE_CAT,
           PKTABLE_SCHEM,
           PKTABLE_NAME,
@@ -343,7 +344,7 @@ public class MetadataResultConstants {
           DEFERRABILITY);
 
   public static final List<ResultColumn> TABLE_PRIVILEGES_COLUMNS =
-      List.of(
+      ImmutableList.of(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -353,7 +354,7 @@ public class MetadataResultConstants {
           IS_GRANTABLE);
 
   public static final List<ResultColumn> VERSION_COLUMNS_COLUMNS =
-      List.of(
+      ImmutableList.of(
           SCOPE,
           COL_NAME_COLUMN,
           DATA_TYPE_COLUMN,
@@ -364,7 +365,7 @@ public class MetadataResultConstants {
           PSEUDO_COLUMN);
 
   public static final List<ResultColumn> SUPER_TYPES_COLUMNS =
-      List.of(
+      ImmutableList.of(
           TYPE_CATALOG_COLUMN,
           TYPE_SCHEMA_COLUMN,
           TYPE_NAME_COLUMN,
@@ -373,7 +374,7 @@ public class MetadataResultConstants {
           SUPERTYPE_NAME);
 
   public static final List<ResultColumn> PROCEDURE_COLUMNS_COLUMNS =
-      List.of(
+      ImmutableList.of(
           PROCEDURE_CAT,
           PROCEDURE_SCHEM,
           PROCEDURE_NAME,
@@ -396,7 +397,7 @@ public class MetadataResultConstants {
           SPECIFIC_NAME_COLUMN);
 
   public static final List<ResultColumn> INDEX_INFO_COLUMNS =
-      List.of(
+      ImmutableList.of(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -412,10 +413,10 @@ public class MetadataResultConstants {
           FILTER_CONDITION);
 
   public static final List<ResultColumn> SUPER_TABLES_COLUMNS =
-      List.of(CATALOG_COLUMN, SCHEMA_COLUMN, TABLE_NAME_COLUMN, SUPERTABLE_NAME);
+      ImmutableList.of(CATALOG_COLUMN, SCHEMA_COLUMN, TABLE_NAME_COLUMN, SUPERTABLE_NAME);
 
   public static final List<ResultColumn> FUNCTION_COLUMNS_COLUMNS =
-      List.of(
+      ImmutableList.of(
           FUNCTION_CATALOG_COLUMN,
           FUNCTION_SCHEMA_COLUMN,
           FUNCTION_NAME_COLUMN,
@@ -435,7 +436,7 @@ public class MetadataResultConstants {
           SPECIFIC_NAME_COLUMN);
 
   public static final List<ResultColumn> PSEUDO_COLUMNS_COLUMNS =
-      List.of(
+      ImmutableList.of(
           CATALOG_COLUMN,
           SCHEMA_COLUMN,
           TABLE_NAME_COLUMN,
@@ -450,7 +451,7 @@ public class MetadataResultConstants {
           IS_NULLABLE_COLUMN);
 
   public static final List<ResultColumn> IMPORTED_KEYS_COLUMNS =
-      List.of(
+      ImmutableList.of(
           PKTABLE_CAT,
           PKTABLE_SCHEM,
           PKTABLE_NAME,
@@ -467,7 +468,7 @@ public class MetadataResultConstants {
           DEFERRABILITY);
 
   public static final List<ResultColumn> EXPORTED_KEYS_COLUMNS =
-      List.of(
+      ImmutableList.of(
           PKTABLE_CAT,
           PKTABLE_SCHEM,
           PKTABLE_NAME,
@@ -488,27 +489,27 @@ public class MetadataResultConstants {
         {
           put(
               CommandName.LIST_TYPE_INFO,
-              List.of(
+              ImmutableList.of(
                   MetadataResultConstants.TYPE_NAME_COLUMN,
                   MetadataResultConstants.DATA_TYPE_COLUMN,
                   MetadataResultConstants.PRECISION_COLUMN));
-          put(CommandName.LIST_CATALOGS, List.of(MetadataResultConstants.CATALOG_RESULT_COLUMN));
+          put(CommandName.LIST_CATALOGS, ImmutableList.of(MetadataResultConstants.CATALOG_RESULT_COLUMN));
           put(
               CommandName.LIST_TABLES,
-              List.of(MetadataResultConstants.TABLE_NAME_COLUMN, TABLE_TYPE_COLUMN));
+              ImmutableList.of(MetadataResultConstants.TABLE_NAME_COLUMN, TABLE_TYPE_COLUMN));
           put(
               CommandName.LIST_PRIMARY_KEYS,
-              List.of(
+              ImmutableList.of(
                   MetadataResultConstants.TABLE_NAME_COLUMN,
                   MetadataResultConstants.COL_NAME_COLUMN,
                   MetadataResultConstants.KEY_SEQUENCE_COLUMN));
           put(
               CommandName.LIST_SCHEMAS,
-              List.of(MetadataResultConstants.SCHEMA_COLUMN_FOR_GET_SCHEMA));
-          put(CommandName.LIST_TABLE_TYPES, List.of(TABLE_TYPE_COLUMN));
+              ImmutableList.of(MetadataResultConstants.SCHEMA_COLUMN_FOR_GET_SCHEMA));
+          put(CommandName.LIST_TABLE_TYPES, ImmutableList.of(TABLE_TYPE_COLUMN));
           put(
               CommandName.LIST_COLUMNS,
-              List.of(
+              ImmutableList.of(
                   MetadataResultConstants.TABLE_NAME_COLUMN,
                   MetadataResultConstants.COL_NAME_COLUMN,
                   MetadataResultConstants.DATA_TYPE_COLUMN,
@@ -519,15 +520,15 @@ public class MetadataResultConstants {
                   MetadataResultConstants.IS_NULLABLE_COLUMN));
           put(
               CommandName.LIST_FUNCTIONS,
-              List.of(
+              ImmutableList.of(
                   MetadataResultConstants.FUNCTION_NAME_COLUMN,
                   MetadataResultConstants.SPECIFIC_NAME_COLUMN));
           put(
               CommandName.GET_COLUMN_PRIVILEGES,
-              List.of(TABLE_NAME_COLUMN, COLUMN_NAME_COLUMN, GRANTEE, PRIVILEGE));
+              ImmutableList.of(TABLE_NAME_COLUMN, COLUMN_NAME_COLUMN, GRANTEE, PRIVILEGE));
           put(
               CommandName.GET_BEST_ROW_IDENTIFIER,
-              List.of(
+              ImmutableList.of(
                   MetadataResultConstants.SCOPE,
                   MetadataResultConstants.COL_NAME_COLUMN,
                   MetadataResultConstants.DATA_TYPE_COLUMN,
@@ -535,7 +536,7 @@ public class MetadataResultConstants {
                   MetadataResultConstants.PSEUDO_COLUMN));
           put(
               CommandName.GET_CROSS_REFERENCE,
-              List.of(
+              ImmutableList.of(
                   MetadataResultConstants.PKTABLE_NAME,
                   MetadataResultConstants.PKCOLUMN_NAME,
                   MetadataResultConstants.FKTABLE_NAME,
@@ -544,7 +545,7 @@ public class MetadataResultConstants {
                   MetadataResultConstants.DEFERRABILITY));
           put(
               CommandName.GET_ATTRIBUTES,
-              List.of(
+              ImmutableList.of(
                   TYPE_NAME_COLUMN,
                   ATTR_NAME,
                   DATA_TYPE_COLUMN,
@@ -553,14 +554,14 @@ public class MetadataResultConstants {
                   SQL_DATA_TYPE_COLUMN,
                   ORDINAL_POSITION_COLUMN,
                   IS_NULLABLE_COLUMN));
-          put(CommandName.GET_TABLE_PRIVILEGES, List.of(TABLE_NAME_COLUMN, GRANTEE, PRIVILEGE));
+          put(CommandName.GET_TABLE_PRIVILEGES, ImmutableList.of(TABLE_NAME_COLUMN, GRANTEE, PRIVILEGE));
           put(
               CommandName.GET_VERSION_COLUMNS,
-              List.of(SCOPE, COL_NAME_COLUMN, DATA_TYPE_COLUMN, TYPE_NAME_COLUMN, PSEUDO_COLUMN));
-          put(CommandName.GET_SUPER_TYPES, List.of(TYPE_NAME_COLUMN, SUPERTYPE_NAME));
+              ImmutableList.of(SCOPE, COL_NAME_COLUMN, DATA_TYPE_COLUMN, TYPE_NAME_COLUMN, PSEUDO_COLUMN));
+          put(CommandName.GET_SUPER_TYPES, ImmutableList.of(TYPE_NAME_COLUMN, SUPERTYPE_NAME));
           put(
               CommandName.GET_PROCEDURES_COLUMNS,
-              List.of(
+              ImmutableList.of(
                   PROCEDURE_NAME,
                   COLUMN_NAME_COLUMN,
                   COLUMN_TYPE,
@@ -573,12 +574,12 @@ public class MetadataResultConstants {
                   SPECIFIC_NAME_COLUMN));
           put(
               CommandName.GET_INDEX_INFO,
-              List.of(
+              ImmutableList.of(
                   TABLE_NAME_COLUMN, NON_UNIQUE, TYPE, ORDINAL_POSITION_SHORT, CARDINALITY, PAGES));
-          put(CommandName.GET_SUPER_TABLES, List.of(TABLE_NAME_COLUMN, SUPERTABLE_NAME));
+          put(CommandName.GET_SUPER_TABLES, ImmutableList.of(TABLE_NAME_COLUMN, SUPERTABLE_NAME));
           put(
               CommandName.GET_FUNCTION_COLUMNS,
-              List.of(
+              ImmutableList.of(
                   FUNCTION_NAME_COLUMN,
                   COLUMN_NAME_COLUMN,
                   COLUMN_TYPE,
@@ -590,7 +591,7 @@ public class MetadataResultConstants {
                   SPECIFIC_NAME_COLUMN));
           put(
               CommandName.GET_PSEUDO_COLUMNS,
-              List.of(
+              ImmutableList.of(
                   TABLE_NAME_COLUMN,
                   COLUMN_NAME_COLUMN,
                   DATA_TYPE_COLUMN,
@@ -598,7 +599,7 @@ public class MetadataResultConstants {
                   IS_NULLABLE_COLUMN));
           put(
               CommandName.GET_IMPORTED_KEYS,
-              List.of(
+              ImmutableList.of(
                   PKTABLE_NAME,
                   PKCOLUMN_NAME,
                   FKTABLE_NAME,
@@ -607,7 +608,7 @@ public class MetadataResultConstants {
                   DEFERRABILITY));
           put(
               CommandName.GET_EXPORTED_KEYS,
-              List.of(
+              ImmutableList.of(
                   PKTABLE_NAME,
                   PKCOLUMN_NAME,
                   FKTABLE_NAME,

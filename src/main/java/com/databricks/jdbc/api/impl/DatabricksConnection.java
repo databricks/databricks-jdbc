@@ -25,6 +25,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryClientFactory;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -729,7 +730,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
         LOGGER.error(errorMessage);
         throw new DatabricksSQLClientInfoException(
             errorMessage,
-            Map.of(name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY),
+            ImmutableMap.of(name, ClientInfoStatus.REASON_UNKNOWN_PROPERTY),
             DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
       }
     }

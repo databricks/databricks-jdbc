@@ -8,6 +8,7 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
+import com.google.common.collect.ImmutableList;
 import java.net.MalformedURLException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
@@ -76,18 +77,20 @@ public class TestConstants {
           + "UserAgentEntry=MyApp";
 
   public static final List<ByteBuffer> BINARY_ROW_SET_VALUES =
-      List.of(ByteBuffer.wrap(TEST_STRING.getBytes()));
-  public static final List<Boolean> BOOL_ROW_SET_VALUES = List.of(false, true, false, true);
+      ImmutableList.of(ByteBuffer.wrap(TEST_STRING.getBytes()));
+  public static final List<Boolean> BOOL_ROW_SET_VALUES =
+      ImmutableList.of(false, true, false, true);
   public static final List<Byte> BYTE_ROW_SET_VALUES =
-      List.of((byte) 5, (byte) 4, (byte) 3, (byte) 2, (byte) 1);
-  public static final List<Double> DOUBLE_ROW_SET_VALUES = List.of(1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
+      ImmutableList.of((byte) 5, (byte) 4, (byte) 3, (byte) 2, (byte) 1);
+  public static final List<Double> DOUBLE_ROW_SET_VALUES =
+      ImmutableList.of(1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
   public static final List<Short> SHORT_ROW_SET_VALUES =
-      List.of((short) 1, (short) 2, (short) 3, (short) 4);
-  public static final List<Integer> INT_ROW_SET_VALUES = List.of(143, 243, 343, 443);
+      ImmutableList.of((short) 1, (short) 2, (short) 3, (short) 4);
+  public static final List<Integer> INT_ROW_SET_VALUES = ImmutableList.of(143, 243, 343, 443);
   public static final List<Long> LONG_ROW_SET_VALUES =
-      List.of(1344343433L, 243433343443L, 3434343433443L, 443434343434L);
+      ImmutableList.of(1344343433L, 243433343443L, 3434343433443L, 443434343434L);
   public static final List<String> STRING_ROW_SET_VALUES =
-      List.of(TEST_STRING, TEST_STRING, TEST_STRING);
+      ImmutableList.of(TEST_STRING, TEST_STRING, TEST_STRING);
 
   public static final TRowSet BINARY_ROW_SET =
       new TRowSet()
@@ -132,7 +135,7 @@ public class TestConstants {
 
   public static final int MIXED_ROW_SET_COUNT =
       Collections.min(
-          List.of(
+          ImmutableList.of(
               BYTE_ROW_SET_VALUES.size(),
               DOUBLE_ROW_SET_VALUES.size(),
               STRING_ROW_SET_VALUES.size()));
@@ -140,7 +143,7 @@ public class TestConstants {
   public static final TRowSet MIXED_ROW_SET =
       new TRowSet()
           .setColumns(
-              List.of(
+              ImmutableList.of(
                   TColumn.byteVal(
                       new TByteColumn()
                           .setValues(BYTE_ROW_SET_VALUES.subList(0, MIXED_ROW_SET_COUNT))),

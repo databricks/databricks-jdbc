@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.security.interfaces.RSAPrivateKey;
+import java.util.Collections;
 import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -74,7 +75,7 @@ public class JwtPrivateKeyClientCredentialsTest {
     Exception exception =
         assertThrows(
             DatabricksException.class,
-            () -> clientCredentials.retrieveToken(httpClient, TEST_TOKEN_URL, Map.of(), Map.of()));
+            () -> clientCredentials.retrieveToken(httpClient, TEST_TOKEN_URL, Collections.emptyMap(), Collections.emptyMap()));
     assertTrue(exception.getMessage().contains("Failed to retrieve custom M2M token"));
   }
 
@@ -84,7 +85,7 @@ public class JwtPrivateKeyClientCredentialsTest {
     when(httpResponse.getEntity()).thenReturn(httpEntity);
     when(httpEntity.getContent())
         .thenReturn(new ByteArrayInputStream(TEST_OAUTH_RESPONSE.getBytes()));
-    Token token = clientCredentials.retrieveToken(httpClient, TEST_TOKEN_URL, Map.of(), Map.of());
+    Token token = clientCredentials.retrieveToken(httpClient, TEST_TOKEN_URL, Collections.emptyMap(), Collections.emptyMap());
     assertEquals(token.getAccessToken(), TEST_ACCESS_TOKEN);
     assertEquals(token.getTokenType(), "Bearer");
   }

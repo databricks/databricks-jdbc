@@ -10,6 +10,7 @@ import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.core.ResultColumn;
+import com.google.common.collect.ImmutableList;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -207,18 +208,22 @@ public class MetadataResultSetBuilderTest {
 
   private static Stream<Arguments> provideSpecialColumnsArguments() {
     return Stream.of(
-        Arguments.of(List.of("INTEGER", "", "", 0, ""), Arrays.asList("INTEGER", 4, null, 1, null)),
-        Arguments.of(List.of("DATE", "", "", 1, ""), Arrays.asList("DATE", 91, 91, 2, null)));
+        Arguments.of(
+            ImmutableList.of("INTEGER", "", "", 0, ""),
+            Arrays.asList("INTEGER", 4, null, 1, null)),
+        Arguments.of(
+            ImmutableList.of("DATE", "", "", 1, ""), Arrays.asList("DATE", 91, 91, 2, null)));
   }
 
   private static Stream<Arguments> provideColumnSizeArguments() {
     return Stream.of(
-        Arguments.of(List.of("VARCHAR(50)", 0, 0), List.of("VARCHAR", 50, 0)),
-        Arguments.of(List.of("INT", 4, 10), List.of("INT", 10, 10)));
+        Arguments.of(ImmutableList.of("VARCHAR(50)", 0, 0), ImmutableList.of("VARCHAR", 50, 0)),
+        Arguments.of(ImmutableList.of("INT", 4, 10), ImmutableList.of("INT", 10, 10)));
   }
 
   private static Stream<Arguments> provideColumnSizeArgumentsVarchar() {
-    return Stream.of(Arguments.of(List.of("VARCHAR", 0, 0), List.of("VARCHAR", 255, 0)));
+    return Stream.of(
+        Arguments.of(ImmutableList.of("VARCHAR", 0, 0), ImmutableList.of("VARCHAR", 255, 0)));
   }
 
   @ParameterizedTest
@@ -303,9 +308,9 @@ public class MetadataResultSetBuilderTest {
 
   @Test
   void testGetThriftRowsWithRowIndexOutOfBounds() {
-    List<ResultColumn> columns = List.of(COLUMN_TYPE_COLUMN, COL_NAME_COLUMN);
-    List<Object> row = List.of("VARCHAR(50)");
-    List<List<Object>> rows = List.of(row);
+    List<ResultColumn> columns = ImmutableList.of(COLUMN_TYPE_COLUMN, COL_NAME_COLUMN);
+    List<Object> row = ImmutableList.of("VARCHAR(50)");
+    List<List<Object>> rows = ImmutableList.of(row);
 
     List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(rows, columns);
     List<Object> updatedRow = updatedRows.get(0);
@@ -315,9 +320,10 @@ public class MetadataResultSetBuilderTest {
 
   @Test
   void testGetThriftRowsMeasureColumn() {
-    List<ResultColumn> columns = List.of(COLUMN_TYPE_COLUMN);
-    List<Object> row = List.of("DECIMAL(6,2) measure");
-    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(List.of(row), columns);
+    List<ResultColumn> columns = ImmutableList.of(COLUMN_TYPE_COLUMN);
+    List<Object> row = ImmutableList.of("DECIMAL(6,2) measure");
+    List<List<Object>> updatedRows =
+        metadataResultSetBuilder.getThriftRows(ImmutableList.of(row), columns);
     List<Object> updatedRow = updatedRows.get(0);
     // verify that type name for measure column is not stripped
     assertEquals("DECIMAL(6,2) measure", updatedRow.get(0));
@@ -327,14 +333,15 @@ public class MetadataResultSetBuilderTest {
   @MethodSource("provideSpecialColumnsArguments")
   void testGetThriftRowsSpecialColumns(List<Object> row, List<Object> expectedRow) {
     List<ResultColumn> columns =
-        List.of(
+        ImmutableList.of(
             COLUMN_TYPE_COLUMN,
             SQL_DATA_TYPE_COLUMN,
             SQL_DATETIME_SUB_COLUMN,
             ORDINAL_POSITION_COLUMN,
             SCOPE_CATALOG_COLUMN);
 
-    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(List.of(row), columns);
+    List<List<Object>> updatedRows =
+        metadataResultSetBuilder.getThriftRows(ImmutableList.of(row), columns);
     List<Object> updatedRow = updatedRows.get(0);
     // verify following
     // 1. ordinal position is 1, 2
@@ -351,9 +358,10 @@ public class MetadataResultSetBuilderTest {
   @MethodSource("provideColumnSizeArguments")
   void testGetThriftRowsColumnSize(List<Object> row, List<Object> expectedRow) {
     List<ResultColumn> columns =
-        List.of(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
+        ImmutableList.of(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
 
-    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(List.of(row), columns);
+    List<List<Object>> updatedRows =
+        metadataResultSetBuilder.getThriftRows(ImmutableList.of(row), columns);
     List<Object> updatedRow = updatedRows.get(0);
 
     assertEquals(expectedRow.get(0), updatedRow.get(0));
@@ -367,9 +375,10 @@ public class MetadataResultSetBuilderTest {
     when(context.getDefaultStringColumnLength()).thenReturn(255);
     MetadataResultSetBuilder metadataResultSetBuilder = new MetadataResultSetBuilder(context);
     List<ResultColumn> columns =
-        List.of(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
+        ImmutableList.of(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
 
-    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(List.of(row), columns);
+    List<List<Object>> updatedRows =
+        metadataResultSetBuilder.getThriftRows(ImmutableList.of(row), columns);
     List<Object> updatedRow = updatedRows.get(0);
 
     assertEquals(expectedRow.get(0), updatedRow.get(0));

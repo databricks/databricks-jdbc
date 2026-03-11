@@ -1,5 +1,6 @@
 package com.databricks.jdbc.log;
 
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,7 +41,7 @@ public class JulLogger implements JdbcLogger {
 
   public static final String JAVA_UTIL_LOGGING_CONFIG_FILE = "java.util.logging.config.file";
 
-  private static final Set<String> logMethods = Set.of("debug", "error", "info", "trace", "warn");
+  private static final Set<String> logMethods = ImmutableSet.of("debug", "error", "info", "trace", "warn");
 
   protected Logger logger;
 

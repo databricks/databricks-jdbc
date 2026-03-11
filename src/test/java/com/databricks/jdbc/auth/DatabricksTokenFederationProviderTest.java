@@ -11,6 +11,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.CredentialsProvider;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.oauth.Token;
+import com.google.common.collect.ImmutableMap;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.RSASSASigner;
@@ -129,7 +130,7 @@ public class DatabricksTokenFederationProviderTest {
   public void testSameHostNoTokenExchange() throws Exception {
 
     Map<String, String> testExternalHeaders =
-        Map.of("Authorization", "Bearer " + testJwtTokenString());
+        ImmutableMap.of("Authorization", "Bearer " + testJwtTokenString());
 
     when(mockConfig.getHost()).thenReturn("https://host.com");
     when(mockCredentialsProvider.configure(any())).thenReturn(() -> testExternalHeaders);

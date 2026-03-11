@@ -14,6 +14,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.security.*;
 import java.security.cert.*;
+import com.google.common.collect.ImmutableSet;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Set;
@@ -635,7 +636,7 @@ public class ConfiguratorUtils {
 
         if (acceptUndeterminedCertificateRevocation) {
           revocationChecker.setOptions(
-              Set.of(
+              ImmutableSet.of(
                   PKIXRevocationChecker.Option.SOFT_FAIL,
                   PKIXRevocationChecker.Option.NO_FALLBACK,
                   PKIXRevocationChecker.Option.PREFER_CRLS));

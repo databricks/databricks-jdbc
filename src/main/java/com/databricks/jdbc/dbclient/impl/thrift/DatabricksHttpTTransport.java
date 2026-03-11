@@ -9,6 +9,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -29,7 +30,7 @@ public class DatabricksHttpTTransport extends TTransport {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksHttpTTransport.class);
   private static final Map<String, String> DEFAULT_HEADERS =
-      Map.of(
+      ImmutableMap.of(
           "Content-Type", "application/x-thrift",
           "Accept", "application/x-thrift");
   private final IDatabricksHttpClient httpClient;

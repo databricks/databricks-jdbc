@@ -31,6 +31,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
@@ -95,7 +96,7 @@ public class ClientConfigurator {
     // Normalize inputs to handle null values
     host = (host != null) ? host : EMPTY_STRING;
     clientId = (clientId != null) ? clientId : EMPTY_STRING;
-    scopes = (scopes != null) ? scopes : List.of();
+    scopes = (scopes != null) ? scopes : Collections.emptyList();
 
     // Combine all parameters
     String combined = host + URL_DELIMITER + clientId + URL_DELIMITER + String.join(COMMA, scopes);

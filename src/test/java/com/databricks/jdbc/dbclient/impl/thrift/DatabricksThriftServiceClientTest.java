@@ -29,6 +29,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
+import com.google.common.collect.ImmutableList;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -481,7 +482,7 @@ public class DatabricksThriftServiceClientTest {
             .setResultSetMetadata(resultMetadataData);
     TColumn tColumn = new TColumn();
     tColumn.setStringVal(new TStringColumn().setValues(Collections.singletonList("")));
-    when(resultData.getColumns()).thenReturn(List.of(tColumn, tColumn, tColumn, tColumn));
+    when(resultData.getColumns()).thenReturn(ImmutableList.of(tColumn, tColumn, tColumn, tColumn));
     when(thriftAccessor.getThriftResponse(request)).thenReturn(response);
 
     client.listTables(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, tableTypes);
