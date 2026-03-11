@@ -161,4 +161,5 @@ Share the PR URL with the user.
 - Never use `--add-opens`, `--add-exports`, or any JPMS flag — invalid on JDK 8.
 - Never add branching for JDK 9, 11, 17, or 21 — the branch targets JDK 8 only.
 - Never run `mvn spotless:apply` on JDK 8 — the `jdk8` profile skips it automatically.
+  - TODO: Investigate whether an older `spotless-maven-plugin` version (pre-2.28.0) supports JDK 8 so formatting can be enforced rather than skipped.
 - Never add JDBC 4.3+ APIs (`ShardingKey`, `ConnectionBuilder`, `PooledConnectionBuilder`).
