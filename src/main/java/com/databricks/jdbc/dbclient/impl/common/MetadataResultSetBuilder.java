@@ -684,6 +684,10 @@ public class MetadataResultSetBuilder {
               object = null;
             }
             break;
+          case "COLUMN_DEF":
+            // SHOW COLUMNS does not expose column default values; return null per JDBC spec
+            object = null;
+            break;
           default:
             // If column does not match any of the special cases, try to get it from the ResultSet
             try {
@@ -1411,9 +1415,6 @@ public class MetadataResultSetBuilder {
           case "ORDINAL_POSITION":
             int ordinalPositionIndex = columns.indexOf(ORDINAL_POSITION_COLUMN);
             object = (int) row.get(ordinalPositionIndex) + 1; // 1-based index
-            break;
-          case "COLUMN_DEF":
-            object = row.get(columns.indexOf(COLUMN_TYPE_COLUMN));
             break;
           default:
             int index = columns.indexOf(column);

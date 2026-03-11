@@ -288,6 +288,7 @@ public class MetadataResultConstants {
 
   public static final List<ResultColumn> NULL_COLUMN_COLUMNS =
       List.of(
+          COLUMN_DEF_COLUMN,
           SCOPE_CATALOG_COLUMN,
           SCOPE_SCHEMA_COLUMN,
           SCOPE_TABLE_COLUMN,
