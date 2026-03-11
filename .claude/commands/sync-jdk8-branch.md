@@ -324,5 +324,6 @@ mvn clean test
 - **Never add `--add-opens`, `--add-exports`, or any JPMS flags** — they are invalid on JDK 8.
 - **Never add branching logic for JDK 9, 11, 17, or 21** in the jdk-8 branch. The branch targets JDK 8 only.
 - **Do not run `mvn spotless:apply` on JDK 8** — it will fail. The `jdk8` Maven profile skips it automatically.
+  - TODO: Investigate whether an older version of `spotless-maven-plugin` (pre-2.28.0) supports JDK 8 and can enforce formatting on the jdk-8 branch instead of skipping it entirely.
 - **Do not add JDBC 4.3+ APIs** (`ShardingKey`, `ConnectionBuilder`, `PooledConnectionBuilder`) — they require Java 9+.
 - Keep changes minimal — only apply the transformations listed above. Do not refactor or "improve" code beyond what is required for JDK 8 compatibility.
