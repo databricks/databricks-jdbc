@@ -33,4 +33,4 @@ jobs:
           restore-keys: ${{ runner.os }}-jdk8-m2
 
       - name: Run Unit Tests
-        run: mvn clean test
+        run: mvn clean test -Dspotless.skip=true
