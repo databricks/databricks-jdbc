@@ -40,6 +40,8 @@
     </repository>
   </distributionManagement>
   <properties>
+    <!-- Empty by default; set to add-opens flag in the java9plus profile -->
+    <surefire.jvm.args></surefire.jvm.args>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <arrow.version>17.0.0</arrow.version>
@@ -353,7 +355,7 @@
           </excludes>
           <argLine>
             @{argLine}
-            --add-opens=java.base/java.nio=ALL-UNNAMED
+            ${surefire.jvm.args}
             -Dnet.bytebuddy.experimental=true
           </argLine>
           <systemPropertyVariables>
@@ -578,6 +580,16 @@
     </plugins>
   </build>
   <profiles>
+    <profile>
+      <!-- On Java 9+, add add-opens flag needed by Arrow/NIO; not valid on JDK 8 -->
+      <id>java9plus</id>
+      <activation>
+        <jdk>[9,)</jdk>
+      </activation>
+      <properties>
+        <surefire.jvm.args>--add-opens=java.base/java.nio=ALL-UNNAMED</surefire.jvm.args>
+      </properties>
+    </profile>
     <profile>
       <!-- Local deploy for testing -->
       <id>local-deploy</id>
