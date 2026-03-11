@@ -13,6 +13,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.google.common.collect.ImmutableSet;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.time.Instant;
@@ -1242,7 +1243,7 @@ class StreamingChunkProviderTest {
               });
 
       // Setup HTTP client to fail only for chunk 7
-      setupHttpClientWithSelectiveFailure(Set.of(failingChunkIndex), 30);
+      setupHttpClientWithSelectiveFailure(ImmutableSet.of(failingChunkIndex), 30);
 
       provider = createProvider(initialLinks, LINK_PREFETCH_WINDOW, MAX_CHUNKS_IN_MEMORY);
 
@@ -1280,7 +1281,7 @@ class StreamingChunkProviderTest {
       long rowsPerChunk = 100L;
 
       // Initial links: chunk 0 valid, chunk 1 expired, chunk 2 valid
-      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 3, rowsPerChunk, false, Set.of(1));
+      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 3, rowsPerChunk, false, ImmutableSet.of(1));
 
       // Create a fresh link for chunk 1 when refetch is called
       ExternalLink freshLinkForChunk1 =
@@ -1319,7 +1320,7 @@ class StreamingChunkProviderTest {
       long rowsPerChunk = 100L;
 
       // Initial links: chunk 0 valid, chunk 1 expired (row offset 100), chunk 2 valid
-      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 3, rowsPerChunk, false, Set.of(1));
+      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 3, rowsPerChunk, false, ImmutableSet.of(1));
 
       // Create a fresh link for chunk 1 when refetch is called
       // Thrift-style: refetch uses row offset (100) to identify the chunk
@@ -1354,7 +1355,7 @@ class StreamingChunkProviderTest {
       long rowsPerChunk = 100L;
 
       // Initial links: chunks 0, 2, 4 valid; chunks 1, 3 expired
-      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 5, rowsPerChunk, false, Set.of(1, 3));
+      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 5, rowsPerChunk, false, ImmutableSet.of(1, 3));
 
       // Create fresh links for expired chunks
       ExternalLink freshLinkForChunk1 =
@@ -1435,7 +1436,7 @@ class StreamingChunkProviderTest {
       // Setup: Chunk 1 has expired link, and refetch fails
       long rowsPerChunk = 100L;
 
-      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 3, rowsPerChunk, false, Set.of(1));
+      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 3, rowsPerChunk, false, ImmutableSet.of(1));
 
       // Refetch fails with exception
       DatabricksSQLException refetchException =
@@ -1472,7 +1473,7 @@ class StreamingChunkProviderTest {
           createLinkBatch(0, 3, rowsPerChunk, true, Collections.emptySet());
 
       // Fetched batch: chunks 3-5, chunk 4 has expired link
-      ChunkLinkFetchResult fetchedBatch = createLinkBatch(3, 3, rowsPerChunk, false, Set.of(4));
+      ChunkLinkFetchResult fetchedBatch = createLinkBatch(3, 3, rowsPerChunk, false, ImmutableSet.of(4));
 
       when(mockLinkFetcher.fetchLinks(eq(3L), anyLong())).thenReturn(fetchedBatch);
 
@@ -1508,7 +1509,7 @@ class StreamingChunkProviderTest {
       long rowsPerChunk = 100L;
 
       ChunkLinkFetchResult initialLinks =
-          createLinkBatch(0, 3, rowsPerChunk, false, Set.of(0, 1, 2));
+          createLinkBatch(0, 3, rowsPerChunk, false, ImmutableSet.of(0, 1, 2));
 
       // Fresh links for all chunks
       ExternalLink freshLink0 = createExternalLink(0, rowsPerChunk, 1L, FAR_FUTURE_EXPIRATION);
@@ -1544,7 +1545,7 @@ class StreamingChunkProviderTest {
       // This tests that the new URL is used for download
       long rowsPerChunk = 100L;
 
-      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 2, rowsPerChunk, false, Set.of(1));
+      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 2, rowsPerChunk, false, ImmutableSet.of(1));
 
       // Fresh link with different URL
       ExternalLink freshLinkForChunk1 = new ExternalLink();
@@ -1584,10 +1585,10 @@ class StreamingChunkProviderTest {
       long rowsPerChunk = 100L;
 
       // Initial links: chunks 0-2, chunk 1 expired
-      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 3, rowsPerChunk, true, Set.of(1));
+      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 3, rowsPerChunk, true, ImmutableSet.of(1));
 
       // Batch 1 (fetched via row offset 300): chunks 3-5, chunk 4 expired
-      ChunkLinkFetchResult batch1 = createLinkBatch(3, 3, rowsPerChunk, false, Set.of(4));
+      ChunkLinkFetchResult batch1 = createLinkBatch(3, 3, rowsPerChunk, false, ImmutableSet.of(4));
 
       // Mock fetch using row offset (Thrift-style)
       when(mockLinkFetcher.fetchLinks(eq(3L), eq(300L))).thenReturn(batch1);

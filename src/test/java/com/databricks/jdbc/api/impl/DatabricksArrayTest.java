@@ -875,7 +875,7 @@ public class DatabricksArrayTest {
         .when(() -> MetadataParser.parseArrayMetadata("ARRAY<TIMESTAMP>"))
         .thenReturn("TIMESTAMP");
 
-    DatabricksArray array = new DatabricksArray(List.of(ts1, ts2), metadata);
+    DatabricksArray array = new DatabricksArray(Arrays.asList(ts1, ts2), metadata);
     String actual = array.toString();
 
     String expected = "[\"2024-01-01 12:30:45.123\",\"2024-02-15 08:15:30.456\"]";
@@ -893,7 +893,7 @@ public class DatabricksArrayTest {
         .when(() -> MetadataParser.parseArrayMetadata("ARRAY<DATE>"))
         .thenReturn("DATE");
 
-    DatabricksArray array = new DatabricksArray(List.of(date1, date2), metadata);
+    DatabricksArray array = new DatabricksArray(Arrays.asList(date1, date2), metadata);
     String actual = array.toString();
 
     String expected = "[\"2024-01-01\",\"2024-02-15\"]";
@@ -933,7 +933,7 @@ public class DatabricksArrayTest {
         .thenReturn(structMetadata);
 
     DatabricksArray array =
-        new DatabricksArray(List.of(databricksStruct1, databricksStruct2), arrayMetadata);
+        new DatabricksArray(Arrays.asList(databricksStruct1, databricksStruct2), arrayMetadata);
     String actual = array.toString();
 
     String expected =

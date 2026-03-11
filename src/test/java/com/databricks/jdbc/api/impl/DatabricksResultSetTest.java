@@ -25,6 +25,7 @@ import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.ServiceError;
 import com.databricks.sdk.service.sql.StatementState;
+import com.google.common.collect.ImmutableMap;
 import java.io.*;
 import java.math.BigDecimal;
 import java.sql.*;
@@ -510,7 +511,7 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.getObject(2))
         .thenReturn(
             new DatabricksStruct(
-                Map.of("id", 1, "name", "Alice"), "STRUCT<id: INT, name: STRING>"));
+                ImmutableMap.of("id", 1, "name", "Alice"), "STRUCT<id: INT, name: STRING>"));
     when(mockedResultSetMetadata.getColumnNameIndex("user_struct")).thenReturn(3);
 
     // Instantiate result set
@@ -544,7 +545,7 @@ public class DatabricksResultSetTest {
 
     // Mock execution result
     when(mockedExecutionResult.getObject(3))
-        .thenReturn(new DatabricksArray(List.of(arrayElements), "ARRAY<STRING>"));
+        .thenReturn(new DatabricksArray(Arrays.asList(arrayElements), "ARRAY<STRING>"));
     when(mockedResultSetMetadata.getColumnNameIndex("string_array")).thenReturn(4);
 
     // Instantiate result set
@@ -582,7 +583,7 @@ public class DatabricksResultSetTest {
     DatabricksMap<String, Integer> mockMap = mock(DatabricksMap.class);
 
     // Mock execution result
-    when(mockedExecutionResult.getObject(4)).thenReturn(Map.of("key1", 100, "key2", 200));
+    when(mockedExecutionResult.getObject(4)).thenReturn(ImmutableMap.of("key1", 100, "key2", 200));
     when(mockedResultSetMetadata.getColumnNameIndex("int_map")).thenReturn(5);
 
     // Instantiate result set

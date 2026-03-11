@@ -76,7 +76,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo col2 = getColumn("col2", ColumnInfoTypeName.STRING, "string");
     ColumnInfo col2dup = getColumn("col2", ColumnInfoTypeName.DOUBLE, "double");
     ColumnInfo col3 = getColumn("col5", null, "double");
-    schema.setColumns(List.of(col1, col2, col2dup, col3));
+    schema.setColumns(Arrays.asList(col1, col2, col2dup, col3));
     manifest.setSchema(schema);
     return manifest;
   }
@@ -106,11 +106,11 @@ public class DatabricksResultSetMetaDataTest {
     metaData =
         new DatabricksResultSetMetaData(
             STATEMENT_ID,
-            List.of("col1", "col2", "col2"),
-            List.of("int", "string", "double"),
-            List.of(4, 12, 8),
-            List.of(0, 0, 0),
-            List.of(NULLABLE, NULLABLE, NULLABLE),
+            Arrays.asList("col1", "col2", "col2"),
+            Arrays.asList("int", "string", "double"),
+            Arrays.asList(4, 12, 8),
+            Arrays.asList(0, 0, 0),
+            Arrays.asList(NULLABLE, NULLABLE, NULLABLE),
             10);
     assertEquals(3, metaData.getColumnCount());
     assertEquals("col1", metaData.getColumnName(1));
@@ -128,7 +128,7 @@ public class DatabricksResultSetMetaDataTest {
     schema.setColumnCount(1L);
 
     ColumnInfo timestampColumnInfo = getColumn("timestamp_ntz", null, "TIMESTAMP_NTZ");
-    schema.setColumns(List.of(timestampColumnInfo));
+    schema.setColumns(Arrays.asList(timestampColumnInfo));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -146,8 +146,8 @@ public class DatabricksResultSetMetaDataTest {
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
             STATEMENT_ID,
-            List.of("col1", "col2", "col3"),
-            List.of("INTEGER", "VARCHAR", "DOUBLE"),
+            Arrays.asList("col1", "col2", "col3"),
+            Arrays.asList("INTEGER", "VARCHAR", "DOUBLE"),
             new int[] {4, 12, 8},
             new int[] {10, 255, 15},
             new int[] {
@@ -332,7 +332,7 @@ public class DatabricksResultSetMetaDataTest {
     resultManifest.setSchema(schema);
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
-            THRIFT_STATEMENT_ID, resultManifest, 1, 1, List.of(VARIANT), connectionContext);
+            THRIFT_STATEMENT_ID, resultManifest, 1, 1, Arrays.asList(VARIANT), connectionContext);
     assertEquals(1, metaData.getColumnCount());
     assertEquals("testCol", metaData.getColumnName(1));
     assertEquals(1, metaData.getTotalRows());
@@ -407,11 +407,11 @@ public class DatabricksResultSetMetaDataTest {
     metaData =
         new DatabricksResultSetMetaData(
             STATEMENT_ID,
-            List.of("col1", "col2", "col2"),
-            List.of("int", "string", "double"),
-            List.of(4, 12, 8),
-            List.of(0, 0, 0),
-            List.of(NULLABLE, NULLABLE, NULLABLE),
+            Arrays.asList("col1", "col2", "col2"),
+            Arrays.asList("int", "string", "double"),
+            Arrays.asList(4, 12, 8),
+            Arrays.asList(0, 0, 0),
+            Arrays.asList(NULLABLE, NULLABLE, NULLABLE),
             10);
     assertEquals(3, metaData.getColumnCount());
     verifyDefaultMetadataProperties(metaData, StatementType.METADATA);
@@ -488,7 +488,7 @@ public class DatabricksResultSetMetaDataTest {
         getColumn("struct_col", ColumnInfoTypeName.STRUCT, "STRUCT<field1:INT,field2:STRING>");
     ColumnInfo mapColumn = getColumn("map_col", ColumnInfoTypeName.MAP, "MAP<STRING,INT>");
 
-    schema.setColumns(List.of(arrayColumn, structColumn, mapColumn));
+    schema.setColumns(Arrays.asList(arrayColumn, structColumn, mapColumn));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -540,12 +540,12 @@ public class DatabricksResultSetMetaDataTest {
     structColumn.setTypeDesc(structTypeDesc);
 
     TTableSchema schema =
-        new TTableSchema().setColumns(List.of(arrayColumn, mapColumn, structColumn));
+        new TTableSchema().setColumns(Arrays.asList(arrayColumn, mapColumn, structColumn));
     resultManifest.setSchema(schema);
 
     // Arrow metadata contains full type information
     List<String> arrowMetadata =
-        List.of("ARRAY<INT>", "MAP<STRING,INT>", "STRUCT<field1:INT,field2:STRING>");
+        Arrays.asList("ARRAY<INT>", "MAP<STRING,INT>", "STRUCT<field1:INT,field2:STRING>");
 
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
@@ -621,7 +621,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo geometryColumn = getColumn("geom_col", ColumnInfoTypeName.GEOMETRY, "GEOMETRY");
     ColumnInfo geographyColumn = getColumn("geog_col", ColumnInfoTypeName.GEOGRAPHY, "GEOGRAPHY");
 
-    schema.setColumns(List.of(geometryColumn, geographyColumn));
+    schema.setColumns(Arrays.asList(geometryColumn, geographyColumn));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -653,7 +653,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo geometryColumn = getColumn("geom_col", ColumnInfoTypeName.GEOMETRY, "GEOMETRY");
     ColumnInfo geographyColumn = getColumn("geog_col", ColumnInfoTypeName.GEOGRAPHY, "GEOGRAPHY");
 
-    schema.setColumns(List.of(geometryColumn, geographyColumn));
+    schema.setColumns(Arrays.asList(geometryColumn, geographyColumn));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -691,7 +691,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo geometryColumn = getColumn("location", ColumnInfoTypeName.GEOMETRY, "GEOMETRY");
     ColumnInfo geographyColumn = getColumn("region", ColumnInfoTypeName.GEOGRAPHY, "GEOGRAPHY");
 
-    schema.setColumns(List.of(intColumn, stringColumn, geometryColumn, geographyColumn));
+    schema.setColumns(Arrays.asList(intColumn, stringColumn, geometryColumn, geographyColumn));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -738,7 +738,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo geographyColumn =
         getColumn("delivery_region", ColumnInfoTypeName.GEOGRAPHY, "GEOGRAPHY");
 
-    schema.setColumns(List.of(idColumn, geometryColumn, geographyColumn));
+    schema.setColumns(Arrays.asList(idColumn, geometryColumn, geographyColumn));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -792,7 +792,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo arrayColumn = getColumn("tags", ColumnInfoTypeName.ARRAY, "ARRAY<STRING>");
     ColumnInfo mapColumn = getColumn("metadata", ColumnInfoTypeName.MAP, "MAP<STRING,STRING>");
 
-    schema.setColumns(List.of(idColumn, geometryColumn, geographyColumn, arrayColumn, mapColumn));
+    schema.setColumns(Arrays.asList(idColumn, geometryColumn, geographyColumn, arrayColumn, mapColumn));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -848,7 +848,7 @@ public class DatabricksResultSetMetaDataTest {
     resultManifest.setSchema(schema);
 
     // Arrow metadata indicates this is a GEOMETRY column
-    List<String> arrowMetadata = List.of("GEOMETRY");
+    List<String> arrowMetadata = Arrays.asList("GEOMETRY");
 
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
@@ -878,7 +878,7 @@ public class DatabricksResultSetMetaDataTest {
     resultManifest.setSchema(schema);
 
     // Arrow metadata indicates this is a GEOGRAPHY column
-    List<String> arrowMetadata = List.of("GEOGRAPHY");
+    List<String> arrowMetadata = Arrays.asList("GEOGRAPHY");
 
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
@@ -915,11 +915,11 @@ public class DatabricksResultSetMetaDataTest {
     geographyTypeDesc.setTypes(Collections.singletonList(geographyTypeEntry));
     geographyColumn.setTypeDesc(geographyTypeDesc);
 
-    TTableSchema schema = new TTableSchema().setColumns(List.of(geometryColumn, geographyColumn));
+    TTableSchema schema = new TTableSchema().setColumns(Arrays.asList(geometryColumn, geographyColumn));
     resultManifest.setSchema(schema);
 
     // Arrow metadata indicates geospatial types
-    List<String> arrowMetadata = List.of("GEOMETRY", "GEOGRAPHY");
+    List<String> arrowMetadata = Arrays.asList("GEOMETRY", "GEOGRAPHY");
 
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(

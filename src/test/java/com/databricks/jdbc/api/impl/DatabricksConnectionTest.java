@@ -19,6 +19,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.google.common.collect.ImmutableMap;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -43,7 +44,7 @@ public class DatabricksConnectionTest {
   static final String DEFAULT_CATALOG = "hive_metastore";
   private static final String SESSION_ID = "session_id";
   private static final Map<String, String> SESSION_CONFIGS =
-      Map.of("ANSI_MODE", "TRUE", "TIMEZONE", "UTC", "MAX_FILE_PARTITION_BYTES", "64m");
+      ImmutableMap.of("ANSI_MODE", "TRUE", "TIMEZONE", "UTC", "MAX_FILE_PARTITION_BYTES", "64m");
   private static final String JDBC_URL =
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;UserAgentEntry=MyApp";
 
