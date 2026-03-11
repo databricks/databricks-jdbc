@@ -123,7 +123,7 @@ public class DatabricksTokenFederationProviderTest {
 
     Optional<Token> returnedToken =
         databricksTokenFederationProvider.tryTokenExchange("accessToken", "tokenType");
-    assertTrue(returnedToken.isEmpty());
+    assertFalse(returnedToken.isPresent());
   }
 
   @Test

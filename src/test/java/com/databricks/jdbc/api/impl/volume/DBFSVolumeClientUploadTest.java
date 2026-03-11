@@ -218,7 +218,7 @@ public class DBFSVolumeClientUploadTest {
     // Setup connectionContext mock for retry logic
     lenient()
         .when(connectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(408, 429, 500, 502, 503, 504));
+        .thenReturn(Arrays.asList(408, 429, 500, 502, 503, 504));
     lenient().when(connectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(900);
 
     // Prepare test file
@@ -412,7 +412,7 @@ public class DBFSVolumeClientUploadTest {
     // Setup connectionContext mock for retry logic
     lenient()
         .when(connectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(408, 429, 500, 502, 503, 504));
+        .thenReturn(Arrays.asList(408, 429, 500, 502, 503, 504));
     lenient().when(connectionContext.getUCIngestionRetryTimeoutSeconds()).thenReturn(900);
 
     // Prepare test file

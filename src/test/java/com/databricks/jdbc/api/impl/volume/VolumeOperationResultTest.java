@@ -17,9 +17,13 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.google.common.collect.ImmutableMap;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Collections;
 import java.util.HashMap;
@@ -106,7 +110,9 @@ public class VolumeOperationResultTest {
     File file = new File(localGet);
     assertTrue(file.exists());
     try (FileInputStream fis = new FileInputStream(file)) {
-      String fileContent = new String(fis.readAllBytes());
+      byte[] bytes = new byte[(int) file.length()];
+      fis.read(bytes);
+      String fileContent = new String(bytes, StandardCharsets.UTF_8);
       assertEquals("test", fileContent);
     } finally {
       assertTrue(file.delete());
@@ -118,7 +124,7 @@ public class VolumeOperationResultTest {
   public void testGetResult_InputStream_Get(String propertyValue, boolean expected)
       throws Exception {
     setupCommonInteractions();
-    buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), propertyValue));
+    buildClientInfoProperties(ImmutableMap.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), propertyValue));
     when(resultHandler.getObject(0)).thenReturn("GET");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("__input_stream__");
@@ -182,7 +188,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(2)).thenReturn(HEADERS);
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_GET);
     when(session.getClientInfoProperties())
-        .thenReturn(Map.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""));
+        .thenReturn(ImmutableMap.of(ALLOWED_VOLUME_INGESTION_PATHS.toLowerCase(), ""));
     when(session.getConnectionContext()).thenReturn(context);
     when(context.getVolumeOperationAllowedPaths()).thenReturn("");
 
@@ -253,7 +259,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn(localGet);
 
     File file = new File(localGet);
-    Files.writeString(file.toPath(), "test-put");
+    Files.write(file.toPath(), "test-put".getBytes(StandardCharsets.UTF_8));
 
     try {
       new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -316,7 +322,7 @@ public class VolumeOperationResultTest {
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "test-put");
+    Files.write(file.toPath(), "test-put".getBytes(StandardCharsets.UTF_8));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -337,7 +343,7 @@ public class VolumeOperationResultTest {
   public void testGetResult_Put_withInputStream(String propertyValue, boolean expected)
       throws Exception {
     setupCommonInteractions();
-    buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), propertyValue));
+    buildClientInfoProperties(ImmutableMap.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), propertyValue));
     when(resultHandler.getObject(0)).thenReturn("PUT");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("__input_stream__");
@@ -371,7 +377,7 @@ public class VolumeOperationResultTest {
   @Test
   public void testGetResult_Put_withNullInputStream() throws Exception {
     setupCommonInteractions();
-    buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "True"));
+    buildClientInfoProperties(ImmutableMap.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "True"));
     when(resultHandler.getObject(0)).thenReturn("PUT");
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn("__input_stream__");
@@ -419,7 +425,7 @@ public class VolumeOperationResultTest {
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "test-put");
+    Files.write(file.toPath(), "test-put".getBytes(StandardCharsets.UTF_8));
 
     try {
       new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -441,7 +447,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "");
+    Files.write(file.toPath(), new byte[0]);
 
     try {
       new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -492,7 +498,7 @@ public class VolumeOperationResultTest {
   public void testGetResult_Remove() throws Exception {
     setupCommonInteractions();
     when(resultHandler.getObject(0)).thenReturn("REMOVE");
-    buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "1"));
+    buildClientInfoProperties(ImmutableMap.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "1"));
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
     when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
@@ -579,7 +585,7 @@ public class VolumeOperationResultTest {
   public void testGetResult_RemoveFailed() throws Exception {
     setupCommonInteractions();
     when(resultHandler.getObject(0)).thenReturn("REMOVE");
-    buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "1"));
+    buildClientInfoProperties(ImmutableMap.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "1"));
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
     when(mockHttpClient.execute(isA(HttpDelete.class))).thenReturn(httpResponse);
@@ -599,7 +605,7 @@ public class VolumeOperationResultTest {
   public void testGetResult_RemoveFailedWithException() throws Exception {
     setupCommonInteractions();
     when(resultHandler.getObject(0)).thenReturn("REMOVE");
-    buildClientInfoProperties(Map.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "1"));
+    buildClientInfoProperties(ImmutableMap.of(ENABLE_VOLUME_OPERATIONS.toLowerCase(), "1"));
     when(resultHandler.getObject(1)).thenReturn(PRESIGNED_URL);
     when(resultHandler.getObject(3)).thenReturn(null);
     when(mockHttpClient.execute(isA(HttpDelete.class)))
@@ -668,10 +674,10 @@ public class VolumeOperationResultTest {
     assertFalse(volumeOperationResult.next());
 
     assertNotNull(volumeOperationResult.getVolumeOperationInputStream());
-    assertEquals(
-        "test",
-        new String(
-            volumeOperationResult.getVolumeOperationInputStream().getContent().readAllBytes()));
+    InputStream contentStream =
+        volumeOperationResult.getVolumeOperationInputStream().getContent();
+    byte[] contentBytes = readAllBytes(contentStream);
+    assertEquals("test", new String(contentBytes, StandardCharsets.UTF_8));
   }
 
   private void assertFailedStreamVolumeOperations(VolumeOperationResult volumeOperationResult) {
@@ -704,5 +710,15 @@ public class VolumeOperationResultTest {
       clientInfoProperties.putAll(overrides); // add or override test-specific keys
     }
     when(session.getClientInfoProperties()).thenReturn(clientInfoProperties);
+  }
+
+  private static byte[] readAllBytes(InputStream inputStream) throws IOException {
+    java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+    byte[] chunk = new byte[1024];
+    int bytesRead;
+    while ((bytesRead = inputStream.read(chunk)) != -1) {
+      buffer.write(chunk, 0, bytesRead);
+    }
+    return buffer.toByteArray();
   }
 }

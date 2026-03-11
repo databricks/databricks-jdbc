@@ -8,6 +8,8 @@ import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -51,8 +53,8 @@ class DatabricksDriverFeatureFlagsContextTest {
   private String createFeatureFlagsJson(String flagName, String flagValue, int ttlSeconds)
       throws Exception {
     ObjectMapper mapper = new ObjectMapper();
-    Map<String, Object> flag = Map.of("name", flagName, "value", flagValue);
-    Map<String, Object> response = Map.of("flags", List.of(flag), "ttlSeconds", ttlSeconds);
+    Map<String, Object> flag = ImmutableMap.of("name", flagName, "value", flagValue);
+    Map<String, Object> response = ImmutableMap.of("flags", ImmutableList.of(flag), "ttlSeconds", ttlSeconds);
     return mapper.writeValueAsString(response);
   }
 
@@ -78,8 +80,8 @@ class DatabricksDriverFeatureFlagsContextTest {
   private FeatureFlagsResponse createFeatureFlagsResponse(
       String flagName, String flagValue, int ttlSeconds) throws Exception {
     ObjectMapper mapper = new ObjectMapper();
-    Map<String, Object> flag = Map.of("name", flagName, "value", flagValue);
-    Map<String, Object> response = Map.of("flags", List.of(flag), "ttlSeconds", ttlSeconds);
+    Map<String, Object> flag = ImmutableMap.of("name", flagName, "value", flagValue);
+    Map<String, Object> response = ImmutableMap.of("flags", ImmutableList.of(flag), "ttlSeconds", ttlSeconds);
     return mapper.readValue(mapper.writeValueAsString(response), FeatureFlagsResponse.class);
   }
 
