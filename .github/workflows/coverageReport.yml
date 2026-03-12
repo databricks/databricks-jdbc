@@ -5,8 +5,6 @@ permissions:
 
 on:
   pull_request:
-    branches-ignore:
-      - jdk-8
 
 jobs:
   coverage:
@@ -24,7 +22,7 @@ jobs:
     - name: Set up JDK
       uses: actions/setup-java@v4
       with:
-        java-version: '21'
+        java-version: ${{ github.base_ref == 'jdk-8' && '8' || '21' }}
         distribution: 'adopt'
         
     - name: Cache dependencies
