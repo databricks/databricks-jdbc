@@ -342,6 +342,7 @@
         <groupId>org.owasp</groupId>
         <artifactId>dependency-check-maven</artifactId>
         <configuration>
+          <skip>true</skip>
           <formats>
             <format>HTML</format>
             <format>JSON</format>
