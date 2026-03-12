@@ -132,7 +132,18 @@ Everything else in the current `pom.xml` is JDK 8 compatible. For any new depend
 
 ```bash
 mvn clean install -DskipTests   # confirm no compilation errors
-mvn clean test                  # all tests must pass
+mvn clean test                  # all tests must pass — run on JDK 8
+```
+
+After a successful build, confirm the jar targets JDK 8:
+
+```bash
+VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+JAR=jdbc-core/target/databricks-jdbc-core-${VERSION}.jar
+javap -verbose -cp "$JAR" \
+  $(jar tf "$JAR" | grep '\.class$' | head -1 | sed 's/\.class$//' | tr '/' '.') \
+  | grep 'major version'
+# → major version: 52  ✅  (52 = JDK 8)
 ```
 
 Fix any residual Java 9+ API usage before proceeding.
