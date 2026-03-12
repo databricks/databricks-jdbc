@@ -35,6 +35,7 @@ import java.sql.*;
 import java.sql.Date;
 import java.time.*;
 import java.util.*;
+import java.time.OffsetDateTime;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -453,7 +454,7 @@ public class DatabricksResultSetTest {
     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"));
     Time actualTime = resultSet.getTime(columnIndex, calendar);
     assertEquals(
-        new Time(OffsetTime.parse("12:30:00+09:00").toEpochSecond(LocalDate.of(1970, 1, 1)) * 1000),
+        new Time(OffsetDateTime.of(LocalDate.of(1970, 1, 1), OffsetTime.parse("12:30:00+09:00").toLocalTime(), OffsetTime.parse("12:30:00+09:00").getOffset()).toEpochSecond() * 1000),
         actualTime);
 
     // Test with null Calendar argument

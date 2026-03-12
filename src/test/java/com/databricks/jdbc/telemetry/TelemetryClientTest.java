@@ -14,6 +14,7 @@ import com.databricks.jdbc.model.telemetry.TelemetryResponse;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.MoreExecutors;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
@@ -103,7 +104,7 @@ public class TelemetryClientTest {
       when(mockHttpResponse.getStatusLine()).thenReturn(mockStatusLine);
       when(mockStatusLine.getStatusCode()).thenReturn(200);
 
-      Map<String, String> headers = Map.of(HttpHeaders.AUTHORIZATION, "token");
+      Map<String, String> headers = Collections.singletonMap(HttpHeaders.AUTHORIZATION, "token");
       when(databricksConfig.authenticate()).thenReturn(headers);
       TelemetryResponse response = new TelemetryResponse().setNumSuccess(2L).setNumProtoSuccess(2L);
       when(mockHttpResponse.getEntity())
@@ -184,7 +185,7 @@ public class TelemetryClientTest {
       when(mockHttpResponse.getEntity())
           .thenReturn(new StringEntity(new ObjectMapper().writeValueAsString(response)));
 
-      Map<String, String> headers = Map.of(HttpHeaders.AUTHORIZATION, "token");
+      Map<String, String> headers = Collections.singletonMap(HttpHeaders.AUTHORIZATION, "token");
       when(databricksConfig.authenticate()).thenReturn(headers);
 
       // JDBC URL with 2 seconds flush interval

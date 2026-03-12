@@ -206,18 +206,18 @@ public class MetadataResultSetBuilderTest {
 
   private static Stream<Arguments> provideSpecialColumnsArguments() {
     return Stream.of(
-        Arguments.of(List.of("INTEGER", "", "", 0, ""), Arrays.asList("INTEGER", 4, null, 1, null)),
-        Arguments.of(List.of("DATE", "", "", 1, ""), Arrays.asList("DATE", 91, 91, 2, null)));
+        Arguments.of(Arrays.asList("INTEGER", "", "", 0, ""), Arrays.asList("INTEGER", 4, null, 1, null)),
+        Arguments.of(Arrays.asList("DATE", "", "", 1, ""), Arrays.asList("DATE", 91, 91, 2, null)));
   }
 
   private static Stream<Arguments> provideColumnSizeArguments() {
     return Stream.of(
-        Arguments.of(List.of("VARCHAR(50)", 0, 0), List.of("VARCHAR", 50, 0)),
-        Arguments.of(List.of("INT", 4, 10), List.of("INT", 10, 10)));
+        Arguments.of(Arrays.asList("VARCHAR(50)", 0, 0), Arrays.asList("VARCHAR", 50, 0)),
+        Arguments.of(Arrays.asList("INT", 4, 10), Arrays.asList("INT", 10, 10)));
   }
 
   private static Stream<Arguments> provideColumnSizeArgumentsVarchar() {
-    return Stream.of(Arguments.of(List.of("VARCHAR", 0, 0), List.of("VARCHAR", 255, 0)));
+    return Stream.of(Arguments.of(Arrays.asList("VARCHAR", 0, 0), Arrays.asList("VARCHAR", 255, 0)));
   }
 
   @ParameterizedTest
@@ -302,9 +302,9 @@ public class MetadataResultSetBuilderTest {
 
   @Test
   void testGetThriftRowsWithRowIndexOutOfBounds() {
-    List<ResultColumn> columns = List.of(COLUMN_TYPE_COLUMN, COL_NAME_COLUMN);
-    List<Object> row = List.of("VARCHAR(50)");
-    List<List<Object>> rows = List.of(row);
+    List<ResultColumn> columns = Arrays.asList(COLUMN_TYPE_COLUMN, COL_NAME_COLUMN);
+    List<Object> row = Arrays.asList("VARCHAR(50)");
+    List<List<Object>> rows = Arrays.asList(row);
 
     List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(rows, columns);
     List<Object> updatedRow = updatedRows.get(0);
@@ -314,9 +314,9 @@ public class MetadataResultSetBuilderTest {
 
   @Test
   void testGetThriftRowsMeasureColumn() {
-    List<ResultColumn> columns = List.of(COLUMN_TYPE_COLUMN);
-    List<Object> row = List.of("DECIMAL(6,2) measure");
-    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(List.of(row), columns);
+    List<ResultColumn> columns = Arrays.asList(COLUMN_TYPE_COLUMN);
+    List<Object> row = Arrays.asList("DECIMAL(6,2) measure");
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(Arrays.asList(row), columns);
     List<Object> updatedRow = updatedRows.get(0);
     // verify that type name for measure column is not stripped
     assertEquals("DECIMAL(6,2) measure", updatedRow.get(0));
@@ -326,14 +326,14 @@ public class MetadataResultSetBuilderTest {
   @MethodSource("provideSpecialColumnsArguments")
   void testGetThriftRowsSpecialColumns(List<Object> row, List<Object> expectedRow) {
     List<ResultColumn> columns =
-        List.of(
+        Arrays.asList(
             COLUMN_TYPE_COLUMN,
             SQL_DATA_TYPE_COLUMN,
             SQL_DATETIME_SUB_COLUMN,
             ORDINAL_POSITION_COLUMN,
             SCOPE_CATALOG_COLUMN);
 
-    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(List.of(row), columns);
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(Arrays.asList(row), columns);
     List<Object> updatedRow = updatedRows.get(0);
     // verify following
     // 1. ordinal position is 1, 2
@@ -350,9 +350,9 @@ public class MetadataResultSetBuilderTest {
   @MethodSource("provideColumnSizeArguments")
   void testGetThriftRowsColumnSize(List<Object> row, List<Object> expectedRow) {
     List<ResultColumn> columns =
-        List.of(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
+        Arrays.asList(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
 
-    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(List.of(row), columns);
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(Arrays.asList(row), columns);
     List<Object> updatedRow = updatedRows.get(0);
 
     assertEquals(expectedRow.get(0), updatedRow.get(0));
@@ -366,9 +366,9 @@ public class MetadataResultSetBuilderTest {
     when(context.getDefaultStringColumnLength()).thenReturn(255);
     MetadataResultSetBuilder metadataResultSetBuilder = new MetadataResultSetBuilder(context);
     List<ResultColumn> columns =
-        List.of(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
+        Arrays.asList(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
 
-    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(List.of(row), columns);
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(Arrays.asList(row), columns);
     List<Object> updatedRow = updatedRows.get(0);
 
     assertEquals(expectedRow.get(0), updatedRow.get(0));
@@ -799,7 +799,7 @@ public class MetadataResultSetBuilderTest {
             "cat", "schema", "tbl", "col", 4, typeName, 10, null, 0, 10, 1, "", null, null, null,
             null, 0, "YES", null, null, null, null, "NO", "NO");
     List<List<Object>> updatedRows =
-        metadataResultSetBuilder.getThriftRows(List.of(row), COLUMN_COLUMNS);
+        metadataResultSetBuilder.getThriftRows(Arrays.asList(row), COLUMN_COLUMNS);
 
     assertNull(updatedRows.get(0).get(12), "COLUMN_DEF should be null when no default is defined");
   }
@@ -812,7 +812,7 @@ public class MetadataResultSetBuilderTest {
             "cat", "schema", "tbl", "col", 4, "INT", 10, null, 0, 10, 1, "", "'42'", null, null,
             null, 0, "YES", null, null, null, null, "NO", "NO");
     List<List<Object>> updatedRows =
-        metadataResultSetBuilder.getThriftRows(List.of(row), COLUMN_COLUMNS);
+        metadataResultSetBuilder.getThriftRows(Arrays.asList(row), COLUMN_COLUMNS);
 
     assertEquals(
         "'42'", updatedRows.get(0).get(12), "COLUMN_DEF should return the actual default value");
