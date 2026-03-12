@@ -524,7 +524,7 @@ public class MetadataResultConstants {
           DEFERRABILITY);
 
   public static final List<ResultColumn> TYPE_INFO_COLUMNS =
-      List.of(
+      ImmutableList.of(
           TYPE_NAME_COLUMN,
           DATA_TYPE_COLUMN,
           PRECISION_COLUMN,
@@ -545,7 +545,7 @@ public class MetadataResultConstants {
           NUM_PREC_RADIX_COLUMN);
 
   public static final List<ResultColumn> CLIENT_INFO_PROPERTIES_COLUMNS =
-      List.of(NAME_COLUMN, MAX_LEN_COLUMN, DEFAULT_VALUE_COLUMN, DESCRIPTION_COLUMN);
+      ImmutableList.of(NAME_COLUMN, MAX_LEN_COLUMN, DEFAULT_VALUE_COLUMN, DESCRIPTION_COLUMN);
 
   public static final Map<CommandName, List<ResultColumn>> NON_NULLABLE_COLUMNS_MAP =
       new HashMap<CommandName, List<ResultColumn>>() {
@@ -683,7 +683,7 @@ public class MetadataResultConstants {
                   FKCOLUMN_NAME,
                   KEY_SEQUENCE_COLUMN,
                   DEFERRABILITY));
-          put(CommandName.GET_CLIENT_INFO_PROPERTIES, List.of(NAME_COLUMN, MAX_LEN_COLUMN));
+          put(CommandName.GET_CLIENT_INFO_PROPERTIES, ImmutableList.of(NAME_COLUMN, MAX_LEN_COLUMN));
         }
       };
 }

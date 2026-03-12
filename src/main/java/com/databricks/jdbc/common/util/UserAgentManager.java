@@ -25,7 +25,7 @@ public class UserAgentManager {
    */
   private static String[] parseCustomerUserAgent(String customerUserAgent) {
     try {
-      String decodedUA = URLDecoder.decode(customerUserAgent, StandardCharsets.UTF_8);
+      String decodedUA = URLDecoder.decode(customerUserAgent, StandardCharsets.UTF_8.name());
       int i = decodedUA.indexOf('/');
       String customerName = (i < 0) ? decodedUA : decodedUA.substring(0, i);
       String customerVersion = (i < 0) ? VERSION_FILLER : decodedUA.substring(i + 1);
