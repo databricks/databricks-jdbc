@@ -299,7 +299,6 @@
             <exclude>**/SSLTest.java</exclude>
             <exclude>**/integration/fakeservice/**/*.java</exclude>
             <exclude>**/integration/e2e/**/*.java</exclude>
-            <exclude>**/pooling/DatabricksPooledConnectionTest.java</exclude>
           </excludes>
           <argLine>@{argLine} -Xmx5g -Dnet.bytebuddy.experimental=true</argLine>
         </configuration>
