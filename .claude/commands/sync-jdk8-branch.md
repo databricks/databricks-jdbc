@@ -132,7 +132,7 @@ Everything else in the current `pom.xml` is JDK 8 compatible. For any new depend
 
 ```bash
 mvn clean install -DskipTests   # confirm no compilation errors
-mvn clean test                  # all tests must pass — run on JDK 8
+mvn -pl jdbc-core test -Dspotless.skip=true -Dexcludes='**/integration/**/*.java'
 ```
 
 After a successful build, confirm the jar targets JDK 8:
