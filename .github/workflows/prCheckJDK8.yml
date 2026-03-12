@@ -51,4 +51,4 @@ jobs:
         run: mvn clean install -DskipTests -Dspotless.skip=true
 
       - name: Run Unit Tests
-        run: mvn -pl jdbc-core test -Dspotless.skip=true -Dexcludes='**/integration/**/*.java'
+        run: mvn -pl jdbc-core test -Dspotless.skip=true
