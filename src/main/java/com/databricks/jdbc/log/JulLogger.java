@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Set;
 import java.util.logging.*;
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * The {@code JulLogger} class provides an implementation of the {@link JdbcLogger} interface using
@@ -26,15 +25,11 @@ public class JulLogger implements JdbcLogger {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(JulLogger.class);
 
-  private static final String DEFAULT_PACKAGE_PREFIX = "com.databricks.jdbc";
-
-  private static final String DEFAULT_DRIVER_PACKAGE_PREFIX = "com.databricks.client.jdbc";
+  private static final String DEFAULT_PACKAGE_PREFIX = "com.databricks";
 
   public static final String STDOUT = "STDOUT";
 
   public static final String PARENT_CLASS_PREFIX = getPackagePrefix();
-
-  public static final String DRIVER_CLASS_PREFIX = getDriverPackagePrefix();
 
   public static final String DATABRICKS_LOG_FILE = "databricks_jdbc.log";
 
@@ -134,16 +129,11 @@ public class JulLogger implements JdbcLogger {
       isLoggerInitialized = true;
 
       // java.util.logging uses hierarchical loggers, so we just need to set the log level on the
-      // parent package logger
+      // parent package logger. Using "com.databricks" as the prefix captures all JDBC driver
+      // classes as well as shaded dependencies (SDK, Apache HTTP client, etc.)
       Logger jdbcJulLogger = Logger.getLogger(PARENT_CLASS_PREFIX);
       jdbcJulLogger.setLevel(level);
       jdbcJulLogger.setUseParentHandlers(false);
-
-      // Jdbc client driver is present in a different namespace and hence need to configure its
-      // logger separately
-      Logger jdbcDriverJulLogger = Logger.getLogger(DRIVER_CLASS_PREFIX);
-      jdbcDriverJulLogger.setLevel(level);
-      jdbcDriverJulLogger.setUseParentHandlers(false);
 
       String logPattern = getLogPattern(logDir);
       Handler handler;
@@ -163,7 +153,6 @@ public class JulLogger implements JdbcLogger {
       handler.setLevel(level);
       handler.setFormatter(new Slf4jFormatter());
       jdbcJulLogger.addHandler(handler);
-      jdbcDriverJulLogger.addHandler(handler);
     }
   }
 
@@ -236,19 +225,19 @@ public class JulLogger implements JdbcLogger {
   }
 
   private static String getPackagePrefix() {
-    String prefix = System.getenv("JDBC_PACKAGE_PREFIX");
-    if (prefix != null && !prefix.isEmpty()) {
-      return prefix;
+    // Auto-detect the actual package prefix by using the current class.
+    // This handles shaded JARs where the package might be relocated.
+    String actualPackageName = JulLogger.class.getPackage().getName();
+    // Extract the root prefix (e.g., "jdbc.shaded.v1.0.12.OSS.com.databricks.jdbc"
+    // -> "jdbc.shaded.v1.0.12.OSS.com.databricks")
+    if (actualPackageName.contains(DEFAULT_PACKAGE_PREFIX)) {
+      int defaultPrefixIndex = actualPackageName.indexOf(DEFAULT_PACKAGE_PREFIX);
+      if (defaultPrefixIndex > 0) {
+        // Include everything up to and including the default prefix
+        return actualPackageName.substring(0, defaultPrefixIndex + DEFAULT_PACKAGE_PREFIX.length());
+      }
     }
     return DEFAULT_PACKAGE_PREFIX;
-  }
-
-  private static String getDriverPackagePrefix() {
-    String prefix = System.getenv("JDBC_DRIVER_PACKAGE_PREFIX");
-    if (StringUtils.isNotEmpty(prefix)) {
-      return prefix;
-    }
-    return DEFAULT_DRIVER_PACKAGE_PREFIX;
   }
 
   private String slf4jToJavaFormat(String format) {

@@ -4,13 +4,15 @@ import static com.databricks.jdbc.api.impl.arrow.ArrowResultChunk.SECONDS_BUFFER
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.google.common.annotations.VisibleForTesting;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -114,6 +116,24 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
 
     this.chunkIndexToChunksMap = chunkIndexToChunksMap;
 
+    // Complete futures for chunks that already have their links (upfront-fetched)
+    if (nextBatchStartIndex > 0) {
+      LOGGER.info("Completing futures for {} upfront-fetched links", nextBatchStartIndex);
+      int completedCount = 0;
+      for (long i = 0; i < Math.min(nextBatchStartIndex, totalChunks); i++) {
+        T chunk = chunkIndexToChunksMap.get(i);
+        if (chunk != null) {
+          ExternalLink link = chunk.getChunkLink();
+          if (link != null) {
+            LOGGER.debug("Completing link future for chunk {} in constructor", i);
+            chunkIndexToLinkFuture.get(i).complete(link);
+            completedCount++;
+          }
+        }
+      }
+      LOGGER.info("Completed {} futures for upfront-fetched links", completedCount);
+    }
+
     if (session.getConnectionContext().getClientType() == DatabricksClientType.SEA
         && isDownloadChainStarted.compareAndSet(false, true)) {
       // SEA doesn't give all chunk links, so better to trigger download chain as soon as possible
@@ -214,20 +234,27 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
       return;
     }
 
+    // Calculate row offset for this batch
+    final long batchStartRowOffset = getChunkStartRowOffset(batchStartIndex);
+
     LOGGER.info("Starting batch download from index {}", batchStartIndex);
     currentDownloadTask =
         CompletableFuture.runAsync(
             () -> {
               try {
-                // rowOffset is 0 here as this service is used by RemoteChunkProvider (SEA-only)
-                // which fetches by chunkIndex, not rowOffset
+                long fetchStart = System.nanoTime();
                 ChunkLinkFetchResult result =
-                    session.getDatabricksClient().getResultChunks(statementId, batchStartIndex, 0);
-                LOGGER.info(
-                    "Retrieved {} links for batch starting at {} for statement id {}",
-                    result.getChunkLinks().size(),
+                    session
+                        .getDatabricksClient()
+                        .getResultChunks(statementId, batchStartIndex, batchStartRowOffset);
+                long fetchMs = (System.nanoTime() - fetchStart) / 1_000_000;
+                LOGGER.debug(
+                    "Link batch fetch: statementId={}, batchStartIndex={}, "
+                        + "linksRetrieved={}, fetchApiMs={}",
+                    statementId,
                     batchStartIndex,
-                    statementId);
+                    result.getChunkLinks().size(),
+                    fetchMs);
 
                 // Complete futures for all chunks in this batch
                 for (ExternalLink link : result.getChunkLinks()) {
@@ -259,7 +286,7 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
                     triggerNextBatchDownload();
                   }
                 }
-              } catch (DatabricksSQLException e) {
+              } catch (SQLException e) {
                 // If the download fails, complete exceptionally all pending futures
                 handleBatchDownloadError(batchStartIndex, e);
               }
@@ -272,7 +299,7 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
    * <p>Completes all pending futures exceptionally with the encountered error and resets the
    * download progress flag.
    */
-  private void handleBatchDownloadError(long batchStartIndex, DatabricksSQLException e) {
+  private void handleBatchDownloadError(long batchStartIndex, SQLException e) {
     LOGGER.error(
         e,
         "Failed to download links for batch starting at {} : {}",
@@ -335,7 +362,7 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
         LOGGER.info(
             "Detected expired link for chunk {}, re-triggering batch download from the smallest index with the expired link",
             chunkIndex);
-        for (long i = 1; i < totalChunks; i++) {
+        for (long i = 0; i < totalChunks; i++) {
           if (isChunkLinkExpiredForPendingDownload(i)) {
             LOGGER.info("Found the smallest index {} with the expired link, initiating reset", i);
             cancelCurrentDownloadTask();
@@ -418,14 +445,53 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
     isDownloadChainStarted.set(false);
   }
 
+  /**
+   * Gets the start row offset for a given chunk index.
+   *
+   * @param chunkIndex the chunk index to get the row offset for
+   * @return the start row offset for the chunk
+   */
+  private long getChunkStartRowOffset(long chunkIndex) {
+    T chunk = chunkIndexToChunksMap.get(chunkIndex);
+    if (chunk == null) {
+      // Should never happen.
+      throw new IllegalStateException(
+          "Chunk not found in map for index "
+              + chunkIndex
+              + ". "
+              + "Total chunks: "
+              + totalChunks
+              + ", StatementId: "
+              + statementId);
+    }
+    return chunk.getStartRowOffset();
+  }
+
   private boolean isChunkLinkExpired(ExternalLink link) {
     if (link == null || link.getExpiration() == null) {
       LOGGER.warn("Link or expiration is null, assuming link is expired");
       return true;
     }
+
+    // Skip expiry check when running against fake service (tests)
+    if (DriverUtil.isRunningAgainstFake()) {
+      return false;
+    }
+
     Instant expirationWithBuffer =
         Instant.parse(link.getExpiration()).minusSeconds(SECONDS_BUFFER_FOR_EXPIRY);
 
     return expirationWithBuffer.isBefore(Instant.now());
+  }
+
+  /**
+   * Returns the CompletableFuture for a specific chunk index for testing purposes.
+   *
+   * @param chunkIndex The index of the chunk
+   * @return The CompletableFuture associated with the chunk index, or null if not found
+   */
+  @VisibleForTesting
+  CompletableFuture<ExternalLink> getLinkFutureForTest(long chunkIndex) {
+    return chunkIndexToLinkFuture.get(chunkIndex);
   }
 }

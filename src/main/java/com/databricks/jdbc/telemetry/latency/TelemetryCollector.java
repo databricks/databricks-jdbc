@@ -25,19 +25,15 @@ public class TelemetryCollector {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TelemetryCollector.class);
 
-  // Singleton instance for global access
-  private static final TelemetryCollector INSTANCE = new TelemetryCollector();
-
   // Per-statement latency tracking using StatementLatencyDetails
   private final ConcurrentHashMap<String, StatementTelemetryDetails> statementTrackers =
       new ConcurrentHashMap<>();
 
-  private TelemetryCollector() {
-    // Private constructor for singleton
-  }
-
-  public static TelemetryCollector getInstance() {
-    return INSTANCE;
+  /**
+   * Package-private constructor - instances should only be created via TelemetryCollectorManager
+   */
+  TelemetryCollector() {
+    // Constructor for per-connection instances
   }
 
   /**

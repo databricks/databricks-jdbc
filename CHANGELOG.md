@@ -1,4 +1,62 @@
 # Version Changelog
+
+## [v3.2.1] - 2026-02-16
+
+### Added
+- Added streaming prefetch mode for Thrift inline results (columnar and Arrow) with background batch prefetching and configurable sliding window for improved throughput.
+- Added `EnableInlineStreaming` connection parameter to enable/disable streaming mode (default: enabled).
+- Added `ThriftMaxBatchesInMemory` connection parameter to control the sliding window size for streaming (default: 3).
+- Added support for disabling CloudFetch via `EnableQueryResultDownload=0` to use inline Arrow results instead.
+- Added `EnableMetricViewMetadata` connection parameter to enable/disable Metric View table type (default: disabled).
+- Added `NonRowcountQueryPrefixes` connection parameter to specify comma-separated query prefixes that should return result sets instead of row counts.
+
+### Updated
+- Enhanced error logging for token exchange failures.
+- Geospatial column type names now include SRID information (e.g., `GEOMETRY(4326)` instead of `GEOMETRY`).
+- Implemented lazy loading for inline Arrow results, fetching arrow batches on demand instead of all at once. This improves memory usage and initial response time for large result sets when using the Thrift protocol with Arrow format.
+- **Enhanced `enableMultipleCatalogSupport` behavior**: When this parameter is disabled (`enableMultipleCatalogSupport=0`), metadata operations (such as `getSchemas()`, `getTables()`, `getColumns()`, etc.) now return results only when the catalog parameter is either `null` or matches the current catalog. For any other catalog name, an empty result set is returned. This ensures metadata queries are restricted to the current catalog context. When enabled (`enableMultipleCatalogSupport=1`), metadata operations continue to work across all accessible catalogs.
+
+### Fixed
+- Fixed `getTypeInfo()` and `getClientInfoProperties()` to return fresh ResultSet instances on each call instead of shared static instances. This resolves issues where calling these methods multiple times would fail due to exhausted cursor state (Issue #1178).
+- Fixed complex data type metadata support when retrieving 0 rows in Arrow format
+- Normalized TIMESTAMP_NTZ to TIMESTAMP in Thrift path for consistency with SEA behavior
+- Fixed complex types not being returned as objects in SEA Inline mode when `EnableComplexDatatypeSupport=true`.
+- Fixed `StringIndexOutOfBoundsException` when parsing complex data types in Thrift CloudFetch mode. The issue occurred when metadata contained incomplete type information (e.g., "ARRAY" instead of "ARRAY<INT>"). Now retrieves complete type information from Arrow metadata.
+- Fixed timeout exception handling to throw `SQLTimeoutException` instead of `DatabricksHttpException` when queries timeout during result fetching phase. This completes the timeout exception fix to handle both query execution polling and result fetching phases.
+- Fixed `getResultSet()` to return null in case of DML statements to honour JDBC spec.
+
+## [v3.1.1] - 2026-01-07
+
+### Added
+- Added token caching for all authentication providers to reduce token endpoint calls.
+- We will be rolling out the use of Databricks SQL Execution API by default for queries submitted on DBSQL. To continue using Databricks Thrift Server backend for execution, set `UseThriftClient` to `1`.
+
+### Updated
+- Changed default value of `IgnoreTransactions` from `0` to `1` to disable multi-statement transactions by default. Preview participants can opt-in by setting `IgnoreTransactions=0`. Also updated `supportsTransactions()` to respect this flag.
+
+### Fixed
+- [PECOBLR-1131] Fix incorrect refetching of expired CloudFetch links when using Thrift protocol.
+- Fixed logging to respect params when the driver is shaded.
+- Fixed `isWildcard` to return true only when the value is `*`
+
+## [v3.0.7] - 2025-12-18
+
+### Updated
+- Log timestamps now explicitly display timezone.
+- **[Breaking Change]** `PreparedStatement.setTimestamp(int, Timestamp, Calendar)` now properly applies Calendar timezone conversion using LocalDateTime pattern (inline with `getTimestamp`). Previously Calendar parameter was ineffective.
+- `DatabaseMetaData.getColumns()` with null catalog parameter now retrieves columns from all catalogs when using SQL Execution API, aligning the behaviour with thrift.
+- `DatabaseMetaData.getFunctions()` with null catalog parameter now retrieves columns from the current catalog when using SQL Execution API, aligning the behaviour with thrift.
+
+### Fixed
+- Fix timeout exception handling to throw `SQLTimeoutException` instead of `DatabricksSQLException` when queries timeout.
+- Removes dangerous global timezone modification that caused race conditions.
+- Fixed `Statement.getLargeUpdateCount()` to return -1 instead of throwing Exception when there were no more results or result is not an update count.
+- CVE-2025-66566. Updated lz4-java dependency to 1.10.1.
+- Fix `INVALID_IDENTIFIER` error when using catalog/schema/table names for SQL Exec API with hyphens or special characters in metadata operations (`getSchemas()`, `getTables()`, `getColumns()`, etc.) and connection methods (`setCatalog()`, `setSchema()`). Per Databricks identifier rules, special characters are now properly enclosed in backticks.
+- Fix Auth_Scope handling inconsistency in Azure U2M OAuth.
+
+---
+
 ## [v3.0.6] - 2025-12-11
 
 ### Added
@@ -47,10 +105,10 @@
 
 ---
 
-## [v3.0.4] - 2025-11-12
+## [v3.0.4] - 2025-11-12: DEPRECATED, Use v3.0.5 instead
 
 ### Added
-- Added support for geospatial data types.
+- Added support for geospatial data types. (Use v3.0.5+ for OGC compliant WKB support)
 - Added support for telemetry log levels, which can be controlled via the connection parameter `TelemetryLogLevel`. This allows users to configure the verbosity of telemetry logging from OFF to TRACE.
 - Added full support for JDBC transaction control methods in Databricks. Transaction support in Databricks is currently available as a Private Preview. The `IgnoreTransactions` connection parameter can be set to `1` to disable or no-op transaction control methods.
 - Added a new config attribute `DisableOauthRefreshToken` to control whether refresh tokens are requested in OAuth exchanges. By default, the driver does not include the `offline_access` scope. If `offline_access` is explicitly provided by the user, it is preserved and not removed.

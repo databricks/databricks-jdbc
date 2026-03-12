@@ -8,13 +8,17 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.MEASURE;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.TypeValConstants.*;
+import static java.sql.DatabaseMetaData.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.jdbc.model.core.StatementStatus;
@@ -29,14 +33,470 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class MetadataResultSetBuilder {
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(MetadataResultSetBuilder.class);
   private static final IDatabricksResultSetAdapter defaultAdapter =
       new DefaultDatabricksResultSetAdapter();
   private static final IDatabricksResultSetAdapter importedKeysAdapter =
       new ImportedKeysDatabricksResultSetAdapter();
+
+  // Static data for TYPE_INFO metadata - JDBC type information constants
+  private static final Object[][] TYPE_INFO_DATA =
+      new Object[][] {
+        {
+          "TINYINT",
+          Types.TINYINT,
+          3,
+          null,
+          null,
+          null,
+          typeNullable,
+          false,
+          typePredBasic,
+          false,
+          false,
+          null,
+          "TINYINT",
+          0,
+          0,
+          Types.TINYINT,
+          null,
+          10
+        },
+        {
+          "BIGINT",
+          Types.BIGINT,
+          19,
+          null,
+          null,
+          null,
+          typeNullable,
+          false,
+          typePredBasic,
+          false,
+          false,
+          null,
+          "BIGINT",
+          0,
+          0,
+          Types.BIGINT,
+          null,
+          10
+        },
+        {
+          "BINARY",
+          Types.BINARY,
+          32767,
+          "0x",
+          null,
+          "LENGTH",
+          typeNullable,
+          false,
+          typePredNone,
+          null,
+          false,
+          null,
+          "BINARY",
+          null,
+          null,
+          Types.BINARY,
+          null,
+          null
+        },
+        {
+          "CHAR",
+          Types.CHAR,
+          255,
+          "'",
+          "'",
+          "LENGTH",
+          typeNullable,
+          true,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "CHAR",
+          null,
+          null,
+          Types.CHAR,
+          null,
+          null
+        },
+        {
+          "DECIMAL",
+          Types.DECIMAL,
+          38,
+          null,
+          null,
+          null,
+          typeNullable,
+          false,
+          typePredBasic,
+          false,
+          false,
+          null,
+          "DECIMAL",
+          0,
+          0,
+          Types.DECIMAL,
+          null,
+          10
+        },
+        {
+          "INT",
+          Types.INTEGER,
+          10,
+          null,
+          null,
+          null,
+          typeNullable,
+          false,
+          typePredBasic,
+          false,
+          false,
+          null,
+          "INT",
+          0,
+          0,
+          Types.INTEGER,
+          null,
+          10
+        },
+        {
+          "SMALLINT",
+          Types.SMALLINT,
+          5,
+          null,
+          null,
+          null,
+          typeNullable,
+          false,
+          typePredBasic,
+          false,
+          false,
+          null,
+          "SMALLINT",
+          0,
+          0,
+          Types.SMALLINT,
+          null,
+          10
+        },
+        {
+          "FLOAT",
+          Types.FLOAT,
+          7,
+          null,
+          null,
+          null,
+          typeNullable,
+          false,
+          typePredBasic,
+          false,
+          false,
+          null,
+          "FLOAT",
+          null,
+          null,
+          Types.FLOAT,
+          null,
+          2
+        },
+        {
+          "DOUBLE",
+          Types.DOUBLE,
+          15,
+          null,
+          null,
+          null,
+          typeNullable,
+          false,
+          typePredBasic,
+          false,
+          false,
+          null,
+          "DOUBLE",
+          null,
+          null,
+          Types.DOUBLE,
+          null,
+          2
+        },
+        {
+          "ARRAY",
+          Types.VARCHAR,
+          32767,
+          "'",
+          "'",
+          "Type",
+          typeNullable,
+          false,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "ARRAY",
+          null,
+          null,
+          Types.VARCHAR,
+          null,
+          null
+        },
+        {
+          "MAP",
+          Types.VARCHAR,
+          32767,
+          "'",
+          "'",
+          "Key,Value",
+          typeNullable,
+          false,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "MAP",
+          null,
+          null,
+          Types.VARCHAR,
+          null,
+          null
+        },
+        {
+          "STRING",
+          Types.VARCHAR,
+          510,
+          "'",
+          "'",
+          "max length",
+          typeNullable,
+          true,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "STRING",
+          null,
+          null,
+          Types.VARCHAR,
+          null,
+          null
+        },
+        {
+          "STRUCT",
+          Types.VARCHAR,
+          32767,
+          "'",
+          "'",
+          "Column Type, ...",
+          typeNullable,
+          false,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "STRUCT",
+          null,
+          null,
+          Types.VARCHAR,
+          null,
+          null
+        },
+        {
+          "VARCHAR",
+          Types.VARCHAR,
+          510,
+          "'",
+          "'",
+          "max length",
+          typeNullable,
+          true,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "VARCHAR",
+          null,
+          null,
+          Types.VARCHAR,
+          null,
+          null
+        },
+        {
+          "VARIANT",
+          Types.VARCHAR,
+          32767,
+          "'",
+          "'",
+          "max length",
+          typeNullable,
+          false,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "VARIANT",
+          null,
+          null,
+          Types.VARCHAR,
+          null,
+          null
+        },
+        {
+          "BOOLEAN",
+          Types.BOOLEAN,
+          1,
+          null,
+          null,
+          null,
+          typeNullable,
+          false,
+          typePredBasic,
+          null,
+          false,
+          null,
+          "BOOLEAN",
+          null,
+          null,
+          Types.BOOLEAN,
+          null,
+          null
+        },
+        {
+          "DATE",
+          Types.DATE,
+          10,
+          "'",
+          "'",
+          null,
+          typeNullable,
+          false,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "DATE",
+          null,
+          null,
+          Types.DATE,
+          1,
+          null
+        },
+        {
+          "TIMESTAMP",
+          Types.TIMESTAMP,
+          29,
+          "'",
+          "'",
+          null,
+          typeNullable,
+          false,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "TIMESTAMP",
+          0,
+          0,
+          Types.TIMESTAMP,
+          3,
+          null
+        },
+        {
+          "TIMESTAMP_NTZ",
+          Types.TIMESTAMP,
+          29,
+          "'",
+          "'",
+          null,
+          typeNullable,
+          false,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "TIMESTAMP_NTZ",
+          0,
+          0,
+          Types.TIMESTAMP,
+          3,
+          null
+        },
+        {
+          "INTERVAL",
+          Types.VARCHAR,
+          40,
+          "'",
+          "'",
+          "Qualifier",
+          typeNullable,
+          false,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "INTERVAL",
+          0,
+          6,
+          Types.VARCHAR,
+          null,
+          null
+        }
+      };
+
+  // Static data for CLIENT_INFO_PROPERTIES metadata
+  private static final Object[][] CLIENT_INFO_PROPERTIES_DATA =
+      new Object[][] {
+        {
+          "APPLICATIONNAME",
+          25,
+          null,
+          "The name of the application currently utilizing the connection."
+        },
+        {
+          "CLIENTHOSTNAME",
+          25,
+          null,
+          "The hostname of the computer the application using the connection is running on."
+        },
+        {
+          "CLIENTUSER",
+          25,
+          null,
+          "The name of the user that the application using the connection is performing work for."
+        }
+      };
+
   private final IDatabricksConnectionContext ctx;
 
   public MetadataResultSetBuilder(IDatabricksConnectionContext ctx) {
     this.ctx = ctx;
+  }
+
+  public boolean shouldAllowCatalogAccess(
+      String catalog, String currentCatalog, IDatabricksSession session) throws SQLException {
+    if (ctx == null || ctx.getEnableMultipleCatalogSupport()) {
+      return true;
+    }
+
+    if (catalog == null) {
+      return true;
+    }
+
+    if (currentCatalog == null) {
+      currentCatalog = session.getCurrentCatalog();
+    }
+
+    if (currentCatalog != null && currentCatalog.equals(catalog)) {
+      return true;
+    }
+
+    LOGGER.debug(
+        "Catalog access denied for catalog '{}' when enableMultipleCatalogSupport=false. Current catalog is '{}'",
+        catalog,
+        currentCatalog);
+    return false;
   }
 
   public DatabricksResultSet getFunctionsResult(DatabricksResultSet resultSet, String catalog)
@@ -223,6 +683,10 @@ public class MetadataResultSetBuilder {
             } else {
               object = null;
             }
+            break;
+          case "COLUMN_DEF":
+            // SHOW COLUMNS does not expose column default values; return null per JDBC spec
+            object = null;
             break;
           default:
             // If column does not match any of the special cases, try to get it from the ResultSet
@@ -952,9 +1416,6 @@ public class MetadataResultSetBuilder {
             int ordinalPositionIndex = columns.indexOf(ORDINAL_POSITION_COLUMN);
             object = (int) row.get(ordinalPositionIndex) + 1; // 1-based index
             break;
-          case "COLUMN_DEF":
-            object = row.get(columns.indexOf(COLUMN_TYPE_COLUMN));
-            break;
           default:
             int index = columns.indexOf(column);
             if (index >= row.size()) { // index out of bound (eg: IS_GENERATED_COL in getColumns)
@@ -1050,5 +1511,42 @@ public class MetadataResultSetBuilder {
         getThriftRows(rows, FUNCTION_COLUMNS),
         GET_FUNCTIONS_STATEMENT_ID,
         CommandName.LIST_FUNCTIONS);
+  }
+
+  /**
+   * Creates a new TYPE_INFO ResultSet instance.
+   *
+   * <p>This method creates a fresh ResultSet instance each time to ensure proper cursor state and
+   * avoid issues with reusing closed ResultSets. See issue #1178.
+   *
+   * @return a new DatabricksResultSet with TYPE_INFO data
+   */
+  public DatabricksResultSet getTypeInfoResult() {
+    // Convert static data to List<List<Object>>
+    // InlineJsonResult will make the defensive copy, so we just create cheap views here
+    List<List<Object>> rows =
+        Arrays.stream(TYPE_INFO_DATA).map(Arrays::asList).collect(Collectors.toList());
+    return getResultSetWithGivenRowsAndColumns(
+        TYPE_INFO_COLUMNS, rows, "typeinfo-metadata", CommandName.LIST_TYPE_INFO);
+  }
+
+  /**
+   * Creates a new CLIENT_INFO_PROPERTIES ResultSet instance.
+   *
+   * <p>This method creates a fresh ResultSet instance each time to ensure proper cursor state and
+   * avoid issues with reusing closed ResultSets. See issue #1178.
+   *
+   * @return a new DatabricksResultSet with CLIENT_INFO_PROPERTIES data
+   */
+  public DatabricksResultSet getClientInfoPropertiesResult() {
+    // Convert static data to List<List<Object>>
+    // InlineJsonResult will make the defensive copy, so we just create cheap views here
+    List<List<Object>> rows =
+        Arrays.stream(CLIENT_INFO_PROPERTIES_DATA).map(Arrays::asList).collect(Collectors.toList());
+    return getResultSetWithGivenRowsAndColumns(
+        CLIENT_INFO_PROPERTIES_COLUMNS,
+        rows,
+        "client-info-properties-metadata",
+        CommandName.GET_CLIENT_INFO_PROPERTIES);
   }
 }

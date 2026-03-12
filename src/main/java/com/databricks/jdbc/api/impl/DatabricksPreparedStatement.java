@@ -44,6 +44,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     this.interpolateParameters = connection.getConnectionContext().supportManyParameters();
     this.databricksParameterMetaData = new DatabricksParameterMetaData(sql);
     this.databricksBatchParameterMetaData = new ArrayList<>();
+    // Cache whether this statement should return a ResultSet (based on SQL and config)
+    this.shouldReturnResultSet = shouldReturnResultSetWithConfig(sql);
   }
 
   DatabricksPreparedStatement(
@@ -57,13 +59,23 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     this.interpolateParameters = interpolateParameters;
     this.databricksParameterMetaData = databricksParameterMetaData;
     this.databricksBatchParameterMetaData = new ArrayList<>();
+    // Cache whether this statement should return a ResultSet (based on SQL and config)
+    this.shouldReturnResultSet = shouldReturnResultSetWithConfig(sql);
   }
 
   @Override
   public ResultSet executeQuery() throws SQLException {
     LOGGER.debug("public ResultSet executeQuery()");
     checkIfBatchOperation();
-    return interpolateIfRequiredAndExecute(StatementType.QUERY);
+    ResultSet rs = interpolateIfRequiredAndExecute(StatementType.QUERY);
+    // Validate AFTER execution to match existing driver behavior
+    if (!shouldReturnResultSet) {
+      String errorMessage =
+          "A ResultSet was expected but not generated from query. However, query "
+              + "execution was successful.";
+      throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.RESULT_SET_ERROR);
+    }
+    return rs;
   }
 
   @Override
@@ -71,6 +83,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public int executeUpdate()");
     checkIfBatchOperation();
     interpolateIfRequiredAndExecute(StatementType.UPDATE);
+    // Validate AFTER execution to match existing driver behavior
+    if (shouldReturnResultSet) {
+      String errorMessage =
+          "An update count was expected but not generated from query. However, query "
+              + "execution was successful.";
+      throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.RESULT_SET_ERROR);
+    }
     return (int) resultSet.getUpdateCount();
   }
 
@@ -303,6 +322,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public long executeLargeUpdate()");
     checkIfBatchOperation();
     interpolateIfRequiredAndExecute(StatementType.UPDATE);
+    // Validate AFTER execution to match existing driver behavior
+    if (shouldReturnResultSet) {
+      String errorMessage =
+          "An update count was expected but not generated from query. However, query "
+              + "execution was successful.";
+      throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.RESULT_SET_ERROR);
+    }
     return resultSet.getUpdateCount();
   }
 
@@ -339,7 +365,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     checkIfClosed();
     checkIfBatchOperation();
     interpolateIfRequiredAndExecute(StatementType.SQL);
-    return shouldReturnResultSet(sql);
+    return shouldReturnResultSet;
   }
 
   @Override

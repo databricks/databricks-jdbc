@@ -8,6 +8,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.sql.SQLException;
 
 /**
  * ChunkLinkFetcher implementation for the SQL Execution API (SEA) client.
@@ -30,7 +31,7 @@ public class SeaChunkLinkFetcher implements ChunkLinkFetcher {
 
   @Override
   public ChunkLinkFetchResult fetchLinks(long startChunkIndex, long startRowOffset)
-      throws DatabricksSQLException {
+      throws SQLException {
     // SEA uses startChunkIndex; startRowOffset is ignored
     LOGGER.debug(
         "Fetching links starting from chunk index {} for statement {}",
@@ -43,7 +44,7 @@ public class SeaChunkLinkFetcher implements ChunkLinkFetcher {
   }
 
   @Override
-  public ExternalLink refetchLink(long chunkIndex, long rowOffset) throws DatabricksSQLException {
+  public ExternalLink refetchLink(long chunkIndex, long rowOffset) throws SQLException {
     // SEA uses chunkIndex; rowOffset is ignored
     LOGGER.info("Refetching expired link for chunk {} of statement {}", chunkIndex, statementId);
 

@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import static com.databricks.jdbc.common.util.ArrowUtil.getColumnInfoList;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
-import static com.databricks.jdbc.common.util.DatabricksThriftUtil.getColumnInfoFromTColumnDesc;
 
 import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
 import com.databricks.jdbc.api.impl.IExecutionResult;
@@ -15,9 +15,7 @@ import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.client.thrift.generated.TColumnDesc;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
-import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ColumnInfo;
@@ -26,6 +24,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.google.common.annotations.VisibleForTesting;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -128,6 +127,7 @@ public class ArrowStreamResult implements IExecutionResult {
           linkPrefetchWindow,
           chunkReadyTimeoutSeconds,
           cloudFetchSpeedThreshold,
+          connectionContext,
           initialLinks);
     } else {
       // Use the original RemoteChunkProvider
@@ -143,13 +143,11 @@ public class ArrowStreamResult implements IExecutionResult {
 
   public ArrowStreamResult(
       TFetchResultsResp resultsResp,
-      boolean isInlineArrow,
       IDatabricksStatementInternal parentStatementId,
       IDatabricksSession session)
-      throws DatabricksSQLException {
+      throws SQLException {
     this(
         resultsResp,
-        isInlineArrow,
         parentStatementId,
         session,
         DatabricksHttpClientFactory.getInstance().getClient(session.getConnectionContext()));
@@ -158,19 +156,14 @@ public class ArrowStreamResult implements IExecutionResult {
   @VisibleForTesting
   ArrowStreamResult(
       TFetchResultsResp resultsResp,
-      boolean isInlineArrow,
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
-      throws DatabricksSQLException {
+      throws SQLException {
     this.session = session;
-    setColumnInfo(resultsResp.getResultSetMetadata());
-    if (isInlineArrow) {
-      this.chunkProvider = new InlineChunkProvider(resultsResp, parentStatement, session);
-    } else {
-      this.chunkProvider =
-          createThriftRemoteChunkProvider(resultsResp, parentStatement, session, httpClient);
-    }
+    this.columnInfos = getColumnInfoList(resultsResp.getResultSetMetadata());
+    this.chunkProvider =
+        createThriftRemoteChunkProvider(resultsResp, parentStatement, session, httpClient);
   }
 
   /**
@@ -187,7 +180,7 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       IDatabricksHttpClient httpClient)
-      throws DatabricksSQLException {
+      throws SQLException {
 
     IDatabricksConnectionContext connectionContext = session.getConnectionContext();
     CompressionCodec compressionCodec =
@@ -215,6 +208,7 @@ public class ArrowStreamResult implements IExecutionResult {
           linkPrefetchWindow,
           chunkReadyTimeoutSeconds,
           cloudFetchSpeedThreshold,
+          connectionContext,
           initialLinks);
     } else {
       // Use the original RemoteChunkProvider
@@ -238,48 +232,15 @@ public class ArrowStreamResult implements IExecutionResult {
   /** {@inheritDoc} */
   @Override
   public Object getObject(int columnIndex) throws DatabricksSQLException {
-    ColumnInfoTypeName requiredType = columnInfos.get(columnIndex).getTypeName();
+    ColumnInfo columnInfo = columnInfos.get(columnIndex);
+    ColumnInfoTypeName requiredType = columnInfo.getTypeName();
     String arrowMetadata = chunkIterator.getType(columnIndex);
     if (arrowMetadata == null) {
-      arrowMetadata = columnInfos.get(columnIndex).getTypeText();
+      arrowMetadata = columnInfo.getTypeText();
     }
 
-    // Handle complex type conversion when complex datatype support is disabled
-    boolean isComplexDatatypeSupportEnabled =
-        this.session.getConnectionContext().isComplexDatatypeSupportEnabled();
-    boolean isGeoSpatialSupportEnabled =
-        this.session.getConnectionContext().isGeoSpatialSupportEnabled();
-
-    // Check if we need to convert geospatial types to string when geospatial support is disabled
-    // This check must come before the general complex type check
-    if (!isGeoSpatialSupportEnabled && isGeospatialType(requiredType)) {
-      LOGGER.debug("Geospatial support is disabled, converting {} to STRING", requiredType);
-
-      Object result =
-          chunkIterator.getColumnObjectAtCurrentRow(
-              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfos.get(columnIndex));
-      if (result == null) {
-        return null;
-      }
-      // Return raw string for geospatial types when support is disabled
-      return result;
-    }
-
-    if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
-      LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
-
-      Object result =
-          chunkIterator.getColumnObjectAtCurrentRow(
-              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfos.get(columnIndex));
-      if (result == null) {
-        return null;
-      }
-      ComplexDataTypeParser parser = new ComplexDataTypeParser();
-      return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
-    }
-
-    return chunkIterator.getColumnObjectAtCurrentRow(
-        columnIndex, requiredType, arrowMetadata, columnInfos.get(columnIndex));
+    return getObjectWithComplexTypeHandling(
+        session, chunkIterator, columnIndex, requiredType, arrowMetadata, columnInfo);
   }
 
   /**
@@ -364,14 +325,73 @@ public class ArrowStreamResult implements IExecutionResult {
     return chunkProvider.getChunkCount();
   }
 
-  private void setColumnInfo(TGetResultSetMetadataResp resultManifest) {
-    columnInfos = new ArrayList<>();
-    if (resultManifest.getSchema() == null) {
-      return;
+  /**
+   * Returns the chunk provider for testing purposes.
+   *
+   * @return the chunk provider
+   */
+  @VisibleForTesting
+  public ChunkProvider getChunkProvider() {
+    return chunkProvider;
+  }
+
+  /**
+   * Helper method to handle complex type and geospatial type conversion when support is disabled.
+   *
+   * <p>This method is also used by LazyThriftInlineArrowResult for consistent type handling.
+   *
+   * @param session The databricks session
+   * @param chunkIterator The chunk iterator
+   * @param columnIndex The column index
+   * @param requiredType The required column type
+   * @param arrowMetadata The arrow metadata
+   * @param columnInfo The column info
+   * @return The object value (converted if complex/geospatial type and support disabled)
+   * @throws DatabricksSQLException if an error occurs
+   */
+  protected static Object getObjectWithComplexTypeHandling(
+      IDatabricksSession session,
+      ArrowResultChunkIterator chunkIterator,
+      int columnIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata,
+      ColumnInfo columnInfo)
+      throws DatabricksSQLException {
+    boolean isComplexDatatypeSupportEnabled =
+        session.getConnectionContext().isComplexDatatypeSupportEnabled();
+    boolean isGeoSpatialSupportEnabled =
+        session.getConnectionContext().isGeoSpatialSupportEnabled();
+
+    // Check if we need to convert geospatial types to string when geospatial support is disabled
+    // This check must come before the general complex type check
+    if (!isGeoSpatialSupportEnabled && isGeospatialType(requiredType)) {
+      LOGGER.debug("Geospatial support is disabled, converting {} to STRING", requiredType);
+
+      Object result =
+          chunkIterator.getColumnObjectAtCurrentRow(
+              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
+      if (result == null) {
+        return null;
+      }
+      // Return raw string for geospatial types when support is disabled
+      return result;
     }
-    for (TColumnDesc tColumnDesc : resultManifest.getSchema().getColumns()) {
-      columnInfos.add(getColumnInfoFromTColumnDesc(tColumnDesc));
+
+    if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
+      LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
+      Object result =
+          chunkIterator.getColumnObjectAtCurrentRow(
+              columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
+      if (result == null) {
+        return null;
+      }
+      ComplexDataTypeParser parser = new ComplexDataTypeParser();
+
+      return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
     }
+
+    return chunkIterator.getColumnObjectAtCurrentRow(
+        columnIndex, requiredType, arrowMetadata, columnInfo);
   }
 
   /**

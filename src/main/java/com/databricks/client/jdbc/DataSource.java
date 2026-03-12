@@ -4,7 +4,6 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
-import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.pooling.DatabricksPooledConnection;
@@ -37,13 +36,13 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
   }
 
   @Override
-  public Connection getConnection() throws DatabricksSQLException {
+  public Connection getConnection() throws SQLException {
     LOGGER.debug("public Connection getConnection()");
     return getConnection(this.getUsername(), this.getPassword());
   }
 
   @Override
-  public Connection getConnection(String username, String password) throws DatabricksSQLException {
+  public Connection getConnection(String username, String password) throws SQLException {
     LOGGER.debug("public Connection getConnection(String, String)");
     if (username != null) {
       setUsername(username);
@@ -55,14 +54,13 @@ public class DataSource implements javax.sql.DataSource, ConnectionPoolDataSourc
   }
 
   @Override
-  public PooledConnection getPooledConnection() throws DatabricksSQLException {
+  public PooledConnection getPooledConnection() throws SQLException {
     LOGGER.debug("public PooledConnection getPooledConnection()");
     return new DatabricksPooledConnection(getConnection());
   }
 
   @Override
-  public PooledConnection getPooledConnection(String user, String password)
-      throws DatabricksSQLException {
+  public PooledConnection getPooledConnection(String user, String password) throws SQLException {
     LOGGER.debug("public PooledConnection getPooledConnection(String, String)");
     return new DatabricksPooledConnection(getConnection(user, password));
   }

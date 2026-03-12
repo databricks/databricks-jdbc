@@ -107,6 +107,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             typeText = "STRING";
           }
 
+          // store base type eg. DECIMAL instead of DECIMAL(7,2) except for geospatial datatypes
+          String finalTypeText =
+              isGeospatialType(columnTypeName)
+                  ? typeText
+                  : metadataResultSetBuilder.stripTypeName(typeText);
+
           int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
           int[] precisionAndScale = getPrecisionAndScale(columnInfo, columnType);
           int precision = precisionAndScale[0];
@@ -116,9 +122,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .columnName(columnInfo.getName())
               .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
               .columnType(columnType)
-              .columnTypeText(
-                  metadataResultSetBuilder.stripTypeName(
-                      typeText)) // store base type eg. DECIMAL instead of DECIMAL(7,2)
+              .columnTypeText(finalTypeText)
               .typePrecision(precision)
               .typeScale(scale)
               .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
@@ -187,7 +191,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             columnIndex++) {
           TColumnDesc columnDesc = resultManifest.getSchema().getColumns().get(columnIndex);
 
-          ColumnInfo columnInfo = getColumnInfoFromTColumnDesc(columnDesc);
+          String columnArrowMetadata =
+              arrowMetadata != null && columnIndex < arrowMetadata.size()
+                  ? arrowMetadata.get(columnIndex)
+                  : null;
+          ColumnInfo columnInfo = getColumnInfoFromTColumnDesc(columnDesc, columnArrowMetadata);
           int[] precisionAndScale = getPrecisionAndScale(columnInfo);
           int precision = precisionAndScale[0];
           int scale = precisionAndScale[1];
@@ -201,6 +209,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                       && arrowMetadata.get(columnIndex) != null)
                   ? arrowMetadata.get(columnIndex)
                   : getTypeTextFromTypeDesc(columnDesc.getTypeDesc());
+
+          // Normalize TIMESTAMP_NTZ to TIMESTAMP for consistency with SEA path
+          if (columnTypeText != null && columnTypeText.equalsIgnoreCase(TIMESTAMP_NTZ)) {
+            columnTypeText = TIMESTAMP;
+          }
+
           columnBuilder
               .columnName(columnInfo.getName())
               .columnTypeClassName(
@@ -222,20 +236,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                 .columnTypeClassName("java.lang.String")
                 .columnType(Types.OTHER)
                 .columnTypeText(VARIANT);
-          } else if (isGeometryColumn(arrowMetadata, columnIndex)
-              && ctx.isGeoSpatialSupportEnabled()) {
-            // Only set GEOMETRY type if geospatial support is enabled
-            columnBuilder
-                .columnTypeClassName(GEOMETRY_CLASS_NAME)
-                .columnType(Types.OTHER)
-                .columnTypeText(GEOMETRY);
-          } else if (isGeographyColumn(arrowMetadata, columnIndex)
-              && ctx.isGeoSpatialSupportEnabled()) {
-            // Only set GEOGRAPHY type if geospatial support is enabled
-            columnBuilder
-                .columnTypeClassName(GEOGRAPHY_CLASS_NAME)
-                .columnType(Types.OTHER)
-                .columnTypeText(GEOGRAPHY);
           } else if ((isGeometryColumn(arrowMetadata, columnIndex)
                   || isGeographyColumn(arrowMetadata, columnIndex))
               && !ctx.isGeoSpatialSupportEnabled()) {

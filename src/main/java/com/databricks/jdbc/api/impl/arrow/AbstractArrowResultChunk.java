@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
@@ -99,7 +98,7 @@ public abstract class AbstractArrowResultChunk {
     this.rowOffset = rowOffset;
     this.chunkIndex = chunkIndex;
     this.statementId = statementId;
-    this.rootAllocator = new RootAllocator(Integer.MAX_VALUE);
+    this.rootAllocator = ArrowBufferAllocator.getBufferAllocator();
     this.chunkReadyFuture = new CompletableFuture<>();
     this.chunkLink = chunkLink;
     this.expiryTime = expiryTime;
@@ -117,11 +116,11 @@ public abstract class AbstractArrowResultChunk {
   }
 
   /**
-   * Returns the starting row offset for this chunk.
+   * Returns the start row offset of this chunk in the overall result set.
    *
-   * @return the row offset
+   * @return row offset
    */
-  public long getRowOffset() {
+  public long getStartRowOffset() {
     return rowOffset;
   }
 
@@ -154,6 +153,10 @@ public abstract class AbstractArrowResultChunk {
     setStatus(ChunkStatus.CHUNK_RELEASED);
 
     return true;
+  }
+
+  public ExternalLink getChunkLink() {
+    return chunkLink;
   }
 
   /**
@@ -333,13 +336,23 @@ public abstract class AbstractArrowResultChunk {
     long rowCount = 0L;
     try (ArrowStreamReader arrowStreamReader = new ArrowStreamReader(inputStream, rootAllocator)) {
       VectorSchemaRoot vectorSchemaRoot = arrowStreamReader.getVectorSchemaRoot();
-      boolean fetchedMetadata = false;
+
+      // Extract metadata from VectorSchemaRoot before loading any batches.
+      // The Arrow IPC format sends the schema first (before any record batches),
+      // so field metadata is available even when there are 0 rows.
+      // VectorSchemaRoot will contain field vectors with metadata, but rowCount will be 0.
+      if (vectorSchemaRoot != null && vectorSchemaRoot.getFieldVectors() != null) {
+        metadata = getMetadataInformationFromSchemaRoot(vectorSchemaRoot);
+        LOGGER.debug(
+            "Extracted metadata from VectorSchemaRoot before loading batches. "
+                + "Schema has {} fields. Statement: {}, Chunk: {}",
+            vectorSchemaRoot.getFieldVectors().size(),
+            statementId,
+            chunkIndex);
+      }
+
       while (arrowStreamReader.loadNextBatch()) {
         rowCount += vectorSchemaRoot.getRowCount();
-        if (!fetchedMetadata) {
-          metadata = getMetadataInformationFromSchemaRoot(vectorSchemaRoot);
-          fetchedMetadata = true;
-        }
         recordBatchList.add(getVectorsFromSchemaRoot(vectorSchemaRoot, rootAllocator));
         vectorSchemaRoot.clear();
       }

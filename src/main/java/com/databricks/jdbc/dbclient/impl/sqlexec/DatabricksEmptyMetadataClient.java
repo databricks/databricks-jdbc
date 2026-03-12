@@ -1,7 +1,5 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
-import static com.databricks.jdbc.dbclient.impl.sqlexec.ResultConstants.TYPE_INFO_RESULT;
-
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
@@ -26,7 +24,7 @@ public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient 
   @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session) throws SQLException {
     LOGGER.debug("public ResultSet getTypeInfo()");
-    return TYPE_INFO_RESULT;
+    return metadataResultSetBuilder.getTypeInfoResult();
   }
 
   @Override

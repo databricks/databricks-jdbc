@@ -2,7 +2,7 @@ name: Integration Tests Workflow - Main Branch
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   build-and-test:
@@ -14,10 +14,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - test-command: mvn -B compile test -Dtest=*IntegrationTests
+          - test-command: mvn -pl jdbc-core -B compile test -Dtest=*IntegrationTests,!CircuitBreakerIntegrationTests,!ThriftCloudFetchFakeIntegrationTests
             token-secret: DATABRICKS_TOKEN
             fake-service-type: 'SQL_EXEC'
-          - test-command: mvn -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!SqlExecApiHybridResultsIntegrationTests,!DBFSVolumeIntegrationTests,!M2MAuthIntegrationTests,!UCVolumeIntegrationTests,!SqlExecApiIntegrationTests
+          - test-command: mvn -pl jdbc-core -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!SqlExecApiHybridResultsIntegrationTests,!DBFSVolumeIntegrationTests,!M2MAuthIntegrationTests,!UCVolumeIntegrationTests,!SqlExecApiIntegrationTests
             token-secret: THRIFT_DATABRICKS_TOKEN
             fake-service-type: 'THRIFT_SERVER'
     steps:

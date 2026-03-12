@@ -33,6 +33,9 @@ public class SqlExecutionEvent {
   @JsonProperty("operation_detail")
   OperationDetail operationDetail;
 
+  @JsonProperty("java_uses_patched_arrow")
+  Boolean javaUsesPatchedArrow;
+
   public SqlExecutionEvent setDriverStatementType(StatementType driverStatementType) {
     this.driverStatementType = driverStatementType;
     return this;
@@ -73,6 +76,11 @@ public class SqlExecutionEvent {
     return this;
   }
 
+  public SqlExecutionEvent setJavaUsesPatchedArrow(Boolean javaUsesPatchedArrow) {
+    this.javaUsesPatchedArrow = javaUsesPatchedArrow;
+    return this;
+  }
+
   @Override
   public String toString() {
     return new ToStringer(SqlExecutionEvent.class)
@@ -84,6 +92,7 @@ public class SqlExecutionEvent {
         .add("chunk_details", chunkDetails)
         .add("result_latency", resultLatency)
         .add("operation_details", operationDetail)
+        .add("java_uses_patched_arrow", javaUsesPatchedArrow)
         .toString();
   }
 }

@@ -157,7 +157,7 @@ jobs:
       ################################################################
       - name: Run ProxyTest
         run: |
-          mvn test -Dtest=**/ProxyTest.java
+          mvn -pl jdbc-core test -Dtest=**/ProxyTest.java
 
       ################################################################
       # 14) Cleanup

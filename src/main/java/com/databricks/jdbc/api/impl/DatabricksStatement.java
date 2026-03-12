@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import java.sql.*;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 import org.apache.http.entity.InputStreamEntity;
@@ -29,6 +30,12 @@ import org.apache.http.entity.InputStreamEntity;
 public class DatabricksStatement implements IDatabricksStatement, IDatabricksStatementInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
+
+  /**
+   * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
+   * avoid iterating through result rows until getUpdateCount() is explicitly called.
+   */
+  private static final long UPDATE_COUNT_NOT_YET_EVALUATED = -2L;
 
   /** Same-Thread-ExecutorService for handling execution of statements. */
   private final ExecutorService executor = MoreExecutors.newDirectExecutorService();
@@ -48,6 +55,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private final DatabricksBatchExecutor databricksBatchExecutor;
   private boolean noMoreResults = false; // JDBC end-of-results indicator
   private long updateCount = -1; // Update count for DML statements, -1 for SELECT or no results
+  protected Boolean shouldReturnResultSet =
+      null; // Cached result of shouldReturnResultSetWithConfig()
 
   public DatabricksStatement(DatabricksConnection connection) throws DatabricksValidationException {
     this.connection = connection;
@@ -72,10 +81,11 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
   @Override
   public ResultSet executeQuery(String sql) throws SQLException {
-    // TODO (PECO-1731): Can it fail fast without executing SQL query?
     checkIfClosed();
     ResultSet rs = executeInternal(sql, new HashMap<>(), StatementType.QUERY);
-    if (!shouldReturnResultSet(sql)) {
+    // Validate AFTER execution to match existing driver behavior
+    shouldReturnResultSet = shouldReturnResultSetWithConfig(sql);
+    if (!shouldReturnResultSet) {
       String errorMessage =
           "A ResultSet was expected but not generated from query. However, query "
               + "execution was successful.";
@@ -88,6 +98,14 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   public int executeUpdate(String sql) throws SQLException {
     checkIfClosed();
     executeInternal(sql, new HashMap<>(), StatementType.UPDATE);
+    // Validate AFTER execution to match existing driver behavior
+    shouldReturnResultSet = shouldReturnResultSetWithConfig(sql);
+    if (shouldReturnResultSet) {
+      String errorMessage =
+          "An update count was expected but not generated from query. However, query "
+              + "execution was successful.";
+      throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.RESULT_SET_ERROR);
+    }
     return (int) resultSet.getUpdateCount();
   }
 
@@ -96,6 +114,14 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     LOGGER.debug("public long executeLargeUpdate(String sql = {})", sql);
     checkIfClosed();
     executeInternal(sql, new HashMap<>(), StatementType.UPDATE);
+    // Validate AFTER execution to match existing driver behavior
+    shouldReturnResultSet = shouldReturnResultSetWithConfig(sql);
+    if (shouldReturnResultSet) {
+      String errorMessage =
+          "An update count was expected but not generated from query. However, query "
+              + "execution was successful.";
+      throw new DatabricksSQLException(errorMessage, DatabricksDriverErrorCode.RESULT_SET_ERROR);
+    }
     return resultSet.getUpdateCount();
   }
 
@@ -236,20 +262,33 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   public boolean execute(String sql) throws SQLException {
     checkIfClosed();
     resultSet = executeInternal(sql, new HashMap<>(), StatementType.SQL);
-    return shouldReturnResultSet(sql);
+    shouldReturnResultSet = shouldReturnResultSetWithConfig(sql);
+    return shouldReturnResultSet;
   }
 
   @Override
   public ResultSet getResultSet() throws SQLException {
     LOGGER.debug("public ResultSet getResultSet()");
     checkIfClosed();
-    return resultSet;
+    // Per JDBC spec: return null if the result is an update count (when execute() returned false)
+    if (shouldReturnResultSet == null) {
+      throw new DatabricksSQLException(
+          "No statement has been executed yet", DatabricksDriverErrorCode.INVALID_STATE);
+    }
+    return shouldReturnResultSet ? resultSet : null;
   }
 
   @Override
   public int getUpdateCount() throws SQLException {
     LOGGER.debug("public int getUpdateCount()");
     checkIfClosed();
+
+    // Perform lazy evaluation if not done yet
+    if (updateCount == UPDATE_COUNT_NOT_YET_EVALUATED && resultSet != null) {
+      // Only now iterate through rows to compute update count (lazy)
+      updateCount = resultSet.getUpdateCount();
+    }
+
     // Return SUCCESS_NO_INFO if update count exceeds int range, per JDBC spec
     return updateCount > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : (int) updateCount;
   }
@@ -258,6 +297,13 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   public long getLargeUpdateCount() throws SQLException {
     LOGGER.debug("public long getLargeUpdateCount()");
     checkIfClosed();
+
+    // Perform lazy evaluation if not done yet
+    if (updateCount == UPDATE_COUNT_NOT_YET_EVALUATED && resultSet != null) {
+      // Only now iterate through rows to compute update count (lazy)
+      updateCount = resultSet.getUpdateCount();
+    }
+
     return updateCount;
   }
 
@@ -304,7 +350,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     LOGGER.debug(String.format("public void setFetchSize(int rows = {%s})", rows));
     String warningString = "As FetchSize is not supported in the Databricks JDBC, ignoring it";
 
-    LOGGER.warn(warningString);
+    LOGGER.debug(warningString);
     warnings = WarningUtil.addWarning(warnings, warningString);
   }
 
@@ -314,7 +360,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     String warningString =
         "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place";
 
-    LOGGER.warn(warningString);
+    LOGGER.debug(warningString);
     warnings = WarningUtil.addWarning(warnings, warningString);
     return 0;
   }
@@ -634,17 +680,18 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           "Query cannot be null or empty", DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
 
-    // Trim and remove comments and whitespaces.
-    String trimmedQuery = query.trim().replaceAll("(?m)--.*$", "");
-    trimmedQuery = trimmedQuery.replaceAll("/\\*.*?\\*/", "");
-    trimmedQuery = trimmedQuery.replaceAll("\\s+", " ").trim();
-
-    return trimmedQuery;
+    return SqlCommentParser.stripCommentsAndWhitespaces(query);
   }
 
   @VisibleForTesting
-  static boolean shouldReturnResultSet(String query) {
+  static boolean shouldReturnResultSet(String query, List<String> nonRowcountQueryPrefixes) {
     String trimmedQuery = trimCommentsAndWhitespaces(query);
+
+    // Check configured non-rowcount prefixes first
+    String upperQuery = trimmedQuery.toUpperCase();
+    if (nonRowcountQueryPrefixes.stream().anyMatch(upperQuery::startsWith)) {
+      return true;
+    }
 
     // Check if the query matches any of the patterns that return a ResultSet
     return SELECT_PATTERN.matcher(trimmedQuery).find()
@@ -668,6 +715,11 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         || CALL_PATTERN.matcher(trimmedQuery).find();
 
     // Otherwise, it should not return a ResultSet
+  }
+
+  protected boolean shouldReturnResultSetWithConfig(String query) {
+    return shouldReturnResultSet(
+        query, connection.getConnectionContext().getNonRowcountQueryPrefixes());
   }
 
   static boolean isSelectQuery(String query) {
@@ -749,10 +801,19 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     DatabricksResultSet result = executeInternal(sql, params, statementType, true);
 
     // Update the updateCount field based on the result
-    if (result != null && result.hasUpdateCount()) {
-      updateCount = result.getUpdateCount();
+    if (result != null) {
+      if (shouldReturnResultSetWithConfig(sql)) {
+        // Statement configured to return ResultSet (e.g., INSERT with
+        // NonRowcountQueryPrefixes=INSERT)
+        // Per JDBC spec: statements returning ResultSets have updateCount = -1
+        updateCount = -1;
+      } else {
+        // Statement should return update count (normal DML without config)
+        // Lazy: evaluate only if user calls getUpdateCount()
+        updateCount = UPDATE_COUNT_NOT_YET_EVALUATED;
+      }
     } else {
-      updateCount = -1; // SELECT query or no update count
+      updateCount = -1; // No result
     }
 
     return result;
@@ -784,7 +845,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         params,
         statementType,
         connection.getSession(),
-        this);
+        this,
+        null /* metadataOperationType */);
   }
 
   void checkIfClosed() throws DatabricksSQLException {

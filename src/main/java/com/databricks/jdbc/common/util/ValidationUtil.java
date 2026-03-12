@@ -97,20 +97,24 @@ public class ValidationUtil {
     throw new DatabricksValidationException(errorMessage);
   }
 
-  public static void checkHTTPError(HttpResponse response)
-      throws DatabricksHttpException, IOException {
+  public static String checkHTTPErrorWithoutThrowingError(HttpResponse response) {
     int statusCode = response.getStatusLine().getStatusCode();
-    String statusLine = response.getStatusLine().toString();
     if (statusCode >= 200 && statusCode < 300) {
-      return;
+      return EMPTY_STRING;
     }
-    String errorReason =
-        String.format("HTTP request failed by code: %d, status line: %s.", statusCode, statusLine);
+    String statusLine = response.getStatusLine().toString();
+    StringBuilder errorBuilder = new StringBuilder();
+    errorBuilder.append(
+        String.format("HTTP request failed by code: %d, status line: %s.", statusCode, statusLine));
     if (response.containsHeader(THRIFT_ERROR_MESSAGE_HEADER)) {
-      errorReason +=
+      errorBuilder.append(
           String.format(
               " Thrift Header : %s",
-              response.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue());
+              response.getFirstHeader(THRIFT_ERROR_MESSAGE_HEADER).getValue()));
+    }
+    if (response.containsHeader(REQUEST_ID_HEADER)) {
+      String requestId = response.getFirstHeader(REQUEST_ID_HEADER).getValue();
+      errorBuilder.append(String.format(" Request ID: %s.", requestId));
     }
     if (response.getEntity() != null) {
       try {
@@ -118,13 +122,21 @@ public class ValidationUtil {
             JsonUtil.getMapper().readTree(EntityUtils.toString(response.getEntity()));
         JsonNode errorNode = jsonNode.path("message");
         if (errorNode.isTextual()) {
-          errorReason += String.format(" Error message: %s", errorNode.textValue());
+          errorBuilder.append(String.format(" Error message: %s", errorNode.textValue()));
         }
       } catch (Exception e) {
         LOGGER.warn("Unable to parse JSON from response entity", e);
       }
     }
+    return errorBuilder.toString();
+  }
 
+  public static void checkHTTPError(HttpResponse response)
+      throws DatabricksHttpException, IOException {
+    String errorReason = checkHTTPErrorWithoutThrowingError(response);
+    if (errorReason.equals(EMPTY_STRING)) {
+      return;
+    }
     LOGGER.error(errorReason);
     throw new DatabricksHttpException(errorReason, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }

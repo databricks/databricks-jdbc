@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -10,6 +11,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.sql.SQLException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
@@ -60,6 +62,7 @@ public class StreamingChunkProvider implements ChunkProvider {
   private final CompressionCodec compressionCodec;
   private final StatementId statementId;
   private final double cloudFetchSpeedThreshold;
+  private final IDatabricksConnectionContext connectionContext;
 
   // Chunk storage
   private final ConcurrentMap<Long, ArrowResultChunk> chunks = new ConcurrentHashMap<>();
@@ -125,6 +128,7 @@ public class StreamingChunkProvider implements ChunkProvider {
       int linkPrefetchWindow,
       int chunkReadyTimeoutSeconds,
       double cloudFetchSpeedThreshold,
+      IDatabricksConnectionContext connectionContext,
       ChunkLinkFetchResult initialLinks)
       throws DatabricksParsingException {
 
@@ -136,6 +140,7 @@ public class StreamingChunkProvider implements ChunkProvider {
     this.linkPrefetchWindow = linkPrefetchWindow;
     this.chunkReadyTimeoutSeconds = chunkReadyTimeoutSeconds;
     this.cloudFetchSpeedThreshold = cloudFetchSpeedThreshold;
+    this.connectionContext = connectionContext;
 
     LOGGER.info(
         "Creating StreamingChunkProvider for statement {}: maxChunksInMemory={}, linkPrefetchWindow={}",
@@ -368,7 +373,7 @@ public class StreamingChunkProvider implements ChunkProvider {
     LOGGER.debug("Link prefetch thread exiting for statement {}", statementId);
   }
 
-  private void fetchNextLinkBatch() throws DatabricksSQLException {
+  private void fetchNextLinkBatch() throws SQLException {
     if (endOfStreamReached || closed) {
       return;
     }
@@ -461,6 +466,7 @@ public class StreamingChunkProvider implements ChunkProvider {
             .withStatementId(statementId)
             .withChunkMetadata(chunkIndex, rowCount, rowOffset)
             .withChunkReadyTimeoutSeconds(chunkReadyTimeoutSeconds)
+            .withConnectionContext(connectionContext)
             .build();
 
     chunk.setChunkLink(link);

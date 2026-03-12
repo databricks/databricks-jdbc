@@ -20,19 +20,33 @@ Add the following dependency to your `pom.xml`:
 <dependency>
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
-  <version>3.0.6</version>
+  <version>3.2.1</version>
 </dependency>
 ```
 
 ### Build from Source
 
+This is a multi-module Maven project:
+
+| Module | Artifact | Description |
+|--------|----------|-------------|
+| `jdbc-core` | `databricks-jdbc-core` | Core driver code |
+| `assembly-uber` | `databricks-jdbc` | Uber jar with all dependencies bundled |
+| `assembly-thin` | `databricks-jdbc-thin` | Thin jar (dependencies not bundled) |
+| `test-assembly-uber` | `test-databricks-jdbc-uber` | Packaging tests for the uber jar |
+| `test-assembly-thin` | `test-databricks-jdbc-thin` | Packaging tests for the thin jar |
+
 1. Clone the repository
-2. Run the following command:
+2. Build the driver jar (equivalent to `mvn clean package -DskipTests` in a single-module project):
    ```bash
-   mvn clean package
+   mvn -pl jdbc-core,assembly-uber,assembly-thin clean package -DskipTests -Ddependency-check.skip=true
    ```
-3. The jar file is generated as `target/databricks-jdbc-<version>.jar`
-4. The test coverage report is generated in `target/site/jacoco/index.html`
+3. The uber jar is generated at `assembly-uber/target/databricks-jdbc-<version>.jar`
+4. To run unit tests and generate a coverage report (equivalent to `mvn clean test` in a single-module project):
+   ```bash
+   mvn -pl jdbc-core clean test jacoco:report -Dgroups='!Jvm17PlusAndArrowToNioReflectionDisabled' -Ddependency-check.skip=true
+   ```
+   The test coverage report is generated in `jdbc-core/target/site/jacoco/index.html`
 
 ## Usage
 
@@ -95,12 +109,7 @@ Optional parameters:
 
 ### Logging
 
-The driver supports both SLF4J and Java Util Logging (JUL) frameworks:
-
-- **SLF4J**: Enable with `-Dcom.databricks.jdbc.loggerImpl=SLF4JLOGGER`
-- **JUL**: Enable with `-Dcom.databricks.jdbc.loggerImpl=JDKLOGGER` (default)
-
-For detailed logging configuration options, see [Logging Documentation](./docs/LOGGING.md).
+The driver supports logging configuration via JDBC URL parameters or system properties. For detailed configuration options, see [Logging Documentation](./docs/LOGGING.md).
 
 ## Running Tests
 

@@ -23,6 +23,8 @@ import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.oauth.OAuthM2MServicePrincipalCredentialsProvider;
 import com.databricks.sdk.core.oauth.TokenCache;
 import com.databricks.sdk.core.utils.Cloud;
+import com.google.common.annotations.VisibleForTesting;
+import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -40,11 +42,12 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
  * This class is responsible for configuring the Databricks config based on the connection context.
  * The databricks config is then used to create the SDK or Thrift client.
  */
-public class ClientConfigurator {
+public class ClientConfigurator implements Closeable {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ClientConfigurator.class);
   private final IDatabricksConnectionContext connectionContext;
   private DatabricksConfig databricksConfig;
+  private PoolingHttpClientConnectionManager sdkConnectionManager;
 
   public ClientConfigurator(IDatabricksConnectionContext connectionContext)
       throws DatabricksSSLException, DatabricksValidationException {
@@ -71,9 +74,12 @@ public class ClientConfigurator {
    * @return The path for the token cache file
    */
   public static Path getTokenCachePath(String host, String clientId, List<String> scopes) {
-    String userHome = System.getProperty("user.home");
+    String userHome = System.getProperty(USER_HOME_PROPERTY);
     Path homeDir = Paths.get(userHome);
-    Path databricksDir = homeDir.resolve(".config/databricks-jdbc/oauth");
+    // Use .config on Unix/Mac, databricks-jdbc on Windows
+    String configDir =
+        System.getProperty("os.name").toLowerCase().contains("win") ? "databricks-jdbc" : ".config";
+    Path databricksDir = homeDir.resolve(configDir).resolve("databricks-jdbc").resolve("oauth");
 
     // Create a unique string identifier from the combination of parameters
     String uniqueIdentifier = createUniqueIdentifier(host, clientId, scopes);
@@ -84,14 +90,16 @@ public class ClientConfigurator {
   }
 
   /**
-   * Creates a unique identifier string from the given parameters. Uses a hash function to create a
-   * compact representation.
+   * Creates a unique identifier string from the given parameters.
    *
    * @param host The host URL
    * @param clientId The OAuth client ID
    * @param scopes The OAuth scopes
    * @return A unique identifier string
+   * @deprecated This method is deprecated in favor of using connection UUID for cache
+   *     identification
    */
+  @Deprecated
   private static String createUniqueIdentifier(String host, String clientId, List<String> scopes) {
     // Normalize inputs to handle null values
     host = (host != null) ? host : EMPTY_STRING;
@@ -121,6 +129,7 @@ public class ClientConfigurator {
     connManager.setMaxTotal(connectionContext.getHttpConnectionPoolSize());
     connManager.setDefaultMaxPerRoute(connectionContext.getHttpMaxConnectionsPerRoute());
     httpClientBuilder.withConnectionManager(connManager);
+    this.sdkConnectionManager = connManager;
   }
 
   /** Set up proxy settings in the databricks config. */
@@ -202,7 +211,7 @@ public class ClientConfigurator {
         .setHost(host)
         .setClientId(clientId)
         .setOAuthBrowserAuthTimeout(
-            Duration.ofHours(1)) // TODO : add a browser timeout connection config
+            Duration.ofSeconds(connectionContext.getOAuthWebServerTimeout()))
         .setClientSecret(connectionContext.getClientSecret())
         .setOAuthRedirectUrl(redirectUrl);
 
@@ -319,6 +328,7 @@ public class ClientConfigurator {
         .setHost(connectionContext.getHostForOAuth())
         .setClientId(connectionContext.getClientId())
         .setClientSecret(connectionContext.getClientSecret());
+
     CredentialsProvider provider =
         new OAuthRefreshCredentialsProvider(connectionContext, databricksConfig);
     CredentialsProvider wrappedProvider = wrapWithTokenFederationIfEnabled(provider);
@@ -424,6 +434,26 @@ public class ClientConfigurator {
 
   public DatabricksConfig getDatabricksConfig() {
     return this.databricksConfig;
+  }
+
+  @VisibleForTesting
+  PoolingHttpClientConnectionManager getSdkConnectionManager() {
+    return sdkConnectionManager;
+  }
+
+  /**
+   * Closes the SDK's HTTP connection manager, releasing any pooled TCP connections. This must be
+   * called when the JDBC connection is closed to prevent socket leaks.
+   *
+   * <p>The SDK's {@link CommonsHttpClient} does not implement {@link Closeable}, so we close the
+   * underlying connection manager directly since we own it.
+   */
+  @Override
+  public void close() {
+    if (sdkConnectionManager != null) {
+      LOGGER.debug("Shutting down SDK HTTP connection manager");
+      sdkConnectionManager.shutdown();
+    }
   }
 
   private void setupDiscoveryEndpoint() {
