@@ -214,7 +214,7 @@ public class EncryptedFileTokenCacheTest {
         new EncryptedFileTokenCache(tokenCachePath, TEST_PASSPHRASE);
 
     // Create a very long access token (simulate JWT)
-    String longToken = "a".repeat(2000);
+    String longToken = new String(new char[2000]).replace('\0', 'a');
     Token token =
         new Token(longToken, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS));
 

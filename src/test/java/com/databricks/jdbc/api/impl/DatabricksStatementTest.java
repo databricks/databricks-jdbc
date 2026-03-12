@@ -447,69 +447,6 @@ public class DatabricksStatementTest {
   }
 
   @Test
-  public void testEnquoteLiteral() throws Exception {
-    DatabricksConnection connection = getTestConnection();
-    DatabricksStatement stmt = new DatabricksStatement(connection);
-    // Normal string
-    assertEquals("'hello'", stmt.enquoteLiteral("hello"));
-    // Empty string
-    assertEquals("''", stmt.enquoteLiteral(""));
-    // String with single quote
-    assertEquals("'It''s a test'", stmt.enquoteLiteral("It's a test"));
-    // String with multiple single quotes
-    assertEquals("'It''s a ''quoted'' test'", stmt.enquoteLiteral("It's a 'quoted' test"));
-  }
-
-  @Test
-  public void testEnquoteIdentifier() throws Exception {
-    DatabricksConnection connection = getTestConnection();
-    DatabricksStatement stmt = new DatabricksStatement(connection);
-    // Valid identifier without forced quoting
-    assertEquals("myTable", stmt.enquoteIdentifier("myTable", false));
-    // Valid identifier with forced quoting
-    assertEquals("\"myTable\"", stmt.enquoteIdentifier("myTable", true));
-    // Identifier that requires quoting
-    assertEquals("\"my-table\"", stmt.enquoteIdentifier("my-table", false));
-    // Already quoted identifier
-    assertEquals("\"my-table\"", stmt.enquoteIdentifier("\"my-table\"", false));
-  }
-
-  @Test
-  public void testEnquoteNCharLiteral() throws Exception {
-    DatabricksConnection connection = getTestConnection();
-    DatabricksStatement stmt = new DatabricksStatement(connection);
-    // Normal string
-    assertEquals("N'hello'", stmt.enquoteNCharLiteral("hello"));
-    // Empty string
-    assertEquals("N''", stmt.enquoteNCharLiteral(""));
-    // String with single quote
-    assertEquals("N'It''s a test'", stmt.enquoteNCharLiteral("It's a test"));
-    // String with multiple single quotes
-    assertEquals("N'It''s a ''quoted'' test'", stmt.enquoteNCharLiteral("It's a 'quoted' test"));
-    // String with non-ASCII characters
-    assertEquals("N'こんにちは'", stmt.enquoteNCharLiteral("こんにちは"));
-  }
-
-  @Test
-  public void testIsSimpleIdentifier() throws Exception {
-    DatabricksConnection connection = getTestConnection();
-    DatabricksStatement stmt = new DatabricksStatement(connection);
-    // Valid identifier
-    assertTrue(stmt.isSimpleIdentifier("validName"));
-    // Valid identifier with underscores and numbers
-    assertTrue(stmt.isSimpleIdentifier("valid_name_123"));
-    // Invalid identifier starting with number
-    assertFalse(stmt.isSimpleIdentifier("123name"));
-    // Invalid identifier with special characters
-    assertFalse(stmt.isSimpleIdentifier("invalid-name"));
-    // Empty string
-    assertFalse(stmt.isSimpleIdentifier(""));
-    // Too long identifier
-    String longIdentifier = "a".repeat(129);
-    assertFalse(stmt.isSimpleIdentifier(longIdentifier));
-  }
-
-  @Test
   public void testShouldReturnResultSet_SelectQuery() {
     String query = "-- comment\nSELECT * FROM table;";
     assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));

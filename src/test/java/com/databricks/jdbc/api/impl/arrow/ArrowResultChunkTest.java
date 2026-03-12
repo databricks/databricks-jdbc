@@ -15,6 +15,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -199,7 +200,7 @@ public class ArrowResultChunkTest {
       dummyVector.set(i, i * 10);
     }
     arrowResultChunk.recordBatchList =
-        List.of(List.of(dummyVector), List.of(dummyVector), new ArrayList<>());
+        Arrays.asList(Arrays.asList(dummyVector), Arrays.asList(dummyVector), new ArrayList<>());
     ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
     ColumnInfo intColumnInfo = new ColumnInfo();
     assertTrue(iterator.hasNextRow());
@@ -242,7 +243,7 @@ public class ArrowResultChunkTest {
     emptyVector.allocateNew(0);
     emptyVector.setValueCount(0);
     arrowResultChunk.recordBatchList =
-        List.of(List.of(dummyVector), List.of(emptyVector), List.of(dummyVector));
+        Arrays.asList(Arrays.asList(dummyVector), Arrays.asList(emptyVector), Arrays.asList(dummyVector));
     ColumnInfo intColumnInfo = new ColumnInfo();
     ArrowResultChunkIterator iterator = arrowResultChunk.getChunkIterator();
     assertTrue(iterator.hasNextRow());

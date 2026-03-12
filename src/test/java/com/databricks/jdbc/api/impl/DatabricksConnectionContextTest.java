@@ -136,7 +136,7 @@ class DatabricksConnectionContextTest {
     connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_3, properties);
-    List<String> expected_scopes = List.of("sql", "offline_access");
+    List<String> expected_scopes = Arrays.asList("sql", "offline_access");
     assertEquals("http://sample-host.cloud.databricks.com:9999", connectionContext.getHostUrl());
     assertEquals("/sql/1.0/warehouses/9999999999999999", connectionContext.getHttpPath());
     assertEquals("passwd", connectionContext.getToken());
@@ -488,20 +488,20 @@ class DatabricksConnectionContextTest {
         DatabricksConnectionContext.parse(
             TestConstants.VALID_URL_WITH_VOLUME_ALLOWED_PATH, properties);
     assertEquals("/tmp2", connectionContext.getVolumeOperationAllowedPaths());
-    assertEquals(List.of(429, 503, 504), connectionContext.getUCIngestionRetriableHttpCodes());
+    assertEquals(Arrays.asList(429, 503, 504), connectionContext.getUCIngestionRetriableHttpCodes());
     assertEquals(600, connectionContext.getUCIngestionRetryTimeoutSeconds());
 
     connectionContext =
         DatabricksConnectionContext.parse(
             TestConstants.VALID_URL_WITH_STAGING_ALLOWED_PATH, properties);
     assertEquals("/tmp", connectionContext.getVolumeOperationAllowedPaths());
-    assertEquals(List.of(503, 504), connectionContext.getUCIngestionRetriableHttpCodes());
+    assertEquals(Arrays.asList(503, 504), connectionContext.getUCIngestionRetriableHttpCodes());
     assertEquals(720, connectionContext.getUCIngestionRetryTimeoutSeconds());
 
     connectionContext = DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
     assertEquals("", connectionContext.getVolumeOperationAllowedPaths());
     assertEquals(
-        List.of(408, 429, 500, 502, 503, 504),
+        Arrays.asList(408, 429, 500, 502, 503, 504),
         connectionContext.getUCIngestionRetriableHttpCodes());
     assertEquals(900, connectionContext.getUCIngestionRetryTimeoutSeconds());
   }

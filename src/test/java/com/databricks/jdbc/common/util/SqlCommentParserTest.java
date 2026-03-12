@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -383,13 +384,13 @@ public class SqlCommentParserTest {
   public void testForEachEmitsSyntheticSpaceOnBlockCommentExit() {
     List<Character> chars = new ArrayList<>();
     SqlCommentParser.forEachNonCommentChar("a/*x*/b", (state, c) -> chars.add(c));
-    assertEquals(List.of('a', ' ', 'b'), chars);
+    assertEquals(Arrays.asList('a', ' ', 'b'), chars);
   }
 
   @Test
   public void testForEachEmitsSyntheticSpaceOnLineCommentExit() {
     List<Character> chars = new ArrayList<>();
     SqlCommentParser.forEachNonCommentChar("a--x\nb", (state, c) -> chars.add(c));
-    assertEquals(List.of('a', ' ', 'b'), chars);
+    assertEquals(Arrays.asList('a', ' ', 'b'), chars);
   }
 }

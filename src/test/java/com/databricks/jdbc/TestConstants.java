@@ -10,6 +10,7 @@ import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import java.net.MalformedURLException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -76,18 +77,18 @@ public class TestConstants {
           + "UserAgentEntry=MyApp";
 
   public static final List<ByteBuffer> BINARY_ROW_SET_VALUES =
-      List.of(ByteBuffer.wrap(TEST_STRING.getBytes()));
-  public static final List<Boolean> BOOL_ROW_SET_VALUES = List.of(false, true, false, true);
+      Arrays.asList(ByteBuffer.wrap(TEST_STRING.getBytes()));
+  public static final List<Boolean> BOOL_ROW_SET_VALUES = Arrays.asList(false, true, false, true);
   public static final List<Byte> BYTE_ROW_SET_VALUES =
-      List.of((byte) 5, (byte) 4, (byte) 3, (byte) 2, (byte) 1);
-  public static final List<Double> DOUBLE_ROW_SET_VALUES = List.of(1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
+      Arrays.asList((byte) 5, (byte) 4, (byte) 3, (byte) 2, (byte) 1);
+  public static final List<Double> DOUBLE_ROW_SET_VALUES = Arrays.asList(1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
   public static final List<Short> SHORT_ROW_SET_VALUES =
-      List.of((short) 1, (short) 2, (short) 3, (short) 4);
-  public static final List<Integer> INT_ROW_SET_VALUES = List.of(143, 243, 343, 443);
+      Arrays.asList((short) 1, (short) 2, (short) 3, (short) 4);
+  public static final List<Integer> INT_ROW_SET_VALUES = Arrays.asList(143, 243, 343, 443);
   public static final List<Long> LONG_ROW_SET_VALUES =
-      List.of(1344343433L, 243433343443L, 3434343433443L, 443434343434L);
+      Arrays.asList(1344343433L, 243433343443L, 3434343433443L, 443434343434L);
   public static final List<String> STRING_ROW_SET_VALUES =
-      List.of(TEST_STRING, TEST_STRING, TEST_STRING);
+      Arrays.asList(TEST_STRING, TEST_STRING, TEST_STRING);
 
   public static final TRowSet BINARY_ROW_SET =
       new TRowSet()
@@ -132,7 +133,7 @@ public class TestConstants {
 
   public static final int MIXED_ROW_SET_COUNT =
       Collections.min(
-          List.of(
+          Arrays.asList(
               BYTE_ROW_SET_VALUES.size(),
               DOUBLE_ROW_SET_VALUES.size(),
               STRING_ROW_SET_VALUES.size()));
@@ -140,7 +141,7 @@ public class TestConstants {
   public static final TRowSet MIXED_ROW_SET =
       new TRowSet()
           .setColumns(
-              List.of(
+              Arrays.asList(
                   TColumn.byteVal(
                       new TByteColumn()
                           .setValues(BYTE_ROW_SET_VALUES.subList(0, MIXED_ROW_SET_COUNT))),

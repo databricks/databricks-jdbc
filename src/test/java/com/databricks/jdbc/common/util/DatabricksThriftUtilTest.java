@@ -237,8 +237,8 @@ public class DatabricksThriftUtilTest {
 
   private static Stream<Arguments> resultDataTypesForGetColumnValue() {
     return Stream.of(
-        Arguments.of(new TRowSet(), List.of()),
-        Arguments.of(new TRowSet().setColumns(Collections.emptyList()), List.of()),
+        Arguments.of(new TRowSet(), Collections.emptyList()),
+        Arguments.of(new TRowSet().setColumns(Collections.emptyList()), Collections.emptyList()),
         Arguments.of(BOOL_ROW_SET, getExpectedResults(BOOL_ROW_SET_VALUES)),
         Arguments.of(BYTE_ROW_SET, getExpectedResults(BYTE_ROW_SET_VALUES)),
         Arguments.of(DOUBLE_ROW_SET, getExpectedResults(DOUBLE_ROW_SET_VALUES)),
@@ -561,7 +561,7 @@ public class DatabricksThriftUtilTest {
     List<String> result = DatabricksThriftUtil.getArrowMetadata(metadata);
 
     List<String> expected =
-        List.of(
+        Arrays.asList(
             "GEOMETRY(4326)",
             "GEOGRAPHY(4326)",
             "ARRAY<INT>",

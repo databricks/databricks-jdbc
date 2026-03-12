@@ -18,6 +18,7 @@ import java.math.BigInteger;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.security.interfaces.RSAPrivateKey;
+import java.util.Collections;
 import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -94,7 +95,7 @@ public class JwtPrivateKeyClientCredentialsTest {
             DatabricksException.class,
             () ->
                 JwtPrivateKeyClientCredentials.retrieveToken(
-                    httpClient, TEST_TOKEN_URL, Map.of(), Map.of()));
+                    httpClient, TEST_TOKEN_URL, Collections.emptyMap(), Collections.emptyMap()));
     assertTrue(exception.getMessage().contains("Failed to retrieve custom M2M token"));
   }
 
@@ -106,7 +107,7 @@ public class JwtPrivateKeyClientCredentialsTest {
         .thenReturn(new ByteArrayInputStream(TEST_OAUTH_RESPONSE.getBytes()));
     Token token =
         JwtPrivateKeyClientCredentials.retrieveToken(
-            httpClient, TEST_TOKEN_URL, Map.of(), Map.of());
+            httpClient, TEST_TOKEN_URL, Collections.emptyMap(), Collections.emptyMap());
     assertEquals(token.getAccessToken(), TEST_ACCESS_TOKEN);
     assertEquals(token.getTokenType(), "Bearer");
   }
@@ -135,7 +136,7 @@ public class JwtPrivateKeyClientCredentialsTest {
             .withJwtKeyFile(tempKeyFile.toString())
             .withJwtAlgorithm("RS256")
             .withTokenUrl(TEST_TOKEN_URL)
-            .withScopes(java.util.List.of("scope1", "scope2"))
+            .withScopes(java.util.Arrays.asList("scope1", "scope2"))
             .build();
     assertNotNull(credentials);
   }
