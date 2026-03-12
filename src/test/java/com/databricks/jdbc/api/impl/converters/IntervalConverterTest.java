@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.time.Duration;
 import java.time.Period;
-import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -85,7 +84,7 @@ class IntervalConverterTest {
               .plusMinutes(-10)
               .plusSeconds(-5)
               .plusMillis(-123)
-              .truncatedTo(ChronoUnit.MILLIS);
+;
       IntervalConverter ic = new IntervalConverter("INTERVAL DAY TO SECOND");
       // |d| = 177005.123s → 2 days + 4205.123s → 2 days, 1h 10m 5.123s
       assertEquals("-2 01:10:05.123000000", ic.toLiteral(d));

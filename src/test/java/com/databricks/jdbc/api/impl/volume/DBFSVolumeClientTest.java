@@ -294,7 +294,7 @@ class DBFSVolumeClientTest {
           .thenReturn(processorBuilder);
 
       File file = new File(tempFolder, "dbfs_test_put.txt");
-      Files.writeString(file.toPath(), "test-put-stream");
+      Files.write(file.toPath(), "test-put-stream".getBytes(java.nio.charset.StandardCharsets.UTF_8));
       System.out.println("File created");
 
       boolean result;

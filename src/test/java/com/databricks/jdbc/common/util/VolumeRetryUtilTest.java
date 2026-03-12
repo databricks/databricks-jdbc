@@ -44,7 +44,7 @@ public class VolumeRetryUtilTest {
   public void testIsRetryableHttpCode_CustomRetryableCodes() {
     // Test with custom retryable codes
     when(mockConnectionContext.getUCIngestionRetriableHttpCodes())
-        .thenReturn(List.of(503, 504, 507)); // Custom list
+        .thenReturn(Arrays.asList(503, 504, 507)); // Custom list
 
     assertTrue(VolumeRetryUtil.isRetryableHttpCode(503, mockConnectionContext));
     assertTrue(VolumeRetryUtil.isRetryableHttpCode(504, mockConnectionContext));

@@ -28,7 +28,7 @@ public class Slf4jFormatterTest {
     record.setSourceMethodName("testMethod");
 
     Instant instant = Instant.parse("2021-07-01T00:00:00Z");
-    record.setInstant(instant);
+    record.setMillis(instant.toEpochMilli());
 
     String formattedLog = formatter.format(record);
 

@@ -106,7 +106,8 @@ public class VolumeOperationResultTest {
     File file = new File(localGet);
     assertTrue(file.exists());
     try (FileInputStream fis = new FileInputStream(file)) {
-      String fileContent = new String(fis.readAllBytes());
+      byte[] fileBytes = org.apache.commons.io.IOUtils.toByteArray(fis);
+      String fileContent = new String(fileBytes);
       assertEquals("test", fileContent);
     } finally {
       assertTrue(file.delete());
@@ -253,7 +254,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn(localGet);
 
     File file = new File(localGet);
-    Files.writeString(file.toPath(), "test-put");
+    Files.write(file.toPath(), "test-put".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
     try {
       new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -316,7 +317,7 @@ public class VolumeOperationResultTest {
     when(mockedStatusLine.getStatusCode()).thenReturn(200);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "test-put");
+    Files.write(file.toPath(), "test-put".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
     VolumeOperationResult volumeOperationResult =
         new VolumeOperationResult(
@@ -419,7 +420,7 @@ public class VolumeOperationResultTest {
     when(mockedStatusLine.getStatusCode()).thenReturn(403);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "test-put");
+    Files.write(file.toPath(), "test-put".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
     try {
       new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -441,7 +442,7 @@ public class VolumeOperationResultTest {
     when(resultHandler.getObject(3)).thenReturn(LOCAL_FILE_PUT);
 
     File file = new File(LOCAL_FILE_PUT);
-    Files.writeString(file.toPath(), "");
+    Files.write(file.toPath(), new byte[0]);
 
     try {
       new VolumeOperationResult(RESULT_MANIFEST, session, resultHandler, mockHttpClient, statement);
@@ -671,7 +672,8 @@ public class VolumeOperationResultTest {
     assertEquals(
         "test",
         new String(
-            volumeOperationResult.getVolumeOperationInputStream().getContent().readAllBytes()));
+            org.apache.commons.io.IOUtils.toByteArray(
+                volumeOperationResult.getVolumeOperationInputStream().getContent())));
   }
 
   private void assertFailedStreamVolumeOperations(VolumeOperationResult volumeOperationResult) {
