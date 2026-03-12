@@ -339,35 +339,6 @@
         </configuration>
       </plugin>
       <plugin>
-        <groupId>org.owasp</groupId>
-        <artifactId>dependency-check-maven</artifactId>
-        <configuration>
-          <skip>true</skip>
-          <formats>
-            <format>HTML</format>
-            <format>JSON</format>
-          </formats>
-            <!--
-              Setting threshold to 7.0 to catch both Critical (8.0-10.0) and High (7.0-7.9) severity vulnerabilities.
-              This helps us identify and address significant security risks early in the development process.
-           -->
-          <failBuildOnCVSS>7</failBuildOnCVSS>
-          <nvdApiKey>${nvd.api.key}</nvdApiKey>
-          <nvdMaxRetryCount>10</nvdMaxRetryCount>
-          <nvdApiDelay>4000</nvdApiDelay>
-          <ossindexAnalyzerEnabled>true</ossindexAnalyzerEnabled>
-          <ossindexUsername>${ossindex.username}</ossindexUsername>
-          <ossindexPassword>${ossindex.password}</ossindexPassword>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
         <executions>
