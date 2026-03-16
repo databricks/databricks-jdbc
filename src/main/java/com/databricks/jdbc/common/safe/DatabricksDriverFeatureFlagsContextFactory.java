@@ -81,10 +81,15 @@ public class DatabricksDriverFeatureFlagsContextFactory {
   public static void setFeatureFlagsContext(
       IDatabricksConnectionContext connectionContext, Map<String, String> featureFlags) {
     String key = TelemetryHelper.keyOf(connectionContext);
-    contextMap.put(
+    contextMap.compute(
         key,
-        new FeatureFlagsContextHolder(
-            new DatabricksDriverFeatureFlagsContext(connectionContext, featureFlags),
-            connectionContext));
+        (k, existing) -> {
+          if (existing != null) {
+            existing.context.shutdown();
+          }
+          return new FeatureFlagsContextHolder(
+              new DatabricksDriverFeatureFlagsContext(connectionContext, featureFlags),
+              connectionContext);
+        });
   }
 }
