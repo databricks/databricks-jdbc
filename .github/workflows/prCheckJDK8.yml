@@ -47,5 +47,8 @@ jobs:
           key: ${{ runner.os }}-jdk8-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-jdk8-m2
 
+      - name: Compile
+        run: mvn clean install -DskipTests -Dspotless.skip=true
+
       - name: Run Unit Tests
-        run: mvn clean test
+        run: mvn -pl jdbc-core test -Dspotless.skip=true

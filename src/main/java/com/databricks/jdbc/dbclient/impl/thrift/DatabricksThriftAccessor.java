@@ -712,9 +712,42 @@ final class DatabricksThriftAccessor {
         new TGetOperationStatusReq()
             .setOperationHandle(operationHandle)
             .setGetProgressUpdate(false);
+    TimeoutHandler metadataTimeoutHandler =
+        new TimeoutHandler(
+            connectionContext.getMetadataOperationTimeout(),
+            "Metadata operation for statement: " + statementId,
+            () -> {
+              try {
+                if (operationHandle != null) {
+                  LOGGER.debug("Canceling metadata operation due to timeout: {}", operationHandle);
+                  cancelOperation(new TCancelOperationReq().setOperationHandle(operationHandle));
+                }
+              } catch (Exception e) {
+                LOGGER.warn("Failed to cancel metadata operation on timeout: {}", e.getMessage());
+              }
+            },
+            DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
     while (shouldContinuePolling(statusResp)) {
+      metadataTimeoutHandler.checkTimeout();
       statusResp = getThriftClient().GetOperationStatus(statusReq);
       checkOperationStatusForErrors(statusResp, statementId);
+      if (!shouldContinuePolling(statusResp)) {
+        break;
+      }
+      try {
+        TimeUnit.MILLISECONDS.sleep(asyncPollIntervalMillis);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        LOGGER.error(
+            "Metadata operation interrupted for statement [{}], canceling operation", statementId);
+        if (operationHandle != null) {
+          cancelOperation(new TCancelOperationReq().setOperationHandle(operationHandle));
+        }
+        throw new DatabricksSQLException(
+            "Metadata operation interrupted",
+            e,
+            DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
+      }
     }
 
     if (hasResultDataInDirectResults(response)) {
@@ -758,9 +791,25 @@ final class DatabricksThriftAccessor {
 
   private void checkOperationStatusForErrors(TGetOperationStatusResp statusResp, String statementId)
       throws SQLException {
-    if (statusResp != null
-        && statusResp.isSetOperationState()
-        && isErrorOperationState(statusResp.getOperationState())) {
+    if (statusResp == null) {
+      return;
+    }
+
+    // Check TStatus for INVALID_HANDLE_STATUS — this can happen when the server restarts
+    // and the operation handle becomes invalid. Without this check, the polling loop would
+    // continue indefinitely since operationState may not be set in the response.
+    if (statusResp.isSetStatus() && isErrorStatusCode(statusResp.getStatus())) {
+      String errorMsg =
+          String.format(
+              "Operation status check failed with status code: [%s] for statement [%s], "
+                  + "error: [%s]",
+              statusResp.getStatus().getStatusCode(), statementId, statusResp.getErrorMessage());
+      LOGGER.error(errorMsg);
+      throw new DatabricksSQLException(
+          errorMsg, statusResp.isSetSqlState() ? statusResp.getSqlState() : null);
+    }
+
+    if (statusResp.isSetOperationState() && isErrorOperationState(statusResp.getOperationState())) {
       String errorMsg =
           String.format(
               "Operation failed with error: [%s] for statement [%s], with response [%s]",
@@ -768,7 +817,8 @@ final class DatabricksThriftAccessor {
       LOGGER.error(errorMsg);
 
       String sqlState = statusResp.getSqlState();
-      if (QUERY_EXECUTION_TIMEOUT_SQLSTATE.equals(sqlState)) {
+      if (QUERY_EXECUTION_TIMEOUT_SQLSTATE.equals(sqlState)
+          || statusResp.getOperationState() == TOperationState.TIMEDOUT_STATE) {
         throw new DatabricksTimeoutException(
             errorMsg, null, DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
       }
@@ -805,7 +855,9 @@ final class DatabricksThriftAccessor {
   }
 
   private boolean isErrorOperationState(TOperationState state) {
-    return state == TOperationState.ERROR_STATE || state == TOperationState.CLOSED_STATE;
+    return state == TOperationState.ERROR_STATE
+        || state == TOperationState.CLOSED_STATE
+        || state == TOperationState.TIMEDOUT_STATE;
   }
 
   private boolean isPendingOperationState(TOperationState state) {

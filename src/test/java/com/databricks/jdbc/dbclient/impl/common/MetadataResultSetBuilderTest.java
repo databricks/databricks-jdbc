@@ -766,4 +766,64 @@ public class MetadataResultSetBuilderTest {
     assertFalse(metadataResultSetBuilder.shouldAllowCatalogAccess("other", null, session));
     verify(session).getCurrentCatalog();
   }
+
+  @ParameterizedTest
+  @MethodSource("provideColumnDefTypeNames")
+  void testColumnDefIsNullInGetRows(String typeName) throws SQLException {
+    // COLUMN_DEF (index 12 in COLUMN_COLUMNS) must always be null per JDBC spec when no default
+    // is defined; SHOW COLUMNS does not expose column defaults.
+    DatabricksResultSet resultSet = mock(DatabricksResultSet.class);
+    when(resultSet.next()).thenReturn(true).thenReturn(false);
+    for (ResultColumn resultColumn : COLUMN_COLUMNS) {
+      if (resultColumn.getResultSetColumnName().equals("SQLDataType")) {
+        break;
+      }
+      when(resultSet.getObject(resultColumn.getResultSetColumnName())).thenReturn(null);
+    }
+    when(resultSet.getString(COLUMN_TYPE_COLUMN.getResultSetColumnName())).thenReturn(typeName);
+    when(resultSet.getObject(IS_NULLABLE_COLUMN.getResultSetColumnName())).thenReturn("true");
+
+    List<List<Object>> rows =
+        metadataResultSetBuilder.getRows(
+            resultSet, COLUMN_COLUMNS, new DefaultDatabricksResultSetAdapter());
+
+    assertNull(rows.get(0).get(12), "COLUMN_DEF should be null when no default is defined");
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideColumnDefTypeNames")
+  void testColumnDefIsNullInGetThriftRowsWhenNoDefault(String typeName) {
+    // COLUMN_DEF (index 12) must be null when the server returns null for that column.
+    List<Object> row =
+        Arrays.asList(
+            "cat", "schema", "tbl", "col", 4, typeName, 10, null, 0, 10, 1, "", null, null, null,
+            null, 0, "YES", null, null, null, null, "NO", "NO");
+    List<List<Object>> updatedRows =
+        metadataResultSetBuilder.getThriftRows(List.of(row), COLUMN_COLUMNS);
+
+    assertNull(updatedRows.get(0).get(12), "COLUMN_DEF should be null when no default is defined");
+  }
+
+  @Test
+  void testColumnDefIsPreservedInGetThriftRowsWhenDefaultExists() {
+    // COLUMN_DEF (index 12) must return the actual default value from the Thrift response.
+    List<Object> row =
+        Arrays.asList(
+            "cat", "schema", "tbl", "col", 4, "INT", 10, null, 0, 10, 1, "", "'42'", null, null,
+            null, 0, "YES", null, null, null, null, "NO", "NO");
+    List<List<Object>> updatedRows =
+        metadataResultSetBuilder.getThriftRows(List.of(row), COLUMN_COLUMNS);
+
+    assertEquals(
+        "'42'", updatedRows.get(0).get(12), "COLUMN_DEF should return the actual default value");
+  }
+
+  private static Stream<Arguments> provideColumnDefTypeNames() {
+    return Stream.of(
+        Arguments.of("INT"),
+        Arguments.of("STRING"),
+        Arguments.of("VARCHAR(255)"),
+        Arguments.of("DECIMAL(10,2)"),
+        Arguments.of("TIMESTAMP"));
+  }
 }
