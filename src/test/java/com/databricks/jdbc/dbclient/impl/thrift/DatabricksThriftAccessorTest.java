@@ -894,6 +894,70 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
+  void testTimedOutStateInDirectResultsThrowsTimeoutException()
+      throws TException, SQLException, DatabricksValidationException {
+    // Reproduces the interactive cluster scenario: server enforces queryTimeout and returns
+    // TIMEDOUT_STATE directly in directResults before the client polling loop starts (e.g. query
+    // is queued under load and times out while waiting). Previously isErrorOperationState excluded
+    // TIMEDOUT_STATE, causing the driver to fall through to executeFetchRequest and throw
+    // DatabricksHttpException instead.
+    setup(true);
+
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TSparkDirectResults timedOutDirectResults =
+        new TSparkDirectResults()
+            .setOperationStatus(
+                new TGetOperationStatusResp()
+                    .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+                    .setOperationState(TOperationState.TIMEDOUT_STATE)
+                    .setErrorMessage("Query timed out after 1 seconds"));
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setDirectResults(timedOutDirectResults);
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(300); // Long client timeout — server fires first
+
+    assertThrows(
+        DatabricksTimeoutException.class,
+        () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+  }
+
+  @Test
+  void testTimedOutStateDuringPollingThrowsTimeoutException()
+      throws TException, SQLException, DatabricksValidationException {
+    // Server returns RUNNING_STATE initially, then TIMEDOUT_STATE during polling —
+    // e.g. cluster enforces its own max query duration while client timeout is longer.
+    setup(true);
+
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+
+    TGetOperationStatusResp timedOutStatusResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setOperationState(TOperationState.TIMEDOUT_STATE)
+            .setErrorMessage("Query timed out after 1 seconds");
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(timedOutStatusResp);
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(300); // Long client timeout — server fires first
+
+    assertThrows(
+        DatabricksTimeoutException.class,
+        () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+  }
+
+  @Test
   void testFetchResultsWithCustomMaxRowsPerBlock()
       throws TException, SQLException, DatabricksValidationException {
     int customMaxRows = 500000;
@@ -938,6 +1002,130 @@ public class DatabricksThriftAccessorTest {
 
     // Verify that FetchResults was called with the correct maxRows value
     verify(thriftClient).FetchResults(expectedFetchRequest);
+  }
+
+  @Test
+  void testPollingThrowsOnInvalidHandleStatus()
+      throws TException, SQLException, DatabricksValidationException {
+    setup(false);
+
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+
+    // Simulate server restart: GetOperationStatus returns INVALID_HANDLE_STATUS
+    // without setting operationState
+    TGetOperationStatusResp invalidHandleResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.INVALID_HANDLE_STATUS));
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(invalidHandleResp);
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+    assertTrue(exception.getMessage().contains("INVALID_HANDLE_STATUS"));
+  }
+
+  @Test
+  void testMetadataPollingThrowsOnInvalidHandleStatus()
+      throws TException, SQLException, DatabricksValidationException {
+    setup(false);
+    lenient().when(connectionContext.getMetadataOperationTimeout()).thenReturn(300);
+
+    TGetSchemasReq request = new TGetSchemasReq();
+    TGetSchemasResp tGetSchemasResp =
+        new TGetSchemasResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.GetSchemas(request)).thenReturn(tGetSchemasResp);
+
+    // Simulate server restart: GetOperationStatus returns INVALID_HANDLE_STATUS
+    TGetOperationStatusResp invalidHandleResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.INVALID_HANDLE_STATUS));
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(invalidHandleResp);
+
+    DatabricksSQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> accessor.getThriftResponse(request));
+    assertTrue(exception.getMessage().contains("INVALID_HANDLE_STATUS"));
+  }
+
+  @Test
+  void testMetadataPollingTimesOut()
+      throws TException, SQLException, DatabricksValidationException {
+    // Set the async poll interval to 200ms for faster test
+    when(connectionContext.getAsyncExecPollInterval()).thenReturn(200);
+    // Set metadata timeout to 1 second
+    when(connectionContext.getMetadataOperationTimeout()).thenReturn(1);
+
+    accessor = spy(new DatabricksThriftAccessor(connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
+
+    TGetTablesReq request = new TGetTablesReq();
+    TGetTablesResp tGetTablesResp =
+        new TGetTablesResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.GetTables(request)).thenReturn(tGetTablesResp);
+
+    // Simulate operation that stays running forever
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(operationStatusRunningResp);
+
+    // Create cancel mock
+    TCancelOperationResp cancelResp =
+        new TCancelOperationResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.CancelOperation(any(TCancelOperationReq.class))).thenReturn(cancelResp);
+
+    // getThriftResponse wraps SQLException into DatabricksSQLException, so the timeout
+    // exception is wrapped. Verify that the root cause message contains the timeout info.
+    DatabricksSQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> accessor.getThriftResponse(request));
+    assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
+
+    // Verify cancel was called
+    verify(thriftClient).CancelOperation(any(TCancelOperationReq.class));
+  }
+
+  @Test
+  void testMetadataPollingWithSleepBetweenPolls()
+      throws TException, SQLException, DatabricksValidationException {
+    // Set poll interval to 200ms
+    when(connectionContext.getAsyncExecPollInterval()).thenReturn(200);
+    when(connectionContext.getMetadataOperationTimeout()).thenReturn(300);
+
+    accessor = spy(new DatabricksThriftAccessor(connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
+
+    TGetColumnsReq request = new TGetColumnsReq();
+    TGetColumnsResp tGetColumnsResp =
+        new TGetColumnsResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.GetColumns(request)).thenReturn(tGetColumnsResp);
+
+    // Simulate: first poll returns running, second returns finished
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(operationStatusRunningResp)
+        .thenReturn(operationStatusFinishedResp);
+    when(thriftClient.FetchResults(getFetchResultsRequest(false))).thenReturn(fetchResultsResponse);
+
+    long startTime = System.currentTimeMillis();
+    TFetchResultsResp actualResponse = (TFetchResultsResp) accessor.getThriftResponse(request);
+    long elapsed = System.currentTimeMillis() - startTime;
+
+    assertEquals(actualResponse, fetchResultsResponse);
+    // Verify sleep happened — elapsed time should be at least ~200ms
+    assertTrue(elapsed >= 150, "Expected at least 150ms elapsed due to poll sleep, got " + elapsed);
   }
 
   private TFetchResultsReq getFetchResultsRequest(boolean includeMetadata)

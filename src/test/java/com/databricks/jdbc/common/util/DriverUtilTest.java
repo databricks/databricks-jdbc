@@ -14,14 +14,14 @@ public class DriverUtilTest {
   public void testGetDriverVersion() {
     String version = DriverUtil.getDriverVersion();
     assertNotNull(version);
-    assertEquals("3.1.1", version);
+    assertEquals("3.2.1", version);
   }
 
   @Test
   public void testGetDriverVersionWithoutOSSSuffix() {
     String version = DriverUtil.getDriverVersionWithoutOSSSuffix();
     assertNotNull(version);
-    assertEquals("3.1.1", version);
+    assertEquals("3.2.1", version);
   }
 
   @Test
@@ -40,7 +40,7 @@ public class DriverUtilTest {
   @Test
   public void testGetDriverMinorVersion() {
     int minorVersion = DriverUtil.getDriverMinorVersion();
-    assertEquals(1, minorVersion);
+    assertEquals(2, minorVersion);
   }
 
   @Test

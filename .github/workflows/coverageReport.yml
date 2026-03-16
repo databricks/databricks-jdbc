@@ -34,7 +34,7 @@ jobs:
           ${{ runner.os }}-m2-
         
     - name: Run tests with coverage
-      run: mvn clean test jacoco:report
+      run: mvn -pl jdbc-core clean test -Dgroups='!Jvm17PlusAndArrowToNioReflectionDisabled' jacoco:report
       
     - name: Check for coverage override
       id: override
@@ -53,7 +53,7 @@ jobs:
     - name: Check coverage percentage
       if: steps.override.outputs.override == 'false'
       run: |
-        COVERAGE_FILE="target/site/jacoco/jacoco.xml"
+        COVERAGE_FILE="jdbc-core/target/site/jacoco/jacoco.xml"
         if [ ! -f "$COVERAGE_FILE" ]; then
           echo "ERROR: Coverage file not found at $COVERAGE_FILE"
           exit 1

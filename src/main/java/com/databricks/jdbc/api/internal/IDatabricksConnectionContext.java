@@ -234,6 +234,9 @@ public interface IDatabricksConnectionContext {
   /** Returns the list of OAuth2 redirect URL ports used for OAuth authentication. */
   List<Integer> getOAuth2RedirectUrlPorts();
 
+  /** Returns the OAuth browser authentication timeout in seconds for U2M authentication. */
+  int getOAuthWebServerTimeout();
+
   String getGcpAuthType() throws DatabricksParsingException;
 
   String getGoogleServiceAccount();
@@ -401,6 +404,13 @@ public interface IDatabricksConnectionContext {
   Integer getHttpConnectionRequestTimeout();
 
   boolean enableShowCommandsForGetFunctions();
+
+  boolean useQueryForMetadata();
+
+  boolean treatMetadataCatalogNameAsPattern();
+
+  /** Returns the timeout in seconds for metadata polling operations. 0 means no timeout. */
+  int getMetadataOperationTimeout();
 
   /** Returns whether batched INSERT optimization is enabled */
   boolean isBatchedInsertsEnabled();

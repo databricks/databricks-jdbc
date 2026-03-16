@@ -35,6 +35,8 @@ public enum DatabricksJdbcUrlParams {
   OAUTH_REFRESH_TOKEN("Auth_RefreshToken", "OAuth2 Refresh Token"),
   OAUTH_REFRESH_TOKEN_2("OAuthRefreshToken", "OAuth2 Refresh Token"), // Same as OAUTH_REFRESH_TOKEN
   OAUTH_REDIRECT_URL_PORT("OAuth2RedirectUrlPort", "OAuth2 Redirect URL port", "8020"),
+  OAUTH_WEB_SERVER_TIMEOUT(
+      "OAuthWebServerTimeout", "OAuth browser authentication timeout in seconds", "120"),
   PWD("pwd", "Password (used when AUTH_MECH = 3)", true),
   POLL_INTERVAL("asyncexecpollinterval", "Async execution poll interval", "200"),
   HTTP_PATH("httppath", "HTTP path", true),
@@ -166,6 +168,18 @@ public enum DatabricksJdbcUrlParams {
       "CloudFetchSpeedThreshold", "Minimum expected download speed in MB/s", "0.1"),
   ENABLE_SHOW_COMMAND_FOR_GET_FUNCTIONS(
       "EnableShowCommandForGetFunctions", "Use SQL command to fetch function list", "0"),
+  USE_QUERY_FOR_METADATA(
+      "UseQueryForMetadata",
+      "Use SQL SHOW commands instead of Thrift RPCs for metadata operations. When enabled, EnableShowCommandForGetFunctions is redundant",
+      "0"),
+  TREAT_METADATA_CATALOG_NAME_AS_PATTERN(
+      "TreatMetadataCatalogNameAsPattern",
+      "Treat catalog names as patterns in Thrift metadata RPCs. When disabled (default), wildcard characters in catalog names are escaped",
+      "0"),
+  METADATA_OPERATION_TIMEOUT(
+      "MetadataOperationTimeout",
+      "Timeout in seconds for metadata polling operations (e.g. GetTables, GetColumns). 0 means no timeout",
+      "300"),
   ENABLE_BATCHED_INSERTS("EnableBatchedInserts", "Enable batched INSERT optimization", "0"),
   ENABLE_SQL_VALIDATION_FOR_IS_VALID(
       "EnableSQLValidationForIsValid",

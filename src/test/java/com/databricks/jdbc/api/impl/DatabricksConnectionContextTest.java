@@ -1342,4 +1342,19 @@ class DatabricksConnectionContextTest {
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
     assertEquals(3, ctx.getThriftMaxBatchesInMemory()); // Should fall back to default
   }
+
+  @Test
+  public void testOAuthWebServerTimeoutDefault() throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertEquals(120, connectionContext.getOAuthWebServerTimeout());
+  }
+
+  @Test
+  public void testOAuthWebServerTimeoutCustom() throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";OAuthWebServerTimeout=300", properties);
+    assertEquals(300, connectionContext.getOAuthWebServerTimeout());
+  }
 }

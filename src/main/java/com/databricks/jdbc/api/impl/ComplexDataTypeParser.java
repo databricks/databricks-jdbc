@@ -15,6 +15,8 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.DateTimeException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -204,7 +206,18 @@ public class ComplexDataTypeParser {
       case DatabricksTypeUtil.BOOLEAN:
         return Boolean.parseBoolean(text);
       case DatabricksTypeUtil.DATE:
-        return Date.valueOf(text);
+        try {
+          return Date.valueOf(text);
+        } catch (IllegalArgumentException e) {
+          // Arrow serializes DATE fields in nested types as epoch day integers.
+          // Fall back to parsing as epoch day count (days since 1970-01-01).
+          try {
+            return Date.valueOf(LocalDate.ofEpochDay(Long.parseLong(text)));
+          } catch (NumberFormatException | DateTimeException nfe) {
+            LOGGER.error(e, "Failed to parse DATE value '{}' as epoch day integer", text);
+            throw e;
+          }
+        }
       case DatabricksTypeUtil.TIMESTAMP:
         return parseTimestamp(text);
       case DatabricksTypeUtil.TIME:

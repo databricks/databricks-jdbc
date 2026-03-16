@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.EMPTY_STRING;
 
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.common.util.SqlCommentParser;
 import com.databricks.jdbc.common.util.WrapperUtil;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -136,8 +137,7 @@ public class DatabricksParameterMetaData implements ParameterMetaData {
   }
 
   /**
-   * Counts the number of parameter markers (?) in the SQL statement. This is currently a hacky
-   * implementation that may need improvement for complex SQL.
+   * Counts the number of parameter markers (?) in the SQL statement.
    *
    * @param sql The SQL statement to analyze
    * @return The number of parameter markers in the SQL statement
@@ -147,67 +147,14 @@ public class DatabricksParameterMetaData implements ParameterMetaData {
       return 0;
     }
 
-    int count = 0;
-    boolean inSingleQuote = false;
-    boolean inDoubleQuote = false;
-    boolean inLineComment = false;
-    boolean inBlockComment = false;
-
-    for (int i = 0; i < sql.length(); i++) {
-      char c = sql.charAt(i);
-      char next = (i < sql.length() - 1) ? sql.charAt(i + 1) : '\0';
-
-      // Handle comments
-      if (!inSingleQuote && !inDoubleQuote) {
-        if (!inBlockComment && !inLineComment && c == '-' && next == '-') {
-          inLineComment = true;
-          i++; // Skip next dash
-          continue;
-        } else if (!inBlockComment && !inLineComment && c == '/' && next == '*') {
-          inBlockComment = true;
-          i++; // Skip next asterisk
-          continue;
-        } else if (inLineComment && (c == '\n' || c == '\r')) {
-          inLineComment = false;
-        } else if (inBlockComment && c == '*' && next == '/') {
-          inBlockComment = false;
-          i++; // Skip next slash
-          continue;
-        }
-      }
-
-      // Skip if in comment
-      if (inLineComment || inBlockComment) {
-        continue;
-      }
-
-      // Handle quotes with escaped quotes
-      if (c == '\'') {
-        if (!inDoubleQuote) {
-          // Check for escaped single quote
-          if (inSingleQuote && i < sql.length() - 1 && sql.charAt(i + 1) == '\'') {
-            i++; // Skip the escaped quote
-          } else {
-            inSingleQuote = !inSingleQuote;
+    int[] count = {0};
+    SqlCommentParser.forEachNonCommentChar(
+        sql,
+        (state, c) -> {
+          if (state == SqlCommentParser.State.NORMAL && c == '?') {
+            count[0]++;
           }
-        }
-      } else if (c == '"') {
-        if (!inSingleQuote) {
-          // Check for escaped double quote
-          if (inDoubleQuote && i < sql.length() - 1 && sql.charAt(i + 1) == '"') {
-            i++; // Skip the escaped quote
-          } else {
-            inDoubleQuote = !inDoubleQuote;
-          }
-        }
-      }
-
-      // Count parameter markers only when not inside quotes or comments
-      if (c == '?' && !inSingleQuote && !inDoubleQuote) {
-        count++;
-      }
-    }
-
-    return count;
+        });
+    return count[0];
   }
 }

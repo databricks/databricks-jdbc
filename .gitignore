@@ -9,3 +9,4 @@ logs/
 *.pem
 **/test/java/com/databricks/client/jdbc/DatabricksDriverExamples.java
 dependency-reduced-pom.xml
+.flattened-pom.xml

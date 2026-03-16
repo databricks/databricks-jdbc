@@ -1,94 +1,156 @@
 # Logging Configuration
 
-The Databricks JDBC driver supports both [SLF4J](https://www.slf4j.org/) and [JUL](https://docs.oracle.com/javase/8/docs/api/java/util/logging/package-summary.html) logging frameworks.
+The Databricks JDBC driver supports Java Util Logging (JUL) and SLF4J logging frameworks. The available options depend on whether you use the fat JAR or thin JAR.
 
-## SLF4J Logging
+## Quick Reference
 
-SLF4J logging can be enabled by setting the system property:
-```
--Dcom.databricks.jdbc.loggerImpl=SLF4JLOGGER
-```
+| JAR Type | JUL | SLF4J (native) | SLF4J (via bridge) |
+|----------|-----|----------------|-------------------|
+| Fat JAR (`databricks-jdbc-X.Y.Z.jar`) | Supported | Not supported | Supported |
+| Thin JAR (`databricks-jdbc-X.Y.Z-thin.jar`) | Supported | Supported | N/A |
 
-You need to provide an SLF4J binding implementation and corresponding configuration file in the classpath. This gives you the freedom to adapt the JDBC logging to your specific needs.
+---
 
-### Example: Using SLF4J with Log4j2
+## Fat JAR Logging
 
-Add the following dependencies to your `pom.xml`:
+The fat JAR bundles all dependencies with shading. **Only JUL logging is natively supported.** The fat JAR includes an SLF4J-to-JUL bridge, so logs from internal libraries (Databricks SDK, Apache HTTP client, etc.) are automatically routed to JUL and will appear in your configured log output.
 
-```xml
-<dependency>
-  <groupId>org.apache.logging.log4j</groupId>
-  <artifactId>log4j-slf4j2-impl</artifactId>
-  <version>${log4j.version}</version>
-</dependency>
-<dependency>
-  <groupId>org.apache.logging.log4j</groupId>
-  <artifactId>log4j-core</artifactId>
-  <version>${log4j.version}</version>
-</dependency>
-<dependency>
-  <groupId>org.apache.logging.log4j</groupId>
-  <artifactId>log4j-api</artifactId>
-  <version>${log4j.version}</version>
-</dependency>
-```
-
-Create a `log4j2.xml` configuration file:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="WARN">
-    <Appenders>
-        <!-- Console appender for default logging -->
-        <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss} %-5level %logger{36} - %msg%n"/>
-        </Console>
-    </Appenders>
-
-    <Loggers>
-        <!-- Root logger to catch any logs that don't match other loggers -->
-        <Root level="info">
-            <AppenderRef ref="Console"/>
-        </Root>
-    </Loggers>
-</Configuration>
-```
-
-## Java Util Logging (JUL)
-
-JUL logging is enabled by default, or can be explicitly set with:
-```
--Dcom.databricks.jdbc.loggerImpl=JDKLOGGER
-```
-
-There are two ways to configure JUL logging:
-
-### 1. JDBC URL Parameters
-
-Standard logging parameters can be passed in the JDBC URL:
+### Configuration via JDBC URL
 
 ```
-jdbc:databricks://your-databricks-host:443;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/your-warehouse-id;UID=token;logLevel=DEBUG;logPath=/path/to/dir;logFileSize=10;logFileCount=5
+jdbc:databricks://<host>:443;HttpPath=<path>;LogLevel=5;LogPath=/var/log/databricks
 ```
 
-Available parameters:
-- `logLevel`: Logging level (e.g., DEBUG, INFO)
-- `logPath`: Directory path for log files
-- `logFileSize`: Maximum size of each log file in MB
-- `logFileCount`: Maximum number of log files to keep
+### Configuration via Properties
 
-### 2. Configuration File
+```java
+Properties props = new Properties();
+props.setProperty("LogLevel", "5");        // DEBUG
+props.setProperty("LogPath", "/var/log");  // Directory for log files
+props.setProperty("LogFileSize", "10");    // Max file size in MB
+props.setProperty("LogFileCount", "5");    // Number of rotating files
 
-Logging properties can also be set in a `logging.properties` file in the classpath:
+Connection conn = DriverManager.getConnection(url, props);
+```
+
+### Log Level Values
+
+| Value | Level |
+|-------|-------|
+| 0 | OFF |
+| 1 | FATAL |
+| 2 | ERROR |
+| 3 | WARN |
+| 4 | INFO |
+| 5 | DEBUG |
+| 6 | TRACE |
+
+### Note on SLF4JLOGGER Mode
+
+Setting `-Dcom.databricks.jdbc.loggerImpl=SLF4JLOGGER` with the fat JAR will **not** produce any log output. The fat JAR is designed for out-of-the-box use with BI tools and applications that cannot manage dependencies. SLF4J is bundled because the Databricks SDK requires it at runtime, and it is shaded to avoid conflicts with user environments. As a result, the shaded SLF4J does not connect to user-provided bindings.
+
+---
+
+## Thin JAR Logging
+
+The thin JAR does not bundle dependencies, giving you full control over logging configuration. Both JUL and SLF4J are supported.
+
+### Using JUL (Default)
+
+Configure via JDBC URL parameters as shown above, or use a `logging.properties` file:
 
 ```properties
 handlers=java.util.logging.FileHandler, java.util.logging.ConsoleHandler
 .level=INFO
-java.util.logging.FileHandler.level=ALL
-java.util.logging.FileHandler.pattern=/path/to/dir/databricks-jdbc.log
+java.util.logging.FileHandler.pattern=/var/log/databricks-jdbc.log
 java.util.logging.FileHandler.limit=10000000
 java.util.logging.FileHandler.count=5
-java.util.logging.FileHandler.formatter=java.util.logging.SimpleFormatter
 java.util.logging.ConsoleHandler.level=ALL
-java.util.logging.ConsoleHandler.formatter=java.util.logging.SimpleFormatter
 ```
+
+### Using SLF4J
+
+Enable SLF4J logging:
+
+```
+-Dcom.databricks.jdbc.loggerImpl=SLF4JLOGGER
+```
+
+Add an SLF4J binding to your project (e.g., Logback):
+
+```xml
+<dependency>
+    <groupId>ch.qos.logback</groupId>
+    <artifactId>logback-classic</artifactId>
+    <version>1.4.14</version>
+</dependency>
+```
+
+Optionally exclude the driver's SLF4J version to use your own:
+
+```xml
+<dependency>
+    <groupId>com.databricks</groupId>
+    <artifactId>databricks-jdbc</artifactId>
+    <version>3.0.7</version>
+    <classifier>thin</classifier>
+    <exclusions>
+        <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
+```
+
+---
+
+## Integrating with SLF4J (Fat JAR)
+
+Fat JAR users can integrate driver logs into their SLF4J/Logback setup using the JUL-to-SLF4J bridge.
+
+### Step 1: Add Dependency
+
+```xml
+<dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>jul-to-slf4j</artifactId>
+    <version>2.0.13</version>
+</dependency>
+```
+
+### Step 2: Create `logging.properties`
+
+```properties
+handlers = org.slf4j.bridge.SLF4JBridgeHandler
+.level = FINEST
+```
+
+### Step 3: Pass JVM Argument
+
+```
+-Djava.util.logging.config.file=/path/to/logging.properties
+```
+
+This argument is required to bypass the driver's internal JUL configuration and allow logs to propagate to the SLF4J bridge.
+
+### Step 4: Configure Logback
+
+```xml
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Databricks JDBC Driver logs (includes SDK, HTTP client, etc.) -->
+    <logger name="com.databricks" level="DEBUG"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
+```
+
+The `com.databricks` logger captures all driver logs including shaded internal libraries (Databricks SDK, Apache HTTP client, etc.).

@@ -3,29 +3,28 @@
 ## [Unreleased]
 
 ### Added
-- Added streaming prefetch mode for Thrift inline results (columnar and Arrow) with background batch prefetching and configurable sliding window for improved throughput.
-- Added `EnableInlineStreaming` connection parameter to enable/disable streaming mode (default: enabled).
-- Added `ThriftMaxBatchesInMemory` connection parameter to control the sliding window size for streaming (default: 3).
-- Added support for disabling CloudFetch via `EnableQueryResultDownload=0` to use inline Arrow results instead.
-- Added `EnableMetricViewSupport` connection parameter to enable/disable Metric View table type (default: disabled).
-- Added `NonRowcountQueryPrefixes` connection parameter to specify comma-separated query prefixes that should return result sets instead of row counts.
+- Added connection property `OAuthWebServerTimeout` to configure the OAuth browser authentication timeout for U2M (user-to-machine) flows, and also updated hardcoded 1-hour timeout to default 120 seconds timeout.
+- Added connection property `UseQueryForMetadata` to use SQL SHOW commands instead of Thrift RPCs for metadata operations (getCatalogs, getSchemas, getTables, getColumns, getFunctions). This fixes incorrect wildcard matching where `_` was treated as a single-character wildcard in Thrift metadata pattern filters.
+- Added connection property `TreatMetadataCatalogNameAsPattern` to control whether catalog names are treated as patterns in Thrift metadata RPCs. When disabled (default), unescaped `_` in catalog names is escaped to prevent single-character wildcard matching. This aligns with JDBC spec which treats catalogName as identifier and not pattern.
 
 ### Updated
-- Enhanced error logging for token exchange failures.
-- Geospatial column type names now include SRID information (e.g., `GEOMETRY(4326)` instead of `GEOMETRY`).
-- Changed default value of `IgnoreTransactions` from `0` to `1` to disable multi-statement transactions by default. Preview participants can opt-in by setting `IgnoreTransactions=0`. Also updated `supportsTransactions()` to respect this flag.
-- Implemented lazy loading for inline Arrow results, fetching arrow batches on demand instead of all at once. This improves memory usage and initial response time for large result sets when using the Thrift protocol with Arrow format.
-- **Enhanced `enableMultipleCatalogSupport` behavior**: When this parameter is disabled (`enableMultipleCatalogSupport=0`), metadata operations (such as `getSchemas()`, `getTables()`, `getColumns()`, etc.) now return results only when the catalog parameter is either `null` or matches the current catalog. For any other catalog name, an empty result set is returned. This ensures metadata queries are restricted to the current catalog context. When enabled (`enableMultipleCatalogSupport=1`), metadata operations continue to work across all accessible catalogs.
+- Bumped `com.fasterxml.jackson.core:jackson-core` from 2.18.3 to 2.18.6.
+- Fat jar now routes SDK and Apache HTTP client logs through Java Util Logging (JUL), removing the need for external logging libraries.
+- PECOBLR-1121 Arrow patch to circumvent Arrow issues with JDK 16+.
 
 ### Fixed
+
+- Fixed statement timeout when the server returns `TIMEDOUT_STATE` directly in the `ExecuteStatement` response (e.g. query queued under load), the driver now throws `SQLTimeoutException` instead of `DatabricksHttpException`.
+- Fixed Thrift polling infinite loop when server restarts invalidate operation handles, and added configurable timeout (`MetadataOperationTimeout`, default 300s) with sleep between polls for metadata operations.
+- Fixed `DatabricksParameterMetaData.countParameters` and `DatabricksStatement.trimCommentsAndWhitespaces` with a `SqlCommentParser` utility class.
+- Fixed `rollback()` to throw `SQLException` when called in auto-commit mode (no active transaction), aligning with JDBC spec. Previously it silently sent a ROLLBACK command to the server.
+- Fixed `fetchAutoCommitStateFromServer()` to accept both `"1"`/`"0"` and `"true"`/`"false"` responses from `SET AUTOCOMMIT` query, since different server implementations return different formats.
+- Fixed socket leak in SDK HTTP client that prevented CRaC checkpointing. The SDK's connection pool was not shut down on `connection.close()`, leaving TCP sockets open.
+- Fixed `IdleConnectionEvictor` thread leak in long-running services. The feature-flags context shared per host was ref-counted incorrectly and held a stale connection UUID after the owning connection closed; on the next 15-minute refresh it silently recreated an HTTP client (and its evictor thread) that was never cleaned up. Connection UUIDs are now tracked idempotently and the stored connection context is updated when the owning connection closes.
+- Fixed Date fields within complex types (ARRAY, STRUCT, MAP) being returned as epoch day integers instead of proper date values.
+- Fixed `DatabaseMetaData.getColumns()` returning the column type name in `COLUMN_DEF` for columns with no default value. `COLUMN_DEF` now correctly returns `null` per the JDBC specification.
+- Coalesce concurrent expired cloud fetch link refreshes into a single batch FetchResults RPC to prevent thread pool exhaustion under high concurrency.
 - Fixed telemetry push to retry on partial failures with exponential backoff. When the telemetry service returns a partial success response, the client now automatically retries up to 3 times instead of silently dropping the failed events.
-- Fixed timeout exception handling to throw `SQLTimeoutException` instead of `DatabricksHttpException` when queries timeout during result fetching phase. This completes the timeout exception fix to handle both query execution polling and result fetching phases.
-- Fixed `getTypeInfo()` and `getClientInfoProperties()` to return fresh ResultSet instances on each call instead of shared static instances. This resolves issues where calling these methods multiple times would fail due to exhausted cursor state (Issue #1178).
-- Fixed complex data type metadata support when retrieving 0 rows in Arrow format
-- Normalized TIMESTAMP_NTZ to TIMESTAMP in Thrift path for consistency with SEA behavior
-- Fixed complex types not being returned as objects in SEA Inline mode when `EnableComplexDatatypeSupport=true`.
-- Fixed `StringIndexOutOfBoundsException` when parsing complex data types in Thrift CloudFetch mode. The issue occurred when metadata contained incomplete type information (e.g., "ARRAY" instead of "ARRAY<INT>"). Now retrieves complete type information from Arrow metadata.
-- Fixed `getResultSet()` to return null in case of DML statements to honour JDBC spec
 
 ---
 *Note: When making changes, please add your change under the appropriate section

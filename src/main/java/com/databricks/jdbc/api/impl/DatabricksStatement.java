@@ -350,7 +350,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     LOGGER.debug(String.format("public void setFetchSize(int rows = {%s})", rows));
     String warningString = "As FetchSize is not supported in the Databricks JDBC, ignoring it";
 
-    LOGGER.warn(warningString);
+    LOGGER.debug(warningString);
     warnings = WarningUtil.addWarning(warnings, warningString);
   }
 
@@ -360,7 +360,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     String warningString =
         "As FetchSize is not supported in the Databricks JDBC, we don't set it in the first place";
 
-    LOGGER.warn(warningString);
+    LOGGER.debug(warningString);
     warnings = WarningUtil.addWarning(warnings, warningString);
     return 0;
   }
@@ -717,12 +717,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           "Query cannot be null or empty", DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
 
-    // Trim and remove comments and whitespaces.
-    String trimmedQuery = query.trim().replaceAll("(?m)--.*$", "");
-    trimmedQuery = trimmedQuery.replaceAll("/\\*.*?\\*/", "");
-    trimmedQuery = trimmedQuery.replaceAll("\\s+", " ").trim();
-
-    return trimmedQuery;
+    return SqlCommentParser.stripCommentsAndWhitespaces(query);
   }
 
   @VisibleForTesting
@@ -887,7 +882,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         params,
         statementType,
         connection.getSession(),
-        this);
+        this,
+        null /* metadataOperationType */);
   }
 
   void checkIfClosed() throws DatabricksSQLException {

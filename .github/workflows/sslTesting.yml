@@ -226,11 +226,11 @@ jobs:
 
       - name: Maven Build
         run: |
-          mvn clean package -DskipTests
+          mvn -pl jdbc-core clean package -DskipTests
 
       - name: Run SSL Tests
         run: |
-          mvn test -Dtest=**/SSLTest.java
+          mvn -pl jdbc-core test -Dtest=**/SSLTest.java
 
       - name: Cleanup
         if: always()

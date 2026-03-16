@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
@@ -53,6 +54,8 @@ public class DatabricksSdkClientTest {
   @Mock ResultData resultData;
   private static final String WAREHOUSE_ID = "99999999";
   private static final IDatabricksComputeResource warehouse = new Warehouse(WAREHOUSE_ID);
+  // Reference to MetadataOperationType to ensure import is not removed
+  private static final MetadataOperationType SAMPLE_OP_TYPE = MetadataOperationType.GET_CATALOGS;
   private static final String SESSION_ID = "session_id";
   private static final StatementId STATEMENT_ID = new StatementId("statementId");
   private static final String STATEMENT =
@@ -208,7 +211,8 @@ public class DatabricksSdkClientTest {
             sqlParams,
             StatementType.QUERY,
             connection.getSession(),
-            statement);
+            statement,
+            null);
     assertEquals(STATEMENT_ID, statement.getStatementId());
     assertNotNull(resultSet.getMetaData());
 
@@ -351,7 +355,8 @@ public class DatabricksSdkClientTest {
                 sqlParams,
                 StatementType.QUERY,
                 connection.getSession(),
-                statement));
+                statement,
+                null));
 
     // Verify no cancellation occurred due to timeout
     verify(apiClient, atLeastOnce())
@@ -431,7 +436,8 @@ public class DatabricksSdkClientTest {
                     sqlParams,
                     StatementType.QUERY,
                     connection.getSession(),
-                    statement));
+                    statement,
+                    null));
 
     assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
 
@@ -489,7 +495,8 @@ public class DatabricksSdkClientTest {
                 sqlParams,
                 StatementType.QUERY,
                 connection.getSession(),
-                statement));
+                statement,
+                null));
   }
 
   @Test
@@ -664,7 +671,8 @@ public class DatabricksSdkClientTest {
         new HashMap<>(),
         StatementType.METADATA,
         connection.getSession(),
-        statement);
+        statement,
+        null);
 
     // Verify that the request was made with the correct header
     verify(apiClient, atLeastOnce())
@@ -727,7 +735,8 @@ public class DatabricksSdkClientTest {
         new HashMap<>(),
         StatementType.QUERY,
         connection.getSession(),
-        statement);
+        statement,
+        null);
 
     // Verify that the request was made WITHOUT the header
     verify(apiClient, atLeastOnce())
@@ -763,7 +772,8 @@ public class DatabricksSdkClientTest {
         new HashMap<>(),
         StatementType.METADATA,
         connection.getSession(),
-        statement);
+        statement,
+        null);
 
     // Verify that the request was made WITHOUT the header
     verify(apiClient, atLeastOnce())
@@ -773,6 +783,115 @@ public class DatabricksSdkClientTest {
                   Map<String, String> headers = req.getHeaders();
                   return headers == null
                       || !headers.containsKey("x-databricks-sea-can-run-fully-sync");
+                }),
+            eq(ExecuteStatementResponse.class));
+  }
+
+  @Test
+  public void testMetadataOperationTypeHeaderIsAdded() throws Exception {
+    // Test that X-Databricks-Metadata-Operation-Type header is added when metadataOperationType is
+    // provided
+    setupClientMocks(true, false);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    // Execute a metadata request with MetadataOperationType
+    databricksSdkClient.executeStatement(
+        "SHOW CATALOGS",
+        warehouse,
+        new HashMap<>(),
+        StatementType.METADATA,
+        connection.getSession(),
+        statement,
+        MetadataOperationType.GET_CATALOGS);
+
+    // Verify that the request was made with the correct metadata operation type header
+    verify(apiClient, atLeastOnce())
+        .execute(
+            argThat(
+                req -> {
+                  Map<String, String> headers = req.getHeaders();
+                  return headers != null
+                      && "GetCatalogs".equals(headers.get("X-Databricks-Metadata-Operation-Type"));
+                }),
+            eq(ExecuteStatementResponse.class));
+  }
+
+  @Test
+  public void testMetadataOperationTypeHeaderNotAddedWhenNull() throws Exception {
+    // Test that X-Databricks-Metadata-Operation-Type header is NOT added when metadataOperationType
+    // is null
+    setupClientMocks(true, false);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    // Execute a metadata request without MetadataOperationType
+    databricksSdkClient.executeStatement(
+        "SHOW CATALOGS",
+        warehouse,
+        new HashMap<>(),
+        StatementType.METADATA,
+        connection.getSession(),
+        statement,
+        null);
+
+    // Verify that the request was made WITHOUT the metadata operation type header
+    verify(apiClient, atLeastOnce())
+        .execute(
+            argThat(
+                req -> {
+                  Map<String, String> headers = req.getHeaders();
+                  return headers == null
+                      || !headers.containsKey("X-Databricks-Metadata-Operation-Type");
+                }),
+            eq(ExecuteStatementResponse.class));
+  }
+
+  @Test
+  public void testMetadataOperationTypeHeaderWithGetTables() throws Exception {
+    // Test that header value matches the enum's getHeaderValue() for GET_TABLES
+    setupClientMocks(true, false);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    // Execute a metadata request with GET_TABLES
+    databricksSdkClient.executeStatement(
+        "SHOW TABLES",
+        warehouse,
+        new HashMap<>(),
+        StatementType.METADATA,
+        connection.getSession(),
+        statement,
+        MetadataOperationType.GET_TABLES);
+
+    // Verify that the request was made with the correct header value from the enum
+    verify(apiClient, atLeastOnce())
+        .execute(
+            argThat(
+                req -> {
+                  Map<String, String> headers = req.getHeaders();
+                  return headers != null
+                      && MetadataOperationType.GET_TABLES
+                          .getHeaderValue()
+                          .equals(headers.get("X-Databricks-Metadata-Operation-Type"));
                 }),
             eq(ExecuteStatementResponse.class));
   }
@@ -828,7 +947,8 @@ public class DatabricksSdkClientTest {
         new HashMap<>(),
         StatementType.QUERY,
         connection.getSession(),
-        statement);
+        statement,
+        null);
 
     // Verify that markAsClosed was called on the statement
     verify(statement, times(1)).markAsClosed();
@@ -884,6 +1004,7 @@ public class DatabricksSdkClientTest {
                 new HashMap<>(),
                 StatementType.QUERY,
                 connection.getSession(),
+                null,
                 null));
   }
 }

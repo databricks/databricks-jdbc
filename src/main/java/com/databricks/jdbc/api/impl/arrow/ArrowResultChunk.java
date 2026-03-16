@@ -89,6 +89,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
 
       // Read compressed stream fully (download latency excludes decompression)
       byte[] compressed = IOUtils.toByteArray(response.getEntity().getContent());
+      long readTimeMs = (System.nanoTime() - startTime) / 1_000_000;
 
       // Set status to DOWNLOAD_SUCCEEDED after reading the compressed stream fully
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
@@ -101,6 +102,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
           speedThreshold);
 
       // Decompress (if needed) and parse
+      long decompressStart = System.nanoTime();
       try {
         String ctx =
             String.format(
@@ -111,6 +113,19 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       } catch (Exception e) {
         handleFailure(e, ChunkStatus.PROCESSING_FAILED);
       }
+      long decompressTimeMs = (System.nanoTime() - decompressStart) / 1_000_000;
+      long totalTimeMs = (System.nanoTime() - startTime) / 1_000_000;
+      LOGGER.debug(
+          "Chunk download complete: statementId={}, chunkIndex={}, "
+              + "compressedBytes={}, httpResponseMs={}, streamReadMs={}, decompressAndParseMs={}, "
+              + "totalMs={}",
+          statementId,
+          chunkIndex,
+          compressed.length,
+          downloadTimeMs,
+          readTimeMs - downloadTimeMs,
+          decompressTimeMs,
+          totalTimeMs);
     } catch (Exception e) {
       handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
     } finally {

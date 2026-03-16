@@ -16,7 +16,9 @@ public class DatabricksDriverFeatureFlagsContextFactory {
   }
 
   /**
-   * Gets or creates a DatabricksDriverFeatureFlagsContext instance for the given compute
+   * Gets or creates a DatabricksDriverFeatureFlagsContext instance for the given compute. Multiple
+   * calls with the same connection UUID are idempotent — only one reference is tracked per
+   * connection.
    *
    * @param context the connection context
    * @return the DatabricksDriverFeatureFlagsContext instance
@@ -29,35 +31,47 @@ public class DatabricksDriverFeatureFlagsContextFactory {
             key,
             (k, existing) -> {
               if (existing == null) {
-                // First reference for this compute
+                // First connection for this host
                 return new FeatureFlagsContextHolder(
-                    new DatabricksDriverFeatureFlagsContext(context), 1);
+                    new DatabricksDriverFeatureFlagsContext(context), context);
               }
-              // Additional reference for the same compute
-              existing.refCount.incrementAndGet();
+              // Track this connection UUID (idempotent for the same UUID)
+              existing.addContext(context);
               return existing;
             });
     return holder.context;
   }
 
   /**
-   * Removes the DatabricksDriverFeatureFlagsContext instance for the given compute.
+   * Removes the reference for the given connection context. When the last connection for a host is
+   * removed, the context is shut down. If the removed connection was the one whose context was
+   * stored internally, the stored context is updated to another active connection to prevent HTTP
+   * client leaks.
    *
    * @param connectionContext the connection context
    */
   public static void removeInstance(IDatabricksConnectionContext connectionContext) {
     if (connectionContext != null) {
       String key = TelemetryHelper.keyOf(connectionContext);
+      String uuid = connectionContext.getConnectionUuid();
       contextMap.computeIfPresent(
           key,
           (k, holder) -> {
-            // Last reference being removed: shutdown and remove entry
-            if (holder.refCount.get() <= 1) {
+            if (uuid != null) {
+              holder.activeContexts.remove(uuid);
+            }
+            if (holder.activeContexts.isEmpty()) {
               holder.context.shutdown();
               return null;
             }
-            // Still referenced elsewhere: just decrement
-            holder.refCount.decrementAndGet();
+            // If the removed connection's UUID matches the one stored in the feature flags context,
+            // update to another active connection to prevent stale HTTP client lookups.
+            IDatabricksConnectionContext current = holder.context.getConnectionContext();
+            if (current != null && uuid != null && uuid.equals(current.getConnectionUuid())) {
+              IDatabricksConnectionContext replacement =
+                  holder.activeContexts.values().iterator().next();
+              holder.context.updateConnectionContext(replacement);
+            }
             return holder;
           });
     }
@@ -67,9 +81,15 @@ public class DatabricksDriverFeatureFlagsContextFactory {
   public static void setFeatureFlagsContext(
       IDatabricksConnectionContext connectionContext, Map<String, String> featureFlags) {
     String key = TelemetryHelper.keyOf(connectionContext);
-    contextMap.put(
+    contextMap.compute(
         key,
-        new FeatureFlagsContextHolder(
-            new DatabricksDriverFeatureFlagsContext(connectionContext, featureFlags), 1));
+        (k, existing) -> {
+          if (existing != null) {
+            existing.context.shutdown();
+          }
+          return new FeatureFlagsContextHolder(
+              new DatabricksDriverFeatureFlagsContext(connectionContext, featureFlags),
+              connectionContext);
+        });
   }
 }

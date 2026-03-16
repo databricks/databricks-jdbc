@@ -69,6 +69,7 @@ public class DatabricksThriftServiceClientTest {
     // Enable multiple catalog support by default for all tests
     // Individual tests can override this if needed
     lenient().when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    lenient().when(connectionContext.treatMetadataCatalogNameAsPattern()).thenReturn(false);
   }
 
   @Test
@@ -192,7 +193,8 @@ public class DatabricksThriftServiceClientTest {
           Collections.emptyMap(),
           StatementType.SQL,
           session,
-          parentStatement);
+          parentStatement,
+          null);
     } catch (Exception e) {
       // expect this to throw since thriftAccessor is mocked
       // only interested in capturing the request
@@ -290,7 +292,8 @@ public class DatabricksThriftServiceClientTest {
             Collections.emptyMap(),
             StatementType.SQL,
             session,
-            parentStatement);
+            parentStatement,
+            null);
     assertEquals(resultSet, actualResultSet);
   }
 
@@ -332,7 +335,8 @@ public class DatabricksThriftServiceClientTest {
             Collections.emptyMap(),
             StatementType.SQL,
             session,
-            parentStatement);
+            parentStatement,
+            null);
     assertEquals(resultSet, actualResultSet);
   }
 
@@ -704,8 +708,8 @@ public class DatabricksThriftServiceClientTest {
             .setCanDecompressLZ4Result(true)
             .setCanDownloadResult(true)
             .setQueryTimeout(0)
+            .setRunAsync(false)
             .setParameters(Collections.emptyList())
-            .setRunAsync(true)
             .setUseArrowNativeTypes(arrowNativeTypes);
     when(thriftAccessor.execute(executeStatementReq, null, session, StatementType.METADATA))
         .thenReturn(resultSet);
@@ -744,7 +748,13 @@ public class DatabricksThriftServiceClientTest {
         .thenReturn(resultSet);
 
     client.executeStatement(
-        TEST_STRING, CLUSTER_COMPUTE, Collections.emptyMap(), StatementType.SQL, session, null);
+        TEST_STRING,
+        CLUSTER_COMPUTE,
+        Collections.emptyMap(),
+        StatementType.SQL,
+        session,
+        null,
+        null);
 
     ArgumentCaptor<TExecuteStatementReq> requestCaptor =
         ArgumentCaptor.forClass(TExecuteStatementReq.class);
@@ -777,7 +787,8 @@ public class DatabricksThriftServiceClientTest {
         Collections.emptyMap(),
         StatementType.SQL,
         session,
-        parentStatement);
+        parentStatement,
+        null);
 
     ArgumentCaptor<TExecuteStatementReq> requestCaptor =
         ArgumentCaptor.forClass(TExecuteStatementReq.class);
@@ -1046,6 +1057,66 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
+  void testExecuteStatementWithMetadataTypeDoesNotSetRunAsync() throws SQLException {
+    when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    lenient().when(connectionContext.isCloudFetchEnabled()).thenReturn(true);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+
+    when(thriftAccessor.execute(
+            any(TExecuteStatementReq.class), eq(null), eq(session), eq(StatementType.METADATA)))
+        .thenReturn(resultSet);
+
+    client.executeStatement(
+        "SHOW TABLES",
+        CLUSTER_COMPUTE,
+        Collections.emptyMap(),
+        StatementType.METADATA,
+        session,
+        null,
+        null);
+
+    ArgumentCaptor<TExecuteStatementReq> requestCaptor =
+        ArgumentCaptor.forClass(TExecuteStatementReq.class);
+    verify(thriftAccessor)
+        .execute(requestCaptor.capture(), eq(null), eq(session), eq(StatementType.METADATA));
+    TExecuteStatementReq request = requestCaptor.getValue();
+
+    assertFalse(request.isRunAsync(), "Expected runAsync to be false for METADATA statement type");
+  }
+
+  @Test
+  void testExecuteStatementWithSqlTypeStillSetsRunAsync() throws SQLException {
+    when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    lenient().when(connectionContext.isCloudFetchEnabled()).thenReturn(true);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+
+    when(thriftAccessor.execute(
+            any(TExecuteStatementReq.class), eq(null), eq(session), eq(StatementType.SQL)))
+        .thenReturn(resultSet);
+
+    client.executeStatement(
+        "SELECT 1",
+        CLUSTER_COMPUTE,
+        Collections.emptyMap(),
+        StatementType.SQL,
+        session,
+        null,
+        null);
+
+    ArgumentCaptor<TExecuteStatementReq> requestCaptor =
+        ArgumentCaptor.forClass(TExecuteStatementReq.class);
+    verify(thriftAccessor)
+        .execute(requestCaptor.capture(), eq(null), eq(session), eq(StatementType.SQL));
+    TExecuteStatementReq request = requestCaptor.getValue();
+
+    assertTrue(request.isRunAsync(), "Expected runAsync to be true for SQL statement type");
+  }
+
+  @Test
   public void testNullValue() {
     ImmutableSqlParameter parameter =
         ImmutableSqlParameter.builder().cardinal(3).type(INT).value(null).build();
@@ -1056,5 +1127,53 @@ public class DatabricksThriftServiceClientTest {
     assertEquals("INT", result.getType());
     assertNull(result.getValue());
     assertEquals(3, result.getOrdinal());
+  }
+
+  @Test
+  void testListSchemasEscapesCatalogByDefault() throws SQLException {
+    when(connectionContext.treatMetadataCatalogNameAsPattern()).thenReturn(false);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    client.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V1);
+
+    String catalogWithUnderscore = "my_catalog";
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(resultData.getColumns()).thenReturn(Collections.emptyList());
+    when(thriftAccessor.getThriftResponse(any(TGetSchemasReq.class))).thenReturn(response);
+
+    client.listSchemas(session, catalogWithUnderscore, null);
+
+    ArgumentCaptor<TGetSchemasReq> captor = ArgumentCaptor.forClass(TGetSchemasReq.class);
+    verify(thriftAccessor).getThriftResponse(captor.capture());
+    assertEquals("my\\_catalog", captor.getValue().getCatalogName());
+  }
+
+  @Test
+  void testListSchemasDoesNotEscapeCatalogWhenPatternEnabled() throws SQLException {
+    when(connectionContext.treatMetadataCatalogNameAsPattern()).thenReturn(true);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    client.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V1);
+
+    String catalogWithUnderscore = "my_catalog";
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(resultData.getColumns()).thenReturn(Collections.emptyList());
+    when(thriftAccessor.getThriftResponse(any(TGetSchemasReq.class))).thenReturn(response);
+
+    client.listSchemas(session, catalogWithUnderscore, null);
+
+    ArgumentCaptor<TGetSchemasReq> captor = ArgumentCaptor.forClass(TGetSchemasReq.class);
+    verify(thriftAccessor).getThriftResponse(captor.capture());
+    assertEquals("my_catalog", captor.getValue().getCatalogName());
   }
 }

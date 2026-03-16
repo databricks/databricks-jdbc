@@ -13,7 +13,7 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataSdkClient;
+import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataQueryClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
@@ -101,7 +101,7 @@ public class DatabricksSessionTest {
 
       DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
       assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
-      assertInstanceOf(DatabricksMetadataSdkClient.class, session.getDatabricksMetadataClient());
+      assertInstanceOf(DatabricksMetadataQueryClient.class, session.getDatabricksMetadataClient());
       assertFalse(session.isOpen());
 
       session.open();
@@ -293,5 +293,81 @@ public class DatabricksSessionTest {
 
     // Client type should be THRIFT for all-purpose cluster
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+  }
+
+  @Test
+  public void testUseQueryForMetadataEnabled() throws SQLException {
+    setupWarehouseWithQueryMetadata();
+    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+    assertTrue(connectionContext.useQueryForMetadata());
+    assertInstanceOf(
+        DatabricksMetadataQueryClient.class,
+        session.getDatabricksMetadataClient(),
+        "When UseQueryForMetadata=1, metadata client should be DatabricksMetadataQueryClient");
+  }
+
+  static void setupWarehouseWithQueryMetadata() throws SQLException {
+    String url =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;"
+            + "AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseQueryForMetadata=1";
+    connectionContext = DatabricksConnectionContext.parse(url, new Properties());
+  }
+
+  @Test
+  public void testUseQueryForMetadataDisabledByDefault() throws SQLException {
+    setupWarehouse(true /* useThrift */);
+    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
+    assertFalse(connectionContext.useQueryForMetadata());
+    assertInstanceOf(
+        DatabricksThriftServiceClient.class,
+        session.getDatabricksMetadataClient(),
+        "When UseQueryForMetadata is default (0), metadata client should be the Thrift client");
+  }
+
+  @Test
+  public void testUseQueryForMetadataWithRedirectFallback() throws SQLException {
+    // SEA connection with UseQueryForMetadata=1
+    String url =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;"
+            + "AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=0;UseQueryForMetadata=1";
+    connectionContext = DatabricksConnectionContext.parse(url, new Properties());
+
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .computeResource(WAREHOUSE_COMPUTE)
+            .build();
+    when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
+        .thenThrow(new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION));
+    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
+    try (MockedStatic<DatabricksMetricsTimedProcessor> proxyMock =
+        Mockito.mockStatic(DatabricksMetricsTimedProcessor.class)) {
+      proxyMock
+          .when(() -> DatabricksMetricsTimedProcessor.createProxy(any()))
+          .thenAnswer(
+              invocation -> {
+                Object arg = invocation.getArgument(0);
+                if (arg instanceof DatabricksMetadataQueryClient) {
+                  return arg;
+                }
+                return thriftClient;
+              });
+
+      DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
+      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+      // Before redirect: SEA path sets DatabricksMetadataQueryClient via test constructor
+      assertInstanceOf(DatabricksMetadataQueryClient.class, session.getDatabricksMetadataClient());
+
+      session.open();
+
+      assertTrue(session.isOpen());
+      assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+      // After redirect: UseQueryForMetadata=1 should preserve DatabricksMetadataQueryClient
+      assertInstanceOf(
+          DatabricksMetadataQueryClient.class,
+          session.getDatabricksMetadataClient(),
+          "After SEA→Thrift redirect with UseQueryForMetadata=1, metadata client should be DatabricksMetadataQueryClient");
+    }
   }
 }
