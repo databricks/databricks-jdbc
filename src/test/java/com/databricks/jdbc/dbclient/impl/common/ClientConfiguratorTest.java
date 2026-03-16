@@ -392,11 +392,19 @@ public class ClientConfiguratorTest {
     int result = configurator.findAvailablePort(ports);
     assertEquals(availablePort, result);
 
+    // Test with a single available port which is bound to the wildcard address
+    try (ServerSocket serverSocket = new ServerSocket()) {
+      serverSocket.setReuseAddress(true);
+      serverSocket.bind(new InetSocketAddress(availablePort));
+      result = configurator.findAvailablePort(ports);
+      assertEquals(availablePort, result);
+    }
+
     // Test with multiple ports, first unavailable
     int secondAvailablePort = findFreePort();
     try (ServerSocket serverSocket = new ServerSocket()) {
       serverSocket.setReuseAddress(true);
-      serverSocket.bind(new InetSocketAddress(availablePort));
+      serverSocket.bind(new InetSocketAddress("localhost", availablePort));
       ports = List.of(availablePort, secondAvailablePort);
       result = configurator.findAvailablePort(ports);
       assertEquals(secondAvailablePort, result);
@@ -405,7 +413,7 @@ public class ClientConfiguratorTest {
     // Test incremental search - first port unavailable, finds next available in sequence
     try (ServerSocket serverSocket2 = new ServerSocket()) {
       serverSocket2.setReuseAddress(true);
-      serverSocket2.bind(new InetSocketAddress(availablePort));
+      serverSocket2.bind(new InetSocketAddress("localhost", availablePort));
       ports = List.of(availablePort);
       result = configurator.findAvailablePort(ports);
       assertTrue(
@@ -414,7 +422,7 @@ public class ClientConfiguratorTest {
       // 3. The returned port should actually be available
       try (ServerSocket testSocket = new ServerSocket()) {
         testSocket.setReuseAddress(true);
-        testSocket.bind(new InetSocketAddress(result));
+        testSocket.bind(new InetSocketAddress("localhost", result));
         assertNotNull(testSocket, "Returned port should be available for binding");
       }
     }
@@ -441,9 +449,9 @@ public class ClientConfiguratorTest {
     try (ServerSocket socket1 = new ServerSocket();
         ServerSocket socket2 = new ServerSocket()) {
       socket1.setReuseAddress(true);
-      socket1.bind(new InetSocketAddress(port1));
+      socket1.bind(new InetSocketAddress("localhost", port1));
       socket2.setReuseAddress(true);
-      socket2.bind(new InetSocketAddress(port2));
+      socket2.bind(new InetSocketAddress("localhost", port2));
 
       // First test with multiple specified ports
       List<Integer> unavailablePorts = List.of(port1, port2);
@@ -473,7 +481,7 @@ public class ClientConfiguratorTest {
   private int findFreePort() {
     try (ServerSocket socket = new ServerSocket()) {
       socket.setReuseAddress(true);
-      socket.bind(new InetSocketAddress(0));
+      socket.bind(new InetSocketAddress("localhost", 0));
       return socket.getLocalPort();
     } catch (IOException e) {
       throw new RuntimeException("Failed to find free port", e);

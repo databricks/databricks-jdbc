@@ -286,7 +286,7 @@ public class ClientConfigurator implements Closeable {
   boolean isPortAvailable(int port) {
     try (ServerSocket serverSocket = new ServerSocket()) {
       serverSocket.setReuseAddress(true);
-      serverSocket.bind(new InetSocketAddress(port));
+      serverSocket.bind(new InetSocketAddress("localhost", port));
       return true;
     } catch (IOException e) {
       return false;
