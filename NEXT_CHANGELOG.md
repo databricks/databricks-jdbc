@@ -17,6 +17,7 @@
 - `DatabaseMetaData.getColumns()` with null catalog parameter now retrieves columns from all available catalogs when using SQL Execution API.
 
 ### Fixed
+- Fixed local port availability check to bind to `localhost` instead of the wildcard address. This prevents the OAuth browser authentication from failing when the port is already used.
 - Fixed statement timeout when the server returns `TIMEDOUT_STATE` directly in the `ExecuteStatement` response (e.g. query queued under load), the driver now throws `SQLTimeoutException` instead of `DatabricksHttpException`.
 - Fixed Thrift polling infinite loop when server restarts invalidate operation handles, and added configurable timeout (`MetadataOperationTimeout`, default 300s) with sleep between polls for metadata operations.
 - Fixed `DatabricksParameterMetaData.countParameters` and `DatabricksStatement.trimCommentsAndWhitespaces` with a `SqlCommentParser` utility class.
