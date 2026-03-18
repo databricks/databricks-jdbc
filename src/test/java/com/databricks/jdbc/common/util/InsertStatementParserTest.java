@@ -123,7 +123,8 @@ class InsertStatementParserTest {
     assertNotNull(info);
 
     String multiRowSql = InsertStatementParser.generateMultiRowInsert(info, 3);
-    String expected = "INSERT INTO users (id, name, email) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)";
+    String expected =
+        "INSERT INTO users (`id`, `name`, `email`) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)";
     assertEquals(expected, multiRowSql);
   }
 
@@ -134,7 +135,7 @@ class InsertStatementParserTest {
     assertNotNull(info);
 
     String multiRowSql = InsertStatementParser.generateMultiRowInsert(info, 1);
-    String expected = "INSERT INTO users (id, name) VALUES (?, ?)";
+    String expected = "INSERT INTO users (`id`, `name`) VALUES (?, ?)";
     assertEquals(expected, multiRowSql);
   }
 
@@ -148,6 +149,23 @@ class InsertStatementParserTest {
     assertThrows(Exception.class, () -> InsertStatementParser.generateMultiRowInsert(null, 3));
     assertThrows(Exception.class, () -> InsertStatementParser.generateMultiRowInsert(info, 0));
     assertThrows(Exception.class, () -> InsertStatementParser.generateMultiRowInsert(info, -1));
+  }
+
+  @Test
+  void testGenerateMultiRowInsertWithDottedColumnNames() throws Exception {
+    // Column names containing dots must be backtick-quoted to avoid being interpreted
+    // as schema.column references (see https://github.com/databricks/databricks-jdbc/issues/1284)
+    String sql =
+        "INSERT INTO `main`.`default`.`test_table` (`name`, `col.with.dots`, `another.dotted.col`) VALUES (?, ?, ?)";
+    InsertInfo info = InsertStatementParser.parseInsert(sql);
+
+    assertNotNull(info);
+    assertEquals(Arrays.asList("name", "col.with.dots", "another.dotted.col"), info.getColumns());
+
+    String multiRowSql = InsertStatementParser.generateMultiRowInsert(info, 2);
+    String expected =
+        "INSERT INTO `main`.`default`.`test_table` (`name`, `col.with.dots`, `another.dotted.col`) VALUES (?, ?, ?), (?, ?, ?)";
+    assertEquals(expected, multiRowSql);
   }
 
   @Test

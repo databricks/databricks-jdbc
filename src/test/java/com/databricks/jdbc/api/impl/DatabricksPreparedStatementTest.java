@@ -249,7 +249,7 @@ public class DatabricksPreparedStatementTest {
     }
     // Our implementation converts single INSERT to multi-row INSERT for batching
     String expectedMultiRowSQL =
-        "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
     when(client.executeStatement(
             eq(expectedMultiRowSQL),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -308,7 +308,7 @@ public class DatabricksPreparedStatementTest {
 
     // Our implementation batches all into one multi-row INSERT, so if it fails, all fail
     String expectedMultiRowSQL =
-        "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
     when(client.executeStatement(
             eq(expectedMultiRowSQL),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -346,7 +346,7 @@ public class DatabricksPreparedStatementTest {
     }
     // Our implementation converts single INSERT to multi-row INSERT for batching
     String expectedMultiRowSQL =
-        "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
     when(client.executeStatement(
             eq(expectedMultiRowSQL),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -386,7 +386,7 @@ public class DatabricksPreparedStatementTest {
 
     // Our implementation batches all into one multi-row INSERT, so if it fails, all fail
     String expectedMultiRowSQL =
-        "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
     when(client.executeStatement(
             eq(expectedMultiRowSQL),
             eq(new Warehouse(WAREHOUSE_ID)),

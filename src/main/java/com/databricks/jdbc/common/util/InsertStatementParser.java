@@ -194,10 +194,14 @@ public class InsertStatementParser {
     }
 
     StringBuilder sql = new StringBuilder();
+    String columnList =
+        insertInfo.getColumns().stream()
+            .map(col -> "`" + col + "`")
+            .collect(Collectors.joining(", "));
     sql.append("INSERT INTO ")
         .append(insertInfo.getTableName())
         .append(" (")
-        .append(String.join(", ", insertInfo.getColumns()))
+        .append(columnList)
         .append(") VALUES ");
 
     // Generate placeholders for each row

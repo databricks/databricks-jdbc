@@ -25,6 +25,7 @@
 - Fixed socket leak in SDK HTTP client that prevented CRaC checkpointing. The SDK's connection pool was not shut down on `connection.close()`, leaving TCP sockets open.
 - Fixed `IdleConnectionEvictor` thread leak in long-running services. The feature-flags context shared per host was ref-counted incorrectly and held a stale connection UUID after the owning connection closed; on the next 15-minute refresh it silently recreated an HTTP client (and its evictor thread) that was never cleaned up. Connection UUIDs are now tracked idempotently and the stored connection context is updated when the owning connection closes.
 - Fixed Date fields within complex types (ARRAY, STRUCT, MAP) being returned as epoch day integers instead of proper date values.
+- Fixed `PARSE_SYNTAX_ERROR` for column names containing special characters (e.g., dots) when `EnableBatchedInserts` is enabled, by re-quoting column names with backticks in reconstructed multi-row INSERT statements.
 - Fixed `DatabaseMetaData.getColumns()` returning the column type name in `COLUMN_DEF` for columns with no default value. `COLUMN_DEF` now correctly returns `null` per the JDBC specification.
 - Coalesce concurrent expired cloud fetch link refreshes into a single batch FetchResults RPC to prevent thread pool exhaustion under high concurrency.
 
