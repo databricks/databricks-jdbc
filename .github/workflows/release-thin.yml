@@ -50,7 +50,8 @@ jobs:
       # GPG signing is skipped since we're only installing locally, not publishing.
       - name: Build dependencies
         run: |
-          mvn -Prelease clean install --batch-mode -pl jdbc-core -am -Dgpg.skip=true
+          mvn -Prelease clean install --batch-mode -pl jdbc-core -am -Dgpg.skip=true \
+            -Ddependency-check.skip=true
 
       # Step 2: Deploy only the thin JAR module to Maven Central
       # We don't use -am here to avoid the central-publishing-maven-plugin

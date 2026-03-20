@@ -127,7 +127,8 @@ public class DatabricksArray implements Array {
         case DatabricksTypeUtil.DATE:
           return Date.valueOf(value.toString());
         case DatabricksTypeUtil.TIMESTAMP:
-          return Timestamp.valueOf(value.toString());
+        case DatabricksTypeUtil.TIMESTAMP_NTZ:
+          return value instanceof Timestamp ? value : Timestamp.valueOf(value.toString());
         case DatabricksTypeUtil.TIME:
           return Time.valueOf(value.toString());
         case DatabricksTypeUtil.BINARY:
