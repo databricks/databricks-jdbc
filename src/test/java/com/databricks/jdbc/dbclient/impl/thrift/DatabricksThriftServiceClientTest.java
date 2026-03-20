@@ -69,6 +69,7 @@ public class DatabricksThriftServiceClientTest {
     // Enable multiple catalog support by default for all tests
     // Individual tests can override this if needed
     lenient().when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    lenient().when(connectionContext.treatMetadataCatalogNameAsPattern()).thenReturn(false);
   }
 
   @Test
@@ -1126,5 +1127,53 @@ public class DatabricksThriftServiceClientTest {
     assertEquals("INT", result.getType());
     assertNull(result.getValue());
     assertEquals(3, result.getOrdinal());
+  }
+
+  @Test
+  void testListSchemasEscapesCatalogByDefault() throws SQLException {
+    when(connectionContext.treatMetadataCatalogNameAsPattern()).thenReturn(false);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    client.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V1);
+
+    String catalogWithUnderscore = "my_catalog";
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(resultData.getColumns()).thenReturn(Collections.emptyList());
+    when(thriftAccessor.getThriftResponse(any(TGetSchemasReq.class))).thenReturn(response);
+
+    client.listSchemas(session, catalogWithUnderscore, null);
+
+    ArgumentCaptor<TGetSchemasReq> captor = ArgumentCaptor.forClass(TGetSchemasReq.class);
+    verify(thriftAccessor).getThriftResponse(captor.capture());
+    assertEquals("my\\_catalog", captor.getValue().getCatalogName());
+  }
+
+  @Test
+  void testListSchemasDoesNotEscapeCatalogWhenPatternEnabled() throws SQLException {
+    when(connectionContext.treatMetadataCatalogNameAsPattern()).thenReturn(true);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    client.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V1);
+
+    String catalogWithUnderscore = "my_catalog";
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    when(resultData.getColumns()).thenReturn(Collections.emptyList());
+    when(thriftAccessor.getThriftResponse(any(TGetSchemasReq.class))).thenReturn(response);
+
+    client.listSchemas(session, catalogWithUnderscore, null);
+
+    ArgumentCaptor<TGetSchemasReq> captor = ArgumentCaptor.forClass(TGetSchemasReq.class);
+    verify(thriftAccessor).getThriftResponse(captor.capture());
+    assertEquals("my_catalog", captor.getValue().getCatalogName());
   }
 }

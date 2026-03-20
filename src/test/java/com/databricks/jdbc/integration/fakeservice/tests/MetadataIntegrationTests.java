@@ -439,6 +439,87 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
   }
 
   @Test
+  void testGetProceduresAndProcedureColumns() throws SQLException {
+    assumeTrue(isSqlExecSdkClient(), "This test only runs for SQL Execution API");
+
+    DatabaseMetaData metaData = connection.getMetaData();
+    String catalog = "main";
+    String schema = getDatabricksSchema();
+    String procName = "jdbc_test_compute_area";
+
+    // Create a test procedure with IN and OUT parameters
+    executeSQL(
+        connection,
+        "CREATE OR REPLACE PROCEDURE "
+            + catalog
+            + "."
+            + schema
+            + "."
+            + procName
+            + "(x DOUBLE, y DOUBLE, OUT area DOUBLE)\n"
+            + "LANGUAGE SQL\n"
+            + "SQL SECURITY INVOKER\n"
+            + "COMMENT 'Test procedure for JDBC integration tests'\n"
+            + "AS BEGIN\n"
+            + "  SET area = x * y;\n"
+            + "END");
+
+    try {
+      // Test getProcedures - find our procedure by exact name
+      try (ResultSet procedures = metaData.getProcedures(catalog, schema, procName)) {
+        assertTrue(procedures.next(), "Should find the created procedure");
+        assertEquals(catalog, procedures.getString("PROCEDURE_CAT"));
+        assertEquals(schema, procedures.getString("PROCEDURE_SCHEM"));
+        assertEquals(procName, procedures.getString("PROCEDURE_NAME"));
+        assertEquals("Test procedure for JDBC integration tests", procedures.getString("REMARKS"));
+        assertEquals(1, procedures.getShort("PROCEDURE_TYPE"), "Should be SQL_PT_PROCEDURE");
+        assertEquals(procName, procedures.getString("SPECIFIC_NAME"));
+        assertFalse(procedures.next(), "Should be exactly one match");
+      }
+
+      // Test getProcedures - pattern matching
+      try (ResultSet procedures = metaData.getProcedures(catalog, schema, "jdbc_test_%")) {
+        assertTrue(procedures.next(), "Pattern should match our procedure");
+      }
+
+      // Test getProcedureColumns - all parameters
+      try (ResultSet columns = metaData.getProcedureColumns(catalog, schema, procName, "%")) {
+        // Parameter x (IN, DOUBLE)
+        assertTrue(columns.next(), "Should have parameter x");
+        assertEquals(procName, columns.getString("PROCEDURE_NAME"));
+        assertEquals("x", columns.getString("COLUMN_NAME"));
+        assertEquals(1, columns.getShort("COLUMN_TYPE"), "x should be SQL_PARAM_INPUT");
+        assertEquals(8, columns.getInt("DATA_TYPE"), "DOUBLE maps to SQL type code 8");
+        assertEquals("DOUBLE", columns.getString("TYPE_NAME"));
+        assertEquals(0, columns.getInt("ORDINAL_POSITION"));
+
+        // Parameter y (IN, DOUBLE)
+        assertTrue(columns.next(), "Should have parameter y");
+        assertEquals("y", columns.getString("COLUMN_NAME"));
+        assertEquals(1, columns.getShort("COLUMN_TYPE"), "y should be SQL_PARAM_INPUT");
+
+        // Parameter area (OUT, DOUBLE)
+        assertTrue(columns.next(), "Should have parameter area");
+        assertEquals("area", columns.getString("COLUMN_NAME"));
+        assertEquals(4, columns.getShort("COLUMN_TYPE"), "area should be SQL_PARAM_OUTPUT");
+
+        assertFalse(columns.next(), "Should have exactly 3 parameters");
+      }
+
+      // Test getProcedureColumns - filter by column name
+      try (ResultSet columns = metaData.getProcedureColumns(catalog, schema, procName, "area")) {
+        assertTrue(columns.next(), "Should find the 'area' parameter");
+        assertEquals("area", columns.getString("COLUMN_NAME"));
+        assertEquals(4, columns.getShort("COLUMN_TYPE"), "area should be SQL_PARAM_OUTPUT");
+        assertFalse(columns.next(), "Should be exactly one match");
+      }
+
+    } finally {
+      executeSQL(connection, "DROP PROCEDURE IF EXISTS " + catalog + "." + schema + "." + procName);
+    }
+  }
+
+  @Test
   void testMetadataOperationsWithHyphenatedIdentifiers() throws SQLException {
     assumeTrue(isSqlExecSdkClient(), "This test only runs for SQL Execution API");
     Connection testConnection = connection;

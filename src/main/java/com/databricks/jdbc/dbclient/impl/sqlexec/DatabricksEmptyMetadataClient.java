@@ -82,6 +82,29 @@ public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient 
   }
 
   @Override
+  public DatabricksResultSet listProcedures(
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String procedureNamePattern)
+      throws SQLException {
+    LOGGER.warn("Empty metadata implementation for listProcedures.");
+    return metadataResultSetBuilder.getProceduresResult(new ArrayList<>());
+  }
+
+  @Override
+  public DatabricksResultSet listProcedureColumns(
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String procedureNamePattern,
+      String columnNamePattern)
+      throws SQLException {
+    LOGGER.warn("Empty metadata implementation for listProcedureColumns.");
+    return metadataResultSetBuilder.getProcedureColumnsResult(new ArrayList<>());
+  }
+
+  @Override
   public DatabricksResultSet listPrimaryKeys(
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
     LOGGER.warn("Empty metadata implementation for listPrimaryKeys.");

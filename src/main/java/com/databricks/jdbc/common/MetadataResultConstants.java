@@ -195,6 +195,14 @@ public class MetadataResultConstants {
   private static final ResultColumn RADIX = new ResultColumn("RADIX", "radix", Types.SMALLINT);
   private static final ResultColumn NULLABLE_SHORT =
       new ResultColumn("NULLABLE", "nullable", Types.SMALLINT);
+  private static final ResultColumn NUM_INPUT_PARAMS =
+      new ResultColumn("NUM_INPUT_PARAMS", "numInputParams", Types.INTEGER);
+  private static final ResultColumn NUM_OUTPUT_PARAMS =
+      new ResultColumn("NUM_OUTPUT_PARAMS", "numOutputParams", Types.INTEGER);
+  private static final ResultColumn NUM_RESULT_SETS =
+      new ResultColumn("NUM_RESULT_SETS", "numResultSets", Types.INTEGER);
+  private static final ResultColumn PROCEDURE_TYPE =
+      new ResultColumn("PROCEDURE_TYPE", "procedureType", Types.SMALLINT);
   private static final ResultColumn NON_UNIQUE =
       new ResultColumn("NON_UNIQUE", "nonUnique", Types.BOOLEAN);
   private static final ResultColumn INDEX_QUALIFIER =
@@ -223,6 +231,18 @@ public class MetadataResultConstants {
           FUNCTION_NAME_COLUMN,
           REMARKS_COLUMN,
           FUNCTION_TYPE_COLUMN,
+          SPECIFIC_NAME_COLUMN);
+
+  public static final List<ResultColumn> PROCEDURES_COLUMNS =
+      List.of(
+          PROCEDURE_CAT,
+          PROCEDURE_SCHEM,
+          PROCEDURE_NAME,
+          NUM_INPUT_PARAMS,
+          NUM_OUTPUT_PARAMS,
+          NUM_RESULT_SETS,
+          REMARKS_COLUMN,
+          PROCEDURE_TYPE,
           SPECIFIC_NAME_COLUMN);
 
   public static List<ResultColumn> COLUMN_COLUMNS =
@@ -618,8 +638,9 @@ public class MetadataResultConstants {
               CommandName.GET_VERSION_COLUMNS,
               List.of(SCOPE, COL_NAME_COLUMN, DATA_TYPE_COLUMN, TYPE_NAME_COLUMN, PSEUDO_COLUMN));
           put(CommandName.GET_SUPER_TYPES, List.of(TYPE_NAME_COLUMN, SUPERTYPE_NAME));
+          put(CommandName.LIST_PROCEDURES, List.of(PROCEDURE_NAME, SPECIFIC_NAME_COLUMN));
           put(
-              CommandName.GET_PROCEDURES_COLUMNS,
+              CommandName.LIST_PROCEDURE_COLUMNS,
               List.of(
                   PROCEDURE_NAME,
                   COLUMN_NAME_COLUMN,

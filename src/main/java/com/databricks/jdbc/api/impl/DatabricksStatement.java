@@ -717,12 +717,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           "Query cannot be null or empty", DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
 
-    // Trim and remove comments and whitespaces.
-    String trimmedQuery = query.trim().replaceAll("(?m)--.*$", "");
-    trimmedQuery = trimmedQuery.replaceAll("/\\*.*?\\*/", "");
-    trimmedQuery = trimmedQuery.replaceAll("\\s+", " ").trim();
-
-    return trimmedQuery;
+    return SqlCommentParser.stripCommentsAndWhitespaces(query);
   }
 
   @VisibleForTesting

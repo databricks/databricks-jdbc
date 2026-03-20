@@ -1104,6 +1104,21 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean treatMetadataCatalogNameAsPattern() {
+    return getParameter(DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN).equals("1");
+  }
+
+  @Override
+  public int getMetadataOperationTimeout() {
+    try {
+      return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.METADATA_OPERATION_TIMEOUT));
+    } catch (NumberFormatException e) {
+      LOGGER.warn("Invalid value for MetadataOperationTimeout, using default of 300 seconds");
+      return 300;
+    }
+  }
+
+  @Override
   public boolean getEnableMetricViewMetadata() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_METRIC_VIEW_METADATA).equals("1");
   }

@@ -407,6 +407,11 @@ public interface IDatabricksConnectionContext {
 
   boolean useQueryForMetadata();
 
+  boolean treatMetadataCatalogNameAsPattern();
+
+  /** Returns the timeout in seconds for metadata polling operations. 0 means no timeout. */
+  int getMetadataOperationTimeout();
+
   /** Returns whether batched INSERT optimization is enabled */
   boolean isBatchedInsertsEnabled();
 

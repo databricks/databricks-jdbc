@@ -18,8 +18,10 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
+import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
+import com.databricks.jdbc.dbclient.impl.common.CommandConstants;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.CommandBuilder;
@@ -447,7 +449,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TGetSchemasReq request =
         new TGetSchemasReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
-            .setCatalogName(catalog);
+            .setCatalogName(maybeEscapeCatalogName(catalog));
     if (schemaNamePattern != null) {
       request.setSchemaName(schemaNamePattern);
     }
@@ -481,7 +483,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TGetTablesReq request =
         new TGetTablesReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
-            .setCatalogName(catalog)
+            .setCatalogName(maybeEscapeCatalogName(catalog))
             .setSchemaName(schemaNamePattern)
             .setTableName(tableNamePattern);
     if (tableTypes != null) {
@@ -526,7 +528,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TGetColumnsReq request =
         new TGetColumnsReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
-            .setCatalogName(catalog)
+            .setCatalogName(maybeEscapeCatalogName(catalog))
             .setSchemaName(schemaNamePattern)
             .setTableName(tableNamePattern)
             .setColumnName(columnNamePattern);
@@ -590,7 +592,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TGetFunctionsReq request =
         new TGetFunctionsReq()
             .setSessionHandle(Objects.requireNonNull(session.getSessionInfo()).sessionHandle())
-            .setCatalogName(catalog)
+            .setCatalogName(maybeEscapeCatalogName(catalog))
             .setSchemaName(schemaNamePattern)
             .setFunctionName(functionNamePattern);
     if (ProtocolFeatureUtil.supportsAsyncMetadataExecution(serverProtocolVersion)) {
@@ -599,6 +601,76 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
     return metadataResultSetBuilder.getFunctionsResult(
         catalog, extractRowsFromColumnar(response.getResults()));
+  }
+
+  @Override
+  public DatabricksResultSet listProcedures(
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String procedureNamePattern)
+      throws SQLException {
+    LOGGER.debug(
+        "Fetching procedures using SQL via Thrift client. Session {}, catalog {}, schemaPattern {}, procedureNamePattern {}.",
+        session.toString(),
+        catalog,
+        schemaNamePattern,
+        procedureNamePattern);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
+
+    if (!metadataResultSetBuilder.shouldAllowCatalogAccess(catalog, null, session)) {
+      return metadataResultSetBuilder.getProceduresResult(new ArrayList<>());
+    }
+
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    String sql =
+        CommandConstants.buildProceduresSQL(
+            catalog, schemaNamePattern, procedureNamePattern, params);
+    return metadataResultSetBuilder.getProceduresResult(
+        executeStatement(
+            sql,
+            session.getComputeResource(),
+            params,
+            StatementType.METADATA,
+            session,
+            null,
+            MetadataOperationType.GET_PROCEDURES));
+  }
+
+  @Override
+  public DatabricksResultSet listProcedureColumns(
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String procedureNamePattern,
+      String columnNamePattern)
+      throws SQLException {
+    LOGGER.debug(
+        "Fetching procedure columns using SQL via Thrift client. Session {}, catalog {}, schemaPattern {}, procedureNamePattern {}, columnNamePattern {}.",
+        session.toString(),
+        catalog,
+        schemaNamePattern,
+        procedureNamePattern,
+        columnNamePattern);
+    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
+
+    if (!metadataResultSetBuilder.shouldAllowCatalogAccess(catalog, null, session)) {
+      return metadataResultSetBuilder.getProcedureColumnsResult(new ArrayList<>());
+    }
+
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    String sql =
+        CommandConstants.buildProcedureColumnsSQL(
+            catalog, schemaNamePattern, procedureNamePattern, columnNamePattern, params);
+    return metadataResultSetBuilder.getProcedureColumnsResult(
+        executeStatement(
+            sql,
+            session.getComputeResource(),
+            params,
+            StatementType.METADATA,
+            session,
+            null,
+            MetadataOperationType.GET_PROCEDURE_COLUMNS));
   }
 
   @Override
@@ -738,6 +810,13 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   @Override
   public DatabricksConfig getDatabricksConfig() {
     return thriftAccessor.getDatabricksConfig();
+  }
+
+  private String maybeEscapeCatalogName(String catalogName) {
+    if (!connectionContext.treatMetadataCatalogNameAsPattern()) {
+      return WildcardUtil.escapeCatalogName(catalogName);
+    }
+    return catalogName;
   }
 
   private TNamespace getNamespace(String catalog, String schema) {

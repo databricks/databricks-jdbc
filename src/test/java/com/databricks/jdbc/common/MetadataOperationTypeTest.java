@@ -13,7 +13,7 @@ public class MetadataOperationTypeTest {
   @Test
   void testAllEnumValuesExist() {
     // Verify all expected enum values exist
-    assertEquals(7, MetadataOperationType.values().length);
+    assertEquals(9, MetadataOperationType.values().length);
     assertNotNull(MetadataOperationType.GET_CATALOGS);
     assertNotNull(MetadataOperationType.GET_SCHEMAS);
     assertNotNull(MetadataOperationType.GET_TABLES);
@@ -21,6 +21,8 @@ public class MetadataOperationTypeTest {
     assertNotNull(MetadataOperationType.GET_FUNCTIONS);
     assertNotNull(MetadataOperationType.GET_PRIMARY_KEYS);
     assertNotNull(MetadataOperationType.GET_CROSS_REFERENCE);
+    assertNotNull(MetadataOperationType.GET_PROCEDURES);
+    assertNotNull(MetadataOperationType.GET_PROCEDURE_COLUMNS);
   }
 
   @ParameterizedTest
@@ -31,7 +33,9 @@ public class MetadataOperationTypeTest {
     "GET_COLUMNS, GetColumns",
     "GET_FUNCTIONS, GetFunctions",
     "GET_PRIMARY_KEYS, GetPrimaryKeys",
-    "GET_CROSS_REFERENCE, GetCrossReference"
+    "GET_CROSS_REFERENCE, GetCrossReference",
+    "GET_PROCEDURES, GetProcedures",
+    "GET_PROCEDURE_COLUMNS, GetProcedureColumns"
   })
   void testHeaderValues(String enumName, String expectedHeaderValue) {
     MetadataOperationType operationType = MetadataOperationType.valueOf(enumName);
@@ -71,5 +75,16 @@ public class MetadataOperationTypeTest {
   @Test
   void testGetCrossReferenceHeaderValue() {
     assertEquals("GetCrossReference", MetadataOperationType.GET_CROSS_REFERENCE.getHeaderValue());
+  }
+
+  @Test
+  void testGetProceduresHeaderValue() {
+    assertEquals("GetProcedures", MetadataOperationType.GET_PROCEDURES.getHeaderValue());
+  }
+
+  @Test
+  void testGetProcedureColumnsHeaderValue() {
+    assertEquals(
+        "GetProcedureColumns", MetadataOperationType.GET_PROCEDURE_COLUMNS.getHeaderValue());
   }
 }

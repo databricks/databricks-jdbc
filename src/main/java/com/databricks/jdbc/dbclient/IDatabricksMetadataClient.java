@@ -133,6 +133,42 @@ public interface IDatabricksMetadataClient {
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException;
 
   /**
+   * Returns the list of stored procedures
+   *
+   * @param session underlying session
+   * @param catalog catalogName; null means use system catalog
+   * @param schemaNamePattern schema name pattern (can be a LIKE pattern)
+   * @param procedureNamePattern procedure name pattern (can be a LIKE pattern)
+   * @return a DatabricksResultSet representing list of procedures
+   */
+  @DatabricksMetricsTimed
+  DatabricksResultSet listProcedures(
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String procedureNamePattern)
+      throws SQLException;
+
+  /**
+   * Returns the list of stored procedure columns/parameters
+   *
+   * @param session underlying session
+   * @param catalog catalogName; null means use system catalog
+   * @param schemaNamePattern schema name pattern (can be a LIKE pattern)
+   * @param procedureNamePattern procedure name pattern (can be a LIKE pattern)
+   * @param columnNamePattern column/parameter name pattern (can be a LIKE pattern)
+   * @return a DatabricksResultSet representing list of procedure columns
+   */
+  @DatabricksMetricsTimed
+  DatabricksResultSet listProcedureColumns(
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String procedureNamePattern,
+      String columnNamePattern)
+      throws SQLException;
+
+  /**
    * Returns the list of cross references between a parent table and a foreign table
    *
    * @param session underlying session

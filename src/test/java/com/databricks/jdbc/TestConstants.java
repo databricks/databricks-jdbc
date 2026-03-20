@@ -31,6 +31,8 @@ public class TestConstants {
   public static final String TEST_FOREIGN_SCHEMA = "foreignSchema";
   public static final String TEST_FOREIGN_TABLE = "foreignTable";
   public static final String TEST_FUNCTION_PATTERN = "functionPattern";
+  public static final String TEST_PROCEDURE_PATTERN = "procedurePattern";
+  public static final String TEST_COLUMN_PATTERN = "columnPattern";
   public static final String TEST_STRING = "test";
   public static final String TEST_STRING_2 = "test2";
   public static final String TEST_USER = "testUser";

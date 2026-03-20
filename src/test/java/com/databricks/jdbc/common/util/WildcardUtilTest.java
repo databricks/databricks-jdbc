@@ -62,4 +62,21 @@ public class WildcardUtilTest {
     assertFalse(wildcardUtil.isMatchAnything("Test"));
     assertFalse(wildcardUtil.isMatchAnything(null));
   }
+
+  private static Stream<Arguments> escapeCatalogNamePatterns() {
+    return Stream.of(
+        Arguments.of(null, null, "Null input returns null"),
+        Arguments.of("simple", "simple", "No wildcards unchanged"),
+        Arguments.of("my_catalog", "my\\_catalog", "Underscore is escaped"),
+        Arguments.of("a_b_c", "a\\_b\\_c", "Multiple underscores escaped"),
+        Arguments.of("my\\_catalog", "my\\_catalog", "Already escaped underscore unchanged"),
+        Arguments.of("my%catalog", "my%catalog", "Percent is not escaped"),
+        Arguments.of("a_b%c", "a\\_b%c", "Underscore escaped but percent left unchanged"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("escapeCatalogNamePatterns")
+  void testEscapeCatalogName(String input, String expected, String errorMessage) {
+    assertEquals(expected, WildcardUtil.escapeCatalogName(input), errorMessage);
+  }
 }

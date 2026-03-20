@@ -35,6 +35,36 @@ public class WildcardUtil {
     return s != null && s.equals(ASTERISK);
   }
 
+  /**
+   * Escapes unescaped {@code _} wildcard characters in a catalog name by prepending {@code \}.
+   * Already-escaped sequences ({@code \_}) are left unchanged.
+   *
+   * @param catalogName the catalog name to escape
+   * @return the escaped catalog name, or {@code null} if the input is {@code null}
+   */
+  public static String escapeCatalogName(String catalogName) {
+    if (catalogName == null) {
+      return null;
+    }
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < catalogName.length(); i++) {
+      char ch = catalogName.charAt(i);
+      if (ch == '\\' && i + 1 < catalogName.length()) {
+        char next = catalogName.charAt(i + 1);
+        if (next == '_') {
+          builder.append(ch).append(next);
+          i++;
+          continue;
+        }
+      }
+      if (ch == '_') {
+        builder.append('\\');
+      }
+      builder.append(ch);
+    }
+    return builder.toString();
+  }
+
   public static String jdbcPatternToHive(String pattern) {
     if (pattern == null) {
       return null;

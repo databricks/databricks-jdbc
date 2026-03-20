@@ -510,6 +510,44 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_FUNCTIONS);
   }
 
+  public DatabricksResultSet getProceduresResult(DatabricksResultSet resultSet)
+      throws SQLException {
+    List<List<Object>> rows = getRowsForProcedures(resultSet);
+    return buildResultSet(
+        PROCEDURES_COLUMNS,
+        rows,
+        GET_PROCEDURES_STATEMENT_ID,
+        resultSet.getMetaData(),
+        CommandName.LIST_PROCEDURES);
+  }
+
+  public DatabricksResultSet getProceduresResult(List<List<Object>> rows) {
+    return buildResultSet(
+        PROCEDURES_COLUMNS,
+        rows != null ? rows : new ArrayList<>(),
+        GET_PROCEDURES_STATEMENT_ID,
+        CommandName.LIST_PROCEDURES);
+  }
+
+  public DatabricksResultSet getProcedureColumnsResult(DatabricksResultSet resultSet)
+      throws SQLException {
+    List<List<Object>> rows = getRowsForProcedureColumns(resultSet);
+    return buildResultSet(
+        PROCEDURE_COLUMNS_COLUMNS,
+        rows,
+        GET_PROCEDURE_COLUMNS_STATEMENT_ID,
+        resultSet.getMetaData(),
+        CommandName.LIST_PROCEDURE_COLUMNS);
+  }
+
+  public DatabricksResultSet getProcedureColumnsResult(List<List<Object>> rows) {
+    return buildResultSet(
+        PROCEDURE_COLUMNS_COLUMNS,
+        rows != null ? rows : new ArrayList<>(),
+        GET_PROCEDURE_COLUMNS_STATEMENT_ID,
+        CommandName.LIST_PROCEDURE_COLUMNS);
+  }
+
   public DatabricksResultSet getColumnsResult(DatabricksResultSet resultSet) throws SQLException {
     List<List<Object>> rows = getRows(resultSet, COLUMN_COLUMNS, defaultAdapter);
     return buildResultSet(
@@ -683,6 +721,10 @@ public class MetadataResultSetBuilder {
             } else {
               object = null;
             }
+            break;
+          case "COLUMN_DEF":
+            // SHOW COLUMNS does not expose column default values; return null per JDBC spec
+            object = null;
             break;
           default:
             // If column does not match any of the special cases, try to get it from the ResultSet
@@ -1125,6 +1167,150 @@ public class MetadataResultSetBuilder {
     return rows;
   }
 
+  private List<List<Object>> getRowsForProcedures(DatabricksResultSet resultSet)
+      throws SQLException {
+    LOGGER.debug("Building rows for getProcedures result set");
+    List<List<Object>> rows = new ArrayList<>();
+    while (resultSet.next()) {
+      List<Object> row = new ArrayList<>();
+      row.add(getStringOrNull(resultSet, COL_ROUTINE_CATALOG)); // PROCEDURE_CAT
+      row.add(getStringOrNull(resultSet, COL_ROUTINE_SCHEMA)); // PROCEDURE_SCHEM
+      row.add(getStringOrNull(resultSet, COL_ROUTINE_NAME)); // PROCEDURE_NAME
+      row.add(null); // NUM_INPUT_PARAMS (reserved)
+      row.add(null); // NUM_OUTPUT_PARAMS (reserved)
+      row.add(null); // NUM_RESULT_SETS (reserved)
+      row.add(getStringOrNull(resultSet, COL_COMMENT)); // REMARKS
+      row.add((short) procedureNoResult); // PROCEDURE_TYPE
+      row.add(getStringOrNull(resultSet, COL_SPECIFIC_NAME)); // SPECIFIC_NAME
+      rows.add(row);
+    }
+    return rows;
+  }
+
+  private List<List<Object>> getRowsForProcedureColumns(DatabricksResultSet resultSet)
+      throws SQLException {
+    LOGGER.debug("Building rows for getProcedureColumns result set");
+    List<List<Object>> rows = new ArrayList<>();
+    while (resultSet.next()) {
+      String dataType = getStringOrNull(resultSet, COL_DATA_TYPE);
+      String parameterMode = getStringOrNull(resultSet, COL_PARAMETER_MODE);
+      String isResult = getStringOrNull(resultSet, COL_IS_RESULT);
+
+      List<Object> row = new ArrayList<>();
+      row.add(getStringOrNull(resultSet, COL_SPECIFIC_CATALOG)); // PROCEDURE_CAT (nullable)
+      row.add(getStringOrNull(resultSet, COL_SPECIFIC_SCHEMA)); // PROCEDURE_SCHEM (nullable)
+      row.add(getStringOrNull(resultSet, COL_SPECIFIC_NAME)); // PROCEDURE_NAME
+      row.add(getStringOrNull(resultSet, COL_PARAMETER_NAME)); // COLUMN_NAME
+      row.add(mapParameterModeToColumnType(parameterMode, isResult)); // COLUMN_TYPE
+      row.add(
+          dataType != null
+              ? getCode(stripBaseTypeName(dataType.toUpperCase()))
+              : null); // DATA_TYPE
+      row.add(dataType != null ? dataType.toUpperCase() : null); // TYPE_NAME
+      Integer numericPrecision = getIntOrNull(resultSet, COL_NUMERIC_PRECISION);
+      Integer charMaxLength = getIntOrNull(resultSet, COL_CHARACTER_MAX_LENGTH);
+      Integer charOctetLength = getIntOrNull(resultSet, COL_CHARACTER_OCTET_LENGTH);
+      row.add(numericPrecision != null ? numericPrecision : charMaxLength); // COLUMN_SIZE
+      row.add(charOctetLength); // BUFFER_LENGTH
+      row.add(getShortOrNull(resultSet, COL_NUMERIC_SCALE)); // SCALE
+      row.add(getShortOrNull(resultSet, COL_NUMERIC_PRECISION_RADIX)); // RADIX
+      row.add((short) procedureNullableUnknown); // NULLABLE
+      row.add(getStringOrNull(resultSet, COL_COMMENT)); // REMARKS (nullable)
+      row.add(getStringOrNull(resultSet, COL_PARAMETER_DEFAULT)); // COLUMN_DEF (nullable)
+      row.add(null); // SQL_DATA_TYPE (reserved)
+      row.add(null); // SQL_DATETIME_SUB (reserved)
+      row.add(charOctetLength); // CHAR_OCTET_LENGTH (reuse variable)
+      row.add(getIntOrNull(resultSet, COL_ORDINAL_POSITION)); // ORDINAL_POSITION
+      row.add(""); // IS_NULLABLE (empty string per JDBC spec when unknown)
+      row.add(getStringOrNull(resultSet, COL_SPECIFIC_NAME)); // SPECIFIC_NAME
+      rows.add(row);
+    }
+    return rows;
+  }
+
+  // Column name constants for information_schema.routines
+  private static final String COL_ROUTINE_CATALOG = "routine_catalog";
+  private static final String COL_ROUTINE_SCHEMA = "routine_schema";
+  private static final String COL_ROUTINE_NAME = "routine_name";
+  private static final String COL_SPECIFIC_CATALOG = "specific_catalog";
+  private static final String COL_SPECIFIC_SCHEMA = "specific_schema";
+  private static final String COL_SPECIFIC_NAME = "specific_name";
+  private static final String COL_COMMENT = "comment";
+
+  // Column name constants for information_schema.parameters
+  private static final String COL_PARAMETER_NAME = "parameter_name";
+  private static final String COL_PARAMETER_MODE = "parameter_mode";
+  private static final String COL_IS_RESULT = "is_result";
+  private static final String COL_DATA_TYPE = "data_type";
+  private static final String COL_NUMERIC_PRECISION = "numeric_precision";
+  private static final String COL_NUMERIC_PRECISION_RADIX = "numeric_precision_radix";
+  private static final String COL_NUMERIC_SCALE = "numeric_scale";
+  private static final String COL_CHARACTER_MAX_LENGTH = "character_maximum_length";
+  private static final String COL_CHARACTER_OCTET_LENGTH = "character_octet_length";
+  private static final String COL_ORDINAL_POSITION = "ordinal_position";
+  private static final String COL_PARAMETER_DEFAULT = "parameter_default";
+
+  // Parameter mode constants
+  private static final String PARAM_MODE_IN = "IN";
+  private static final String PARAM_MODE_INOUT = "INOUT";
+  private static final String PARAM_MODE_OUT = "OUT";
+  private static final String IS_RESULT_YES = "YES";
+
+  private static short mapParameterModeToColumnType(String parameterMode, String isResult) {
+    if (IS_RESULT_YES.equalsIgnoreCase(isResult)) {
+      return (short) procedureColumnReturn;
+    }
+    if (parameterMode == null) {
+      LOGGER.debug("Parameter mode is null, returning procedureColumnUnknown");
+      return (short) procedureColumnUnknown;
+    }
+    switch (parameterMode.toUpperCase()) {
+      case PARAM_MODE_IN:
+        return (short) procedureColumnIn;
+      case PARAM_MODE_INOUT:
+        return (short) procedureColumnInOut;
+      case PARAM_MODE_OUT:
+        return (short) procedureColumnOut;
+      default:
+        LOGGER.debug("Unknown parameter mode: {}, returning procedureColumnUnknown", parameterMode);
+        return (short) procedureColumnUnknown;
+    }
+  }
+
+  private static String getStringOrNull(DatabricksResultSet resultSet, String columnName)
+      throws SQLException {
+    try {
+      Object val = resultSet.getObject(columnName);
+      return val != null ? val.toString() : null;
+    } catch (SQLException e) {
+      return null;
+    }
+  }
+
+  private static Integer getIntOrNull(DatabricksResultSet resultSet, String columnName)
+      throws SQLException {
+    try {
+      Object val = resultSet.getObject(columnName);
+      if (val == null) return null;
+      if (val instanceof Number) return ((Number) val).intValue();
+      return Integer.parseInt(val.toString());
+    } catch (SQLException | NumberFormatException e) {
+      return null;
+    }
+  }
+
+  private static Short getShortOrNull(DatabricksResultSet resultSet, String columnName)
+      throws SQLException {
+    try {
+      Object val = resultSet.getObject(columnName);
+      if (val == null) return null;
+      if (val instanceof Number) return ((Number) val).shortValue();
+      return Short.parseShort(val.toString());
+    } catch (SQLException | NumberFormatException e) {
+      return null;
+    }
+  }
+
   private List<List<Object>> getRowsForSchemas(
       DatabricksResultSet resultSet,
       List<ResultColumn> columns,
@@ -1411,9 +1597,6 @@ public class MetadataResultSetBuilder {
           case "ORDINAL_POSITION":
             int ordinalPositionIndex = columns.indexOf(ORDINAL_POSITION_COLUMN);
             object = (int) row.get(ordinalPositionIndex) + 1; // 1-based index
-            break;
-          case "COLUMN_DEF":
-            object = row.get(columns.indexOf(COLUMN_TYPE_COLUMN));
             break;
           default:
             int index = columns.indexOf(column);

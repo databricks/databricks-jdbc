@@ -11,7 +11,9 @@ public enum MetadataOperationType {
   GET_COLUMNS("GetColumns"),
   GET_FUNCTIONS("GetFunctions"),
   GET_PRIMARY_KEYS("GetPrimaryKeys"),
-  GET_CROSS_REFERENCE("GetCrossReference");
+  GET_CROSS_REFERENCE("GetCrossReference"),
+  GET_PROCEDURES("GetProcedures"),
+  GET_PROCEDURE_COLUMNS("GetProcedureColumns");
 
   private final String headerValue;
 

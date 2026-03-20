@@ -701,6 +701,18 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  public void testShouldReturnResultSet_MultiLineBlockComment() {
+    String query = "/*\nMulti-line comment\n*/ SELECT * FROM table;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_NestedBlockComment() {
+    String query = "/* /* Nested block comment */ */ SELECT * FROM table;";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
   public void testShouldReturnResultSet_StartWithBegin() {
     assertTrue(DatabricksStatement.shouldReturnResultSet("BEGIN", Collections.emptyList()));
     assertTrue(DatabricksStatement.shouldReturnResultSet("   begin   ", Collections.emptyList()));
