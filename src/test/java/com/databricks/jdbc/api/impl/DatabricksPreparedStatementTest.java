@@ -249,7 +249,7 @@ public class DatabricksPreparedStatementTest {
     }
     // Our implementation converts single INSERT to multi-row INSERT for batching
     String expectedMultiRowSQL =
-        "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
     when(client.executeStatement(
             eq(expectedMultiRowSQL),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -308,7 +308,7 @@ public class DatabricksPreparedStatementTest {
 
     // Our implementation batches all into one multi-row INSERT, so if it fails, all fail
     String expectedMultiRowSQL =
-        "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
     when(client.executeStatement(
             eq(expectedMultiRowSQL),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -346,7 +346,7 @@ public class DatabricksPreparedStatementTest {
     }
     // Our implementation converts single INSERT to multi-row INSERT for batching
     String expectedMultiRowSQL =
-        "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
     when(client.executeStatement(
             eq(expectedMultiRowSQL),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -386,7 +386,7 @@ public class DatabricksPreparedStatementTest {
 
     // Our implementation batches all into one multi-row INSERT, so if it fails, all fail
     String expectedMultiRowSQL =
-        "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
     when(client.executeStatement(
             eq(expectedMultiRowSQL),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -962,7 +962,8 @@ public class DatabricksPreparedStatementTest {
 
     // With supportManyParameters=1, all 200 rows should be batched in a single INSERT
     // with interpolated values (not parameterized)
-    String expectedSqlPrefix = "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES";
+    String expectedSqlPrefix =
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES";
     when(client.executeStatement(
             org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -1004,7 +1005,8 @@ public class DatabricksPreparedStatementTest {
     }
 
     // With supportManyParameters=1, all 10,000 rows execute in a single INSERT
-    String expectedSqlPrefix = "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES";
+    String expectedSqlPrefix =
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES";
     when(client.executeStatement(
             org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -1048,7 +1050,8 @@ public class DatabricksPreparedStatementTest {
     assertEquals(50, connectionContext.getBatchInsertSize());
 
     // Mock will be called 4 times (200 rows / 50 batch size = 4 chunks)
-    String expectedSqlPrefix = "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES";
+    String expectedSqlPrefix =
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES";
     when(client.executeStatement(
             org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -1108,7 +1111,8 @@ public class DatabricksPreparedStatementTest {
 
     // Without supportManyParameters, should chunk at 256/4 = 64 rows
     // even though BatchInsertSize=5000
-    String expectedSqlPrefix = "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES";
+    String expectedSqlPrefix =
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES";
     when(client.executeStatement(
             org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -1169,7 +1173,7 @@ public class DatabricksPreparedStatementTest {
     String executedSql = sqlCaptor.getValue();
 
     String expectedSql =
-        "INSERT INTO events (id, name, created_at) VALUES "
+        "INSERT INTO events (`id`, `name`, `created_at`) VALUES "
             + "(1, 'Event One', '2024-01-01 12:30:45.123'), "
             + "(2, 'Event Two', '2024-02-15 08:15:30.456')";
 
