@@ -7,6 +7,7 @@
 ### Updated
 
 ### Fixed
+- Fixed primitive types within complex types (ARRAY, MAP, STRUCT) not being correctly parsed when Arrow serialization uses alternate formats: TIMESTAMP/TIMESTAMP_NTZ as epoch microseconds or component arrays, and BINARY as base64-encoded strings.
 - Fixed local port availability check to bind to `localhost` instead of the wildcard address. This prevents the OAuth browser authentication from failing when the port is already used.
 
 ---
