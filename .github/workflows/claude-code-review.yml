@@ -8,7 +8,10 @@ jobs:
   claude-review:
     if: |
       github.event.issue.pull_request &&
-      contains(github.event.comment.body, '/review')
+      contains(github.event.comment.body, '/review') &&
+      (github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'COLLABORATOR')
     runs-on:
       group: databricks-protected-runner-group
       labels: [linux-ubuntu-latest]
