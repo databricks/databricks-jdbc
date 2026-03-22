@@ -51,7 +51,9 @@ jobs:
       - name: Build dependencies
         run: |
           mvn -Prelease clean install --batch-mode -pl jdbc-core -am -Dgpg.skip=true \
-            -Ddependency-check.skip=true
+            -Dnvd.api.key=${{ secrets.NVD_API_KEY }} \
+            -Dossindex.username=${{ secrets.OSSINDEX_USERNAME }} \
+            -Dossindex.password=${{ secrets.OSSINDEX_PASSWORD }}
 
       # Step 2: Deploy only the thin JAR module to Maven Central
       # We don't use -am here to avoid the central-publishing-maven-plugin
