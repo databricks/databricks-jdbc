@@ -102,6 +102,25 @@
     <maven.deploy.skip>true</maven.deploy.skip>
   </properties>
 
+  <dependencyManagement>
+    <dependencies>
+      <!-- Force safe version of commons-lang3 across all modules (including uber jar)
+           to resolve CVE-2025-48924. Without this, assembly-uber resolves the older
+           transitive version from commons-configuration2. -->
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>${commons-lang3.version}</version>
+      </dependency>
+      <!-- Force safe version of Gson across all modules to fix CVE-2025-53864 -->
+      <dependency>
+        <groupId>com.google.code.gson</groupId>
+        <artifactId>gson</artifactId>
+        <version>${gson.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <build>
     <pluginManagement>
       <plugins>
