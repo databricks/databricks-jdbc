@@ -27,9 +27,9 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
 
-      - name: Merge main into jdbc-comparator
+      - name: Merge main into comparator-v2
         run: |
-          git checkout jdbc-comparator
+          git checkout comparator-v2
           git merge main --allow-unrelated-histories --no-edit -X theirs || {
             echo "Force merging by accepting all changes from main"
             git checkout --theirs .
@@ -113,8 +113,10 @@ jobs:
       - name: Check for Report and Differences
         id: check_differences
         run: |
-          if [ -f "jdbc-comparison-report.txt" ]; then
-            if grep -q "No differences found" "jdbc-comparison-report.txt"; then
+          REPORT=$(ls jdbc-comparison-report-*.txt 2>/dev/null | head -1)
+          if [ -n "$REPORT" ]; then
+            echo "report_file=$REPORT" >> $GITHUB_OUTPUT
+            if grep -q "No differences found" "$REPORT"; then
               echo "has_differences=false" >> $GITHUB_OUTPUT
             else
               echo "has_differences=true" >> $GITHUB_OUTPUT
@@ -143,5 +145,5 @@ jobs:
         with:
           name: jdbc-comparison-report
           path: |
-            jdbc-comparison-report.txt
+            jdbc-comparison-report-*.txt
             jdbc-comparison-report.html
