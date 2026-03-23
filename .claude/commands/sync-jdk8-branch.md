@@ -101,6 +101,7 @@ Scan all Java source files for APIs introduced after JDK 8 and replace them. Com
 | `List.of(...)` | `Arrays.asList(...)` (or `Collections.unmodifiableList(Arrays.asList(...))`) |
 | `Set.of(...)` | `ImmutableSet.of(...)` (Guava) |
 | `Map.of(...)` | `ImmutableMap.of(...)` (Guava) |
+| `Map.entry(k, v)` | `new AbstractMap.SimpleEntry<>(k, v)` (or Guava's `Maps.immutableEntry(k, v)`) |
 | `Optional.isEmpty()` | `!optional.isPresent()` |
 | `String.repeat(n)` | loop or `new String(new char[n]).replace('\0', c)` |
 | `InputStream.nullInputStream()` | `new ByteArrayInputStream(new byte[0])` |
@@ -110,7 +111,7 @@ Scan all Java source files for APIs introduced after JDK 8 and replace them. Com
 
 After replacing, verify no stragglers remain:
 ```bash
-grep -r "List\.of\|Set\.of\|Map\.of\|Optional\.isEmpty\|\.repeat(\|nullInputStream\|nullReader\|LocalDate\.EPOCH" src/main/java/
+grep -r "List\.of\|Set\.of\|Map\.of\|Map\.entry\|Optional\.isEmpty\|\.repeat(\|nullInputStream\|nullReader\|LocalDate\.EPOCH" src/main/java/ src/test/java/
 ```
 
 #### Source code — Other changes
