@@ -7,6 +7,7 @@
 ### Updated
 
 ### Fixed
+- Fixed `IS_NULLABLE` field returning incorrect value (`YES`) for non-nullable columns in `getColumns` metadata operation. The fix ensures robust type comparison when the thrift server returns the `NULLABLE` column as a `Short`, `Long`, or `String` instead of an `Integer`.
 - Fixed primitive types within complex types (ARRAY, MAP, STRUCT) not being correctly parsed when Arrow serialization uses alternate formats: TIMESTAMP/TIMESTAMP_NTZ as epoch microseconds or component arrays, and BINARY as base64-encoded strings.
 - Fixed `PARSE_SYNTAX_ERROR` for column names containing special characters (e.g., dots) when `EnableBatchedInserts` is enabled, by re-quoting column names with backticks in reconstructed multi-row INSERT statements.
 

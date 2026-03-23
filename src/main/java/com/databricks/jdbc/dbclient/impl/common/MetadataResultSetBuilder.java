@@ -1606,11 +1606,18 @@ public class MetadataResultSetBuilder {
               object = row.get(index);
               if (column.getColumnName().equals(IS_NULLABLE_COLUMN.getColumnName())) {
                 object = row.get(columns.indexOf(NULLABLE_COLUMN));
-                if (object.equals(0)) {
-                  object = "NO";
+                // Use type-safe comparison to handle cases where the thrift server returns
+                // the NULLABLE column as a Short, Long, or String instead of an Integer.
+                // e.g., Short(0).equals(Integer(0)) returns false in Java.
+                boolean isNotNullable;
+                if (object instanceof Number) {
+                  isNotNullable = ((Number) object).intValue() == 0;
+                } else if (object != null) {
+                  isNotNullable = "0".equals(object.toString());
                 } else {
-                  object = "YES";
+                  isNotNullable = false;
                 }
+                object = isNotNullable ? "NO" : "YES";
               }
               if (column.getColumnName().equals(DECIMAL_DIGITS_COLUMN.getColumnName())) {
                 object = getUpdatedDecimalDigits(stripBaseTypeName(typeVal), object);

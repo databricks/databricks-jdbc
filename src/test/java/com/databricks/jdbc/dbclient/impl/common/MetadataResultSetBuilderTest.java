@@ -826,4 +826,39 @@ public class MetadataResultSetBuilderTest {
         Arguments.of("DECIMAL(10,2)"),
         Arguments.of("TIMESTAMP"));
   }
+
+  private static Stream<Arguments> provideNullableValuesForIsNullable() {
+    return Stream.of(
+        // Integer values (standard thrift I32)
+        Arguments.of(0, "NO"),
+        Arguments.of(1, "YES"),
+        Arguments.of(2, "YES"),
+        // Short values (some OSS thrift servers may return I16)
+        Arguments.of(Short.valueOf((short) 0), "NO"),
+        Arguments.of(Short.valueOf((short) 1), "YES"),
+        // String values (some OSS thrift servers may encode as strings)
+        Arguments.of("0", "NO"),
+        Arguments.of("1", "YES"),
+        // null value (unknown nullability defaults to YES)
+        Arguments.of(null, "YES"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("provideNullableValuesForIsNullable")
+  void testGetThriftRowsIsNullableHandlesVariousNullableTypes(
+      Object nullableValue, String expectedIsNullable) {
+    // IS_NULLABLE (index 17) must be derived from NULLABLE (index 10).
+    // OSS thrift servers may return NULLABLE as Integer, Short, or String.
+    List<Object> row =
+        Arrays.asList(
+            "cat", "schema", "tbl", "col", 4, "INT", 10, null, 0, 10, nullableValue, "", null,
+            null, null, null, 0, "placeholder", null, null, null, null, "NO", "NO");
+    List<List<Object>> updatedRows =
+        metadataResultSetBuilder.getThriftRows(List.of(row), COLUMN_COLUMNS);
+
+    assertEquals(
+        expectedIsNullable,
+        updatedRows.get(0).get(17),
+        "IS_NULLABLE should be derived from NULLABLE column value: " + nullableValue);
+  }
 }
