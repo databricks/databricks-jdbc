@@ -233,7 +233,7 @@
     <dependency>
       <groupId>org.locationtech.jts</groupId>
       <artifactId>jts-core</artifactId>
-      <version>1.20.0</version>
+      <version>${jts-core.version}</version>
     </dependency>
     <!-- https://mvnrepository.com/artifact/org.openjdk.jmh/jmh-core -->
     <dependency>
@@ -355,6 +355,9 @@
               This helps us identify and address significant security risks early in the development process.
            -->
           <failBuildOnCVSS>7</failBuildOnCVSS>
+          <suppressionFiles>
+            <suppressionFile>${project.basedir}/../owasp-suppressions.xml</suppressionFile>
+          </suppressionFiles>
           <nvdApiKey>${nvd.api.key}</nvdApiKey>
           <nvdMaxRetryCount>10</nvdMaxRetryCount>
           <nvdApiDelay>4000</nvdApiDelay>
