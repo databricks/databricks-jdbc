@@ -15,7 +15,7 @@ public enum TestSuite {
   STATEMENT_DDL(new StatementDdlProvider()),
   STATEMENT_DML(new StatementDmlProvider()),
   STATEMENT_OTHER(new StatementOtherProvider()),
-  PREPARED_STATEMENT_TYPES(null),
+  PREPARED_STATEMENT_TYPES(new PreparedStatementTypesProvider()),
   PREPARED_STATEMENT_METADATA(null),
   COMPLEX_TYPES(null),
   GEOSPATIAL(null),
