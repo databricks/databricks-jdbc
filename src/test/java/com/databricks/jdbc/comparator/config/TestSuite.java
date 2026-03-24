@@ -1,8 +1,6 @@
 package com.databricks.jdbc.comparator.config;
 
-import com.databricks.jdbc.comparator.suite.StatementSelectProvider;
-import com.databricks.jdbc.comparator.suite.StatementSelectTruncatedProvider;
-import com.databricks.jdbc.comparator.suite.SuiteProvider;
+import com.databricks.jdbc.comparator.suite.*;
 
 /**
  * Identifies a category of comparator tests. Each suite maps to a {@link SuiteProvider} that
@@ -14,7 +12,7 @@ public enum TestSuite {
   DATABASE_METADATA(null),
   STATEMENT_SELECT(new StatementSelectProvider()),
   STATEMENT_SELECT_TRUNCATED(new StatementSelectTruncatedProvider()),
-  STATEMENT_DDL(null),
+  STATEMENT_DDL(new StatementDdlProvider()),
   STATEMENT_DML(null),
   STATEMENT_OTHER(null),
   PREPARED_STATEMENT_TYPES(null),
