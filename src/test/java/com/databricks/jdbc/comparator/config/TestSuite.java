@@ -14,7 +14,7 @@ public enum TestSuite {
   STATEMENT_SELECT_TRUNCATED(new StatementSelectTruncatedProvider()),
   STATEMENT_DDL(new StatementDdlProvider()),
   STATEMENT_DML(new StatementDmlProvider()),
-  STATEMENT_OTHER(null),
+  STATEMENT_OTHER(new StatementOtherProvider()),
   PREPARED_STATEMENT_TYPES(null),
   PREPARED_STATEMENT_METADATA(null),
   COMPLEX_TYPES(null),
