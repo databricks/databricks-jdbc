@@ -13,7 +13,7 @@ public enum TestSuite {
   STATEMENT_SELECT(new StatementSelectProvider()),
   STATEMENT_SELECT_TRUNCATED(new StatementSelectTruncatedProvider()),
   STATEMENT_DDL(new StatementDdlProvider()),
-  STATEMENT_DML(null),
+  STATEMENT_DML(new StatementDmlProvider()),
   STATEMENT_OTHER(null),
   PREPARED_STATEMENT_TYPES(null),
   PREPARED_STATEMENT_METADATA(null),
