@@ -21,29 +21,26 @@ public class StatementSelectProvider implements SuiteProvider {
   @Override
   public List<TestCase> getTestCases() {
     return Arrays.asList(
-        // Empty result
-        new TestCase("SELECT * FROM " + TABLE + " WHERE 1=0", "Empty result (0 rows, 32 columns)"),
-
-        // Single row
         new TestCase(
-            "SELECT * FROM " + TABLE + " WHERE id = 1", "Single row (all types, normal values)"),
-
-        // Edge case rows only (inline, small)
+            "SELECT * FROM " + TABLE + " WHERE 1=0", "Empty result (0 rows, 32 columns)", false),
+        new TestCase(
+            "SELECT * FROM " + TABLE + " WHERE id = 1",
+            "Single row (all types, normal values)",
+            false),
         new TestCase(
             "SELECT * FROM " + TABLE + " WHERE id <= 7 ORDER BY id",
-            "Edge case rows (7 rows — normal, nulls, max, min, empty, special)"),
-
-        // ~1MB inline result
+            "Edge case rows (7 rows — normal, nulls, max, min, empty, special)",
+            false),
         new TestCase(
-            "SELECT * FROM " + TABLE + " LIMIT 1000", "~1MB inline result (1K rows, 32 columns)"),
-
-        // ~5MB — just above CloudFetch threshold for 32-col table
+            "SELECT * FROM " + TABLE + " LIMIT 1000",
+            "~1MB inline result (1K rows, 32 columns)",
+            false),
         new TestCase(
             "SELECT * FROM " + TABLE + " LIMIT 15000",
-            "~5MB CloudFetch result (15K rows, 1 chunk)"),
-
-        // ~100MB — full CloudFetch with multiple chunks
-        new TestCase("SELECT * FROM " + TABLE, "~100MB CloudFetch result (150K+ rows, 5 chunks)"));
+            "~5MB CloudFetch result (15K rows, 1 chunk)",
+            true),
+        new TestCase(
+            "SELECT * FROM " + TABLE, "~100MB CloudFetch result (150K+ rows, 5 chunks)", true));
   }
 
   @Override
@@ -54,6 +51,7 @@ public class StatementSelectProvider implements SuiteProvider {
         Statement stmt2 = conn2.createStatement();
         ResultSet rs1 = stmt1.executeQuery(query);
         ResultSet rs2 = stmt2.executeQuery(query)) {
+      assertCloudFetchExpectation(testCase, rs1, rs2);
       return ResultSetComparator.compare(label, query, testCase.getArgs(), rs1, rs2);
     }
   }
