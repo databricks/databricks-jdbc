@@ -281,7 +281,6 @@ public class ResultSetComparator {
       boolean has1 = rs1.next();
       boolean has2 = rs2.next();
       if (!has1 || !has2) {
-        // One or both exhausted — check for extra rows below
         rs1HasMore = has1;
         rs2HasMore = has2;
         break;
@@ -315,8 +314,6 @@ public class ResultSetComparator {
     }
 
     // Check if one ResultSet has more rows than the other
-    // rs1HasMore/rs2HasMore are already set from the loop exit above
-
     if (rs1HasMore || rs2HasMore) {
       if (rs1HasMore) {
         int extraRows = countAndLogExtraRows(rs1, md1, rowCount, differences);
@@ -348,12 +345,6 @@ public class ResultSetComparator {
   }
 
   private static boolean objectsEqual(Object o1, Object o2) {
-    if (o1 == null && o2 == null) {
-      return true;
-    }
-    if (o1 == null || o2 == null) {
-      return false;
-    }
-    return o1.equals(o2);
+    return java.util.Objects.deepEquals(o1, o2);
   }
 }

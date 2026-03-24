@@ -5,25 +5,45 @@ import com.databricks.jdbc.comparator.ResultSetComparator;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 
-/** Compares SELECT query results between Thrift and SEA connections. */
+/**
+ * Compares SELECT query results between Thrift and SEA connections at various result sizes.
+ *
+ * <p>Uses the real test_result_set_types table (32 columns, 150K+ rows) to exercise the full
+ * storage → Arrow → JDBC pipeline including CloudFetch transitions.
+ */
 public class StatementSelectProvider implements SuiteProvider {
+
+  private static final String TABLE = "comparator_tests.oss_jdbc_tests.test_result_set_types";
 
   @Override
   public List<TestCase> getTestCases() {
-    return Collections.singletonList(
+    return Arrays.asList(
+        // Empty result
+        new TestCase("SELECT * FROM " + TABLE + " WHERE 1=0", "Empty result (0 rows, 32 columns)"),
+
+        // Single row
         new TestCase(
-            "SELECT "
-                + "CAST(id AS INT) AS int_col, "
-                + "CAST(CONCAT('hello_', id) AS STRING) AS string_col, "
-                + "CAST(id * 1.11 AS DOUBLE) AS double_col, "
-                + "CAST(id % 2 = 0 AS BOOLEAN) AS bool_col, "
-                + "CAST(DATE_ADD('2025-01-01', id) AS DATE) AS date_col, "
-                + "CAST(id * 1.23 AS DECIMAL(10,2)) AS decimal_col "
-                + "FROM (SELECT EXPLODE(SEQUENCE(1, 10)) AS id)",
-            "Synthetic 6-type 10-row query"));
+            "SELECT * FROM " + TABLE + " WHERE id = 1", "Single row (all types, normal values)"),
+
+        // Edge case rows only (inline, small)
+        new TestCase(
+            "SELECT * FROM " + TABLE + " WHERE id <= 7 ORDER BY id",
+            "Edge case rows (7 rows — normal, nulls, max, min, empty, special)"),
+
+        // ~1MB inline result
+        new TestCase(
+            "SELECT * FROM " + TABLE + " LIMIT 1000", "~1MB inline result (1K rows, 32 columns)"),
+
+        // ~5MB — just above CloudFetch threshold for 32-col table
+        new TestCase(
+            "SELECT * FROM " + TABLE + " LIMIT 15000",
+            "~5MB CloudFetch result (15K rows, 1 chunk)"),
+
+        // ~100MB — full CloudFetch with multiple chunks
+        new TestCase("SELECT * FROM " + TABLE, "~100MB CloudFetch result (150K+ rows, 5 chunks)"));
   }
 
   @Override
