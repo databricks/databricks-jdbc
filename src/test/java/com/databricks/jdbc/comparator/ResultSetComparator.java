@@ -361,6 +361,14 @@ public class ResultSetComparator {
   }
 
   private static boolean objectsEqual(Object o1, Object o2) {
-    return java.util.Objects.deepEquals(o1, o2);
+    if (java.util.Objects.deepEquals(o1, o2)) {
+      return true;
+    }
+    // Fallback: compare toString() for objects that don't implement equals()
+    // (e.g., DatabricksArray, DatabricksMap, DatabricksStruct)
+    if (o1 != null && o2 != null) {
+      return o1.toString().equals(o2.toString());
+    }
+    return false;
   }
 }

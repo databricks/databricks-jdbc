@@ -17,7 +17,7 @@ public enum TestSuite {
   STATEMENT_OTHER(new StatementOtherProvider()),
   PREPARED_STATEMENT_TYPES(new PreparedStatementTypesProvider()),
   PREPARED_STATEMENT_METADATA(new PreparedStatementMetadataProvider()),
-  COMPLEX_TYPES(null),
+  COMPLEX_TYPES(new ComplexTypesProvider()),
   GEOSPATIAL(null),
   NULL_HANDLING(null),
   VOLUME_OPERATIONS(null);
