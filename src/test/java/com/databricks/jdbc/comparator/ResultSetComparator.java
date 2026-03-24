@@ -86,6 +86,22 @@ public class ResultSetComparator {
     }
   }
 
+  /**
+   * Compares two ResultSetMetaData objects and returns a ComparisonResult with metadata-only diffs.
+   */
+  public static ComparisonResult compareMetadata(
+      String queryType,
+      String queryOrMethod,
+      Object[] methodArgs,
+      ResultSetMetaData md1,
+      ResultSetMetaData md2)
+      throws SQLException {
+    ComparisonResult result = new ComparisonResult(queryType, queryOrMethod, methodArgs);
+    result.metadataDifferences = compareMetadata(md1, md2);
+    result.dataDifferences = new ArrayList<>();
+    return result;
+  }
+
   private static List<String> compareMetadata(ResultSetMetaData md1, ResultSetMetaData md2)
       throws SQLException {
     List<String> differences = new ArrayList<>();
