@@ -19,7 +19,7 @@ public enum TestSuite {
   PREPARED_STATEMENT_METADATA(new PreparedStatementMetadataProvider()),
   COMPLEX_TYPES(new ComplexTypesProvider()),
   GEOSPATIAL(new GeospatialProvider()),
-  NULL_HANDLING(null),
+  NULL_HANDLING(new NullHandlingProvider()),
   VOLUME_OPERATIONS(null);
 
   private final SuiteProvider provider;
