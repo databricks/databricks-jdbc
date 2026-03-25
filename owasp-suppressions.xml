@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+    <!--
+      CVE-2026-25087 is a Use After Free vulnerability in the Apache Arrow C++ IPC
+      file reader when pre-buffering is enabled with variadic buffers.
+      It does NOT affect the Java Arrow libraries (arrow-memory-core, arrow-vector, etc.)
+      which are pure Java with no native code. The OWASP scanner falsely matches because
+      both share the "apache:arrow" CPE namespace.
+      See: https://nvd.nist.gov/vuln/detail/CVE-2026-25087
+    -->
+    <suppress>
+        <notes><![CDATA[
+            CVE-2026-25087 affects Apache Arrow C++ only, not Java.
+            False positive due to CPE matching on the shared "apache:arrow" namespace.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.arrow/.*$</packageUrl>
+        <cve>CVE-2026-25087</cve>
+    </suppress>
+</suppressions>

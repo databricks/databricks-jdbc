@@ -42,16 +42,9 @@ Read each file before editing. Apply all of the following.
 #### `pom.xml` (root)
 
 - Set `maven.compiler.source` and `maven.compiler.target` to `1.8`
-- Ensure the `jdk8` spotless-skip profile exists (add if missing):
-  ```xml
-  <profile>
-    <!-- Skip spotless on JDK 8: spotless-maven-plugin 2.39.0 requires Java 11+ -->
-    <id>jdk8</id>
-    <activation><jdk>1.8</jdk></activation>
-    <properties><spotless.skip>true</spotless.skip></properties>
-  </profile>
-  ```
-  - TODO: Investigate whether an older version of `spotless-maven-plugin` (pre-2.28.0) supports JDK 8 so formatting can be enforced instead of skipped.
+- **Remove spotless entirely**: delete the `spotless-maven-plugin` plugin declaration, any `<pluginManagement>` entry for it, and any `spotless.version` property. Do NOT add a skip profile — the plugin must not exist on the jdk-8 branch at all.
+  <!-- Spotless is removed entirely (not just skipped) because even loading spotless-maven-plugin 2.39.0 on JDK 8 causes CI failures regardless of skip flags. TODO: Investigate whether an older version (pre-2.28.0) supports JDK 8 so formatting can be enforced rather than absent. -->
+- **Remove `org.owasp:dependency-check-maven`** plugin entirely — remove from both `<plugins>` and any `<pluginManagement>` entry. Not needed on the jdk-8 branch.
 - Pin these dependency versions:
 
   | Property | jdk-8 value | Reason |
@@ -79,9 +72,51 @@ Read each file before editing. Apply all of the following.
   <exclude>**/integration/e2e/**/*.java</exclude>
   ```
 
-#### Source code
+#### `.github/workflows/coverageReport.yml`
 
-- **Remove JDBC 4.3 methods** from `DatabricksConnection.java` — `setShardingKeyIfValid` and `setShardingKey` overloads plus the `ShardingKey` import. These require Java 9+. Check for any other JDBC 4.3 APIs (`ConnectionBuilder`, `PooledConnectionBuilder`) and remove those too.
+Change the JDK version to 8 and lower the coverage threshold to 80%:
+
+```yaml
+- name: Set up JDK
+  uses: actions/setup-java@v4
+  with:
+    java-version: '8'
+    distribution: 'adopt'
+```
+
+Update every occurrence of `85` in the threshold check to `80`. Also remove `-Dgroups='!Jvm17PlusAndArrowToNioReflectionDisabled'` from the test run command (that tag doesn't exist on the jdk-8 branch) and add `-Dspotless.skip=true`:
+
+```bash
+mvn -pl jdbc-core clean test -Dspotless.skip=true jacoco:report
+```
+
+**Do not modify any other workflow files.** All other `.github/workflows/*.yml` files must be left exactly as merged from main.
+
+#### Source code — Java 9+ API replacements
+
+Scan all Java source files for APIs introduced after JDK 8 and replace them. Common patterns:
+
+| Java 9+ (incompatible) | JDK 8 replacement |
+|---|---|
+| `List.of(...)` | `Arrays.asList(...)` (or `Collections.unmodifiableList(Arrays.asList(...))`) |
+| `Set.of(...)` | `ImmutableSet.of(...)` (Guava) |
+| `Map.of(...)` | `ImmutableMap.of(...)` (Guava) |
+| `Map.entry(k, v)` | `new AbstractMap.SimpleEntry<>(k, v)` (or Guava's `Maps.immutableEntry(k, v)`) |
+| `Optional.isEmpty()` | `!optional.isPresent()` |
+| `String.repeat(n)` | loop or `new String(new char[n]).replace('\0', c)` |
+| `InputStream.nullInputStream()` | `new ByteArrayInputStream(new byte[0])` |
+| `Reader.nullReader()` | `new StringReader("")` |
+| `LocalDate.EPOCH` | `LocalDate.of(1970, 1, 1)` |
+| `URLDecoder.decode(str, StandardCharsets.UTF_8)` (Charset overload, Java 10+) | `URLDecoder.decode(str, StandardCharsets.UTF_8.name())` |
+
+After replacing, verify no stragglers remain:
+```bash
+grep -r "List\.of\|Set\.of\|Map\.of\|Map\.entry\|Optional\.isEmpty\|\.repeat(\|nullInputStream\|nullReader\|LocalDate\.EPOCH" src/main/java/ src/test/java/
+```
+
+#### Source code — Other changes
+
+- **Remove JDBC 4.3 methods** from `DatabricksConnection.java` — `setShardingKeyIfValid` and `setShardingKey` overloads plus the `ShardingKey` import. Also remove JDBC 4.3 test methods such as `enquoteLiteral`, `enquoteIdentifier`, and any other JDBC 4.3+ APIs (`ConnectionBuilder`, `PooledConnectionBuilder`). All require Java 9+.
 
 - **Remove Arrow patch files** (introduced in PR #1243 for JDK 16+ NIO restrictions — not relevant to JDK 8):
 
@@ -109,6 +144,17 @@ Read each file before editing. Apply all of the following.
   - `src/test/resources/arrow/` (entire directory)
 - Remove any test annotated with `@Tag("Jvm17PlusAndArrowToNioReflectionDisabled")`
 
+- **Remove `IntervalConverter` overflow test**: Delete the test case for `Duration.ofNanos(Long.MIN_VALUE)` in `IntervalConverterTest` (or wherever it lives). On JDK 8, `Duration.toNanos()` uses `Math.multiplyExact()` internally and throws `ArithmeticException` when seconds × 1,000,000,000 overflows `long`. JDK 17+ doesn't have this problem. The edge case doesn't occur in practice — remove the test rather than working around it.
+
+- **Fix `DatabricksDriverFeatureFlagsContext` hanging test**: Any test that constructs `DatabricksDriverFeatureFlagsContext` with a fake hostname (e.g. `sample-host.cloud.databricks.com`) will hang indefinitely on JDK 8. JDK 8's HTTP client has no default connection timeout, so the TCP attempt blocks for the full OS socket timeout (minutes+). JDK 17+ fails fast because of tighter defaults.
+
+  Fix in order of preference:
+  1. Mock the HTTP client / feature-flags fetcher so no real network call is made.
+  2. Pass a pre-populated flag map to the constructor instead of fetching from the server.
+  3. Set an explicit connection timeout before the test runs.
+
+  Never leave a test that makes a real outbound HTTP/TCP connection to a non-existent host on the jdk-8 branch — it will cause the CI job to time out.
+
 #### Full dependency audit
 
 Check **every** dependency across all `pom.xml` files for JDK 8 compatibility. A version bump from `main` can silently raise the minimum Java version.
@@ -121,7 +167,8 @@ Known incompatible versions:
 | `org.mockito:mockito-*` | 4.x |
 | `com.nimbusds:nimbus-jose-jwt` | 9.x |
 | `org.wiremock:wiremock` | remove entirely |
-| `com.diffplug.spotless:spotless-maven-plugin` | skip via profile |
+| `com.diffplug.spotless:spotless-maven-plugin` | remove entirely (not just skip) |
+| `org.owasp:dependency-check-maven` | remove entirely |
 | `jakarta.annotation:jakarta.annotation-api` | 1.x (2.x requires Java 11) |
 
 Everything else in the current `pom.xml` is JDK 8 compatible. For any new dependency not in this table: check Maven Central / release notes. If no JDK 8 compatible version exists, **stop and notify the user** with the options (pin older version, swap alternative, remove) before taking action.
@@ -171,7 +218,9 @@ Share the PR URL with the user.
 
 - Never use `--add-opens`, `--add-exports`, or any JPMS flag — invalid on JDK 8.
 - Never add branching for JDK 9, 11, 17, or 21 — the branch targets JDK 8 only.
-- Never run `mvn spotless:apply` on JDK 8 — the `jdk8` profile skips it automatically.
-  - TODO: Investigate whether an older `spotless-maven-plugin` version (pre-2.28.0) supports JDK 8 so formatting can be enforced rather than skipped.
-- Never add JDBC 4.3+ APIs (`ShardingKey`, `ConnectionBuilder`, `PooledConnectionBuilder`).
+- Never run `mvn spotless:apply` on JDK 8. Spotless is fully removed from the jdk-8 branch (no plugin declaration, no pluginManagement entry, no version property) because even loading the plugin on JDK 8 causes CI failures. Always pass `-Dspotless.skip=true` as a safety net.
+  <!-- TODO: Investigate whether an older `spotless-maven-plugin` version (pre-2.28.0) supports JDK 8 so formatting can be enforced rather than absent. -->
+- Never add JDBC 4.3+ APIs (`ShardingKey`, `ConnectionBuilder`, `PooledConnectionBuilder`, `enquoteLiteral`, `enquoteIdentifier`).
 - Only unit tests belong in the jdk-8 branch. Never carry over fakeservice or e2e tests — fakeservice depends on WireMock 3.x (Java 11+), and e2e tests are covered by comprehensive MultiDBR testing. Remove them and their test resources entirely.
+- Never leave a test that makes a real outbound HTTP/TCP connection to a non-existent host — JDK 8 will hang indefinitely without a connection timeout.
+- Only modify `coverageReport.yml` in `.github/workflows/`. All other workflow files must be left exactly as merged from main.

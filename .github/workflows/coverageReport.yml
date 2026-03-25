@@ -38,8 +38,10 @@ jobs:
       
     - name: Check for coverage override
       id: override
+      env:
+        PR_BODY: ${{ github.event.pull_request.body }}
       run: |
-        OVERRIDE_COMMENT=$(echo "${{ github.event.pull_request.body }}" | grep -E "SKIP_COVERAGE_CHECK\s*=" || echo "")
+        OVERRIDE_COMMENT=$(echo "$PR_BODY" | grep -E "SKIP_COVERAGE_CHECK\s*=" || echo "")
         if [ -n "$OVERRIDE_COMMENT" ]; then
           echo "override=true" >> $GITHUB_OUTPUT
           REASON=$(echo "$OVERRIDE_COMMENT" | sed -E 's/.*SKIP_COVERAGE_CHECK\s*=\s*(.+)/\1/')
@@ -84,9 +86,12 @@ jobs:
         fi
         
     - name: Coverage enforcement summary
+      env:
+        OVERRIDE: ${{ steps.override.outputs.override }}
+        OVERRIDE_REASON: ${{ steps.override.outputs.reason }}
       run: |
-        if [ "${{ steps.override.outputs.override }}" == "true" ]; then
-          echo "⚠️ Coverage checks bypassed: ${{ steps.override.outputs.reason }}"
+        if [ "$OVERRIDE" == "true" ]; then
+          echo "⚠️ Coverage checks bypassed: $OVERRIDE_REASON"
           echo "Please ensure this override is justified and temporary"
         else
           echo "✅ Coverage checks enforced - minimum 85% required"
