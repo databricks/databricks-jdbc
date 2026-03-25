@@ -5,10 +5,13 @@ import com.databricks.jdbc.comparator.ResultSetComparator;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -25,6 +28,15 @@ public class DatabaseMetaDataProvider implements SuiteProvider {
 
   private static final Map<String, List<Object[]>> METHOD_REGISTRY =
       DatabaseMetaDataParams.buildRegistry();
+
+  /** Schemas to exclude from ResultSet comparison. Set via -DMETADATA_SKIP_SCHEMAS. */
+  private static final Set<String> SKIP_SCHEMAS = parseSkipSchemas();
+
+  private static Set<String> parseSkipSchemas() {
+    String prop = System.getProperty("METADATA_SKIP_SCHEMAS");
+    if (prop == null || prop.isEmpty()) return Set.of();
+    return new HashSet<>(Arrays.asList(prop.split(",")));
+  }
 
   @Override
   public List<TestCase> getTestCases() {
@@ -49,15 +61,20 @@ public class DatabaseMetaDataProvider implements SuiteProvider {
     List<String> metadataDiffs = new ArrayList<>();
     List<String> dataDiffs = new ArrayList<>();
 
-    for (Object[] args : argCombos) {
+    int total = argCombos.size();
+    for (int idx = 0; idx < total; idx++) {
+      Object[] args = argCombos.get(idx);
       String argsLabel = formatArgs(args);
+      System.out.printf(
+          "[%s]   Comparing %s(%s) [%d/%d]%n",
+          Instant.now(), methodName, argsLabel, idx + 1, total);
 
       Object result1 = ReflectionUtils.executeMethod(md1, methodName, args);
       Object result2 = ReflectionUtils.executeMethod(md2, methodName, args);
 
       try {
         ComparisonResult sub =
-            ResultSetComparator.compare(label, methodName, args, result1, result2);
+            ResultSetComparator.compare(label, methodName, args, result1, result2, SKIP_SCHEMAS);
 
         // Prefix each diff with the args for traceability
         for (String diff : sub.metadataDifferences) {

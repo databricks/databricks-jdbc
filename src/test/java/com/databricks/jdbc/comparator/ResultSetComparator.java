@@ -7,11 +7,29 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 public class ResultSetComparator {
   public static ComparisonResult compare(
       String queryType, String queryOrMethod, Object[] methodArgs, Object result1, Object result2)
+      throws SQLException {
+    return compare(queryType, queryOrMethod, methodArgs, result1, result2, Collections.emptySet());
+  }
+
+  /**
+   * Compares two results with optional schema row filtering. When skipSchemas is non-empty and both
+   * results are ResultSets, rows matching TABLE_SCHEM values in skipSchemas are excluded before
+   * comparison.
+   */
+  public static ComparisonResult compare(
+      String queryType,
+      String queryOrMethod,
+      Object[] methodArgs,
+      Object result1,
+      Object result2,
+      Set<String> skipSchemas)
       throws SQLException {
     ComparisonResult result = new ComparisonResult(queryType, queryOrMethod, methodArgs);
     result.metadataDifferences = new ArrayList<>();
@@ -24,11 +42,22 @@ public class ResultSetComparator {
     if (result1 instanceof ResultSet && result2 instanceof ResultSet) {
       ResultSet rs1 = (ResultSet) result1;
       ResultSet rs2 = (ResultSet) result2;
-      // Compare metadata
-      result.metadataDifferences = compareMetadata(rs1.getMetaData(), rs2.getMetaData());
+      ResultSetMetaData md1 = rs1.getMetaData();
+      ResultSetMetaData md2 = rs2.getMetaData();
 
-      // Compare data
-      result.dataDifferences = compareData(rs1, rs2);
+      // Compare metadata (shared for both paths)
+      result.metadataDifferences = compareMetadata(md1, md2);
+
+      // Compare data — drain+filter path when skipSchemas is set, streaming otherwise
+      if (!skipSchemas.isEmpty()) {
+        List<Object[]> rows1 = drainResultSet(rs1, md1.getColumnCount());
+        List<Object[]> rows2 = drainResultSet(rs2, md2.getColumnCount());
+        filterBySchema(rows1, md1, skipSchemas);
+        filterBySchema(rows2, md2, skipSchemas);
+        result.dataDifferences = compareRowData(rows1, rows2, md1, md2);
+      } else {
+        result.dataDifferences = compareData(rs1, rs2);
+      }
     } else if (!(result1 instanceof ResultSet) && !(result2 instanceof ResultSet)) {
       // Both are not of type ResultSet
       if (result1 == null || !resultIsSame(result1, result2)) {
@@ -284,6 +313,110 @@ public class ResultSetComparator {
     return extra.toString();
   }
 
+  // ---------------------------------------------------------------------------
+  // Drain + filter helpers (used when skipSchemas is non-empty)
+  // ---------------------------------------------------------------------------
+
+  private static List<Object[]> drainResultSet(ResultSet rs, int columnCount) throws SQLException {
+    List<Object[]> rows = new ArrayList<>();
+    while (rs.next()) {
+      Object[] row = new Object[columnCount];
+      for (int i = 0; i < columnCount; i++) {
+        row[i] = rs.getObject(i + 1);
+      }
+      rows.add(row);
+    }
+    return rows;
+  }
+
+  private static void filterBySchema(
+      List<Object[]> rows, ResultSetMetaData md, Set<String> skipSchemas) throws SQLException {
+    int schemaCol = findColumnIndex(md, "TABLE_SCHEM");
+    if (schemaCol < 0) return;
+    rows.removeIf(row -> row[schemaCol] != null && skipSchemas.contains(row[schemaCol].toString()));
+  }
+
+  private static int findColumnIndex(ResultSetMetaData md, String columnName) throws SQLException {
+    for (int i = 1; i <= md.getColumnCount(); i++) {
+      if (columnName.equalsIgnoreCase(md.getColumnName(i))) {
+        return i - 1; // 0-based for array access
+      }
+    }
+    return -1;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Shared row comparison helpers (used by both streaming and list-based paths)
+  // ---------------------------------------------------------------------------
+
+  /** Returns a formatted cell mismatch string, or null if values are equal. */
+  private static String cellMismatch(int rowNum, String columnName, Object value1, Object value2) {
+    if (objectsEqual(value1, value2)) return null;
+    String type1 = value1 != null ? value1.getClass().getSimpleName() : "null";
+    String type2 = value2 != null ? value2.getClass().getSimpleName() : "null";
+    return "Row "
+        + rowNum
+        + ", Column "
+        + columnName
+        + " mismatch: "
+        + value1
+        + " ("
+        + type1
+        + ") vs "
+        + value2
+        + " ("
+        + type2
+        + ")";
+  }
+
+  /** Formats an extra row entry from column names and values (0-based array). */
+  private static String formatExtraRow(int rowNum, ResultSetMetaData md, Object[] row)
+      throws SQLException {
+    StringBuilder rowData = new StringBuilder();
+    for (int i = 0; i < md.getColumnCount(); i++) {
+      if (i > 0) rowData.append(", ");
+      rowData.append(md.getColumnName(i + 1)).append(": ").append(row[i]);
+    }
+    return "Extra row " + rowNum + ": " + rowData;
+  }
+
+  // ---------------------------------------------------------------------------
+  // List-based row comparison (used after drain+filter)
+  // ---------------------------------------------------------------------------
+
+  private static List<String> compareRowData(
+      List<Object[]> rows1, List<Object[]> rows2, ResultSetMetaData md1, ResultSetMetaData md2)
+      throws SQLException {
+    List<String> differences = new ArrayList<>();
+    int columnCount = Math.min(md1.getColumnCount(), md2.getColumnCount());
+    int commonRows = Math.min(rows1.size(), rows2.size());
+
+    for (int row = 0; row < commonRows; row++) {
+      Object[] r1 = rows1.get(row);
+      Object[] r2 = rows2.get(row);
+      for (int i = 0; i < columnCount; i++) {
+        String diff = cellMismatch(row + 1, md1.getColumnName(i + 1), r1[i], r2[i]);
+        if (diff != null) differences.add(diff);
+      }
+    }
+
+    if (rows1.size() != rows2.size()) {
+      List<Object[]> extra = rows1.size() > rows2.size() ? rows1 : rows2;
+      String which = rows1.size() > rows2.size() ? "First" : "Second";
+      ResultSetMetaData md = rows1.size() > rows2.size() ? md1 : md2;
+      for (int row = commonRows; row < extra.size(); row++) {
+        differences.add(formatExtraRow(row + 1, md, extra.get(row)));
+      }
+      differences.add(which + " ResultSet has " + (extra.size() - commonRows) + " extra rows");
+    }
+
+    return differences;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Streaming row comparison (used when no filtering needed)
+  // ---------------------------------------------------------------------------
+
   private static List<String> compareData(ResultSet rs1, ResultSet rs2) throws SQLException {
     List<String> differences = new ArrayList<>();
     int rowCount = 0;
@@ -303,29 +436,9 @@ public class ResultSetComparator {
       }
       rowCount++;
       for (int i = 1; i <= columnCount; i++) {
-        Object value1 = rs1.getObject(i);
-        Object value2 = rs2.getObject(i);
-
-        if (!objectsEqual(value1, value2)) {
-          String type1 = value1 != null ? value1.getClass().getSimpleName() : "null";
-          String type2 = value2 != null ? value2.getClass().getSimpleName() : "null";
-
-          differences.add(
-              "Row "
-                  + rowCount
-                  + ", Column "
-                  + md1.getColumnName(i)
-                  + " mismatch: "
-                  + value1
-                  + " ("
-                  + type1
-                  + ")"
-                  + " vs "
-                  + value2
-                  + " ("
-                  + type2
-                  + ")");
-        }
+        String diff =
+            cellMismatch(rowCount, md1.getColumnName(i), rs1.getObject(i), rs2.getObject(i));
+        if (diff != null) differences.add(diff);
       }
     }
 
@@ -347,15 +460,13 @@ public class ResultSetComparator {
       ResultSet rs, ResultSetMetaData md, int startingRowCount, List<String> differences)
       throws SQLException {
     int extraRows = 0;
-    StringBuilder rowData = new StringBuilder();
     do {
       extraRows++;
-      rowData.setLength(0);
-      for (int i = 1; i <= md.getColumnCount(); i++) {
-        if (i > 1) rowData.append(", ");
-        rowData.append(md.getColumnName(i)).append(": ").append(rs.getObject(i));
+      Object[] row = new Object[md.getColumnCount()];
+      for (int i = 0; i < row.length; i++) {
+        row[i] = rs.getObject(i + 1);
       }
-      differences.add("Extra row " + (startingRowCount + extraRows) + ": " + rowData);
+      differences.add(formatExtraRow(startingRowCount + extraRows, md, row));
     } while (rs.next());
     return extraRows;
   }
