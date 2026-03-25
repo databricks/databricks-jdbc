@@ -24,7 +24,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class JDBCDriverComparisonTest {
   private static final String BASE_JDBC_URL =
       "jdbc:databricks://adb-6436897454825492.12.azuredatabricks.net:443/default"
-          + ";ssl=1;authMech=3;httpPath=/sql/1.0/warehouses/2f03dd43e35e2aa0";
+          + ";ssl=1;authMech=3;httpPath=/sql/1.0/warehouses/185201b7c5682561";
   private static final String BASE_THRIFT_URL = BASE_JDBC_URL + ";useThriftClient=1";
   private static final String BASE_SEA_URL = BASE_JDBC_URL + ";useThriftClient=0";
 
