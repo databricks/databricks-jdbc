@@ -7,7 +7,6 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -19,18 +18,13 @@ import java.util.stream.Collectors;
  * argument combinations for that method, invokes via reflection on both connections' metadata
  * objects, and compares results using ResultSetComparator.
  *
- * <p>To disable a method during development, comment out its line in {@link #registerMethods()}.
+ * <p>The test plan (which methods, which args) is defined in {@link DatabaseMetaDataParams}. This
+ * class is purely about execution and comparison.
  */
 public class DatabaseMetaDataProvider implements SuiteProvider {
 
-  /** Method name → list of argument combinations. Comment out lines to disable during dev. */
-  private static final Map<String, List<Object[]>> METHOD_REGISTRY = registerMethods();
-
-  private static Map<String, List<Object[]>> registerMethods() {
-    Map<String, List<Object[]>> methods = new LinkedHashMap<>();
-    methods.put("getCatalogs", DatabaseMetaDataParams.getCatalogs());
-    return methods;
-  }
+  private static final Map<String, List<Object[]>> METHOD_REGISTRY =
+      DatabaseMetaDataParams.buildRegistry();
 
   @Override
   public List<TestCase> getTestCases() {
