@@ -18,7 +18,10 @@ import java.util.stream.Collectors;
  */
 public enum ConnectionConfig {
   DEFAULT_PARAMS(
-      "Default params", Map.of(), null, allExcept(TestSuite.COMPLEX_TYPES, TestSuite.GEOSPATIAL)),
+      "Default params",
+      Map.of(),
+      null,
+      allExcept(TestSuite.COMPLEX_TYPES, TestSuite.GEOSPATIAL, TestSuite.VOLUME_OPERATIONS)),
 
   COMPRESSION_DISABLED(
       "Compression disabled",
@@ -61,6 +64,12 @@ public enum ConnectionConfig {
       Map.of("EnableDirectResults", "0"),
       null,
       EnumSet.of(TestSuite.STATEMENT_SELECT)),
+
+  VOLUME_OPERATIONS(
+      "Volume operations",
+      Map.of("VolumeOperationAllowedLocalPaths", "/tmp"),
+      null,
+      EnumSet.of(TestSuite.VOLUME_OPERATIONS)),
 
 // TODO: Uncomment when a pro warehouse ID is available
 // PRO_WAREHOUSE(

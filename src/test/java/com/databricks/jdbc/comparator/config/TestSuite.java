@@ -20,7 +20,7 @@ public enum TestSuite {
   COMPLEX_TYPES(new ComplexTypesProvider()),
   GEOSPATIAL(new GeospatialProvider()),
   NULL_HANDLING(new NullHandlingProvider()),
-  VOLUME_OPERATIONS(null);
+  VOLUME_OPERATIONS(new VolumeOperationsProvider());
 
   private final SuiteProvider provider;
 
