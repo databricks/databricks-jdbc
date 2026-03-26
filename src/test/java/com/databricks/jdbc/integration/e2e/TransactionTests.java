@@ -54,7 +54,7 @@ public class TransactionTests {
           + "/default;transportMode=http;ssl=1;AuthMech=3;httpPath="
           + DATABRICKS_HTTP_PATH;
 
-  private static final String TEST_TABLE_NAME = "transaction_test_table";
+  private static final String TEST_TABLE_NAME = "jdbc_transaction_test_table";
 
   private Connection connection;
 
