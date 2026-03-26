@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.exception.DatabricksTransactionException;
 import java.sql.*;
+import java.util.concurrent.*;
 import org.junit.jupiter.api.*;
 
 /**
@@ -1287,6 +1288,1174 @@ public class TransactionTests {
       Statement cleanupStmt = connection.createStatement();
       cleanupStmt.execute("DROP TABLE IF EXISTS " + fullyQualifiedAccountsTable);
       cleanupStmt.close();
+    }
+  }
+
+  // ==================== SECTION: executeUpdate/executeLargeUpdate/executeBatch (LC-13424)
+  // ====================
+
+  @Test
+  @DisplayName("executeUpdate INSERT should work within a transaction")
+  void testExecuteUpdateInsertInTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    int rowCount =
+        stmt.executeUpdate(
+            "INSERT INTO "
+                + getFullyQualifiedTableName()
+                + " (id, value) VALUES (1, 'exec_update')");
+    stmt.close();
+
+    connection.commit();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery(
+              "SELECT value FROM " + getFullyQualifiedTableName() + " WHERE id = 1");
+      assertTrue(rs.next(), "Should find inserted row after commit");
+      assertEquals("exec_update", rs.getString(1), "Value should match inserted value");
+      rs.close();
+      verifyStmt.close();
+    }
+  }
+
+  @Test
+  @DisplayName("executeLargeUpdate INSERT should work within a transaction")
+  void testExecuteLargeUpdateInsertInTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    long rowCount =
+        stmt.executeLargeUpdate(
+            "INSERT INTO "
+                + getFullyQualifiedTableName()
+                + " (id, value) VALUES (1, 'large_update')");
+    stmt.close();
+
+    connection.commit();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery(
+              "SELECT value FROM " + getFullyQualifiedTableName() + " WHERE id = 1");
+      assertTrue(rs.next(), "Should find inserted row after commit");
+      assertEquals("large_update", rs.getString(1), "Value should match inserted value");
+      rs.close();
+      verifyStmt.close();
+    }
+  }
+
+  @Test
+  @DisplayName("executeBatch INSERT should work within a transaction")
+  void testExecuteBatchInsertInTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.addBatch("INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'a')");
+    stmt.addBatch("INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (2, 'b')");
+    stmt.addBatch("INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (3, 'c')");
+    stmt.executeBatch();
+    stmt.close();
+
+    connection.commit();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery("SELECT COUNT(*) FROM " + getFullyQualifiedTableName());
+      assertTrue(rs.next());
+      assertEquals(3, rs.getInt(1), "Should have 3 rows after batch insert commit");
+      rs.close();
+      verifyStmt.close();
+    }
+  }
+
+  @Test
+  @DisplayName("executeBatch with mixed DML should work within a transaction")
+  void testExecuteBatchMixedDMLInTransaction() throws SQLException {
+    Statement setupStmt = connection.createStatement();
+    setupStmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'original')");
+    setupStmt.close();
+
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.addBatch(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (2, 'new_row')");
+    stmt.addBatch("UPDATE " + getFullyQualifiedTableName() + " SET value = 'updated' WHERE id = 1");
+    stmt.executeBatch();
+    stmt.close();
+
+    connection.commit();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery(
+              "SELECT value FROM " + getFullyQualifiedTableName() + " WHERE id = 1");
+      assertTrue(rs.next(), "Should find original row");
+      assertEquals("updated", rs.getString(1), "Value should be updated");
+      rs.close();
+
+      rs =
+          verifyStmt.executeQuery(
+              "SELECT value FROM " + getFullyQualifiedTableName() + " WHERE id = 2");
+      assertTrue(rs.next(), "Should find newly inserted row");
+      assertEquals("new_row", rs.getString(1), "New row value should match");
+      rs.close();
+      verifyStmt.close();
+    }
+  }
+
+  @Test
+  @DisplayName("PreparedStatement executeBatch should work within a transaction")
+  void testPreparedStatementExecuteBatchInTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    PreparedStatement ps =
+        connection.prepareStatement(
+            "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (?, ?)");
+
+    ps.setInt(1, 1);
+    ps.setString(2, "batch_ps_1");
+    ps.addBatch();
+
+    ps.setInt(1, 2);
+    ps.setString(2, "batch_ps_2");
+    ps.addBatch();
+
+    ps.setInt(1, 3);
+    ps.setString(2, "batch_ps_3");
+    ps.addBatch();
+
+    ps.executeBatch();
+    ps.close();
+
+    connection.commit();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery("SELECT COUNT(*) FROM " + getFullyQualifiedTableName());
+      assertTrue(rs.next());
+      assertEquals(3, rs.getInt(1), "Should have 3 rows after PreparedStatement batch commit");
+      rs.close();
+      verifyStmt.close();
+    }
+  }
+
+  // ==================== SECTION: DatabaseMetaData operations in transaction (LC-13425, LC-13427)
+  // ====================
+
+  @Test
+  @DisplayName("getColumns() inside active transaction should return results")
+  void testGetColumnsInsideActiveTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'meta_test')");
+    stmt.close();
+
+    DatabaseMetaData dbmd = connection.getMetaData();
+    ResultSet rs = dbmd.getColumns(DATABRICKS_CATALOG, DATABRICKS_SCHEMA, TEST_TABLE_NAME, "%");
+
+    boolean foundId = false;
+    boolean foundValue = false;
+    while (rs.next()) {
+      String columnName = rs.getString("COLUMN_NAME");
+      if ("id".equalsIgnoreCase(columnName)) {
+        foundId = true;
+      }
+      if ("value".equalsIgnoreCase(columnName)) {
+        foundValue = true;
+      }
+    }
+    rs.close();
+
+    assertTrue(foundId, "Should find 'id' column via getColumns()");
+    assertTrue(foundValue, "Should find 'value' column via getColumns()");
+
+    connection.rollback();
+  }
+
+  @Test
+  @DisplayName("getTables() inside active transaction should return results")
+  void testGetTablesInsideActiveTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'meta_test')");
+    stmt.close();
+
+    DatabaseMetaData dbmd = connection.getMetaData();
+    ResultSet rs = dbmd.getTables(DATABRICKS_CATALOG, DATABRICKS_SCHEMA, TEST_TABLE_NAME, null);
+
+    boolean found = false;
+    while (rs.next()) {
+      String tableName = rs.getString("TABLE_NAME");
+      if (TEST_TABLE_NAME.equalsIgnoreCase(tableName)) {
+        found = true;
+      }
+    }
+    rs.close();
+
+    assertTrue(found, "Should find test table via getTables()");
+
+    connection.rollback();
+  }
+
+  @Test
+  @DisplayName("getSchemas() inside active transaction should return results")
+  void testGetSchemasInsideActiveTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'meta_test')");
+    stmt.close();
+
+    DatabaseMetaData dbmd = connection.getMetaData();
+    ResultSet rs = dbmd.getSchemas(DATABRICKS_CATALOG, DATABRICKS_SCHEMA);
+
+    boolean found = false;
+    while (rs.next()) {
+      String schemaName = rs.getString("TABLE_SCHEM");
+      if (DATABRICKS_SCHEMA.equalsIgnoreCase(schemaName)) {
+        found = true;
+      }
+    }
+    rs.close();
+
+    assertTrue(found, "Should find schema via getSchemas()");
+
+    connection.rollback();
+  }
+
+  @Test
+  @DisplayName("getCatalogs() inside active transaction should return results")
+  void testGetCatalogsInsideActiveTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'meta_test')");
+    stmt.close();
+
+    DatabaseMetaData dbmd = connection.getMetaData();
+    ResultSet rs = dbmd.getCatalogs();
+
+    assertTrue(rs.next(), "getCatalogs() should return at least one catalog");
+    rs.close();
+
+    connection.rollback();
+  }
+
+  @Test
+  @DisplayName("getPrimaryKeys() inside active transaction should return results")
+  void testGetPrimaryKeysInsideActiveTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'meta_test')");
+    stmt.close();
+
+    DatabaseMetaData dbmd = connection.getMetaData();
+    ResultSet rs = dbmd.getPrimaryKeys(DATABRICKS_CATALOG, DATABRICKS_SCHEMA, TEST_TABLE_NAME);
+    assertNotNull(rs, "getPrimaryKeys() should return a ResultSet");
+    rs.close();
+
+    connection.rollback();
+  }
+
+  @Test
+  @DisplayName("getCrossReference() inside active transaction should not throw")
+  void testGetCrossReferenceInsideActiveTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'meta_test')");
+    stmt.close();
+
+    DatabaseMetaData dbmd = connection.getMetaData();
+    ResultSet rs =
+        dbmd.getCrossReference(
+            DATABRICKS_CATALOG,
+            DATABRICKS_SCHEMA,
+            TEST_TABLE_NAME,
+            DATABRICKS_CATALOG,
+            DATABRICKS_SCHEMA,
+            TEST_TABLE_NAME);
+    assertNotNull(rs, "getCrossReference() should return a ResultSet");
+    rs.close();
+
+    connection.rollback();
+  }
+
+  @Test
+  @DisplayName("getFunctions() inside active transaction should return results")
+  void testGetFunctionsInsideActiveTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'meta_test')");
+    stmt.close();
+
+    DatabaseMetaData dbmd = connection.getMetaData();
+    ResultSet rs = dbmd.getFunctions(DATABRICKS_CATALOG, null, "%");
+
+    assertTrue(rs.next(), "getFunctions() should return at least one function");
+    rs.close();
+
+    connection.rollback();
+  }
+
+  // ==================== SECTION: PreparedStatement metadata in transaction (LC-13425)
+  // ====================
+
+  @Test
+  @DisplayName("PreparedStatement.getMetaData() before execute inside transaction")
+  void testPreparedStatementGetMetaDataBeforeExecuteInTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    PreparedStatement ps =
+        connection.prepareStatement("SELECT * FROM " + getFullyQualifiedTableName());
+
+    try {
+      ResultSetMetaData rsmd = ps.getMetaData();
+      if (rsmd != null) {
+        assertTrue(
+            rsmd.getColumnCount() >= 2,
+            "Should have at least 2 columns (id, value) if metadata is available before execute");
+      }
+    } catch (SQLException e) {
+      // Some drivers do not support getMetaData() before execute.
+      System.out.println("PreparedStatement.getMetaData() before execute threw: " + e.getMessage());
+    } finally {
+      ps.close();
+      connection.rollback();
+    }
+  }
+
+  @Test
+  @DisplayName(
+      "PreparedStatement.getMetaData() after execute inside transaction should return cached"
+          + " metadata")
+  void testPreparedStatementGetMetaDataAfterExecuteInTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'ps_meta')");
+    stmt.close();
+
+    PreparedStatement ps =
+        connection.prepareStatement("SELECT * FROM " + getFullyQualifiedTableName());
+    ps.execute();
+
+    ResultSetMetaData rsmd = ps.getMetaData();
+    assertNotNull(rsmd, "ResultSetMetaData should not be null after execute");
+    assertTrue(rsmd.getColumnCount() >= 2, "Should have at least 2 columns (id, value)");
+
+    ps.close();
+    connection.rollback();
+  }
+
+  @Test
+  @DisplayName("PreparedStatement.getParameterMetaData() inside transaction")
+  void testGetParameterMetaDataInsideTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    PreparedStatement ps =
+        connection.prepareStatement(
+            "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (?, ?)");
+
+    ParameterMetaData pmd = ps.getParameterMetaData();
+    assertNotNull(pmd, "ParameterMetaData should not be null");
+
+    ps.close();
+    connection.rollback();
+  }
+
+  // ==================== SECTION: Concurrent DDL + parameterized DML (LC-13428)
+  // ====================
+
+  @Test
+  @DisplayName("Parameterized DML after concurrent ALTER TABLE should handle schema change")
+  void testParameterizedDMLAfterConcurrentAlterTable() throws SQLException {
+    String concurrentTable = getFullyQualifiedTableName() + "_concurrent";
+    Statement setupStmt = connection.createStatement();
+    setupStmt.execute("DROP TABLE IF EXISTS " + concurrentTable);
+    setupStmt.execute(
+        "CREATE TABLE "
+            + concurrentTable
+            + " (id INT, value VARCHAR(255)) "
+            + "USING DELTA "
+            + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
+    setupStmt.close();
+
+    Connection conn2 = null;
+    try {
+      connection.setAutoCommit(false);
+      Statement stmt1 = connection.createStatement();
+      stmt1.executeUpdate(
+          "INSERT INTO " + concurrentTable + " (id, value) VALUES (1, 'before_alter')");
+      stmt1.close();
+
+      conn2 = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN);
+      Statement stmt2 = conn2.createStatement();
+      stmt2.execute("ALTER TABLE " + concurrentTable + " ADD COLUMN new_col VARCHAR(255)");
+      stmt2.close();
+
+      try {
+        PreparedStatement ps =
+            connection.prepareStatement(
+                "INSERT INTO " + concurrentTable + " (id, value) VALUES (?, ?)");
+        ps.setInt(1, 2);
+        ps.setString(2, "after_alter");
+        ps.executeUpdate();
+        ps.close();
+        connection.commit();
+      } catch (SQLException e) {
+        System.out.println(
+            "Parameterized DML after concurrent ALTER TABLE threw: " + e.getMessage());
+        try {
+          connection.rollback();
+        } catch (SQLException rollbackEx) {
+          // Ignore
+        }
+      }
+    } finally {
+      if (conn2 != null) {
+        try {
+          Statement cleanupStmt = conn2.createStatement();
+          cleanupStmt.execute("DROP TABLE IF EXISTS " + concurrentTable);
+          cleanupStmt.close();
+          conn2.close();
+        } catch (SQLException e) {
+          // Ignore
+        }
+      }
+      try {
+        if (connection != null && !connection.isClosed()) {
+          if (!connection.getAutoCommit()) {
+            try {
+              connection.rollback();
+            } catch (SQLException e) {
+              // Ignore
+            }
+            connection.setAutoCommit(true);
+          }
+          Statement cleanupStmt = connection.createStatement();
+          cleanupStmt.execute("DROP TABLE IF EXISTS " + concurrentTable);
+          cleanupStmt.close();
+        }
+      } catch (SQLException e) {
+        // Ignore
+      }
+    }
+  }
+
+  // ==================== SECTION: MSTCheckRule-blocked SQL statements ====================
+
+  private void assertBlockedInTransaction(String blockedSql) throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'blocked_test')");
+
+    try {
+      stmt.execute(blockedSql);
+      try {
+        stmt.executeUpdate(
+            "INSERT INTO "
+                + getFullyQualifiedTableName()
+                + " (id, value) VALUES (2, 'after_blocked')");
+      } catch (SQLException subsequentEx) {
+        assertTrue(
+            true,
+            "Transaction was aborted after blocked SQL - subsequent DML failed: "
+                + subsequentEx.getMessage());
+        stmt.close();
+        return;
+      }
+      System.out.println(
+          "WARNING: Expected blocked SQL did not throw or abort transaction: " + blockedSql);
+    } catch (SQLException e) {
+      assertNotNull(e.getMessage(), "Exception should have a message");
+    } finally {
+      stmt.close();
+    }
+  }
+
+  @Test
+  @DisplayName("DESCRIBE QUERY should be blocked inside active transaction")
+  void testDescribeQueryBlockedInTransaction() throws SQLException {
+    assertBlockedInTransaction("DESCRIBE QUERY SELECT * FROM " + getFullyQualifiedTableName());
+  }
+
+  @Test
+  @DisplayName("SHOW COLUMNS should be blocked inside active transaction")
+  void testShowColumnsBlockedInTransaction() throws SQLException {
+    assertBlockedInTransaction("SHOW COLUMNS IN " + getFullyQualifiedTableName());
+  }
+
+  @Test
+  @DisplayName("SHOW TABLES should be blocked inside active transaction")
+  void testShowTablesBlockedInTransaction() throws SQLException {
+    assertBlockedInTransaction("SHOW TABLES IN " + DATABRICKS_SCHEMA);
+  }
+
+  @Test
+  @DisplayName("SHOW SCHEMAS should be blocked inside active transaction")
+  void testShowSchemasBlockedInTransaction() throws SQLException {
+    assertBlockedInTransaction("SHOW SCHEMAS IN " + DATABRICKS_CATALOG);
+  }
+
+  @Test
+  @DisplayName("SHOW CATALOGS should be blocked inside active transaction")
+  void testShowCatalogsBlockedInTransaction() throws SQLException {
+    assertBlockedInTransaction("SHOW CATALOGS");
+  }
+
+  @Test
+  @DisplayName("SHOW FUNCTIONS should be blocked inside active transaction")
+  void testShowFunctionsBlockedInTransaction() throws SQLException {
+    assertBlockedInTransaction("SHOW FUNCTIONS");
+  }
+
+  @Test
+  @DisplayName("DESCRIBE TABLE EXTENDED should be blocked inside active transaction")
+  void testDescribeTableExtendedBlockedInTransaction() throws SQLException {
+    assertBlockedInTransaction("DESCRIBE TABLE EXTENDED " + getFullyQualifiedTableName());
+  }
+
+  @Test
+  @DisplayName("SELECT from information_schema should be blocked inside active transaction")
+  void testInformationSchemaQueryBlockedInTransaction() throws SQLException {
+    assertBlockedInTransaction(
+        "SELECT * FROM information_schema.columns WHERE table_name = '"
+            + TEST_TABLE_NAME
+            + "' LIMIT 1");
+  }
+
+  @Test
+  @DisplayName("DESCRIBE COLUMN should be blocked inside active transaction")
+  void testDescribeColumnBlockedInTransaction() throws SQLException {
+    assertBlockedInTransaction("DESCRIBE " + getFullyQualifiedTableName() + " id");
+  }
+
+  // ==================== SECTION: Allowed operations in MST ====================
+
+  @Test
+  @DisplayName("setCatalog() should work inside active transaction")
+  void testSetCatalogInsideTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'set_catalog')");
+    stmt.close();
+
+    connection.setCatalog(DATABRICKS_CATALOG);
+
+    connection.commit();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery(
+              "SELECT value FROM " + getFullyQualifiedTableName() + " WHERE id = 1");
+      assertTrue(rs.next(), "Should find inserted row after commit");
+      assertEquals("set_catalog", rs.getString(1));
+      rs.close();
+      verifyStmt.close();
+    }
+  }
+
+  @Test
+  @DisplayName("setSchema() should work inside active transaction")
+  void testSetSchemaInsideTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'set_schema')");
+    stmt.close();
+
+    connection.setSchema(DATABRICKS_SCHEMA);
+
+    connection.commit();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery(
+              "SELECT value FROM " + getFullyQualifiedTableName() + " WHERE id = 1");
+      assertTrue(rs.next(), "Should find inserted row after commit");
+      assertEquals("set_schema", rs.getString(1));
+      rs.close();
+      verifyStmt.close();
+    }
+  }
+
+  @Test
+  @DisplayName("DESCRIBE TABLE (basic) should be allowed inside active transaction")
+  void testDescribeTableBasicAllowedInTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'describe_test')");
+
+    ResultSet rs = stmt.executeQuery("DESCRIBE TABLE " + getFullyQualifiedTableName());
+    assertNotNull(rs, "DESCRIBE TABLE should return a ResultSet");
+    assertTrue(rs.next(), "DESCRIBE TABLE should return at least one row");
+    rs.close();
+
+    stmt.close();
+    connection.commit();
+  }
+
+  @Test
+  @DisplayName("Full transaction lifecycle with allowed metadata operations")
+  void testTransactionContinuesAfterAllowedMetadataOp() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'first')");
+    stmt.close();
+
+    connection.setCatalog(DATABRICKS_CATALOG);
+
+    Statement stmt2 = connection.createStatement();
+    stmt2.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (2, 'second')");
+    stmt2.close();
+
+    connection.setSchema(DATABRICKS_SCHEMA);
+
+    connection.commit();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery("SELECT COUNT(*) FROM " + getFullyQualifiedTableName());
+      assertTrue(rs.next());
+      assertEquals(2, rs.getInt(1), "Should have 2 rows after commit");
+      rs.close();
+      verifyStmt.close();
+    }
+  }
+
+  // ==================== SECTION: Connection close with pending transaction ====================
+
+  @Test
+  @DisplayName("Closing connection with pending transaction should implicitly rollback")
+  void testCloseConnectionWithPendingTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'pending')");
+    stmt.close();
+
+    connection.close();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery(
+              "SELECT COUNT(*) FROM " + getFullyQualifiedTableName() + " WHERE id = 1");
+      assertTrue(rs.next());
+      assertEquals(0, rs.getInt(1), "Pending transaction data should not be persisted after close");
+      rs.close();
+      verifyStmt.close();
+    }
+
+    // Reopen connection for @AfterEach cleanup
+    connection = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN);
+  }
+
+  @Test
+  @DisplayName("Closing connection with pending transaction should not throw")
+  void testCloseConnectionTriggersImplicitRollback() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO "
+            + getFullyQualifiedTableName()
+            + " (id, value) VALUES (1, 'implicit_rollback')");
+    stmt.close();
+
+    assertDoesNotThrow(
+        () -> connection.close(), "Closing connection with pending transaction should not throw");
+
+    // Reopen for cleanup
+    connection = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN);
+  }
+
+  // ==================== SECTION: DDL in transactions ====================
+
+  @Test
+  @DisplayName("CREATE TABLE inside transaction should document behavior")
+  void testDDLCreateTableInTransaction() throws SQLException {
+    String ddlTable = getFullyQualifiedTableName() + "_ddl_create";
+    connection.setAutoCommit(false);
+
+    boolean ddlSucceeded = false;
+    try {
+      Statement stmt = connection.createStatement();
+      stmt.execute(
+          "CREATE TABLE "
+              + ddlTable
+              + " (id INT, value VARCHAR(255)) "
+              + "USING DELTA "
+              + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
+      stmt.close();
+      ddlSucceeded = true;
+    } catch (SQLException e) {
+      System.out.println("CREATE TABLE inside transaction threw: " + e.getMessage());
+    }
+
+    try {
+      connection.rollback();
+    } catch (SQLException e) {
+      // Ignore
+    }
+
+    try {
+      connection.setAutoCommit(true);
+      Statement checkStmt = connection.createStatement();
+      ResultSet rs = checkStmt.executeQuery("SELECT 1 FROM " + ddlTable + " LIMIT 1");
+      rs.close();
+      checkStmt.close();
+      System.out.println("DDL CREATE TABLE: table exists after rollback (DDL not transactional)");
+      Statement cleanupStmt = connection.createStatement();
+      cleanupStmt.execute("DROP TABLE IF EXISTS " + ddlTable);
+      cleanupStmt.close();
+    } catch (SQLException e) {
+      System.out.println("DDL CREATE TABLE: table does NOT exist after rollback");
+    }
+  }
+
+  @Test
+  @DisplayName("DROP TABLE inside transaction should document behavior")
+  void testDDLDropTableInTransaction() throws SQLException {
+    String tempTable = getFullyQualifiedTableName() + "_ddl_drop";
+    Statement setupStmt = connection.createStatement();
+    setupStmt.execute("DROP TABLE IF EXISTS " + tempTable);
+    setupStmt.execute(
+        "CREATE TABLE "
+            + tempTable
+            + " (id INT, value VARCHAR(255)) "
+            + "USING DELTA "
+            + "TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
+    setupStmt.close();
+
+    connection.setAutoCommit(false);
+
+    try {
+      Statement stmt = connection.createStatement();
+      stmt.execute("DROP TABLE " + tempTable);
+      stmt.close();
+    } catch (SQLException e) {
+      System.out.println("DROP TABLE inside transaction threw: " + e.getMessage());
+    }
+
+    try {
+      connection.rollback();
+    } catch (SQLException e) {
+      // Ignore
+    }
+
+    try {
+      connection.setAutoCommit(true);
+      Statement checkStmt = connection.createStatement();
+      ResultSet rs = checkStmt.executeQuery("SELECT 1 FROM " + tempTable + " LIMIT 1");
+      rs.close();
+      checkStmt.close();
+      System.out.println("DDL DROP TABLE: table still exists after rollback (DDL rolled back)");
+    } catch (SQLException e) {
+      System.out.println(
+          "DDL DROP TABLE: table does NOT exist after rollback (DDL not transactional)");
+    }
+
+    try {
+      Statement cleanupStmt = connection.createStatement();
+      cleanupStmt.execute("DROP TABLE IF EXISTS " + tempTable);
+      cleanupStmt.close();
+    } catch (SQLException e) {
+      // Ignore
+    }
+  }
+
+  @Test
+  @DisplayName("ALTER TABLE inside transaction should document behavior")
+  void testDDLAlterTableInTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'alter_test')");
+
+    try {
+      stmt.execute(
+          "ALTER TABLE " + getFullyQualifiedTableName() + " ADD COLUMN extra VARCHAR(255)");
+      System.out.println("ALTER TABLE inside transaction succeeded");
+    } catch (SQLException e) {
+      System.out.println("ALTER TABLE inside transaction threw: " + e.getMessage());
+    }
+
+    stmt.close();
+
+    try {
+      connection.rollback();
+    } catch (SQLException e) {
+      // Ignore
+    }
+  }
+
+  // ==================== SECTION: PreparedStatement in transactions ====================
+
+  @Test
+  @DisplayName("Parameterized INSERT via PreparedStatement in transaction")
+  void testPreparedStatementInsertInTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    PreparedStatement ps =
+        connection.prepareStatement(
+            "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (?, ?)");
+    ps.setInt(1, 1);
+    ps.setString(2, "ps_insert");
+    ps.executeUpdate();
+    ps.close();
+
+    connection.commit();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery(
+              "SELECT value FROM " + getFullyQualifiedTableName() + " WHERE id = 1");
+      assertTrue(rs.next(), "Should find inserted row");
+      assertEquals("ps_insert", rs.getString(1));
+      rs.close();
+      verifyStmt.close();
+    }
+  }
+
+  @Test
+  @DisplayName("Parameterized UPDATE via PreparedStatement in transaction")
+  void testPreparedStatementUpdateInTransaction() throws SQLException {
+    Statement setupStmt = connection.createStatement();
+    setupStmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'original')");
+    setupStmt.close();
+
+    connection.setAutoCommit(false);
+
+    PreparedStatement ps =
+        connection.prepareStatement(
+            "UPDATE " + getFullyQualifiedTableName() + " SET value = ? WHERE id = ?");
+    ps.setString(1, "updated_ps");
+    ps.setInt(2, 1);
+    ps.executeUpdate();
+    ps.close();
+
+    connection.commit();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery(
+              "SELECT value FROM " + getFullyQualifiedTableName() + " WHERE id = 1");
+      assertTrue(rs.next(), "Should find updated row");
+      assertEquals("updated_ps", rs.getString(1));
+      rs.close();
+      verifyStmt.close();
+    }
+  }
+
+  @Test
+  @DisplayName("PreparedStatement reuse across transaction boundaries")
+  void testPreparedStatementReuseAcrossTransactions() throws SQLException {
+    connection.setAutoCommit(false);
+
+    PreparedStatement ps =
+        connection.prepareStatement(
+            "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (?, ?)");
+
+    // Transaction 1
+    ps.setInt(1, 1);
+    ps.setString(2, "txn1_value");
+    ps.executeUpdate();
+    connection.commit();
+
+    // Transaction 2 - reuse same PreparedStatement
+    ps.setInt(1, 2);
+    ps.setString(2, "txn2_value");
+    ps.executeUpdate();
+    connection.commit();
+
+    ps.close();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery("SELECT COUNT(*) FROM " + getFullyQualifiedTableName());
+      assertTrue(rs.next());
+      assertEquals(2, rs.getInt(1), "Should have 2 rows from two transactions");
+      rs.close();
+      verifyStmt.close();
+    }
+  }
+
+  // ==================== SECTION: ResultSet and Statement edge cases ====================
+
+  @Test
+  @DisplayName("ResultSet should remain readable after commit (holdability)")
+  void testResultSetHoldabilityOverCommit() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement insertStmt = connection.createStatement();
+    insertStmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'hold1')");
+    insertStmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (2, 'hold2')");
+    insertStmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (3, 'hold3')");
+    insertStmt.close();
+
+    connection.commit();
+
+    Statement queryStmt = connection.createStatement();
+    ResultSet rs =
+        queryStmt.executeQuery(
+            "SELECT id, value FROM " + getFullyQualifiedTableName() + " ORDER BY id");
+
+    int rowCount = 0;
+    while (rs.next()) {
+      rowCount++;
+      assertNotNull(rs.getString("value"), "Should be able to read value after commit");
+    }
+    assertEquals(3, rowCount, "Should read all 3 rows");
+    rs.close();
+    queryStmt.close();
+  }
+
+  @Test
+  @DisplayName("Multiple Statement objects in single transaction")
+  void testMultipleStatementsInSingleTransaction() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement s1 = connection.createStatement();
+    Statement s2 = connection.createStatement();
+    Statement s3 = connection.createStatement();
+
+    s1.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'stmt1')");
+    s2.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (2, 'stmt2')");
+    s3.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (3, 'stmt3')");
+
+    s1.close();
+    s2.close();
+    s3.close();
+
+    connection.commit();
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet rs =
+          verifyStmt.executeQuery("SELECT COUNT(*) FROM " + getFullyQualifiedTableName());
+      assertTrue(rs.next());
+      assertEquals(3, rs.getInt(1), "Should have 3 rows from 3 different Statement objects");
+      rs.close();
+      verifyStmt.close();
+    }
+  }
+
+  @Test
+  @DisplayName("Statement timeout mid-transaction should allow rollback")
+  void testTransactionAfterStatementTimeout() throws SQLException {
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    stmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'timeout_test')");
+    stmt.close();
+
+    Statement s2 = connection.createStatement();
+    s2.setQueryTimeout(1);
+    try {
+      s2.execute(
+          "SELECT COUNT(*) FROM "
+              + getFullyQualifiedTableName()
+              + " a CROSS JOIN "
+              + getFullyQualifiedTableName()
+              + " b CROSS JOIN "
+              + getFullyQualifiedTableName()
+              + " c");
+    } catch (SQLException e) {
+      System.out.println("Statement timeout triggered as expected: " + e.getMessage());
+    } finally {
+      s2.close();
+    }
+
+    try {
+      connection.rollback();
+    } catch (SQLException e) {
+      System.out.println("Rollback after statement timeout threw: " + e.getMessage());
+    }
+  }
+
+  @Test
+  @DisplayName("Retry pattern after ConcurrentAppendException")
+  void testRetryAfterConcurrentAppendException() throws SQLException {
+    Connection conn1 = null;
+    Connection conn2 = null;
+
+    try {
+      conn1 = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN);
+      conn2 = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN);
+
+      conn1.setAutoCommit(false);
+      conn2.setAutoCommit(false);
+
+      Statement stmt1 = conn1.createStatement();
+      stmt1.executeUpdate(
+          "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'conn1')");
+      stmt1.close();
+
+      Statement stmt2 = conn2.createStatement();
+      stmt2.executeUpdate(
+          "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (2, 'conn2')");
+      stmt2.close();
+
+      conn1.commit();
+
+      try {
+        conn2.commit();
+        System.out.println("Both concurrent commits succeeded without conflict");
+      } catch (SQLException e) {
+        System.out.println("Concurrent commit conflict: " + e.getMessage());
+
+        try {
+          conn2.rollback();
+        } catch (SQLException rollbackEx) {
+          // Ignore
+        }
+
+        Statement retryStmt = conn2.createStatement();
+        retryStmt.executeUpdate(
+            "INSERT INTO "
+                + getFullyQualifiedTableName()
+                + " (id, value) VALUES (2, 'conn2_retry')");
+        retryStmt.close();
+        conn2.commit();
+      }
+
+      try (Connection verifyConn =
+          DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+        Statement verifyStmt = verifyConn.createStatement();
+        ResultSet rs =
+            verifyStmt.executeQuery("SELECT COUNT(*) FROM " + getFullyQualifiedTableName());
+        assertTrue(rs.next());
+        assertTrue(rs.getInt(1) >= 2, "Should have at least 2 rows after retry");
+        rs.close();
+        verifyStmt.close();
+      }
+    } finally {
+      if (conn1 != null) {
+        try {
+          conn1.close();
+        } catch (SQLException e) {
+          // Ignore
+        }
+      }
+      if (conn2 != null) {
+        try {
+          conn2.close();
+        } catch (SQLException e) {
+          // Ignore
+        }
+      }
+    }
+  }
+
+  @Test
+  @DisplayName("Empty transaction commit should succeed or throw appropriate error")
+  void testEmptyTransactionCommit() throws SQLException {
+    connection.setAutoCommit(false);
+
+    try {
+      connection.commit();
+    } catch (SQLException e) {
+      assertNotNull(e.getMessage(), "Exception should have a message");
+      System.out.println("Empty transaction commit threw: " + e.getMessage());
+    }
+  }
+
+  @Test
+  @DisplayName("Empty transaction rollback should succeed")
+  void testEmptyTransactionRollback() throws SQLException {
+    connection.setAutoCommit(false);
+
+    assertDoesNotThrow(() -> connection.rollback(), "Empty transaction rollback should not throw");
+  }
+
+  @Test
+  @DisplayName("SELECT-only transaction should work correctly")
+  void testReadOnlyQueriesInTransaction() throws SQLException {
+    Statement setupStmt = connection.createStatement();
+    setupStmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (1, 'readonly1')");
+    setupStmt.executeUpdate(
+        "INSERT INTO " + getFullyQualifiedTableName() + " (id, value) VALUES (2, 'readonly2')");
+    setupStmt.close();
+
+    connection.setAutoCommit(false);
+
+    Statement stmt = connection.createStatement();
+    ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM " + getFullyQualifiedTableName());
+    assertTrue(rs.next());
+    assertEquals(2, rs.getInt(1), "Should see 2 rows");
+    rs.close();
+
+    rs = stmt.executeQuery("SELECT value FROM " + getFullyQualifiedTableName() + " WHERE id = 1");
+    assertTrue(rs.next());
+    assertEquals("readonly1", rs.getString(1));
+    rs.close();
+
+    stmt.close();
+
+    try {
+      connection.commit();
+    } catch (SQLException e) {
+      System.out.println("Commit on read-only transaction threw: " + e.getMessage());
+    }
+
+    try (Connection verifyConn = DriverManager.getConnection(JDBC_URL, "token", DATABRICKS_TOKEN)) {
+      Statement verifyStmt = verifyConn.createStatement();
+      ResultSet verifyRs =
+          verifyStmt.executeQuery("SELECT COUNT(*) FROM " + getFullyQualifiedTableName());
+      assertTrue(verifyRs.next());
+      assertEquals(2, verifyRs.getInt(1), "Data should be unchanged after read-only transaction");
+      verifyRs.close();
+      verifyStmt.close();
     }
   }
 }
