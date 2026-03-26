@@ -28,8 +28,11 @@ public class GeospatialProvider implements SuiteProvider {
             "Geo columns — inline (7 rows)",
             false),
         new TestCase(
-            "SELECT geometry_column, geography_column FROM " + TABLE + " ORDER BY id",
-            "Geo columns — CloudFetch (150K+ rows)",
+            "SELECT geometry_column, geography_column, "
+                + "geometry_column AS geo2, geography_column AS geog2 FROM "
+                + TABLE
+                + " ORDER BY id",
+            "Geo columns — CloudFetch (150K+ rows, 4 columns)",
             true));
   }
 

@@ -71,13 +71,11 @@ public enum ConnectionConfig {
       null,
       EnumSet.of(TestSuite.VOLUME_OPERATIONS)),
 
-// TODO: Uncomment when a pro warehouse ID is available
-// PRO_WAREHOUSE(
-//     "Pro warehouse",
-//     Map.of("EnableComplexDatatypeSupport", "1", "EnableGeoSpatialSupport", "1"),
-//     "/sql/1.0/warehouses/<pro-warehouse-id>",
-//     EnumSet.of(TestSuite.STATEMENT_SELECT, TestSuite.COMPLEX_TYPES, TestSuite.GEOSPATIAL)),
-;
+  PRO_WAREHOUSE(
+      "Pro warehouse",
+      Map.of("EnableComplexDatatypeSupport", "1", "EnableGeoSpatialSupport", "1"),
+      "/sql/1.0/warehouses/7b03aaa124ecb70e",
+      EnumSet.of(TestSuite.STATEMENT_SELECT, TestSuite.COMPLEX_TYPES, TestSuite.GEOSPATIAL));
 
   private static final String CONFIG_FILTER_PROPERTY = "CONNECTION_CONFIG";
 
