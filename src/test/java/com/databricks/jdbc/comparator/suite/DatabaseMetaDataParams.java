@@ -240,12 +240,13 @@ public class DatabaseMetaDataParams {
   static final List<Object> KEYS_SCHEMA_VARIANTS = Arrays.asList(null, "oss_jdbc_tests");
 
   static final List<Object> PK_TABLE_VARIANTS =
-      Arrays.asList(null, "test_result_set_types", "no_constraints", "fk_child", "fk_parent");
+      Arrays.asList(
+          null, "test_result_set_types", "no_constraints", "fk_child", "fk_parent", "nonexistent");
 
   static final List<Object> FK_TABLE_VARIANTS =
-      Arrays.asList(null, "fk_child", "no_constraints", "test_result_set_types");
+      Arrays.asList(null, "fk_child", "no_constraints", "test_result_set_types", "nonexistent");
 
-  static final List<Object> PARENT_TABLE_VARIANTS = Arrays.asList(null, "fk_parent");
+  static final List<Object> PARENT_TABLE_VARIANTS = Arrays.asList(null, "fk_parent", "nonexistent");
 
   // Scalar argument lists
   static final List<Object> RESULT_SET_TYPES =

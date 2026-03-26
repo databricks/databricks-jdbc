@@ -9,7 +9,6 @@ import com.databricks.jdbc.comparator.suite.*;
  * <p>To add a new suite: create a {@link SuiteProvider} implementation and wire it here.
  */
 public enum TestSuite {
-  DATABASE_METADATA(new DatabaseMetaDataProvider()),
   STATEMENT_SELECT(new StatementSelectProvider()),
   STATEMENT_SELECT_TRUNCATED(new StatementSelectTruncatedProvider()),
   STATEMENT_DDL(new StatementDdlProvider()),
@@ -20,7 +19,8 @@ public enum TestSuite {
   COMPLEX_TYPES(new ComplexTypesProvider()),
   GEOSPATIAL(new GeospatialProvider()),
   NULL_HANDLING(new NullHandlingProvider()),
-  VOLUME_OPERATIONS(new VolumeOperationsProvider());
+  VOLUME_OPERATIONS(new VolumeOperationsProvider()),
+  DATABASE_METADATA(new DatabaseMetaDataProvider());
 
   private final SuiteProvider provider;
 

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import com.databricks.jdbc.comparator.config.ConnectionConfig;
 import com.databricks.jdbc.comparator.config.ConnectionManager;
 import com.databricks.jdbc.comparator.config.TestSuite;
+import com.databricks.jdbc.comparator.setup.WorkspaceSetup;
 import com.databricks.jdbc.comparator.suite.SuiteProvider;
 import com.databricks.jdbc.comparator.suite.TestCase;
 import java.nio.file.Path;
@@ -23,8 +24,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class JDBCDriverComparisonTest {
   private static final String BASE_JDBC_URL =
-      "jdbc:databricks://adb-6436897454825492.12.azuredatabricks.net:443/default"
-          + ";ssl=1;authMech=3;httpPath=/sql/1.0/warehouses/185201b7c5682561";
+      "jdbc:databricks://adb-7405613695221181.1.azuredatabricks.net:443/default"
+          + ";ssl=1;authMech=3;httpPath=/sql/1.0/warehouses/6feab30b476abfa4";
   private static final String BASE_THRIFT_URL = BASE_JDBC_URL + ";useThriftClient=1";
   private static final String BASE_SEA_URL = BASE_JDBC_URL + ";useThriftClient=0";
 
@@ -35,6 +36,9 @@ public class JDBCDriverComparisonTest {
   static void setup() throws Exception {
     String token = System.getenv("DATABRICKS_COMPARATOR_TOKEN");
     connectionManager = new ConnectionManager(token);
+
+    // Workspace validation/setup — only runs when -DWORKSPACE_SETUP=validate|create
+    WorkspaceSetup.run(connectionManager.getConnection(BASE_THRIFT_URL));
 
     String timestamp = Instant.now().toString().replaceAll("[:.]+", "-");
     List<String> connectionUrls =
@@ -100,13 +104,20 @@ public class JDBCDriverComparisonTest {
               "[%s] [%s] Running: %s%n", Instant.now(), comparisonName, testCase.getDescription());
 
           String label = suite.name() + " [" + comparisonName + "]";
-          ComparisonResult result = suite.getProvider().execute(conn1, conn2, testCase, label);
-          reporter.addResult(result);
+          try {
+            ComparisonResult result = suite.getProvider().execute(conn1, conn2, testCase, label);
+            reporter.addResult(result);
 
-          if (result.hasDifferences()) {
-            System.err.println(
-                "[" + comparisonName + "] Differences found for: " + testCase.getDescription());
-            System.err.println(result);
+            if (result.hasDifferences()) {
+              System.err.println(
+                  "[" + comparisonName + "] Differences found for: " + testCase.getDescription());
+              System.err.println(result);
+            }
+          } catch (Exception e) {
+            System.err.printf(
+                "[%s] [%s] ERROR in %s: %s%n",
+                Instant.now(), comparisonName, testCase.getDescription(), e.getMessage());
+            throw e;
           }
         });
   }
