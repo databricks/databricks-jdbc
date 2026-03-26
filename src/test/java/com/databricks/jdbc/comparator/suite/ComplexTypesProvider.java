@@ -35,8 +35,8 @@ public class ComplexTypesProvider implements SuiteProvider {
             "All complex types — inline (7 edge case rows)",
             false),
         new TestCase(
-            "SELECT " + ALL_COMPLEX_COLS + " FROM " + TABLE + " LIMIT 20000",
-            "All complex types — CloudFetch (20K rows)",
+            "SELECT " + ALL_COMPLEX_COLS + " FROM " + TABLE + " ORDER BY id LIMIT 30000",
+            "All complex types — CloudFetch (30K rows)",
             true));
   }
 

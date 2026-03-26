@@ -16,7 +16,7 @@ import java.util.List;
 public class StatementSelectTruncatedProvider implements SuiteProvider {
 
   private static final String TABLE = "comparator_tests.oss_jdbc_tests.test_result_set_types";
-  private static final String QUERY = "SELECT * FROM " + TABLE;
+  private static final String QUERY = "SELECT * FROM " + TABLE + " ORDER BY id";
 
   @Override
   public List<TestCase> getTestCases() {
@@ -30,8 +30,8 @@ public class StatementSelectTruncatedProvider implements SuiteProvider {
         // setMaxRows — CloudFetch
         new TestCase(
             "setMaxRows",
-            new Object[] {"setMaxRows", 20000},
-            "setMaxRows(20000) — CloudFetch, truncated from 150K to 20K rows",
+            new Object[] {"setMaxRows", 30000},
+            "setMaxRows(30000) — CloudFetch, truncated from 150K to 30K rows",
             true),
         // setLargeMaxRows — inline
         new TestCase(
@@ -42,8 +42,8 @@ public class StatementSelectTruncatedProvider implements SuiteProvider {
         // setLargeMaxRows — CloudFetch
         new TestCase(
             "setLargeMaxRows",
-            new Object[] {"setLargeMaxRows", 20000L},
-            "setLargeMaxRows(20000) — CloudFetch, truncated from 150K to 20K rows",
+            new Object[] {"setLargeMaxRows", 30000L},
+            "setLargeMaxRows(30000) — CloudFetch, truncated from 150K to 30K rows",
             true));
   }
 

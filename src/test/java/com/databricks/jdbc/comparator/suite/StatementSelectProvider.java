@@ -32,15 +32,13 @@ public class StatementSelectProvider implements SuiteProvider {
             "Edge case rows (7 rows — normal, nulls, max, min, empty, special)",
             false),
         new TestCase(
-            "SELECT * FROM " + TABLE + " LIMIT 1000",
-            "~1MB inline result (1K rows, 32 columns)",
-            false),
+            "SELECT * FROM " + TABLE + " ORDER BY id LIMIT 1000", "Inline result (1K rows)", false),
         new TestCase(
-            "SELECT * FROM " + TABLE + " LIMIT 15000",
-            "~5MB CloudFetch result (15K rows, 1 chunk)",
+            "SELECT * FROM " + TABLE + " ORDER BY id LIMIT 30000",
+            "CloudFetch result (30K rows)",
             true),
         new TestCase(
-            "SELECT * FROM " + TABLE, "~100MB CloudFetch result (150K+ rows, 5 chunks)", true));
+            "SELECT * FROM " + TABLE + " ORDER BY id", "CloudFetch result (150K+ rows)", true));
   }
 
   @Override
