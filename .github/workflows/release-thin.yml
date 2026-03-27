@@ -11,18 +11,19 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   publish-thin:
     # Only run if main JAR workflow succeeded or manual trigger
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
-    runs-on:
-      group: databricks-protected-runner-group
-      labels: linux-ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           # If manual trigger: use input tag, else use the SHA from the completed workflow run
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.event.workflow_run.head_sha }}
@@ -30,7 +31,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Java for publishing to Maven Central Repository
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         with:
@@ -99,7 +100,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Upload Thin JAR to GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
         with:
           tag_name: ${{ steps.get_tag.outputs.tag }}
           files: |

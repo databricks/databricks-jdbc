@@ -9,13 +9,11 @@ permissions:
 
 jobs:
   check-next-changelog:
-    runs-on:
-      group: databricks-protected-runner-group
-      labels: linux-ubuntu-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout base branch (main)
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
@@ -24,13 +22,14 @@ jobs:
         id: changed-files
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           # Use the GitHub API to fetch changed files
-          files=$(gh pr view ${{ github.event.pull_request.number }} --json files -q '.files[].path')
-          
+          files=$(gh pr view "$PR_NUMBER" --json files -q '.files[].path')
+
           # Sanitize to avoid code injection
           sanitized_files=$(echo "$files" | sed 's/[^a-zA-Z0-9._/-]/_/g')
-          
+
           # Store the sanitized list of files in a temporary file to avoid env variable issues
           echo "$sanitized_files" > modified_files.txt
           echo "$sanitized_files"
@@ -39,13 +38,14 @@ jobs:
         id: pr-message
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           # Use the GitHub API to fetch the PR message
-          pr_message=$(gh pr view ${{ github.event.pull_request.number }} --json body -q '.body')
-          
+          pr_message=$(gh pr view "$PR_NUMBER" --json body -q '.body')
+
           # Sanitize the PR message to avoid code injection, keeping the equal sign
           sanitized_pr_message=$(echo "$pr_message" | sed 's/[^a-zA-Z0-9._/-=]/_/g')
-          
+
           # Store the sanitized PR message
           echo "$sanitized_pr_message" > pr_message.txt
           echo "$sanitized_pr_message"

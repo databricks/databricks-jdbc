@@ -5,15 +5,16 @@ on:
     - cron: '0 0 * * 1' # Run at 00:00 UTC on Monday (1)
   workflow_dispatch:    # Allow manual trigger
 
+permissions:
+  contents: read
+
 jobs:
   comparator:
-    runs-on:
-      group: databricks-protected-runner-group
-      labels: linux-ubuntu-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout main branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: main
           fetch-depth: 0
@@ -34,7 +35,7 @@ jobs:
           }
 
       - name: Set up JDK 11
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           java-version: '11'
           distribution: 'temurin'
@@ -70,7 +71,7 @@ jobs:
 
       - name: Send Email
         if: steps.check_differences.outputs.has_differences == 'true'
-        uses: dawidd6/action-send-mail@v3
+        uses: dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7 # v3
         with:
           server_address: smtp.gmail.com
           server_port: 465
@@ -83,7 +84,7 @@ jobs:
           content_type: text/html
 
       - name: Upload Report as Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: jdbc-comparison-report
           path: |

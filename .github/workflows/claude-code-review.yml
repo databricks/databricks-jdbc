@@ -12,9 +12,7 @@ jobs:
       (github.event.comment.author_association == 'OWNER' ||
        github.event.comment.author_association == 'MEMBER' ||
        github.event.comment.author_association == 'COLLABORATOR')
-    runs-on:
-      group: databricks-protected-runner-group
-      labels: [linux-ubuntu-latest]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
@@ -23,30 +21,36 @@ jobs:
 
     steps:
       - name: React to comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
         run: |
-          gh api repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+          gh api "repos/${REPO}/issues/comments/${COMMENT_ID}/reactions" \
             -f content=eyes
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get PR head ref
+      - name: Get PR head SHA
         id: pr
-        run: |
-          PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
-          echo "ref=$(echo "$PR_DATA" | jq -r .head.ref)" >> "$GITHUB_OUTPUT"
-          echo "number=$(echo "$PR_DATA" | jq -r .number)" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          PR_DATA=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}")
+          echo "sha=$(echo "$PR_DATA" | jq -r .head.sha)" >> "$GITHUB_OUTPUT"
+          echo "number=$(echo "$PR_DATA" | jq -r .number)" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          ref: ${{ steps.pr.outputs.ref }}
+          # Use the commit SHA instead of the branch ref to prevent
+          # the branch from being moved between the API call and checkout
+          ref: ${{ steps.pr.outputs.sha }}
           fetch-depth: 0
 
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@3ac52d0da9f8ec9ca7b4dc23bb477e36ef9c77a9 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           review_comment_id: ${{ github.event.comment.id }}

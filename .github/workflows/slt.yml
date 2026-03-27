@@ -15,17 +15,18 @@ on:
         description: "PAT for the environment we are running SLT on"
         required: true
 
+permissions:
+  contents: read
+
 jobs:
   build:
 
-    runs-on:
-      group: databricks-protected-runner-group
-      labels: linux-ubuntu-latest
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
     - name: Set up JDK 21
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
       with:
         java-version: '21'
         distribution: 'temurin'
@@ -33,4 +34,6 @@ jobs:
     - name: Build with Maven
       run: mvn -pl jdbc-core -B package --file pom.xml -Dgroups='!Jvm17PlusAndArrowToNioReflectionDisabled'
     - name: Run SQL Logic Tests
-      run: mvn -pl jdbc-core exec:exec -Dslt.token=${{ inputs.token }}
+      env:
+        SLT_TOKEN: ${{ inputs.token }}
+      run: mvn -pl jdbc-core exec:exec -Dslt.token="$SLT_TOKEN"
