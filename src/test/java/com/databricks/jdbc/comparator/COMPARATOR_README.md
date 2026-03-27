@@ -20,7 +20,8 @@ Sample `metadata-filters.json`:
   "metadataSkipFilters": {
     "getTables": [
       {"schemaPattern": ""},
-      {"types": "[]"}
+      {"types": "[]"},
+      {"catalog": "comp%", "schemaPattern": "nonexistent"}
     ],
     "getSchemas": [
       {"schemaPattern": ""}
