@@ -194,7 +194,7 @@ Skip specific argument combinations for DatabaseMetaData methods. Useful for fil
 | `STATEMENT_DDL` | CREATE / ALTER / DROP |
 | `STATEMENT_DML` | INSERT / UPDATE / DELETE |
 | `STATEMENT_OTHER` | SHOW / DESCRIBE / EXPLAIN / SET |
-| `PREPARED_STATEMENT_TYPES` | All JDBC setter types + CloudFetch |
+| `PREPARED_STATEMENT_TYPES` | Setters for all databricks supported types + CloudFetch |
 | `PREPARED_STATEMENT_METADATA` | getMetaData / getParameterMetaData |
 | `COMPLEX_TYPES` | ARRAY / MAP / STRUCT / nested types |
 | `GEOSPATIAL` | GEOMETRY / GEOGRAPHY |
