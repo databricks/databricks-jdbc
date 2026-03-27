@@ -2,7 +2,7 @@
 
 Compares Thrift vs SEA modes of the Databricks JDBC driver by running identical JDBC API calls through both code paths and reporting differences.
 
-## Quickstart — recommended fastest run
+## Quickstart
 
 ```bash
 export DATABRICKS_COMPARATOR_TOKEN=dapi...
