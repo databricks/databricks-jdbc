@@ -34,6 +34,7 @@ public class CombinationExecutor {
 
   private static final int PARALLEL_THREADS = parseParallelThreads();
   private static final Set<String> SKIP_SCHEMAS = parseSkipSchemas();
+  private static final MetadataFilterConfig FILTER_CONFIG = MetadataFilterConfig.load();
 
   private static int parseParallelThreads() {
     String prop = System.getProperty("METADATA_PARALLEL_THREADS");
@@ -129,6 +130,10 @@ public class CombinationExecutor {
   private static CombinationResult executeSingle(
       String methodName, Object[] args, DatabaseMetaData md1, DatabaseMetaData md2, String label) {
     String argsLabel = formatArgs(args);
+    if (FILTER_CONFIG.shouldSkip(methodName, args)) {
+      System.out.printf("[%s]   Skipped %s(%s) — filtered%n", Instant.now(), methodName, argsLabel);
+      return CombinationResult.skipped(argsLabel);
+    }
     try {
       Object result1 = ReflectionUtils.executeMethod(md1, methodName, args);
       Object result2 = ReflectionUtils.executeMethod(md2, methodName, args);

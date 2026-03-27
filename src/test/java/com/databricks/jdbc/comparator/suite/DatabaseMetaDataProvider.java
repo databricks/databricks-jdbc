@@ -48,6 +48,7 @@ public class DatabaseMetaDataProvider implements SuiteProvider {
     List<String> metadataDiffs = new ArrayList<>();
     List<String> dataDiffs = new ArrayList<>();
     for (CombinationResult cr : results) {
+      if (cr.skipped) continue;
       for (String diff : cr.metadataDiffs) {
         metadataDiffs.add("[" + cr.argsLabel + "] " + diff);
       }

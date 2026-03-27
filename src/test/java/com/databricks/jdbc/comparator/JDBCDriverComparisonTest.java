@@ -13,7 +13,10 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -66,6 +69,12 @@ public class JDBCDriverComparisonTest {
   static Stream<Arguments> provideAllTests() {
     List<Arguments> allTests = new ArrayList<>();
 
+    String suiteFilter = System.getProperty("SUITES_RUN_ONLY");
+    Set<String> allowedSuites =
+        (suiteFilter == null || suiteFilter.isEmpty())
+            ? null
+            : new HashSet<>(Arrays.asList(suiteFilter.split(",")));
+
     for (ConnectionConfig config : ConnectionConfig.activeConfigs()) {
       Connection thriftConn;
       Connection seaConn;
@@ -78,6 +87,8 @@ public class JDBCDriverComparisonTest {
       }
 
       for (TestSuite suite : config.getApplicableSuites()) {
+        if (allowedSuites != null && !allowedSuites.contains(suite.name())) continue;
+
         SuiteProvider provider = suite.getProvider();
         if (provider == null) {
           continue;
