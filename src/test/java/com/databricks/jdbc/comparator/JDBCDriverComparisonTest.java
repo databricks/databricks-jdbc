@@ -23,9 +23,14 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 public class JDBCDriverComparisonTest {
+  private static final String DEFAULT_HOST = "adb-7405613695221181.1.azuredatabricks.net";
+  private static final String DEFAULT_WAREHOUSE = "6feab30b476abfa4";
+
   private static final String BASE_JDBC_URL =
-      "jdbc:databricks://adb-7405613695221181.1.azuredatabricks.net:443/default"
-          + ";ssl=1;authMech=3;httpPath=/sql/1.0/warehouses/6feab30b476abfa4";
+      "jdbc:databricks://"
+          + System.getProperty("COMPARATOR_HOST", DEFAULT_HOST)
+          + ":443/default;ssl=1;authMech=3;httpPath=/sql/1.0/warehouses/"
+          + System.getProperty("COMPARATOR_WAREHOUSE", DEFAULT_WAREHOUSE);
   private static final String BASE_THRIFT_URL = BASE_JDBC_URL + ";useThriftClient=1";
   private static final String BASE_SEA_URL = BASE_JDBC_URL + ";useThriftClient=0";
 

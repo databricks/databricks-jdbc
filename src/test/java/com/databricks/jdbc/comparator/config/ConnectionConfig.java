@@ -74,8 +74,11 @@ public enum ConnectionConfig {
   PRO_WAREHOUSE(
       "Pro warehouse",
       Map.of("EnableComplexDatatypeSupport", "1", "EnableGeoSpatialSupport", "1"),
-      "/sql/1.0/warehouses/7b03aaa124ecb70e",
-      EnumSet.of(TestSuite.STATEMENT_SELECT, TestSuite.COMPLEX_TYPES, TestSuite.GEOSPATIAL));
+      System.getProperty("PRO_WAREHOUSE_ID") != null
+          ? "/sql/1.0/warehouses/" + System.getProperty("PRO_WAREHOUSE_ID")
+          : null,
+      EnumSet.of(TestSuite.STATEMENT_SELECT, TestSuite.COMPLEX_TYPES, TestSuite.GEOSPATIAL)),
+  ;
 
   private static final String CONFIG_FILTER_PROPERTY = "CONNECTION_CONFIG";
 
@@ -121,6 +124,7 @@ public enum ConnectionConfig {
 
     return Arrays.stream(values())
         .filter(c -> allowed == null || allowed.contains(c.name()))
+        .filter(c -> c != PRO_WAREHOUSE || c.httpPathOverride != null)
         .collect(Collectors.toList());
   }
 
