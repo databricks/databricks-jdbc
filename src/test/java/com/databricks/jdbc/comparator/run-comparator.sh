@@ -6,8 +6,9 @@
 # runs the comparator, and outputs logs + report.
 #
 # Usage:
-#   chmod +x run-comparator.sh
-#   ./run-comparator.sh
+#   1. Update DATABRICKS_COMPARATOR_TOKEN below with your PAT
+#   2. chmod +x run-comparator.sh
+#   3. ./run-comparator.sh
 #
 # Output:
 #   comparator-logs-<timestamp>.txt
