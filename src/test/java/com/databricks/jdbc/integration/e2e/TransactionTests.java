@@ -40,21 +40,13 @@ import org.junit.jupiter.api.*;
 @SuppressWarnings("ALL")
 public class TransactionTests {
 
-  // Configuration from environment variables with defaults for local development
+  // Configuration from environment variables
   private static final String DATABRICKS_HOST =
-      System.getenv("DATABRICKS_HOST") != null
-          ? System.getenv("DATABRICKS_HOST")
-          : "benchmarking-staging-aws-aux8.staging.cloud.databricks.com";
-  private static final String DATABRICKS_TOKEN =
-      System.getenv("DATABRICKS_TOKEN") != null ? System.getenv("DATABRICKS_TOKEN") : "token";
-  private static final String DATABRICKS_HTTP_PATH =
-      System.getenv("DATABRICKS_HTTP_PATH") != null
-          ? System.getenv("DATABRICKS_HTTP_PATH")
-          : "sql/1.0/warehouses/275c4479d5d48ce8";
-  private static final String DATABRICKS_CATALOG =
-      System.getenv("DATABRICKS_CATALOG") != null ? System.getenv("DATABRICKS_CATALOG") : "main";
-  private static final String DATABRICKS_SCHEMA =
-      System.getenv("DATABRICKS_SCHEMA") != null ? System.getenv("DATABRICKS_SCHEMA") : "default";
+      "benchmarking-staging-aws-aux8.staging.cloud.databricks.com";
+  private static final String DATABRICKS_TOKEN = "token";
+  private static final String DATABRICKS_HTTP_PATH = "sql/1.0/warehouses/275c4479d5d48ce8";
+  private static final String DATABRICKS_CATALOG = "main";
+  private static final String DATABRICKS_SCHEMA = "default";
 
   private static final String JDBC_URL =
       "jdbc:databricks://"
