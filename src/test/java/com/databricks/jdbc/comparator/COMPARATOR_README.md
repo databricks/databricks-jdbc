@@ -17,6 +17,11 @@ mvn test -pl jdbc-core -Dtest=JDBCDriverComparisonTest \
 Sample `metadata-filters.json`:
 ```json
 {
+  "metadataRunOnlyFilters": {
+    "getTables": [
+      {"catalog": "comparator_tests"}
+    ]
+  },
   "metadataSkipFilters": {
     "getTables": [
       {"schemaPattern": ""},
@@ -108,26 +113,31 @@ mvn test ... 2>&1 > my-test-folder/logs/run.txt
 
 ## JSON Filter Config
 
-Skip specific argument combinations for DatabaseMetaData methods. Useful for filtering out known diffs.
+Filter specific argument combinations for DatabaseMetaData methods. Supports two modes:
+
+- **`metadataRunOnlyFilters`** — whitelist: only run argument combinations matching at least one pattern
+- **`metadataSkipFilters`** — blacklist: skip argument combinations matching any pattern
+
+If both are present for a method, **runOnly takes precedence**: argument combination must pass the whitelist first, then must not match the blacklist.
 
 ```json
 {
+  "metadataRunOnlyFilters": {
+    "getTables": [
+      {"catalog": "comparator_tests", "schemaPattern": "oss_jdbc_tests"}
+    ]
+  },
   "metadataSkipFilters": {
     "getTables": [
-      {"schemaPattern": ""},
-      {"types": "[]"},
-      {"catalog": "comp%", "schemaPattern": "nonexistent"}
-    ],
-    "getSchemas": [
-      {"schemaPattern": ""}
+      {"types": "[]"}
     ]
   }
 }
 ```
 
 - Each method has a list of filter patterns
-- An argument combination is skipped if **ANY** pattern matches (OR)
-- Within a pattern, **ALL** conditions must match (AND)
+- An argument combination matches if **ANY** pattern matches (OR across patterns)
+- Within a pattern, **ALL** conditions must match (AND within pattern)
 - Use absolute path: `-DMETADATA_FILTER_CONFIG=/absolute/path/to/file.json`
 
 ### Special values in filters

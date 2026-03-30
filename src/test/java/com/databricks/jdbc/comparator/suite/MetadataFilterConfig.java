@@ -11,23 +11,34 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Configurable filter for skipping specific DatabaseMetaData argument combinations.
+ * Configurable filter for skipping or selecting specific DatabaseMetaData argument combinations.
  *
- * <p>Reads a JSON config file via {@code -DMETADATA_FILTER_CONFIG=path}. Each method can have
- * multiple filter patterns. A combo is skipped if ANY pattern matches (OR). Within a pattern, ALL
- * conditions must match (AND).
+ * <p>Reads a JSON config file via {@code -DMETADATA_FILTER_CONFIG=path}. Supports two filter types:
+ *
+ * <ul>
+ *   <li>{@code metadataRunOnlyFilters} — only run argument combinations matching at least one
+ *       pattern (whitelist)
+ *   <li>{@code metadataSkipFilters} — skip argument combinations matching any pattern (blacklist)
+ * </ul>
+ *
+ * <p>If both are present for a method, runOnly takes precedence: first the argument combination
+ * must match a runOnly pattern, then it must not match any skip pattern.
+ *
+ * <p>Within each pattern list: an argument combination matches if ANY pattern matches (OR). Within
+ * a pattern, ALL conditions must match (AND).
  *
  * <p>Example config:
  *
  * <pre>{@code
  * {
+ *   "metadataRunOnlyFilters": {
+ *     "getTables": [
+ *       {"catalog": "comparator_tests", "schemaPattern": "oss_jdbc_tests"}
+ *     ]
+ *   },
  *   "metadataSkipFilters": {
  *     "getTables": [
- *       {"schemaPattern": ""},
  *       {"types": "[]"}
- *     ],
- *     "getSchemas": [
- *       {"schemaPattern": ""}
  *     ]
  *   }
  * }
@@ -37,6 +48,7 @@ public class MetadataFilterConfig {
 
   private static final String CONFIG_PROPERTY = "METADATA_FILTER_CONFIG";
 
+  private final Map<String, List<Map<String, String>>> metadataRunOnlyFilters;
   private final Map<String, List<Map<String, String>>> metadataSkipFilters;
 
   // Arg name → position mapping per method (only methods with filterable args)
@@ -62,7 +74,10 @@ public class MetadataFilterConfig {
                   "foreignTable")),
           Map.entry("getFunctions", List.of("catalog", "schemaPattern", "functionNamePattern")));
 
-  private MetadataFilterConfig(Map<String, List<Map<String, String>>> metadataSkipFilters) {
+  private MetadataFilterConfig(
+      Map<String, List<Map<String, String>>> metadataRunOnlyFilters,
+      Map<String, List<Map<String, String>>> metadataSkipFilters) {
+    this.metadataRunOnlyFilters = metadataRunOnlyFilters;
     this.metadataSkipFilters = metadataSkipFilters;
   }
 
@@ -79,19 +94,24 @@ public class MetadataFilterConfig {
           mapper.readValue(new File(path), new TypeReference<Map<String, Object>>() {});
 
       @SuppressWarnings("unchecked")
-      Map<String, List<Map<String, String>>> filters =
+      Map<String, List<Map<String, String>>> runOnly =
+          (Map<String, List<Map<String, String>>>) root.get("metadataRunOnlyFilters");
+      @SuppressWarnings("unchecked")
+      Map<String, List<Map<String, String>>> skip =
           (Map<String, List<Map<String, String>>>) root.get("metadataSkipFilters");
 
-      if (filters == null) {
-        filters = Collections.emptyMap();
-      }
+      if (runOnly == null) runOnly = Collections.emptyMap();
+      if (skip == null) skip = Collections.emptyMap();
+
       System.out.println(
           "[MetadataFilter] Loaded filter config from "
               + path
-              + " ("
-              + filters.size()
+              + " (runOnly: "
+              + runOnly.size()
+              + " methods, skip: "
+              + skip.size()
               + " methods)");
-      return new MetadataFilterConfig(filters);
+      return new MetadataFilterConfig(runOnly, skip);
     } catch (IOException e) {
       System.err.println(
           "[MetadataFilter] WARNING: Failed to load config from " + path + ": " + e.getMessage());
@@ -101,16 +121,17 @@ public class MetadataFilterConfig {
 
   /** Returns an empty config that never skips anything. */
   public static MetadataFilterConfig empty() {
-    return new MetadataFilterConfig(Collections.emptyMap());
+    return new MetadataFilterConfig(Collections.emptyMap(), Collections.emptyMap());
   }
 
-  /** Returns true if this combo should be skipped based on the filter config. */
+  /**
+   * Returns true if this argument combination should be skipped based on the filter config.
+   *
+   * <p>If runOnly patterns exist for the method, the argument combination must match at least one
+   * to survive. Then, if skip patterns exist, the argument combination is skipped if it matches
+   * any. RunOnly takes precedence.
+   */
   public boolean shouldSkip(String methodName, Object[] args) {
-    List<Map<String, String>> patterns = metadataSkipFilters.get(methodName);
-    if (patterns == null || patterns.isEmpty()) {
-      return false;
-    }
-
     List<String> argNames = ARG_NAMES.get(methodName);
     if (argNames == null || argNames.isEmpty()) {
       return false;
@@ -118,6 +139,37 @@ public class MetadataFilterConfig {
 
     Map<String, String> namedArgs = toNamedArgs(args, argNames);
 
+    // RunOnly takes precedence: if defined for this method, argument combination must match at
+    // least one pattern
+    List<Map<String, String>> runOnlyPatterns = metadataRunOnlyFilters.get(methodName);
+    if (runOnlyPatterns != null && !runOnlyPatterns.isEmpty()) {
+      if (!matchesAnyPattern(namedArgs, runOnlyPatterns)) {
+        return true; // not in the whitelist → skip
+      }
+    }
+
+    // Then apply skip filters
+    List<Map<String, String>> skipPatterns = metadataSkipFilters.get(methodName);
+    if (skipPatterns != null && !skipPatterns.isEmpty()) {
+      if (matchesAnyPattern(namedArgs, skipPatterns)) {
+        return true; // in the blacklist → skip
+      }
+    }
+
+    return false;
+  }
+
+  /** Whether this config has any filters defined. */
+  public boolean isEmpty() {
+    return metadataRunOnlyFilters.isEmpty() && metadataSkipFilters.isEmpty();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal helpers
+  // ---------------------------------------------------------------------------
+
+  private static boolean matchesAnyPattern(
+      Map<String, String> namedArgs, List<Map<String, String>> patterns) {
     for (Map<String, String> pattern : patterns) {
       if (matchesPattern(namedArgs, pattern)) {
         return true; // OR across patterns
@@ -125,15 +177,6 @@ public class MetadataFilterConfig {
     }
     return false;
   }
-
-  /** Whether this config has any filters defined. */
-  public boolean isEmpty() {
-    return metadataSkipFilters.isEmpty();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Internal helpers
-  // ---------------------------------------------------------------------------
 
   private static Map<String, String> toNamedArgs(Object[] args, List<String> argNames) {
     Map<String, String> named = new HashMap<>();

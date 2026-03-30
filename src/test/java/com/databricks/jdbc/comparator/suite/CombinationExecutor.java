@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -78,6 +79,13 @@ public class CombinationExecutor {
     for (int idx = 0; idx < total; idx++) {
       Object[] args = argCombos.get(idx);
       String argsLabel = formatArgs(args);
+      if (FILTER_CONFIG.shouldSkip(methodName, args)) {
+        System.out.printf(
+            "[%s]   Skipped %s(%s) [%d/%d] — filtered%n",
+            Instant.now(), methodName, argsLabel, idx + 1, total);
+        results.add(CombinationResult.skipped(argsLabel));
+        continue;
+      }
       System.out.printf(
           "[%s]   Started comparing %s(%s) [%d/%d]%n",
           Instant.now(), methodName, argsLabel, idx + 1, total);
@@ -99,6 +107,12 @@ public class CombinationExecutor {
 
     for (Object[] args : argCombos) {
       final String argsLabel = formatArgs(args);
+      if (FILTER_CONFIG.shouldSkip(methodName, args)) {
+        System.out.printf(
+            "[%s]   Skipped %s(%s) — filtered%n", Instant.now(), methodName, argsLabel);
+        futures.add(CompletableFuture.completedFuture(CombinationResult.skipped(argsLabel)));
+        continue;
+      }
       futures.add(
           executor.submit(
               () -> {
@@ -130,10 +144,6 @@ public class CombinationExecutor {
   private static CombinationResult executeSingle(
       String methodName, Object[] args, DatabaseMetaData md1, DatabaseMetaData md2, String label) {
     String argsLabel = formatArgs(args);
-    if (FILTER_CONFIG.shouldSkip(methodName, args)) {
-      System.out.printf("[%s]   Skipped %s(%s) — filtered%n", Instant.now(), methodName, argsLabel);
-      return CombinationResult.skipped(argsLabel);
-    }
     try {
       Object result1 = ReflectionUtils.executeMethod(md1, methodName, args);
       Object result2 = ReflectionUtils.executeMethod(md2, methodName, args);
