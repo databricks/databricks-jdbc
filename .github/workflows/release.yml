@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   publish:
+    # DISABLED: Third-party package publishing frozen per company-wide policy.
+    # Remove this line to re-enable publishing.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

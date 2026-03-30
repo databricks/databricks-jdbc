@@ -16,10 +16,9 @@ permissions:
 
 jobs:
   publish-thin:
-    # Only run if main JAR workflow succeeded or manual trigger
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    # DISABLED: Third-party package publishing frozen per company-wide policy.
+    # Remove the 'false' condition to re-enable publishing.
+    if: false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
