@@ -64,6 +64,7 @@ WORKSPACE_SETUP=""
 
 # Git repo
 REPO_URL="https://github.com/databricks/databricks-jdbc.git"
+MERGE_BRANCH="main"  # branch to merge into comparator-v2 (e.g., main, feature-branch)
 WORK_DIR="/tmp/jdbc-comparator-$$"
 
 # ============================================================================
@@ -106,9 +107,9 @@ echo "[1/5] Cloning repository..."
 git clone --branch comparator-v2 "${REPO_URL}" "${WORK_DIR}"
 cd "${WORK_DIR}"
 
-echo "[2/5] Merging main into comparator-v2..."
-git fetch origin main
-git merge origin/main --no-commit --no-ff -X theirs
+echo "[2/5] Merging ${MERGE_BRANCH} into comparator-v2..."
+git fetch origin "${MERGE_BRANCH}"
+git merge "origin/${MERGE_BRANCH}" --no-commit --no-ff -X theirs
 
 # Write filter config
 echo "[3/5] Writing filter config..."
