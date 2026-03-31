@@ -45,6 +45,7 @@ public class WorkspaceSetup {
     createTables(conn);
     createViews(conn);
     createFunctions(conn);
+    createVolumes(conn);
     insertData(conn);
 
     log("Workspace setup complete.");
@@ -136,7 +137,17 @@ public class WorkspaceSetup {
   }
 
   // ---------------------------------------------------------------------------
-  // Layer 8: Data
+  // Layer 8: Volumes
+  // ---------------------------------------------------------------------------
+
+  private static void createVolumes(Connection conn) throws SQLException {
+    String volume = "comparator_tests.oss_jdbc_tests.comparator_volume";
+    execute(conn, "CREATE VOLUME IF NOT EXISTS " + volume);
+    log("Created volume: " + volume);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Layer 9: Data
   // ---------------------------------------------------------------------------
 
   private static void insertData(Connection conn) throws SQLException {
