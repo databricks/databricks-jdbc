@@ -8,6 +8,8 @@ import com.databricks.jdbc.comparator.config.TestSuite;
 import com.databricks.jdbc.comparator.setup.WorkspaceSetup;
 import com.databricks.jdbc.comparator.suite.SuiteProvider;
 import com.databricks.jdbc.comparator.suite.TestCase;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -49,10 +51,30 @@ public class JDBCDriverComparisonTest {
     WorkspaceSetup.run(connectionManager.getConnection(BASE_THRIFT_URL));
 
     String timestamp = Instant.now().toString().replaceAll("[:.]+", "-");
-    List<String> connectionUrls =
-        List.of("Base Thrift URL: " + BASE_THRIFT_URL, "Base SEA URL: " + BASE_SEA_URL);
+    List<String> headerLines =
+        List.of(
+            "Base Thrift URL: " + BASE_THRIFT_URL,
+            "Base SEA URL: " + BASE_SEA_URL,
+            "CONNECTION_CONFIG: " + System.getProperty("CONNECTION_CONFIG", "(all)"),
+            "SUITES_RUN_ONLY: " + System.getProperty("SUITES_RUN_ONLY", "(all)"),
+            "METADATA_RUN_ONLY_METHODS: "
+                + System.getProperty("METADATA_RUN_ONLY_METHODS", "(all)"),
+            "METADATA_SKIP_SCHEMAS: " + System.getProperty("METADATA_SKIP_SCHEMAS", "(none)"),
+            "METADATA_PARALLEL_THREADS: " + System.getProperty("METADATA_PARALLEL_THREADS", "1"),
+            "METADATA_FILTER_CONFIG: " + System.getProperty("METADATA_FILTER_CONFIG", "(none)"),
+            "Filter config:\n" + readFilterConfig());
     reporter =
-        new TestReporter(Path.of("jdbc-comparison-report-" + timestamp + ".txt"), connectionUrls);
+        new TestReporter(Path.of("jdbc-comparison-report-" + timestamp + ".txt"), headerLines);
+  }
+
+  private static String readFilterConfig() {
+    String path = System.getProperty("METADATA_FILTER_CONFIG");
+    if (path == null || path.isEmpty()) return "(none)";
+    try {
+      return Files.readString(Path.of(path));
+    } catch (IOException e) {
+      return "(failed to read: " + e.getMessage() + ")";
+    }
   }
 
   @AfterAll
