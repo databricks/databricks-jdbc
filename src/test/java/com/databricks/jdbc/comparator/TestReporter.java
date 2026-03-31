@@ -9,12 +9,12 @@ import java.util.List;
 public class TestReporter {
   private final Path outputPath;
 
-  public TestReporter(Path outputPath, List<String> connectionUrls) throws IOException {
+  public TestReporter(Path outputPath, List<String> headerLines) throws IOException {
     this.outputPath = outputPath;
     try (FileWriter writer = new FileWriter(outputPath.toFile())) {
       writer.write("Report generated at: " + Instant.now() + "\n");
-      for (String url : connectionUrls) {
-        writer.write(url + "\n");
+      for (String line : headerLines) {
+        writer.write(line + "\n");
       }
       writer.write("============================\n\n");
     }
