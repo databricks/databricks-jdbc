@@ -67,6 +67,9 @@ REPO_URL="https://github.com/databricks/databricks-jdbc.git"
 MERGE_BRANCH="main"  # branch to merge into comparator-v2 (e.g., main, feature-branch)
 WORK_DIR="/tmp/jdbc-comparator-$$"
 
+# Run name (used in log/report filenames for easy identification, empty = generic name)
+RUN_NAME=""
+
 # ============================================================================
 # FILTER CONFIG — edit to skip known noisy argument combinations
 # ============================================================================
@@ -76,7 +79,7 @@ FILTER_JSON='{
     "getTables": [
       {"schemaPattern": ""},
       {"types": "[]"},
-      {"catalog": "comp%", "schemaPattern": "nonexistent"}
+      {"catalog": "compar%", "schemaPattern": "nonexistent"}
     ]
   }
 }'
@@ -87,8 +90,13 @@ FILTER_JSON='{
 
 set -e
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-LOG_FILE="comparator-logs-${TIMESTAMP}.txt"
-REPORT_FILE="comparator-report-${TIMESTAMP}.txt"
+if [ -n "${RUN_NAME}" ]; then
+  LOG_FILE="${RUN_NAME}-logs-${TIMESTAMP}.txt"
+  REPORT_FILE="${RUN_NAME}-report-${TIMESTAMP}.txt"
+else
+  LOG_FILE="comparator-logs-${TIMESTAMP}.txt"
+  REPORT_FILE="comparator-report-${TIMESTAMP}.txt"
+fi
 FILTER_FILE="${WORK_DIR}/metadata-filters.json"
 
 echo "=== JDBC Driver Comparator ==="

@@ -173,7 +173,7 @@ public class DatabaseMetaDataParams {
           "comparator-tests", // exact (hyphen)
           "COMPARATOR-TESTS", // uppercase
           "comparator_tests", // unescaped _ wildcard
-          "comp%", // prefix pattern
+          "compar%", // prefix pattern
           "comparator\\_tests", // escaped _ literal
           "nonexistent");
 
