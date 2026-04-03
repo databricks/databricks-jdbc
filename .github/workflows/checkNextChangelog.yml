@@ -18,14 +18,15 @@ jobs:
           ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
 
+      - name: Fetch PR head
+        run: |
+          git fetch origin "${{ github.event.pull_request.head.sha }}" --depth=1
+
       - name: Fetch list of changed files
         id: changed-files
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          # Use the GitHub API to fetch changed files
-          files=$(gh pr view "$PR_NUMBER" --json files -q '.files[].path')
+          # Use git diff to get changed files (no API call needed)
+          files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
 
           # Sanitize to avoid code injection
           sanitized_files=$(echo "$files" | sed 's/[^a-zA-Z0-9._/-]/_/g')
@@ -37,11 +38,10 @@ jobs:
       - name: Fetch PR message
         id: pr-message
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          # Use the GitHub API to fetch the PR message
-          pr_message=$(gh pr view "$PR_NUMBER" --json body -q '.body')
+          # Use PR body from event payload directly (no API call needed)
+          pr_message="$PR_BODY"
 
           # Sanitize the PR message to avoid code injection, keeping the equal sign
           sanitized_pr_message=$(echo "$pr_message" | sed 's/[^a-zA-Z0-9._/-=]/_/g')

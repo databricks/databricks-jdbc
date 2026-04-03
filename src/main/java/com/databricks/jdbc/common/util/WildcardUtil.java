@@ -65,6 +65,33 @@ public class WildcardUtil {
     return builder.toString();
   }
 
+  /**
+   * Strips JDBC escape sequences from a string, producing the literal value. Use this for SQL
+   * identifiers (e.g. catalog names inside backticks) where JDBC wildcard semantics don't apply.
+   * {@code \_} becomes {@code _}, {@code \\} becomes {@code \}, and unescaped characters (including
+   * {@code %} and {@code _}) are kept as-is since they are literals in identifier context.
+   *
+   * @param value the string potentially containing JDBC escape sequences
+   * @return the unescaped string, or {@code null} if the input is {@code null}
+   */
+  public static String stripJdbcEscapes(String value) {
+    if (value == null) {
+      return null;
+    }
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < value.length(); i++) {
+      char ch = value.charAt(i);
+      if (ch == '\\' && i + 1 < value.length()) {
+        // Escape sequence: emit the next character literally and skip the backslash
+        builder.append(value.charAt(i + 1));
+        i++;
+      } else {
+        builder.append(ch);
+      }
+    }
+    return builder.toString();
+  }
+
   public static String jdbcPatternToHive(String pattern) {
     if (pattern == null) {
       return null;

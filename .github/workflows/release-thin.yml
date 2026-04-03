@@ -1,3 +1,7 @@
+# TODO(security): When re-enabling this workflow:
+#   1. Restore the original 'if:' condition (see comment on publish-thin job)
+#   2. Consider adding SLSA provenance via slsa-framework/slsa-github-generator
+#   3. Verify release secrets are rotated: GPG_PRIVATE_KEY, MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD
 name: Release Thin JAR
 on:
   workflow_run:
@@ -17,7 +21,9 @@ permissions:
 jobs:
   publish-thin:
     # DISABLED: Third-party package publishing frozen per company-wide policy.
-    # Remove the 'false' condition to re-enable publishing.
+    # To re-enable, replace 'false' below with the original condition:
+    #   github.event_name == 'workflow_dispatch' ||
+    #   (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     if: false
     runs-on: ubuntu-latest
     steps:
@@ -89,14 +95,21 @@ jobs:
 
       - name: Verify main release exists
         if: github.event_name == 'workflow_run'
-        run: |
-          echo "Verifying main release exists for ${{ steps.get_tag.outputs.tag }}"
-          gh release view "${{ steps.get_tag.outputs.tag }}" || {
-            echo "Error: Main release not found for tag ${{ steps.get_tag.outputs.tag }}"
-            exit 1
-          }
-        env:
-          GH_TOKEN: ${{ github.token }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            const tag = '${{ steps.get_tag.outputs.tag }}';
+            console.log(`Verifying main release exists for ${tag}`);
+            try {
+              await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: tag
+              });
+              console.log(`Release found for ${tag}`);
+            } catch (e) {
+              core.setFailed(`Main release not found for tag ${tag}: ${e.message}`);
+            }
 
       - name: Upload Thin JAR to GitHub Release
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1

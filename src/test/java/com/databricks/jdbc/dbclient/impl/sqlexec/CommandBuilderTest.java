@@ -141,12 +141,13 @@ class CommandBuilderTest {
     }
 
     @Test
-    @DisplayName("Should generate correct SQL for fetching tables with wildcard catalog")
-    void shouldGenerateCorrectSqlForTablesWithWildcardCatalog() throws SQLException {
-      // Test with '*' wildcard
+    @DisplayName("Should treat wildcard catalog as literal per JDBC spec (catalog is exact match)")
+    void shouldTreatWildcardCatalogAsLiteral() throws SQLException {
+      // Per JDBC spec, catalog is an exact match — '*' and '%' are literal catalog names,
+      // not wildcards. Only null means "do not narrow the search".
       CommandBuilder builder1 = new CommandBuilder("*", mockSession);
       String sql1 = builder1.getSQLString(CommandName.LIST_TABLES);
-      assertEquals(SHOW_TABLES_IN_ALL_CATALOGS_SQL, sql1);
+      assertEquals(String.format(SHOW_TABLES_SQL, "*"), sql1);
     }
 
     @Test

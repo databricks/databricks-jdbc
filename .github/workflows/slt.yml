@@ -10,10 +10,6 @@ name: SQL Logic Test Runner
 
 on:
   workflow_dispatch:
-    inputs:
-      token:
-        description: "PAT for the environment we are running SLT on"
-        required: true
 
 permissions:
   contents: read
@@ -35,5 +31,5 @@ jobs:
       run: mvn -pl jdbc-core -B package --file pom.xml -Dgroups='!Jvm17PlusAndArrowToNioReflectionDisabled'
     - name: Run SQL Logic Tests
       env:
-        SLT_TOKEN: ${{ inputs.token }}
+        SLT_TOKEN: ${{ secrets.SLT_PAT_TOKEN }}
       run: mvn -pl jdbc-core exec:exec -Dslt.token="$SLT_TOKEN"

@@ -107,9 +107,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             typeText = "STRING";
           }
 
-          // store base type eg. DECIMAL instead of DECIMAL(7,2) except for geospatial datatypes
+          // Strip parameterized type suffixes (e.g., ARRAY<INT> -> ARRAY) except for:
+          // - DECIMAL: preserve precision/scale (e.g., DECIMAL(10,2)) to match Thrift behavior
+          // - Geospatial types: preserve SRID (e.g., GEOMETRY(4326))
           String finalTypeText =
-              isGeospatialType(columnTypeName)
+              (isGeospatialType(columnTypeName) || columnTypeName == ColumnInfoTypeName.DECIMAL)
                   ? typeText
                   : metadataResultSetBuilder.stripTypeName(typeText);
 

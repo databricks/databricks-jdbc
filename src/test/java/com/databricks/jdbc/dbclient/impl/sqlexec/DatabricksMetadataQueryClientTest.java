@@ -1077,10 +1077,10 @@ public class DatabricksMetadataQueryClientTest {
             eq(MetadataOperationType.GET_TABLES)))
         .thenThrow(exception);
 
-    // This should throw the original exception, not NPE
-    assertThrows(
-        DatabricksSQLException.class,
-        () -> metadataClient.listTables(session, "", null, null, null));
+    // SCHEMA_NOT_FOUND is now treated as "object not found" and returns empty result
+    // instead of throwing — per JDBC spec, non-existent objects should return empty rows
+    DatabricksResultSet result = metadataClient.listTables(session, "", null, null, null);
+    assertNotNull(result);
   }
 
   @Test

@@ -1,6 +1,7 @@
 package com.databricks.jdbc.common;
 
 import com.databricks.jdbc.model.core.ResultColumn;
+import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -10,6 +11,27 @@ import java.util.Map;
 public class MetadataResultConstants {
   public static String NULL_STRING = "NULL";
   public static final String PARSE_SYNTAX_ERROR_SQL_STATE = "42601";
+
+  /** SQL state for object-not-found errors (catalog, schema, table). */
+  public static final String OBJECT_NOT_FOUND_SQL_STATE = "42704";
+
+  /**
+   * Returns true if the exception indicates a catalog, schema, or table was not found. Per JDBC
+   * spec, metadata methods should return empty result sets for non-existent objects rather than
+   * throwing. Checks both SQL state (42704) and error message content for not-found indicators.
+   */
+  public static boolean isObjectNotFoundException(SQLException e) {
+    if (OBJECT_NOT_FOUND_SQL_STATE.equals(e.getSQLState())) {
+      return true;
+    }
+    String msg = e.getMessage();
+    return msg != null
+        && (msg.contains("NO_SUCH_CATALOG_EXCEPTION")
+            || msg.contains("TABLE_OR_VIEW_NOT_FOUND")
+            || msg.contains("SCHEMA_NOT_FOUND")
+            || msg.contains("INVALID_PARAMETER_VALUE"));
+  }
+
   public static final String[] DEFAULT_TABLE_TYPES = {
     "TABLE", "VIEW", "SYSTEM TABLE", "METRIC_VIEW"
   };

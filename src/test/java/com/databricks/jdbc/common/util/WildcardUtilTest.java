@@ -79,4 +79,24 @@ public class WildcardUtilTest {
   void testEscapeCatalogName(String input, String expected, String errorMessage) {
     assertEquals(expected, WildcardUtil.escapeCatalogName(input), errorMessage);
   }
+
+  private static Stream<Arguments> stripJdbcEscapesPatterns() {
+    return Stream.of(
+        Arguments.of(null, null, "Null input returns null"),
+        Arguments.of("simple", "simple", "No escapes unchanged"),
+        Arguments.of(
+            "comparator\\_tests", "comparator_tests", "Escaped underscore becomes literal"),
+        Arguments.of("a\\_b\\_c", "a_b_c", "Multiple escaped underscores"),
+        Arguments.of("comparator_tests", "comparator_tests", "Unescaped underscore unchanged"),
+        Arguments.of("abc\\\\", "abc\\", "Escaped backslash becomes single backslash"),
+        Arguments.of("abc\\%", "abc%", "Escaped percent becomes literal"),
+        Arguments.of("no\\_escape\\%here", "no_escape%here", "Mixed escapes stripped"),
+        Arguments.of("", "", "Empty string returns empty"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("stripJdbcEscapesPatterns")
+  void testStripJdbcEscapes(String input, String expected, String errorMessage) {
+    assertEquals(expected, WildcardUtil.stripJdbcEscapes(input), errorMessage);
+  }
 }
