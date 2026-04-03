@@ -198,6 +198,7 @@ public class PreparedStatementIntegrationTests extends AbstractFakeServiceIntegr
   void testPreparedStatementSetBytesValidArray(byte[] sampleData) throws SQLException {
     Properties p = new Properties();
     p.setProperty("supportManyParameters", "1");
+    p.setProperty("EnableSQLExecHybridResults", "0");
     connection = getValidJDBCConnection(p);
     String tableName = "prepared_statement_test_bytes_table";
     String createSql =

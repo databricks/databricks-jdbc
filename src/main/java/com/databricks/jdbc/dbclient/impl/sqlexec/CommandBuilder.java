@@ -29,7 +29,9 @@ public class CommandBuilder {
 
   public CommandBuilder(String catalogName, IDatabricksSession session) {
     this.sessionContext = session.toString();
-    this.catalogName = catalogName;
+    // Catalog names go into backtick-quoted SQL identifiers (not LIKE patterns),
+    // so strip JDBC escape sequences: \_  ->  _  and  \\  ->  \
+    this.catalogName = WildcardUtil.stripJdbcEscapes(catalogName);
   }
 
   public CommandBuilder(IDatabricksSession session) {
@@ -81,8 +83,8 @@ public class CommandBuilder {
         schemaPattern,
         sessionContext);
     String showSchemasSQL;
-    if (WildcardUtil.isNullOrWildcard(catalogName)) {
-      // SHOW SCHEMAS IN ALL CATALOGS
+    if (catalogName == null) {
+      // Per JDBC spec, null catalog means "do not narrow the search" — list across all catalogs
       showSchemasSQL = SHOW_SCHEMAS_IN_ALL_CATALOGS_SQL;
     } else {
       showSchemasSQL = String.format(SHOW_SCHEMAS_IN_CATALOG_SQL, catalogName);
@@ -101,8 +103,8 @@ public class CommandBuilder {
         tablePattern,
         sessionContext);
     String showTablesSQL;
-    if (WildcardUtil.isNullOrWildcard(catalogName)) {
-      // SHOW TABLES IN ALL CATALOGS
+    if (catalogName == null) {
+      // Per JDBC spec, null catalog means "do not narrow the search" — list across all catalogs
       showTablesSQL = SHOW_TABLES_IN_ALL_CATALOGS_SQL;
     } else {
       showTablesSQL = String.format(SHOW_TABLES_SQL, catalogName);

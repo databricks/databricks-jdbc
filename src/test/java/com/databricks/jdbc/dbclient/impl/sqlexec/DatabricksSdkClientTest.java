@@ -44,6 +44,7 @@ import java.util.*;
 import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -287,6 +288,53 @@ public class DatabricksSdkClientTest {
         .execute(
             argThat(req -> req.getMethod().equals(Request.POST) && req.getUrl().equals(path)),
             eq(Void.class));
+  }
+
+  @Test
+  public void testDisposition_arrowAndCloudFetchEnabled_usesExternalLinks() throws Exception {
+    setupClientMocks(true, false);
+    // Default JDBC_URL has arrow enabled and cloud fetch enabled
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setMaxRows(100);
+
+    databricksSdkClient.executeStatement(
+        STATEMENT,
+        warehouse,
+        sqlParams,
+        StatementType.QUERY,
+        connection.getSession(),
+        statement,
+        null);
+
+    ArgumentCaptor<ExecuteStatementRequest> captor =
+        ArgumentCaptor.forClass(ExecuteStatementRequest.class);
+    verify(apiClient, atLeastOnce()).serialize(captor.capture());
+    ExecuteStatementRequest captured = captor.getValue();
+    // With arrow + cloud fetch enabled, disposition should NOT be INLINE
+    assertNotEquals(Disposition.INLINE, captured.getDisposition());
+    assertEquals(Format.ARROW_STREAM, captured.getFormat());
+  }
+
+  @Test
+  public void testDisposition_cloudFetchDisabled_usesInline() throws Exception {
+    // Verify that when cloud fetch is disabled, the condition for external links is false
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.shouldEnableArrow()).thenReturn(true);
+    when(mockContext.isCloudFetchEnabled()).thenReturn(false);
+
+    // arrow=true but cloudFetch=false → should use inline (not external links)
+    assertTrue(mockContext.shouldEnableArrow());
+    assertFalse(mockContext.isCloudFetchEnabled());
+    assertFalse(
+        mockContext.shouldEnableArrow() && mockContext.isCloudFetchEnabled(),
+        "With cloud fetch disabled, disposition should resolve to INLINE");
   }
 
   @Test

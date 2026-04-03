@@ -1,3 +1,7 @@
+# TODO(security): When re-enabling this workflow:
+#   1. Remove the 'if: false' condition on the publish job
+#   2. Consider adding SLSA provenance via slsa-framework/slsa-github-generator
+#   3. Verify release secrets are rotated: GPG_PRIVATE_KEY, MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD
 name: Release
 on:
   push:

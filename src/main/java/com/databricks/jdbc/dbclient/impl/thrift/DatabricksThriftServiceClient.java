@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_STATEMENT_TIMEOUT_SECONDS;
 import static com.databricks.jdbc.common.EnvironmentVariables.JDBC_THRIFT_VERSION;
+import static com.databricks.jdbc.common.MetadataResultConstants.isObjectNotFoundException;
 import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
@@ -696,9 +697,17 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     if (ProtocolFeatureUtil.supportsAsyncMetadataExecution(serverProtocolVersion)) {
       request.setRunAsync(true);
     }
-    TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return metadataResultSetBuilder.getPrimaryKeysResult(
-        extractRowsFromColumnar(response.getResults()));
+    try {
+      TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
+      return metadataResultSetBuilder.getPrimaryKeysResult(
+          extractRowsFromColumnar(response.getResults()));
+    } catch (SQLException e) {
+      if (isObjectNotFoundException(e)) {
+        LOGGER.debug("Object not found for getPrimaryKeys, returning empty result");
+        return metadataResultSetBuilder.getPrimaryKeysResult(new ArrayList<>());
+      }
+      throw e;
+    }
   }
 
   @Override
@@ -726,8 +735,17 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     if (ProtocolFeatureUtil.supportsAsyncMetadataExecution(serverProtocolVersion)) {
       request.setRunAsync(true);
     }
-    TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return metadataResultSetBuilder.getImportedKeys(extractRowsFromColumnar(response.getResults()));
+    try {
+      TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
+      return metadataResultSetBuilder.getImportedKeys(
+          extractRowsFromColumnar(response.getResults()));
+    } catch (SQLException e) {
+      if (isObjectNotFoundException(e)) {
+        LOGGER.debug("Object not found for getImportedKeys, returning empty result");
+        return metadataResultSetBuilder.getImportedKeys(new ArrayList<>());
+      }
+      throw e;
+    }
   }
 
   @Override
@@ -754,8 +772,17 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     if (ProtocolFeatureUtil.supportsAsyncMetadataExecution(serverProtocolVersion)) {
       request.setRunAsync(true);
     }
-    TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return metadataResultSetBuilder.getExportedKeys(extractRowsFromColumnar(response.getResults()));
+    try {
+      TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
+      return metadataResultSetBuilder.getExportedKeys(
+          extractRowsFromColumnar(response.getResults()));
+    } catch (SQLException e) {
+      if (isObjectNotFoundException(e)) {
+        LOGGER.debug("Object not found for getExportedKeys, returning empty result");
+        return metadataResultSetBuilder.getExportedKeys(new ArrayList<>());
+      }
+      throw e;
+    }
   }
 
   @Override
@@ -797,9 +824,17 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     if (ProtocolFeatureUtil.supportsAsyncMetadataExecution(serverProtocolVersion)) {
       request.setRunAsync(true);
     }
-    TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
-    return metadataResultSetBuilder.getCrossRefsResult(
-        extractRowsFromColumnar(response.getResults()));
+    try {
+      TFetchResultsResp response = (TFetchResultsResp) thriftAccessor.getThriftResponse(request);
+      return metadataResultSetBuilder.getCrossRefsResult(
+          extractRowsFromColumnar(response.getResults()));
+    } catch (SQLException e) {
+      if (isObjectNotFoundException(e)) {
+        LOGGER.debug("Object not found for getCrossReference, returning empty result");
+        return metadataResultSetBuilder.getCrossRefsResult(new ArrayList<>());
+      }
+      throw e;
+    }
   }
 
   public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)

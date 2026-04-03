@@ -23,6 +23,24 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Validate version inputs
+        env:
+          OLD_VERSION: ${{ github.event.inputs.old_version }}
+          NEW_VERSION: ${{ github.event.inputs.new_version }}
+        run: |
+          # Validate versions match expected patterns (semver or semver-SNAPSHOT)
+          # to prevent shell/regex injection via crafted version strings.
+          VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$'
+          if ! echo "$OLD_VERSION" | grep -qE "$VERSION_PATTERN"; then
+            echo "ERROR: old_version '$OLD_VERSION' does not match expected version pattern"
+            exit 1
+          fi
+          if ! echo "$NEW_VERSION" | grep -qE "$VERSION_PATTERN"; then
+            echo "ERROR: new_version '$NEW_VERSION' does not match expected version pattern"
+            exit 1
+          fi
+          echo "Version inputs validated: $OLD_VERSION -> $NEW_VERSION"
+
       - name: Set up Git configuration
         run: |
           git config user.name "github-actions[bot]"

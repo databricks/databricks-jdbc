@@ -21,11 +21,10 @@ jobs:
       - name: Fetch PR message
         id: pr-message
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          # Use the GitHub API to fetch the PR message
-          pr_message=$(gh pr view "$PR_NUMBER" --json body -q '.body')
+          # Use PR body from event payload directly (no API call needed)
+          pr_message="$PR_BODY"
 
           # Sanitize the PR message to avoid code injection, keeping the equal sign
           sanitized_pr_message=$(echo "$pr_message" | sed 's/[^a-zA-Z0-9._/-=]/_/g')
