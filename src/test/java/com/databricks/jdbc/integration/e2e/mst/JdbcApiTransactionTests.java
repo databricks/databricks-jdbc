@@ -309,7 +309,7 @@ public class JdbcApiTransactionTests extends AbstractMstTestBase {
         connection.prepareStatement("UPDATE " + fqTable + " SET value = ? WHERE id = ?")) {
       ps.setString(1, "updated_ps");
       ps.setInt(2, 1);
-      ps.executeUpdate();
+      ps.execute();
     }
     connection.commit();
 
