@@ -5,8 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.sql.*;
 import java.util.List;
-import java.util.concurrent.*;
-import org.junit.jupiter.api.*;
 
 /**
  * Abstract base class for MST (Multi-Statement Transaction) tests.
@@ -29,8 +27,10 @@ public abstract class AbstractMstTestBase {
 
   protected void initBackend(int useThrift) throws SQLException {
     this.useThrift = useThrift;
-    this.catalog = getDatabricksCatalog();
-    this.schema = getDatabricksSchema();
+    String envCatalog = getDatabricksCatalog();
+    String envSchema = getDatabricksSchema();
+    this.catalog = (envCatalog != null && !envCatalog.isEmpty()) ? envCatalog : "main";
+    this.schema = (envSchema != null && !envSchema.isEmpty()) ? envSchema : "default";
     this.connection = createConnection();
     createTestTable(connection, getFullyQualifiedTableName());
   }
@@ -92,6 +92,8 @@ public abstract class AbstractMstTestBase {
   protected void createTestTable(Connection conn, String fqTableName) throws SQLException {
     try (Statement stmt = conn.createStatement()) {
       stmt.execute("DROP TABLE IF EXISTS " + fqTableName);
+    }
+    try (Statement stmt = conn.createStatement()) {
       stmt.execute(
           "CREATE TABLE "
               + fqTableName
@@ -112,7 +114,6 @@ public abstract class AbstractMstTestBase {
 
   // ========================== SHARED CORRECTNESS TESTS ==========================
 
-  @Test
   void testCommitSingleInsert() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
     startTransaction(connection);
@@ -125,7 +126,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(1, getRowCountFromSeparateConnection(fqTable));
   }
 
-  @Test
   void testCommitMultipleInserts() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
     startTransaction(connection);
@@ -140,7 +140,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(3, getRowCountFromSeparateConnection(fqTable));
   }
 
-  @Test
   void testRollbackSingleInsert() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
     startTransaction(connection);
@@ -153,7 +152,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(0, getRowCountFromSeparateConnection(fqTable));
   }
 
-  @Test
   void testMultipleSequentialTransactions() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
 
@@ -181,7 +179,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(2, getRowCountFromSeparateConnection(fqTable));
   }
 
-  @Test
   void testUpdateInTransaction() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
     // Insert with autocommit
@@ -203,7 +200,6 @@ public abstract class AbstractMstTestBase {
     }
   }
 
-  @Test
   void testDeleteInTransaction() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
     try (Statement stmt = connection.createStatement()) {
@@ -220,7 +216,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(1, getRowCountFromSeparateConnection(fqTable));
   }
 
-  @Test
   void testMultiTableCommit() throws SQLException {
     String fqTable1 = getFullyQualifiedTableName();
     String fqTable2 = getFullyQualifiedTableName2();
@@ -237,7 +232,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(1, getRowCountFromSeparateConnection(fqTable2));
   }
 
-  @Test
   void testMultiTableRollback() throws SQLException {
     String fqTable1 = getFullyQualifiedTableName();
     String fqTable2 = getFullyQualifiedTableName2();
@@ -254,7 +248,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(0, getRowCountFromSeparateConnection(fqTable2));
   }
 
-  @Test
   void testMultiTableAtomicity() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
 
@@ -274,7 +267,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(0, getRowCountFromSeparateConnection(fqTable));
   }
 
-  @Test
   void testCrossTableMerge() throws SQLException {
     String fqTable1 = getFullyQualifiedTableName();
     String fqTable2 = getFullyQualifiedTableName2();
@@ -303,7 +295,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(2, getRowCountFromSeparateConnection(fqTable1));
   }
 
-  @Test
   void testRepeatableReads() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
     try (Statement stmt = connection.createStatement()) {
@@ -333,7 +324,6 @@ public abstract class AbstractMstTestBase {
     rollbackTransaction(connection);
   }
 
-  @Test
   void testWriteConflictSingleTable() throws Exception {
     String fqTable = getFullyQualifiedTableName();
     try (Statement stmt = connection.createStatement()) {
@@ -367,7 +357,6 @@ public abstract class AbstractMstTestBase {
     }
   }
 
-  @Test
   void testWriteSkewProvesSnapshotIsolation() throws Exception {
     String fqTable1 = getFullyQualifiedTableName();
     String fqTable2 = getFullyQualifiedTableName2();
@@ -410,7 +399,6 @@ public abstract class AbstractMstTestBase {
     }
   }
 
-  @Test
   void testCommitWithoutActiveTxnThrows() throws SQLException {
     assertThrows(
         SQLException.class,
@@ -418,7 +406,6 @@ public abstract class AbstractMstTestBase {
         "Commit without active transaction should throw");
   }
 
-  @Test
   void testRollbackWithoutActiveTxnBehavior() throws SQLException {
     // JDBC API throws; explicit SQL ROLLBACK is a no-op
     // Subclasses may override if behavior differs
@@ -429,7 +416,6 @@ public abstract class AbstractMstTestBase {
     }
   }
 
-  @Test
   void testCloseConnectionImplicitRollback() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
     Connection tempConn = createConnection();
@@ -442,7 +428,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(0, getRowCountFromSeparateConnection(fqTable));
   }
 
-  @Test
   void testCloseConnectionDoesNotThrow() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
     Connection tempConn = createConnection();
@@ -453,13 +438,11 @@ public abstract class AbstractMstTestBase {
     assertDoesNotThrow(tempConn::close);
   }
 
-  @Test
   void testEmptyTransactionRollback() throws SQLException {
     startTransaction(connection);
     assertDoesNotThrow(() -> rollbackTransaction(connection));
   }
 
-  @Test
   void testReadOnlyTransaction() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
     try (Statement stmt = connection.createStatement()) {
@@ -477,7 +460,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(1, getRowCountFromSeparateConnection(fqTable));
   }
 
-  @Test
   void testRollbackAfterQueryFailure() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
 
@@ -498,7 +480,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(1, getRowCountFromSeparateConnection(fqTable));
   }
 
-  @Test
   void testMultipleStatementsInSingleTxn() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
 
@@ -517,7 +498,6 @@ public abstract class AbstractMstTestBase {
     assertEquals(3, getRowCountFromSeparateConnection(fqTable));
   }
 
-  @Test
   void testPreparedStatementInsert() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
 
