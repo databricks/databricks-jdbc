@@ -59,11 +59,19 @@ public class MstExecuteVariantTests extends AbstractMstTestBase {
     connection.setAutoCommit(false);
     try (Statement stmt = connection.createStatement()) {
       int rowCount = stmt.executeUpdate("INSERT INTO " + fqTable + " VALUES (1, 'exec_update')");
-      // SEA may return stale/incorrect row count (LC-13424); Thrift returns correct count
-      assertTrue(rowCount >= -1, "executeUpdate should return valid row count");
+      assertTrue(rowCount >= -1, "executeUpdate should return a row count");
     }
-    connection.commit();
-    assertEquals(1, getRowCountFromSeparateConnection(fqTable), "Data should persist after commit");
+    if (isSEA()) {
+      // SEA: executeUpdate silently poisons the transaction (LC-13424) — commit fails
+      assertThrows(
+          SQLException.class,
+          () -> connection.commit(),
+          "SEA: commit should fail after executeUpdate in MST (LC-13424)");
+    } else {
+      connection.commit();
+      assertEquals(
+          1, getRowCountFromSeparateConnection(fqTable), "Data should persist after commit");
+    }
   }
 
   @ParameterizedTest(name = "F.2 executeLargeUpdate [{1}]")
@@ -76,11 +84,18 @@ public class MstExecuteVariantTests extends AbstractMstTestBase {
     try (Statement stmt = connection.createStatement()) {
       long rowCount =
           stmt.executeLargeUpdate("INSERT INTO " + fqTable + " VALUES (1, 'large_update')");
-      // SEA may return stale/incorrect row count (LC-13424); Thrift returns correct count
-      assertTrue(rowCount >= -1, "executeLargeUpdate should return valid row count");
+      assertTrue(rowCount >= -1, "executeLargeUpdate should return a row count");
     }
-    connection.commit();
-    assertEquals(1, getRowCountFromSeparateConnection(fqTable));
+    if (isSEA()) {
+      // SEA: executeLargeUpdate silently poisons the transaction (LC-13424)
+      assertThrows(
+          SQLException.class,
+          () -> connection.commit(),
+          "SEA: commit should fail after executeLargeUpdate in MST (LC-13424)");
+    } else {
+      connection.commit();
+      assertEquals(1, getRowCountFromSeparateConnection(fqTable));
+    }
   }
 
   @ParameterizedTest(name = "F.3 executeBatch [{1}]")
