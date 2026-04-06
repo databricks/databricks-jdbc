@@ -106,48 +106,58 @@ classDiagram
         #isSEA() boolean
         #isThrift() boolean
         #getJdbcUrl(int useThrift) String
-        +testDefaultAutoCommitIsTrue()
         +testCommitSingleInsert()
         +testRollbackSingleInsert()
-        +... 29 more shared tests
+        +testMultiTableCommit()
+        +... 21 more shared tests
     }
-    note for AbstractMstTestBase "Parameterized: SEA (useThrift=0)\nand Thrift (useThrift=1).\n\n32 shared correctness tests\nrun on BOTH backends."
+    note for AbstractMstTestBase "Parameterized: SEA + Thrift.\n\n24 shared correctness tests\nrun on BOTH backends.\nMode-agnostic: uses abstract\nstartTransaction/commit/rollback."
 
     class JdbcApiTransactionTests {
-        #startTransaction() → setAutoCommit(false)
-        #commitTransaction() → connection.commit()
-        #rollbackTransaction() → connection.rollback()
+        #startTransaction() → setAutoCommit false
+        #commitTransaction() → connection.commit
+        #rollbackTransaction() → connection.rollback
+        +testDefaultAutoCommitIsTrue()
+        +testSetAutoCommitDuringActiveTxnThrows()
+        +testUnsupportedIsolationLevel()
+        +testSupportedIsolationLevel()
     }
+    note for JdbcApiTransactionTests "4 JDBC-API-specific tests\n+ inherits 24 shared tests"
 
     class ExplicitSqlTransactionTests {
-        #startTransaction() → stmt.execute(BEGIN TRANSACTION)
-        #commitTransaction() → stmt.execute(COMMIT)
-        #rollbackTransaction() → stmt.execute(ROLLBACK)
+        #startTransaction() → BEGIN TRANSACTION
+        #commitTransaction() → COMMIT
+        #rollbackTransaction() → ROLLBACK
         +testNestedBeginTransactionFails()
         +testBeginFailsWhenAutocommitFalse()
-        +testSetAutocommitViaSQL()
-        +... 6 more special tests
+        +testSetAutocommitFalseCommit()
+        +testSetAutocommitFalseRollback()
+        +testSetAutocommitTrue()
+        +testSetAutocommitWithoutValue()
+        +testSetAutocommitTrueDuringActiveTxnFails()
     }
-    note for ExplicitSqlTransactionTests "9 tests specific to\nSQL-level transaction control"
+    note for ExplicitSqlTransactionTests "7 explicit-SQL-specific tests\n+ inherits 24 shared tests.\nSET AUTOCOMMIT tests cover the\nimplicit SQL transaction mode."
 
     class MstMetadataTests {
         +testGetColumnsInMst()
         +testGetTablesInMst()
-        +...5 more metadata RPC tests
+        +testGetSchemasInMst()
+        +testGetCatalogsInMst()
+        +testGetPrimaryKeysInMst()
+        +testGetCrossReferenceInMst()
+        +testGetFunctionsInMst()
         +testGetMetaDataBeforeExecute()
         +testGetColumnsStaleAfterConcurrentDDL()
         +testGetTablesStaleAfterConcurrentDDL()
     }
-    note for MstMetadataTests "SEA: xfail (throws)\nThrift: pass (stale)\nStaleness tests: Thrift only"
+    note for MstMetadataTests "SEA: xfail (throws)\nThrift: pass (stale)\nStaleness tests: Thrift only\nUses JDBC API txn mode."
 
     class MstBlockedSqlTests {
         +testShowColumnsBlockedInMst()
         +testShowTablesBlockedInMst()
-        +...8 more blocked SQL tests
-        +testSetCatalogBlockedInMst()
-        +testSetSchemaBlockedInMst()
+        +... 8 more blocked SQL tests
     }
-    note for MstBlockedSqlTests "All xfail on both backends.\nVerify exception AND\ntxn abort."
+    note for MstBlockedSqlTests "All xfail on both backends.\nVerify exception AND\ntxn abort.\nUses JDBC API txn mode."
 
     class MstExecuteVariantTests {
         +testExecuteUpdateRowCount()
@@ -155,7 +165,7 @@ classDiagram
         +testExecuteBatchRowCounts()
         +testPSExecuteBatchRowCounts()
     }
-    note for MstExecuteVariantTests "SEA: TBD (stale counts)\nThrift: pass (correct counts)"
+    note for MstExecuteVariantTests "SEA: TBD (stale counts)\nThrift: pass (correct counts)\nUses JDBC API txn mode."
 
     AbstractMstTestBase <|-- JdbcApiTransactionTests
     AbstractMstTestBase <|-- ExplicitSqlTransactionTests
@@ -164,17 +174,31 @@ classDiagram
     AbstractMstTestBase <|-- MstExecuteVariantTests
 ```
 
+### Design Principles
+
+1. **Shared tests are mode-agnostic.** Tests in `AbstractMstTestBase` use `startTransaction()`, `commitTransaction()`, `rollbackTransaction()` — they never call `setAutoCommit()`, `connection.commit()`, `BEGIN TRANSACTION`, etc. directly. The subclass decides the mechanism.
+
+2. **API-specific tests live in the subclass that owns the API.**
+   - `testDefaultAutoCommitIsTrue`, `testSetAutoCommitDuringActiveTxnThrows`, `testUnsupportedIsolationLevel`, `testSupportedIsolationLevel` → `JdbcApiTransactionTests` (these use `setAutoCommit()`, `setTransactionIsolation()`, `getTransactionIsolation()`)
+   - `testNestedBeginTransactionFails`, `testBeginFailsWhenAutocommitFalse`, SET AUTOCOMMIT tests → `ExplicitSqlTransactionTests`
+
+3. **ExplicitSqlTransactionTests uses BEGIN TRANSACTION, not SET AUTOCOMMIT**, for the shared tests. SET AUTOCOMMIT tests are special cases that cover the implicit SQL transaction mode — they test the SET AUTOCOMMIT command itself, not transaction correctness.
+
+4. **Gap tests use JDBC API mode** for transaction control (`setAutoCommit(false)`). MSTCheckRule doesn't care how the transaction was started, so we only need one transaction mode for these.
+
+5. **setCatalog/setSchema are JDBC API calls** — they live in `MstBlockedSqlTests` (not the shared base) since they're testing gap behavior, not basic correctness.
+
 ### How tests execute across backends and transaction modes
 
 ```mermaid
 flowchart LR
-    subgraph "32 Shared Correctness Tests"
+    subgraph "24 Shared Correctness Tests"
         TESTS[AbstractMstTestBase tests]
     end
 
     subgraph "Transaction Mode"
-        JDBC[JdbcApiTransactionTests<br/>setAutoCommit / commit / rollback]
-        EXPLICIT[ExplicitSqlTransactionTests<br/>BEGIN TRANSACTION / COMMIT / ROLLBACK]
+        JDBC["JdbcApiTransactionTests<br/>setAutoCommit / commit / rollback<br/>+ 4 API-specific tests"]
+        EXPLICIT["ExplicitSqlTransactionTests<br/>BEGIN TRANSACTION / COMMIT / ROLLBACK<br/>+ 7 explicit-SQL-specific tests"]
     end
 
     subgraph "Backend"
@@ -189,10 +213,10 @@ flowchart LR
     EXPLICIT --> SEA
     EXPLICIT --> THRIFT
 
-    SEA --> R1["32 test runs"]
-    THRIFT --> R2["32 test runs"]
-    SEA --> R3["32 test runs"]
-    THRIFT --> R4["32 test runs"]
+    SEA --> R1["28 test runs"]
+    THRIFT --> R2["28 test runs"]
+    SEA --> R3["31 test runs"]
+    THRIFT --> R4["31 test runs"]
 
     style R1 fill:#4a4,color:#fff
     style R2 fill:#4a4,color:#fff
@@ -206,7 +230,7 @@ The gap tests (MstMetadataTests, MstBlockedSqlTests, MstExecuteVariantTests) onl
 flowchart LR
     subgraph "Gap Tests"
         META["MstMetadataTests<br/>10 tests"]
-        BLOCKED["MstBlockedSqlTests<br/>12 tests"]
+        BLOCKED["MstBlockedSqlTests<br/>10 SQL + 2 API = 12 tests"]
         EXEC["MstExecuteVariantTests<br/>4 tests"]
     end
 
@@ -269,75 +293,80 @@ if (isSEA()) {
 
 ### A. Shared correctness tests (in AbstractMstTestBase)
 
-Run by both JdbcApiTransactionTests and ExplicitSqlTransactionTests, on both SEA and Thrift.
+Run by both JdbcApiTransactionTests and ExplicitSqlTransactionTests, on both SEA and Thrift. All descriptions are mode-agnostic — `startTransaction()` / `commitTransaction()` / `rollbackTransaction()` are provided by the subclass.
 
 | # | Test | Description | Expected |
 |---|---|---|---|
-| A.1 | `testDefaultAutoCommitIsTrue` | New connection defaults to autoCommit=true | Pass |
-| A.2 | `testCommitSingleInsert` | Disable autocommit → INSERT → commit → verify from separate conn | Pass |
-| A.3 | `testCommitMultipleInserts` | Disable autocommit → 3 INSERTs → commit → verify all 3 rows | Pass |
-| A.4 | `testRollbackSingleInsert` | Disable autocommit → INSERT → rollback → verify not persisted | Pass |
-| A.5 | `testMultipleSequentialTransactions` | 3 sequential txns (commit, commit, rollback) → verify only first two persist | Pass |
-| A.6 | `testAutoStartAfterCommit` | Commit txn1 → insert+rollback txn2 → only txn1 data persists | Pass |
-| A.7 | `testAutoStartAfterRollback` | Rollback txn1 → insert+commit txn2 → only txn2 data persists | Pass |
-| A.8 | `testUpdateInTransaction` | Insert with autocommit → UPDATE in txn → commit → verify updated | Pass |
-| A.9 | `testDeleteInTransaction` | Insert 2 rows → DELETE one in txn → commit → verify 1 remains | Pass |
-| A.10 | `testMultiTableCommit` | Insert into 2 tables in txn → commit → verify both from separate conn | Pass |
-| A.11 | `testMultiTableRollback` | Insert into 2 tables in txn → rollback → verify neither persisted | Pass |
-| A.12 | `testMultiTableAtomicity` | Insert into A → invalid SQL on B → rollback → verify A also rolled back | Pass |
-| A.13 | `testCrossTableMerge` | MERGE across source/target tables in txn → commit → verify | Pass |
-| A.14 | `testRepeatableReads` | Read in txn → external conn modifies → re-read in txn → same value | Pass |
-| A.15 | `testWriteConflictSingleTable` | Two concurrent txns on same table → first commits → second gets ConcurrentAppendException | Pass |
-| A.16 | `testWriteSkewProvesSnapshotIsolation` | Two concurrent txns on different tables → both commit → proves Snapshot Isolation | Pass |
-| A.17 | `testCommitWithoutActiveTxnThrows` | autocommit=true → commit() → expect exception | Pass |
-| A.18 | `testRollbackWithoutActiveTxnBehavior` | autocommit=true → rollback() → document behavior (JDBC throws, explicit SQL is no-op) | Pass |
-| A.19 | `testSetAutoCommitDuringActiveTxnThrows` | In active txn → setAutoCommit(true) → expect exception | Pass |
-| A.20 | `testUnsupportedIsolationLevel` | Set isolation to READ_UNCOMMITTED/READ_COMMITTED/SERIALIZABLE → expect exception | Pass |
-| A.21 | `testSupportedIsolationLevel` | Set isolation to REPEATABLE_READ → verify | Pass |
-| A.22 | `testCloseConnectionImplicitRollback` | Insert in txn → close() without commit → verify not persisted from new conn | Pass |
-| A.23 | `testCloseConnectionDoesNotThrow` | Insert in txn → close() → no exception | Pass |
-| A.24 | `testEmptyTransactionRollback` | Disable autocommit → rollback() immediately → no exception | Pass |
-| A.25 | `testReadOnlyTransaction` | SELECT-only in txn → commit → data unchanged | Pass |
-| A.26 | `testRollbackAfterQueryFailure` | Insert → invalid SQL → rollback → new txn → insert → commit → verify recovery | Pass |
-| A.27 | `testMultipleStatementsInSingleTxn` | 3 Statement objects each insert → commit → verify 3 rows | Pass |
-| A.28 | `testPreparedStatementInsert` | Parameterized INSERT in txn → commit → verify | Pass |
-| A.29 | `testPreparedStatementUpdate` | Insert → parameterized UPDATE in txn → commit → verify | Pass |
-| A.30 | `testPreparedStatementReuseAcrossTransactions` | Same PreparedStatement used in txn1 (commit) and txn2 (commit) → verify both rows | Pass |
-| A.31 | `testPreparedStatementGetMetaDataAfterExecute` | Execute PreparedStatement SELECT → getMetaData() → verify column count | Pass |
-| A.32 | `testGetParameterMetaData` | Create parameterized PreparedStatement → getParameterMetaData() → verify non-null | Pass |
+| A.1 | `testCommitSingleInsert` | Start txn → INSERT → commit → verify row visible from separate conn | Pass |
+| A.2 | `testCommitMultipleInserts` | Start txn → 3 INSERTs → commit → verify all 3 rows | Pass |
+| A.3 | `testRollbackSingleInsert` | Start txn → INSERT → rollback → verify not persisted | Pass |
+| A.4 | `testMultipleSequentialTransactions` | 3 sequential txns (commit, commit, rollback) → verify only first two persist | Pass |
+| A.5 | `testAutoStartAfterCommit` | Commit txn1 → insert+rollback txn2 → only txn1 data persists | Pass |
+| A.6 | `testAutoStartAfterRollback` | Rollback txn1 → insert+commit txn2 → only txn2 data persists | Pass |
+| A.7 | `testUpdateInTransaction` | Insert with autocommit → start txn → UPDATE → commit → verify updated | Pass |
+| A.8 | `testDeleteInTransaction` | Insert 2 rows → start txn → DELETE one → commit → verify 1 remains | Pass |
+| A.9 | `testMultiTableCommit` | Start txn → insert into 2 tables → commit → verify both from separate conn | Pass |
+| A.10 | `testMultiTableRollback` | Start txn → insert into 2 tables → rollback → verify neither persisted | Pass |
+| A.11 | `testMultiTableAtomicity` | Start txn → insert into A → invalid SQL on B → rollback → verify A also rolled back | Pass |
+| A.12 | `testCrossTableMerge` | Start txn → MERGE across source/target tables → commit → verify | Pass |
+| A.13 | `testRepeatableReads` | Start txn → read → external conn modifies → re-read in txn → same value | Pass |
+| A.14 | `testWriteConflictSingleTable` | Two concurrent txns on same table → first commits → second gets ConcurrentAppendException | Pass |
+| A.15 | `testWriteSkewProvesSnapshotIsolation` | Two concurrent txns on different tables → both commit → proves Snapshot Isolation | Pass |
+| A.16 | `testCommitWithoutActiveTxnThrows` | No active txn → commit → expect exception | Pass |
+| A.17 | `testRollbackWithoutActiveTxnBehavior` | No active txn → rollback → JDBC API throws, explicit SQL ROLLBACK is no-op | Pass |
+| A.18 | `testCloseConnectionImplicitRollback` | Start txn → insert → close() without commit → verify not persisted from new conn | Pass |
+| A.19 | `testCloseConnectionDoesNotThrow` | Start txn → insert → close() → no exception | Pass |
+| A.20 | `testEmptyTransactionRollback` | Start txn → rollback immediately → no exception | Pass |
+| A.21 | `testReadOnlyTransaction` | Start txn → SELECT-only → commit → data unchanged | Pass |
+| A.22 | `testRollbackAfterQueryFailure` | Start txn → insert → invalid SQL → rollback → new txn → insert → commit → verify recovery | Pass |
+| A.23 | `testMultipleStatementsInSingleTxn` | Start txn → 3 Statement objects each insert → commit → verify 3 rows | Pass |
+| A.24 | `testPreparedStatementInsert` | Start txn → parameterized INSERT → commit → verify | Pass |
 
-### B. ExplicitSqlTransactionTests — special tests
+### B. JdbcApiTransactionTests — API-specific tests
 
-Only for the explicit SQL transaction mode. Run on both backends.
+These use JDBC API methods (`setAutoCommit`, `setTransactionIsolation`, etc.) that only apply to the JDBC API transaction mode. Run on both backends.
 
 | # | Test | Description | Expected |
 |---|---|---|---|
-| B.1 | `testBeginTransactionFailsWhenAutocommitFalse` | SET AUTOCOMMIT = FALSE → BEGIN TRANSACTION → expect exception | Pass |
-| B.2 | `testNestedBeginTransactionFails` | BEGIN TRANSACTION → BEGIN TRANSACTION → expect exception | Pass |
-| B.3 | `testSetAutocommitFalseCommit` | SET AUTOCOMMIT = FALSE → INSERT → COMMIT → verify persisted | Pass |
-| B.4 | `testSetAutocommitFalseRollback` | SET AUTOCOMMIT = FALSE → INSERT → ROLLBACK → verify not persisted | Pass |
-| B.5 | `testSetAutocommitTrue` | SET AUTOCOMMIT = FALSE → commit → SET AUTOCOMMIT = TRUE → INSERT auto-commits | Pass |
-| B.6 | `testSetAutocommitWithoutValue` | SET AUTOCOMMIT → returns current value → change → query again → different value | Pass |
-| B.7 | `testSetAutocommitTrueDuringActiveTxnFails` | SET AUTOCOMMIT = FALSE → INSERT → SET AUTOCOMMIT = TRUE → expect exception | Pass |
-| B.8 | `testExplicitCommitWithoutActiveTxn` | COMMIT SQL without active txn → expect exception | Pass |
-| B.9 | `testExplicitRollbackWithoutActiveTxn` | ROLLBACK SQL without active txn → safe no-op, connection usable | Pass |
+| B.1 | `testDefaultAutoCommitIsTrue` | New connection → assert `getAutoCommit()` returns true | Pass |
+| B.2 | `testSetAutoCommitDuringActiveTxnThrows` | `setAutoCommit(false)` → INSERT → `setAutoCommit(true)` → expect exception | Pass |
+| B.3 | `testUnsupportedIsolationLevel` | `setTransactionIsolation(READ_UNCOMMITTED/READ_COMMITTED/SERIALIZABLE)` → expect exception for each | Pass |
+| B.4 | `testSupportedIsolationLevel` | `setTransactionIsolation(REPEATABLE_READ)` → `getTransactionIsolation()` → verify | Pass |
+| B.5 | `testPreparedStatementUpdate` | `setAutoCommit(false)` → insert → parameterized UPDATE → commit → verify | Pass |
+| B.6 | `testPreparedStatementReuseAcrossTransactions` | Same PreparedStatement used in txn1 (commit) and txn2 (commit) → verify both rows | Pass |
+| B.7 | `testPreparedStatementGetMetaDataAfterExecute` | `setAutoCommit(false)` → execute PreparedStatement SELECT → `getMetaData()` → verify column count | Pass |
+| B.8 | `testGetParameterMetaData` | `setAutoCommit(false)` → create parameterized PreparedStatement → `getParameterMetaData()` → verify non-null | Pass |
 
-### C. MstMetadataTests — metadata RPCs in MST
+### C. ExplicitSqlTransactionTests — SQL-specific tests
+
+These test SQL-level transaction control. The shared tests inherited from `AbstractMstTestBase` use `BEGIN TRANSACTION` / `COMMIT` / `ROLLBACK`. The special tests below cover behavior unique to SQL transaction statements. Run on both backends.
+
+| # | Test | Description | Expected |
+|---|---|---|---|
+| C.1 | `testNestedBeginTransactionFails` | `BEGIN TRANSACTION` → `BEGIN TRANSACTION` → expect exception | Pass |
+| C.2 | `testBeginFailsWhenAutocommitFalse` | `SET AUTOCOMMIT = FALSE` → `BEGIN TRANSACTION` → expect exception (can't use explicit BEGIN in implicit mode) | Pass |
+| C.3 | `testSetAutocommitFalseCommit` | `SET AUTOCOMMIT = FALSE` → INSERT → `COMMIT` → verify persisted (tests implicit SQL transaction mode) | Pass |
+| C.4 | `testSetAutocommitFalseRollback` | `SET AUTOCOMMIT = FALSE` → INSERT → `ROLLBACK` → verify not persisted | Pass |
+| C.5 | `testSetAutocommitTrue` | `SET AUTOCOMMIT = FALSE` → commit → `SET AUTOCOMMIT = TRUE` → INSERT auto-commits → verify | Pass |
+| C.6 | `testSetAutocommitWithoutValue` | `SET AUTOCOMMIT` → returns current value → change → query again → different value | Pass |
+| C.7 | `testSetAutocommitTrueDuringActiveTxnFails` | `SET AUTOCOMMIT = FALSE` → INSERT → `SET AUTOCOMMIT = TRUE` → expect exception | Pass |
+
+### D. MstMetadataTests — metadata RPCs in MST
 
 Uses JDBC API mode (`setAutoCommit(false)`) for transaction control. Run on both backends with backend-aware assertions.
 
 ```mermaid
 flowchart TD
-    subgraph "C.1–C.7: Metadata RPC Tests"
-        START["Start txn → INSERT row"]
-        START --> CALL["Call getColumns() / getTables() / ..."]
+    subgraph "D.1–D.7: Metadata RPC Tests"
+        START["setAutoCommit false → INSERT row"]
+        START --> CALL["Call getColumns / getTables / ..."]
         CALL -->|SEA| THROWS["Throws SQLException<br/>(xfail — MSTCheckRule)"]
         CALL -->|Thrift| RETURNS["Returns ResultSet<br/>(stale, non-transactional)"]
     end
 
-    subgraph "C.9–C.10: Staleness Tests (Thrift only)"
-        S1["Start txn → getColumns()"] --> S2["Concurrent conn:<br/>ALTER TABLE ADD COLUMN"]
-        S2 --> S3["getColumns() again<br/>in same txn"]
+    subgraph "D.9–D.10: Staleness Tests (Thrift only)"
+        S1["setAutoCommit false → getColumns"] --> S2["Concurrent conn:<br/>ALTER TABLE ADD COLUMN"]
+        S2 --> S3["getColumns again<br/>in same txn"]
         S3 --> S4["Assert: new column<br/>NOT visible (stale)"]
     end
 
@@ -348,25 +377,25 @@ flowchart TD
 
 | # | Test | SEA | Thrift |
 |---|---|---|---|
-| C.1 | `testGetColumnsInMst` | xfail: expect exception | Pass: returns results (stale) |
-| C.2 | `testGetTablesInMst` | xfail: expect exception | Pass: returns results (stale) |
-| C.3 | `testGetSchemasInMst` | xfail: expect exception | Pass: returns results (stale) |
-| C.4 | `testGetCatalogsInMst` | xfail: expect exception | Pass: returns results (stale) |
-| C.5 | `testGetPrimaryKeysInMst` | xfail: expect exception | Pass: returns results (stale) |
-| C.6 | `testGetCrossReferenceInMst` | xfail: expect exception | Pass: returns ResultSet |
-| C.7 | `testGetFunctionsInMst` | xfail: expect exception | Pass: returns results (stale) |
-| C.8 | `testPreparedStatementGetMetaDataBeforeExecute` | xfail: expect exception (DESCRIBE QUERY blocked) | xfail: same |
-| C.9 | `testGetColumnsStaleAfterConcurrentAddColumn` | Skip (would throw before staleness check) | Assert: second getColumns() does NOT see new column added by concurrent conn |
-| C.10 | `testGetTablesStaleAfterConcurrentCreateTable` | Skip | Assert: second getTables() does NOT see new table created by concurrent conn |
+| D.1 | `testGetColumnsInMst` | xfail: expect exception | Pass: returns results (stale) |
+| D.2 | `testGetTablesInMst` | xfail: expect exception | Pass: returns results (stale) |
+| D.3 | `testGetSchemasInMst` | xfail: expect exception | Pass: returns results (stale) |
+| D.4 | `testGetCatalogsInMst` | xfail: expect exception | Pass: returns results (stale) |
+| D.5 | `testGetPrimaryKeysInMst` | xfail: expect exception | Pass: returns results (stale) |
+| D.6 | `testGetCrossReferenceInMst` | xfail: expect exception | Pass: returns ResultSet |
+| D.7 | `testGetFunctionsInMst` | xfail: expect exception | Pass: returns results (stale) |
+| D.8 | `testPreparedStatementGetMetaDataBeforeExecute` | xfail: expect exception (DESCRIBE QUERY blocked) | xfail: same |
+| D.9 | `testGetColumnsStaleAfterConcurrentAddColumn` | Skip (would throw before staleness check) | Assert: second `getColumns()` does NOT see new column added by concurrent conn |
+| D.10 | `testGetTablesStaleAfterConcurrentCreateTable` | Skip | Assert: second `getTables()` does NOT see new table created by concurrent conn |
 
-### D. MstBlockedSqlTests — SQL introspection blocked by MSTCheckRule
+### E. MstBlockedSqlTests — SQL introspection blocked by MSTCheckRule
 
-Uses JDBC API mode. Run on both backends. All xfail.
+Uses JDBC API mode. Run on both backends. All xfail — each test starts a txn via `setAutoCommit(false)`, INSERTs a row, executes the blocked SQL, expects exception, then verifies txn is aborted (subsequent INSERT also throws).
 
 ```mermaid
 flowchart TD
-    START["Start txn → INSERT row"]
-    START --> EXEC["Execute blocked SQL<br/>(SHOW COLUMNS, DESCRIBE, etc.)"]
+    START["setAutoCommit false → INSERT row"]
+    START --> EXEC["Execute blocked SQL<br/>(SHOW COLUMNS, DESCRIBE, etc.)<br/>or blocked API call<br/>(setCatalog, setSchema)"]
     EXEC --> EXCEPT["SQLException thrown"]
     EXCEPT --> VERIFY["Try INSERT again"]
     VERIFY --> ABORTED["SQLException thrown<br/>(txn is aborted)"]
@@ -375,39 +404,52 @@ flowchart TD
     style ABORTED fill:#f44,color:#fff
 ```
 
-| # | Test | SQL Statement |
+| # | Test | Operation |
 |---|---|---|
-| D.1 | `testShowColumnsBlockedInMst` | `SHOW COLUMNS IN <table>` |
-| D.2 | `testShowTablesBlockedInMst` | `SHOW TABLES IN <schema>` |
-| D.3 | `testShowSchemasBlockedInMst` | `SHOW SCHEMAS IN <catalog>` |
-| D.4 | `testShowCatalogsBlockedInMst` | `SHOW CATALOGS` |
-| D.5 | `testShowFunctionsBlockedInMst` | `SHOW FUNCTIONS` |
-| D.6 | `testDescribeQueryBlockedInMst` | `DESCRIBE QUERY SELECT * FROM <table>` |
-| D.7 | `testDescribeTableExtendedBlockedInMst` | `DESCRIBE TABLE EXTENDED <table>` |
-| D.8 | `testDescribeTableBlockedInMst` | `DESCRIBE TABLE <table>` |
-| D.9 | `testDescribeColumnBlockedInMst` | `DESCRIBE <table>.<column>` |
-| D.10 | `testInformationSchemaBlockedInMst` | `SELECT FROM information_schema.columns` |
-| D.11 | `testSetCatalogBlockedInMst` | `connection.setCatalog()` |
-| D.12 | `testSetSchemaBlockedInMst` | `connection.setSchema()` |
+| E.1 | `testShowColumnsBlockedInMst` | `SHOW COLUMNS IN <table>` |
+| E.2 | `testShowTablesBlockedInMst` | `SHOW TABLES IN <schema>` |
+| E.3 | `testShowSchemasBlockedInMst` | `SHOW SCHEMAS IN <catalog>` |
+| E.4 | `testShowCatalogsBlockedInMst` | `SHOW CATALOGS` |
+| E.5 | `testShowFunctionsBlockedInMst` | `SHOW FUNCTIONS` |
+| E.6 | `testDescribeQueryBlockedInMst` | `DESCRIBE QUERY SELECT * FROM <table>` |
+| E.7 | `testDescribeTableExtendedBlockedInMst` | `DESCRIBE TABLE EXTENDED <table>` |
+| E.8 | `testDescribeTableBlockedInMst` | `DESCRIBE TABLE <table>` |
+| E.9 | `testDescribeColumnBlockedInMst` | `DESCRIBE <table>.<column>` |
+| E.10 | `testInformationSchemaBlockedInMst` | `SELECT FROM information_schema.columns` |
+| E.11 | `testSetCatalogBlockedInMst` | `connection.setCatalog()` — JDBC API call |
+| E.12 | `testSetSchemaBlockedInMst` | `connection.setSchema()` — JDBC API call |
 
-### E. MstExecuteVariantTests — execute method row counts
+### F. MstExecuteVariantTests — execute method row counts
 
 Uses JDBC API mode. Backend-aware assertions.
 
 | # | Test | SEA | Thrift |
 |---|---|---|---|
-| E.1 | `testExecuteUpdateRowCount` | TBD after E2E — assert stale count if confirmed | Pass: assert correct count |
-| E.2 | `testExecuteLargeUpdateRowCount` | TBD after E2E | Pass: assert correct count |
-| E.3 | `testExecuteBatchRowCounts` | TBD after E2E | Pass: assert correct counts |
-| E.4 | `testPreparedStatementExecuteBatchRowCounts` | TBD after E2E | Pass: assert correct counts |
+| F.1 | `testExecuteUpdateRowCount` | TBD after E2E — assert stale count if confirmed | Pass: assert correct count |
+| F.2 | `testExecuteLargeUpdateRowCount` | TBD after E2E | Pass: assert correct count |
+| F.3 | `testExecuteBatchRowCounts` | TBD after E2E | Pass: assert correct counts |
+| F.4 | `testPreparedStatementExecuteBatchRowCounts` | TBD after E2E | Pass: assert correct counts |
+
+### G. Tests needing E2E validation before assertions
+
+These tests exist in the current code with zero or speculative assertions. We keep them but need to run E2E to determine the correct assertion.
+
+| # | Test | What to determine via E2E |
+|---|---|---|
+| G.1 | `testDDLCreateTableInMst` | Does CREATE TABLE inside MST throw? If rollback, does the table still exist? |
+| G.2 | `testDDLDropTableInMst` | Does DROP TABLE inside MST throw? If rollback, is the table restored? |
+| G.3 | `testDDLAlterTableInMst` | Does ALTER TABLE inside MST throw? If rollback, is the schema unchanged? |
+| G.4 | `testEmptyTransactionCommit` | Does committing an empty transaction succeed or throw? |
+| G.5 | `testRetryAfterConcurrentAppendException` | What is the deterministic row count after retry? |
 
 ## Test Counts
 
 ```mermaid
-pie title Test Executions by Category (~194 total)
-    "Shared correctness (JDBC API)" : 64
-    "Shared correctness (Explicit SQL)" : 64
-    "Explicit SQL special" : 18
+pie title Test Executions by Category (~170 total)
+    "Shared correctness (JDBC API)" : 48
+    "Shared correctness (Explicit SQL)" : 48
+    "JDBC API special" : 16
+    "Explicit SQL special" : 14
     "Metadata gap tests" : 16
     "Blocked SQL tests" : 24
     "Execute variant tests" : 8
@@ -415,13 +457,13 @@ pie title Test Executions by Category (~194 total)
 
 | Class | Unique tests | Executions (×2 backends) |
 |---|---|---|
-| AbstractMstTestBase (via JdbcApiTransactionTests) | 32 | 64 |
-| AbstractMstTestBase (via ExplicitSqlTransactionTests) | 32 | 64 |
-| ExplicitSqlTransactionTests (special) | 9 | 18 |
+| AbstractMstTestBase (via JdbcApiTransactionTests) | 24 shared + 8 API-specific = 32 | 64 |
+| AbstractMstTestBase (via ExplicitSqlTransactionTests) | 24 shared + 7 SQL-specific = 31 | 62 |
 | MstMetadataTests | 10 | 16 (some skip on one backend) |
 | MstBlockedSqlTests | 12 | 24 |
 | MstExecuteVariantTests | 4 | 8 |
-| **Total** | **67 unique** | **~194 executions** |
+| Needs E2E validation | 5 | 10 |
+| **Total** | **62 unique** | **~184 executions** |
 
 ## Migration from current tests
 
@@ -440,20 +482,23 @@ flowchart TD
     end
 
     subgraph "New Structure"
-        BASE["AbstractMstTestBase<br/>32 shared correctness tests"]
-        JDBC_API["JdbcApiTransactionTests<br/>extends base"]
-        EXPLICIT["ExplicitSqlTransactionTests<br/>extends base + 9 special tests"]
+        BASE["AbstractMstTestBase<br/>24 shared correctness tests"]
+        JDBC_API["JdbcApiTransactionTests<br/>extends base + 8 API tests"]
+        EXPLICIT["ExplicitSqlTransactionTests<br/>extends base + 7 SQL tests"]
         META_NEW["MstMetadataTests<br/>10 tests, backend-aware"]
         BLOCKED_NEW["MstBlockedSqlTests<br/>12 tests, xfail"]
         EXEC_NEW["MstExecuteVariantTests<br/>4 tests, backend-aware"]
+        E2E_NEW["Needs E2E validation<br/>5 tests"]
     end
 
     OLD1 -->|"correctness tests"| BASE
     OLD2 -->|"correctness tests<br/>(deduplicated)"| BASE
+    OLD1 -->|"API-specific"| JDBC_API
+    OLD2 -->|"SQL-specific"| EXPLICIT
     OLD1 -->|"gap tests<br/>(fixed assertions)"| META_NEW
     OLD1 -->|"gap tests<br/>(fixed assertions)"| BLOCKED_NEW
     OLD1 -->|"gap tests<br/>(fixed assertions)"| EXEC_NEW
-    OLD2 -->|"special tests"| EXPLICIT
+    OLD1 -->|"zero-assertion tests"| E2E_NEW
 
     BASE --> JDBC_API
     BASE --> EXPLICIT
@@ -466,38 +511,33 @@ flowchart TD
     style META_NEW fill:#fa0,color:#fff
     style BLOCKED_NEW fill:#f44,color:#fff
     style EXEC_NEW fill:#fa0,color:#fff
+    style E2E_NEW fill:#888,color:#fff
 ```
 
 1. **Delete** both existing files
-2. **Create** the new class hierarchy above
-3. **Move** correctness tests into `AbstractMstTestBase` (deduplicated — currently duplicated across TransactionTests and ExplicitTransactionStatementTests)
-4. **Fix** gap tests: replace speculative assertions with backend-aware xfail/staleness assertions
-5. **Delete** tests with zero assertions (DDL documentation tests, statement timeout, empty commit)
-6. **Add** staleness tests (C.9, C.10) — new, didn't exist before
-7. **Parameterize** everything on SEA/Thrift
+2. **Create** the new class hierarchy
+3. **Move** correctness tests into `AbstractMstTestBase` (deduplicated)
+4. **Move** API-specific tests into `JdbcApiTransactionTests` (setAutoCommit, isolation level, PreparedStatement metadata)
+5. **Move** SQL-specific tests into `ExplicitSqlTransactionTests` (BEGIN TRANSACTION, SET AUTOCOMMIT)
+6. **Fix** gap tests: replace speculative assertions with backend-aware xfail/staleness assertions
+7. **Keep** DDL/empty-commit/retry tests in a pending state — run E2E to determine assertions
+8. **Add** staleness tests (D.9, D.10) — new, didn't exist before
+9. **Parameterize** everything on SEA/Thrift
 
-### Tests being removed (and why)
+### Tests removed from current code (and why)
 
 | Test | Reason |
 |---|---|
-| `testDDLCreateTableInTransaction` | Zero assertions, purely prints |
-| `testDDLDropTableInTransaction` | Zero assertions |
-| `testDDLAlterTableInTransaction` | Zero assertions |
-| `testParameterizedDMLAfterConcurrentAlterTable` | Zero assertions, same underlying issue as metadata staleness |
-| `testTransactionAfterStatementTimeout` | No assertions on recovery |
-| `testEmptyTransactionCommit` | Allows both success and failure — untestable without E2E |
-| `testRetryAfterConcurrentAppendException` | Non-deterministic assertion (`>= 2` rows) |
 | `testExceptionDetailsPreserved` | Tests driver exception internals, not MST behavior |
 | `testResultSetHoldabilityOverCommit` | Not MST-specific |
 | `testTransactionContinuesAfterAllowedMetadataOp` | Redundant with multi-insert correctness tests |
-
-### Tests being kept (moved into new structure)
-
-All basic correctness tests (commit, rollback, isolation, multi-table, error handling, PreparedStatement) move into `AbstractMstTestBase`. Gap tests (metadata, blocked SQL, execute variants) move into their respective specialized classes with proper backend-aware assertions.
+| `testParameterizedDMLAfterConcurrentAlterTable` | Same underlying issue as metadata staleness (covered by D.9) |
+| `testTransactionAfterStatementTimeout` | No meaningful assertion possible without E2E — revisit later |
 
 ## Open items
 
 - [ ] Run E2E on SEA to confirm `executeUpdate()` row count behavior (stale value vs exception)
 - [ ] Run E2E to confirm `getMetaData()` before execute throws on both backends
+- [ ] Run E2E for DDL tests (G.1–G.3) and empty commit (G.4) to determine correct assertions
 - [ ] Decide if `isValid()` inside MST needs a test (currently issues `SELECT VERSION()`, likely works)
 - [ ] Python driver test refactoring (separate effort, similar structure but no Thrift/SEA split needed today since Python defaults to Thrift)
