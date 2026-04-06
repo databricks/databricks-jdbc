@@ -10,7 +10,58 @@ Reference: [MST + xDBC Metadata RPCs audit](https://docs.google.com/document/d/1
 
 Every driver operation that touches MST falls into one of three buckets:
 
-### Broken (throws error — will be fixed, test as xfail)
+```mermaid
+graph LR
+    subgraph "Operation in MST"
+        OP[Driver Operation]
+    end
+    OP -->|throws error| BROKEN["Broken<br/>(xfail test)"]
+    OP -->|succeeds, wrong data| STALE["Stale<br/>(staleness assertion or doc-only)"]
+    OP -->|works correctly| WORKS["Works<br/>(correctness test)"]
+
+    style BROKEN fill:#f44,color:#fff
+    style STALE fill:#fa0,color:#fff
+    style WORKS fill:#4a4,color:#fff
+```
+
+### How operations route through the driver
+
+The same JDBC method can take completely different code paths depending on the backend:
+
+```mermaid
+flowchart TD
+    subgraph "DatabaseMetaData (getColumns, getTables, ...)"
+        META[getMetaData.getColumns]
+        META -->|SEA backend| SQL_META["Issues SQL:<br/>SHOW COLUMNS / SHOW TABLES / ..."]
+        META -->|Thrift backend<br/>useQueryForMetadata=0| THRIFT_RPC["Thrift RPC:<br/>TGetColumnsReq / TGetTablesReq / ..."]
+        META -->|Thrift backend<br/>useQueryForMetadata=1| SQL_META
+        SQL_META -->|"In MST"| BLOCKED["MSTCheckRule blocks it"]
+        THRIFT_RPC -->|"In MST"| STALE_DATA["Succeeds but returns<br/>non-transactional data"]
+        BLOCKED --> EXCEPTION[SQLException thrown]
+    end
+
+    style BLOCKED fill:#f44,color:#fff
+    style STALE_DATA fill:#fa0,color:#fff
+    style EXCEPTION fill:#f44,color:#fff
+```
+
+```mermaid
+flowchart TD
+    subgraph "PreparedStatement.getMetaData() before execute"
+        PSMETA[ps.getMetaData]
+        PSMETA -->|resultSet == null| DESCRIBE["Issues SQL:<br/>DESCRIBE QUERY ..."]
+        PSMETA -->|resultSet != null| CACHED["Returns cached<br/>metadata from result"]
+        DESCRIBE -->|"In MST"| BLOCKED2["MSTCheckRule blocks it"]
+        BLOCKED2 --> EXCEPTION2[SQLException thrown<br/>on BOTH backends]
+        CACHED --> OK2[Works correctly]
+    end
+
+    style BLOCKED2 fill:#f44,color:#fff
+    style EXCEPTION2 fill:#f44,color:#fff
+    style OK2 fill:#4a4,color:#fff
+```
+
+### Broken (throws error — test as xfail)
 
 | Operation | SEA | Thrift | Bug |
 |---|---|---|---|
@@ -21,17 +72,17 @@ Every driver operation that touches MST falls into one of three buckets:
 | `getPrimaryKeys()` | Broken | Works (stale) | LC-13425 |
 | `getCrossReference()` | Broken | Works (stale) | LC-13425 |
 | `getFunctions()` | Broken — issues `SHOW FUNCTIONS`, blocked | Works (stale) | LC-13425 |
-| `PreparedStatement.getMetaData()` before execute | Broken — issues `DESCRIBE QUERY` SQL on **both** backends | Broken — same | LC-13425 |
+| `PreparedStatement.getMetaData()` before execute | Broken — issues `DESCRIBE QUERY` SQL | Broken — same path, issues SQL | LC-13425 |
 | `setCatalog()` | Broken — `SET CATALOG` blocked in MST | Broken — same | |
 | `setSchema()` | Broken — `USE SCHEMA` blocked in MST | Broken — same | |
 | All SHOW/DESCRIBE/information_schema SQL | Broken — MSTCheckRule | Broken — MSTCheckRule | LC-13425 |
 
-### Stale (succeeds but returns non-transactional data — document only)
+### Stale (succeeds but returns non-transactional data)
 
-| Operation | Backend | Behavior |
-|---|---|---|
-| `getColumns()`, `getTables()`, `getSchemas()`, `getCatalogs()`, `getPrimaryKeys()`, `getCrossReference()`, `getFunctions()` via Thrift RPC | Thrift (default, `useQueryForMetadata=0`) | Thrift RPCs bypass MST context entirely. They succeed but return data that doesn't reflect uncommitted transaction state. |
-| `executeUpdate()` / `executeBatch()` row counts | SEA | Returns incorrect/stale row counts. The DML itself works but the returned count is wrong. | LC-13424 |
+| Operation | Backend | Behavior | Testable? |
+|---|---|---|---|
+| `getColumns()`, `getTables()`, `getSchemas()`, `getCatalogs()`, `getPrimaryKeys()`, `getCrossReference()`, `getFunctions()` via Thrift RPC | Thrift (default) | Thrift RPCs bypass MST context entirely. Succeed but return data that doesn't reflect uncommitted transaction state. | Yes — assert staleness via concurrent DDL |
+| `executeUpdate()` / `executeBatch()` row counts | SEA | Returns incorrect/stale row counts. The DML itself works but the returned count is wrong. | TBD — need E2E to confirm exact return value |
 
 ### Works (test for correctness)
 
@@ -41,57 +92,150 @@ Basic DML (`execute`, `executeQuery`), commit/rollback, isolation, error handlin
 
 ### Class Hierarchy
 
+```mermaid
+classDiagram
+    class AbstractMstTestBase {
+        <<abstract>>
+        #Connection connection
+        #int useThrift
+        +setUp() void
+        +tearDown() void
+        #startTransaction(Connection)* void
+        #commitTransaction(Connection)* void
+        #rollbackTransaction(Connection)* void
+        #isSEA() boolean
+        #isThrift() boolean
+        #getJdbcUrl(int useThrift) String
+        +testDefaultAutoCommitIsTrue()
+        +testCommitSingleInsert()
+        +testRollbackSingleInsert()
+        +... 29 more shared tests
+    }
+    note for AbstractMstTestBase "Parameterized: SEA (useThrift=0)\nand Thrift (useThrift=1).\n\n32 shared correctness tests\nrun on BOTH backends."
+
+    class JdbcApiTransactionTests {
+        #startTransaction() → setAutoCommit(false)
+        #commitTransaction() → connection.commit()
+        #rollbackTransaction() → connection.rollback()
+    }
+
+    class ExplicitSqlTransactionTests {
+        #startTransaction() → stmt.execute(BEGIN TRANSACTION)
+        #commitTransaction() → stmt.execute(COMMIT)
+        #rollbackTransaction() → stmt.execute(ROLLBACK)
+        +testNestedBeginTransactionFails()
+        +testBeginFailsWhenAutocommitFalse()
+        +testSetAutocommitViaSQL()
+        +... 6 more special tests
+    }
+    note for ExplicitSqlTransactionTests "9 tests specific to\nSQL-level transaction control"
+
+    class MstMetadataTests {
+        +testGetColumnsInMst()
+        +testGetTablesInMst()
+        +...5 more metadata RPC tests
+        +testGetMetaDataBeforeExecute()
+        +testGetColumnsStaleAfterConcurrentDDL()
+        +testGetTablesStaleAfterConcurrentDDL()
+    }
+    note for MstMetadataTests "SEA: xfail (throws)\nThrift: pass (stale)\nStaleness tests: Thrift only"
+
+    class MstBlockedSqlTests {
+        +testShowColumnsBlockedInMst()
+        +testShowTablesBlockedInMst()
+        +...8 more blocked SQL tests
+        +testSetCatalogBlockedInMst()
+        +testSetSchemaBlockedInMst()
+    }
+    note for MstBlockedSqlTests "All xfail on both backends.\nVerify exception AND\ntxn abort."
+
+    class MstExecuteVariantTests {
+        +testExecuteUpdateRowCount()
+        +testExecuteLargeUpdateRowCount()
+        +testExecuteBatchRowCounts()
+        +testPSExecuteBatchRowCounts()
+    }
+    note for MstExecuteVariantTests "SEA: TBD (stale counts)\nThrift: pass (correct counts)"
+
+    AbstractMstTestBase <|-- JdbcApiTransactionTests
+    AbstractMstTestBase <|-- ExplicitSqlTransactionTests
+    AbstractMstTestBase <|-- MstMetadataTests
+    AbstractMstTestBase <|-- MstBlockedSqlTests
+    AbstractMstTestBase <|-- MstExecuteVariantTests
 ```
-AbstractMstTestBase
-│   - Parameterized: @MethodSource providing (UseThriftClient=0, "SEA") and (UseThriftClient=1, "Thrift")
-│   - Holds: connection setup/teardown, table creation/cleanup, helper methods
-│   - Defines abstract: startTransaction(Connection), commitTransaction(Connection), rollbackTransaction(Connection)
-│   - Contains: shared correctness tests that work identically regardless of transaction mode
-│
-├── JdbcApiTransactionTests extends AbstractMstTestBase
-│       startTransaction()  = connection.setAutoCommit(false)
-│       commitTransaction() = connection.commit()
-│       rollbackTransaction() = connection.rollback()
-│
-├── ExplicitSqlTransactionTests extends AbstractMstTestBase
-│       startTransaction()  = stmt.execute("BEGIN TRANSACTION")
-│       commitTransaction() = stmt.execute("COMMIT")
-│       rollbackTransaction() = stmt.execute("ROLLBACK")
-│       + Own special tests: nested BEGIN fails, BEGIN fails when autocommit=false,
-│         SET AUTOCOMMIT = FALSE/TRUE via SQL, SET AUTOCOMMIT without value
-│
-├── MstMetadataTests extends AbstractMstTestBase
-│       - DatabaseMetaData RPCs in MST (getColumns, getTables, etc.)
-│         SEA: xfail (expect exception)
-│         Thrift: assert results returned (no staleness assertion possible)
-│       - Metadata staleness via concurrent DDL (Thrift only)
-│         Start txn → getColumns → concurrent ADD COLUMN → getColumns → assert stale
-│       - PreparedStatement.getMetaData() before execute (xfail, both backends)
-│       - Uses JdbcApi mode for startTransaction (setAutoCommit)
-│
-├── MstBlockedSqlTests extends AbstractMstTestBase
-│       - SHOW COLUMNS/TABLES/SCHEMAS/CATALOGS/FUNCTIONS blocked
-│       - DESCRIBE QUERY/TABLE/TABLE EXTENDED/COLUMN blocked
-│       - information_schema queries blocked
-│       - setCatalog() / setSchema() blocked
-│       - Uses JdbcApi mode for startTransaction
-│
-└── MstExecuteVariantTests extends AbstractMstTestBase
-        - executeUpdate() row count behavior
-        - executeLargeUpdate() row count behavior
-        - executeBatch() / PreparedStatement.executeBatch() row count behavior
-          SEA: assert stale/incorrect counts (need E2E to confirm exact values)
-          Thrift: assert correct counts
-        - Uses JdbcApi mode for startTransaction
+
+### How tests execute across backends and transaction modes
+
+```mermaid
+flowchart LR
+    subgraph "32 Shared Correctness Tests"
+        TESTS[AbstractMstTestBase tests]
+    end
+
+    subgraph "Transaction Mode"
+        JDBC[JdbcApiTransactionTests<br/>setAutoCommit / commit / rollback]
+        EXPLICIT[ExplicitSqlTransactionTests<br/>BEGIN TRANSACTION / COMMIT / ROLLBACK]
+    end
+
+    subgraph "Backend"
+        SEA[SEA<br/>UseThriftClient=0]
+        THRIFT[Thrift<br/>UseThriftClient=1]
+    end
+
+    TESTS --> JDBC
+    TESTS --> EXPLICIT
+    JDBC --> SEA
+    JDBC --> THRIFT
+    EXPLICIT --> SEA
+    EXPLICIT --> THRIFT
+
+    SEA --> R1["32 test runs"]
+    THRIFT --> R2["32 test runs"]
+    SEA --> R3["32 test runs"]
+    THRIFT --> R4["32 test runs"]
+
+    style R1 fill:#4a4,color:#fff
+    style R2 fill:#4a4,color:#fff
+    style R3 fill:#4a4,color:#fff
+    style R4 fill:#4a4,color:#fff
 ```
 
-### Why this structure?
+The gap tests (MstMetadataTests, MstBlockedSqlTests, MstExecuteVariantTests) only use the JDBC API transaction mode — MSTCheckRule doesn't care how the transaction was started:
 
-1. **AbstractMstTestBase** contains all shared correctness tests (commit, rollback, isolation, multi-table, error handling). These run for both transaction modes (JDBC API + explicit SQL) and both backends (SEA + Thrift) = **4 combinations** from one set of test methods.
+```mermaid
+flowchart LR
+    subgraph "Gap Tests"
+        META["MstMetadataTests<br/>10 tests"]
+        BLOCKED["MstBlockedSqlTests<br/>12 tests"]
+        EXEC["MstExecuteVariantTests<br/>4 tests"]
+    end
 
-2. **MstMetadataTests**, **MstBlockedSqlTests**, **MstExecuteVariantTests** test MST-specific gaps. These only need one transaction mode (JDBC API) since MSTCheckRule doesn't care how the transaction was started. They still run on both backends via parameterization.
+    subgraph "Backend"
+        SEA2[SEA]
+        THRIFT2[Thrift]
+    end
 
-3. **ExplicitSqlTransactionTests** has its own special tests for SQL-level transaction semantics (BEGIN TRANSACTION, SET AUTOCOMMIT) that don't apply to the JDBC API mode.
+    META --> SEA2
+    META --> THRIFT2
+    BLOCKED --> SEA2
+    BLOCKED --> THRIFT2
+    EXEC --> SEA2
+    EXEC --> THRIFT2
+
+    SEA2 -->|"Metadata"| XFAIL1["xfail: exception"]
+    THRIFT2 -->|"Metadata"| STALE1["pass: stale data"]
+    SEA2 -->|"Blocked SQL"| XFAIL2["xfail: exception"]
+    THRIFT2 -->|"Blocked SQL"| XFAIL3["xfail: exception"]
+    SEA2 -->|"Execute variants"| TBD["TBD: stale counts?"]
+    THRIFT2 -->|"Execute variants"| PASS["pass: correct counts"]
+
+    style XFAIL1 fill:#f44,color:#fff
+    style XFAIL2 fill:#f44,color:#fff
+    style XFAIL3 fill:#f44,color:#fff
+    style STALE1 fill:#fa0,color:#fff
+    style TBD fill:#fa0,color:#fff
+    style PASS fill:#4a4,color:#fff
+```
 
 ### Backend parameterization
 
@@ -144,7 +288,7 @@ Run by both JdbcApiTransactionTests and ExplicitSqlTransactionTests, on both SEA
 | A.13 | `testCrossTableMerge` | MERGE across source/target tables in txn → commit → verify | Pass |
 | A.14 | `testRepeatableReads` | Read in txn → external conn modifies → re-read in txn → same value | Pass |
 | A.15 | `testWriteConflictSingleTable` | Two concurrent txns on same table → first commits → second gets ConcurrentAppendException | Pass |
-| A.16 | `testWriteSkewProbesSnapshotIsolation` | Two concurrent txns on different tables → both commit → proves Snapshot Isolation | Pass |
+| A.16 | `testWriteSkewProvesSnapshotIsolation` | Two concurrent txns on different tables → both commit → proves Snapshot Isolation | Pass |
 | A.17 | `testCommitWithoutActiveTxnThrows` | autocommit=true → commit() → expect exception | Pass |
 | A.18 | `testRollbackWithoutActiveTxnBehavior` | autocommit=true → rollback() → document behavior (JDBC throws, explicit SQL is no-op) | Pass |
 | A.19 | `testSetAutoCommitDuringActiveTxnThrows` | In active txn → setAutoCommit(true) → expect exception | Pass |
@@ -182,6 +326,26 @@ Only for the explicit SQL transaction mode. Run on both backends.
 
 Uses JDBC API mode (`setAutoCommit(false)`) for transaction control. Run on both backends with backend-aware assertions.
 
+```mermaid
+flowchart TD
+    subgraph "C.1–C.7: Metadata RPC Tests"
+        START["Start txn → INSERT row"]
+        START --> CALL["Call getColumns() / getTables() / ..."]
+        CALL -->|SEA| THROWS["Throws SQLException<br/>(xfail — MSTCheckRule)"]
+        CALL -->|Thrift| RETURNS["Returns ResultSet<br/>(stale, non-transactional)"]
+    end
+
+    subgraph "C.9–C.10: Staleness Tests (Thrift only)"
+        S1["Start txn → getColumns()"] --> S2["Concurrent conn:<br/>ALTER TABLE ADD COLUMN"]
+        S2 --> S3["getColumns() again<br/>in same txn"]
+        S3 --> S4["Assert: new column<br/>NOT visible (stale)"]
+    end
+
+    style THROWS fill:#f44,color:#fff
+    style RETURNS fill:#fa0,color:#fff
+    style S4 fill:#fa0,color:#fff
+```
+
 | # | Test | SEA | Thrift |
 |---|---|---|---|
 | C.1 | `testGetColumnsInMst` | xfail: expect exception | Pass: returns results (stale) |
@@ -197,7 +361,19 @@ Uses JDBC API mode (`setAutoCommit(false)`) for transaction control. Run on both
 
 ### D. MstBlockedSqlTests — SQL introspection blocked by MSTCheckRule
 
-Uses JDBC API mode. Run on both backends. All xfail — each test starts a txn, INSERTs a row, executes the blocked SQL, expects exception, then verifies txn is aborted (subsequent INSERT also throws).
+Uses JDBC API mode. Run on both backends. All xfail.
+
+```mermaid
+flowchart TD
+    START["Start txn → INSERT row"]
+    START --> EXEC["Execute blocked SQL<br/>(SHOW COLUMNS, DESCRIBE, etc.)"]
+    EXEC --> EXCEPT["SQLException thrown"]
+    EXCEPT --> VERIFY["Try INSERT again"]
+    VERIFY --> ABORTED["SQLException thrown<br/>(txn is aborted)"]
+
+    style EXCEPT fill:#f44,color:#fff
+    style ABORTED fill:#f44,color:#fff
+```
 
 | # | Test | SQL Statement |
 |---|---|---|
@@ -227,6 +403,16 @@ Uses JDBC API mode. Backend-aware assertions.
 
 ## Test Counts
 
+```mermaid
+pie title Test Executions by Category (~194 total)
+    "Shared correctness (JDBC API)" : 64
+    "Shared correctness (Explicit SQL)" : 64
+    "Explicit SQL special" : 18
+    "Metadata gap tests" : 16
+    "Blocked SQL tests" : 24
+    "Execute variant tests" : 8
+```
+
 | Class | Unique tests | Executions (×2 backends) |
 |---|---|---|
 | AbstractMstTestBase (via JdbcApiTransactionTests) | 32 | 64 |
@@ -240,10 +426,48 @@ Uses JDBC API mode. Backend-aware assertions.
 ## Migration from current tests
 
 ### Current state
+
 - `TransactionTests.java` — 69 tests, not parameterized, hardcoded credentials, mixes correctness tests with gap tests, many weak/incorrect assertions
 - `ExplicitTransactionStatementTests.java` — 23 tests, duplicates many correctness tests from TransactionTests
 
 ### What changes
+
+```mermaid
+flowchart TD
+    subgraph "Current (delete)"
+        OLD1["TransactionTests.java<br/>69 tests, no parameterization"]
+        OLD2["ExplicitTransactionStatementTests.java<br/>23 tests, duplicated logic"]
+    end
+
+    subgraph "New Structure"
+        BASE["AbstractMstTestBase<br/>32 shared correctness tests"]
+        JDBC_API["JdbcApiTransactionTests<br/>extends base"]
+        EXPLICIT["ExplicitSqlTransactionTests<br/>extends base + 9 special tests"]
+        META_NEW["MstMetadataTests<br/>10 tests, backend-aware"]
+        BLOCKED_NEW["MstBlockedSqlTests<br/>12 tests, xfail"]
+        EXEC_NEW["MstExecuteVariantTests<br/>4 tests, backend-aware"]
+    end
+
+    OLD1 -->|"correctness tests"| BASE
+    OLD2 -->|"correctness tests<br/>(deduplicated)"| BASE
+    OLD1 -->|"gap tests<br/>(fixed assertions)"| META_NEW
+    OLD1 -->|"gap tests<br/>(fixed assertions)"| BLOCKED_NEW
+    OLD1 -->|"gap tests<br/>(fixed assertions)"| EXEC_NEW
+    OLD2 -->|"special tests"| EXPLICIT
+
+    BASE --> JDBC_API
+    BASE --> EXPLICIT
+
+    style OLD1 fill:#f44,color:#fff
+    style OLD2 fill:#f44,color:#fff
+    style BASE fill:#4a4,color:#fff
+    style JDBC_API fill:#4a4,color:#fff
+    style EXPLICIT fill:#4a4,color:#fff
+    style META_NEW fill:#fa0,color:#fff
+    style BLOCKED_NEW fill:#f44,color:#fff
+    style EXEC_NEW fill:#fa0,color:#fff
+```
+
 1. **Delete** both existing files
 2. **Create** the new class hierarchy above
 3. **Move** correctness tests into `AbstractMstTestBase` (deduplicated — currently duplicated across TransactionTests and ExplicitTransactionStatementTests)
@@ -253,6 +477,7 @@ Uses JDBC API mode. Backend-aware assertions.
 7. **Parameterize** everything on SEA/Thrift
 
 ### Tests being removed (and why)
+
 | Test | Reason |
 |---|---|
 | `testDDLCreateTableInTransaction` | Zero assertions, purely prints |
@@ -267,6 +492,7 @@ Uses JDBC API mode. Backend-aware assertions.
 | `testTransactionContinuesAfterAllowedMetadataOp` | Redundant with multi-insert correctness tests |
 
 ### Tests being kept (moved into new structure)
+
 All basic correctness tests (commit, rollback, isolation, multi-table, error handling, PreparedStatement) move into `AbstractMstTestBase`. Gap tests (metadata, blocked SQL, execute variants) move into their respective specialized classes with proper backend-aware assertions.
 
 ## Open items
