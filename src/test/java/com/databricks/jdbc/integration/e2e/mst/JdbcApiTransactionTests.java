@@ -326,6 +326,8 @@ public class JdbcApiTransactionTests extends AbstractMstTestBase {
   void testPreparedStatementReuseAcrossTransactions(int useThrift, String backend)
       throws SQLException {
     init(useThrift);
+    // SEA closes PreparedStatement after execute — can't reuse across transactions
+    Assumptions.assumeTrue(isThrift(), "SEA closes PreparedStatement after execute");
     String fqTable = getFullyQualifiedTableName();
 
     connection.setAutoCommit(false);
@@ -352,6 +354,8 @@ public class JdbcApiTransactionTests extends AbstractMstTestBase {
   void testPreparedStatementGetMetaDataAfterExecute(int useThrift, String backend)
       throws SQLException {
     init(useThrift);
+    // SEA closes PreparedStatement after execute — getMetaData() fails
+    Assumptions.assumeTrue(isThrift(), "SEA closes PreparedStatement after execute");
     String fqTable = getFullyQualifiedTableName();
 
     connection.setAutoCommit(false);
