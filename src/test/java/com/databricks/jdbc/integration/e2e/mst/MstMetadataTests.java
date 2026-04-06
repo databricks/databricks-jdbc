@@ -69,10 +69,10 @@ public class MstMetadataTests extends AbstractMstTestBase {
     if (isSEA()) {
       assertThrows(
           SQLException.class,
-          () -> dbmd.getColumns(catalog, schema, TEST_TABLE, null),
+          () -> dbmd.getColumns(catalog, schema, testTable, null),
           "SEA: getColumns should throw in MST (issues SHOW COLUMNS)");
     } else {
-      ResultSet rs = dbmd.getColumns(catalog, schema, TEST_TABLE, null);
+      ResultSet rs = dbmd.getColumns(catalog, schema, testTable, null);
       assertTrue(rs.next(), "Thrift: getColumns should return results (stale)");
       rs.close();
     }
@@ -87,10 +87,10 @@ public class MstMetadataTests extends AbstractMstTestBase {
     if (isSEA()) {
       assertThrows(
           SQLException.class,
-          () -> dbmd.getTables(catalog, schema, TEST_TABLE, null),
+          () -> dbmd.getTables(catalog, schema, testTable, null),
           "SEA: getTables should throw in MST");
     } else {
-      ResultSet rs = dbmd.getTables(catalog, schema, TEST_TABLE, null);
+      ResultSet rs = dbmd.getTables(catalog, schema, testTable, null);
       assertTrue(rs.next(), "Thrift: getTables should return results (stale)");
       rs.close();
     }
@@ -139,10 +139,10 @@ public class MstMetadataTests extends AbstractMstTestBase {
     if (isSEA()) {
       assertThrows(
           SQLException.class,
-          () -> dbmd.getPrimaryKeys(catalog, schema, TEST_TABLE),
+          () -> dbmd.getPrimaryKeys(catalog, schema, testTable),
           "SEA: getPrimaryKeys should throw in MST");
     } else {
-      ResultSet rs = dbmd.getPrimaryKeys(catalog, schema, TEST_TABLE);
+      ResultSet rs = dbmd.getPrimaryKeys(catalog, schema, testTable);
       assertNotNull(rs, "Thrift: getPrimaryKeys should return ResultSet (stale)");
       rs.close();
     }
@@ -157,10 +157,10 @@ public class MstMetadataTests extends AbstractMstTestBase {
     if (isSEA()) {
       assertThrows(
           SQLException.class,
-          () -> dbmd.getCrossReference(catalog, schema, TEST_TABLE, null, null, null),
+          () -> dbmd.getCrossReference(catalog, schema, testTable, null, null, null),
           "SEA: getCrossReference should throw in MST");
     } else {
-      ResultSet rs = dbmd.getCrossReference(catalog, schema, TEST_TABLE, null, null, null);
+      ResultSet rs = dbmd.getCrossReference(catalog, schema, testTable, null, null, null);
       assertNotNull(rs, "Thrift: getCrossReference should return ResultSet");
       rs.close();
     }
@@ -218,7 +218,7 @@ public class MstMetadataTests extends AbstractMstTestBase {
 
     // Baseline: get column names before concurrent DDL
     Set<String> columnsBefore = new HashSet<>();
-    try (ResultSet rs = dbmd.getColumns(catalog, schema, TEST_TABLE, null)) {
+    try (ResultSet rs = dbmd.getColumns(catalog, schema, testTable, null)) {
       while (rs.next()) {
         columnsBefore.add(rs.getString("COLUMN_NAME").toLowerCase());
       }
@@ -232,7 +232,7 @@ public class MstMetadataTests extends AbstractMstTestBase {
 
     // Re-read columns in same transaction — should NOT see new column (stale)
     Set<String> columnsAfter = new HashSet<>();
-    try (ResultSet rs = dbmd.getColumns(catalog, schema, TEST_TABLE, null)) {
+    try (ResultSet rs = dbmd.getColumns(catalog, schema, testTable, null)) {
       while (rs.next()) {
         columnsAfter.add(rs.getString("COLUMN_NAME").toLowerCase());
       }

@@ -17,8 +17,8 @@ import java.util.List;
  */
 public abstract class AbstractMstTestBase {
 
-  protected static final String TEST_TABLE = "mst_test_table";
-  protected static final String TEST_TABLE_2 = "mst_test_table_2";
+  protected String testTable;
+  protected String testTable2;
 
   protected Connection connection;
   protected int useThrift;
@@ -31,6 +31,10 @@ public abstract class AbstractMstTestBase {
     String envSchema = getDatabricksSchema();
     this.catalog = (envCatalog != null && !envCatalog.isEmpty()) ? envCatalog : "main";
     this.schema = (envSchema != null && !envSchema.isEmpty()) ? envSchema : "default";
+    // Unique table names per class to allow parallel execution
+    String suffix = getClass().getSimpleName().toLowerCase();
+    this.testTable = "mst_" + suffix + "_t1";
+    this.testTable2 = "mst_" + suffix + "_t2";
     this.connection = createConnection();
     createTestTable(connection, getFullyQualifiedTableName());
   }
@@ -45,9 +49,12 @@ public abstract class AbstractMstTestBase {
           }
         } catch (SQLException ignored) {
         }
-        try (Statement stmt = connection.createStatement()) {
-          stmt.execute("DROP TABLE IF EXISTS " + getFullyQualifiedTableName());
-          stmt.execute("DROP TABLE IF EXISTS " + getFullyQualifiedTableName2());
+        try {
+          executeSql(connection, "DROP TABLE IF EXISTS " + getFullyQualifiedTableName());
+        } catch (SQLException ignored) {
+        }
+        try {
+          executeSql(connection, "DROP TABLE IF EXISTS " + getFullyQualifiedTableName2());
         } catch (SQLException ignored) {
         }
         connection.close();
@@ -82,11 +89,11 @@ public abstract class AbstractMstTestBase {
   }
 
   protected String getFullyQualifiedTableName() {
-    return catalog + "." + schema + "." + TEST_TABLE;
+    return catalog + "." + schema + "." + testTable;
   }
 
   protected String getFullyQualifiedTableName2() {
-    return catalog + "." + schema + "." + TEST_TABLE_2;
+    return catalog + "." + schema + "." + testTable2;
   }
 
   protected void createTestTable(Connection conn, String fqTableName) throws SQLException {
@@ -100,6 +107,19 @@ public abstract class AbstractMstTestBase {
               + " (id INT, value STRING) USING DELTA"
               + " TBLPROPERTIES ('delta.feature.catalogManaged' = 'supported')");
     }
+  }
+
+  /** Execute a SQL statement using a fresh Statement (SEA closes statements after execution). */
+  protected void executeSql(Connection conn, String sql) throws SQLException {
+    try (Statement stmt = conn.createStatement()) {
+      stmt.execute(sql);
+    }
+  }
+
+  /** Execute a SQL query and return the ResultSet. Caller must close the returned ResultSet. */
+  protected ResultSet executeQuery(Connection conn, String sql) throws SQLException {
+    Statement stmt = conn.createStatement();
+    return stmt.executeQuery(sql);
   }
 
   /** Verify row count from a separate connection to avoid in-transaction caching. */
@@ -130,11 +150,9 @@ public abstract class AbstractMstTestBase {
     String fqTable = getFullyQualifiedTableName();
     startTransaction(connection);
 
-    try (Statement stmt = connection.createStatement()) {
-      stmt.execute("INSERT INTO " + fqTable + " VALUES (1, 'a')");
-      stmt.execute("INSERT INTO " + fqTable + " VALUES (2, 'b')");
-      stmt.execute("INSERT INTO " + fqTable + " VALUES (3, 'c')");
-    }
+    executeSql(connection, "INSERT INTO " + fqTable + " VALUES (1, 'a')");
+    executeSql(connection, "INSERT INTO " + fqTable + " VALUES (2, 'b')");
+    executeSql(connection, "INSERT INTO " + fqTable + " VALUES (3, 'c')");
     commitTransaction(connection);
 
     assertEquals(3, getRowCountFromSeparateConnection(fqTable));
@@ -202,10 +220,8 @@ public abstract class AbstractMstTestBase {
 
   void testDeleteInTransaction() throws SQLException {
     String fqTable = getFullyQualifiedTableName();
-    try (Statement stmt = connection.createStatement()) {
-      stmt.execute("INSERT INTO " + fqTable + " VALUES (1, 'a')");
-      stmt.execute("INSERT INTO " + fqTable + " VALUES (2, 'b')");
-    }
+    executeSql(connection, "INSERT INTO " + fqTable + " VALUES (1, 'a')");
+    executeSql(connection, "INSERT INTO " + fqTable + " VALUES (2, 'b')");
 
     startTransaction(connection);
     try (Statement stmt = connection.createStatement()) {
@@ -222,10 +238,8 @@ public abstract class AbstractMstTestBase {
     createTestTable(connection, fqTable2);
 
     startTransaction(connection);
-    try (Statement stmt = connection.createStatement()) {
-      stmt.execute("INSERT INTO " + fqTable1 + " VALUES (1, 'table1')");
-      stmt.execute("INSERT INTO " + fqTable2 + " VALUES (1, 'table2')");
-    }
+    executeSql(connection, "INSERT INTO " + fqTable1 + " VALUES (1, 'table1')");
+    executeSql(connection, "INSERT INTO " + fqTable2 + " VALUES (1, 'table2')");
     commitTransaction(connection);
 
     assertEquals(1, getRowCountFromSeparateConnection(fqTable1));
@@ -238,10 +252,8 @@ public abstract class AbstractMstTestBase {
     createTestTable(connection, fqTable2);
 
     startTransaction(connection);
-    try (Statement stmt = connection.createStatement()) {
-      stmt.execute("INSERT INTO " + fqTable1 + " VALUES (1, 'table1')");
-      stmt.execute("INSERT INTO " + fqTable2 + " VALUES (1, 'table2')");
-    }
+    executeSql(connection, "INSERT INTO " + fqTable1 + " VALUES (1, 'table1')");
+    executeSql(connection, "INSERT INTO " + fqTable2 + " VALUES (1, 'table2')");
     rollbackTransaction(connection);
 
     assertEquals(0, getRowCountFromSeparateConnection(fqTable1));
@@ -273,11 +285,9 @@ public abstract class AbstractMstTestBase {
     createTestTable(connection, fqTable2);
 
     // Setup: insert into target table
-    try (Statement stmt = connection.createStatement()) {
-      stmt.execute("INSERT INTO " + fqTable1 + " VALUES (1, 'old_value')");
-      stmt.execute("INSERT INTO " + fqTable2 + " VALUES (1, 'source_val')");
-      stmt.execute("INSERT INTO " + fqTable2 + " VALUES (2, 'new_row')");
-    }
+    executeSql(connection, "INSERT INTO " + fqTable1 + " VALUES (1, 'old_value')");
+    executeSql(connection, "INSERT INTO " + fqTable2 + " VALUES (1, 'source_val')");
+    executeSql(connection, "INSERT INTO " + fqTable2 + " VALUES (2, 'new_row')");
 
     startTransaction(connection);
     try (Statement stmt = connection.createStatement()) {
@@ -362,10 +372,8 @@ public abstract class AbstractMstTestBase {
     String fqTable2 = getFullyQualifiedTableName2();
     createTestTable(connection, fqTable2);
 
-    try (Statement stmt = connection.createStatement()) {
-      stmt.execute("INSERT INTO " + fqTable1 + " VALUES (1, 'account1')");
-      stmt.execute("INSERT INTO " + fqTable2 + " VALUES (1, 'account2')");
-    }
+    executeSql(connection, "INSERT INTO " + fqTable1 + " VALUES (1, 'account1')");
+    executeSql(connection, "INSERT INTO " + fqTable2 + " VALUES (1, 'account2')");
 
     Connection conn1 = createConnection();
     Connection conn2 = createConnection();
@@ -464,10 +472,8 @@ public abstract class AbstractMstTestBase {
     String fqTable = getFullyQualifiedTableName();
 
     startTransaction(connection);
-    try (Statement stmt = connection.createStatement()) {
-      stmt.execute("INSERT INTO " + fqTable + " VALUES (1, 'before_error')");
-      assertThrows(SQLException.class, () -> stmt.execute("SELECT * FROM nonexistent_xyz"));
-    }
+    executeSql(connection, "INSERT INTO " + fqTable + " VALUES (1, 'before_error')");
+    assertThrows(SQLException.class, () -> executeSql(connection, "SELECT * FROM nonexistent_xyz"));
     rollbackTransaction(connection);
 
     // New transaction should work cleanly
