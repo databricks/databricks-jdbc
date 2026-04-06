@@ -57,25 +57,13 @@ public class MstExecuteVariantTests extends AbstractMstTestBase {
     String fqTable = getFullyQualifiedTableName();
 
     connection.setAutoCommit(false);
-    if (isSEA()) {
-      // SEA: executeUpdate aborts the transaction (LC-13424)
-      assertThrows(
-          SQLException.class,
-          () -> {
-            try (Statement stmt = connection.createStatement()) {
-              stmt.executeUpdate("INSERT INTO " + fqTable + " VALUES (1, 'exec_update')");
-            }
-          },
-          "SEA: executeUpdate should throw in MST (LC-13424)");
-    } else {
-      try (Statement stmt = connection.createStatement()) {
-        int rowCount = stmt.executeUpdate("INSERT INTO " + fqTable + " VALUES (1, 'exec_update')");
-        assertTrue(rowCount >= -1, "Thrift: executeUpdate should return valid row count");
-      }
-      connection.commit();
-      assertEquals(
-          1, getRowCountFromSeparateConnection(fqTable), "Data should persist after commit");
+    try (Statement stmt = connection.createStatement()) {
+      int rowCount = stmt.executeUpdate("INSERT INTO " + fqTable + " VALUES (1, 'exec_update')");
+      // SEA may return stale/incorrect row count (LC-13424); Thrift returns correct count
+      assertTrue(rowCount >= -1, "executeUpdate should return valid row count");
     }
+    connection.commit();
+    assertEquals(1, getRowCountFromSeparateConnection(fqTable), "Data should persist after commit");
   }
 
   @ParameterizedTest(name = "F.2 executeLargeUpdate [{1}]")
@@ -85,25 +73,14 @@ public class MstExecuteVariantTests extends AbstractMstTestBase {
     String fqTable = getFullyQualifiedTableName();
 
     connection.setAutoCommit(false);
-    if (isSEA()) {
-      // SEA: executeLargeUpdate aborts the transaction (LC-13424)
-      assertThrows(
-          SQLException.class,
-          () -> {
-            try (Statement stmt = connection.createStatement()) {
-              stmt.executeLargeUpdate("INSERT INTO " + fqTable + " VALUES (1, 'large_update')");
-            }
-          },
-          "SEA: executeLargeUpdate should throw in MST (LC-13424)");
-    } else {
-      try (Statement stmt = connection.createStatement()) {
-        long rowCount =
-            stmt.executeLargeUpdate("INSERT INTO " + fqTable + " VALUES (1, 'large_update')");
-        assertTrue(rowCount >= -1, "Thrift: executeLargeUpdate should return valid row count");
-      }
-      connection.commit();
-      assertEquals(1, getRowCountFromSeparateConnection(fqTable));
+    try (Statement stmt = connection.createStatement()) {
+      long rowCount =
+          stmt.executeLargeUpdate("INSERT INTO " + fqTable + " VALUES (1, 'large_update')");
+      // SEA may return stale/incorrect row count (LC-13424); Thrift returns correct count
+      assertTrue(rowCount >= -1, "executeLargeUpdate should return valid row count");
     }
+    connection.commit();
+    assertEquals(1, getRowCountFromSeparateConnection(fqTable));
   }
 
   @ParameterizedTest(name = "F.3 executeBatch [{1}]")
