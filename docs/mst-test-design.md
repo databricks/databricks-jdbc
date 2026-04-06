@@ -109,20 +109,24 @@ classDiagram
         +testCommitSingleInsert()
         +testRollbackSingleInsert()
         +testMultiTableCommit()
-        +... 21 more shared tests
+        +... 19 more shared tests
     }
-    note for AbstractMstTestBase "Parameterized: SEA + Thrift.\n\n24 shared correctness tests\nrun on BOTH backends.\nMode-agnostic: uses abstract\nstartTransaction/commit/rollback."
+    note for AbstractMstTestBase "Parameterized: SEA + Thrift.\n\n22 shared correctness tests\nrun on BOTH backends.\nMode-agnostic: uses abstract\nstartTransaction/commit/rollback."
 
     class JdbcApiTransactionTests {
         #startTransaction() → setAutoCommit false
         #commitTransaction() → connection.commit
         #rollbackTransaction() → connection.rollback
         +testDefaultAutoCommitIsTrue()
+        +testAutoStartAfterCommit()
+        +testAutoStartAfterRollback()
         +testSetAutoCommitDuringActiveTxnThrows()
         +testUnsupportedIsolationLevel()
         +testSupportedIsolationLevel()
+        +testPreparedStatementUpdate()
+        +... 3 more API tests
     }
-    note for JdbcApiTransactionTests "4 JDBC-API-specific tests\n+ inherits 24 shared tests"
+    note for JdbcApiTransactionTests "10 JDBC-API-specific tests\n+ inherits 22 shared tests"
 
     class ExplicitSqlTransactionTests {
         #startTransaction() → BEGIN TRANSACTION
@@ -192,12 +196,12 @@ classDiagram
 
 ```mermaid
 flowchart LR
-    subgraph "24 Shared Correctness Tests"
+    subgraph "22 Shared Correctness Tests"
         TESTS[AbstractMstTestBase tests]
     end
 
     subgraph "Transaction Mode"
-        JDBC["JdbcApiTransactionTests<br/>setAutoCommit / commit / rollback<br/>+ 4 API-specific tests"]
+        JDBC["JdbcApiTransactionTests<br/>setAutoCommit / commit / rollback<br/>+ 10 API-specific tests"]
         EXPLICIT["ExplicitSqlTransactionTests<br/>BEGIN TRANSACTION / COMMIT / ROLLBACK<br/>+ 7 explicit-SQL-specific tests"]
     end
 
@@ -213,10 +217,10 @@ flowchart LR
     EXPLICIT --> SEA
     EXPLICIT --> THRIFT
 
-    SEA --> R1["28 test runs"]
-    THRIFT --> R2["28 test runs"]
-    SEA --> R3["31 test runs"]
-    THRIFT --> R4["31 test runs"]
+    SEA --> R1["32 test runs"]
+    THRIFT --> R2["32 test runs"]
+    SEA --> R3["29 test runs"]
+    THRIFT --> R4["29 test runs"]
 
     style R1 fill:#4a4,color:#fff
     style R2 fill:#4a4,color:#fff
@@ -301,26 +305,24 @@ Run by both JdbcApiTransactionTests and ExplicitSqlTransactionTests, on both SEA
 | A.2 | `testCommitMultipleInserts` | Start txn → 3 INSERTs → commit → verify all 3 rows | Pass |
 | A.3 | `testRollbackSingleInsert` | Start txn → INSERT → rollback → verify not persisted | Pass |
 | A.4 | `testMultipleSequentialTransactions` | 3 sequential txns (commit, commit, rollback) → verify only first two persist | Pass |
-| A.5 | `testAutoStartAfterCommit` | Commit txn1 → insert+rollback txn2 → only txn1 data persists | Pass |
-| A.6 | `testAutoStartAfterRollback` | Rollback txn1 → insert+commit txn2 → only txn2 data persists | Pass |
-| A.7 | `testUpdateInTransaction` | Insert with autocommit → start txn → UPDATE → commit → verify updated | Pass |
-| A.8 | `testDeleteInTransaction` | Insert 2 rows → start txn → DELETE one → commit → verify 1 remains | Pass |
-| A.9 | `testMultiTableCommit` | Start txn → insert into 2 tables → commit → verify both from separate conn | Pass |
-| A.10 | `testMultiTableRollback` | Start txn → insert into 2 tables → rollback → verify neither persisted | Pass |
-| A.11 | `testMultiTableAtomicity` | Start txn → insert into A → invalid SQL on B → rollback → verify A also rolled back | Pass |
-| A.12 | `testCrossTableMerge` | Start txn → MERGE across source/target tables → commit → verify | Pass |
-| A.13 | `testRepeatableReads` | Start txn → read → external conn modifies → re-read in txn → same value | Pass |
-| A.14 | `testWriteConflictSingleTable` | Two concurrent txns on same table → first commits → second gets ConcurrentAppendException | Pass |
-| A.15 | `testWriteSkewProvesSnapshotIsolation` | Two concurrent txns on different tables → both commit → proves Snapshot Isolation | Pass |
-| A.16 | `testCommitWithoutActiveTxnThrows` | No active txn → commit → expect exception | Pass |
-| A.17 | `testRollbackWithoutActiveTxnBehavior` | No active txn → rollback → JDBC API throws, explicit SQL ROLLBACK is no-op | Pass |
-| A.18 | `testCloseConnectionImplicitRollback` | Start txn → insert → close() without commit → verify not persisted from new conn | Pass |
-| A.19 | `testCloseConnectionDoesNotThrow` | Start txn → insert → close() → no exception | Pass |
-| A.20 | `testEmptyTransactionRollback` | Start txn → rollback immediately → no exception | Pass |
-| A.21 | `testReadOnlyTransaction` | Start txn → SELECT-only → commit → data unchanged | Pass |
-| A.22 | `testRollbackAfterQueryFailure` | Start txn → insert → invalid SQL → rollback → new txn → insert → commit → verify recovery | Pass |
-| A.23 | `testMultipleStatementsInSingleTxn` | Start txn → 3 Statement objects each insert → commit → verify 3 rows | Pass |
-| A.24 | `testPreparedStatementInsert` | Start txn → parameterized INSERT → commit → verify | Pass |
+| A.5 | `testUpdateInTransaction` | Insert with autocommit → start txn → UPDATE → commit → verify updated | Pass |
+| A.6 | `testDeleteInTransaction` | Insert 2 rows → start txn → DELETE one → commit → verify 1 remains | Pass |
+| A.7 | `testMultiTableCommit` | Start txn → insert into 2 tables → commit → verify both from separate conn | Pass |
+| A.8 | `testMultiTableRollback` | Start txn → insert into 2 tables → rollback → verify neither persisted | Pass |
+| A.9 | `testMultiTableAtomicity` | Start txn → insert into A → invalid SQL on B → rollback → verify A also rolled back | Pass |
+| A.10 | `testCrossTableMerge` | Start txn → MERGE across source/target tables → commit → verify | Pass |
+| A.11 | `testRepeatableReads` | Start txn → read → external conn modifies → re-read in txn → same value | Pass |
+| A.12 | `testWriteConflictSingleTable` | Two concurrent txns on same table → first commits → second gets ConcurrentAppendException | Pass |
+| A.13 | `testWriteSkewProvesSnapshotIsolation` | Two concurrent txns on different tables → both commit → proves Snapshot Isolation | Pass |
+| A.14 | `testCommitWithoutActiveTxnThrows` | No active txn → commit → expect exception | Pass |
+| A.15 | `testRollbackWithoutActiveTxnBehavior` | No active txn → rollback → JDBC API throws, explicit SQL ROLLBACK is no-op | Pass |
+| A.16 | `testCloseConnectionImplicitRollback` | Start txn → insert → close() without commit → verify not persisted from new conn | Pass |
+| A.17 | `testCloseConnectionDoesNotThrow` | Start txn → insert → close() → no exception | Pass |
+| A.18 | `testEmptyTransactionRollback` | Start txn → rollback immediately → no exception | Pass |
+| A.19 | `testReadOnlyTransaction` | Start txn → SELECT-only → commit → data unchanged | Pass |
+| A.20 | `testRollbackAfterQueryFailure` | Start txn → insert → invalid SQL → rollback → new txn → insert → commit → verify recovery | Pass |
+| A.21 | `testMultipleStatementsInSingleTxn` | Start txn → 3 Statement objects each insert → commit → verify 3 rows | Pass |
+| A.22 | `testPreparedStatementInsert` | Start txn → parameterized INSERT → commit → verify | Pass |
 
 ### B. JdbcApiTransactionTests — API-specific tests
 
@@ -329,13 +331,15 @@ These use JDBC API methods (`setAutoCommit`, `setTransactionIsolation`, etc.) th
 | # | Test | Description | Expected |
 |---|---|---|---|
 | B.1 | `testDefaultAutoCommitIsTrue` | New connection → assert `getAutoCommit()` returns true | Pass |
-| B.2 | `testSetAutoCommitDuringActiveTxnThrows` | `setAutoCommit(false)` → INSERT → `setAutoCommit(true)` → expect exception | Pass |
-| B.3 | `testUnsupportedIsolationLevel` | `setTransactionIsolation(READ_UNCOMMITTED/READ_COMMITTED/SERIALIZABLE)` → expect exception for each | Pass |
-| B.4 | `testSupportedIsolationLevel` | `setTransactionIsolation(REPEATABLE_READ)` → `getTransactionIsolation()` → verify | Pass |
-| B.5 | `testPreparedStatementUpdate` | `setAutoCommit(false)` → insert → parameterized UPDATE → commit → verify | Pass |
-| B.6 | `testPreparedStatementReuseAcrossTransactions` | Same PreparedStatement used in txn1 (commit) and txn2 (commit) → verify both rows | Pass |
-| B.7 | `testPreparedStatementGetMetaDataAfterExecute` | `setAutoCommit(false)` → execute PreparedStatement SELECT → `getMetaData()` → verify column count | Pass |
-| B.8 | `testGetParameterMetaData` | `setAutoCommit(false)` → create parameterized PreparedStatement → `getParameterMetaData()` → verify non-null | Pass |
+| B.2 | `testAutoStartAfterCommit` | `setAutoCommit(false)` → INSERT → commit → INSERT again (auto-starts new txn) → rollback → only first INSERT persists | Pass |
+| B.3 | `testAutoStartAfterRollback` | `setAutoCommit(false)` → INSERT → rollback → INSERT again (auto-starts new txn) → commit → only second INSERT persists | Pass |
+| B.4 | `testSetAutoCommitDuringActiveTxnThrows` | `setAutoCommit(false)` → INSERT → `setAutoCommit(true)` → expect exception | Pass |
+| B.5 | `testUnsupportedIsolationLevel` | `setTransactionIsolation(READ_UNCOMMITTED/READ_COMMITTED/SERIALIZABLE)` → expect exception for each | Pass |
+| B.6 | `testSupportedIsolationLevel` | `setTransactionIsolation(REPEATABLE_READ)` → `getTransactionIsolation()` → verify | Pass |
+| B.7 | `testPreparedStatementUpdate` | `setAutoCommit(false)` → insert → parameterized UPDATE → commit → verify | Pass |
+| B.8 | `testPreparedStatementReuseAcrossTransactions` | Same PreparedStatement used in txn1 (commit) and txn2 (commit) → verify both rows | Pass |
+| B.9 | `testPreparedStatementGetMetaDataAfterExecute` | `setAutoCommit(false)` → execute PreparedStatement SELECT → `getMetaData()` → verify column count | Pass |
+| B.10 | `testGetParameterMetaData` | `setAutoCommit(false)` → create parameterized PreparedStatement → `getParameterMetaData()` → verify non-null | Pass |
 
 ### C. ExplicitSqlTransactionTests — SQL-specific tests
 
@@ -445,25 +449,26 @@ These tests exist in the current code with zero or speculative assertions. We ke
 ## Test Counts
 
 ```mermaid
-pie title Test Executions by Category (~170 total)
-    "Shared correctness (JDBC API)" : 48
-    "Shared correctness (Explicit SQL)" : 48
-    "JDBC API special" : 16
+pie title Test Executions by Category (~184 total)
+    "Shared correctness (JDBC API)" : 44
+    "Shared correctness (Explicit SQL)" : 44
+    "JDBC API special" : 20
     "Explicit SQL special" : 14
     "Metadata gap tests" : 16
     "Blocked SQL tests" : 24
     "Execute variant tests" : 8
+    "Needs E2E" : 10
 ```
 
 | Class | Unique tests | Executions (×2 backends) |
 |---|---|---|
-| AbstractMstTestBase (via JdbcApiTransactionTests) | 24 shared + 8 API-specific = 32 | 64 |
-| AbstractMstTestBase (via ExplicitSqlTransactionTests) | 24 shared + 7 SQL-specific = 31 | 62 |
+| AbstractMstTestBase (via JdbcApiTransactionTests) | 22 shared + 10 API-specific = 32 | 64 |
+| AbstractMstTestBase (via ExplicitSqlTransactionTests) | 22 shared + 7 SQL-specific = 29 | 58 |
 | MstMetadataTests | 10 | 16 (some skip on one backend) |
 | MstBlockedSqlTests | 12 | 24 |
 | MstExecuteVariantTests | 4 | 8 |
 | Needs E2E validation | 5 | 10 |
-| **Total** | **62 unique** | **~184 executions** |
+| **Total** | **60 unique** | **~180 executions** |
 
 ## Migration from current tests
 
@@ -482,8 +487,8 @@ flowchart TD
     end
 
     subgraph "New Structure"
-        BASE["AbstractMstTestBase<br/>24 shared correctness tests"]
-        JDBC_API["JdbcApiTransactionTests<br/>extends base + 8 API tests"]
+        BASE["AbstractMstTestBase<br/>22 shared correctness tests"]
+        JDBC_API["JdbcApiTransactionTests<br/>extends base + 10 API tests"]
         EXPLICIT["ExplicitSqlTransactionTests<br/>extends base + 7 SQL tests"]
         META_NEW["MstMetadataTests<br/>10 tests, backend-aware"]
         BLOCKED_NEW["MstBlockedSqlTests<br/>12 tests, xfail"]
