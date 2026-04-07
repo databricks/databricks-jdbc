@@ -83,7 +83,7 @@ flowchart TD
 | `getTables()` | Broken — issues `SHOW TABLES`, blocked | Non-transactional | LC-13425 |
 | `getSchemas()` | Broken — issues `SHOW SCHEMAS`, blocked | Non-transactional | LC-13425 |
 | `getCatalogs()` | Broken — issues `SHOW CATALOGS`, blocked | Non-transactional | LC-13425 |
-| `getPrimaryKeys()` | Broken | Non-transactional (flaky — server session poisoning from getFunctions) | LC-13425 |
+| `getPrimaryKeys()` | Broken | Broken — server routes `TGetPrimaryKeysReq` through GET_FUNCTIONS which is blocked in MST | LC-13425 |
 | `getCrossReference()` | Broken | Non-transactional | LC-13425 |
 | `getFunctions()` | **Works** — `SHOW FUNCTIONS IN CATALOG` with `StatementType.METADATA` is not blocked | Non-transactional (driver logging bug: `IllegalFormatConversionException`) | |
 | `PreparedStatement.getMetaData()` before execute | Broken — issues `DESCRIBE QUERY` SQL | Broken — same path, issues SQL | LC-13425 |
@@ -449,7 +449,7 @@ flowchart TD
 | D.2 | `testGetTablesInMst` | assertThrows (SHOW TABLES blocked) | Pass: returns results (non-transactional) |
 | D.3 | `testGetSchemasInMst` | assertThrows (SHOW SCHEMAS blocked) | Pass: returns results (non-transactional) |
 | D.4 | `testGetCatalogsInMst` | assertThrows (SHOW CATALOGS blocked) | Pass: returns results (non-transactional) |
-| D.5 | `testGetPrimaryKeysInMst` | assertThrows | **Known issue**: server session poisoning from getFunctions test |
+| D.5 | `testGetPrimaryKeysInMst` | assertThrows | assertThrows — server routes through GET_FUNCTIONS, blocked in MST |
 | D.6 | `testGetCrossReferenceInMst` | assertThrows | Pass: returns ResultSet |
 | D.7 | `testGetFunctionsInMst` | Pass: returns ResultSet (`SHOW FUNCTIONS IN CATALOG` with `StatementType.METADATA` is not blocked) | **Skip**: driver logging bug (`IllegalFormatConversionException`) |
 | D.8 | `testPreparedStatementGetMetaDataBeforeExecute` | assertThrows (DESCRIBE QUERY blocked) | assertThrows (same) |
@@ -504,9 +504,8 @@ Final test run results (all 5 suites in parallel):
 
 ```mermaid
 pie title Test Results (174 total)
-    "Pass" : 166
-    "Skip (intentional)" : 7
-    "Known server issue" : 1
+    "Pass" : 169
+    "Skip (known driver bugs)" : 5
 ```
 
 | Suite | Total | Pass | Skip | Error | Notes |
@@ -514,18 +513,18 @@ pie title Test Results (174 total)
 | **MstBlockedSqlTests** | 24 | **24** | 0 | 0 | All clean |
 | **MstExecuteVariantTests** | 8 | **8** | 0 | 0 | All clean |
 | **ExplicitSqlTransactionTests** | 58 | **58** | 0 | 0 | All clean |
-| **JdbcApiTransactionTests** | 64 | **60** | **2** | 0 | 2 SEA skips: PreparedStatement closed after execute |
-| **MstMetadataTests** | 20 | **16** | **3** | **1** | 3 skips (2 freshness on SEA, 1 getFunctions Thrift driver bug). 1 error: getPrimaryKeys Thrift (server session poisoning) |
-| **Total** | **174** | **166** | **7** | **1** | |
+| **JdbcApiTransactionTests** | 64 | **62** | **2** | 0 | 2 SEA skips: PreparedStatement closed after execute |
+| **MstMetadataTests** | 20 | **17** | **3** | 0 | 3 skips: D.9 SEA (freshness), D.10 SEA (freshness), D.7 Thrift (driver logging bug) |
+| **Total** | **174** | **169** | **5** | **0** | |
 
 ### Known Issues (not test bugs)
 
 | Issue | Description | Affected Test |
 |---|---|---|
-| SEA closes PreparedStatement after execute | Can't reuse PreparedStatement or call getMetaData() after execute on SEA | B.8, B.9 (skipped) |
-| Thrift getFunctions driver logging bug | `IllegalFormatConversionException` in format string when calling getFunctions via Thrift RPC | D.7 Thrift (skipped) |
-| Server session poisoning | getFunctions Thrift error poisons server session; subsequent getPrimaryKeys on same session fails | D.5 Thrift (1 error) |
+| SEA closes PreparedStatement after execute | Can't reuse PreparedStatement or call getMetaData() after execute on SEA. Violates JDBC spec §13.1.1. | B.8, B.9 (skipped) |
+| Thrift getFunctions driver logging bug | `IllegalFormatConversionException` — format string in `JulLogger` applies `%g` specifier to exception object | D.7 Thrift (skipped) |
 | `SHOW FUNCTIONS IN CATALOG` not blocked | Unlike bare `SHOW FUNCTIONS`, the `IN CATALOG` variant with `StatementType.METADATA` is not blocked by MSTCheckRule | D.7 SEA (passes — not blocked) |
+| `getPrimaryKeys` blocked on both backends | Server routes `TGetPrimaryKeysReq` through GET_FUNCTIONS which is blocked in MST | D.5 (assertThrows on both) |
 
 ## Test Counts
 
@@ -540,8 +539,7 @@ pie title Test Results (174 total)
 
 ## Open items
 
-- [ ] Fix getPrimaryKeys Thrift session poisoning (server-side issue — reorder tests or use separate session)
-- [ ] Investigate SEA PreparedStatement lifecycle — should it remain open after execute?
+- [ ] Fix SEA PreparedStatement lifecycle — should remain open after execute per JDBC spec (driver bug)
 - [ ] File bug for `SHOW FUNCTIONS IN CATALOG` not being blocked by MSTCheckRule (inconsistent with other SHOW commands)
 - [ ] File bug for Thrift getFunctions `IllegalFormatConversionException` driver logging issue
 - [ ] Python driver test refactoring (separate effort, similar structure but no Thrift/SEA split needed today since Python defaults to Thrift)
