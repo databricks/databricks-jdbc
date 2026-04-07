@@ -945,8 +945,10 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testExecuteStatementWithClosedStatus() throws Exception {
-    // Set up connection and statement
+  public void testExecuteStatementWithClosedStatusDoesNotCloseStatement() throws Exception {
+    // Verify that when the SEA server returns CLOSED status, the JDBC Statement
+    // object is NOT marked as closed. Per JDBC spec, Statement should remain open
+    // until explicitly closed by the user, enabling PreparedStatement reuse.
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
@@ -998,8 +1000,9 @@ public class DatabricksSdkClientTest {
         statement,
         null);
 
-    // Verify that markAsClosed was called on the statement
-    verify(statement, times(1)).markAsClosed();
+    // Verify that markAsClosed was NOT called — statement should remain open
+    verify(statement, never()).markAsClosed();
+    assertFalse(statement.isClosed());
   }
 
   @Test
