@@ -59,6 +59,7 @@ METADATA_RUN_ONLY_METHODS="getCatalogs,getSchemas"  # empty = all methods
 METADATA_SKIP_METHODS=""  # comma-separated methods to skip (e.g., getFunctions)
 METADATA_SKIP_SCHEMAS="information_schema,global_temp"
 METADATA_PARALLEL_THREADS="40"
+SKIP_DIFF_PATTERNS=""  # pipe-separated patterns to exclude from report (e.g., "DATA_TYPE mismatch: 0 (Integer) vs 12 (Integer)")
 
 # Workspace setup (empty = skip, "recreate" = drop + create all test data)
 WORKSPACE_SETUP=""
@@ -155,6 +156,9 @@ if [ -n "${METADATA_SKIP_SCHEMAS}" ]; then
 fi
 if [ -n "${METADATA_PARALLEL_THREADS}" ]; then
   MVN_ARGS="${MVN_ARGS} -DMETADATA_PARALLEL_THREADS=${METADATA_PARALLEL_THREADS}"
+fi
+if [ -n "${SKIP_DIFF_PATTERNS}" ]; then
+  MVN_ARGS="${MVN_ARGS} '-DSKIP_DIFF_PATTERNS=${SKIP_DIFF_PATTERNS}'"
 fi
 if [ -n "${PRO_WAREHOUSE_ID}" ]; then
   MVN_ARGS="${MVN_ARGS} -DPRO_WAREHOUSE_ID=${PRO_WAREHOUSE_ID}"

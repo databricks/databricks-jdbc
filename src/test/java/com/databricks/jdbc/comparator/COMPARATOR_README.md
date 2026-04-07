@@ -167,6 +167,7 @@ If both are present for a method, **runOnly takes precedence**: argument combina
 | `METADATA_RUN_ONLY_METHODS` | _(all)_ | Comma-separated methods to run |
 | `METADATA_SKIP_METHODS` | _(none)_ | Comma-separated methods to skip |
 | `METADATA_SKIP_SCHEMAS` | _(none)_ | Schemas to filter from comparison |
+| `SKIP_DIFF_PATTERNS` | _(none)_ | Pipe-separated patterns to exclude from report |
 | `METADATA_PARALLEL_THREADS` | `1` | Parallel threads |
 | `METADATA_FILTER_CONFIG` | _(none)_ | Absolute path to JSON filter |
 | `WORKSPACE_SETUP` | _(skip)_ | Set to `recreate` for fresh setup |

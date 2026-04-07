@@ -4,12 +4,16 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class TestReporter {
   private final Path outputPath;
+  private final List<String> skipDiffPatterns;
 
   public TestReporter(Path outputPath, List<String> headerLines) throws IOException {
+    this.skipDiffPatterns = parseSkipDiffPatterns();
     this.outputPath = outputPath;
     try (FileWriter writer = new FileWriter(outputPath.toFile())) {
       writer.write("Report generated at: " + Instant.now() + "\n");
@@ -21,14 +25,21 @@ public class TestReporter {
   }
 
   public void addResult(ComparisonResult result) {
-    if (result.hasDifferences()) {
+    ComparisonResult filtered = result.filterDiffs(skipDiffPatterns);
+    if (filtered.hasDifferences()) {
       try (FileWriter writer = new FileWriter(outputPath.toFile(), true)) {
-        writer.write(result.toString());
+        writer.write(filtered.toString());
         writer.write("\n============================\n\n");
       } catch (IOException e) {
         e.printStackTrace();
       }
     }
+  }
+
+  private static List<String> parseSkipDiffPatterns() {
+    String prop = System.getProperty("SKIP_DIFF_PATTERNS");
+    if (prop == null || prop.isEmpty()) return Collections.emptyList();
+    return Arrays.asList(prop.split("\\|"));
   }
 
   public void finish() {

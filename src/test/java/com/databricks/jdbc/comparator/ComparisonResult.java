@@ -24,6 +24,21 @@ public class ComparisonResult {
     return !metadataDifferences.isEmpty() || !dataDifferences.isEmpty();
   }
 
+  /** Returns a new ComparisonResult with diffs matching any skip pattern removed. */
+  public ComparisonResult filterDiffs(List<String> skipPatterns) {
+    if (skipPatterns.isEmpty()) return this;
+    ComparisonResult filtered = new ComparisonResult(queryType, queryOrMethod, methodArgs);
+    filtered.metadataDifferences =
+        metadataDifferences.stream()
+            .filter(d -> skipPatterns.stream().noneMatch(d::contains))
+            .collect(Collectors.toList());
+    filtered.dataDifferences =
+        dataDifferences.stream()
+            .filter(d -> skipPatterns.stream().noneMatch(d::contains))
+            .collect(Collectors.toList());
+    return filtered;
+  }
+
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
