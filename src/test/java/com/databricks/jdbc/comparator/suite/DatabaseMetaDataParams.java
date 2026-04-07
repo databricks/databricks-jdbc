@@ -305,7 +305,7 @@ public class DatabaseMetaDataParams {
   // Curated case builders (for methods that don't fit cartesian pattern)
   // ---------------------------------------------------------------------------
 
-  /** getCrossReference — 9 curated cases. Patterns not supported, 6 args not independent. */
+  /** getCrossReference — 14 curated cases. Patterns not supported, 6 args not independent. */
   private static List<Object[]> crossReferenceCases() {
     List<Object[]> cases = new ArrayList<>();
     cases.add(new Object[] {null, null, null, null, null, null});
@@ -340,6 +340,22 @@ public class DatabaseMetaDataParams {
         new Object[] {
           "comparator_tests", "oss_jdbc_tests", "nonexistent",
           "comparator_tests", "oss_jdbc_tests", "nonexistent"
+        });
+    // Empty strings
+    cases.add(new Object[] {"", "", "", "", "", ""});
+    cases.add(new Object[] {"comparator_tests", "oss_jdbc_tests", "fk_parent", "", "", ""});
+    cases.add(new Object[] {"", "", "", "comparator_tests", "oss_jdbc_tests", "fk_child"});
+    // Uppercase (case sensitivity)
+    cases.add(
+        new Object[] {
+          "COMPARATOR_TESTS", "OSS_JDBC_TESTS", "FK_PARENT",
+          "COMPARATOR_TESTS", "OSS_JDBC_TESTS", "FK_CHILD"
+        });
+    // Hyphenated table names
+    cases.add(
+        new Object[] {
+          "comparator_tests", "oss_jdbc_tests", "fk-parent",
+          "comparator_tests", "oss_jdbc_tests", "fk-child"
         });
     return cases;
   }
