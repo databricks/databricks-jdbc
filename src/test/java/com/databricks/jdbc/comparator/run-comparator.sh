@@ -158,7 +158,7 @@ if [ -n "${METADATA_PARALLEL_THREADS}" ]; then
   MVN_ARGS="${MVN_ARGS} -DMETADATA_PARALLEL_THREADS=${METADATA_PARALLEL_THREADS}"
 fi
 if [ -n "${SKIP_DIFF_PATTERNS}" ]; then
-  MVN_ARGS="${MVN_ARGS} '-DSKIP_DIFF_PATTERNS=${SKIP_DIFF_PATTERNS}'"
+  SKIP_DIFF_ARG="-DSKIP_DIFF_PATTERNS=${SKIP_DIFF_PATTERNS}"
 fi
 if [ -n "${PRO_WAREHOUSE_ID}" ]; then
   MVN_ARGS="${MVN_ARGS} -DPRO_WAREHOUSE_ID=${PRO_WAREHOUSE_ID}"
@@ -169,12 +169,12 @@ fi
 
 MVN_ARGS="${MVN_ARGS} -DMETADATA_FILTER_CONFIG=${FILTER_FILE}"
 
-echo "Command: mvn test ${MVN_ARGS}"
+echo "Command: mvn test ${MVN_ARGS} ${SKIP_DIFF_ARG:+\"$SKIP_DIFF_ARG\"}"
 echo ""
 
 # Run (don't exit on Maven failure — we still need to collect output)
 set +e
-mvn test ${MVN_ARGS} 2>&1 | tee "${WORK_DIR}/full-output.txt"
+mvn test ${MVN_ARGS} ${SKIP_DIFF_ARG:+"$SKIP_DIFF_ARG"} 2>&1 | tee "${WORK_DIR}/full-output.txt"
 MVN_EXIT=${PIPESTATUS[0]}
 set -e
 
