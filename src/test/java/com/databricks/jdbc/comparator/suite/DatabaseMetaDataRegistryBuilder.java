@@ -131,12 +131,13 @@ public class DatabaseMetaDataRegistryBuilder {
     return this;
   }
 
-  /** Returns the completed registry, filtered by {@link #runOnly} if set. */
+  /** Returns the completed registry, filtered by {@link #runOnly} and {@link #skipMethods}. */
   public Map<String, List<Object[]>> build() {
     flushPending();
     if (runOnlyMethodsFilter != null) {
       registry.keySet().retainAll(runOnlyMethodsFilter);
     }
+    registry.keySet().removeAll(skippedMethods);
     return registry;
   }
 

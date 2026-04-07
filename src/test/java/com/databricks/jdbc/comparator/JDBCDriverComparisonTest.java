@@ -59,6 +59,7 @@ public class JDBCDriverComparisonTest {
             "SUITES_RUN_ONLY: " + System.getProperty("SUITES_RUN_ONLY", "(all)"),
             "METADATA_RUN_ONLY_METHODS: "
                 + System.getProperty("METADATA_RUN_ONLY_METHODS", "(all)"),
+            "METADATA_SKIP_METHODS: " + System.getProperty("METADATA_SKIP_METHODS", "(none)"),
             "METADATA_SKIP_SCHEMAS: " + System.getProperty("METADATA_SKIP_SCHEMAS", "(none)"),
             "METADATA_PARALLEL_THREADS: " + System.getProperty("METADATA_PARALLEL_THREADS", "1"),
             "METADATA_FILTER_CONFIG: " + System.getProperty("METADATA_FILTER_CONFIG", "(none)"),

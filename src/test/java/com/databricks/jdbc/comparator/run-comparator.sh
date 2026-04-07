@@ -56,6 +56,7 @@ SUITES_RUN_ONLY="DATABASE_METADATA"
 # Available methods: getCatalogs, getSchemas, getTables, getColumns,
 #   getPrimaryKeys, getImportedKeys, getExportedKeys, getCrossReference, getFunctions
 METADATA_RUN_ONLY_METHODS="getCatalogs,getSchemas"  # empty = all methods
+METADATA_SKIP_METHODS=""  # comma-separated methods to skip (e.g., getFunctions)
 METADATA_SKIP_SCHEMAS="information_schema,global_temp"
 METADATA_PARALLEL_THREADS="40"
 
@@ -145,6 +146,9 @@ if [ -n "${SUITES_RUN_ONLY}" ]; then
 fi
 if [ -n "${METADATA_RUN_ONLY_METHODS}" ]; then
   MVN_ARGS="${MVN_ARGS} -DMETADATA_RUN_ONLY_METHODS=${METADATA_RUN_ONLY_METHODS}"
+fi
+if [ -n "${METADATA_SKIP_METHODS}" ]; then
+  MVN_ARGS="${MVN_ARGS} -DMETADATA_SKIP_METHODS=${METADATA_SKIP_METHODS}"
 fi
 if [ -n "${METADATA_SKIP_SCHEMAS}" ]; then
   MVN_ARGS="${MVN_ARGS} -DMETADATA_SKIP_SCHEMAS=${METADATA_SKIP_SCHEMAS}"

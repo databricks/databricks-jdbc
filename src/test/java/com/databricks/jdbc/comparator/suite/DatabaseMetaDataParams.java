@@ -38,6 +38,12 @@ public class DatabaseMetaDataParams {
       r.runOnly(runOnlyFilter.split(","));
     }
 
+    // Optional: -DMETADATA_SKIP_METHODS=getFunctions
+    String skipMethodsFilter = System.getProperty("METADATA_SKIP_METHODS");
+    if (skipMethodsFilter != null && !skipMethodsFilter.isEmpty()) {
+      r.skipMethods(skipMethodsFilter.split(","));
+    }
+
     // === ResultSet methods (cartesian product of variant lists) ===
 
     // getCatalogs()

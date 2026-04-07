@@ -164,7 +164,8 @@ If both are present for a method, **runOnly takes precedence**: argument combina
 | `PRO_WAREHOUSE_ID` | _(disabled)_ | Pro warehouse ID |
 | `CONNECTION_CONFIG` | _(all)_ | Comma-separated configs to run |
 | `SUITES_RUN_ONLY` | _(all)_ | Comma-separated suites to run |
-| `METADATA_RUN_ONLY_METHODS` | _(all)_ | Comma-separated methods |
+| `METADATA_RUN_ONLY_METHODS` | _(all)_ | Comma-separated methods to run |
+| `METADATA_SKIP_METHODS` | _(none)_ | Comma-separated methods to skip |
 | `METADATA_SKIP_SCHEMAS` | _(none)_ | Schemas to filter from comparison |
 | `METADATA_PARALLEL_THREADS` | `1` | Parallel threads |
 | `METADATA_FILTER_CONFIG` | _(none)_ | Absolute path to JSON filter |
