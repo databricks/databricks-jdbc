@@ -236,17 +236,43 @@ public class DatabaseMetaDataParams {
           new String[] {"table"});
 
   // Keys methods: exact-match only (patterns not supported)
-  static final List<Object> KEYS_CATALOG_VARIANTS = Arrays.asList(null, "comparator_tests");
-  static final List<Object> KEYS_SCHEMA_VARIANTS = Arrays.asList(null, "oss_jdbc_tests");
+  static final List<Object> KEYS_CATALOG_VARIANTS =
+      Arrays.asList(
+          null, "", "comparator_tests", "comparator-tests", "COMPARATOR_TESTS", "nonexistent");
+  static final List<Object> KEYS_SCHEMA_VARIANTS =
+      Arrays.asList(null, "", "oss_jdbc_tests", "oss-jdbc-tests", "OSS_JDBC_TESTS", "nonexistent");
 
   static final List<Object> PK_TABLE_VARIANTS =
       Arrays.asList(
-          null, "test_result_set_types", "no_constraints", "fk_child", "fk_parent", "nonexistent");
+          null,
+          "",
+          "test_result_set_types",
+          "TEST_RESULT_SET_TYPES",
+          "test-result-set-types",
+          "no_constraints",
+          "fk_child",
+          "FK_CHILD",
+          "fk-child",
+          "fk_parent",
+          "FK_PARENT",
+          "fk-parent",
+          "nonexistent");
 
   static final List<Object> FK_TABLE_VARIANTS =
-      Arrays.asList(null, "fk_child", "no_constraints", "test_result_set_types", "nonexistent");
+      Arrays.asList(
+          null,
+          "",
+          "fk_child",
+          "FK_CHILD",
+          "fk-child",
+          "fk_child_cross_schema",
+          "fk_child_cross_catalog",
+          "no_constraints",
+          "test_result_set_types",
+          "nonexistent");
 
-  static final List<Object> PARENT_TABLE_VARIANTS = Arrays.asList(null, "fk_parent", "nonexistent");
+  static final List<Object> PARENT_TABLE_VARIANTS =
+      Arrays.asList(null, "", "fk_parent", "FK_PARENT", "fk-parent", "nonexistent");
 
   // Scalar argument lists
   static final List<Object> RESULT_SET_TYPES =
