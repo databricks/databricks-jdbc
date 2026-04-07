@@ -140,16 +140,13 @@ public class MstMetadataTests extends AbstractMstTestBase {
     init(useThrift);
     beginTransaction();
     DatabaseMetaData dbmd = connection.getMetaData();
-    if (isSEA()) {
-      assertThrows(
-          SQLException.class,
-          () -> dbmd.getPrimaryKeys(catalog, schema, testTable),
-          "SEA: getPrimaryKeys should throw in MST");
-    } else {
-      ResultSet rs = dbmd.getPrimaryKeys(catalog, schema, testTable);
-      assertNotNull(rs, "Thrift: getPrimaryKeys should return ResultSet (stale)");
-      rs.close();
-    }
+    // Both backends: getPrimaryKeys throws in MST.
+    // SEA: blocked by MSTCheckRule (issues SHOW KEYS SQL).
+    // Thrift: server routes TGetPrimaryKeysReq through GET_FUNCTIONS which is blocked in MST.
+    assertThrows(
+        SQLException.class,
+        () -> dbmd.getPrimaryKeys(catalog, schema, testTable),
+        "getPrimaryKeys should throw in MST on both backends");
     connection.rollback();
   }
 
