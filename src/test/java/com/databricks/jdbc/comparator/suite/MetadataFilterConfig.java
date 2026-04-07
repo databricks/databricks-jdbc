@@ -25,7 +25,8 @@ import java.util.Map;
  * must match a runOnly pattern, then it must not match any skip pattern.
  *
  * <p>Within each pattern list: an argument combination matches if ANY pattern matches (OR). Within
- * a pattern, ALL conditions must match (AND).
+ * a pattern, ALL conditions must match (AND). Prefix a value with {@code !} for negation (e.g.,
+ * {@code "!"} means "not empty", {@code "!null"} means "not null").
  *
  * <p>Example config:
  *
@@ -192,8 +193,15 @@ public class MetadataFilterConfig {
       String argName = condition.getKey();
       String skipValue = condition.getValue();
       String actual = namedArgs.get(argName);
-      if (!skipValue.equals(actual)) {
-        return false; // AND within pattern
+      if (skipValue.startsWith("!")) {
+        // Negation: "!value" means arg must NOT equal value
+        if (skipValue.substring(1).equals(actual)) {
+          return false;
+        }
+      } else {
+        if (!skipValue.equals(actual)) {
+          return false; // AND within pattern
+        }
       }
     }
     return true;

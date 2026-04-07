@@ -26,7 +26,7 @@ Sample `metadata-filters.json`:
     "getTables": [
       {"schemaPattern": ""},
       {"types": "[]"},
-      {"catalog": "comp%", "schemaPattern": "nonexistent"}
+      {"catalog": "compar%", "schemaPattern": "nonexistent"}
     ],
     "getSchemas": [
       {"schemaPattern": ""}
@@ -147,6 +147,9 @@ If both are present for a method, **runOnly takes precedence**: argument combina
 | `""` | Empty string |
 | `"null"` | Null argument |
 | `"[]"` | Empty String[] array |
+| `"!value"` | Negation — argument is NOT equal to value |
+| `"!"` | Argument is NOT empty string |
+| `"!null"` | Argument is NOT null |
 
 ---
 
