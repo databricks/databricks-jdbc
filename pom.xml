@@ -83,7 +83,7 @@
     <netty.version>4.2.12.Final</netty.version>
     <grpc.version>1.71.0</grpc.version>
     <jts-core.version>1.20.0</jts-core.version>
-    <resilience4j.version>1.7.0</resilience4j.version>
+    <resilience4j.version>2.4.0</resilience4j.version>
     <nimbusjose.version>10.0.2</nimbusjose.version>
     <bouncycastle.version>1.79</bouncycastle.version>
     <jmh.version>1.37</jmh.version>
