@@ -131,32 +131,35 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Step 1: Install all modules — resolves external dependencies from JFrog and
-          # installs inter-module SNAPSHOTs (e.g., jdbc-core used by assembly-thin/uber).
-          echo "=== Step 1: Installing all modules ==="
-          mvn -B install -DskipTests -Dmaven.javadoc.skip=true -Dmaven.source.skip=true -Ddependency-check.skip=true
+          # Run the EXACT same Maven commands as the PR CI workflows.
+          # This is the only reliable way to ensure every plugin, provider,
+          # and transitive dependency is resolved and cached. Each command
+          # mirrors a real CI step from prCheck.yml, prIntegrationTests.yml,
+          # or coverageReport.yml.
 
-          # Step 2: Run the exact same commands that PR workflows use.
-          # This ensures ALL plugins, providers, and metadata are resolved and cached,
-          # including test-time artifacts (surefire-junit-platform, jacoco agent) and
-          # build-time plugins (spotless, toolchains, owasp) that mvn install alone
-          # doesn't trigger.
-
-          # Step 2: Run a real unit test to trigger full surefire provider resolution.
-          # surefire-junit-platform is resolved lazily at test execution time, not at
-          # plugin initialization. We need at least one test to actually run.
-          echo "=== Step 2: Running a single unit test to resolve surefire provider ==="
-          mvn -B -pl jdbc-core test -Dtest="DatabricksParameterMetaDataTest#testInitialization" -Ddependency-check.skip=true || true
-
-          echo "=== Step 3: Running spotless check ==="
+          echo "=== 1/8: spotless:check (formatting-check job) ==="
           mvn -B --errors spotless:check || true
 
-          # Step 4: Run jacoco with a real test to resolve jacoco agent + report plugins
-          echo "=== Step 4: Running jacoco coverage ==="
-          mvn -B -pl jdbc-core test -Dtest="DatabricksParameterMetaDataTest#testInitialization" jacoco:report -Ddependency-check.skip=true || true
+          echo "=== 2/8: install all modules (packaging-tests job) ==="
+          mvn -B -pl jdbc-core,assembly-uber,assembly-thin clean install -DskipTests -Dmaven.javadoc.skip=true -Dmaven.source.skip=true -Ddependency-check.skip=true
 
-          echo "=== Step 5: Running integration test compilation ==="
+          echo "=== 3/8: Arrow Patch Tests (unit-tests job, JDK 17+) ==="
+          mvn -B -Pjdk21-NioNotOpen -pl jdbc-core test -Dgroups='Jvm17PlusAndArrowToNioReflectionDisabled' -Ddependency-check.skip=true || true
+
+          echo "=== 4/8: Arrow Allocator Tests (unit-tests job, JDK 17+) ==="
+          mvn -B -Pjdk21-NioNotOpen -pl jdbc-core test -Dgroups='Jvm17PlusAndArrowToNioReflectionDisabled' -Dtest="ArrowBufferAllocatorNettyManagerTest,ArrowBufferAllocatorUnsafeManagerTest,ArrowBufferAllocatorUnknownManagerTest" -DforkCount=1 -DreuseForks=false -Ddependency-check.skip=true || true
+
+          echo "=== 5/8: Arrow Memory Tests (unit-tests job) ==="
+          mvn -B -Plow-memory -pl jdbc-core test -Dtest='DatabricksArrowPatchMemoryUsageTest' -Ddependency-check.skip=true || true
+
+          echo "=== 6/8: Unit Tests with jacoco (unit-tests job) ==="
+          mvn -B -pl jdbc-core clean test -Dtest="DatabricksParameterMetaDataTest#testInitialization" -Dgroups='!Jvm17PlusAndArrowToNioReflectionDisabled' jacoco:report -Ddependency-check.skip=true || true
+
+          echo "=== 7/8: Integration test compile (prIntegrationTests job) ==="
           mvn -B -pl jdbc-core compile test-compile -Ddependency-check.skip=true || true
+
+          echo "=== 8/8: Resolve all declared plugins ==="
+          mvn -B -pl jdbc-core dependency:resolve-plugins -Ddependency-check.skip=true || true
 
           echo "Dependency resolution complete"
 
