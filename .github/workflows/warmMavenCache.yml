@@ -142,14 +142,18 @@ jobs:
           # build-time plugins (spotless, toolchains, owasp) that mvn install alone
           # doesn't trigger.
 
-          echo "=== Step 2: Running unit test compilation + surefire resolution ==="
-          mvn -B -pl jdbc-core test -Dtest=NoSuchTest -DfailIfNoTests=false -Ddependency-check.skip=true || true
+          # Step 2: Run a real unit test to trigger full surefire provider resolution.
+          # surefire-junit-platform is resolved lazily at test execution time, not at
+          # plugin initialization. We need at least one test to actually run.
+          echo "=== Step 2: Running a single unit test to resolve surefire provider ==="
+          mvn -B -pl jdbc-core test -Dtest="DatabricksParameterMetaDataTest#testInitialization" -Ddependency-check.skip=true || true
 
           echo "=== Step 3: Running spotless check ==="
           mvn -B --errors spotless:check || true
 
+          # Step 4: Run jacoco with a real test to resolve jacoco agent + report plugins
           echo "=== Step 4: Running jacoco coverage ==="
-          mvn -B -pl jdbc-core test -Dtest=NoSuchTest -DfailIfNoTests=false jacoco:report -Ddependency-check.skip=true || true
+          mvn -B -pl jdbc-core test -Dtest="DatabricksParameterMetaDataTest#testInitialization" jacoco:report -Ddependency-check.skip=true || true
 
           echo "=== Step 5: Running integration test compilation ==="
           mvn -B -pl jdbc-core compile test-compile -Ddependency-check.skip=true || true
