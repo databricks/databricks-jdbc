@@ -21,28 +21,34 @@ runs:
         key: maven-deps-${{ hashFiles('**/pom.xml') }}
         restore-keys: maven-deps-
 
-    - name: Configure Maven without credentials (fork)
+    - name: Configure Maven for cache-only resolution (fork)
       if: inputs.is-fork == 'true'
       shell: bash
       run: |
         mkdir -p ~/.m2
+
+        # Remove _remote.repositories marker files. These track which remote
+        # repo each artifact came from. Without them, Maven treats all cached
+        # artifacts as locally installed and resolves them without contacting
+        # any remote server.
+        find ~/.m2/repository -name '_remote.repositories' -delete 2>/dev/null || true
+        echo "Removed _remote.repositories markers from cache"
+
+        # Enable Maven offline mode via .mvn/maven.config. This file is read
+        # automatically by Maven as default CLI arguments. Offline mode prevents
+        # all network requests — no JFrog auth needed, no Maven Central fallback.
+        # Combined with _remote.repositories removal, Maven resolves everything
+        # from the local cache.
+        mkdir -p .mvn
+        echo "-o" >> .mvn/maven.config
+        echo "Maven offline mode enabled via .mvn/maven.config"
+
+        # Empty settings — no mirrors needed in offline mode.
         cat > ~/.m2/settings.xml << 'SETTINGS_EOF'
-        <settings>
-          <mirrors>
-            <mirror>
-              <id>jfrog-central</id>
-              <mirrorOf>*</mirrorOf>
-              <url>https://databricks.jfrog.io/artifactory/db-maven/</url>
-            </mirror>
-          </mirrors>
-          <!-- No <servers> block: forked PRs use cached dependencies only.
-               Any cache miss will produce a clear HTTP 401 error indicating
-               the dependency is not in cache. Ask a maintainer to run the
-               "Warm Maven Dependency Cache" workflow with your PR number. -->
-        </settings>
+        <settings />
         SETTINGS_EOF
 
-        echo "Maven configured for forked PR (cache-only, no JFrog credentials)"
+        echo "Maven configured for forked PR (cache-only, no remote access)"
 
     # --- Same-repo path: full JFrog OIDC authentication ---
     - name: Get JFrog OIDC token
