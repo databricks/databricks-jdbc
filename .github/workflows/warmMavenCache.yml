@@ -46,6 +46,10 @@ jobs:
           java-version: 21
           distribution: 'adopt'
 
+      - name: Enable long paths (Windows)
+        if: runner.os == 'Windows'
+        run: git config --system core.longpaths true
+
       # If PR number provided, checkout only pom.xml files from the fork (security: no source code)
       - name: Checkout PR pom.xml files (sparse)
         if: inputs.pr_number != ''
