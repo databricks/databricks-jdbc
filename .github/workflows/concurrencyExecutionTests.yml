@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout PR or Manual Dispatch
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.ref || inputs.branch || github.ref_name }}
           repository: ${{ github.event.pull_request.head.repo.full_name || inputs.repository || github.repository }}
