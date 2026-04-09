@@ -75,10 +75,26 @@ public class ResultSetComparator {
     } else {
       // when we see different classes of results, it would generally mean that one result is an
       // exception and the other is an actual result set.
-      result.metadataDifferences.add(result1.getClass() + " vs " + result2.getClass());
+      String r1Label = describeResult(result1);
+      String r2Label = describeResult(result2);
+      result.metadataDifferences.add(r1Label + " vs " + r2Label);
     }
 
     return result;
+  }
+
+  private static String describeResult(Object result) {
+    if (result instanceof ResultSet) {
+      try {
+        ResultSet rs = (ResultSet) result;
+        int rowCount = 0;
+        while (rs.next()) rowCount++;
+        return result.getClass() + (rowCount == 0 ? " (empty)" : " (" + rowCount + " rows)");
+      } catch (SQLException e) {
+        return result.getClass().toString();
+      }
+    }
+    return result.getClass().toString();
   }
 
   private static boolean resultIsSame(Object result1, Object result2) {
