@@ -195,6 +195,17 @@ else
   echo "No report file generated"
 fi
 
+# Copy CSV results
+CSV_FILE=$(ls ${WORK_DIR}/jdbc-core/jdbc-comparison-results-*.csv 2>/dev/null | head -1)
+if [ -n "${CSV_FILE}" ]; then
+  CSV_DEST="${ORIGINAL_DIR}/${RUN_NAME}-results-${TIMESTAMP}.csv"
+  cp "${CSV_FILE}" "${CSV_DEST}"
+  CSV_LINES=$(wc -l < "${CSV_DEST}")
+  echo "CSV: ${CSV_DEST} (${CSV_LINES} rows)"
+else
+  echo "No CSV file generated"
+fi
+
 echo "Logs: ${ORIGINAL_DIR}/${LOG_FILE}"
 
 # Cleanup
