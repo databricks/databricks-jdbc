@@ -160,6 +160,35 @@ public class MetadataFilterConfig {
     return false;
   }
 
+  /**
+   * Returns the skip reason for this argument combination, or null if not skipped. Checks both
+   * runOnly (not in whitelist) and skip (in blacklist) filters.
+   */
+  public String getSkipReason(String methodName, Object[] args) {
+    List<String> argNames = ARG_NAMES.get(methodName);
+    if (argNames == null || argNames.isEmpty()) return null;
+
+    Map<String, String> namedArgs = toNamedArgs(args, argNames);
+
+    List<Map<String, String>> runOnlyPatterns = metadataRunOnlyFilters.get(methodName);
+    if (runOnlyPatterns != null && !runOnlyPatterns.isEmpty()) {
+      if (!matchesAnyPattern(namedArgs, runOnlyPatterns)) {
+        return "not in runOnly filter";
+      }
+    }
+
+    List<Map<String, String>> skipPatterns = metadataSkipFilters.get(methodName);
+    if (skipPatterns != null && !skipPatterns.isEmpty()) {
+      for (Map<String, String> pattern : skipPatterns) {
+        if (matchesPattern(namedArgs, pattern)) {
+          return pattern.getOrDefault(REASON_KEY, "matched skip filter");
+        }
+      }
+    }
+
+    return null;
+  }
+
   /** Whether this config has any filters defined. */
   public boolean isEmpty() {
     return metadataRunOnlyFilters.isEmpty() && metadataSkipFilters.isEmpty();
@@ -187,10 +216,13 @@ public class MetadataFilterConfig {
     return named;
   }
 
+  private static final String REASON_KEY = "reason";
+
   private static boolean matchesPattern(
       Map<String, String> namedArgs, Map<String, String> pattern) {
     for (Map.Entry<String, String> condition : pattern.entrySet()) {
       String argName = condition.getKey();
+      if (REASON_KEY.equals(argName)) continue; // reason is metadata, not a filter condition
       String skipValue = condition.getValue();
       String actual = namedArgs.get(argName);
       if (skipValue.startsWith("!")) {

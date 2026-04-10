@@ -21,6 +21,9 @@ public class DatabaseMetaDataProvider implements SuiteProvider {
   private static final Map<String, List<Object[]>> METHOD_REGISTRY =
       DatabaseMetaDataParams.buildRegistry();
 
+  /** Last execution's per-combo results, available after {@link #execute}. */
+  private List<CombinationResult> lastComboResults;
+
   @Override
   public List<TestCase> getTestCases() {
     List<TestCase> cases = new ArrayList<>();
@@ -43,6 +46,7 @@ public class DatabaseMetaDataProvider implements SuiteProvider {
 
     List<CombinationResult> results =
         CombinationExecutor.executeAll(methodName, argCombinations, md1, md2, label);
+    this.lastComboResults = results;
 
     // Merge results with [argsLabel] prefix for traceability
     List<String> metadataDiffs = new ArrayList<>();
@@ -61,5 +65,10 @@ public class DatabaseMetaDataProvider implements SuiteProvider {
     result.metadataDifferences = metadataDiffs;
     result.dataDifferences = dataDiffs;
     return result;
+  }
+
+  /** Returns per-combo results from the last {@link #execute} call. */
+  public List<CombinationResult> getLastComboResults() {
+    return lastComboResults;
   }
 }

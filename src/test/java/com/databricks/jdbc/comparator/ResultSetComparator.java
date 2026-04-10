@@ -11,6 +11,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Note: If diff string formats are changed here, update {@link ComparisonResult#csvSummary()} which
+ * parses these strings to generate concise CSV summaries.
+ */
 public class ResultSetComparator {
   public static ComparisonResult compare(
       String queryType, String queryOrMethod, Object[] methodArgs, Object result1, Object result2)

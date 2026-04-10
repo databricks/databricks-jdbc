@@ -79,11 +79,12 @@ public class CombinationExecutor {
     for (int idx = 0; idx < total; idx++) {
       Object[] args = argCombos.get(idx);
       String argsLabel = formatArgs(args);
-      if (FILTER_CONFIG.shouldSkip(methodName, args)) {
+      String skipReason = FILTER_CONFIG.getSkipReason(methodName, args);
+      if (skipReason != null) {
         System.out.printf(
-            "[%s]   Skipped %s(%s) [%d/%d] — filtered%n",
-            Instant.now(), methodName, argsLabel, idx + 1, total);
-        results.add(CombinationResult.skipped(argsLabel));
+            "[%s]   Skipped %s(%s) [%d/%d] — %s%n",
+            Instant.now(), methodName, argsLabel, idx + 1, total, skipReason);
+        results.add(CombinationResult.skipped(argsLabel, skipReason));
         continue;
       }
       System.out.printf(
@@ -107,10 +108,12 @@ public class CombinationExecutor {
 
     for (Object[] args : argCombos) {
       final String argsLabel = formatArgs(args);
-      if (FILTER_CONFIG.shouldSkip(methodName, args)) {
+      String skipReason = FILTER_CONFIG.getSkipReason(methodName, args);
+      if (skipReason != null) {
         System.out.printf(
-            "[%s]   Skipped %s(%s) — filtered%n", Instant.now(), methodName, argsLabel);
-        futures.add(CompletableFuture.completedFuture(CombinationResult.skipped(argsLabel)));
+            "[%s]   Skipped %s(%s) — %s%n", Instant.now(), methodName, argsLabel, skipReason);
+        futures.add(
+            CompletableFuture.completedFuture(CombinationResult.skipped(argsLabel, skipReason)));
         continue;
       }
       futures.add(

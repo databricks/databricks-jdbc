@@ -6,6 +6,8 @@ import com.databricks.jdbc.comparator.config.ConnectionConfig;
 import com.databricks.jdbc.comparator.config.ConnectionManager;
 import com.databricks.jdbc.comparator.config.TestSuite;
 import com.databricks.jdbc.comparator.setup.WorkspaceSetup;
+import com.databricks.jdbc.comparator.suite.CombinationResult;
+import com.databricks.jdbc.comparator.suite.DatabaseMetaDataProvider;
 import com.databricks.jdbc.comparator.suite.SuiteProvider;
 import com.databricks.jdbc.comparator.suite.TestCase;
 import java.io.IOException;
@@ -81,7 +83,10 @@ public class JDBCDriverComparisonTest {
   @AfterAll
   static void teardown() throws Exception {
     if (connectionManager != null) connectionManager.close();
-    if (reporter != null) reporter.finish();
+    if (reporter != null) {
+      reporter.finish();
+      System.out.println("CSV results: " + reporter.getCsvPath());
+    }
   }
 
   /**
@@ -143,9 +148,43 @@ public class JDBCDriverComparisonTest {
               "[%s] [%s] Running: %s%n", Instant.now(), comparisonName, testCase.getDescription());
 
           String label = suite.name() + " [" + comparisonName + "]";
+          // comparisonName is "Config | Suite", extract config part
+          String configName =
+              comparisonName.contains(" | ")
+                  ? comparisonName.substring(0, comparisonName.indexOf(" | "))
+                  : comparisonName;
           try {
             ComparisonResult result = suite.getProvider().execute(conn1, conn2, testCase, label);
             reporter.addResult(result);
+
+            // CSV: per-combo rows for metadata, single row for other suites
+            SuiteProvider provider = suite.getProvider();
+            if (provider instanceof DatabaseMetaDataProvider) {
+              String methodName = testCase.getIdentifier();
+              for (CombinationResult cr :
+                  ((DatabaseMetaDataProvider) provider).getLastComboResults()) {
+                String comboTestCase = methodName + "(" + cr.argsLabel + ")";
+                if (cr.skipped) {
+                  reporter.addCsvRow(
+                      suite.name(),
+                      configName,
+                      comboTestCase,
+                      "SKIPPED",
+                      cr.skipReason != null ? cr.skipReason : "");
+                } else if (cr.metadataDiffs.isEmpty() && cr.dataDiffs.isEmpty()) {
+                  reporter.addCsvRow(suite.name(), configName, comboTestCase, "PASS", "");
+                } else {
+                  ComparisonResult temp = new ComparisonResult("", "", new Object[0]);
+                  temp.metadataDifferences = cr.metadataDiffs;
+                  temp.dataDifferences = cr.dataDiffs;
+                  reporter.addCsvRow(
+                      suite.name(), configName, comboTestCase, "DIFF", temp.csvSummary());
+                }
+              }
+            } else {
+              reporter.addCsvFromResult(
+                  suite.name(), configName, testCase.getDescription(), result);
+            }
 
             if (result.hasDifferences()) {
               System.err.println(
@@ -156,6 +195,8 @@ public class JDBCDriverComparisonTest {
             System.err.printf(
                 "[%s] [%s] ERROR in %s: %s%n",
                 Instant.now(), comparisonName, testCase.getDescription(), e.getMessage());
+            reporter.addCsvRow(
+                suite.name(), configName, testCase.getDescription(), "ERROR", e.getMessage());
             throw e;
           }
         });

@@ -24,6 +24,37 @@ public class ComparisonResult {
     return !metadataDifferences.isEmpty() || !dataDifferences.isEmpty();
   }
 
+  /** Returns a concise one-line summary of diffs for CSV output. */
+  public String csvSummary() {
+    List<String> parts = new ArrayList<>();
+
+    // Exception vs ResultSet — already concise, keep as is
+    for (String d : metadataDifferences) {
+      if (d.contains(" vs class ")) {
+        parts.add(d);
+      }
+    }
+
+    // Count metadata mismatches (e.g., "Column name X mismatch: ...")
+    long metaMismatches = metadataDifferences.stream().filter(d -> d.contains("mismatch")).count();
+    if (metaMismatches > 0) parts.add(metaMismatches + " metadata mismatches");
+
+    // Extra rows (e.g., "First ResultSet has N extra rows")
+    for (String d : dataDifferences) {
+      if (d.contains("extra rows")) parts.add(d);
+    }
+
+    // Count row data mismatches (e.g., "Row 1, Column X mismatch: ...")
+    long rowMismatches =
+        dataDifferences.stream()
+            .filter(d -> d.startsWith("Row ") || d.startsWith("["))
+            .filter(d -> d.contains("mismatch"))
+            .count();
+    if (rowMismatches > 0) parts.add(rowMismatches + " data mismatches");
+
+    return parts.isEmpty() ? "" : String.join(", ", parts);
+  }
+
   /** Returns a new ComparisonResult with diffs matching any skip pattern removed. */
   public ComparisonResult filterDiffs(List<String> skipPatterns) {
     if (skipPatterns.isEmpty()) return this;
