@@ -15,12 +15,15 @@ on:
         default: 'databricks/databricks-jdbc'
 
 permissions:
+  id-token: write
   contents: read
 
 jobs:
   concurrency-tests:
     name: Run Concurrency Execution Tests
-    runs-on: ubuntu-latest
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
     environment: azure-prod
     strategy:
       fail-fast: false
@@ -41,12 +44,12 @@ jobs:
           java-version: ${{ matrix.java-version }}
           distribution: 'adopt'
 
-      - name: Cache Maven packages
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      # This workflow only runs on push to main or manual dispatch — never on forked PRs.
+      # is-fork is always false here, but we use the composite action for consistency.
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
         with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
+          is-fork: 'false'
 
       - name: Run Concurrency Execution Tests
         run: mvn -pl jdbc-core -B test -Dtest=com.databricks.jdbc.integration.e2e.ConcurrentExecutionTests -DargLine="-ea"

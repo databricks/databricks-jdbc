@@ -109,7 +109,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void error(Throwable throwable, String format, Object... arguments) {
-    error(String.format(slf4jToJavaFormat(format), arguments), throwable);
+    error(throwable, String.format(slf4jToJavaFormat(format), arguments));
   }
 
   /**

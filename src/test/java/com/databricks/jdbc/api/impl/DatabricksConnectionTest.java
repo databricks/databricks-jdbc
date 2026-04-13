@@ -426,15 +426,51 @@ public class DatabricksConnectionTest {
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
+    // prepareCall with basic SQL should succeed
+    CallableStatement callableStmt = connection.prepareCall(SQL);
+    assertNotNull(callableStmt);
+    assertInstanceOf(DatabricksCallableStatement.class, callableStmt);
+    callableStmt.close();
+
+    // prepareCall with valid resultSetType/concurrency should succeed
+    CallableStatement callableStmt2 =
+        connection.prepareCall(SQL, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+    assertNotNull(callableStmt2);
+    callableStmt2.close();
+
+    // prepareCall with unsupported resultSetType/concurrency should throw
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.prepareCall(SQL));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () ->
+            connection.prepareCall(
+                SQL, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE));
+
+    // prepareCall with valid holdability should succeed
+    CallableStatement callableStmt3 =
+        connection.prepareCall(
+            SQL,
+            ResultSet.TYPE_FORWARD_ONLY,
+            ResultSet.CONCUR_READ_ONLY,
+            ResultSet.CLOSE_CURSORS_AT_COMMIT);
+    assertNotNull(callableStmt3);
+    callableStmt3.close();
+
+    // prepareCall with unsupported holdability should throw
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () ->
+            connection.prepareCall(
+                SQL,
+                ResultSet.TYPE_FORWARD_ONLY,
+                ResultSet.CONCUR_READ_ONLY,
+                ResultSet.HOLD_CURSORS_OVER_COMMIT));
+
+    // getMetaData, beginRequest, endRequest
+    assertNotNull(connection.getMetaData());
+    assertDoesNotThrow(connection::beginRequest);
+    assertDoesNotThrow(connection::endRequest);
+
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.nativeSQL(SQL));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> connection.prepareCall(SQL, 10, 10));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> connection.prepareCall(SQL, 1, 1, 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> connection.prepareStatement(SQL, 1, 1, 1));

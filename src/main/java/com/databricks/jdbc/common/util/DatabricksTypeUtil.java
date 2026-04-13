@@ -116,6 +116,8 @@ public class DatabricksTypeUtil {
         return ColumnInfoTypeName.MAP;
       case DatabricksTypeUtil.INTERVAL:
         return ColumnInfoTypeName.INTERVAL;
+      case DatabricksTypeUtil.VARIANT:
+        return ColumnInfoTypeName.VARIANT;
     }
     return ColumnInfoTypeName.USER_DEFINED_TYPE;
   }
@@ -163,6 +165,7 @@ public class DatabricksTypeUtil {
         return Types.STRUCT;
       case ARRAY:
         return Types.ARRAY;
+      case VARIANT:
       case GEOMETRY:
       case GEOGRAPHY:
       case USER_DEFINED_TYPE:
@@ -203,6 +206,7 @@ public class DatabricksTypeUtil {
       case CHAR:
       case STRING:
       case INTERVAL:
+      case VARIANT:
       case USER_DEFINED_TYPE:
         return "java.lang.String";
       case TIMESTAMP:

@@ -1131,6 +1131,8 @@ public class MetadataResultSetBuilder {
       case "CHARACTER":
         return 1;
       case "VARIANT":
+      case "GEOMETRY":
+      case "GEOGRAPHY":
         return 1111;
     }
     if (s.startsWith(INTERVAL)) {
@@ -1626,8 +1628,10 @@ public class MetadataResultSetBuilder {
                 }
               }
               if (column.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
-                // Check if complex datatype support is disabled and this is a complex type
-                if (!ctx.isComplexDatatypeSupportEnabled() && isComplexType(typeVal)) {
+                // Check if geospatial support is disabled and this is a geospatial type
+                if (!ctx.isGeoSpatialSupportEnabled() && isGeospatialType(typeVal)) {
+                  object = Types.VARCHAR;
+                } else if (!ctx.isComplexDatatypeSupportEnabled() && isComplexType(typeVal)) {
                   object = Types.VARCHAR;
                 } else {
                   object = getCode(stripBaseTypeName(typeVal));

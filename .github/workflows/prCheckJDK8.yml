@@ -20,12 +20,15 @@ on:
         default: 'Manual health check for JDK-8'
 
 permissions:
+  id-token: write
   contents: read
 
 jobs:
   jdk8-test:
     name: JDK 8 Unit Tests
-    runs-on: ubuntu-latest
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
 
     steps:
       - name: Set up JDK 8
@@ -40,12 +43,23 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref || inputs.branch }}
           repository: ${{ github.event.pull_request.head.repo.full_name || inputs.repository }}
 
-      - name: Cache Maven packages
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - name: Check if fork
+        id: fork-check
+        shell: bash
+        run: |
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "" ] && \
+             [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "is_fork=true" >> $GITHUB_OUTPUT
+            echo "This is a forked PR — will use cached dependencies"
+          else
+            echo "is_fork=false" >> $GITHUB_OUTPUT
+            echo "This is a same-repo PR or dispatch — will use JFrog OIDC"
+          fi
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
         with:
-          path: ~/.m2
-          key: ${{ runner.os }}-jdk8-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-jdk8-m2
+          is-fork: ${{ steps.fork-check.outputs.is_fork }}
 
       - name: Compile
         run: mvn clean install -DskipTests -Dspotless.skip=true
