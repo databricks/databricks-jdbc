@@ -105,9 +105,11 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public CallableStatement prepareCall(String sql) throws SQLException {
-    LOGGER.debug(String.format("public CallableStatement prepareCall= {%s})", sql));
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Callable statements are not implemented in OSS JDBC");
+    LOGGER.debug(String.format("public CallableStatement prepareCall(String sql = {%s})", sql));
+    throwExceptionIfConnectionIsClosed();
+    DatabricksCallableStatement statement = new DatabricksCallableStatement(this, sql);
+    statementSet.add(statement);
+    return statement;
   }
 
   @Override
@@ -534,8 +536,12 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency)
       throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Callable statements are not implemented in OSS JDBC");
+    if (resultSetType != ResultSet.TYPE_FORWARD_ONLY
+        || resultSetConcurrency != ResultSet.CONCUR_READ_ONLY) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Only ResultSet.TYPE_FORWARD_ONLY and ResultSet.CONCUR_READ_ONLY are supported");
+    }
+    return prepareCall(sql);
   }
 
   @Override
@@ -634,8 +640,15 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   public CallableStatement prepareCall(
       String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
       throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Callable statements are not implemented in OSS JDBC");
+    if (isClosed()) {
+      throw new DatabricksSQLException(
+          "Connection is closed", DatabricksDriverErrorCode.CONNECTION_CLOSED);
+    }
+    if (resultSetHoldability == getHoldability()) {
+      return prepareCall(sql, resultSetType, resultSetConcurrency);
+    }
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks OSS JDBC only supports holdability of CLOSE_CURSORS_AT_COMMIT");
   }
 
   @Override

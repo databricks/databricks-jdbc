@@ -14,8 +14,10 @@ import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.CommandConstants;
 import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -324,19 +326,6 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     catalog = autoFillCatalog(catalog, currentCatalog);
 
     String[] resolvedParams = resolveKeyBasedParams(catalog, schema, table, session);
-    if (resolvedParams == null) {
-      LOGGER.debug(
-          "Could not resolve key-based params (catalog={}, schema={}, table={}), returning empty result set for listPrimaryKeys",
-          catalog,
-          schema,
-          table);
-      return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-          PRIMARY_KEYS_COLUMNS,
-          new ArrayList<>(),
-          METADATA_STATEMENT_ID,
-          com.databricks.jdbc.common.CommandName.LIST_PRIMARY_KEYS);
-    }
-
     String resolvedCatalog = resolvedParams[0];
     String resolvedSchema = resolvedParams[1];
     String resolvedTable = resolvedParams[2];
@@ -373,19 +362,6 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     catalog = autoFillCatalog(catalog, currentCatalog);
 
     String[] resolvedParams = resolveKeyBasedParams(catalog, schema, table, session);
-    if (resolvedParams == null) {
-      LOGGER.debug(
-          "Could not resolve key-based params (catalog={}, schema={}, table={}), returning empty result set for listImportedKeys",
-          catalog,
-          schema,
-          table);
-      return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-          IMPORTED_KEYS_COLUMNS,
-          new ArrayList<>(),
-          METADATA_STATEMENT_ID,
-          com.databricks.jdbc.common.CommandName.GET_IMPORTED_KEYS);
-    }
-
     String resolvedCatalog = resolvedParams[0];
     String resolvedSchema = resolvedParams[1];
     String resolvedTable = resolvedParams[2];
@@ -414,6 +390,12 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       IDatabricksSession session, String catalog, String schema, String table) throws SQLException {
     LOGGER.debug("public ResultSet listExportedKeys() using SDK");
 
+    if (table == null) {
+      LOGGER.debug("listExportedKeys: table is null, throwing");
+      throw new DatabricksSQLException(
+          "Invalid argument: tableName may not be null", DatabricksDriverErrorCode.INVALID_STATE);
+    }
+
     // Only fetch currentCatalog if multiple catalog support is disabled
     String currentCatalog = isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null;
     if (!metadataResultSetBuilder.shouldAllowCatalogAccess(catalog, currentCatalog, session)) {
@@ -438,6 +420,12 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       throws SQLException {
     LOGGER.debug("public ResultSet listCrossReferences() using SDK");
 
+    // Null foreignTable means "unspecified" — Thrift server returns empty ResultSet
+    if (foreignTable == null) {
+      LOGGER.debug("listCrossReferences: foreignTable is null, returning empty result set");
+      return metadataResultSetBuilder.getCrossRefsResult(new ArrayList<>());
+    }
+
     // Only fetch currentCatalog if multiple catalog support is disabled
     String currentCatalog = isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null;
     if (!metadataResultSetBuilder.shouldAllowCatalogAccess(parentCatalog, currentCatalog, session)
@@ -446,29 +434,12 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       return metadataResultSetBuilder.getCrossRefsResult(new ArrayList<>());
     }
 
-    // Resolve null params for the foreign side (used to build the SQL query)
+    // Resolve null catalog/schema for the foreign side (used to build the SQL query)
     String[] resolvedForeignParams =
         resolveKeyBasedParams(foreignCatalog, foreignSchema, foreignTable, session);
-    if (resolvedForeignParams == null) {
-      LOGGER.debug(
-          "Could not resolve foreign key-based params (catalog={}, schema={}, table={}), returning empty result set",
-          foreignCatalog,
-          foreignSchema,
-          foreignTable);
-      return metadataResultSetBuilder.getCrossRefsResult(new ArrayList<>());
-    }
-
-    // Resolve null params for the parent side (used for filtering results)
+    // Resolve null catalog/schema for the parent side (used for filtering results)
     String[] resolvedParentParams =
         resolveKeyBasedParams(parentCatalog, parentSchema, parentTable, session);
-    if (resolvedParentParams == null) {
-      LOGGER.debug(
-          "Could not resolve parent key-based params (catalog={}, schema={}, table={}), returning empty result set",
-          parentCatalog,
-          parentSchema,
-          parentTable);
-      return metadataResultSetBuilder.getCrossRefsResult(new ArrayList<>());
-    }
 
     String resolvedForeignCatalog = resolvedForeignParams[0];
     String resolvedForeignSchema = resolvedForeignParams[1];
@@ -542,15 +513,21 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
   }
 
   /**
-   * Resolves null catalog/schema for key-based metadata operations to match Thrift server behavior.
-   * When catalog is null, it is replaced with current_catalog and (if schema is also null) schema
-   * is replaced with current_schema. Returns null if the caller should return an empty result set
-   * (table is null, schema is null without catalog also being null, or any resolved value is null).
+   * Validates and resolves null catalog/schema/table for key-based metadata operations to match
+   * Thrift server behavior. Throws DatabricksSQLException for invalid parameter combinations
+   * (matching Thrift error behavior). When catalog is null, it is replaced with current_catalog and
+   * (if schema is also null) schema is replaced with current_schema.
+   *
+   * @throws DatabricksSQLException if table is null/empty, or schema is null with an explicit
+   *     catalog
    */
   private String[] resolveKeyBasedParams(
       String catalog, String schema, String table, IDatabricksSession session) throws SQLException {
-    if (table == null) {
-      return null;
+    if (table == null || table.isEmpty()) {
+      LOGGER.debug("resolveKeyBasedParams: table is null or empty, throwing");
+      throw new DatabricksSQLException(
+          "Invalid argument: tableName may not be null or empty",
+          DatabricksDriverErrorCode.INVALID_STATE);
     }
 
     if (catalog == null) {
@@ -560,11 +537,22 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
         schema = currentCatalogAndSchema[1];
       }
     } else if (schema == null) {
-      return null;
+      LOGGER.debug(
+          "resolveKeyBasedParams: schema is null with explicit catalog '{}', throwing", catalog);
+      throw new DatabricksSQLException(
+          "Invalid argument: schema may not be null when catalog is specified",
+          DatabricksDriverErrorCode.INVALID_STATE);
     }
 
+    // Safety net: getCurrentCatalogAndSchema() returned null values
     if (catalog == null || schema == null) {
-      return null;
+      LOGGER.debug(
+          "resolveKeyBasedParams: could not resolve catalog or schema (catalog={}, schema={})",
+          catalog,
+          schema);
+      throw new DatabricksSQLException(
+          "Invalid argument: could not resolve catalog or schema",
+          DatabricksDriverErrorCode.INVALID_STATE);
     }
 
     return new String[] {catalog, schema, table};

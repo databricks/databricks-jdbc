@@ -1357,4 +1357,21 @@ class DatabricksConnectionContextTest {
             TestConstants.VALID_URL_1 + ";OAuthWebServerTimeout=300", properties);
     assertEquals(300, connectionContext.getOAuthWebServerTimeout());
   }
+
+  @Test
+  public void testDefaultGetterCoverage() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    // Exercise default-value getters for coverage
+    assertNull(ctx.getPassThroughAccessToken());
+    assertTrue(ctx.getLogFileSize() > 0);
+    assertTrue(ctx.getLogFileCount() > 0);
+    assertNotNull(ctx.shouldRetryTemporarilyUnavailableError());
+    assertNotNull(ctx.shouldRetryRateLimitError());
+    assertTrue(ctx.getTemporarilyUnavailableRetryTimeout() >= 0);
+    assertTrue(ctx.getRateLimitRetryTimeout() >= 0);
+    assertTrue(ctx.getApiRetryTimeout() >= 0);
+    assertFalse(ctx.enableShowCommandsForGetFunctions());
+    assertFalse(ctx.treatMetadataCatalogNameAsPattern());
+  }
 }
