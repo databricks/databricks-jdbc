@@ -191,7 +191,7 @@ public class JDBCDriverComparisonTest {
                   "[" + comparisonName + "] Differences found for: " + testCase.getDescription());
               System.err.println(result);
             }
-          } catch (Exception e) {
+          } catch (Throwable e) {
             System.err.printf(
                 "[%s] [%s] ERROR in %s: %s%n",
                 Instant.now(), comparisonName, testCase.getDescription(), e.getMessage());
