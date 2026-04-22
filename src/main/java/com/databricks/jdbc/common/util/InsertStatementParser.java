@@ -18,9 +18,12 @@ import java.util.stream.Collectors;
 public class InsertStatementParser {
 
   // Pattern to extract table and columns from INSERT INTO table (col1, col2, ...) VALUES format
+  // Table name group matches dot-separated segments where each segment is either a
+  // backtick-quoted identifier (allowing any character inside, including escaped backticks ``)
+  // or an unquoted identifier (\w+).
   private static final Pattern INSERT_DETAILS_PATTERN =
       Pattern.compile(
-          "^\\s*INSERT\\s+INTO\\s+([\\w`\\.]+)\\s*\\(([^)]+)\\)\\s+VALUES\\s*\\(",
+          "^\\s*INSERT\\s+INTO\\s+((?:`(?:[^`]|``)+`|\\w+)(?:\\.(?:`(?:[^`]|``)+`|\\w+))*)\\s*\\(([^)]+)\\)\\s+VALUES\\s*\\(",
           Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
   /** Represents the parsed components of an INSERT statement. */

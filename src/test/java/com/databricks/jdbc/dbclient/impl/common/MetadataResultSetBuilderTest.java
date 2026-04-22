@@ -71,6 +71,8 @@ public class MetadataResultSetBuilderTest {
     assert metadataResultSetBuilder.getCode("SMALLINT") == 5;
     assert metadataResultSetBuilder.getCode("INTEGER") == 4;
     assert metadataResultSetBuilder.getCode("VARIANT") == 1111;
+    assert metadataResultSetBuilder.getCode("GEOMETRY") == 1111;
+    assert metadataResultSetBuilder.getCode("GEOGRAPHY") == 1111;
     assert metadataResultSetBuilder.getCode("INTERVAL") == 12;
     assert metadataResultSetBuilder.getCode("INTERVAL YEAR") == 12;
   }
@@ -816,6 +818,48 @@ public class MetadataResultSetBuilderTest {
 
     assertEquals(
         "'42'", updatedRows.get(0).get(12), "COLUMN_DEF should return the actual default value");
+  }
+
+  @Test
+  void testGetThriftRowsGeospatialDataTypeWhenDisabled() {
+    // When geospatial support is disabled, GEOMETRY/GEOGRAPHY DATA_TYPE should be VARCHAR (12)
+    when(connectionContext.isGeoSpatialSupportEnabled()).thenReturn(false);
+    lenient().when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(true);
+
+    for (String typeName : List.of("GEOMETRY", "GEOGRAPHY")) {
+      List<Object> row =
+          Arrays.asList(
+              "cat", "schema", "tbl", "col", 0, typeName, 10, null, 0, 10, 1, "", null, null, null,
+              null, 0, "YES", null, null, null, null, "NO", "NO");
+      List<List<Object>> updatedRows =
+          metadataResultSetBuilder.getThriftRows(List.of(row), COLUMN_COLUMNS);
+
+      assertEquals(
+          Types.VARCHAR,
+          updatedRows.get(0).get(4),
+          typeName + " DATA_TYPE should be VARCHAR (12) when geospatial is disabled");
+    }
+  }
+
+  @Test
+  void testGetThriftRowsGeospatialDataTypeWhenEnabled() {
+    // When geospatial support is enabled, GEOMETRY/GEOGRAPHY DATA_TYPE should be OTHER (1111)
+    when(connectionContext.isGeoSpatialSupportEnabled()).thenReturn(true);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(true);
+
+    for (String typeName : List.of("GEOMETRY", "GEOGRAPHY")) {
+      List<Object> row =
+          Arrays.asList(
+              "cat", "schema", "tbl", "col", 0, typeName, 10, null, 0, 10, 1, "", null, null, null,
+              null, 0, "YES", null, null, null, null, "NO", "NO");
+      List<List<Object>> updatedRows =
+          metadataResultSetBuilder.getThriftRows(List.of(row), COLUMN_COLUMNS);
+
+      assertEquals(
+          Types.OTHER,
+          updatedRows.get(0).get(4),
+          typeName + " DATA_TYPE should be OTHER (1111) when geospatial is enabled");
+    }
   }
 
   private static Stream<Arguments> provideColumnDefTypeNames() {

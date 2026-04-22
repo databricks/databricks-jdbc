@@ -1,0 +1,38 @@
+{
+  "id" : "adae3967-7c88-4334-99e7-646b88c4c7b5",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAAAwwAAQwAAQwAAQsAAQAAABDE6oi/IvZDgovLnmuZvW2ZCwACAAAAEGe1+cogNUTktNdWvU0piw0AAAsAAgAAAGJDUkVBVEUgVEFCTEUgbWFpbi5qZGJjX3Rlc3Rfc2NoZW1hLnByZXBhcmVkX3N0YXRlbWVudF9zZXRfb2JqZWN0X3Rlc3RfdGFibGUgKGlkIElOVCwgY29sMSBCT09MRUFOKQoABQAAAAAAAAAADAUBCgABAAAAAAAehIAKAAIAAAAAGCGjAAACBQIBAgUDAQIFBAEMBQYCAAEBAgACAQIAAwECAAQBAgAFAQAPBQgMAAAAAAAA"
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "gAEAAgAAABBFeGVjdXRlU3RhdGVtZW50AAAAAwwAAAwAAQgAAQAAAAAADAACDAABCwABAAAAEHmwDyZanEJiqtlo6LCuTvwLAAIAAAAQxpWOT+g8TE+2JRm2RXgcgwYNAQAAAAgAAgAAAAACAAMBAAwFAQwAAQwAAQgAAQAAAAAACAACAAAAAggNAgAAAAAADAACDAABCAABAAAAAAAMAAIPAAEMAAAAAQsAAQAAAAZSZXN1bHQMAAIPAAEMAAAAAQwAAQgAAQAAAAcAAAAIAAMAAAABCwAEAAAAAAAACAUBAAAAAAIFAgELBQMAAABI/////0AAAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAAIAAAAAAAAAAAAAAAAAAAACAUEAAAAAAoFBQAAAAAAAAAACgUGAAAAAAAAAAACBQcACA0BAAAABQoNBQAAAAAAAAAAAg0RAAINEwEADAADDAABCAABAAAAAAACAAIADAADCgABAAAAAAAAAAAPAAIMAAAAAA8FAQwAAAAAAAAMAAQMAAEIAAEAAAAAAAAAAAA=",
+    "headers" : {
+      "x-request-id" : "a2fadd3b-5e70-46e7-bb16-ab1108c82539",
+      "date" : "Tue, 21 Apr 2026 00:27:34 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-databricks-popp-fast-path-routing-reason" : "not_eligible",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-popp-shadow-routing-reason" : "spog-domain-checker-false",
+      "x-databricks-upstream-cluster" : "oregon-staging-h2",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-databricks-query-rejection-reason" : "{\"active_query_count\":0,\"query_count_limit\":0,\"driver_cpu_usage_cores\":0.0,\"driver_cpu_limit_cores\":0.0,\"driver_jvm_memory_usage_bytes\":0,\"driver_jvm_memory_limit_bytes\":0,\"query_count_limit_exceeded\":false,\"cpu_reactive_limit_exceeded\":false,\"memory_reactive_limit_exceeded\":false,\"rejected\":false,\"query_cost\":0.0,\"query_stats\":{},\"all_fields\":{\"databricks.sparkconnectrouter.QueryRejectionResponse.rejected\":false}}",
+      "x-content-type-options" : "nosniff",
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "server-timing" : "request_id;dur=0;desc=\"a2fadd3b-5e70-46e7-bb16-ab1108c82539\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":443\"; ma=86400, h3-29=\":443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "adae3967-7c88-4334-99e7-646b88c4c7b5",
+  "insertionIndex" : 182
+}

@@ -102,6 +102,7 @@ public class DatabricksDriverFeatureFlagsContext {
           .getDatabricksConfig()
           .authenticate()
           .forEach(request::addHeader);
+      connectionContext.getCustomHeaders().forEach(request::addHeader);
       fetchAndSetFlagsFromServer(httpClient, request);
     } catch (Exception e) {
       LOGGER.trace(

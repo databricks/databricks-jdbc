@@ -1391,4 +1391,185 @@ public class DatabricksPreparedStatementTest {
     assertEquals(
         185645000, expectedTs.getNanos(), "Nanosecond precision must be preserved for " + testName);
   }
+
+  // =========================================================================
+  // Tests for direct results behavior (previously broken: statement was closed
+  // after inline results, preventing getMetaData, getResultSet, re-execution)
+  // =========================================================================
+
+  @Test
+  public void testGetMetaDataWorksAfterDirectResults() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
+
+    ResultSetMetaData mockMetaData = mock(ResultSetMetaData.class);
+    when(resultSet.getMetaData()).thenReturn(mockMetaData);
+
+    statement.setLong(1, 100);
+    statement.setShort(2, (short) 10);
+    statement.setByte(3, (byte) 15);
+    statement.setString(4, "value");
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    ResultSet rs = statement.executeQuery();
+    assertNotNull(rs);
+
+    // Simulate server returning direct results (inline, operation closed)
+    statement.markDirectResultsReceived();
+
+    // Previously this would throw "Statement is closed" — now it works
+    assertFalse(statement.isClosed());
+    ResultSet afterDirect = statement.getResultSet();
+    assertNotNull(afterDirect);
+    assertEquals(resultSet, afterDirect);
+
+    // getMetaData via the result set should also work
+    assertNotNull(afterDirect.getMetaData());
+  }
+
+  @Test
+  public void testBindAndExecuteMultipleTimesWithSamePreparedStatement() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, UPDATE_STATEMENT);
+
+    DatabricksResultSet firstResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet secondResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet thirdResult = mock(DatabricksResultSet.class);
+
+    when(client.executeStatement(
+            eq(UPDATE_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(firstResult)
+        .thenReturn(secondResult)
+        .thenReturn(thirdResult);
+
+    // First execution
+    statement.setString(1, "shipped");
+    statement.setLong(2, 100);
+    statement.executeUpdate();
+
+    // Mark direct results (server closed the operation)
+    statement.markDirectResultsReceived();
+
+    // Second execution with different params — previously threw "Statement is closed"
+    statement.setString(1, "delivered");
+    statement.setLong(2, 200);
+    assertDoesNotThrow(() -> statement.executeUpdate());
+
+    // Third execution — verify sticky params work across re-executions
+    statement.setString(1, "returned");
+    statement.setLong(2, 300);
+    assertDoesNotThrow(() -> statement.executeUpdate());
+
+    // Verify all three executions happened
+    verify(client, times(3))
+        .executeStatement(
+            eq(UPDATE_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any());
+
+    // Statement should still be open
+    assertFalse(statement.isClosed());
+  }
+
+  @Test
+  public void testGetResultSetWorksAfterDirectResults() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
+
+    statement.setLong(1, 100);
+    statement.setShort(2, (short) 10);
+    statement.setByte(3, (byte) 15);
+    statement.setString(4, "value");
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    // execute() followed by getResultSet() — a common pattern
+    boolean hasResults = statement.execute();
+    statement.markDirectResultsReceived();
+
+    // Previously getResultSet() would throw "Statement is closed"
+    ResultSet rs = statement.getResultSet();
+    assertNotNull(rs);
+    assertEquals(resultSet, rs);
+  }
+
+  @Test
+  public void testParametersClearedOnReExecution() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, UPDATE_STATEMENT);
+
+    DatabricksResultSet firstResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet secondResult = mock(DatabricksResultSet.class);
+
+    when(client.executeStatement(
+            eq(UPDATE_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(firstResult)
+        .thenReturn(secondResult);
+
+    // First execution with params
+    statement.setString(1, "shipped");
+    statement.setLong(2, 100);
+    statement.executeUpdate();
+    statement.markDirectResultsReceived();
+
+    // Clear parameters, set new ones, re-execute
+    statement.clearParameters();
+    statement.setString(1, "cancelled");
+    statement.setLong(2, 999);
+    assertDoesNotThrow(() -> statement.executeUpdate());
+
+    // Verify both executions happened
+    verify(client, times(2))
+        .executeStatement(
+            eq(UPDATE_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any());
+  }
 }
