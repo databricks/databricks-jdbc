@@ -318,12 +318,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
       handleFailedExecution(response, statementId, sql);
     }
 
-    // Defer markAsClosed until AFTER ResultSet construction. VolumeOperationResult
-    // (created during ResultSet construction) accesses statement properties via
-    // isAllowedInputStreamForVolumeOperation() which calls checkIfClosed().
-    // Marking the statement closed before ResultSet construction causes volume
-    // operations to fail with "Statement is closed".
-    boolean shouldMarkClosed = responseState == StatementState.CLOSED && parentStatement != null;
+    // Defer markDirectResultsReceived until AFTER ResultSet construction.
+    // VolumeOperationResult (created during ResultSet construction) accesses
+    // statement properties that require the statement to be in a valid state.
+    boolean shouldMarkDirectResults =
+        responseState == StatementState.CLOSED && parentStatement != null;
 
     DatabricksResultSet resultSet =
         new DatabricksResultSet(
@@ -335,9 +334,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
             session,
             parentStatement);
 
-    if (shouldMarkClosed) {
-      LOGGER.debug("Statement {} returned CLOSED status, marking statement as closed", statementId);
-      ((DatabricksStatement) parentStatement.getStatement()).markAsClosed();
+    if (shouldMarkDirectResults) {
+      LOGGER.debug(
+          "Statement {} returned CLOSED status with direct results, marking as direct results received",
+          statementId);
+      parentStatement.markDirectResultsReceived();
     }
 
     return resultSet;
@@ -390,6 +391,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
     LOGGER.debug("Executed sql [{}] with status [{}]", sql, response.getStatus().getState());
 
+    // SEA async execution never returns direct results — the server always returns
+    // PENDING/RUNNING state, and the client polls via getStatementResult(). No need
+    // to check for CLOSED state or call markDirectResultsReceived() here.
     return new DatabricksResultSet(
         response.getStatus(),
         typedStatementId,
@@ -676,7 +680,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       request.setWaitTimeout(ASYNC_TIMEOUT_VALUE);
     } else {
       // Only set timeout if direct results mode is not enabled
-      if (!connectionContext.isSqlExecDirectResultsEnabled()) {
+      if (!connectionContext.getDirectResultMode()) {
         request.setWaitTimeout(SYNC_TIMEOUT_VALUE);
       }
       request.setOnWaitTimeout(ExecuteStatementRequestOnWaitTimeout.CONTINUE);

@@ -103,6 +103,21 @@ public class JulLoggerTest {
   }
 
   @Test
+  void testErrorWithThrowableAndFormatArgContainingPercent() {
+    // Reproduces the IllegalFormatConversionException crash (GitHub issue).
+    // When error(Throwable, String, Object...) formats a message whose argument
+    // contains literal % characters (e.g., %g from a Thrift server error), the
+    // formatted result is passed to error(String, Object...) which re-interprets
+    // it as a format string, causing String.format to apply %g to the Throwable.
+    Exception exception = new Exception("something with %g in it");
+    assertDoesNotThrow(
+        () ->
+            julLogger.error(
+                exception, "Unable to fetch functions, returning empty result set {}", exception),
+        "error(Throwable, String, Object...) should not throw when formatted message contains % characters");
+  }
+
+  @Test
   void testInitLoggerWithStdout() throws IOException {
     JulLogger.initLogger(Level.INFO, JulLogger.STDOUT, 1024, 1);
     Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);

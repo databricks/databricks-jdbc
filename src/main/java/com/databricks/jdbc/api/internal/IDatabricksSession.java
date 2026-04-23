@@ -125,6 +125,13 @@ public interface IDatabricksSession {
   /** Gets the current catalog from the database */
   String getCurrentCatalog() throws DatabricksSQLException;
 
+  /**
+   * Gets the current catalog and schema from the database in a single query.
+   *
+   * @return String array of length 2: [currentCatalog, currentSchema]
+   */
+  String[] getCurrentCatalogAndSchema() throws DatabricksSQLException;
+
   void setEmptyMetadataClient();
 
   void forceClose();

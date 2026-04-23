@@ -17,8 +17,10 @@ public final class DatabricksJdbcConstants {
               "(?:/([^;]*))?"
               + // Optional Schema (captured without /)
               "(?:;(.*))?"); // Optional Property=Value pairs (captured without leading ;)
-  public static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
-  public static final Pattern HTTP_ENDPOINT_PATH_PATTERN = Pattern.compile(".*/endpoints/(.+)");
+  public static final Pattern HTTP_WAREHOUSE_PATH_PATTERN =
+      Pattern.compile(".*/warehouses/([^?&]+).*");
+  public static final Pattern HTTP_ENDPOINT_PATH_PATTERN =
+      Pattern.compile(".*/endpoints/([^?&]+).*");
   public static final Pattern HTTP_CLI_PATTERN = Pattern.compile(".*cliservice(.+)");
   public static final Pattern HTTP_PATH_CLI_PATTERN = Pattern.compile("cliservice");
   public static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://test");

@@ -492,7 +492,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     CreateUploadUrlRequest request = new CreateUploadUrlRequest(objectPath);
     try {
       Request req = new Request(Request.POST, CREATE_UPLOAD_URL_PATH, apiClient.serialize(request));
-      req.withHeaders(JSON_HTTP_HEADERS);
+      req.withHeaders(JSON_HTTP_HEADERS)
+          .withHeaders(connectionContext != null ? connectionContext.getCustomHeaders() : Map.of());
       return apiClient.execute(req, CreateUploadUrlResponse.class);
     } catch (IOException | DatabricksException e) {
       String errorMessage =
@@ -514,7 +515,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     try {
       Request req =
           new Request(Request.POST, CREATE_DOWNLOAD_URL_PATH, apiClient.serialize(request));
-      req.withHeaders(JSON_HTTP_HEADERS);
+      req.withHeaders(JSON_HTTP_HEADERS)
+          .withHeaders(connectionContext != null ? connectionContext.getCustomHeaders() : Map.of());
       return apiClient.execute(req, CreateDownloadUrlResponse.class);
     } catch (IOException | DatabricksException e) {
       String errorMessage =
@@ -534,7 +536,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
 
     try {
       Request req = new Request(Request.POST, CREATE_DELETE_URL_PATH, apiClient.serialize(request));
-      req.withHeaders(JSON_HTTP_HEADERS);
+      req.withHeaders(JSON_HTTP_HEADERS)
+          .withHeaders(connectionContext != null ? connectionContext.getCustomHeaders() : Map.of());
       return apiClient.execute(req, CreateDeleteUrlResponse.class);
     } catch (IOException | DatabricksException e) {
       String errorMessage =
@@ -551,7 +554,8 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
     ListRequest request = new ListRequest(listPath);
     try {
       Request req = new Request(Request.GET, LIST_PATH);
-      req.withHeaders(JSON_HTTP_HEADERS);
+      req.withHeaders(JSON_HTTP_HEADERS)
+          .withHeaders(connectionContext != null ? connectionContext.getCustomHeaders() : Map.of());
       ApiClient.setQuery(req, request);
       return apiClient.execute(req, ListResponse.class);
     } catch (IOException | DatabricksException e) {
@@ -888,6 +892,9 @@ public class DBFSVolumeClient implements IDatabricksVolumeClient, Closeable {
         Map<String, String> authHeaders = workspaceClient.config().authenticate();
         authHeaders.forEach(requestBuilder::addHeader);
         JSON_HTTP_HEADERS.forEach(requestBuilder::addHeader);
+        if (connectionContext != null) {
+          connectionContext.getCustomHeaders().forEach(requestBuilder::addHeader);
+        }
 
         requestBuilder.setEntity(
             AsyncEntityProducers.create(requestBody.getBytes(), ContentType.APPLICATION_JSON));

@@ -363,8 +363,7 @@ public class DatabricksSession implements IDatabricksSession {
               null /* metadataOperationType */);
 
       if (resultSet.next()) {
-        String currentCatalog = resultSet.getString(1);
-        return currentCatalog;
+        return resultSet.getString(1);
       }
     } catch (Exception e) {
       LOGGER.warn(
@@ -372,6 +371,30 @@ public class DatabricksSession implements IDatabricksSession {
           e.getMessage());
     }
     return this.catalog;
+  }
+
+  @Override
+  public String[] getCurrentCatalogAndSchema() throws DatabricksSQLException {
+    try {
+      DatabricksResultSet resultSet =
+          databricksClient.executeStatement(
+              "SELECT CURRENT_CATALOG(), CURRENT_SCHEMA()",
+              this.computeResource,
+              new HashMap<>(),
+              StatementType.METADATA,
+              this,
+              null,
+              null /* metadataOperationType */);
+
+      if (resultSet.next()) {
+        return new String[] {resultSet.getString(1), resultSet.getString(2)};
+      }
+    } catch (Exception e) {
+      LOGGER.warn(
+          "Failed to get current catalog and schema from database, falling back to session values: {}",
+          e.getMessage());
+    }
+    return new String[] {this.catalog, this.schema};
   }
 
   @Override

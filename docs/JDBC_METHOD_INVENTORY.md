@@ -184,62 +184,34 @@
 
 ## 3. java.sql.CallableStatement
 
-**Implementation:** NOT IMPLEMENTED
+**Implementation:** `DatabricksCallableStatement.java` — partial support (IN parameters only)
 
-| Method Signature | Implemented | Exception Type | Deprecated? | Usage Category | Notes |
-|-----------------|-------------|----------------|-------------|----------------|-------|
-| `registerOutParameter(int, int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `registerOutParameter(int, int, int)` | NO | - | No | OCCASIONAL | Stored procedures not implemented |
-| `wasNull()` | NO | - | No | COMMON | Stored procedures not implemented |
-| `getString(int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `getBoolean(int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `getByte(int)` | NO | - | No | OCCASIONAL | Stored procedures not implemented |
-| `getShort(int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `getInt(int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `getLong(int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `getFloat(int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `getDouble(int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `getBigDecimal(int, int)` | NO | - | Yes | DEPRECATED | Stored procedures not implemented |
-| `getBytes(int)` | NO | - | No | OCCASIONAL | Stored procedures not implemented |
-| `getDate(int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `getTime(int)` | NO | - | No | OCCASIONAL | Stored procedures not implemented |
-| `getTimestamp(int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `getObject(int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `getBigDecimal(int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `getObject(int, Map)` | NO | - | No | RARE | Stored procedures not implemented |
-| `getRef(int)` | NO | - | No | RARE | Stored procedures not implemented |
-| `getBlob(int)` | NO | - | No | RARE | Stored procedures not implemented |
-| `getClob(int)` | NO | - | No | RARE | Stored procedures not implemented |
-| `getArray(int)` | NO | - | No | OCCASIONAL | Stored procedures not implemented |
-| `getDate(int, Calendar)` | NO | - | No | OCCASIONAL | Stored procedures not implemented |
-| `getTime(int, Calendar)` | NO | - | No | OCCASIONAL | Stored procedures not implemented |
-| `getTimestamp(int, Calendar)` | NO | - | No | OCCASIONAL | Stored procedures not implemented |
-| `registerOutParameter(int, int, String)` | NO | - | No | RARE | Stored procedures not implemented |
-| `registerOutParameter(String, int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `registerOutParameter(String, int, int)` | NO | - | No | OCCASIONAL | Stored procedures not implemented |
-| `registerOutParameter(String, int, String)` | NO | - | No | RARE | Stored procedures not implemented |
-| `getURL(int)` | NO | - | No | RARE | Stored procedures not implemented |
-| `setURL(String, URL)` | NO | - | No | RARE | Stored procedures not implemented |
-| `setNull(String, int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `setBoolean(String, boolean)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `setByte(String, byte)` | NO | - | No | OCCASIONAL | Stored procedures not implemented |
-| `setShort(String, short)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `setInt(String, int)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `setLong(String, long)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `setFloat(String, float)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `setDouble(String, double)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `setBigDecimal(String, BigDecimal)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `setString(String, String)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `setBytes(String, byte[])` | NO | - | No | OCCASIONAL | Stored procedures not implemented |
-| `setDate(String, Date)` | NO | - | No | COMMON | Stored procedures not implemented |
-| `setTime(String, Time)` | NO | - | No | OCCASIONAL | Stored procedures not implemented |
-| `setTimestamp(String, Timestamp)` | NO | - | No | COMMON | Stored procedures not implemented |
-| ... (50+ more methods) | NO | - | No | VARIOUS | All CallableStatement methods not implemented |
+`DatabricksCallableStatement` extends `DatabricksPreparedStatement` and implements `CallableStatement`.
+All IN parameter binding (`setXXX(int, value)`) and execution methods are inherited from `PreparedStatement`.
+OUT/INOUT parameters, named parameters, and return-value syntax (`{? = call ...}`) throw `SQLFeatureNotSupportedException`.
+
+| Method Signature | Implemented | Exception Type | Notes |
+|-----------------|-------------|----------------|-------|
+| *All `setXXX(int, value)` methods* | YES (inherited) | - | Inherited from DatabricksPreparedStatement |
+| *`executeQuery()`, `executeUpdate()`, `execute()`* | YES (inherited) | - | Inherited from DatabricksPreparedStatement |
+| *`addBatch()`, `executeBatch()`* | YES (inherited) | - | Inherited from DatabricksPreparedStatement |
+| *`clearParameters()`, `getParameterMetaData()`* | YES (inherited) | - | Inherited from DatabricksPreparedStatement |
+| `registerOutParameter(int, int)` | THROWS | `SQLFeatureNotSupportedException` | OUT params not supported |
+| `registerOutParameter(int, int, int)` | THROWS | `SQLFeatureNotSupportedException` | OUT params not supported |
+| `registerOutParameter(int, int, String)` | THROWS | `SQLFeatureNotSupportedException` | OUT params not supported |
+| `registerOutParameter(String, int)` | THROWS | `SQLFeatureNotSupportedException` | OUT params not supported |
+| `registerOutParameter(String, int, int)` | THROWS | `SQLFeatureNotSupportedException` | OUT params not supported |
+| `registerOutParameter(String, int, String)` | THROWS | `SQLFeatureNotSupportedException` | OUT params not supported |
+| `wasNull()` | THROWS | `SQLFeatureNotSupportedException` | OUT params not supported |
+| *All `getXXX(int)` methods (~30)* | THROWS | `SQLFeatureNotSupportedException` | OUT param retrieval not supported |
+| *All `getXXX(String)` methods (~30)* | THROWS | `SQLFeatureNotSupportedException` | OUT param retrieval not supported |
+| *All `setXXX(String, value)` methods (~35)* | THROWS | `SQLFeatureNotSupportedException` | Named parameters not supported |
 
 **Summary for CallableStatement:**
 - **Total Methods:** 100+ (approx)
-- **Fully Implemented:** 0
-- **Note:** Driver throws `DatabricksSQLFeatureNotImplementedException` in `Connection.prepareCall()` - "Callable statements are not implemented in OSS JDBC"
+- **Fully Implemented (inherited):** ~45 (all setXXX by index, execute, batch, lifecycle)
+- **Throws SQLFeatureNotSupportedException:** ~100 (registerOutParameter, getXXX, named setXXX)
+- **Note:** `Connection.prepareCall()` creates `DatabricksCallableStatement`. `{call proc(?)}` escape syntax is converted to `CALL proc(?)`. `{? = call ...}` return-value syntax is rejected at construction time.
 
 ---
 

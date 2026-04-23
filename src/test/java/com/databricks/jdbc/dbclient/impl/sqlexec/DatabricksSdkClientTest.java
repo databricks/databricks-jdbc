@@ -998,8 +998,8 @@ public class DatabricksSdkClientTest {
         statement,
         null);
 
-    // Verify that markAsClosed was called on the statement
-    verify(statement, times(1)).markAsClosed();
+    // Verify that markDirectResultsReceived was called on the statement
+    verify(statement, times(1)).markDirectResultsReceived();
   }
 
   @Test

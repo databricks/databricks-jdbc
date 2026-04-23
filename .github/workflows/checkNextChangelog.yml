@@ -9,7 +9,9 @@ permissions:
 
 jobs:
   check-next-changelog:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
 
     steps:
       - name: Checkout base branch (main)

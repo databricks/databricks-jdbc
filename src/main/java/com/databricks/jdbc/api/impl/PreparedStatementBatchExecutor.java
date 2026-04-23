@@ -72,6 +72,10 @@ class PreparedStatementBatchExecutor {
       return true;
     } catch (Exception e) {
       // Not a valid INSERT statement suitable for batching
+      LOGGER.warn(
+          "EnableBatchedInserts is enabled but the INSERT statement could not be parsed for"
+              + " batching, falling back to individual execution: {}",
+          e.getMessage());
       return false;
     }
   }

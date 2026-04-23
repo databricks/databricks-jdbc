@@ -1,0 +1,38 @@
+{
+  "id" : "58982d5f-1cdf-41fb-9b05-8ae90fc99929",
+  "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
+  "request" : {
+    "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "binaryEqualTo" : "gAEAAQAAABBFeGVjdXRlU3RhdGVtZW50AAAAAgwAAQwAAQwAAQsAAQAAABC7/+9Zj3ZPJKa3Z6nu0yIaCwACAAAAECa5Rx0gIEs0qoqJWCjgx+oAAAsAAgAAAC5ERVNDUklCRSBRVUVSWSBTRUxFQ1QgMSBBUyBudW0sICdoZWxsbycgQVMgc3RyCgAFAAAAAAAAAAAMBQEKAAEAAAAAAB6EgAoAAgAAAAAYIaMAAAIFAgECBQMBAgUEAQwFBgIAAQECAAIBAgADAQIABAECAAUBAA8FCAwAAAAAAAA="
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "base64Body" : "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",
+    "headers" : {
+      "x-request-id" : "4bb9369e-d5a3-4744-958e-c389cee24663",
+      "date" : "Tue, 21 Apr 2026 00:28:12 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "x-databricks-popp-fast-path-routing-reason" : "not_eligible",
+      "x-frame-options" : "SAMEORIGIN",
+      "x-databricks-popp-shadow-routing-reason" : "spog-domain-checker-false",
+      "x-databricks-upstream-cluster" : "oregon-staging-h2",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-databricks-query-rejection-reason" : "{\"active_query_count\":0,\"query_count_limit\":0,\"driver_cpu_usage_cores\":0.0,\"driver_cpu_limit_cores\":0.0,\"driver_jvm_memory_usage_bytes\":0,\"driver_jvm_memory_limit_bytes\":0,\"query_count_limit_exceeded\":false,\"cpu_reactive_limit_exceeded\":false,\"memory_reactive_limit_exceeded\":false,\"rejected\":false,\"query_cost\":0.0,\"query_stats\":{},\"all_fields\":{\"databricks.sparkconnectrouter.QueryRejectionResponse.rejected\":false}}",
+      "x-content-type-options" : "nosniff",
+      "x-xss-protection" : "1; mode=block",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/x-thrift",
+      "server-timing" : "request_id;dur=0;desc=\"4bb9369e-d5a3-4744-958e-c389cee24663\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":443\"; ma=86400, h3-29=\":443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "58982d5f-1cdf-41fb-9b05-8ae90fc99929",
+  "insertionIndex" : 206
+}

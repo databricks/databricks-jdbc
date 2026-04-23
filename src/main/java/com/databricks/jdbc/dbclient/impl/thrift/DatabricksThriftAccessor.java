@@ -233,7 +233,8 @@ final class DatabricksThriftAccessor {
       TGetOperationStatusResp statusResp =
           pollTillOperationFinished(
               response, parentStatement, session, statementId, sessionDebugInfo);
-      if (hasResultDataInDirectResults(response)) {
+      boolean isDirectResults = hasResultDataInDirectResults(response);
+      if (isDirectResults) {
         // The first response has result data
         // There is no polling in this case as status was already finished
         resultSet = response.getDirectResults().getResultSet();
@@ -257,13 +258,31 @@ final class DatabricksThriftAccessor {
                 "Connection [%s] Statement [%s] Session [%s] Thrift fetch latency: %dms",
                 connectionUuid, statementId, sessionDebugInfo, fetchLatencyMillis));
       }
-      return new DatabricksResultSet(
-          getStatementStatus(statusResp),
-          statementId,
-          resultSet,
-          statementType,
-          parentStatement,
-          session);
+
+      DatabricksResultSet databricksResultSet =
+          new DatabricksResultSet(
+              getStatementStatus(statusResp),
+              statementId,
+              resultSet,
+              statementType,
+              parentStatement,
+              session);
+
+      // Mark direct results only if the server confirmed it closed the operation.
+      // TSparkDirectResults.closeOperation is optional — a server can return inline
+      // data without closing the op (older protocol versions, interactive flows).
+      // Without this guard, close() would skip the server RPC and leak the handle.
+      if (isDirectResults
+          && parentStatement != null
+          && response.getDirectResults().isSetCloseOperation()) {
+        LOGGER.debug(
+            "Statement {} received direct results via Thrift with close confirmation, "
+                + "marking as direct results received",
+            statementId);
+        parentStatement.markDirectResultsReceived();
+      }
+
+      return databricksResultSet;
     } catch (TException e) {
       String errorMessage =
           String.format(
