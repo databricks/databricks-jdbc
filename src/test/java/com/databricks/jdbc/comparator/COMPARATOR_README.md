@@ -1,6 +1,11 @@
 # JDBC Driver Comparator
 
-Compares Thrift vs SEA modes of the Databricks JDBC driver by running identical JDBC API calls through both code paths and reporting differences.
+Compares two SQL endpoints by running identical JDBC API calls through both and reporting differences. The two endpoints (LEFT and RIGHT) can differ along any combination of:
+
+- **Transport**: Thrift (`useThriftClient=1`) vs SEA (`useThriftClient=0`).
+- **Resource**: a SQL warehouse, an interactive cluster, or any explicit JDBC `httpPath`.
+
+The original use case — Thrift vs SEA against a single warehouse — is preserved as the legacy default. See [Comparison axis](#comparison-axis) for the configuration matrix.
 
 ## Quickstart
 
@@ -37,6 +42,30 @@ Sample `metadata-filters.json`:
   }
 }
 ```
+
+## Comparison axis
+
+Each comparator run defines two **endpoints**, LEFT and RIGHT, each specified by:
+
+- `httpPath` — `/sql/1.0/warehouses/<id>` or `/sql/protocolv1/o/<orgId>/<clusterId>` or any value you supply.
+- `transport` — `sea` (default) or `thrift`.
+- `label` — free text used in headers; defaults to `<SIDE>-<TRANSPORT>` uppercased.
+
+Per side, the path resolves via this precedence (first match wins): `<SIDE>_HTTP_PATH` → `<SIDE>_CLUSTER` → `<SIDE>_WAREHOUSE`.
+
+If neither LEFT nor RIGHT is set, the comparator falls back to the legacy mode: same warehouse on both sides, Thrift on the left and SEA on the right (driven by `COMPARATOR_WAREHOUSE`).
+
+Setup DDL (when `WORKSPACE_SETUP=recreate|validate`) always runs against the LEFT side. Make LEFT the side that supports the suite's DDL.
+
+| Use case | Properties |
+|---|---|
+| Legacy (Thrift vs SEA, one warehouse) | `COMPARATOR_WAREHOUSE=<id>` |
+| SEA vs SEA across two warehouses | `LEFT_WAREHOUSE=<dbr> RIGHT_WAREHOUSE=<reyden>` |
+| Thrift vs Thrift across two warehouses | `LEFT_WAREHOUSE=<a> LEFT_TRANSPORT=thrift RIGHT_WAREHOUSE=<b> RIGHT_TRANSPORT=thrift` |
+| Warehouse (SEA) vs cluster (Thrift) | `LEFT_WAREHOUSE=<a> RIGHT_CLUSTER=<orgId>:<clusterId> RIGHT_TRANSPORT=thrift` |
+| Hand-rolled paths | `LEFT_HTTP_PATH=… RIGHT_HTTP_PATH=…` |
+
+Both endpoints share `COMPARATOR_HOST` and the single `DATABRICKS_COMPARATOR_TOKEN`.
 
 ## Running
 
@@ -159,9 +188,14 @@ If both are present for a method, **runOnly takes precedence**: argument combina
 
 | Property | Default | Description |
 |---|---|---|
-| `COMPARATOR_HOST` | `adb-7405613695221181.1.azuredatabricks.net` | Workspace host |
-| `COMPARATOR_WAREHOUSE` | `6feab30b476abfa4` | Warehouse ID |
-| `PRO_WAREHOUSE_ID` | _(disabled)_ | Pro warehouse ID |
+| `COMPARATOR_HOST` | `adb-7405613695221181.1.azuredatabricks.net` | Workspace host (shared by LEFT and RIGHT) |
+| `COMPARATOR_WAREHOUSE` | `6feab30b476abfa4` | Legacy single-warehouse ID; ignored when any `LEFT_*` / `RIGHT_*` is set |
+| `LEFT_WAREHOUSE` / `RIGHT_WAREHOUSE` | _(none)_ | Warehouse ID for that side |
+| `LEFT_CLUSTER` / `RIGHT_CLUSTER` | _(none)_ | Interactive cluster `orgId:clusterId` for that side |
+| `LEFT_HTTP_PATH` / `RIGHT_HTTP_PATH` | _(none)_ | Full JDBC `httpPath` for that side (escape hatch) |
+| `LEFT_TRANSPORT` / `RIGHT_TRANSPORT` | `sea` | `sea` or `thrift` |
+| `LEFT_LABEL` / `RIGHT_LABEL` | `<SIDE>-<TRANSPORT>` | Free-text label used in report header and AssertionError messages |
+| `PRO_WAREHOUSE_ID` | _(disabled)_ | Pro warehouse ID — used by the `PRO_WAREHOUSE` config |
 | `CONNECTION_CONFIG` | _(all)_ | Comma-separated configs to run |
 | `SUITES_RUN_ONLY` | _(all)_ | Comma-separated suites to run |
 | `METADATA_RUN_ONLY_METHODS` | _(all)_ | Comma-separated methods to run |

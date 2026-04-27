@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.databricks.jdbc.comparator.config.ConnectionConfig;
 import com.databricks.jdbc.comparator.config.ConnectionManager;
+import com.databricks.jdbc.comparator.config.Endpoint;
 import com.databricks.jdbc.comparator.config.TestSuite;
 import com.databricks.jdbc.comparator.setup.WorkspaceSetup;
 import com.databricks.jdbc.comparator.suite.CombinationResult;
@@ -33,13 +34,43 @@ public class JDBCDriverComparisonTest {
   private static final String DEFAULT_HOST = "adb-7405613695221181.1.azuredatabricks.net";
   private static final String DEFAULT_WAREHOUSE = "6feab30b476abfa4";
 
-  private static final String BASE_JDBC_URL =
+  private static final String BASE_HOST_URL =
       "jdbc:databricks://"
           + System.getProperty("COMPARATOR_HOST", DEFAULT_HOST)
-          + ":443/default;ssl=1;authMech=3;httpPath=/sql/1.0/warehouses/"
-          + System.getProperty("COMPARATOR_WAREHOUSE", DEFAULT_WAREHOUSE);
-  private static final String BASE_THRIFT_URL = BASE_JDBC_URL + ";useThriftClient=1";
-  private static final String BASE_SEA_URL = BASE_JDBC_URL + ";useThriftClient=0";
+          + ":443/default;ssl=1;authMech=3";
+
+  private static final Endpoint LEFT;
+  private static final Endpoint RIGHT;
+
+  static {
+    Endpoint left = Endpoint.fromSystemProperties("LEFT");
+    Endpoint right = Endpoint.fromSystemProperties("RIGHT");
+    if (left == null && right == null) {
+      // Legacy mode: single warehouse, dual transport.
+      String warehouse = System.getProperty("COMPARATOR_WAREHOUSE", DEFAULT_WAREHOUSE);
+      Endpoint[] pair = Endpoint.legacyPair(warehouse);
+      LEFT = pair[0];
+      RIGHT = pair[1];
+    } else if (left == null || right == null) {
+      throw new IllegalStateException(
+          "Both LEFT_* and RIGHT_* must be configured. Set one of "
+              + "LEFT_WAREHOUSE / LEFT_CLUSTER / LEFT_HTTP_PATH and the same for RIGHT, "
+              + "or omit all of them to fall back to legacy single-warehouse Thrift-vs-SEA mode.");
+    } else {
+      LEFT = left;
+      RIGHT = right;
+    }
+  }
+
+  private static final String BASE_LEFT_URL = LEFT.toUrl(BASE_HOST_URL);
+  private static final String BASE_RIGHT_URL = RIGHT.toUrl(BASE_HOST_URL);
+
+  /** Returns the configured endpoint for the named side. Used by suite providers for labeling. */
+  public static Endpoint endpointFor(String side) {
+    if ("LEFT".equalsIgnoreCase(side)) return LEFT;
+    if ("RIGHT".equalsIgnoreCase(side)) return RIGHT;
+    throw new IllegalArgumentException("side must be LEFT or RIGHT, got: " + side);
+  }
 
   private static ConnectionManager connectionManager;
   private static TestReporter reporter;
@@ -49,14 +80,15 @@ public class JDBCDriverComparisonTest {
     String token = System.getenv("DATABRICKS_COMPARATOR_TOKEN");
     connectionManager = new ConnectionManager(token);
 
-    // Workspace validation/setup — only runs when -DWORKSPACE_SETUP=validate|create
-    WorkspaceSetup.run(connectionManager.getConnection(BASE_THRIFT_URL));
+    // Workspace validation/setup — only runs when -DWORKSPACE_SETUP=validate|create.
+    // Setup runs against LEFT by convention; LEFT must be the side that supports the suite DDL.
+    WorkspaceSetup.run(connectionManager.getConnection(BASE_LEFT_URL));
 
     String timestamp = Instant.now().toString().replaceAll("[:.]+", "-");
     List<String> headerLines =
         List.of(
-            "Base Thrift URL: " + BASE_THRIFT_URL,
-            "Base SEA URL: " + BASE_SEA_URL,
+            "LEFT  (" + LEFT.getLabel() + "): " + BASE_LEFT_URL,
+            "RIGHT (" + RIGHT.getLabel() + "): " + BASE_RIGHT_URL,
             "CONNECTION_CONFIG: " + System.getProperty("CONNECTION_CONFIG", "(all)"),
             "SUITES_RUN_ONLY: " + System.getProperty("SUITES_RUN_ONLY", "(all)"),
             "METADATA_RUN_ONLY_METHODS: "
@@ -104,11 +136,11 @@ public class JDBCDriverComparisonTest {
             : new HashSet<>(Arrays.asList(suiteFilter.split(",")));
 
     for (ConnectionConfig config : ConnectionConfig.activeConfigs()) {
-      Connection thriftConn;
-      Connection seaConn;
+      Connection leftConn;
+      Connection rightConn;
       try {
-        thriftConn = connectionManager.getConnection(config.buildUrl(BASE_THRIFT_URL));
-        seaConn = connectionManager.getConnection(config.buildUrl(BASE_SEA_URL));
+        leftConn = connectionManager.getConnection(config.buildUrl(BASE_LEFT_URL));
+        rightConn = connectionManager.getConnection(config.buildUrl(BASE_RIGHT_URL));
       } catch (SQLException e) {
         throw new RuntimeException(
             "Failed to create connections for config: " + config.getDisplayName(), e);
@@ -126,7 +158,7 @@ public class JDBCDriverComparisonTest {
         String label = config.getDisplayName() + " | " + suite.name();
 
         for (TestCase tc : testCases) {
-          allTests.add(Arguments.of(label, thriftConn, seaConn, suite, tc));
+          allTests.add(Arguments.of(label, leftConn, rightConn, suite, tc));
         }
       }
     }

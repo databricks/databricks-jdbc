@@ -2,6 +2,7 @@ package com.databricks.jdbc.comparator.suite;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.comparator.ComparisonResult;
+import com.databricks.jdbc.comparator.JDBCDriverComparisonTest;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -38,8 +39,10 @@ public interface SuiteProvider {
     if (expected == null) {
       return;
     }
-    assertCloudFetchOnResultSet(expected, rs1, testCase, "Thrift");
-    assertCloudFetchOnResultSet(expected, rs2, testCase, "SEA");
+    assertCloudFetchOnResultSet(
+        expected, rs1, testCase, JDBCDriverComparisonTest.endpointFor("LEFT").getLabel());
+    assertCloudFetchOnResultSet(
+        expected, rs2, testCase, JDBCDriverComparisonTest.endpointFor("RIGHT").getLabel());
   }
 
   private static void assertCloudFetchOnResultSet(
