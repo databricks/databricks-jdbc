@@ -840,7 +840,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetDriverVersion() throws SQLException {
     String result = metaData.getDriverVersion();
-    assertEquals("3.3.2-SNAPSHOT", result);
+    assertEquals("3.3.2", result);
   }
 
   @Test

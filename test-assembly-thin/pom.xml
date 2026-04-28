@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.databricks</groupId>
         <artifactId>databricks-jdbc-parent</artifactId>
-        <version>3.3.2-SNAPSHOT</version>
+        <version>3.3.2</version>
     </parent>
 
     <artifactId>test-databricks-jdbc-thin</artifactId>
@@ -24,7 +24,7 @@
         <dependency>
             <groupId>com.databricks</groupId>
             <artifactId>databricks-jdbc-thin</artifactId>
-            <version>3.3.2-SNAPSHOT</version>
+            <version>3.3.2</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
