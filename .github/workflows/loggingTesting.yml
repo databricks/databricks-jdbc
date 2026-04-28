@@ -44,6 +44,7 @@ jobs:
           java-version: '21'
 
       - name: Get JFrog OIDC token
+        shell: bash
         run: |
           set -euo pipefail
 
@@ -70,6 +71,7 @@ jobs:
           echo "JFrog OIDC token obtained successfully"
 
       - name: Configure maven
+        shell: bash
         run: |
           set -euo pipefail
 
