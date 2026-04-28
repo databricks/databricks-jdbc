@@ -61,6 +61,13 @@
 
     <build>
         <plugins>
+            <!-- flatten-maven-plugin produces .flattened-pom.xml: a self-contained
+                 POM with the parent reference inlined and all <dependencies> stripped.
+                 The shaded uber jar bundles every runtime dep, so the published POM
+                 must declare zero compile deps; otherwise consumers transitively pull
+                 the internal databricks-jdbc-core coordinate (which is not published
+                 to Maven Central) and resolution fails. The release workflow uploads
+                 .flattened-pom.xml as the published POM. -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
@@ -69,7 +76,7 @@
                     <updatePomFile>true</updatePomFile>
                     <flattenMode>oss</flattenMode>
                     <pomElements>
-                        <dependencies>expand</dependencies>
+                        <dependencies>remove</dependencies>
                         <build>remove</build>
                     </pomElements>
                 </configuration>
