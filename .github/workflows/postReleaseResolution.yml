@@ -1,0 +1,133 @@
+name: Post-release resolution check
+
+# Resolves the just-released artifacts from Maven Central with a fresh
+# Maven cache, exactly as a downstream consumer would. Catches the class
+# of bug that hit 3.3.2 (#1431) where the published POM was structurally
+# valid (Sonatype accepted it) but referenced an unpublished coordinate,
+# making the artifact unusable for any consumer.
+#
+# Runs on a public GitHub-hosted runner because protected runners cannot
+# reach repo1.maven.org. No secrets needed — the test only reads from
+# Maven Central.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to check (e.g. 3.3.3). Defaults to the GitHub release tag minus the 'v' prefix."
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-from-central:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Determine version
+        id: v
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ -n "${INPUT_VERSION:-}" ]]; then
+            VERSION="${INPUT_VERSION#v}"
+          else
+            VERSION="${RELEASE_TAG#v}"
+          fi
+          if [[ -z "$VERSION" ]]; then
+            echo "::error::No version supplied via input or release tag."
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          java-version: 11
+          distribution: temurin
+
+      # Maven Central's sync from the upload-accepted state to
+      # repo1.maven.org availability is typically a few minutes but can
+      # take up to ~1 hour. Poll the index until both coordinates are
+      # visible before running resolution.
+      - name: Wait for Maven Central availability
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          set -euo pipefail
+          UBER_URL="https://repo1.maven.org/maven2/com/databricks/databricks-jdbc/${VERSION}/databricks-jdbc-${VERSION}.pom"
+          THIN_URL="https://repo1.maven.org/maven2/com/databricks/databricks-jdbc-thin/${VERSION}/databricks-jdbc-thin-${VERSION}.pom"
+
+          for url in "$UBER_URL" "$THIN_URL"; do
+            for i in $(seq 1 60); do
+              code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$url" || echo "000")
+              if [[ "$code" == "200" ]]; then
+                echo "Visible on Central: $url"
+                break
+              fi
+              if [[ "$i" == "60" ]]; then
+                echo "::error::Timed out waiting for $url (last HTTP=$code after 60 minutes)."
+                exit 1
+              fi
+              echo "  attempt $i: HTTP $code (sleeping 60s)"
+              sleep 60
+            done
+          done
+
+      - name: Resolve from Central with a fresh cache
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          set -euo pipefail
+          PROBE_DIR=$(mktemp -d)
+          mkdir -p "${PROBE_DIR}/probe/src/main/java/probe"
+
+          cat > "${PROBE_DIR}/probe/pom.xml" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <project xmlns="http://maven.apache.org/POM/4.0.0">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>probe</groupId>
+            <artifactId>probe</artifactId>
+            <version>1.0</version>
+            <packaging>jar</packaging>
+            <properties>
+              <maven.compiler.source>11</maven.compiler.source>
+              <maven.compiler.target>11</maven.compiler.target>
+            </properties>
+            <dependencies>
+              <dependency>
+                <groupId>com.databricks</groupId>
+                <artifactId>databricks-jdbc</artifactId>
+                <version>${VERSION}</version>
+              </dependency>
+              <dependency>
+                <groupId>com.databricks</groupId>
+                <artifactId>databricks-jdbc-thin</artifactId>
+                <version>${VERSION}</version>
+              </dependency>
+            </dependencies>
+          </project>
+          EOF
+
+          cat > "${PROBE_DIR}/probe/src/main/java/probe/Probe.java" <<'EOF'
+          package probe;
+          public class Probe {
+            public static void main(String[] args) throws Exception {
+              Class.forName("com.databricks.client.jdbc.Driver");
+              System.out.println("Probe OK: driver class loaded from " +
+                Class.forName("com.databricks.client.jdbc.Driver")
+                  .getProtectionDomain().getCodeSource().getLocation());
+            }
+          }
+          EOF
+
+          cd "${PROBE_DIR}/probe"
+          # -Dmaven.repo.local=fresh forces resolution from the network.
+          # Default ~/.m2/settings.xml on ubuntu-latest is empty — Maven
+          # goes straight to Central.
+          mvn -B -Dmaven.repo.local="${PROBE_DIR}/m2" dependency:resolve compile
+          mvn -B -Dmaven.repo.local="${PROBE_DIR}/m2" -q exec:java -Dexec.mainClass=probe.Probe
