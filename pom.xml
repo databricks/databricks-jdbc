@@ -66,7 +66,7 @@
     <databricks-jdbc-version>3.3.3</databricks-jdbc-version>
     <arrow.version>18.3.0</arrow.version>
     <commons-lang3.version>3.18.0</commons-lang3.version>
-    <commons-configuration.version>2.10.1</commons-configuration.version>
+    <commons-configuration.version>2.14.0</commons-configuration.version>
     <commons-io.version>2.14.0</commons-io.version>
     <databricks-sdk.version>0.69.0</databricks-sdk.version>
     <httpclient.version>4.5.14</httpclient.version>
