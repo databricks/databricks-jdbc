@@ -5,7 +5,7 @@
 ### Fixed
 - Fixed unresolvable Maven Central POM for the uber JAR. The published POM no longer declares a transitive dependency on the internal `databricks-jdbc-core` coordinate (which is not published to Maven Central), restoring resolution for downstream consumers (#1431).
 
-## [v3.3.2] - 2026-04-27
+## [v3.3.2] - 2026-04-27: DEPRECATED, Use v3.3.3 instead
 
 ### Added
 - Added `CallableStatement` support with IN parameters. `Connection.prepareCall()` now returns a working `DatabricksCallableStatement` that supports positional parameter binding and execution via `{call proc(?)}` JDBC escape syntax. OUT/INOUT parameters and named parameters throw `SQLFeatureNotSupportedException`.
