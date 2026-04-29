@@ -5,7 +5,7 @@
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc-parent</artifactId>
   <!-- This value may be modified by a release script to reflect the current version of the driver. -->
-  <version>3.3.2</version>
+  <version>3.3.3</version>
   <packaging>pom</packaging>
   <name>Databricks JDBC Parent</name>
   <description>Parent POM for Databricks JDBC Driver.</description>
@@ -63,7 +63,7 @@
     <build-helper-maven-plugin.version>3.6.1</build-helper-maven-plugin.version>
 
     <!-- Dependency Versions -->
-    <databricks-jdbc-version>3.3.2</databricks-jdbc-version>
+    <databricks-jdbc-version>3.3.3</databricks-jdbc-version>
     <arrow.version>18.3.0</arrow.version>
     <commons-lang3.version>3.18.0</commons-lang3.version>
     <commons-configuration.version>2.10.1</commons-configuration.version>

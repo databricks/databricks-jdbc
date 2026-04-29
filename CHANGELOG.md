@@ -1,5 +1,10 @@
 # Version Changelog
 
+## [v3.3.3] - 2026-04-29
+
+### Fixed
+- Fixed unresolvable Maven Central POM for the uber JAR. The published POM no longer declares a transitive dependency on the internal `databricks-jdbc-core` coordinate (which is not published to Maven Central), restoring resolution for downstream consumers (#1431).
+
 ## [v3.3.2] - 2026-04-27
 
 ### Added
