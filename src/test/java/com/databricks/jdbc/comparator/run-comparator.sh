@@ -21,10 +21,44 @@
 
 # Workspace
 COMPARATOR_HOST="adb-7405613695221181.1.azuredatabricks.net"
-COMPARATOR_WAREHOUSE="6feab30b476abfa4"
 DATABRICKS_COMPARATOR_TOKEN="dapi..."  # Replace with your token
 
-# Pro warehouse (leave empty to skip)
+# Comparison axis — choose ONE of:
+#
+# (A) Legacy single-warehouse Thrift-vs-SEA mode
+#     Set COMPARATOR_WAREHOUSE; leave LEFT_*/RIGHT_* empty.
+#
+# (B) Generic two-endpoint mode
+#     Set both LEFT_* and RIGHT_*; COMPARATOR_WAREHOUSE is ignored.
+#     Each side resolves its httpPath via this precedence (first match wins):
+#       <SIDE>_HTTP_PATH > <SIDE>_CLUSTER (orgId:clusterId) > <SIDE>_WAREHOUSE
+#     <SIDE>_TRANSPORT defaults to "sea" (alternative: "thrift").
+#     <SIDE>_LABEL defaults to <SIDE>-<TRANSPORT> uppercased.
+#
+# Example: SEA-vs-SEA across two warehouses
+#   LEFT_WAREHOUSE="33f48d57a0dc69f9"; LEFT_LABEL="DBR-SEA"
+#   RIGHT_WAREHOUSE="000000000000000d"; RIGHT_LABEL="Reyden-SEA"
+#
+# Example: warehouse vs interactive cluster
+#   LEFT_WAREHOUSE="abc123"
+#   RIGHT_CLUSTER="1234567890:0413-104341-eajdv7uv"
+#   RIGHT_TRANSPORT="thrift"
+#
+COMPARATOR_WAREHOUSE="6feab30b476abfa4"  # legacy mode default
+
+LEFT_WAREHOUSE=""
+LEFT_CLUSTER=""
+LEFT_HTTP_PATH=""
+LEFT_TRANSPORT=""
+LEFT_LABEL=""
+
+RIGHT_WAREHOUSE=""
+RIGHT_CLUSTER=""
+RIGHT_HTTP_PATH=""
+RIGHT_TRANSPORT=""
+RIGHT_LABEL=""
+
+# Pro warehouse (leave empty to skip; runs the PRO_WAREHOUSE config against this third warehouse)
 PRO_WAREHOUSE_ID=""
 
 # Connection configs to run (comma-separated, empty = all)
@@ -101,10 +135,17 @@ else
 fi
 FILTER_FILE="${WORK_DIR}/metadata-filters.json"
 
+# Detect generic vs legacy axis and emit a one-line summary of each side.
+ANY_LEFT_RIGHT="${LEFT_WAREHOUSE}${LEFT_CLUSTER}${LEFT_HTTP_PATH}${RIGHT_WAREHOUSE}${RIGHT_CLUSTER}${RIGHT_HTTP_PATH}"
 echo "=== JDBC Driver Comparator ==="
 echo "Timestamp: ${TIMESTAMP}"
 echo "Workspace: ${COMPARATOR_HOST}"
-echo "Warehouse: ${COMPARATOR_WAREHOUSE}"
+if [ -n "${ANY_LEFT_RIGHT}" ]; then
+  echo "LEFT  : ${LEFT_LABEL:-<auto>} | warehouse=${LEFT_WAREHOUSE:--} cluster=${LEFT_CLUSTER:--} httpPath=${LEFT_HTTP_PATH:--} transport=${LEFT_TRANSPORT:-sea}"
+  echo "RIGHT : ${RIGHT_LABEL:-<auto>} | warehouse=${RIGHT_WAREHOUSE:--} cluster=${RIGHT_CLUSTER:--} httpPath=${RIGHT_HTTP_PATH:--} transport=${RIGHT_TRANSPORT:-sea}"
+else
+  echo "Warehouse: ${COMPARATOR_WAREHOUSE} (legacy Thrift-vs-SEA mode)"
+fi
 echo "Config: ${CONNECTION_CONFIG:-all}"
 echo "Output: ${LOG_FILE}, ${REPORT_FILE}"
 echo ""
@@ -139,6 +180,16 @@ fi
 if [ -n "${COMPARATOR_WAREHOUSE}" ]; then
   MVN_ARGS="${MVN_ARGS} -DCOMPARATOR_WAREHOUSE=${COMPARATOR_WAREHOUSE}"
 fi
+
+# Pass through LEFT_*/RIGHT_* generic-axis properties when set.
+for var in LEFT_WAREHOUSE LEFT_CLUSTER LEFT_HTTP_PATH LEFT_TRANSPORT LEFT_LABEL \
+           RIGHT_WAREHOUSE RIGHT_CLUSTER RIGHT_HTTP_PATH RIGHT_TRANSPORT RIGHT_LABEL; do
+  val="${!var}"
+  if [ -n "${val}" ]; then
+    MVN_ARGS="${MVN_ARGS} -D${var}=${val}"
+  fi
+done
+
 if [ -n "${CONNECTION_CONFIG}" ]; then
   MVN_ARGS="${MVN_ARGS} -DCONNECTION_CONFIG=${CONNECTION_CONFIG}"
 fi
