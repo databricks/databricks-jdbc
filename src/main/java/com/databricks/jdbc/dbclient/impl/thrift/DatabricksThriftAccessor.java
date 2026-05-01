@@ -1,5 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.COMMUNICATION_LINK_FAILURE_SQLSTATE;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.OPERATION_CANCELLED_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.EnvironmentVariables.*;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
@@ -33,6 +35,7 @@ import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.TFieldIdEnum;
 import org.apache.thrift.protocol.TBinaryProtocol;
+import org.apache.thrift.transport.TTransportException;
 
 final class DatabricksThriftAccessor {
 
@@ -328,8 +331,13 @@ final class DatabricksThriftAccessor {
       // Check for timeout before continuing
       timeoutHandler.checkTimeout();
 
-      // Polling for operation status
-      statusResp = getOperationStatus(statusReq, statementId);
+      // TTransportException means a transport-level failure (e.g. HTTP 502 Bad Gateway)
+      // after retries were exhausted. Other TException subtypes propagate unchanged.
+      try {
+        statusResp = getOperationStatus(statusReq, statementId);
+      } catch (TTransportException e) {
+        throw buildTransportFailureException(statementId.toSQLExecStatementId(), e);
+      }
       checkOperationStatusForErrors(statusResp, statementId.toSQLExecStatementId());
       // Save some time if sleep isn't required by breaking.
       if (!shouldContinuePolling(statusResp)) {
@@ -422,6 +430,9 @@ final class DatabricksThriftAccessor {
     try {
       response = getOperationStatus(request, statementId);
       TOperationState operationState = response.getOperationState();
+      if (operationState == TOperationState.CANCELED_STATE) {
+        throw cancelledStatementException(statementId.toSQLExecStatementId());
+      }
       if (operationState == TOperationState.FINISHED_STATE) {
         verifySuccessStatus(
             response.getStatus(), "getStatementResult", statementId.toSQLExecStatementId());
@@ -748,7 +759,11 @@ final class DatabricksThriftAccessor {
             DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
     while (shouldContinuePolling(statusResp)) {
       metadataTimeoutHandler.checkTimeout();
-      statusResp = getThriftClient().GetOperationStatus(statusReq);
+      try {
+        statusResp = getThriftClient().GetOperationStatus(statusReq);
+      } catch (TTransportException e) {
+        throw buildTransportFailureException(statementId, e);
+      }
       checkOperationStatusForErrors(statusResp, statementId);
       if (!shouldContinuePolling(statusResp)) {
         break;
@@ -818,21 +833,28 @@ final class DatabricksThriftAccessor {
     // and the operation handle becomes invalid. Without this check, the polling loop would
     // continue indefinitely since operationState may not be set in the response.
     if (statusResp.isSetStatus() && isErrorStatusCode(statusResp.getStatus())) {
+      String serverError = enrichErrorMessage(statusResp.getStatus());
       String errorMsg =
           String.format(
               "Operation status check failed with status code: [%s] for statement [%s], "
                   + "error: [%s]",
-              statusResp.getStatus().getStatusCode(), statementId, statusResp.getErrorMessage());
+              statusResp.getStatus().getStatusCode(), statementId, serverError);
       LOGGER.error(errorMsg);
       throw new DatabricksSQLException(
           errorMsg, statusResp.isSetSqlState() ? statusResp.getSqlState() : null);
     }
 
+    if (statusResp.isSetOperationState()
+        && statusResp.getOperationState() == TOperationState.CANCELED_STATE) {
+      throw cancelledStatementException(statementId);
+    }
+
     if (statusResp.isSetOperationState() && isErrorOperationState(statusResp.getOperationState())) {
+      String serverError = enrichErrorMessage(statusResp.getStatus());
       String errorMsg =
           String.format(
               "Operation failed with error: [%s] for statement [%s], with response [%s]",
-              statusResp.getErrorMessage(), statementId, statusResp);
+              serverError, statementId, statusResp);
       LOGGER.error(errorMsg);
 
       String sqlState = statusResp.getSqlState();
@@ -844,6 +866,52 @@ final class DatabricksThriftAccessor {
 
       throw new DatabricksSQLException(errorMsg, sqlState);
     }
+  }
+
+  /**
+   * Enriches a null or empty error message from TStatus by including errorCode, errorDetailsJson,
+   * and infoMessages. Returns the original errorMessage if it is already present.
+   */
+  private String enrichErrorMessage(TStatus status) {
+    if (status == null) {
+      return "no error details from server";
+    }
+    String errorMessage = status.getErrorMessage();
+    if (errorMessage != null && !errorMessage.isEmpty()) {
+      return errorMessage;
+    }
+    StringBuilder detail = new StringBuilder();
+    if (status.isSetErrorCode()) {
+      detail.append("errorCode=").append(status.getErrorCode());
+    }
+    if (status.isSetErrorDetailsJson()
+        && status.getErrorDetailsJson() != null
+        && !status.getErrorDetailsJson().isEmpty()) {
+      if (detail.length() > 0) detail.append(", ");
+      detail.append("details=").append(status.getErrorDetailsJson());
+    }
+    if (status.isSetInfoMessages() && status.getInfoMessages() != null) {
+      if (detail.length() > 0) detail.append(", ");
+      detail.append("infoMessages=").append(status.getInfoMessages());
+    }
+    return detail.length() > 0 ? detail.toString() : "no error details from server";
+  }
+
+  /**
+   * Builds a DatabricksSQLException for transport-level failures (e.g. HTTP 502 Bad Gateway) during
+   * polling. Uses SQL state 08S01 (communication link failure) so callers can identify retryable
+   * errors.
+   */
+  private DatabricksSQLException buildTransportFailureException(
+      String statementId, TTransportException e) {
+    String errorMsg =
+        String.format(
+            "Lost connection to server while polling statement [%s] (%s). "
+                + "This is typically a transient error (e.g. HTTP 502 Bad Gateway) "
+                + "indicating the cluster was temporarily unavailable. Cause: %s",
+            statementId, e.getClass().getSimpleName(), e.getMessage());
+    LOGGER.error(errorMsg, e);
+    return new DatabricksSQLException(errorMsg, e, COMMUNICATION_LINK_FAILURE_SQLSTATE);
   }
 
   private boolean shouldContinuePolling(TGetOperationStatusResp statusResp) {
@@ -861,6 +929,18 @@ final class DatabricksThriftAccessor {
     TSparkDirectResults directResults =
         (TSparkDirectResults) response.getFieldValue(directResultsField);
     return directResults.isSetResultSet() && directResults.isSetResultSetMetadata();
+  }
+
+  private DatabricksSQLException cancelledStatementException(String statementId) {
+    String msg = String.format("Statement [%s] was cancelled", statementId);
+    LOGGER.info(msg);
+    // silentExceptions=true: cancellations are common in BI tools and should not
+    // emit ERROR-level telemetry
+    return new DatabricksSQLException(
+        msg,
+        OPERATION_CANCELLED_SQLSTATE,
+        DatabricksDriverErrorCode.EXECUTE_STATEMENT_CANCELLED,
+        true);
   }
 
   private boolean isErrorStatusCode(TStatus status) {

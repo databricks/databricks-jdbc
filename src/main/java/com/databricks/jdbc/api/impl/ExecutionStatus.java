@@ -18,7 +18,10 @@ class ExecutionStatus implements IExecutionStatus {
 
   public ExecutionStatus(StatementStatus status) {
     this.state = getStateFromSdkState(status.getState());
-    this.errorMessage = status.getError() != null ? status.getError().getMessage() : null;
+    this.errorMessage =
+        status.getError() != null && status.getError().getMessage() != null
+            ? status.getError().getMessage()
+            : (this.state == ExecutionState.ABORTED ? "Statement was cancelled" : null);
     this.sqlState = status.getSqlState();
     this.sdkStatus = status;
   }

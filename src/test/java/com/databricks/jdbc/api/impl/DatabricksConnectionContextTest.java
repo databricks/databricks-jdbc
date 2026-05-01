@@ -1455,16 +1455,16 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testUseQueryForMetadataDefaultTrueForWarehouse() throws DatabricksSQLException {
-    // Warehouse URL without explicit UseQueryForMetadata — should default to true
+  public void testUseQueryForMetadataDefaultFalseForWarehouse() throws DatabricksSQLException {
+    // Warehouse URL without explicit UseQueryForMetadata — default is false (native RPCs)
     IDatabricksConnectionContext ctx =
         DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
-    assertTrue(ctx.useQueryForMetadata());
+    assertFalse(ctx.useQueryForMetadata());
   }
 
   @Test
   public void testUseQueryForMetadataDefaultFalseForCluster() throws DatabricksSQLException {
-    // Cluster URL without explicit UseQueryForMetadata — should default to false
+    // Cluster URL without explicit UseQueryForMetadata — default is false
     IDatabricksConnectionContext ctx =
         DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
     assertFalse(ctx.useQueryForMetadata());

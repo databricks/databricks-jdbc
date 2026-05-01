@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.OPERATION_CANCELLED_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
@@ -40,6 +41,7 @@ import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
+import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
@@ -425,6 +427,19 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     }
+
+    // Detect cancellation before constructing ResultSet (result data is null when cancelled)
+    if (response.getStatus() != null
+        && response.getStatus().getState() == StatementState.CANCELED) {
+      String cancelMessage = String.format("Statement [%s] was cancelled", statementId);
+      LOGGER.info(cancelMessage);
+      throw new DatabricksSQLException(
+          cancelMessage,
+          OPERATION_CANCELLED_SQLSTATE,
+          DatabricksDriverErrorCode.EXECUTE_STATEMENT_CANCELLED,
+          true);
+    }
+
     return new DatabricksResultSet(
         response.getStatus(),
         typedStatementId,
@@ -487,6 +502,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
       req.withHeaders(getHeaders("getStatementResultN"));
       ResultData resultData = apiClient.execute(req, ResultData.class);
       return buildChunkLinkFetchResult(resultData.getExternalLinks());
+    } catch (DatabricksException e) {
+      String errorMessage =
+          String.format(
+              "Error fetching result chunks for statement [%s] chunk [%d]: %s",
+              statementId, chunkIndex, e.getMessage());
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     } catch (IOException e) {
       String errorMessage = "Error while processing the get result chunk request";
       LOGGER.error(errorMessage, e);
@@ -540,6 +562,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Request req = new Request(Request.GET, path, apiClient.serialize(request));
       req.withHeaders(getHeaders("getStatementResultN"));
       return apiClient.execute(req, ResultData.class);
+    } catch (DatabricksException e) {
+      String errorMessage =
+          String.format(
+              "Error fetching result data for statement [%s] chunk [%d]: %s",
+              statementId, chunkIndex, e.getMessage());
+      LOGGER.error(errorMessage, e);
+      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     } catch (IOException e) {
       String errorMessage = "Error while processing the get result chunk request";
       LOGGER.error(errorMessage, e);
@@ -709,6 +738,19 @@ public class DatabricksSdkClient implements IDatabricksClient {
       ExecuteStatementResponse response, String statementId, String statement) throws SQLException {
     StatementState statementState = response.getStatus().getState();
     ServiceError error = response.getStatus().getError();
+
+    // Distinguish cancellation from failure — silentExceptions=true so cancellations
+    // (common in BI tools like Tableau/Looker) don't emit ERROR-level telemetry
+    if (statementState == StatementState.CANCELED) {
+      String cancelMessage = String.format("Statement [%s] was cancelled", statementId);
+      LOGGER.info(cancelMessage);
+      throw new DatabricksSQLException(
+          cancelMessage,
+          OPERATION_CANCELLED_SQLSTATE,
+          DatabricksDriverErrorCode.EXECUTE_STATEMENT_CANCELLED,
+          true);
+    }
+
     String errorMessage =
         String.format(
             "Statement execution failed %s -> %s\n%s.", statementId, statement, statementState);

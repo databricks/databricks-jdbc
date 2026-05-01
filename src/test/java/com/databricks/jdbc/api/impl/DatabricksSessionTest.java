@@ -75,8 +75,8 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
-    // Warehouses use DatabricksMetadataQueryClient (SHOW commands) by default
-    assertInstanceOf(DatabricksMetadataQueryClient.class, session.getDatabricksMetadataClient());
+    // Default UseQueryForMetadata=0: Thrift client used for metadata
+    assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
     assertFalse(session.isOpen());
@@ -111,10 +111,8 @@ public class DatabricksSessionTest {
       assertEquals(SESSION_ID, session.getSessionId());
       assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
       assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksClient());
-      // After redirect, the createProxy mock returns thriftClient for all proxy calls.
-      // In production, useQueryForMetadata=1 (warehouse default) would create a
-      // DatabricksMetadataQueryClient. Here the mock collapses it.
-      assertNotNull(session.getDatabricksMetadataClient());
+      // After redirect to Thrift, default UseQueryForMetadata=0 → native Thrift for metadata
+      assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksMetadataClient());
       assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
 
       session.close();
@@ -140,8 +138,8 @@ public class DatabricksSessionTest {
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
     assertEquals(tSessionHandle, session.getSessionInfo().sessionHandle());
-    // Warehouses use DatabricksMetadataQueryClient (SHOW commands) by default
-    assertInstanceOf(DatabricksMetadataQueryClient.class, session.getDatabricksMetadataClient());
+    // Default UseQueryForMetadata=0: Thrift client used for metadata
+    assertEquals(thriftClient, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
     assertFalse(session.isOpen());
@@ -320,14 +318,14 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testUseQueryForMetadataEnabledByDefaultForWarehouse() throws SQLException {
+  public void testUseQueryForMetadataDisabledByDefaultForWarehouse() throws SQLException {
     setupWarehouse(true /* useThrift */);
     DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
-    assertTrue(connectionContext.useQueryForMetadata());
+    assertFalse(connectionContext.useQueryForMetadata());
     assertInstanceOf(
-        DatabricksMetadataQueryClient.class,
+        DatabricksThriftServiceClient.class,
         session.getDatabricksMetadataClient(),
-        "Warehouses should use SHOW commands (DatabricksMetadataQueryClient) by default");
+        "Default UseQueryForMetadata=0: warehouse uses native Thrift RPCs for metadata");
   }
 
   @Test

@@ -173,7 +173,7 @@ public enum DatabricksJdbcUrlParams {
   USE_QUERY_FOR_METADATA(
       "UseQueryForMetadata",
       "Use SQL SHOW commands instead of Thrift RPCs for metadata operations. When enabled, EnableShowCommandForGetFunctions is redundant",
-      "1"),
+      "0"),
   TREAT_METADATA_CATALOG_NAME_AS_PATTERN(
       "TreatMetadataCatalogNameAsPattern",
       "Treat catalog names as patterns in Thrift metadata RPCs. When disabled (default), wildcard characters in catalog names are escaped",

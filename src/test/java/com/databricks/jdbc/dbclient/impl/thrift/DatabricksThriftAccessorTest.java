@@ -26,6 +26,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import org.apache.thrift.TException;
+import org.apache.thrift.transport.TTransportException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -450,6 +451,99 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
+  void testGetStatementResult_cancelled_throwsWithHY008() throws Exception {
+    when(connectionContext.getDirectResultMode()).thenReturn(false);
+    accessor = spy(new DatabricksThriftAccessor(connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
+
+    // Server returns CANCELED_STATE with OK_STATUS and null errorMessage
+    TGetOperationStatusResp cancelledResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setOperationState(TOperationState.CANCELED_STATE);
+    when(thriftClient.GetOperationStatus(any(TGetOperationStatusReq.class)))
+        .thenReturn(cancelledResp);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.getStatementResult(tOperationHandle, null, session));
+
+    assertEquals("HY008", exception.getSQLState());
+    assertTrue(exception.getMessage().contains("was cancelled"));
+    assertEquals(1008, exception.getErrorCode()); // EXECUTE_STATEMENT_CANCELLED stable code
+  }
+
+  @Test
+  void testPollingPath_cancelledDuringExecution_throwsWithHY008() throws Exception {
+    setup(false);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp executeResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.ExecuteStatement(request)).thenReturn(executeResp);
+
+    // First poll returns RUNNING, second returns CANCELED (simulates cancel during execution)
+    TGetOperationStatusResp runningResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.STILL_EXECUTING_STATUS))
+            .setOperationState(TOperationState.RUNNING_STATE);
+    TGetOperationStatusResp cancelledResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setOperationState(TOperationState.CANCELED_STATE);
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(runningResp)
+        .thenReturn(cancelledResp);
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+
+    assertEquals("HY008", exception.getSQLState());
+    assertTrue(exception.getMessage().contains("was cancelled"));
+    assertEquals(1008, exception.getErrorCode()); // EXECUTE_STATEMENT_CANCELLED stable code
+  }
+
+  @Test
+  void testPollingPath_errorStatusWithNullMessage_includesErrorCode() throws Exception {
+    setup(false);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp executeResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.ExecuteStatement(request)).thenReturn(executeResp);
+
+    // Server returns ERROR_STATUS with null errorMessage but populated errorCode
+    TStatus errorStatus = new TStatus().setStatusCode(TStatusCode.ERROR_STATUS).setErrorCode(502);
+    TGetOperationStatusResp errorResp =
+        new TGetOperationStatusResp()
+            .setStatus(errorStatus)
+            .setOperationState(TOperationState.RUNNING_STATE);
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(errorResp);
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+
+    // Verify the enriched message includes errorCode instead of "error: [null]"
+    assertTrue(exception.getMessage().contains("errorCode=502"));
+    assertFalse(exception.getMessage().contains("error: [null]"));
+  }
+
+  @Test
   void testListPrimaryKeys() throws TException, SQLException, DatabricksValidationException {
     setup(false);
     TGetPrimaryKeysReq request = new TGetPrimaryKeysReq();
@@ -755,7 +849,7 @@ public class DatabricksThriftAccessorTest {
     // Make execute statement succeed but get operation status fail
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
     when(thriftClient.GetOperationStatus(any(TGetOperationStatusReq.class)))
-        .thenThrow(new TException("Failed to get status"));
+        .thenThrow(new TTransportException("Retry failure. HTTP response code: 502"));
     Statement statement = mock(Statement.class);
     when(parentStatement.getStatement()).thenReturn(statement);
     when(statement.getQueryTimeout()).thenReturn(0);
@@ -766,12 +860,15 @@ public class DatabricksThriftAccessorTest {
     try {
       accessor.execute(request, parentStatement, session, StatementType.SQL);
       fail("Expected exception due to GetOperationStatus failure");
-    } catch (DatabricksHttpException e) {
+    } catch (DatabricksSQLException e) {
       // Verify that statement ID was set on parent statement despite the failure
       verify(parentStatement).setStatementId(eq(expectedStatementId));
 
-      // Verify the error was from GetOperationStatus
-      assertTrue(e.getMessage().contains("Failed to get status"));
+      // Verify the error indicates a transient communication failure
+      assertTrue(e.getMessage().contains("Lost connection to server while polling"));
+      assertTrue(e.getMessage().contains("TTransportException"));
+      assertTrue(e.getMessage().contains("502"));
+      assertEquals("08S01", e.getSQLState());
     }
   }
 

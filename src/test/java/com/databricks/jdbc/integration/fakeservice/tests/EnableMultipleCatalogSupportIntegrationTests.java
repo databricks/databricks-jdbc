@@ -32,11 +32,7 @@ public class EnableMultipleCatalogSupportIntegrationTests
         DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
         FakeServiceConfigLoader.shouldUseThriftClient());
 
-    // UseQueryForMetadata=0: Thrift fake service uses binary protocol stubs with
-    // exact session handle matching. SHOW command stubs can't be recorded reliably
-    // because session handles change between recording and replay.
-    String jdbcUrl =
-        getFakeServiceBenchfoodJDBCUrl() + ";enableMultipleCatalogSupport=1;UseQueryForMetadata=0";
+    String jdbcUrl = getFakeServiceBenchfoodJDBCUrl() + ";enableMultipleCatalogSupport=1";
 
     try (Connection connectionWithMultiCatalog = DriverManager.getConnection(jdbcUrl, props)) {
       DatabaseMetaData metaData = connectionWithMultiCatalog.getMetaData();
@@ -78,9 +74,7 @@ public class EnableMultipleCatalogSupportIntegrationTests
         DatabricksJdbcUrlParams.USE_THRIFT_CLIENT.getParamName(),
         FakeServiceConfigLoader.shouldUseThriftClient());
 
-    // UseQueryForMetadata=0: same rationale as the enabled test above
-    String jdbcUrl =
-        getFakeServiceBenchfoodJDBCUrl() + ";enableMultipleCatalogSupport=0;UseQueryForMetadata=0";
+    String jdbcUrl = getFakeServiceBenchfoodJDBCUrl() + ";enableMultipleCatalogSupport=0";
 
     try (Connection connectionWithSingleCatalog = DriverManager.getConnection(jdbcUrl, props)) {
       DatabaseMetaData metaData = connectionWithSingleCatalog.getMetaData();

@@ -85,7 +85,11 @@ jobs:
           echo "Maven configured to use JFrog registry"
       - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: ~/.m2
+          # Cache only the local repository — caching ~/.m2 itself would
+          # restore a stale settings.xml on top of the JFrog-configured one
+          # written above, causing Maven to bypass the mirror and hit Maven
+          # Central directly.
+          path: ~/.m2/repository
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
       - name: Create .pem file from secret

@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -276,6 +277,18 @@ public class StreamingChunkProvider implements ChunkProvider {
     // Shutdown download executor
     if (downloadExecutor != null) {
       downloadExecutor.shutdownNow();
+      // Wait for download threads to finish error handling before releasing chunks.
+      // After shutdownNow() interrupts threads, they exit their retry sleep and process
+      // the error path (catch → finally → setStatus) in milliseconds. 3 seconds is a
+      // conservative upper bound to avoid racing with that error handling path.
+      try {
+        if (!downloadExecutor.awaitTermination(3, TimeUnit.SECONDS)) {
+          LOGGER.warn("Download threads did not terminate within timeout");
+        }
+      } catch (InterruptedException e) {
+        LOGGER.error(e, "Interrupted while waiting for download threads to terminate");
+        Thread.currentThread().interrupt();
+      }
     }
 
     // Release all chunks
