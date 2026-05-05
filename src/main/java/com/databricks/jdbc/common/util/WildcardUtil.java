@@ -92,6 +92,42 @@ public class WildcardUtil {
     return builder.toString();
   }
 
+  /**
+   * Returns true if the string is a JDBC search pattern containing unescaped wildcard characters
+   * ({@code %} or {@code _}). Escaped wildcards ({@code \%}, {@code \_}) are treated as literals
+   * and do not cause this method to return true.
+   *
+   * @param s the string to check
+   * @return true if the string contains at least one unescaped {@code %} or {@code _}
+   */
+  public static boolean isJdbcPattern(String s) {
+    if (s == null) {
+      return false;
+    }
+    for (int i = 0; i < s.length(); i++) {
+      char ch = s.charAt(i);
+      if (ch == '\\' && i + 1 < s.length()) {
+        i++; // skip the escaped character
+        continue;
+      }
+      if (ch == '%' || ch == '_') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns true if the JDBC catalog pattern matches all catalogs — that is, it is {@code null},
+   * {@code %}, or a pattern that would match any string.
+   *
+   * @param catalog the catalog pattern to check
+   * @return true if the pattern matches all catalogs
+   */
+  public static boolean isMatchAllCatalogPattern(String catalog) {
+    return catalog == null || "%".equals(catalog);
+  }
+
   public static String jdbcPatternToHive(String pattern) {
     if (pattern == null) {
       return null;

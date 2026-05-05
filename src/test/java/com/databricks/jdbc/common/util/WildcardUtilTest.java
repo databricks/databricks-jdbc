@@ -114,4 +114,42 @@ public class WildcardUtilTest {
   void testStripJdbcEscapes(String input, String expected, String errorMessage) {
     assertEquals(expected, WildcardUtil.stripJdbcEscapes(input), errorMessage);
   }
+
+  private static Stream<Arguments> isJdbcPatternCases() {
+    return Stream.of(
+        Arguments.of(null, false, "null is not a pattern"),
+        Arguments.of("", false, "empty string is not a pattern"),
+        Arguments.of("simple", false, "plain literal is not a pattern"),
+        Arguments.of("%", true, "bare % is a pattern"),
+        Arguments.of("_", true, "bare _ is a pattern"),
+        Arguments.of("cat%", true, "trailing % is a pattern"),
+        Arguments.of("%log%", true, "leading and trailing % is a pattern"),
+        Arguments.of("my_cat", true, "underscore is a pattern"),
+        Arguments.of("\\%", false, "escaped % is NOT a pattern"),
+        Arguments.of("\\_", false, "escaped _ is NOT a pattern"),
+        Arguments.of("cat\\_main", false, "escaped underscore in literal is not a pattern"),
+        Arguments.of("cat\\_main%", true, "escaped underscore but bare % makes it a pattern"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("isJdbcPatternCases")
+  void testIsJdbcPattern(String input, boolean expected, String message) {
+    assertEquals(expected, WildcardUtil.isJdbcPattern(input), message);
+  }
+
+  private static Stream<Arguments> isMatchAllCatalogPatternCases() {
+    return Stream.of(
+        Arguments.of(null, true, "null matches all"),
+        Arguments.of("%", true, "% matches all"),
+        Arguments.of("", false, "empty string does not match all"),
+        Arguments.of("main", false, "literal catalog does not match all"),
+        Arguments.of("main%", false, "partial pattern does not match all"),
+        Arguments.of("%main%", false, "partial pattern does not match all"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("isMatchAllCatalogPatternCases")
+  void testIsMatchAllCatalogPattern(String input, boolean expected, String message) {
+    assertEquals(expected, WildcardUtil.isMatchAllCatalogPattern(input), message);
+  }
 }

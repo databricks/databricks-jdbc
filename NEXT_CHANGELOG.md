@@ -18,6 +18,7 @@
 - Fixed `getColumnClassName()` returning null for VARIANT columns in SEA mode by adding VARIANT to the type system.
 - Fixed `getColumns()` returning `DATA_TYPE=0` (NULL) for GEOMETRY/GEOGRAPHY columns in Thrift mode. Now returns `Types.VARCHAR` (12) when geospatial is disabled and `Types.OTHER` (1111) when enabled, consistent with SEA mode.
 - Fixed `getCrossReference()` returning 0 rows when parent args are passed in uppercase. The client-side filter used case-sensitive comparison against server-returned lowercase names.
+- Fixed `getSchemas()` in SEA mode throwing a `DatabricksException` when the catalog parameter is a wildcard pattern (e.g., `%`, `my_%`) or a nonexistent literal. Wildcard patterns are now expanded client-side by matching against the catalog list, and literal nonexistent catalogs return an empty result set per the JDBC spec.
 
 ---
 *Note: When making changes, please add your change under the appropriate section

@@ -24,6 +24,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -95,6 +96,26 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
           new ArrayList<>(),
           METADATA_STATEMENT_ID,
           com.databricks.jdbc.common.CommandName.LIST_SCHEMAS);
+    }
+
+    // Per JDBC spec, a catalog value of "%" means "match any catalog name" — treat it
+    // the same as null (list schemas across all catalogs). This prevents the driver from
+    // generating invalid SQL such as SHOW SCHEMAS IN `%` which would throw a server error.
+    if (WildcardUtil.isMatchAllCatalogPattern(catalog)) {
+      LOGGER.debug(
+          "Catalog pattern '{}' matches all catalogs; listing schemas across all catalogs.",
+          catalog);
+      catalog = null;
+    }
+
+    // If the catalog is a JDBC pattern (contains unescaped % or _), expand it client-side
+    // by listing all catalogs and filtering to those that match the pattern, then fetching
+    // schemas per matching catalog. This avoids passing a pattern as a SQL identifier.
+    if (WildcardUtil.isJdbcPattern(catalog)) {
+      LOGGER.debug(
+          "Catalog '{}' is a JDBC pattern; expanding client-side across matching catalogs.",
+          catalog);
+      return fetchSchemasMatchingCatalogPattern(session, catalog, schemaNamePattern);
     }
 
     CommandBuilder commandBuilder =
@@ -623,6 +644,125 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
         schemaRows,
         METADATA_STATEMENT_ID,
         com.databricks.jdbc.common.CommandName.LIST_SCHEMAS);
+  }
+
+  /**
+   * Fetches schemas from all catalogs whose names match the given JDBC catalog pattern. The pattern
+   * may contain unescaped {@code %} (matches any sequence of characters) and {@code _} (matches any
+   * single character) wildcards, per the JDBC spec. Catalogs not matching the pattern are skipped,
+   * and server-side errors for individual catalogs are swallowed (logged as warnings) so that a
+   * single unreachable catalog does not abort the entire request.
+   *
+   * @param session the current session
+   * @param catalogPattern a JDBC search pattern for catalog names (must not be null)
+   * @param schemaNamePattern a JDBC search pattern for schema names, or null for all schemas
+   * @return a result set containing TABLE_SCHEM and TABLE_CATALOG columns
+   */
+  private DatabricksResultSet fetchSchemasMatchingCatalogPattern(
+      IDatabricksSession session, String catalogPattern, String schemaNamePattern)
+      throws SQLException {
+    List<String> matchingCatalogs = new ArrayList<>();
+    try (ResultSet catalogs = session.getDatabricksMetadataClient().listCatalogs(session)) {
+      while (catalogs.next()) {
+        String c = catalogs.getString(1);
+        if (c != null && !c.isEmpty() && jdbcPatternMatches(catalogPattern, c)) {
+          matchingCatalogs.add(c);
+        }
+      }
+    }
+
+    // Process matching catalogs in parallel, gathering schema information
+    List<List<Object>> schemaRows =
+        JdbcThreadUtils.parallelFlatMap(
+            matchingCatalogs,
+            session.getConnectionContext(),
+            DEFAULT_MAX_THREADS_METADATA_FETCH,
+            TASK_TIMEOUT_METADATA_FETCH_SEC,
+            c -> {
+              List<List<Object>> rows = new ArrayList<>();
+              try (ResultSet catalogSchemas =
+                  session.getDatabricksMetadataClient().listSchemas(session, c, schemaNamePattern)) {
+                while (catalogSchemas.next()) {
+                  List<Object> schemaRow = new ArrayList<>();
+                  schemaRow.add(catalogSchemas.getString(1)); // TABLE_SCHEM
+                  schemaRow.add(catalogSchemas.getString(2)); // TABLE_CATALOG
+                  rows.add(schemaRow);
+                }
+              } catch (SQLException e) {
+                LOGGER.warn(
+                    "Error fetching schemas for catalog '{}': {}", c, e.getMessage());
+              }
+              return rows;
+            },
+            getOrCreateMetadataThreadPool());
+
+    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
+        SCHEMA_COLUMNS,
+        schemaRows,
+        METADATA_STATEMENT_ID,
+        com.databricks.jdbc.common.CommandName.LIST_SCHEMAS);
+  }
+
+  /**
+   * Returns true if the given catalog name matches the JDBC search pattern. The pattern follows
+   * JDBC wildcard rules: {@code %} matches any sequence of characters, {@code _} matches any single
+   * character, and {@code \} escapes the next character. Matching is case-insensitive to align with
+   * Unity Catalog's case-folding behaviour.
+   *
+   * @param pattern the JDBC search pattern (must not be null)
+   * @param name the catalog name to match against
+   * @return true if {@code name} matches {@code pattern}
+   */
+  static boolean jdbcPatternMatches(String pattern, String name) {
+    return jdbcPatternMatchesRecursive(
+        pattern, 0, name.toLowerCase(Locale.ROOT), 0);
+  }
+
+  private static boolean jdbcPatternMatchesRecursive(
+      String pattern, int pi, String name, int ni) {
+    while (pi < pattern.length()) {
+      char pc = pattern.charAt(pi);
+      if (pc == '\\' && pi + 1 < pattern.length()) {
+        // Escaped literal — must match exactly (case-insensitive)
+        char literal = Character.toLowerCase(pattern.charAt(pi + 1));
+        if (ni >= name.length() || name.charAt(ni) != literal) {
+          return false;
+        }
+        pi += 2;
+        ni++;
+      } else if (pc == '%') {
+        // Skip consecutive '%' characters
+        while (pi < pattern.length() && pattern.charAt(pi) == '%') {
+          pi++;
+        }
+        // '%' at end of pattern matches everything remaining
+        if (pi == pattern.length()) {
+          return true;
+        }
+        // Try matching the rest of the pattern at every position in name
+        for (int i = ni; i <= name.length(); i++) {
+          if (jdbcPatternMatchesRecursive(pattern, pi, name, i)) {
+            return true;
+          }
+        }
+        return false;
+      } else if (pc == '_') {
+        // Matches any single character
+        if (ni >= name.length()) {
+          return false;
+        }
+        pi++;
+        ni++;
+      } else {
+        // Literal character (case-insensitive)
+        if (ni >= name.length() || Character.toLowerCase(pc) != name.charAt(ni)) {
+          return false;
+        }
+        pi++;
+        ni++;
+      }
+    }
+    return ni == name.length();
   }
 
   private DatabricksResultSet fetchColumnsAcrossCatalogs(

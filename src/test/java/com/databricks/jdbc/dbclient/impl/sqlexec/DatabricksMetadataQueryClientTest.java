@@ -22,6 +22,7 @@ import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.CrossReferenceKeysDatabricksResultSetAdapter;
 import com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -1574,5 +1575,284 @@ public class DatabricksMetadataQueryClientTest {
     assertEquals(GET_PROCEDURE_COLUMNS_STATEMENT_ID, actualResult.getStatementId(), description);
     assertEquals(
         1, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows(), description);
+  }
+
+  // ==================== jdbcPatternMatches tests (PECO-3017) ====================
+
+  private static Stream<Arguments> jdbcPatternMatchesCases() {
+    return Stream.of(
+        // Exact matches
+        Arguments.of("%", "main", true, "% matches any catalog"),
+        Arguments.of("%", "hive_metastore", true, "% matches any catalog with underscore"),
+        Arguments.of("main", "main", true, "exact match"),
+        Arguments.of("main", "MAIN", true, "case-insensitive exact match"),
+        Arguments.of("MAIN", "main", true, "case-insensitive (reversed)"),
+        Arguments.of("main", "other", false, "no match"),
+        // % wildcard
+        Arguments.of("m%", "main", true, "prefix % match"),
+        Arguments.of("m%", "meta", true, "prefix % matches another catalog"),
+        Arguments.of("m%", "other", false, "prefix % no match"),
+        Arguments.of("%ain", "main", true, "suffix % match"),
+        Arguments.of("%ain", "chain", true, "suffix % matches another ending"),
+        Arguments.of("%ain", "main_ext", false, "suffix % no match"),
+        Arguments.of("%cat%", "my_catalog", true, "infix % match"),
+        Arguments.of("%cat%", "catalog", true, "infix % match at start"),
+        Arguments.of("%cat%", "mycat", true, "infix % match at end"),
+        Arguments.of("%cat%", "other", false, "infix % no match"),
+        // _ wildcard
+        Arguments.of("_ain", "main", true, "_ matches single char"),
+        Arguments.of("_ain", "rain", true, "_ matches another char"),
+        Arguments.of("_ain", "in", false, "_ requires exactly one char"),
+        Arguments.of("m__n", "main", true, "__ matches two chars"),
+        Arguments.of("m__n", "mn", false, "__ requires two chars"),
+        // Escaped wildcards
+        Arguments.of("\\%", "%", true, "escaped % matches literal %"),
+        Arguments.of("\\%", "main", false, "escaped % does not match normal string"),
+        Arguments.of("\\_", "_", true, "escaped _ matches literal _"),
+        Arguments.of("\\_", "a", false, "escaped _ does not match other char"),
+        Arguments.of("my\\_catalog", "my_catalog", true, "escaped _ in middle matches literal"),
+        Arguments.of("my\\_catalog", "myzalog", false, "escaped _ does not act as wildcard"),
+        // Edge cases
+        Arguments.of("", "", true, "empty matches empty"),
+        Arguments.of("", "main", false, "empty does not match non-empty"),
+        Arguments.of("main%", "main", true, "trailing % matches empty suffix"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("jdbcPatternMatchesCases")
+  void testJdbcPatternMatches(
+      String pattern, String name, boolean expected, String description) {
+    assertEquals(
+        expected,
+        DatabricksMetadataQueryClient.jdbcPatternMatches(pattern, name),
+        description);
+  }
+
+  // ==================== listSchemas wildcard catalog tests (PECO-3017) ====================
+
+  /**
+   * Tests that listSchemas with "%" catalog pattern calls SHOW SCHEMAS IN ALL CATALOGS instead of
+   * the invalid SHOW SCHEMAS IN `%`. This is the core PECO-3017 fix.
+   */
+  @Test
+  void testListSchemasWithPercentCatalog_treatsAsMatchAll() throws SQLException {
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+
+    // "%" should be treated as null → SHOW SCHEMAS IN ALL CATALOGS
+    String expectedSQL = "SHOW SCHEMAS IN ALL CATALOGS";
+    when(mockClient.executeStatement(
+            eq(expectedSQL),
+            eq(mockedComputeResource),
+            any(),
+            eq(StatementType.METADATA),
+            eq(session),
+            any(),
+            eq(MetadataOperationType.GET_SCHEMAS)))
+        .thenReturn(mockedResultSet);
+
+    when(mockedResultSet.next()).thenReturn(true, false);
+    when(mockedResultSet.getObject("databaseName")).thenReturn("default");
+    doReturn(2).when(mockedMetaData).getColumnCount();
+    doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
+    doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    when(mockedResultSet.findColumn(CATALOG_RESULT_COLUMN.getResultSetColumnName()))
+        .thenThrow(DatabricksSQLException.class);
+
+    DatabricksResultSet result = metadataClient.listSchemas(session, "%", null);
+
+    assertNotNull(result);
+    assertEquals(StatementState.SUCCEEDED, result.getStatementStatus().getState());
+    assertEquals(1, ((DatabricksResultSetMetaData) result.getMetaData()).getTotalRows());
+    // No call should have been made for SHOW SCHEMAS IN `%`
+    verify(mockClient, never())
+        .executeStatement(
+            eq("SHOW SCHEMAS IN `%`"),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any());
+  }
+
+  /**
+   * Tests that listSchemas with a partial catalog pattern (e.g., "main%") expands client-side
+   * by listing catalogs and filtering, rather than generating invalid SQL.
+   */
+  @Test
+  void testListSchemasWithPartialCatalogPattern_expandsClientSide() throws SQLException {
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    IDatabricksSession mockSessionLocal = mock(IDatabricksSession.class);
+    IDatabricksMetadataClient mockMetadataClient = mock(IDatabricksMetadataClient.class);
+    when(mockSessionLocal.getComputeResource()).thenReturn(mockedComputeResource);
+    when(mockSessionLocal.getDatabricksMetadataClient()).thenReturn(mockMetadataClient);
+    when(mockSessionLocal.getConnectionContext()).thenReturn(mockContext);
+
+    // The catalog list: "main" matches "main%", "other" does not
+    DatabricksResultSet catalogResultSet = mock(DatabricksResultSet.class);
+    when(catalogResultSet.next()).thenReturn(true, true, false);
+    when(catalogResultSet.getString(1)).thenReturn("main", "other");
+    when(mockMetadataClient.listCatalogs(mockSessionLocal)).thenReturn(catalogResultSet);
+
+    // listSchemas for "main" returns one schema
+    DatabricksResultSet schemaResultSet = mock(DatabricksResultSet.class);
+    when(schemaResultSet.next()).thenReturn(true, false);
+    when(schemaResultSet.getString(1)).thenReturn("default");
+    when(schemaResultSet.getString(2)).thenReturn("main");
+    when(mockMetadataClient.listSchemas(mockSessionLocal, "main", null))
+        .thenReturn(schemaResultSet);
+
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+    DatabricksResultSet result = metadataClient.listSchemas(mockSessionLocal, "main%", null);
+
+    assertNotNull(result);
+    assertEquals(StatementState.SUCCEEDED, result.getStatementStatus().getState());
+    // Only "main" catalog matched the pattern, so 1 schema row expected
+    assertEquals(1, ((DatabricksResultSetMetaData) result.getMetaData()).getTotalRows());
+    // "other" catalog was skipped — no listSchemas call for it
+    verify(mockMetadataClient, never()).listSchemas(mockSessionLocal, "other", null);
+  }
+
+  /**
+   * Tests that listSchemas with an underscore wildcard catalog pattern (e.g., "m_in") expands
+   * client-side. The "_" wildcard must not be treated as a literal SQL character.
+   */
+  @Test
+  void testListSchemasWithUnderscoreCatalogPattern_expandsClientSide() throws SQLException {
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    IDatabricksSession mockSessionLocal = mock(IDatabricksSession.class);
+    IDatabricksMetadataClient mockMetadataClient = mock(IDatabricksMetadataClient.class);
+    when(mockSessionLocal.getConnectionContext()).thenReturn(mockContext);
+    when(mockSessionLocal.getDatabricksMetadataClient()).thenReturn(mockMetadataClient);
+
+    // Catalog list: "main" matches "m_in", "meta" does not
+    DatabricksResultSet catalogResultSet = mock(DatabricksResultSet.class);
+    when(catalogResultSet.next()).thenReturn(true, true, false);
+    when(catalogResultSet.getString(1)).thenReturn("main", "meta");
+    when(mockMetadataClient.listCatalogs(mockSessionLocal)).thenReturn(catalogResultSet);
+
+    DatabricksResultSet schemaResultSet = mock(DatabricksResultSet.class);
+    when(schemaResultSet.next()).thenReturn(false);
+    when(mockMetadataClient.listSchemas(mockSessionLocal, "main", null))
+        .thenReturn(schemaResultSet);
+
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+    DatabricksResultSet result = metadataClient.listSchemas(mockSessionLocal, "m_in", null);
+
+    assertNotNull(result);
+    // "meta" did not match "m_in"
+    verify(mockMetadataClient, never()).listSchemas(mockSessionLocal, "meta", null);
+  }
+
+  /**
+   * Tests that listSchemas with a nonexistent literal catalog returns an empty result set rather
+   * than throwing an exception. Per JDBC spec, metadata methods should return empty result sets
+   * for non-existent objects.
+   */
+  @Test
+  void testListSchemasWithNonexistentLiteralCatalog_returnsEmpty() throws SQLException {
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+
+    // Server throws object-not-found for a nonexistent catalog
+    DatabricksSQLException notFound =
+        new DatabricksSQLException(
+            "[NO_SUCH_CATALOG_EXCEPTION] Catalog 'nonexistent' not found", "42704");
+    when(mockClient.executeStatement(
+            eq("SHOW SCHEMAS IN `nonexistent`"),
+            eq(mockedComputeResource),
+            any(),
+            eq(StatementType.METADATA),
+            eq(session),
+            any(),
+            eq(MetadataOperationType.GET_SCHEMAS)))
+        .thenThrow(notFound);
+
+    DatabricksResultSet result = metadataClient.listSchemas(session, "nonexistent", null);
+
+    assertNotNull(result);
+    assertFalse(result.next(), "Should return empty result set for nonexistent catalog");
+  }
+
+  /**
+   * Tests that listSchemas with a nonexistent catalog identified by NO_SUCH_CATALOG_EXCEPTION in
+   * the error message (with null SQL state) returns an empty result set.
+   */
+  @Test
+  void testListSchemasNonexistentCatalog_nullSqlState_returnsEmpty() throws SQLException {
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+
+    DatabricksSQLException notFound =
+        new DatabricksSQLException(
+            "[NO_SUCH_CATALOG_EXCEPTION] Catalog 'ghost' not found",
+            (String) null); // null SQL state
+    when(mockClient.executeStatement(
+            eq("SHOW SCHEMAS IN `ghost`"),
+            eq(mockedComputeResource),
+            any(),
+            eq(StatementType.METADATA),
+            eq(session),
+            any(),
+            eq(MetadataOperationType.GET_SCHEMAS)))
+        .thenThrow(notFound);
+
+    DatabricksResultSet result = metadataClient.listSchemas(session, "ghost", null);
+
+    assertNotNull(result);
+    assertFalse(result.next(), "Should return empty result set even with null SQL state");
+  }
+
+  /**
+   * Tests that listSchemas with a catalog pattern where no catalogs match returns an empty result
+   * set without making any schema calls.
+   */
+  @Test
+  void testListSchemasWithPatternMatchingNoCatalogs_returnsEmpty() throws SQLException {
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    IDatabricksSession mockSessionLocal = mock(IDatabricksSession.class);
+    IDatabricksMetadataClient mockMetadataClient = mock(IDatabricksMetadataClient.class);
+    when(mockSessionLocal.getConnectionContext()).thenReturn(mockContext);
+    when(mockSessionLocal.getDatabricksMetadataClient()).thenReturn(mockMetadataClient);
+
+    // Catalog list has no entries matching "xyz%"
+    DatabricksResultSet catalogResultSet = mock(DatabricksResultSet.class);
+    when(catalogResultSet.next()).thenReturn(true, true, false);
+    when(catalogResultSet.getString(1)).thenReturn("main", "other");
+    when(mockMetadataClient.listCatalogs(mockSessionLocal)).thenReturn(catalogResultSet);
+
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+    DatabricksResultSet result = metadataClient.listSchemas(mockSessionLocal, "xyz%", null);
+
+    assertNotNull(result);
+    assertEquals(StatementState.SUCCEEDED, result.getStatementStatus().getState());
+    assertEquals(0, ((DatabricksResultSetMetaData) result.getMetaData()).getTotalRows());
+    // No schema calls for any catalog since none match
+    verify(mockMetadataClient, never()).listSchemas(any(), eq("main"), any());
+    verify(mockMetadataClient, never()).listSchemas(any(), eq("other"), any());
   }
 }
