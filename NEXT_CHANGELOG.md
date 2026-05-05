@@ -18,6 +18,7 @@
 - Fixed `getColumnClassName()` returning null for VARIANT columns in SEA mode by adding VARIANT to the type system.
 - Fixed `getColumns()` returning `DATA_TYPE=0` (NULL) for GEOMETRY/GEOGRAPHY columns in Thrift mode. Now returns `Types.VARCHAR` (12) when geospatial is disabled and `Types.OTHER` (1111) when enabled, consistent with SEA mode.
 - Fixed `getCrossReference()` returning 0 rows when parent args are passed in uppercase. The client-side filter used case-sensitive comparison against server-returned lowercase names.
+- Fixed CloudFetch path not wrapping ARRAY and MAP columns as JSON strings. When the SEA manifest reports ARRAY/MAP/STRUCT columns with a STRING wire type, the driver now consults the Arrow schema metadata embedded in the IPC file to detect and correctly handle complex types.
 
 ---
 *Note: When making changes, please add your change under the appropriate section

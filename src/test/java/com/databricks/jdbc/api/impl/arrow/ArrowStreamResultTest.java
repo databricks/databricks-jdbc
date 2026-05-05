@@ -4,9 +4,12 @@ import static com.databricks.jdbc.TestConstants.*;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.impl.DatabricksArray;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.api.impl.DatabricksMap;
 import com.databricks.jdbc.api.impl.DatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
@@ -658,5 +661,153 @@ public class ArrowStreamResultTest {
     assertNotNull(result);
     assertFalse(result.hasNext(), "Empty result should have no data");
     assertDoesNotThrow(result::close);
+  }
+
+  // ==================== CloudFetch Complex Type Wrapping Tests (PECO-3016) ====================
+
+  /**
+   * PECO-3016: When the SEA manifest reports a column as STRING (the wire type used for
+   * ARRAY/MAP/STRUCT in CloudFetch) but the Arrow schema metadata identifies it as ARRAY, and
+   * complex datatype support is disabled, getObjectWithComplexTypeHandling must still wrap the value
+   * as a JSON string rather than trying to parse it into a DatabricksArray.
+   */
+  @Test
+  public void testGetObjectWithComplexTypeHandling_arrowMetadataArray_complexTypeSupportDisabled()
+      throws Exception {
+    // Complex datatype support disabled (default)
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    IDatabricksSession localSession = mock(IDatabricksSession.class);
+    when(localSession.getConnectionContext()).thenReturn(connectionContext);
+
+    // Column type from SEA manifest is STRING (wire type), but Arrow metadata says ARRAY<INT>
+    ColumnInfo columnInfo =
+        new ColumnInfo()
+            .setName("array_col")
+            .setTypeName(ColumnInfoTypeName.STRING)
+            .setTypeText("ARRAY<INT>");
+    String arrowMetadata = "ARRAY<INT>";
+
+    ArrowResultChunkIterator mockIterator = mock(ArrowResultChunkIterator.class);
+    // Arrow file stores the value as a JSON string
+    when(mockIterator.getColumnObjectAtCurrentRow(
+            eq(0), eq(ColumnInfoTypeName.STRING), eq("STRING"), eq(columnInfo)))
+        .thenReturn("[1,2,3]");
+
+    Object result =
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            localSession, mockIterator, 0, ColumnInfoTypeName.STRING, arrowMetadata, columnInfo);
+
+    // Should return a JSON string, not a DatabricksArray
+    assertInstanceOf(String.class, result);
+    assertEquals("[1,2,3]", result);
+  }
+
+  /**
+   * PECO-3016: When the SEA manifest reports a column as STRING (the wire type used for ARRAY in
+   * CloudFetch) but the Arrow schema metadata identifies it as ARRAY, and complex datatype support
+   * is enabled, getObjectWithComplexTypeHandling must parse the JSON string into a DatabricksArray.
+   */
+  @Test
+  public void testGetObjectWithComplexTypeHandling_arrowMetadataArray_complexTypeSupportEnabled()
+      throws Exception {
+    Properties props = new Properties();
+    props.setProperty("EnableComplexDatatypeSupport", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    IDatabricksSession localSession = mock(IDatabricksSession.class);
+    when(localSession.getConnectionContext()).thenReturn(connectionContext);
+
+    // Column type from SEA manifest is STRING (wire type), but Arrow metadata says ARRAY<STRING>
+    ColumnInfo columnInfo =
+        new ColumnInfo()
+            .setName("array_col")
+            .setTypeName(ColumnInfoTypeName.STRING)
+            .setTypeText("ARRAY<STRING>");
+    String arrowMetadata = "ARRAY<STRING>";
+
+    ArrowResultChunkIterator mockIterator = mock(ArrowResultChunkIterator.class);
+    // When complex type support is enabled, the converter should get the raw value as ARRAY
+    when(mockIterator.getColumnObjectAtCurrentRow(
+            eq(0), eq(ColumnInfoTypeName.ARRAY), eq(arrowMetadata), eq(columnInfo)))
+        .thenReturn(new DatabricksArray(java.util.Arrays.asList("a", "b")));
+
+    Object result =
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            localSession, mockIterator, 0, ColumnInfoTypeName.STRING, arrowMetadata, columnInfo);
+
+    // Should return a DatabricksArray when complex type support is enabled
+    assertInstanceOf(DatabricksArray.class, result);
+  }
+
+  /**
+   * PECO-3016: When the SEA manifest reports a column as STRING (the wire type used for MAP in
+   * CloudFetch) but the Arrow schema metadata identifies it as MAP, and complex datatype support is
+   * disabled, getObjectWithComplexTypeHandling must wrap the value as a JSON string.
+   */
+  @Test
+  public void testGetObjectWithComplexTypeHandling_arrowMetadataMap_complexTypeSupportDisabled()
+      throws Exception {
+    // Complex datatype support disabled (default)
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    IDatabricksSession localSession = mock(IDatabricksSession.class);
+    when(localSession.getConnectionContext()).thenReturn(connectionContext);
+
+    // Column type from SEA manifest is STRING (wire type), but Arrow metadata says MAP<STRING,INT>
+    ColumnInfo columnInfo =
+        new ColumnInfo()
+            .setName("map_col")
+            .setTypeName(ColumnInfoTypeName.STRING)
+            .setTypeText("MAP<STRING,INT>");
+    String arrowMetadata = "MAP<STRING,INT>";
+    // Arrow MAP format: list of {key, value} entries
+    String mapJson = "[{\"key\":\"a\",\"value\":1}]";
+
+    ArrowResultChunkIterator mockIterator = mock(ArrowResultChunkIterator.class);
+    when(mockIterator.getColumnObjectAtCurrentRow(
+            eq(0), eq(ColumnInfoTypeName.STRING), eq("STRING"), eq(columnInfo)))
+        .thenReturn(mapJson);
+
+    Object result =
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            localSession, mockIterator, 0, ColumnInfoTypeName.STRING, arrowMetadata, columnInfo);
+
+    // Should return a formatted string representation, not a DatabricksMap
+    assertInstanceOf(String.class, result);
+  }
+
+  /**
+   * PECO-3016: Verifies that when requiredType is already ARRAY (column correctly identified from
+   * SEA manifest), the existing code path is unchanged and still works correctly.
+   */
+  @Test
+  public void testGetObjectWithComplexTypeHandling_requiredTypeArray_complexTypeSupportDisabled()
+      throws Exception {
+    // Complex datatype support disabled (default)
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    IDatabricksSession localSession = mock(IDatabricksSession.class);
+    when(localSession.getConnectionContext()).thenReturn(connectionContext);
+
+    ColumnInfo columnInfo =
+        new ColumnInfo()
+            .setName("array_col")
+            .setTypeName(ColumnInfoTypeName.ARRAY)
+            .setTypeText("ARRAY<INT>");
+    String arrowMetadata = "ARRAY<INT>";
+
+    ArrowResultChunkIterator mockIterator = mock(ArrowResultChunkIterator.class);
+    when(mockIterator.getColumnObjectAtCurrentRow(
+            eq(0), eq(ColumnInfoTypeName.STRING), eq("STRING"), eq(columnInfo)))
+        .thenReturn("[10,20,30]");
+
+    Object result =
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            localSession, mockIterator, 0, ColumnInfoTypeName.ARRAY, arrowMetadata, columnInfo);
+
+    // Should return JSON string when complex type support is disabled
+    assertInstanceOf(String.class, result);
+    assertEquals("[10,20,30]", result);
   }
 }

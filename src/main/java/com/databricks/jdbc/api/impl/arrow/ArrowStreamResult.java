@@ -9,6 +9,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
@@ -377,8 +378,30 @@ public class ArrowStreamResult implements IExecutionResult {
       return result;
     }
 
-    if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
-      LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
+    // On the CloudFetch path the Arrow schema embedded in the IPC file is the authoritative source
+    // of type information. When the manifest's column type (requiredType) does not reflect the
+    // true complex type (e.g. the SEA manifest uses STRING as the wire type for ARRAY/MAP/STRUCT),
+    // fall back to the Arrow metadata string to detect complex types and derive the correct type.
+    ColumnInfoTypeName effectiveType = requiredType;
+    if (effectiveType != ColumnInfoTypeName.ARRAY
+        && effectiveType != ColumnInfoTypeName.MAP
+        && effectiveType != ColumnInfoTypeName.STRUCT
+        && arrowMetadata != null
+        && DatabricksTypeUtil.isComplexType(arrowMetadata)) {
+      if (arrowMetadata.startsWith("ARRAY")) {
+        effectiveType = ColumnInfoTypeName.ARRAY;
+      } else if (arrowMetadata.startsWith("MAP")) {
+        effectiveType = ColumnInfoTypeName.MAP;
+      } else if (arrowMetadata.startsWith("STRUCT")) {
+        effectiveType = ColumnInfoTypeName.STRUCT;
+      }
+      // GEOMETRY and GEOGRAPHY are already handled by the geospatial branch above
+    }
+
+    if (!isComplexDatatypeSupportEnabled && isComplexType(effectiveType)) {
+      LOGGER.debug(
+          "Complex datatype support is disabled, converting complex type {} to STRING",
+          effectiveType);
       Object result =
           chunkIterator.getColumnObjectAtCurrentRow(
               columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
@@ -387,11 +410,12 @@ public class ArrowStreamResult implements IExecutionResult {
       }
       ComplexDataTypeParser parser = new ComplexDataTypeParser();
 
-      return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
+      return parser.formatComplexTypeString(
+          result.toString(), effectiveType.name(), arrowMetadata);
     }
 
     return chunkIterator.getColumnObjectAtCurrentRow(
-        columnIndex, requiredType, arrowMetadata, columnInfo);
+        columnIndex, effectiveType, arrowMetadata, columnInfo);
   }
 
   /**
