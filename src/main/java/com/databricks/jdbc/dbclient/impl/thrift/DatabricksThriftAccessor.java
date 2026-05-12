@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.OPERATION_CANCE
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.EnvironmentVariables.*;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.*;
+import static com.databricks.jdbc.common.util.SqlStateClassifier.classifyTransientSqlState;
 
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -29,6 +30,7 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpException;
 import org.apache.thrift.TBase;
@@ -379,7 +381,16 @@ final class DatabricksThriftAccessor {
             "Received error response {} from Thrift Server for request {}",
             response,
             request.toString());
-        throw new DatabricksSQLException(response.status.errorMessage, response.status.sqlState);
+        String originalSqlState = response.status.sqlState;
+        String remappedSqlState =
+            classifyTransientSqlState(response.status.errorMessage, originalSqlState);
+        if (!Objects.equals(remappedSqlState, originalSqlState)) {
+          LOGGER.info(
+              "Remapped SQL state [{}] -> [{}] for transient error pattern in async execute response",
+              originalSqlState,
+              remappedSqlState);
+        }
+        throw new DatabricksSQLException(response.status.errorMessage, remappedSqlState);
       }
     } catch (DatabricksSQLException | TException e) {
 
@@ -819,7 +830,16 @@ final class DatabricksThriftAccessor {
     if (!response.isSet(operationHandleField) || isErrorStatusCode(status)) {
       // if the operationHandle has not been set, it is an error from the server.
       LOGGER.error("Error thrift response {}", response);
-      throw new DatabricksSQLException(status.getErrorMessage(), status.getSqlState());
+      String originalSqlState = status.getSqlState();
+      String remappedSqlState =
+          classifyTransientSqlState(status.getErrorMessage(), originalSqlState);
+      if (!Objects.equals(remappedSqlState, originalSqlState)) {
+        LOGGER.info(
+            "Remapped SQL state [{}] -> [{}] for transient error pattern in thrift response",
+            originalSqlState,
+            remappedSqlState);
+      }
+      throw new DatabricksSQLException(status.getErrorMessage(), remappedSqlState);
     }
   }
 
@@ -840,8 +860,16 @@ final class DatabricksThriftAccessor {
                   + "error: [%s]",
               statusResp.getStatus().getStatusCode(), statementId, serverError);
       LOGGER.error(errorMsg);
-      throw new DatabricksSQLException(
-          errorMsg, statusResp.isSetSqlState() ? statusResp.getSqlState() : null);
+      String originalSqlState = statusResp.isSetSqlState() ? statusResp.getSqlState() : null;
+      String remappedSqlState = classifyTransientSqlState(serverError, originalSqlState);
+      if (!Objects.equals(remappedSqlState, originalSqlState)) {
+        LOGGER.info(
+            "Remapped SQL state [{}] -> [{}] for transient error pattern in statement [{}]",
+            originalSqlState,
+            remappedSqlState,
+            statementId);
+      }
+      throw new DatabricksSQLException(errorMsg, remappedSqlState);
     }
 
     if (statusResp.isSetOperationState()
@@ -864,7 +892,15 @@ final class DatabricksThriftAccessor {
             errorMsg, null, DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
       }
 
-      throw new DatabricksSQLException(errorMsg, sqlState);
+      String remappedSqlState = classifyTransientSqlState(serverError, sqlState);
+      if (!Objects.equals(remappedSqlState, sqlState)) {
+        LOGGER.info(
+            "Remapped SQL state [{}] -> [{}] for transient error pattern in statement [{}]",
+            sqlState,
+            remappedSqlState,
+            statementId);
+      }
+      throw new DatabricksSQLException(errorMsg, remappedSqlState);
     }
   }
 

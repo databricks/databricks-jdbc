@@ -110,7 +110,16 @@ public class DatabricksThriftUtil {
             errorMessage, sqlState, null, DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
       }
 
-      throw new DatabricksHttpException(errorMessage, sqlState);
+      String remappedSqlState =
+          SqlStateClassifier.classifyTransientSqlState(status.getErrorMessage(), sqlState);
+      if (!Objects.equals(remappedSqlState, sqlState)) {
+        LOGGER.info(
+            "Remapped SQL state [{}] -> [{}] for transient error pattern in thrift status (context: {})",
+            sqlState,
+            remappedSqlState,
+            errorContext);
+      }
+      throw new DatabricksHttpException(errorMessage, remappedSqlState);
     }
   }
 

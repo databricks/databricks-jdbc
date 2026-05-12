@@ -340,6 +340,38 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testHandleFailedExecution_unityCatalogError_remapsToCommunicationLinkFailure()
+      throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus failedStatus =
+        new StatementStatus()
+            .setState(StatementState.FAILED)
+            .setSqlState("XXUCC")
+            .setError(
+                new ServiceError()
+                    .setMessage(
+                        "[UC_CLIENT_EXCEPTION] Failed to contact the Unity Catalog server. "
+                            + "HTTP/1.1 504 Gateway Timeout, DEADLINE_EXCEEDED"));
+    ExecuteStatementResponse response =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(failedStatus);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                databricksSdkClient.handleFailedExecution(
+                    response, STATEMENT_ID.toSQLExecStatementId(), STATEMENT));
+
+    assertEquals("08S01", exception.getSQLState(), "Expected XXUCC to be remapped to 08S01");
+  }
+
+  @Test
   public void testGetStatementResult_CancelledState_ThrowsWithHY008() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
