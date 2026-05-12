@@ -1833,4 +1833,31 @@ class DatabricksConnectionContextTest {
             TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=-5", properties);
     assertEquals(60, ctx.getHeartbeatIntervalSeconds());
   }
+
+  @Test
+  public void testHeartbeatIntervalLargeValueAcceptedWithWarning() throws DatabricksSQLException {
+    // Values > 3600 are accepted but log a warning
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=7200", properties);
+    assertEquals(7200, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatExplicitlyDisabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableHeartbeat=0", properties);
+    assertFalse(ctx.isHeartbeatEnabled());
+  }
+
+  @Test
+  public void testHeartbeatInterfaceDefaultDisabled() {
+    // IDatabricksConnectionContext default methods
+    IDatabricksConnectionContext defaultCtx =
+        org.mockito.Mockito.mock(
+            IDatabricksConnectionContext.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+    assertFalse(defaultCtx.isHeartbeatEnabled());
+    assertEquals(60, defaultCtx.getHeartbeatIntervalSeconds());
+  }
 }
