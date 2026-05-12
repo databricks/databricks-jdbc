@@ -221,9 +221,11 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
 
   @Override
   public boolean isAllDataFetched() {
-    // All chunk downloads have been submitted (may still be in-flight, but data is
-    // on its way to the client — server-side operation is no longer needed)
-    return nextChunkToDownload >= chunkCount;
+    // All chunk downloads submitted AND consumer has reached or passed the last chunk.
+    // The second condition ensures in-flight downloads have completed before signaling
+    // that the server is no longer needed — prevents link refresh failures if a
+    // presigned URL expires while downloads are still in progress.
+    return nextChunkToDownload >= chunkCount && !hasNextChunk();
   }
 
   public long getAllowedChunksInMemory() {

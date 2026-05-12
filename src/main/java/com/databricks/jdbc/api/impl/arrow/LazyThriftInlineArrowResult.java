@@ -260,7 +260,8 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
 
   @Override
   public boolean isAllDataFetched() {
-    return hasReachedEnd || !currentResponse.hasMoreRows;
+    // Guard against null — currentResponse is set to null in close()
+    return hasReachedEnd || (currentResponse != null && !currentResponse.hasMoreRows);
   }
 
   /**

@@ -281,6 +281,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean next() throws SQLException {
     checkIfClosed();
+    if (executionResult == null) {
+      throw new DatabricksSQLException(
+          "Cannot iterate: no result data available. "
+              + "For async execution, call getExecutionResult() first.",
+          DatabricksDriverErrorCode.INVALID_STATE);
+    }
     boolean hasNext = this.executionResult.next();
     if (cachedTelemetryCollector != null) {
       cachedTelemetryCollector.recordResultSetIteration(
@@ -302,7 +308,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public void close() throws DatabricksSQLException {
     stopHeartbeat();
     isClosed = true;
-    this.executionResult.close();
+    if (executionResult != null) {
+      executionResult.close();
+    }
     if (parentStatement != null) {
       parentStatement.handleResultSetClose(this);
     }

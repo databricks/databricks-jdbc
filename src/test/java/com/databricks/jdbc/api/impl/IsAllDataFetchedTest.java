@@ -68,12 +68,21 @@ public class IsAllDataFetchedTest {
 
       assertFalse(provider.isAllDataFetched());
 
-      // Now set all downloaded
+      // All downloads submitted but still iterating (currentChunkIndex < chunkCount - 1)
       nextField.set(provider, 5L);
+      java.lang.reflect.Field currentField =
+          AbstractRemoteChunkProvider.class.getDeclaredField("currentChunkIndex");
+      currentField.setAccessible(true);
+      currentField.set(provider, 2L); // still iterating
+      assertFalse(provider.isAllDataFetched(), "Still iterating — should not report all fetched");
+
+      // All downloads submitted AND on last chunk (hasNextChunk == false)
+      currentField.set(provider, 4L); // chunkCount-1 = 4
       assertTrue(provider.isAllDataFetched());
 
       // More than needed (edge case)
       nextField.set(provider, 7L);
+      currentField.set(provider, 5L);
       assertTrue(provider.isAllDataFetched());
     } catch (Exception e) {
       fail("Reflection failed: " + e.getMessage());
