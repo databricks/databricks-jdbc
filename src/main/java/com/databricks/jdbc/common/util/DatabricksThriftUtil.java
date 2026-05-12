@@ -1,6 +1,7 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_KEY;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.DATA_EXCEPTION_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
@@ -424,7 +425,11 @@ public class DatabricksThriftUtil {
     } catch (IOException e) {
       String errorMessage = "Failed to deserialize Arrow schema: " + e.getMessage();
       LOGGER.error(errorMessage, e);
-      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.RESULT_SET_ERROR);
+      throw new DatabricksSQLException(
+          errorMessage,
+          DATA_EXCEPTION_SQLSTATE,
+          DatabricksDriverErrorCode.ARROW_SCHEMA_PARSING_ERROR.getCode(),
+          e);
     }
   }
 }

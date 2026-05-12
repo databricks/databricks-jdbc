@@ -116,6 +116,9 @@ public final class DatabricksJdbcConstants {
   /** Standard SQL state for communication link failure (SQLSTATE 08S01). */
   public static final String COMMUNICATION_LINK_FAILURE_SQLSTATE = "08S01";
 
+  /** Standard SQL state for data exception (SQLSTATE 22000). */
+  public static final String DATA_EXCEPTION_SQLSTATE = "22000";
+
   public static final int TEMPORARY_REDIRECT_STATUS_CODE = 307;
   public static final String REDACTED_TOKEN = "****";
   public static final String QUERY_TAGS = "query_tags";
