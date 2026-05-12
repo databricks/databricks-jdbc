@@ -258,12 +258,6 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
     return 0;
   }
 
-  @Override
-  public boolean isAllDataFetched() {
-    // Guard against null — currentResponse is set to null in close()
-    return hasReachedEnd || (currentResponse != null && !currentResponse.hasMoreRows);
-  }
-
   /**
    * Gets the Arrow metadata for the current chunk.
    *

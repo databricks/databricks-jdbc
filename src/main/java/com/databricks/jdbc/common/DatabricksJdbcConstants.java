@@ -121,6 +121,7 @@ public final class DatabricksJdbcConstants {
    * concurrent-modification errors where the operation is potentially retryable.
    */
   public static final String SERIALIZATION_FAILURE_SQLSTATE = "40001";
+
   /** Standard SQL state for data exception (SQLSTATE 22000). */
   public static final String DATA_EXCEPTION_SQLSTATE = "22000";
 

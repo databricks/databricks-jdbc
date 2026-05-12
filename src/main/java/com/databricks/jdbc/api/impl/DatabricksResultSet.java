@@ -294,12 +294,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     if (!hasNext) {
       stopHeartbeat();
-    } else if (executionResult.isAllDataFetched()) {
-      // Proactive stop: all data has been fetched from the server to the client.
-      // No need to keep the server-side operation alive — the user is just iterating
-      // through client-side data. This prevents unnecessary RPCs and warehouse cost
-      // when a slow consumer reads a fully-prefetched result set.
-      stopHeartbeat();
     }
     return hasNext;
   }

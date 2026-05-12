@@ -43,12 +43,4 @@ public interface ChunkProvider {
   long getChunkCount();
 
   boolean isClosed();
-
-  /**
-   * Returns true if all chunk data has been fetched from the server to the client. Default returns
-   * false (conservative).
-   */
-  default boolean isAllDataFetched() {
-    return false;
-  }
 }

@@ -323,11 +323,6 @@ public class ArrowStreamResult implements IExecutionResult {
     return chunkProvider.getChunkCount();
   }
 
-  @Override
-  public boolean isAllDataFetched() {
-    return chunkProvider.isAllDataFetched();
-  }
-
   /**
    * Returns the chunk provider for testing purposes.
    *

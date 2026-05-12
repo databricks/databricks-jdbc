@@ -99,11 +99,6 @@ public class InlineJsonResult implements IExecutionResult {
     return chunkProvider.getChunkCount();
   }
 
-  @Override
-  public boolean isAllDataFetched() {
-    return true; // Inline JSON results are fully in-memory
-  }
-
   private boolean isClosed() {
     return isClosed;
   }

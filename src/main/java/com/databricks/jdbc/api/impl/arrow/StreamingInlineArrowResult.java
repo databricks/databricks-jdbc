@@ -296,11 +296,6 @@ public class StreamingInlineArrowResult implements IExecutionResult {
     return 0;
   }
 
-  @Override
-  public boolean isAllDataFetched() {
-    return provider.isEndOfStreamReached();
-  }
-
   /**
    * Gets the Arrow metadata for the current chunk.
    *
