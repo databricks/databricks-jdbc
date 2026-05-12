@@ -1783,4 +1783,54 @@ class DatabricksConnectionContextTest {
     assertEquals(DatabricksClientType.SEA, ctx.getClientType());
     assertTrue(ctx.treatMetadataCatalogNameAsPattern());
   }
+
+  // =========================================================================
+  // Heartbeat configuration
+  // =========================================================================
+
+  @Test
+  public void testHeartbeatDisabledByDefault() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertFalse(ctx.isHeartbeatEnabled());
+  }
+
+  @Test
+  public void testHeartbeatEnabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableHeartbeat=1", properties);
+    assertTrue(ctx.isHeartbeatEnabled());
+  }
+
+  @Test
+  public void testHeartbeatIntervalDefault() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertEquals(60, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatIntervalCustom() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=30", properties);
+    assertEquals(30, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatIntervalZeroDefaultsTo60() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=0", properties);
+    assertEquals(60, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatIntervalNegativeDefaultsTo60() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=-5", properties);
+    assertEquals(60, ctx.getHeartbeatIntervalSeconds());
+  }
 }

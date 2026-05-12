@@ -1204,4 +1204,111 @@ public class DatabricksSdkClientTest {
     assertTrue(exception.getMessage().contains("Results have expired"));
     assertNotNull(exception.getCause());
   }
+
+  // =========================================================================
+  // checkStatementAlive
+  // =========================================================================
+
+  @Test
+  public void testCheckStatementAlive_succeededState_returnsTrue() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus status = new StatementStatus().setState(StatementState.SUCCEEDED);
+    GetStatementResponse response = new GetStatementResponse();
+    response.setStatus(status);
+    response.setStatementId(STATEMENT_ID.toSQLExecStatementId());
+
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(response);
+
+    assertTrue(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_runningState_returnsTrue() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus status = new StatementStatus().setState(StatementState.RUNNING);
+    GetStatementResponse response = new GetStatementResponse();
+    response.setStatus(status);
+
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(response);
+
+    assertTrue(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_canceledState_returnsFalse() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus status = new StatementStatus().setState(StatementState.CANCELED);
+    GetStatementResponse response = new GetStatementResponse();
+    response.setStatus(status);
+
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(response);
+
+    assertFalse(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_closedState_returnsFalse() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus status = new StatementStatus().setState(StatementState.CLOSED);
+    GetStatementResponse response = new GetStatementResponse();
+    response.setStatus(status);
+
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(response);
+
+    assertFalse(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_failedState_returnsFalse() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus status = new StatementStatus().setState(StatementState.FAILED);
+    GetStatementResponse response = new GetStatementResponse();
+    response.setStatus(status);
+
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(response);
+
+    assertFalse(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_exceptionWrapped() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenThrow(new RuntimeException("Network error"));
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> databricksSdkClient.checkStatementAlive(STATEMENT_ID));
+    assertTrue(exception.getMessage().contains("Heartbeat status check failed"));
+  }
 }
