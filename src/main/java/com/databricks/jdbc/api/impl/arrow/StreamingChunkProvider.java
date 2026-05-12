@@ -335,6 +335,11 @@ public class StreamingChunkProvider implements ChunkProvider {
     return closed;
   }
 
+  @Override
+  public boolean isAllDataFetched() {
+    return endOfStreamReached;
+  }
+
   // ==================== Link Prefetch Logic ====================
 
   private void linkPrefetchLoop() {

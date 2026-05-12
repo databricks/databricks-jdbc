@@ -281,6 +281,11 @@ public class StreamingColumnarResult implements IExecutionResult {
     return 0;
   }
 
+  @Override
+  public boolean isAllDataFetched() {
+    return provider.isEndOfStreamReached();
+  }
+
   /**
    * Gets the total number of rows fetched from the server so far.
    *

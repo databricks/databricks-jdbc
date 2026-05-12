@@ -286,12 +286,13 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       cachedTelemetryCollector.recordResultSetIteration(
           statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), hasNext);
     }
-    // Stop heartbeat when all rows consumed. This is reactive — the heartbeat continues
-    // even if all data is already prefetched client-side (e.g., small Thrift inline results).
-    // A proactive check (chunkProvider.isStreamingComplete()) would be more efficient but
-    // requires deeper integration with the chunk download pipeline. For now, the server-side
-    // checkStatementAlive() returning false for terminal states provides a secondary safety net.
     if (!hasNext) {
+      stopHeartbeat();
+    } else if (executionResult.isAllDataFetched()) {
+      // Proactive stop: all data has been fetched from the server to the client.
+      // No need to keep the server-side operation alive — the user is just iterating
+      // through client-side data. This prevents unnecessary RPCs and warehouse cost
+      // when a slow consumer reads a fully-prefetched result set.
       stopHeartbeat();
     }
     return hasNext;

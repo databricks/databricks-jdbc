@@ -92,6 +92,11 @@ public class InlineChunkProvider implements ChunkProvider {
     return isClosed;
   }
 
+  @Override
+  public boolean isAllDataFetched() {
+    return true; // Inline results are fully in-memory at construction
+  }
+
   @VisibleForTesting
   void handleError(Exception e) throws DatabricksParsingException {
     String errorMessage =

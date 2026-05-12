@@ -38,4 +38,15 @@ public interface IExecutionResult {
   long getRowCount();
 
   long getChunkCount();
+
+  /**
+   * Returns true if all result data has been fetched from the server to the client, regardless of
+   * whether the user has iterated through all rows. Used by the heartbeat to stop polling early
+   * when the server-side operation is no longer needed.
+   *
+   * <p>Default returns false (conservative — keeps heartbeat running until next() returns false).
+   */
+  default boolean isAllDataFetched() {
+    return false;
+  }
 }

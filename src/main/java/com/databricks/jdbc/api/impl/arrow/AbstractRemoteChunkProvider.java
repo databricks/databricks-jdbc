@@ -219,6 +219,13 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
     return isClosed;
   }
 
+  @Override
+  public boolean isAllDataFetched() {
+    // All chunk downloads have been submitted (may still be in-flight, but data is
+    // on its way to the client — server-side operation is no longer needed)
+    return nextChunkToDownload >= chunkCount;
+  }
+
   public long getAllowedChunksInMemory() {
     return allowedChunksInMemory;
   }

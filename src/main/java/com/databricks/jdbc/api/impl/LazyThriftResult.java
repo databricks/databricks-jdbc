@@ -259,4 +259,9 @@ public class LazyThriftResult implements IExecutionResult {
   public boolean isCompletelyFetched() {
     return hasReachedEnd || !currentResponse.hasMoreRows;
   }
+
+  @Override
+  public boolean isAllDataFetched() {
+    return isCompletelyFetched();
+  }
 }
