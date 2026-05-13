@@ -361,9 +361,9 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
         rs, "ResultSet should not be null - GEOMETRY/GEOGRAPHY types may not be supported");
     ResultSetMetaData rsmd = rs.getMetaData();
 
-    // Validate metadata
-    assertEquals("STRING", rsmd.getColumnTypeName(2));
-    assertEquals("STRING", rsmd.getColumnTypeName(3));
+    // Validate metadata — geospatial support is enabled by default
+    assertEquals("GEOMETRY(0)", rsmd.getColumnTypeName(2));
+    assertEquals("GEOGRAPHY(0)", rsmd.getColumnTypeName(3));
 
     // Validate data
     int rowCount = 0;
