@@ -340,6 +340,38 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testHandleFailedExecution_unityCatalogError_remapsToCommunicationLinkFailure()
+      throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus failedStatus =
+        new StatementStatus()
+            .setState(StatementState.FAILED)
+            .setSqlState("XXUCC")
+            .setError(
+                new ServiceError()
+                    .setMessage(
+                        "[UC_CLIENT_EXCEPTION] Failed to contact the Unity Catalog server. "
+                            + "HTTP/1.1 504 Gateway Timeout, DEADLINE_EXCEEDED"));
+    ExecuteStatementResponse response =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(failedStatus);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                databricksSdkClient.handleFailedExecution(
+                    response, STATEMENT_ID.toSQLExecStatementId(), STATEMENT));
+
+    assertEquals("08S01", exception.getSQLState(), "Expected XXUCC to be remapped to 08S01");
+  }
+
+  @Test
   public void testGetStatementResult_CancelledState_ThrowsWithHY008() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -568,6 +600,113 @@ public class DatabricksSdkClientTest {
 
     // Verify cancel was called
     verify(databricksSdkClient).cancelStatement(eq(STATEMENT_ID));
+  }
+
+  @Test
+  public void testMetadataOperationUsesMetadataTimeout() throws Exception {
+    // MetadataOperationTimeout=1 with parentStatement=null (metadata path)
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            JDBC_URL,
+            new Properties() {
+              {
+                setProperty("MetadataOperationTimeout", "1");
+                setProperty("asyncExecPollInterval", "1000");
+              }
+            });
+    DatabricksSdkClient databricksSdkClient =
+        spy(new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient));
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+
+    CreateSessionResponse sessionResponse = new CreateSessionResponse().setSessionId(SESSION_ID);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(sessionResponse);
+    connection.open();
+
+    ExecuteStatementResponse executeResponse =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(new StatementStatus().setState(StatementState.RUNNING));
+    GetStatementResponse runningResponse =
+        new GetStatementResponse()
+            .setStatus(new StatementStatus().setState(StatementState.RUNNING));
+
+    when(apiClient.execute(
+            argThat(req -> req != null && STATEMENT_PATH.equals(req.getUrl())),
+            eq(ExecuteStatementResponse.class)))
+        .thenReturn(executeResponse);
+    when(apiClient.execute(
+            argThat(
+                req ->
+                    req != null
+                        && req.getUrl() != null
+                        && req.getUrl().contains(STATEMENT_ID.toSQLExecStatementId())),
+            eq(GetStatementResponse.class)))
+        .thenReturn(runningResponse);
+
+    // Metadata with parentStatement=null should use MetadataOperationTimeout (1s)
+    DatabricksTimeoutException exception =
+        assertThrows(
+            DatabricksTimeoutException.class,
+            () ->
+                databricksSdkClient.executeStatement(
+                    "SHOW SCHEMAS IN ALL CATALOGS",
+                    warehouse,
+                    new java.util.HashMap<>(),
+                    StatementType.METADATA,
+                    connection.getSession(),
+                    null, // parentStatement=null (metadata path)
+                    null));
+
+    assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
+    verify(databricksSdkClient).cancelStatement(eq(STATEMENT_ID));
+  }
+
+  @Test
+  public void testNonMetadataWithNullParentHasNoTimeout() throws Exception {
+    // Non-metadata with parentStatement=null should have timeout=0 (infinite)
+    // Use a short poll interval so the test completes quickly
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            JDBC_URL,
+            new Properties() {
+              {
+                setProperty("MetadataOperationTimeout", "1");
+              }
+            });
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+
+    CreateSessionResponse sessionResponse = new CreateSessionResponse().setSessionId(SESSION_ID);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(sessionResponse);
+    connection.open();
+
+    // Return SUCCEEDED immediately so the test completes
+    ExecuteStatementResponse executeResponse =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
+
+    when(apiClient.execute(
+            argThat(req -> req != null && STATEMENT_PATH.equals(req.getUrl())),
+            eq(ExecuteStatementResponse.class)))
+        .thenReturn(executeResponse);
+
+    // Non-METADATA with parentStatement=null: no timeout applied, should succeed
+    assertDoesNotThrow(
+        () ->
+            databricksSdkClient.executeStatement(
+                "SELECT 1",
+                warehouse,
+                new java.util.HashMap<>(),
+                StatementType.SQL,
+                connection.getSession(),
+                null,
+                null));
   }
 
   @Test

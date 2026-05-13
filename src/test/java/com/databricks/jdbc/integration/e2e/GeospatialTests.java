@@ -19,9 +19,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  * (Thrift/SEA), Serialization (Arrow/Inline), CloudFetch, GeoSpatial support, and Complex type
  * support.
  *
- * <p>Geospatial objects (IGeometry/IGeography) are returned only when both EnableGeoSpatialSupport
- * and EnableComplexDatatypeSupport are enabled AND not in Thrift+Inline mode. Otherwise, returns as
- * STRING.
+ * <p>Geospatial objects (IGeometry/IGeography) are returned when EnableGeoSpatialSupport is enabled
+ * AND not in Thrift+Inline mode. EnableComplexDatatypeSupport is independent and not required.
+ * Otherwise, returns as STRING.
  */
 public class GeospatialTests {
 
@@ -138,10 +138,10 @@ public class GeospatialTests {
     assertTrue(rs.next(), "Should have at least one row for config: " + desc);
 
     // Geospatial objects returned only when:
-    // 1. Both EnableGeoSpatialSupport=1 AND EnableComplexDatatypeSupport=1
+    // 1. EnableGeoSpatialSupport=1 (independent of EnableComplexDatatypeSupport)
     // 2. NOT in Thrift + Inline mode (Thrift doesn't support geospatial without Arrow)
     boolean shouldReturnGeospatialObjects =
-        enableGeoSupport == 1 && enableComplexSupport == 1 && !(useThrift == 1 && enableArrow == 0);
+        enableGeoSupport == 1 && !(useThrift == 1 && enableArrow == 0);
 
     if (shouldReturnGeospatialObjects) {
       validateGeospatialEnabled(rs, rsm);
@@ -193,10 +193,10 @@ public class GeospatialTests {
     }
 
     // Geospatial objects returned only when:
-    // 1. Both EnableGeoSpatialSupport=1 AND EnableComplexDatatypeSupport=1
+    // 1. EnableGeoSpatialSupport=1 (independent of EnableComplexDatatypeSupport)
     // 2. NOT in Thrift + Inline mode
     boolean shouldReturnGeospatialObjects =
-        enableGeoSupport == 1 && enableComplexSupport == 1 && !(useThrift == 1 && enableArrow == 0);
+        enableGeoSupport == 1 && !(useThrift == 1 && enableArrow == 0);
 
     if (shouldReturnGeospatialObjects) {
       validateGeometryAnyEnabled(rs, rsm);

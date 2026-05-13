@@ -1,5 +1,8 @@
 package com.databricks.jdbc.common.util;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /** Utility class for parsing out comments from SQL strings */
 public class SqlCommentParser {
 
@@ -18,6 +21,16 @@ public class SqlCommentParser {
   }
 
   /**
+   * Index-aware variant of {@link SqlCharConsumer}. The third argument is the source-string index
+   * of the emitted character. For synthetic characters (the space emitted after a comment), the
+   * index is the position of the character that ended the comment.
+   */
+  @FunctionalInterface
+  public interface IndexedSqlCharConsumer {
+    void accept(State state, char c, int sourceIndex);
+  }
+
+  /**
    * Iterates over each character in the SQL string while keeping track of comment, string literal,
    * and identifier state. Each character that is not part of a comment calls the consumer with the
    * current state and character. Emits a ' ' character after each comment to avoid token fusion.
@@ -26,6 +39,15 @@ public class SqlCommentParser {
    * @param consumer called for each visible character with its parsing state
    */
   public static void forEachNonCommentChar(String sql, SqlCharConsumer consumer) {
+    forEachNonCommentChar(sql, (state, c, sourceIndex) -> consumer.accept(state, c));
+  }
+
+  /**
+   * Same as {@link #forEachNonCommentChar(String, SqlCharConsumer)} but the consumer also receives
+   * the source-string index of each emitted character. Useful when callers need to relate emitted
+   * characters back to positions in the original SQL (e.g. parameter placeholder discovery).
+   */
+  public static void forEachNonCommentChar(String sql, IndexedSqlCharConsumer consumer) {
     if (sql == null || sql.isEmpty()) {
       return;
     }
@@ -48,22 +70,22 @@ public class SqlCommentParser {
             i++; // skip '*'
           } else if (c == '\'') {
             state = State.IN_SINGLE_QUOTE;
-            consumer.accept(state, c);
+            consumer.accept(state, c, i);
           } else if (c == '"') {
             state = State.IN_DOUBLE_QUOTE;
-            consumer.accept(state, c);
+            consumer.accept(state, c, i);
           } else if (c == '`') {
             state = State.IN_BACKTICK;
-            consumer.accept(state, c);
+            consumer.accept(state, c, i);
           } else {
-            consumer.accept(state, c);
+            consumer.accept(state, c, i);
           }
           break;
 
         case IN_SINGLE_QUOTE:
-          consumer.accept(state, c);
+          consumer.accept(state, c, i);
           if (c == '\'' && next == '\'') {
-            consumer.accept(state, next);
+            consumer.accept(state, next, i + 1);
             i++; // skip escaped quote
           } else if (c == '\'') {
             state = State.NORMAL;
@@ -71,9 +93,9 @@ public class SqlCommentParser {
           break;
 
         case IN_DOUBLE_QUOTE:
-          consumer.accept(state, c);
+          consumer.accept(state, c, i);
           if (c == '"' && next == '"') {
-            consumer.accept(state, next);
+            consumer.accept(state, next, i + 1);
             i++; // skip escaped quote
           } else if (c == '"') {
             state = State.NORMAL;
@@ -81,9 +103,9 @@ public class SqlCommentParser {
           break;
 
         case IN_BACKTICK:
-          consumer.accept(state, c);
+          consumer.accept(state, c, i);
           if (c == '`' && next == '`') {
-            consumer.accept(state, next);
+            consumer.accept(state, next, i + 1);
             i++; // skip escaped backtick
           } else if (c == '`') {
             state = State.NORMAL;
@@ -93,7 +115,7 @@ public class SqlCommentParser {
         case IN_LINE_COMMENT:
           if (c == '\n' || c == '\r') {
             state = State.NORMAL;
-            consumer.accept(state, ' ');
+            consumer.accept(state, ' ', i);
             if (c == '\r' && next == '\n') {
               i++; // Treat \r\n as a single line ending
             }
@@ -110,13 +132,37 @@ public class SqlCommentParser {
             i++; // skip '/'
             if (blockCommentDepth == 0) {
               state = State.NORMAL;
-              consumer.accept(state, ' ');
+              consumer.accept(state, ' ', i);
             }
           }
           // else: skip character (part of the comment)
           break;
       }
     }
+  }
+
+  /**
+   * Finds the source-string indices of placeholder ('?') characters that appear in {@link
+   * State#NORMAL} state — i.e. not inside comments, string literals, or quoted identifiers. Used by
+   * parameter binding to locate the real placeholders in a SQL statement.
+   *
+   * @param sql the SQL string to scan
+   * @return source-string indices of placeholder '?' characters, in order
+   */
+  public static int[] findPlaceholderPositions(String sql) {
+    List<Integer> positions = new ArrayList<>();
+    forEachNonCommentChar(
+        sql,
+        (state, c, sourceIndex) -> {
+          if (state == State.NORMAL && c == '?') {
+            positions.add(sourceIndex);
+          }
+        });
+    int[] out = new int[positions.size()];
+    for (int k = 0; k < out.length; k++) {
+      out[k] = positions.get(k);
+    }
+    return out;
   }
 
   /**

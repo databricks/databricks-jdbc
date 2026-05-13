@@ -7,6 +7,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIR
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDecimalTypeString;
+import static com.databricks.jdbc.common.util.SqlStateClassifier.classifyTransientSqlState;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
 
@@ -247,16 +248,23 @@ public class DatabricksSdkClient implements IDatabricksClient {
       parentStatement.setStatementId(typedStatementId);
     }
 
-    int timeoutInSeconds =
-        parentStatement != null ? parentStatement.getStatement().getQueryTimeout() : 0;
+    int timeoutInSeconds;
+    if (parentStatement != null) {
+      timeoutInSeconds = parentStatement.getStatement().getQueryTimeout();
+    } else if (statementType == StatementType.METADATA) {
+      timeoutInSeconds = connectionContext.getMetadataOperationTimeout();
+    } else {
+      timeoutInSeconds = 0;
+    }
 
-    // Create timeout handler
+    // Create timeout handler — use OPERATION_TIMEOUT_ERROR for metadata to match
+    // the native Thrift metadata path (DatabricksThriftAccessor.fetchMetadataResults)
+    DatabricksDriverErrorCode timeoutErrorCode =
+        (statementType == StatementType.METADATA && parentStatement == null)
+            ? DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR
+            : DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT;
     TimeoutHandler timeoutHandler =
-        TimeoutHandler.forStatement(
-            timeoutInSeconds,
-            typedStatementId,
-            this,
-            DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
+        TimeoutHandler.forStatement(timeoutInSeconds, typedStatementId, this, timeoutErrorCode);
 
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
@@ -766,8 +774,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
       throw new DatabricksTimeoutException(
           errorMessage, null, DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
     }
+    String remappedSqlState = classifyTransientSqlState(errorMessage, sqlState);
+    if (!Objects.equals(remappedSqlState, sqlState)) {
+      LOGGER.info(
+          "Remapped SQL state [{}] -> [{}] for transient error pattern in SEA statement [{}]",
+          sqlState,
+          remappedSqlState,
+          statementId);
+    }
     throw new DatabricksSQLException(
-        errorMessage, sqlState, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
+        errorMessage, remappedSqlState, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
   }
 
   private ExecuteStatementResponse wrapGetStatementResponse(

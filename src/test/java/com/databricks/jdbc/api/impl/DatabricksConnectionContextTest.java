@@ -1456,7 +1456,8 @@ class DatabricksConnectionContextTest {
 
   @Test
   public void testUseQueryForMetadataDefaultFalseForWarehouse() throws DatabricksSQLException {
-    // Warehouse URL without explicit UseQueryForMetadata — default is false (native RPCs)
+    // Warehouse without explicit setting — requires both client default AND server flag.
+    // Client default is "1" but no server flag set → false
     IDatabricksConnectionContext ctx =
         DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
     assertFalse(ctx.useQueryForMetadata());
@@ -1464,7 +1465,7 @@ class DatabricksConnectionContextTest {
 
   @Test
   public void testUseQueryForMetadataDefaultFalseForCluster() throws DatabricksSQLException {
-    // Cluster URL without explicit UseQueryForMetadata — default is false
+    // Cluster without explicit setting — always false regardless of defaults
     IDatabricksConnectionContext ctx =
         DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
     assertFalse(ctx.useQueryForMetadata());
@@ -1486,6 +1487,143 @@ class DatabricksConnectionContextTest {
         DatabricksConnectionContext.parse(
             TestConstants.VALID_URL_1 + ";UseQueryForMetadata=0", properties);
     assertFalse(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadata_serverFlagEnabled_warehouseReturnsTrue()
+      throws DatabricksSQLException {
+    // Warehouse without explicit setting — client default "1" + server flag enabled → true
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertTrue(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadata_serverFlagDisabled_warehouseReturnsFalse()
+      throws DatabricksSQLException {
+    // Warehouse without explicit setting — client default "1" but server flag disabled → false
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc",
+        "false");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertFalse(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadata_serverFlagEnabled_clusterIgnored()
+      throws DatabricksSQLException {
+    // All-purpose cluster — always false, server flag and client default both ignored
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertFalse(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadata_clientExplicit1_overridesServerFlagDisabled()
+      throws DatabricksSQLException {
+    // Client sets UseQueryForMetadata=1 — should be honoured even if server flag is disabled
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_1 + ";UseQueryForMetadata=1", properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc",
+        "false");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertTrue(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadata_clientExplicit0_overridesServerFlagEnabled()
+      throws DatabricksSQLException {
+    // Client sets UseQueryForMetadata=0 — should be honoured even if server flag is enabled
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_1 + ";UseQueryForMetadata=0", properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertFalse(ctx.useQueryForMetadata());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Geospatial flag independence from complex datatype flag
+  // ---------------------------------------------------------------------------
+
+  @Test
+  public void testGeospatialEnabled_complexDisabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableGeoSpatialSupport=1;EnableComplexDatatypeSupport=0",
+            properties);
+    assertTrue(ctx.isGeoSpatialSupportEnabled());
+    assertFalse(ctx.isComplexDatatypeSupportEnabled());
+  }
+
+  @Test
+  public void testGeospatialDisabled_complexEnabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableGeoSpatialSupport=0;EnableComplexDatatypeSupport=1",
+            properties);
+    assertFalse(ctx.isGeoSpatialSupportEnabled());
+    assertTrue(ctx.isComplexDatatypeSupportEnabled());
+  }
+
+  @Test
+  public void testGeospatialAndComplexBothEnabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableGeoSpatialSupport=1;EnableComplexDatatypeSupport=1",
+            properties);
+    assertTrue(ctx.isGeoSpatialSupportEnabled());
+    assertTrue(ctx.isComplexDatatypeSupportEnabled());
+  }
+
+  @Test
+  public void testGeospatialAndComplexBothDisabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableGeoSpatialSupport=0;EnableComplexDatatypeSupport=0",
+            properties);
+    assertFalse(ctx.isGeoSpatialSupportEnabled());
+    assertFalse(ctx.isComplexDatatypeSupportEnabled());
+  }
+
+  @Test
+  public void testGeospatialDefaultEnabled() throws DatabricksSQLException {
+    // Neither flag set — geospatial defaults to enabled, complex datatypes to disabled
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertTrue(ctx.isGeoSpatialSupportEnabled());
+    assertFalse(ctx.isComplexDatatypeSupportEnabled());
   }
 
   // ---------------------------------------------------------------------------

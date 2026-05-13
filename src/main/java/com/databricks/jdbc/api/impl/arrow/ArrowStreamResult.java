@@ -253,9 +253,7 @@ public class ArrowStreamResult implements IExecutionResult {
   public static boolean isComplexType(ColumnInfoTypeName type) {
     return type == ColumnInfoTypeName.ARRAY
         || type == ColumnInfoTypeName.MAP
-        || type == ColumnInfoTypeName.STRUCT
-        || type == ColumnInfoTypeName.GEOMETRY
-        || type == ColumnInfoTypeName.GEOGRAPHY;
+        || type == ColumnInfoTypeName.STRUCT;
   }
 
   /**

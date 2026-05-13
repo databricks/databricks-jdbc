@@ -1,6 +1,7 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_KEY;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.DATA_EXCEPTION_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
@@ -109,7 +110,16 @@ public class DatabricksThriftUtil {
             errorMessage, sqlState, null, DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
       }
 
-      throw new DatabricksHttpException(errorMessage, sqlState);
+      String remappedSqlState =
+          SqlStateClassifier.classifyTransientSqlState(status.getErrorMessage(), sqlState);
+      if (!Objects.equals(remappedSqlState, sqlState)) {
+        LOGGER.info(
+            "Remapped SQL state [{}] -> [{}] for transient error pattern in thrift status (context: {})",
+            sqlState,
+            remappedSqlState,
+            errorContext);
+      }
+      throw new DatabricksHttpException(errorMessage, remappedSqlState);
     }
   }
 
@@ -233,7 +243,8 @@ public class DatabricksThriftUtil {
 
     String typeText = getTypeTextFromTypeDesc(columnDesc.getTypeDesc());
 
-    if (arrowMetadata != null && isComplexType(arrowMetadata)) {
+    if (arrowMetadata != null
+        && (isComplexType(arrowMetadata) || isGeospatialType(arrowMetadata))) {
       typeText = arrowMetadata;
       if (arrowMetadata.startsWith(GEOMETRY)) {
         columnInfoTypeName = ColumnInfoTypeName.GEOMETRY;
@@ -423,7 +434,11 @@ public class DatabricksThriftUtil {
     } catch (IOException e) {
       String errorMessage = "Failed to deserialize Arrow schema: " + e.getMessage();
       LOGGER.error(errorMessage, e);
-      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.RESULT_SET_ERROR);
+      throw new DatabricksSQLException(
+          errorMessage,
+          DATA_EXCEPTION_SQLSTATE,
+          DatabricksDriverErrorCode.ARROW_SCHEMA_PARSING_ERROR.getCode(),
+          e);
     }
   }
 }

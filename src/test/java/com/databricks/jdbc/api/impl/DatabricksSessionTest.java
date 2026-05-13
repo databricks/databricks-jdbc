@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataQueryClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
@@ -22,6 +23,8 @@ import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,6 +50,11 @@ public class DatabricksSessionTest {
   static void setupWarehouse(boolean useThrift) throws SQLException {
     String url = useThrift ? WAREHOUSE_JDBC_URL : WAREHOUSE_JDBC_URL_WITH_SEA;
     connectionContext = DatabricksConnectionContext.parse(url, new Properties());
+    // Override feature flags with empty map to prevent test contamination from
+    // other test classes (e.g. DatabricksConnectionContextTest) that set flags
+    // on the shared static DatabricksDriverFeatureFlagsContextFactory.
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        connectionContext, new HashMap<>());
   }
 
   private void setupCluster() throws SQLException {
@@ -326,6 +334,27 @@ public class DatabricksSessionTest {
         DatabricksThriftServiceClient.class,
         session.getDatabricksMetadataClient(),
         "Default UseQueryForMetadata=0: warehouse uses native Thrift RPCs for metadata");
+  }
+
+  @Test
+  public void testUseQueryForMetadataEnabledViaServerFlag() throws SQLException {
+    setupWarehouse(true /* useThrift */);
+    // Simulate server-side flag enabling SHOW commands for this warehouse
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+
+    assertTrue(connectionContext.useQueryForMetadata());
+    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
+    assertInstanceOf(
+        DatabricksMetadataQueryClient.class,
+        session.getDatabricksMetadataClient(),
+        "Server flag enabled: warehouse should use SHOW commands for metadata");
+
+    // Clean up so other tests are not affected
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        connectionContext, new HashMap<>());
   }
 
   @Test
