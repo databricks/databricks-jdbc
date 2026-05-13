@@ -362,8 +362,10 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
     ResultSetMetaData rsmd = rs.getMetaData();
 
     // Validate metadata — geospatial support is enabled by default
+    // ST_GeomFromText without SRID → GEOMETRY(0); ST_GeogFromText defaults to WGS 84 →
+    // GEOGRAPHY(4326)
     assertEquals("GEOMETRY(0)", rsmd.getColumnTypeName(2));
-    assertEquals("GEOGRAPHY(0)", rsmd.getColumnTypeName(3));
+    assertEquals("GEOGRAPHY(4326)", rsmd.getColumnTypeName(3));
 
     // Validate data
     int rowCount = 0;
