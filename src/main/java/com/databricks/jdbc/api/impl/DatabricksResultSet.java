@@ -386,7 +386,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               }
               // Unsupported client — stop immediately, don't retry 10 times
               if (e instanceof java.sql.SQLFeatureNotSupportedException) {
-                LOGGER.info(
+                LOGGER.debug(
                     "Heartbeat not supported by client for statement {}, stopping",
                     capturedStatementId);
                 capturedMgr.stopHeartbeat(capturedStatementId);
