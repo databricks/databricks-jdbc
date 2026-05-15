@@ -371,9 +371,25 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
                     capturedStatementId);
                 capturedMgr.stopHeartbeat(capturedStatementId);
               }
-            } catch (Exception e) {
+            } catch (Throwable e) {
+              // Catch Throwable (not just Exception) because ScheduledExecutorService
+              // suppresses subsequent executions on uncaught Error. Without this, an
+              // OOM or NoClassDefFoundError would silently kill the heartbeat.
+              if (e instanceof VirtualMachineError) {
+                // Don't swallow fatal JVM errors — stop heartbeat and let it propagate
+                capturedMgr.stopHeartbeat(capturedStatementId);
+                throw (VirtualMachineError) e;
+              }
               // Re-read flag — may have been set during the RPC (connection closing)
               if (capturedMgr.getStoppedFlag(capturedStatementId).get()) {
+                return;
+              }
+              // Unsupported client — stop immediately, don't retry 10 times
+              if (e instanceof java.sql.SQLFeatureNotSupportedException) {
+                LOGGER.info(
+                    "Heartbeat not supported by client for statement {}, stopping",
+                    capturedStatementId);
+                capturedMgr.stopHeartbeat(capturedStatementId);
                 return;
               }
               int failures = consecutiveFailures.incrementAndGet();
@@ -419,8 +435,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return;
     }
     try {
-      DatabricksConnection conn =
-          (DatabricksConnection) parentStatement.getStatement().getConnection();
+      // Use same unwrap pattern as startHeartbeatIfEnabled() for pooled connections
+      java.sql.Connection rawConn = parentStatement.getStatement().getConnection();
+      DatabricksConnection conn;
+      if (rawConn instanceof DatabricksConnection) {
+        conn = (DatabricksConnection) rawConn;
+      } else if (rawConn.isWrapperFor(DatabricksConnection.class)) {
+        conn = rawConn.unwrap(DatabricksConnection.class);
+      } else {
+        return;
+      }
       ResultHeartbeatManager mgr = conn.getHeartbeatManager();
       if (mgr != null) {
         mgr.stopHeartbeat(statementId);

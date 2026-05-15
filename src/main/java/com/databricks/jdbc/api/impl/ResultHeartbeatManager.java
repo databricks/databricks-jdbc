@@ -45,13 +45,17 @@ class ResultHeartbeatManager {
   // A connection with multiple active statements needs concurrent heartbeat ticks.
   private static final int HEARTBEAT_THREAD_POOL_SIZE = 2;
 
+  private static final java.util.concurrent.atomic.AtomicLong MANAGER_COUNTER =
+      new java.util.concurrent.atomic.AtomicLong(0);
+
   ResultHeartbeatManager(int intervalSeconds) {
     this.intervalSeconds = intervalSeconds;
+    long managerId = MANAGER_COUNTER.incrementAndGet();
     this.scheduler =
         Executors.newScheduledThreadPool(
             HEARTBEAT_THREAD_POOL_SIZE,
             r -> {
-              Thread t = new Thread(r, "databricks-jdbc-heartbeat");
+              Thread t = new Thread(r, "databricks-jdbc-heartbeat-" + managerId);
               t.setDaemon(true);
               return t;
             });
