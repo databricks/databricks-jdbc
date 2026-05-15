@@ -980,12 +980,35 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     noMoreResults = false;
     updateCount = -1;
 
-    // Per JDBC spec, re-execution does not explicitly close the previous server-side
-    // operation handle. The server manages operation handle lifecycle — handles are
-    // cleaned up when the session closes or the server evicts idle operations.
-    // Attempting to close handles here would corrupt Thrift HTTP transport connections
-    // when the server returns unexpected responses (e.g., WireMock 404 in tests).
-    // For direct results, the server already closed the handle.
+    // Close the previous server-side operation if it exists. This prevents resource
+    // leaks when a Statement is re-executed (e.g., PreparedStatement in a loop).
+    // This matches the behavior of pgJDBC, MySQL Connector/J, Trino JDBC, and
+    // Databricks Python SQL Connector — all close the previous operation on re-execute.
+    //
+    // Note on directResultsReceived: we check the flag value from the PREVIOUS execution
+    // here. The flag is reset to false below, after this close attempt.
+    //
+    // Note on latency: this close is synchronous (adds one RPC round-trip before the next
+    // execution). This is consistent with pgJDBC's closeForNextExecution() which is also
+    // synchronous. The correctness benefit (no orphaned server operations) outweighs the
+    // latency cost for typical usage patterns.
+    //
+    // Skip if: (1) no previous execution (statementId==null), or
+    //          (2) server already closed the operation (direct results).
+    if (statementId != null && !directResultsReceived) {
+      try {
+        connection.getSession().getDatabricksClient().closeStatement(statementId);
+      } catch (Exception e) {
+        // Don't block re-execution if closing the previous operation fails.
+        // This covers: network errors, operation already expired/evicted on server,
+        // and transport-level errors (e.g., unexpected server responses).
+        // The new execution will create a fresh operation with a new statementId.
+        LOGGER.debug(
+            "Failed to close previous server operation {} during re-execution: {}",
+            statementId,
+            e.getMessage());
+      }
+    }
 
     // Stop heartbeat for the previous execution before clearing state.
     // Without this, the old heartbeat (keyed by old statementId) would fail and self-terminate

@@ -1028,12 +1028,153 @@ public class DatabricksStatementTest {
     // First execution
     statement.executeQuery(STATEMENT);
 
-    // Second execution — previous ResultSet is closed per JDBC spec.
-    // Server handle is NOT explicitly closed (server manages handle lifecycle).
+    // Second execution — previous ResultSet closed. No server close because
+    // statementId is null in this mock setup (mock doesn't call setStatementId).
     statement.executeQuery(STATEMENT);
 
     verify(firstResult, times(1)).close();
     verify(client, never()).closeStatement(any(StatementId.class));
+    assertEquals(secondResult, statement.getResultSet());
+  }
+
+  @Test
+  public void testReExecutionClosesServerOperation() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    DatabricksResultSet firstResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet secondResult = mock(DatabricksResultSet.class);
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(firstResult)
+        .thenReturn(secondResult);
+
+    // First execution
+    statement.executeQuery(STATEMENT);
+    // Simulate server setting the statementId (normally done inside executeStatement)
+    StatementId firstStatementId = new StatementId("first-stmt-id");
+    statement.setStatementId(firstStatementId);
+
+    // Second execution — should close the first server operation
+    statement.executeQuery(STATEMENT);
+
+    verify(client, times(1)).closeStatement(eq(firstStatementId));
+    verify(firstResult, times(1)).close();
+    assertEquals(secondResult, statement.getResultSet());
+  }
+
+  @Test
+  public void testReExecutionSkipsServerCloseForDirectResults() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    DatabricksResultSet firstResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet secondResult = mock(DatabricksResultSet.class);
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(firstResult)
+        .thenReturn(secondResult);
+
+    // First execution with direct results (server already closed the operation)
+    statement.executeQuery(STATEMENT);
+    statement.setStatementId(new StatementId("direct-stmt-id"));
+    statement.markDirectResultsReceived();
+
+    // Second execution — should NOT close server operation (already closed by server)
+    statement.executeQuery(STATEMENT);
+
+    verify(client, never()).closeStatement(any(StatementId.class));
+    verify(firstResult, times(1)).close();
+  }
+
+  @Test
+  public void testReExecutionHandlesCloseFailureGracefully() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    DatabricksResultSet firstResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet secondResult = mock(DatabricksResultSet.class);
+    StatementId firstStatementId = new StatementId("failing-stmt-id");
+
+    // closeStatement throws (e.g., operation already expired on server)
+    doThrow(new DatabricksSQLException("Operation not found", "HY000"))
+        .when(client)
+        .closeStatement(eq(firstStatementId));
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(firstResult)
+        .thenReturn(secondResult);
+
+    statement.executeQuery(STATEMENT);
+    statement.setStatementId(firstStatementId);
+
+    // Re-execution should succeed even though closing previous operation failed
+    assertDoesNotThrow(() -> statement.executeQuery(STATEMENT));
+    assertEquals(secondResult, statement.getResultSet());
+  }
+
+  @Test
+  public void testReExecutionHandlesTransportErrorGracefully() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    DatabricksResultSet firstResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet secondResult = mock(DatabricksResultSet.class);
+    StatementId firstStatementId = new StatementId("transport-error-stmt-id");
+
+    // closeStatement throws a transport-level error (e.g., unexpected server response,
+    // corrupted framed transport). This is the scarier failure mode — not just "not found"
+    // but a low-level I/O error that could corrupt shared transport state.
+    doThrow(new RuntimeException("HTTP request failed by code: 500, unexpected response"))
+        .when(client)
+        .closeStatement(eq(firstStatementId));
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(firstResult)
+        .thenReturn(secondResult);
+
+    statement.executeQuery(STATEMENT);
+    statement.setStatementId(firstStatementId);
+
+    // Re-execution must succeed even with transport-level close failure.
+    // The new execution creates a fresh server operation with a new statementId.
+    assertDoesNotThrow(() -> statement.executeQuery(STATEMENT));
     assertEquals(secondResult, statement.getResultSet());
   }
 
