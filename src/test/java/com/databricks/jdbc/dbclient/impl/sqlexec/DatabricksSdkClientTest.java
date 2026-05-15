@@ -1324,12 +1324,8 @@ public class DatabricksSdkClientTest {
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
     StatementStatus status = new StatementStatus().setState(StatementState.SUCCEEDED);
-    GetStatementResponse response = new GetStatementResponse();
-    response.setStatus(status);
-    response.setStatementId(STATEMENT_ID.toSQLExecStatementId());
 
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
-        .thenReturn(response);
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class))).thenReturn(status);
 
     assertTrue(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
   }
@@ -1342,11 +1338,8 @@ public class DatabricksSdkClientTest {
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
     StatementStatus status = new StatementStatus().setState(StatementState.RUNNING);
-    GetStatementResponse response = new GetStatementResponse();
-    response.setStatus(status);
 
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
-        .thenReturn(response);
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class))).thenReturn(status);
 
     assertTrue(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
   }
@@ -1359,11 +1352,8 @@ public class DatabricksSdkClientTest {
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
     StatementStatus status = new StatementStatus().setState(StatementState.CANCELED);
-    GetStatementResponse response = new GetStatementResponse();
-    response.setStatus(status);
 
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
-        .thenReturn(response);
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class))).thenReturn(status);
 
     assertFalse(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
   }
@@ -1376,11 +1366,8 @@ public class DatabricksSdkClientTest {
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
     StatementStatus status = new StatementStatus().setState(StatementState.CLOSED);
-    GetStatementResponse response = new GetStatementResponse();
-    response.setStatus(status);
 
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
-        .thenReturn(response);
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class))).thenReturn(status);
 
     assertFalse(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
   }
@@ -1393,11 +1380,8 @@ public class DatabricksSdkClientTest {
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
     StatementStatus status = new StatementStatus().setState(StatementState.FAILED);
-    GetStatementResponse response = new GetStatementResponse();
-    response.setStatus(status);
 
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
-        .thenReturn(response);
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class))).thenReturn(status);
 
     assertFalse(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
   }
@@ -1409,7 +1393,7 @@ public class DatabricksSdkClientTest {
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class)))
         .thenThrow(new RuntimeException("Network error"));
 
     DatabricksSQLException exception =

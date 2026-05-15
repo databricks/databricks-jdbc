@@ -37,6 +37,7 @@ import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
@@ -417,13 +418,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
   @Override
   public boolean checkStatementAlive(StatementId typedStatementId) throws SQLException {
     String statementId = typedStatementId.toSQLExecStatementId();
-    String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);
+    // Use lightweight /status endpoint (~100 bytes) instead of full GetStatement (~21KB)
+    String statusPath = String.format(STATEMENT_STATUS_PATH_WITH_ID, statementId);
     try {
-      GetStatementRequest request = new GetStatementRequest().setStatementId(statementId);
-      Request req = new Request(Request.GET, getStatusPath, apiClient.serialize(request));
-      req.withHeaders(getHeaders("getStatement"));
-      GetStatementResponse response = apiClient.execute(req, GetStatementResponse.class);
-      StatementState state = response.getStatus().getState();
+      Request req = new Request(Request.GET, statusPath, (String) null);
+      req.withHeaders(getHeaders("getStatementStatus"));
+      StatementStatus status = apiClient.execute(req, StatementStatus.class);
+      StatementState state = status.getState();
       // Terminal states mean the operation is no longer alive
       return state != StatementState.CANCELED
           && state != StatementState.CLOSED
