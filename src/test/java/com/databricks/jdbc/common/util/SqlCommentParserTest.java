@@ -1,5 +1,6 @@
 package com.databricks.jdbc.common.util;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -391,5 +392,142 @@ public class SqlCommentParserTest {
     List<Character> chars = new ArrayList<>();
     SqlCommentParser.forEachNonCommentChar("a--x\nb", (state, c) -> chars.add(c));
     assertEquals(List.of('a', ' ', 'b'), chars);
+  }
+
+  // --- findPlaceholderPositions ---
+
+  @Test
+  public void testFindPlaceholderPositionsNullAndEmpty() {
+    assertArrayEquals(new int[0], SqlCommentParser.findPlaceholderPositions(null));
+    assertArrayEquals(new int[0], SqlCommentParser.findPlaceholderPositions(""));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsBasic() {
+    assertArrayEquals(
+        new int[] {29},
+        SqlCommentParser.findPlaceholderPositions("DELETE FROM log WHERE date = ?"));
+    assertArrayEquals(
+        new int[] {7, 10, 13}, SqlCommentParser.findPlaceholderPositions("select ?, ?, ? from t"));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsSkipsLineComment() {
+    String sql = "-- ?\nselect ? from t";
+    assertArrayEquals(
+        new int[] {sql.indexOf('?', 5)}, SqlCommentParser.findPlaceholderPositions(sql));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsSkipsBlockComment() {
+    String sql = "select /* ? or ? */ ? from t";
+    assertArrayEquals(
+        new int[] {sql.indexOf('?', 18)}, SqlCommentParser.findPlaceholderPositions(sql));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsSkipsStringLiteral() {
+    String sql = "select 'a?b' as x, ? as y from t";
+    assertArrayEquals(
+        new int[] {sql.indexOf('?', 12)}, SqlCommentParser.findPlaceholderPositions(sql));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsSkipsQuotedIdentifiers() {
+    String sql = "select \"col?\", `col?` from t where x = ?";
+    assertArrayEquals(
+        new int[] {sql.indexOf('?', 22)}, SqlCommentParser.findPlaceholderPositions(sql));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsHandlesEscapedQuotes() {
+    String sql = "select 'it''s ?' as x, ? as y from t";
+    assertArrayEquals(
+        new int[] {sql.indexOf('?', 16)}, SqlCommentParser.findPlaceholderPositions(sql));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsHandlesCrlfLineComment() {
+    String sql = "-- ?\r\nselect ? from t";
+    assertArrayEquals(
+        new int[] {sql.indexOf('?', 6)}, SqlCommentParser.findPlaceholderPositions(sql));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsHandlesNestedBlockCommentWithQuestionMarks() {
+    String sql = "select /* outer ? /* inner ? */ outer ? */ ? from t";
+    int outerEnd = sql.indexOf("*/ ?") + 3;
+    assertArrayEquals(new int[] {outerEnd}, SqlCommentParser.findPlaceholderPositions(sql));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsAdjacentPlaceholders() {
+    assertArrayEquals(new int[] {0, 1, 2}, SqlCommentParser.findPlaceholderPositions("???"));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsLeadingAndTrailingPlaceholder() {
+    assertArrayEquals(new int[] {0, 8}, SqlCommentParser.findPlaceholderPositions("? from t?"));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsHandlesEscapedBacktick() {
+    String sql = "select `c``ol?` from t where x = ?";
+    assertArrayEquals(
+        new int[] {sql.indexOf('?', 17)}, SqlCommentParser.findPlaceholderPositions(sql));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsCommentsOnlySql() {
+    assertArrayEquals(new int[0], SqlCommentParser.findPlaceholderPositions("-- just a comment"));
+    assertArrayEquals(new int[0], SqlCommentParser.findPlaceholderPositions("-- foo\n"));
+    assertArrayEquals(new int[0], SqlCommentParser.findPlaceholderPositions("/* block ? */"));
+    assertArrayEquals(
+        new int[0], SqlCommentParser.findPlaceholderPositions("-- ?\n/* ? */ -- more"));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsLineCommentImmediatelyConsumesQuestionMark() {
+    // `?` appearing right after the `--` line-comment opener is part of the comment.
+    assertArrayEquals(new int[0], SqlCommentParser.findPlaceholderPositions("--?"));
+    assertArrayEquals(new int[0], SqlCommentParser.findPlaceholderPositions("--?\n"));
+    String sql = "--?\nselect ? from t";
+    assertArrayEquals(
+        new int[] {sql.indexOf('?', 4)}, SqlCommentParser.findPlaceholderPositions(sql));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsUnclosedSingleQuote() {
+    // `?` inside an unterminated single-quoted literal stays inside the literal and is not a
+    // placeholder.
+    assertArrayEquals(
+        new int[0], SqlCommentParser.findPlaceholderPositions("select 'never ? closed"));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsUnclosedDoubleQuote() {
+    assertArrayEquals(
+        new int[0], SqlCommentParser.findPlaceholderPositions("select \"never ? closed"));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsUnclosedBacktick() {
+    assertArrayEquals(
+        new int[0], SqlCommentParser.findPlaceholderPositions("select `never ? closed"));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsUnclosedBlockComment() {
+    assertArrayEquals(
+        new int[0], SqlCommentParser.findPlaceholderPositions("select /* never ? closed"));
+  }
+
+  @Test
+  public void testFindPlaceholderPositionsBacktickWithEscapeBetweenQuestionMarks() {
+    // `?` then escaped backtick (``) then `?` — both `?` characters stay inside the identifier.
+    String sql = "select `a?``b?` from t where x = ?";
+    assertArrayEquals(
+        new int[] {sql.indexOf('?', sql.indexOf("from"))},
+        SqlCommentParser.findPlaceholderPositions(sql));
   }
 }

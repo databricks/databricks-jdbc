@@ -237,7 +237,7 @@ final class DatabricksThriftAccessor {
 
       TGetOperationStatusResp statusResp =
           pollTillOperationFinished(
-              response, parentStatement, session, statementId, sessionDebugInfo);
+              response, parentStatement, session, statementId, sessionDebugInfo, statementType);
       boolean isDirectResults = hasResultDataInDirectResults(response);
       if (isDirectResults) {
         // The first response has result data
@@ -303,10 +303,17 @@ final class DatabricksThriftAccessor {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session,
       StatementId statementId,
-      String sessionDebugInfo)
+      String sessionDebugInfo,
+      StatementType statementType)
       throws SQLException, TException {
-    int timeoutInSeconds =
-        (parentStatement == null) ? 0 : parentStatement.getStatement().getQueryTimeout();
+    int timeoutInSeconds;
+    if (parentStatement != null) {
+      timeoutInSeconds = parentStatement.getStatement().getQueryTimeout();
+    } else if (statementType == StatementType.METADATA) {
+      timeoutInSeconds = connectionContext.getMetadataOperationTimeout();
+    } else {
+      timeoutInSeconds = 0;
+    }
 
     TGetOperationStatusResp statusResp = null;
     if (response.isSetDirectResults()) {

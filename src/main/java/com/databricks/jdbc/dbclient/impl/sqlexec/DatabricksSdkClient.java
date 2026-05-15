@@ -248,16 +248,23 @@ public class DatabricksSdkClient implements IDatabricksClient {
       parentStatement.setStatementId(typedStatementId);
     }
 
-    int timeoutInSeconds =
-        parentStatement != null ? parentStatement.getStatement().getQueryTimeout() : 0;
+    int timeoutInSeconds;
+    if (parentStatement != null) {
+      timeoutInSeconds = parentStatement.getStatement().getQueryTimeout();
+    } else if (statementType == StatementType.METADATA) {
+      timeoutInSeconds = connectionContext.getMetadataOperationTimeout();
+    } else {
+      timeoutInSeconds = 0;
+    }
 
-    // Create timeout handler
+    // Create timeout handler — use OPERATION_TIMEOUT_ERROR for metadata to match
+    // the native Thrift metadata path (DatabricksThriftAccessor.fetchMetadataResults)
+    DatabricksDriverErrorCode timeoutErrorCode =
+        (statementType == StatementType.METADATA && parentStatement == null)
+            ? DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR
+            : DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT;
     TimeoutHandler timeoutHandler =
-        TimeoutHandler.forStatement(
-            timeoutInSeconds,
-            typedStatementId,
-            this,
-            DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
+        TimeoutHandler.forStatement(timeoutInSeconds, typedStatementId, this, timeoutErrorCode);
 
     StatementState responseState = response.getStatus().getState();
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {

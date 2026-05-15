@@ -1618,11 +1618,11 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testGeospatialDefaultDisabled() throws DatabricksSQLException {
-    // Neither flag set — both default to disabled
+  public void testGeospatialDefaultEnabled() throws DatabricksSQLException {
+    // Neither flag set — geospatial defaults to enabled, complex datatypes to disabled
     IDatabricksConnectionContext ctx =
         DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
-    assertFalse(ctx.isGeoSpatialSupportEnabled());
+    assertTrue(ctx.isGeoSpatialSupportEnabled());
     assertFalse(ctx.isComplexDatatypeSupportEnabled());
   }
 
