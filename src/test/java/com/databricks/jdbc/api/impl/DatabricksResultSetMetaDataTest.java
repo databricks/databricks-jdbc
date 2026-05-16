@@ -765,9 +765,9 @@ public class DatabricksResultSetMetaDataTest {
 
   @Test
   public void testJsonArrayWithComplexTypesEnabledButGeospatialDisabled() throws SQLException {
-    // This test validates the important scenario where EnableComplexDatatypeSupport=1
-    // but EnableGeoSpatialSupport=0 (disabled). This simulates real-world usage where
-    // users want complex types (ARRAY, MAP, STRUCT) but want geospatial data as strings.
+    // This test validates that with EnableGeoSpatialSupport=0, geospatial columns
+    // report as STRING in metadata regardless of the EnableComplexDatatypeSupport setting.
+    // The two flags are independent.
     //
     // Expected behavior:
     // - GEOMETRY/GEOGRAPHY column types should report as STRING in metadata

@@ -133,6 +133,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
             .completeExceptionally(
                 new DatabricksSQLException(
                     "Download failed for chunk index " + chunk.getChunkIndex(),
+                    uncaughtException,
                     DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR));
       }
 

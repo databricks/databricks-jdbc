@@ -128,6 +128,13 @@ class ValidationUtilTest {
             "Valid URL with invalid compression type",
             true),
         Arguments.of(INVALID_URL_1, "Invalid non-Databricks JDBC URL", false),
-        Arguments.of(INVALID_URL_2, "Invalid malformed JDBC scheme", false));
+        Arguments.of(INVALID_URL_2, "Invalid malformed JDBC scheme", false),
+        Arguments.of(
+            VALID_SPOG_URL_WAREHOUSE, "Valid SPOG URL with ?o= in warehouse httpPath", true),
+        Arguments.of(VALID_SPOG_URL_ENDPOINT, "Valid SPOG URL with ?o= in endpoint httpPath", true),
+        Arguments.of(
+            VALID_SPOG_URL_WAREHOUSE_NO_EXTRA_PARAMS,
+            "Valid SPOG URL with ?o= at end of URL",
+            true));
   }
 }

@@ -121,15 +121,17 @@ public enum DatabricksJdbcUrlParams {
   ENABLE_SQL_EXEC_HYBRID_RESULTS(
       "EnableSQLExecHybridResults", "flag to enable hybrid results", "1"),
   ENABLE_SQL_EXEC_DIRECT_RESULTS(
-      "EnableSQLExecDirectResults", "flag to enable direct results", "1"),
+      "EnableSQLExecDirectResults",
+      "Alias for EnableDirectResults. Enables direct results in SQL execution",
+      "1"),
   ENABLE_COMPLEX_DATATYPE_SUPPORT(
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",
       "0"),
   ENABLE_GEOSPATIAL_SUPPORT(
       "EnableGeoSpatialSupport",
-      "flag to enable native support of GEOMETRY and GEOGRAPHY data types. Requires EnableComplexDatatypeSupport=1",
-      "0"),
+      "flag to enable native support of GEOMETRY and GEOGRAPHY data types",
+      "1"),
   ROWS_FETCHED_PER_BLOCK(
       "RowsFetchedPerBlock",
       "The maximum number of rows that a query returns at a time.",
@@ -171,7 +173,7 @@ public enum DatabricksJdbcUrlParams {
   USE_QUERY_FOR_METADATA(
       "UseQueryForMetadata",
       "Use SQL SHOW commands instead of Thrift RPCs for metadata operations. When enabled, EnableShowCommandForGetFunctions is redundant",
-      "0"),
+      "1"),
   TREAT_METADATA_CATALOG_NAME_AS_PATTERN(
       "TreatMetadataCatalogNameAsPattern",
       "Treat catalog names as patterns in Thrift metadata RPCs. When disabled (default), wildcard characters in catalog names are escaped",

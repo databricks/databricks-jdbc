@@ -28,7 +28,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public static final String PRODUCT_NAME = "SparkSQL";
   public static final int DATABASE_MAJOR_VERSION = 3;
   public static final int DATABASE_MINOR_VERSION = 3;
-  public static final int DATABASE_PATCH_VERSION = 2;
+  public static final int DATABASE_PATCH_VERSION = 3;
   public static final Integer MAX_NAME_LENGTH = 128;
   public static final String NUMERIC_FUNCTIONS =
       "ABS,ACOS,ASIN,ATAN,ATAN2,CEILING,COS,COT,DEGREES,EXP,FLOOR,LOG,LOG10,MOD,PI,POWER,RADIANS,RAND,ROUND,SIGN,SIN,SQRT,TAN,TRUNCATE";

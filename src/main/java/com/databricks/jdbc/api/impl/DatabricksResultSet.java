@@ -526,6 +526,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
+    // Geospatial types: handle independently of complex datatype flag
+    if (isGeospatialType(columnTypeName)) {
+      return handleGeospatialType(obj, columnTypeName);
+    }
     // separate handling for complex data types
     if (isComplexType(columnTypeName)) {
       return handleComplexDataTypes(obj, columnTypeName);
@@ -539,6 +543,25 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     // TODO: Add separate handling for INTERVAL JSON_ARRAY result format.
     return ConverterHelper.convertSqlTypeToJavaType(columnType, obj);
+  }
+
+  private Object handleGeospatialType(Object obj, String columnName) throws DatabricksSQLException {
+    if (resultSetType == ResultSetType.SEA_INLINE) {
+      obj = convertGeospatialForSEAInline(obj, columnName);
+    }
+    return obj;
+  }
+
+  private Object convertGeospatialForSEAInline(Object obj, String columnName)
+      throws DatabricksSQLException {
+    if (columnName.startsWith(GEOMETRY)) {
+      return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOMETRY)
+          .toDatabricksGeometry(obj);
+    } else if (columnName.startsWith(GEOGRAPHY)) {
+      return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOGRAPHY)
+          .toDatabricksGeography(obj);
+    }
+    return obj;
   }
 
   private Object handleComplexDataTypes(Object obj, String columnName)
@@ -558,12 +581,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return parser.parseJsonStringToDbMap(obj.toString(), columnName);
     } else if (columnName.startsWith(STRUCT)) {
       return parser.parseJsonStringToDbStruct(obj.toString(), columnName);
-    } else if (columnName.startsWith(GEOMETRY)) {
-      return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOMETRY)
-          .toDatabricksGeometry(obj);
-    } else if (columnName.startsWith(GEOGRAPHY)) {
-      return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOGRAPHY)
-          .toDatabricksGeography(obj);
     }
     throw new DatabricksParsingException(
         "Unexpected metadata format. Type is not a COMPLEX: " + columnName,

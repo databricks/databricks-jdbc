@@ -195,8 +195,15 @@ public class ArrowStreamResultTest {
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.ARRAY));
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.MAP));
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.STRUCT));
-    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOMETRY));
-    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOGRAPHY));
+
+    // Geospatial types are NOT complex types — they have independent handling
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOMETRY));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOGRAPHY));
+
+    // Geospatial type check is separate
+    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOMETRY));
+    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOGRAPHY));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.ARRAY));
 
     // Non-complex types should return false
     assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.INT));
@@ -338,8 +345,8 @@ public class ArrowStreamResultTest {
 
   @Test
   public void testGeospatialTypeWithGeoSpatialSupportDisabled() throws Exception {
-    // Setup connection context with geospatial support disabled
-    // (EnableComplexDatatypeSupport=1, but EnableGeoSpatialSupport=0)
+    // Setup connection context with geospatial support disabled (EnableGeoSpatialSupport=0)
+    // Complex datatype flag is independent and has no effect on geospatial behavior
     Properties props = new Properties();
     props.setProperty("EnableComplexDatatypeSupport", "1");
     props.setProperty("EnableGeoSpatialSupport", "0");
@@ -396,32 +403,35 @@ public class ArrowStreamResultTest {
   }
 
   @Test
-  public void testGeospatialTypeWithBothFlagsEnabled() throws Exception {
-    // Setup connection context with both complex datatype and geospatial support enabled
+  public void testGeospatialEnabledIndependentlyOfComplexDatatype() throws Exception {
+    // Geospatial can be enabled with or without complex datatype support
     Properties props = new Properties();
     props.setProperty("EnableComplexDatatypeSupport", "1");
     props.setProperty("EnableGeoSpatialSupport", "1");
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    IDatabricksConnectionContext ctx1 = DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    assertTrue(ctx1.isComplexDatatypeSupportEnabled());
+    assertTrue(ctx1.isGeoSpatialSupportEnabled());
 
-    // Verify both flags are enabled
-    assertTrue(connectionContext.isComplexDatatypeSupportEnabled());
-    assertTrue(connectionContext.isGeoSpatialSupportEnabled());
+    // Geospatial enabled without complex datatypes
+    Properties props2 = new Properties();
+    props2.setProperty("EnableComplexDatatypeSupport", "0");
+    props2.setProperty("EnableGeoSpatialSupport", "1");
+    IDatabricksConnectionContext ctx2 = DatabricksConnectionContextFactory.create(JDBC_URL, props2);
+    assertFalse(ctx2.isComplexDatatypeSupportEnabled());
+    assertTrue(ctx2.isGeoSpatialSupportEnabled());
   }
 
   @Test
-  public void testGeospatialSupportRequiresComplexDatatypeSupport() throws Exception {
-    // Test that EnableGeoSpatialSupport=1 alone (without EnableComplexDatatypeSupport) doesn't
-    // enable geospatial
+  public void testGeospatialSupportIndependentOfComplexDatatypeSupport() throws Exception {
+    // Geospatial support is independent of complex datatype support — can be enabled alone
     Properties props = new Properties();
     props.setProperty("EnableComplexDatatypeSupport", "0");
     props.setProperty("EnableGeoSpatialSupport", "1");
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(JDBC_URL, props);
 
-    // Verify that geospatial support is disabled because complex datatype support is disabled
     assertFalse(connectionContext.isComplexDatatypeSupportEnabled());
-    assertFalse(connectionContext.isGeoSpatialSupportEnabled());
+    assertTrue(connectionContext.isGeoSpatialSupportEnabled());
   }
 
   @Test

@@ -29,10 +29,12 @@ import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
 import java.util.Collections;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
+import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URIBuilder;
 
 public class DatabricksConnectionContext implements IDatabricksConnectionContext {
@@ -42,6 +44,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private static final String SQL_EXEC_FLAG_NAME =
       "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc";
+
+  private static final String USE_QUERY_FOR_THRIFT_FLAG_NAME =
+      "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc";
 
   private final String host;
   @VisibleForTesting final int port;
@@ -108,14 +113,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     if (!isNullOrEmpty(connectionParamString)) {
       String[] urlParts = connectionParamString.split(DatabricksJdbcConstants.URL_DELIMITER);
       for (String urlPart : urlParts) {
-        String[] pair = urlPart.split(DatabricksJdbcConstants.PAIR_DELIMITER);
-        if (pair.length == 1) {
-          pair = new String[] {pair[0], ""};
-        }
-        if (pair[0].startsWith(DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName())) {
-          parametersBuilder.put(pair[0], pair[1]);
+        // Split on first '=' only — values (like httpPath) may contain '=' (e.g. ?o=123)
+        int delimIdx = urlPart.indexOf(DatabricksJdbcConstants.PAIR_DELIMITER);
+        String key = delimIdx >= 0 ? urlPart.substring(0, delimIdx) : urlPart;
+        String value = delimIdx >= 0 ? urlPart.substring(delimIdx + 1) : "";
+        if (key.startsWith(DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName())) {
+          parametersBuilder.put(key, value);
         } else {
-          parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
+          parametersBuilder.put(key.toLowerCase(), value);
         }
       }
     }
@@ -286,7 +291,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public Boolean getDirectResultMode() {
-    return Objects.equals(getParameter(DatabricksJdbcUrlParams.DIRECT_RESULT), "1");
+    return Objects.equals(
+        getParameter(
+            DatabricksJdbcUrlParams.DIRECT_RESULT,
+            getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_DIRECT_RESULTS)),
+        "1");
   }
 
   public Cloud getCloud() throws DatabricksParsingException {
@@ -450,10 +459,42 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       if (useThriftClient.equals("1")) {
         return DatabricksClientType.THRIFT;
       } else if (useThriftClient.equals("0")) {
+        // Warn if user explicitly chose SEA but also set Thrift-only metadata params
+        String explicitQueryForMetadata =
+            getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA);
+        String explicitCatalogAsPattern =
+            getParameterIgnoreDefault(
+                DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
+        if ((explicitQueryForMetadata != null && explicitQueryForMetadata.equals("0"))
+            || (explicitCatalogAsPattern != null && explicitCatalogAsPattern.equals("1"))) {
+          LOGGER.warn(
+              "UseThriftClient=0 (SEA) is set alongside Thrift-only metadata params "
+                  + "(UseQueryForMetadata={}, TreatMetadataCatalogNameAsPattern={}). "
+                  + "Honouring SEA — these metadata params will have no effect.",
+              explicitQueryForMetadata,
+              explicitCatalogAsPattern);
+        }
         return DatabricksClientType.SEA;
       }
     }
-    // Now, user has not provided a value, we will decide based on our checks
+    // Now, user has not provided a value for UseThriftClient, we will decide based on our checks.
+    // If user explicitly requires Thrift-native metadata behavior, stay on Thrift:
+    // - UseQueryForMetadata=0: user wants native Thrift RPCs for metadata (not SHOW commands)
+    // - TreatMetadataCatalogNameAsPattern=1: only works with native Thrift RPCs
+    String explicitUseQueryForMetadata =
+        getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA);
+    String explicitTreatCatalogAsPattern =
+        getParameterIgnoreDefault(DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
+    if ((explicitUseQueryForMetadata != null && explicitUseQueryForMetadata.equals("0"))
+        || (explicitTreatCatalogAsPattern != null && explicitTreatCatalogAsPattern.equals("1"))) {
+      LOGGER.info(
+          "Forcing Thrift client: user requires Thrift-native metadata behavior "
+              + "(UseQueryForMetadata={}, TreatMetadataCatalogNameAsPattern={})",
+          explicitUseQueryForMetadata,
+          explicitTreatCatalogAsPattern);
+      return DatabricksClientType.THRIFT;
+    }
+
     // Check if circuit breaker is open due to recent 429 rate limit failures
     if (SeaCircuitBreakerManager.isCircuitOpen()) {
       long remainingMs = SeaCircuitBreakerManager.getTimeRemainingMs();
@@ -915,11 +956,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public boolean isSqlExecDirectResultsEnabled() {
-    return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_DIRECT_RESULTS).equals("1");
-  }
-
-  @Override
   public String getAzureTenantId() {
     return getParameter(DatabricksJdbcUrlParams.AZURE_TENANT_ID);
   }
@@ -962,9 +998,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isGeoSpatialSupportEnabled() {
-    // Geospatial support requires complex datatype support to be enabled
-    return isComplexDatatypeSupportEnabled()
-        && getParameter(DatabricksJdbcUrlParams.ENABLE_GEOSPATIAL_SUPPORT).equals("1");
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_GEOSPATIAL_SUPPORT).equals("1");
   }
 
   @Override
@@ -1100,7 +1134,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean useQueryForMetadata() {
-    return getParameter(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA).equals("1");
+    return resolveFeatureFlag(
+        DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA, USE_QUERY_FOR_THRIFT_FLAG_NAME);
   }
 
   @Override
@@ -1163,18 +1198,109 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return this.parameters.getOrDefault(key.getParamName().toLowerCase(), null);
   }
 
+  /**
+   * Resolves a boolean feature flag with client-side priority over server-side.
+   *
+   * <p>Priority order:
+   *
+   * <ol>
+   *   <li>Client-side param (explicit user setting in JDBC URL) — honoured unconditionally
+   *   <li>Server-side feature flag (DBSQL warehouses only) — checked if user didn't set the param
+   *   <li>Default value from the param definition
+   * </ol>
+   *
+   * @param clientParam the JDBC URL parameter (e.g. USE_QUERY_FOR_METADATA)
+   * @param serverFlagName the server-side SAFE flag name
+   * @return true if the feature should be enabled
+   */
+  private boolean resolveFeatureFlag(DatabricksJdbcUrlParams clientParam, String serverFlagName) {
+    // 1. User explicitly set the param — honour it regardless of compute type
+    String explicitValue = getParameterIgnoreDefault(clientParam);
+    if (explicitValue != null) {
+      return explicitValue.equals("1");
+    }
+
+    // 2. No explicit setting + all-purpose cluster — always false
+    if (!(computeResource instanceof Warehouse)) {
+      return false;
+    }
+
+    // 3. No explicit setting + warehouse — enabled only when BOTH client default
+    //    AND server-side flag agree. This gives a two-key rollout mechanism:
+    //    flip the param default to "1" in the driver AND enable the server flag.
+    boolean clientDefault = getParameter(clientParam).equals("1");
+    boolean serverEnabled = false;
+    try {
+      serverEnabled =
+          DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
+              .isFeatureEnabled(serverFlagName);
+    } catch (Exception e) {
+      LOGGER.debug("Failed to check server-side flag {}: {}", serverFlagName, e.getMessage());
+    }
+
+    if (clientDefault && serverEnabled) {
+      LOGGER.debug(
+          "Feature {} enabled for warehouse: client default={}, server flag {} ={}",
+          clientParam.getParamName(),
+          clientDefault,
+          serverFlagName,
+          serverEnabled);
+      return true;
+    }
+
+    return false;
+  }
+
   private String getParameter(DatabricksJdbcUrlParams key, String defaultValue) {
     return this.parameters.getOrDefault(key.getParamName().toLowerCase(), defaultValue);
   }
 
+  private static final String ORG_ID_HEADER = "x-databricks-org-id";
+  private static final String ORG_ID_QUERY_PARAM = "o";
+
   private Map<String, String> parseCustomHeaders(ImmutableMap<String, String> parameters) {
     String filterPrefix = DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName();
 
-    return parameters.entrySet().stream()
-        .filter(entry -> entry.getKey().startsWith(filterPrefix))
-        .collect(
-            Collectors.toMap(
-                entry -> entry.getKey().substring(filterPrefix.length()), Map.Entry::getValue));
+    Map<String, String> headers =
+        new HashMap<>(
+            parameters.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(filterPrefix))
+                .collect(
+                    Collectors.toMap(
+                        entry -> entry.getKey().substring(filterPrefix.length()),
+                        Map.Entry::getValue)));
+
+    // Extract org ID from ?o= in httpPath for SPOG routing
+    if (!headers.containsKey(ORG_ID_HEADER)) {
+      String httpPath =
+          parameters.getOrDefault(
+              DatabricksJdbcUrlParams.HTTP_PATH.getParamName().toLowerCase(), "");
+      try {
+        for (NameValuePair param :
+            new URIBuilder("http://placeholder" + httpPath).getQueryParams()) {
+          if (ORG_ID_QUERY_PARAM.equals(param.getName())
+              && param.getValue() != null
+              && !param.getValue().isEmpty()) {
+            headers.put(ORG_ID_HEADER, param.getValue());
+            LOGGER.debug(
+                "SPOG header extraction: injecting {}={} (extracted from ?o= in httpPath)",
+                ORG_ID_HEADER,
+                param.getValue());
+            break;
+          }
+        }
+      } catch (URISyntaxException e) {
+        LOGGER.debug(
+            "SPOG header extraction: malformed httpPath, skipping org-id extraction: "
+                + e.getMessage());
+      }
+    } else {
+      LOGGER.debug(
+          "SPOG header extraction: {} already set by caller, not extracting from httpPath",
+          ORG_ID_HEADER);
+    }
+
+    return headers;
   }
 
   @Override

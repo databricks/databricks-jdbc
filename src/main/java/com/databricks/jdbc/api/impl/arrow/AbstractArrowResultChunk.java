@@ -241,6 +241,11 @@ public abstract class AbstractArrowResultChunk {
    * @param targetStatus new status to set
    */
   protected void setStatus(ChunkStatus targetStatus) {
+    if (getStatus() == ChunkStatus.CHUNK_RELEASED) {
+      LOGGER.debug(
+          "Skipping transition to {} — chunk [{}] already released", targetStatus, chunkIndex);
+      return;
+    }
     try {
       stateMachine.transition(targetStatus);
     } catch (DatabricksParsingException e) {

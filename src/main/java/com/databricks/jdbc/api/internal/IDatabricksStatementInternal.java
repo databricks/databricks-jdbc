@@ -28,4 +28,13 @@ public interface IDatabricksStatementInternal {
   void setInputStreamForUCVolume(InputStreamEntity inputStream) throws DatabricksSQLException;
 
   InputStreamEntity getInputStreamForUCVolume() throws DatabricksSQLException;
+
+  /**
+   * Marks that the server returned direct (inline) results and closed the operation. The JDBC
+   * Statement remains open for re-execution. Default no-op for implementations that don't support
+   * direct results.
+   */
+  default void markDirectResultsReceived() {
+    // no-op by default
+  }
 }

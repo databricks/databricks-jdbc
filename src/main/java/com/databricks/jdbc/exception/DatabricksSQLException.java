@@ -51,8 +51,16 @@ public class DatabricksSQLException extends SQLException {
 
   public DatabricksSQLException(
       String reason, String sqlState, DatabricksDriverErrorCode internalError) {
-    super(reason, sqlState);
-    logTelemetryEvent(sqlState, reason, false);
+    this(reason, sqlState, internalError, false);
+  }
+
+  public DatabricksSQLException(
+      String reason,
+      String sqlState,
+      DatabricksDriverErrorCode internalError,
+      boolean silentExceptions) {
+    super(reason, sqlState, internalError.getCode());
+    logTelemetryEvent(sqlState, reason, silentExceptions);
   }
 
   public DatabricksSQLException(String reason, String sqlState, int vendorCode) {
