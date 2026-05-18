@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -16,6 +17,58 @@ import java.util.Set;
  * parses these strings to generate concise CSV summaries.
  */
 public class ResultSetComparator {
+
+  /**
+   * JDBC-spec-mandated row ordering per DatabaseMetaData method. When the comparator runs one of
+   * these methods, both result sets are sorted by these columns (in order) before the row-by-row
+   * diff. This eliminates spurious cascading diffs when both backends return identical rows in
+   * different orders.
+   *
+   * <p>Sort columns are matched by name (case-insensitive) against the ResultSetMetaData of each
+   * side; if any sort column is missing, sorting is skipped gracefully.
+   */
+  private static final Map<String, List<String>> SORT_KEYS_BY_METHOD =
+      Map.ofEntries(
+          Map.entry("getCatalogs", List.of("TABLE_CAT")),
+          Map.entry("getSchemas", List.of("TABLE_CATALOG", "TABLE_SCHEM")),
+          Map.entry("getTables", List.of("TABLE_TYPE", "TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME")),
+          Map.entry(
+              "getColumns", List.of("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "ORDINAL_POSITION")),
+          Map.entry("getPrimaryKeys", List.of("COLUMN_NAME")),
+          Map.entry(
+              "getImportedKeys",
+              List.of("PKTABLE_CAT", "PKTABLE_SCHEM", "PKTABLE_NAME", "KEY_SEQ")),
+          Map.entry(
+              "getExportedKeys",
+              List.of("FKTABLE_CAT", "FKTABLE_SCHEM", "FKTABLE_NAME", "KEY_SEQ")),
+          Map.entry(
+              "getCrossReference",
+              List.of("FKTABLE_CAT", "FKTABLE_SCHEM", "FKTABLE_NAME", "KEY_SEQ")),
+          Map.entry(
+              "getFunctions",
+              List.of("FUNCTION_CAT", "FUNCTION_SCHEM", "FUNCTION_NAME", "SPECIFIC_NAME")),
+          Map.entry(
+              "getFunctionColumns",
+              List.of("FUNCTION_CAT", "FUNCTION_SCHEM", "FUNCTION_NAME", "SPECIFIC_NAME")),
+          Map.entry(
+              "getProcedures",
+              List.of("PROCEDURE_CAT", "PROCEDURE_SCHEM", "PROCEDURE_NAME", "SPECIFIC_NAME")),
+          Map.entry(
+              "getProcedureColumns",
+              List.of("PROCEDURE_CAT", "PROCEDURE_SCHEM", "PROCEDURE_NAME", "SPECIFIC_NAME")),
+          Map.entry("getColumnPrivileges", List.of("COLUMN_NAME", "PRIVILEGE")),
+          Map.entry(
+              "getTablePrivileges", List.of("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "PRIVILEGE")),
+          Map.entry("getBestRowIdentifier", List.of("SCOPE")),
+          Map.entry(
+              "getIndexInfo", List.of("NON_UNIQUE", "TYPE", "INDEX_NAME", "ORDINAL_POSITION")),
+          Map.entry("getUDTs", List.of("DATA_TYPE", "TYPE_CAT", "TYPE_SCHEM", "TYPE_NAME")),
+          Map.entry(
+              "getAttributes", List.of("TYPE_CAT", "TYPE_SCHEM", "TYPE_NAME", "ORDINAL_POSITION")),
+          Map.entry(
+              "getPseudoColumns",
+              List.of("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME")));
+
   public static ComparisonResult compare(
       String queryType, String queryOrMethod, Object[] methodArgs, Object result1, Object result2)
       throws SQLException {
@@ -52,12 +105,18 @@ public class ResultSetComparator {
       // Compare metadata (shared for both paths)
       result.metadataDifferences = compareMetadata(md1, md2);
 
-      // Compare data — drain+filter path when skipSchemas is set, streaming otherwise
-      if (!skipSchemas.isEmpty()) {
+      // Compare data — drain+filter+sort path when skipSchemas is set OR the method has a
+      // JDBC-spec sort order, streaming otherwise.
+      List<String> sortColumns = SORT_KEYS_BY_METHOD.get(queryOrMethod);
+      if (!skipSchemas.isEmpty() || sortColumns != null) {
         List<Object[]> rows1 = drainResultSet(rs1, md1.getColumnCount());
         List<Object[]> rows2 = drainResultSet(rs2, md2.getColumnCount());
         filterBySchema(rows1, md1, skipSchemas);
         filterBySchema(rows2, md2, skipSchemas);
+        if (sortColumns != null) {
+          sortByColumns(rows1, md1, sortColumns);
+          sortByColumns(rows2, md2, sortColumns);
+        }
         result.dataDifferences = compareRowData(rows1, rows2, md1, md2);
       } else {
         result.dataDifferences = compareData(rs1, rs2);
@@ -354,6 +413,38 @@ public class ResultSetComparator {
     int schemaCol = findColumnIndex(md, "TABLE_SCHEM");
     if (schemaCol < 0) return;
     rows.removeIf(row -> row[schemaCol] != null && skipSchemas.contains(row[schemaCol].toString()));
+  }
+
+  /**
+   * Sorts rows in place by the given list of column names (in order). Skips sorting gracefully if
+   * any column is missing from the ResultSetMetaData. Null cell values sort first.
+   */
+  private static void sortByColumns(
+      List<Object[]> rows, ResultSetMetaData md, List<String> columnNames) throws SQLException {
+    int[] indices = new int[columnNames.size()];
+    for (int i = 0; i < columnNames.size(); i++) {
+      indices[i] = findColumnIndex(md, columnNames.get(i));
+      if (indices[i] < 0) return;
+    }
+    rows.sort(
+        (a, b) -> {
+          for (int idx : indices) {
+            int c = compareNullable(a[idx], b[idx]);
+            if (c != 0) return c;
+          }
+          return 0;
+        });
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private static int compareNullable(Object a, Object b) {
+    if (a == null && b == null) return 0;
+    if (a == null) return -1;
+    if (b == null) return 1;
+    if (a instanceof Comparable && a.getClass() == b.getClass()) {
+      return ((Comparable) a).compareTo(b);
+    }
+    return a.toString().compareTo(b.toString());
   }
 
   private static int findColumnIndex(ResultSetMetaData md, String columnName) throws SQLException {
