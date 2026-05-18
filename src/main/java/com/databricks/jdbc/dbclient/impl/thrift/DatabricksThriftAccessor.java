@@ -1030,7 +1030,10 @@ final class DatabricksThriftAccessor {
         internalErrorCode);
   }
 
-  // Package-visible for heartbeat access from DatabricksThriftServiceClient
+  /**
+   * Gets the operation status for the given statement. Package-visible to allow heartbeat polling
+   * from {@link DatabricksThriftServiceClient#checkStatementAlive}.
+   */
   TGetOperationStatusResp getOperationStatus(
       TGetOperationStatusReq statusReq, StatementId statementId) throws TException {
     long operationStatusStartTime = System.nanoTime();

@@ -430,9 +430,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
           && state != StatementState.CLOSED
           && state != StatementState.FAILED;
     } catch (Exception e) {
-      // H10 fix: Catch all exceptions (DatabricksError, DatabricksException, IOException,
-      // RuntimeException) — not just IOException. A 401 token expiry should count as a
-      // transient failure, not bypass error handling.
+      // Catch all exceptions — SDK can throw DatabricksError, DatabricksException,
+      // IOException, or RuntimeException. All should count as transient heartbeat failures.
       LOGGER.debug("Heartbeat check failed for statement {}: {}", statementId, e.getMessage());
       throw new DatabricksSQLException(
           "Heartbeat status check failed", e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);

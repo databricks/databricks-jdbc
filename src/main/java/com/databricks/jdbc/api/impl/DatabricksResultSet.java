@@ -193,8 +193,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.cachedTelemetryCollector = resolveTelemetryCollector(parentStatement);
     this.isClosed = false;
     this.wasNull = false;
-    startHeartbeatIfEnabled(); // C4 fix: Thrift result sets also need heartbeat
-  }
+    startHeartbeatIfEnabled();   }
 
   /* Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls */
   public DatabricksResultSet(
@@ -320,7 +319,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
 
     try {
-      // C3 fix: Use JDBC unwrap() to handle pooled connection wrappers (HikariCP, DBCP)
+      // Use JDBC unwrap() to handle pooled connection wrappers (HikariCP, DBCP)
       java.sql.Connection rawConn = parentStatement.getStatement().getConnection();
       DatabricksConnection conn;
       if (rawConn instanceof DatabricksConnection) {
@@ -337,7 +336,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         return; // heartbeat not enabled
       }
 
-      // C2 fix: Capture only what the lambda needs — avoid capturing 'this' to prevent
+      // Capture only what the lambda needs — avoid capturing 'this' to prevent
       // abandoned ResultSets from keeping the warehouse alive via heartbeat.
       // Note: capturing 'client' retains a reference to the session/connection. If the
       // connection is GC'd without close(), heartbeat RPCs will fail and self-stop after
@@ -347,7 +346,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       final int maxConsecutiveFailures = 10;
       final java.util.concurrent.atomic.AtomicInteger consecutiveFailures =
           new java.util.concurrent.atomic.AtomicInteger(0);
-      // C1 fix: Read the stopped flag from the manager on each tick instead of pre-capturing.
+      // Read the stopped flag from the manager on each tick instead of pre-capturing.
       // Pre-capturing caused an orphan-flag bug: startHeartbeat() internally calls
       // stopHeartbeat() which removes and replaces the flag, leaving the lambda with a
       // permanently-true reference. Reading from the manager each tick always gets the
@@ -356,7 +355,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
       Runnable heartbeatTask =
           () -> {
-            // C1 fix: read current flag each tick
+            // Read current flag each tick — avoids orphan-flag issue
             java.util.concurrent.atomic.AtomicBoolean stopped =
                 capturedMgr.getStoppedFlag(capturedStatementId);
             if (stopped.get()) {

@@ -114,9 +114,9 @@ public interface IDatabricksClient {
    * @return true if the statement is still in a non-terminal state (alive), false if terminal
    */
   default boolean checkStatementAlive(StatementId statementId) throws SQLException {
-    // H7 fix: Throw instead of returning false. Returning false is treated as "terminal state"
-    // by the heartbeat task, causing misleading "terminal state" logs. Throwing makes the
-    // heartbeat task count it as a failure, which is more accurate for unsupported clients.
+    // Throw instead of returning false — returning false is treated as "terminal state"
+    // by the heartbeat task, causing misleading logs. Throwing is more accurate for
+    // clients that don't support heartbeat.
     throw new java.sql.SQLFeatureNotSupportedException("Heartbeat not supported by this client");
   }
 

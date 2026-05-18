@@ -67,7 +67,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   private static ResultHeartbeatManager createHeartbeatManager(
       IDatabricksConnectionContext connectionContext) {
-    // H6 fix: Use interface methods instead of instanceof check so mocks and
+    // Use interface methods instead of instanceof check so mocks and
     // alternate implementations can also enable heartbeat
     if (connectionContext.isHeartbeatEnabled()) {
       return new ResultHeartbeatManager(connectionContext.getHeartbeatIntervalSeconds());
@@ -434,7 +434,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void close() throws SQLException {
     LOGGER.debug("public void close()");
-    // H5 fix: Shutdown heartbeat FIRST — prevents RPCs on closing connections and
+    // Shutdown heartbeat FIRST — prevents RPCs on closing connections and
     // ensures shutdown runs even if statement.close() throws
     if (heartbeatManager != null) {
       heartbeatManager.shutdown();
