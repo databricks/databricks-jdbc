@@ -476,6 +476,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             session.toString(), catalog, schemaNamePattern, tableNamePattern);
     LOGGER.debug(context);
 
+    // Per JDBC spec: null types = return all types; empty array = return nothing
+    if (tableTypes != null && tableTypes.length == 0) {
+      return metadataResultSetBuilder.getTablesResult(catalog, tableTypes, new ArrayList<>());
+    }
+
     if (!metadataResultSetBuilder.shouldAllowCatalogAccess(catalog, null, session)) {
       return metadataResultSetBuilder.getTablesResult(catalog, tableTypes, new ArrayList<>());
     }

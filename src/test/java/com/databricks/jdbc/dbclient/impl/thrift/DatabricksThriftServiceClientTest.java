@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -588,6 +589,21 @@ public class DatabricksThriftServiceClientTest {
     DatabricksResultSet resultSet =
         client.listTables(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, tableTypes);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+  }
+
+  @Test
+  void testListTablesWithEmptyTypesReturnsEmptyWithoutServerCall() throws SQLException {
+    // Per JDBC spec: empty types array means "no types selected" → return no rows.
+    // The driver must short-circuit and NOT send the Thrift request to the server.
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+
+    DatabricksResultSet resultSet =
+        client.listTables(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, new String[0]);
+
+    assertEquals(StatementState.SUCCEEDED, resultSet.getStatementStatus().getState());
+    assertFalse(resultSet.next(), "Empty types array must yield zero rows");
+    verify(thriftAccessor, never()).getThriftResponse(any());
   }
 
   @Test
