@@ -465,8 +465,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       return;
     }
     Statement statement = this.createStatement();
-    statement.execute("SET CATALOG `" + catalog + "`");
-    this.session.setCatalog(catalog);
+    String cleanCatalog = stripBackticks(catalog);
+    statement.execute("SET CATALOG `" + cleanCatalog + "`");
+    this.session.setCatalog(cleanCatalog);
   }
 
   @Override
@@ -841,8 +842,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void setSchema(String schema) throws SQLException {
     Statement statement = this.createStatement();
-    statement.execute("USE SCHEMA `" + schema + "`");
-    session.setSchema(schema);
+    String cleanSchema = stripBackticks(schema);
+    statement.execute("USE SCHEMA `" + cleanSchema + "`");
+    session.setSchema(cleanSchema);
   }
 
   @Override
@@ -1065,5 +1067,15 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
         LOGGER.error(e, "Error closing statement: {}", e.getMessage());
       }
     }
+  }
+
+  private static String stripBackticks(String identifier) {
+    if (identifier != null
+        && identifier.startsWith("`")
+        && identifier.endsWith("`")
+        && identifier.length() >= 2) {
+      return identifier.substring(1, identifier.length() - 1);
+    }
+    return identifier;
   }
 }
