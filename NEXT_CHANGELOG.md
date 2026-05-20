@@ -71,6 +71,7 @@ upgrading. These changes do not affect metadata on All-Purpose Clusters.
 - Fixed telemetry HTTP client socket leak that prevented CRaC checkpoint. After `Connection.close()`, delayed telemetry flush tasks could re-create HTTP clients that were never closed, leaking TCP sockets. Fixes #1325.
 - Fixed client-side enforcement of `maxRows` limit. When `statement.setMaxRows()` is set, `ResultSet.next()` now returns false once the row limit is reached, even if the server returns more rows. Applies to all result types (Thrift, SEA, inline, CloudFetch).
 - Bump shaded `bouncycastle` (`bcprov-jdk18on`, `bcpkix-jdk18on`) from 1.79 to 1.84 to address [CVE-2026-5598](https://github.com/advisories/GHSA-p93r-85wp-75v3) (covert timing channel, severity 8.9) and two related MEDIUM CVEs (GHSA-wg6q-6289-32hp, GHSA-c3fc-8qff-9hwx). All three are unsurfaced by NVD-CPE scanners but visible to GHSA-backed scanners like OSV.
+- Bump shaded `libthrift` from 0.19.0 to 0.23.0 to clear the May 2026 Apache Thrift advisory batch (GHSA-7pwc-h2j2-rjgj covering CVE-2026-41603/41604/41605/43869). The libthrift 0.21 release changed `ProcessFunction`'s generic signatures, which required regenerating the project's checked-in Thrift-generated Java sources with the matching compiler. A new `scripts/regenerate-thrift.sh` script automates this for future Thrift bumps.
 
 ---
 *Note: When making changes, please add your change under the appropriate section
