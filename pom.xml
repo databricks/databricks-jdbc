@@ -61,6 +61,7 @@
     <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
     <spotless-maven-plugin.version>2.39.0</spotless-maven-plugin.version>
     <build-helper-maven-plugin.version>3.6.1</build-helper-maven-plugin.version>
+    <cyclonedx-maven-plugin.version>2.9.1</cyclonedx-maven-plugin.version>
 
     <!-- Dependency Versions -->
     <databricks-jdbc-version>3.3.3</databricks-jdbc-version>
@@ -171,6 +172,11 @@
           <artifactId>build-helper-maven-plugin</artifactId>
           <version>${build-helper-maven-plugin.version}</version>
         </plugin>
+        <plugin>
+          <groupId>org.cyclonedx</groupId>
+          <artifactId>cyclonedx-maven-plugin</artifactId>
+          <version>${cyclonedx-maven-plugin.version}</version>
+        </plugin>
       </plugins>
     </pluginManagement>
 
@@ -202,6 +208,38 @@
             </excludes>
           </java>
         </configuration>
+      </plugin>
+      <plugin>
+        <!--
+          Emits a CycloneDX SBOM (target/bom.json) per module + an aggregate
+          BOM at the root build dir during `mvn package`. The PR security
+          scan workflow feeds the aggregate BOM to osv-scanner so it scans
+          the actually-resolved local dependency tree, rather than relying
+          on deps.dev's metadata for the currently-published GA (which lags
+          behind whatever bumps are sitting on main).
+        -->
+        <groupId>org.cyclonedx</groupId>
+        <artifactId>cyclonedx-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>aggregate-bom</id>
+            <phase>package</phase>
+            <goals>
+              <goal>makeAggregateBom</goal>
+            </goals>
+            <configuration>
+              <outputFormat>json</outputFormat>
+              <schemaVersion>1.5</schemaVersion>
+              <!--
+                Override default: cyclonedx auto-skips modules with
+                maven.deploy.skip=true (like the parent and jdbc-core).
+                We want the SBOM for the security scan regardless of
+                deploy status.
+              -->
+              <skipNotDeployed>false</skipNotDeployed>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

@@ -1,0 +1,81 @@
+# OSV-Scanner suppressions for the databricks-jdbc PR security gate.
+#
+# Mirror of owasp-suppressions.xml. Each entry suppresses a CVE that is a
+# documented CPE / ecosystem false positive against an artifact we ship.
+# When you add or remove an entry here, mirror the same change in
+# owasp-suppressions.xml so the two scanners report the same set of
+# findings on every PR.
+#
+# See google.github.io/osv-scanner/configuration/ for schema.
+
+# --- Apache Arrow ---
+# Both Arrow CVEs below come from the same CPE collision pattern: an advisory
+# scoped to Arrow C++ or Arrow R, matched against the Java arrow-* artifacts
+# via the shared "apache:arrow" identifier. Java Arrow is unaffected.
+
+[[IgnoredVulns]]
+id = "CVE-2026-25087"
+reason = """
+Use-After-Free in Apache Arrow C++ IPC file reader (variadic buffers). Does
+not affect the Java Arrow libraries (arrow-memory-core, arrow-vector, etc.)
+which are pure Java with no native C++ code. False positive via the shared
+apache:arrow CPE/identifier namespace.
+"""
+
+[[IgnoredVulns]]
+id = "CVE-2024-52338"
+reason = """
+Deserialization vulnerability in the Apache Arrow R package on CRAN
+(R 4.0.0 - 16.1.0, fixed in R 17.0.0). Apache advisory explicitly states it
+does not affect other Arrow implementations or bindings. Driver ships Java
+Arrow 18.3.0 -- wrong ecosystem and outside version range.
+See https://www.openwall.com/lists/oss-security/2024/11/28/3
+"""
+
+# --- gRPC ---
+[[IgnoredVulns]]
+id = "CVE-2026-33186"
+reason = """
+gRPC-Go server authorization bypass (google.golang.org/grpc, fixed in
+1.79.3). The Java gRPC libraries (io.grpc:grpc-api / grpc-context /
+grpc-stub) are a separate codebase with independent release lines and are
+not affected. The JDBC driver is a gRPC client only -- it does not run a
+gRPC server and has no server-side attack surface.
+"""
+
+# --- protobuf-java ---
+[[IgnoredVulns]]
+id = "CVE-2026-0994"
+reason = """
+Vulnerability in pip protobuf (Python) json_format.ParseDict(). Advisory
+record lists only the pip module as affected. False positive via the
+google:protobuf CPE namespace.
+"""
+
+# --- libthrift (non-Java bindings) ---
+# Several CVEs in the May 2026 Apache Thrift advisory batch are scoped to
+# non-Java bindings (Go, Node.js, C_glib, Rust). They get matched against
+# the Java libthrift jar via the shared apache:thrift identifier.
+# Remaining libthrift CVEs whose binding is unspecified or known to affect
+# Java are NOT suppressed and will be cleared by a follow-up bump to
+# libthrift 0.23.0.
+
+[[IgnoredVulns]]
+id = "CVE-2025-48431"
+reason = "libthrift C_glib (invalid free). Not Java. CPE namespace collision."
+
+[[IgnoredVulns]]
+id = "CVE-2026-41602"
+reason = "libthrift Go TFramedTransport. Not Java. CPE namespace collision."
+
+[[IgnoredVulns]]
+id = "CVE-2026-41636"
+reason = "libthrift Node.js skip() recursion. Not Java. CPE namespace collision."
+
+[[IgnoredVulns]]
+id = "CVE-2026-43868"
+reason = "libthrift Rust memory allocation excess size. Not Java. CPE namespace collision."
+
+[[IgnoredVulns]]
+id = "CVE-2026-43870"
+reason = "libthrift Node.js web_server.js multi-vuln. Not Java. CPE namespace collision."
