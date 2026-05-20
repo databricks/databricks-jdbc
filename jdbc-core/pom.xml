@@ -218,7 +218,7 @@
     <dependency>
       <groupId>org.apache.httpcomponents.core5</groupId>
       <artifactId>httpcore5</artifactId>
-      <version>${async-httpclient.version}</version>
+      <version>${httpcore5.version}</version>
     </dependency>
     <dependency>
       <groupId>io.github.resilience4j</groupId>
