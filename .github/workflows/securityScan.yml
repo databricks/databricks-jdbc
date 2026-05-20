@@ -8,27 +8,23 @@ name: Security Scan
 #     notification and fail the job.
 #   - workflow_dispatch: behaves like the cron run (sends email).
 #
-# Two scanners run on every invocation:
+# Scanner: OSV-Scanner v2.3.8 (purl-based via OSV.dev; federates GHSA,
+# NVD, PyPA, RustSec, Go vuln DB). Reads the cyclonedx aggregate SBOM
+# produced by `mvn package` so it sees the actually-resolved local
+# dependency tree, not deps.dev's stale published-artifact metadata.
 #
-#   - OWASP dependency-check (NVD CPE-based). Reuses owasp-suppressions.xml
-#     and the <failBuildOnCVSS>7</failBuildOnCVSS> threshold from
-#     jdbc-core/pom.xml. The maven plugin exits non-zero on findings, so
-#     continue-on-error is set on that step; the explicit findings step
-#     below is what decides whether to alert.
+# OSV replaced OWASP dependency-check (NVD CPE-based) as the sole gate
+# in PR #1460. OSV's database is a strict superset of NVD's, and several
+# real CVEs (CVE-2025-66566 in lz4, CVE-2026-5598 in bouncycastle) are
+# GHSA-only with no NVD CPE -- invisible to OWASP, caught by OSV. The
+# `owasp-suppressions.xml` and dependency-check plugin in jdbc-core/pom.xml
+# remain in the repo because the in-repo release.yml/release-thin.yml
+# workflows still reference them, but those workflows are themselves
+# `if: false` and superseded by databricks/secure-public-registry-releases-eng.
 #
-#   - OSV-Scanner v2.3.8 (purl-based via OSV.dev; federates
-#     GHSA/NVD/PyPA/RustSec). Catches advisories with no NVD CPE entry --
-#     e.g. CVE-2025-66566 in at.yawk.lz4:lz4-java and CVE-2026-5598 in
-#     bouncycastle, both invisible to OWASP. Reads the cyclonedx aggregate
-#     SBOM produced by `mvn package` so it sees the actually-resolved
-#     local dependency tree.
-#
-# Suppression files (keep in sync):
-#
-#   - owasp-suppressions.xml -- consumed by OWASP.
-#   - osv-scanner.toml       -- consumed by OSV.
-#
-# Both files have justification comments per entry.
+# Suppressions live in `osv-scanner.toml` as [[IgnoredVulns]] entries
+# (CVE-id global; OSV-Scanner v2.3.8 doesn't support per-package CVE
+# scoping). Each entry has a justification comment.
 
 on:
   pull_request:
@@ -59,27 +55,12 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # Cache OWASP's NVD vulnerability database (~150 MB of CVE feeds).
-      # Without this, dependency-check downloads it fresh on every run,
-      # which adds ~2 minutes. The restore-key prefix means we always
-      # restore the most recent cache; OWASP itself decides whether to
-      # incrementally update the data on top (default: every 4 hours), so
-      # we get fresh CVE data without paying the full download each time.
-      - name: Compute NVD cache key
-        id: nvd-key
-        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache NVD database
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
-        with:
-          path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: nvd-${{ runner.os }}-${{ steps.nvd-key.outputs.date }}
-          restore-keys: |
-            nvd-${{ runner.os }}-
-
-      # JFrog OIDC + maven proxy. Skipped on fork PRs (no OIDC token); the
-      # build will fall through to Maven Central directly, which is slower
-      # but still works for read-only resolution.
+      # JFrog OIDC + maven proxy: skipped on fork PRs (no OIDC token from
+      # GitHub's perspective). Fork PRs still work because all of the
+      # driver's direct dependencies are published to public Maven Central
+      # (verified against jdbc-core/pom.xml); without ~/.m2/settings.xml,
+      # Maven falls through to Central directly. JFrog is just a faster
+      # mirror, not a source of any artifact the build genuinely needs.
       - name: Get JFrog OIDC token
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
@@ -128,20 +109,11 @@ jobs:
           EOF
 
       # Build the project to produce the cyclonedx aggregate SBOM that OSV
-      # will scan. -Ddependency-check.skip=true because OWASP runs as its
-      # own explicit step below.
+      # will scan. -Ddependency-check.skip=true because the OWASP plugin
+      # is bound to the verify phase in jdbc-core/pom.xml and we don't
+      # use it anymore -- skipping saves ~2 minutes.
       - name: Build (generates cyclonedx SBOM)
         run: mvn package -DskipTests -Ddependency-check.skip=true -B
-
-      - name: Run OWASP Dependency Check
-        # failBuildOnCVSS=7 in jdbc-core/pom.xml makes this step exit
-        # non-zero on findings. Let it pass; the findings step below
-        # decides whether to alert (and is the single source of truth for
-        # both PR-fail and weekly-email branches).
-        continue-on-error: true
-        run: |
-          mvn -pl jdbc-core org.owasp:dependency-check-maven:check \
-            -Dnvd.api.key=${{ secrets.NVD_API_KEY }}
 
       - name: Install osv-scanner
         run: |
@@ -152,8 +124,17 @@ jobs:
           /tmp/osv-scanner --version
 
       - name: Run OSV-Scanner
+        # Drop -e because osv-scanner exits 1 on ANY finding regardless of
+        # severity. The severity >= 7 filter below is our actual gate, so
+        # we explicitly tolerate osv-scanner's non-zero exit via `|| true`.
         run: |
           set -uo pipefail
+
+          if [ ! -f target/bom.json ]; then
+            echo "::error::SBOM not found at target/bom.json (build likely failed)."
+            exit 1
+          fi
+
           /tmp/osv-scanner scan source \
             --recursive=false \
             --config=osv-scanner.toml \
@@ -161,105 +142,80 @@ jobs:
             --output-file=/tmp/osv-out.json \
             target/bom.json || true
 
-      # Single source of truth for "are there findings?". Combines OWASP's
-      # HTML report (grep) and OSV's JSON (jq, filtered to CVSS >= 7).
-      # Sets job outputs that the terminal steps below consume.
+          if [ ! -s /tmp/osv-out.json ]; then
+            echo "::error::OSV-Scanner did not produce an output file."
+            exit 1
+          fi
+
+      # Parse OSV's JSON into job outputs. The terminal steps below
+      # (PR-fail and email) consume these outputs.
       - name: Collect findings
         id: findings
         run: |
           set -uo pipefail
 
-          # --- OWASP findings ---
-          # Read the JSON report directly. Suppressed CVEs are omitted from
-          # the report by OWASP itself, so this counts only real findings.
-          OWASP_COUNT=0
-          if [ -f jdbc-core/target/dependency-check-report.json ]; then
-            OWASP_COUNT=$(jq '[
-              .dependencies[]? |
-              .vulnerabilities[]? |
-              select((.cvssv3.baseScore // .cvssv2.score // 0) >= 7)
-            ] | length' jdbc-core/target/dependency-check-report.json)
-          fi
-          OWASP_HIGH=false
-          if [ "$OWASP_COUNT" -gt 0 ]; then
-            OWASP_HIGH=true
-          fi
+          # Total findings ignores severity; high findings filter to >=7.
+          # Log both so a mismatch (e.g. 50 total / 0 high) is visible --
+          # protects against silent fail-open if OSV ever changes its
+          # severity format (e.g. emits "HIGH" instead of a number, which
+          # `tonumber? // 0` would mask).
+          TOTAL_FINDINGS=$(jq '[.results[].packages[]? | .groups[]?] | length' /tmp/osv-out.json)
+          HIGH_FINDINGS=$(jq -c '[
+            .results[].packages[]? |
+            .package as $pkg |
+            .groups[]? |
+            select((.max_severity | tonumber? // 0) >= 7) |
+            {pkg: ($pkg.name + "@" + $pkg.version), ids: .ids, severity: .max_severity}
+          ]' /tmp/osv-out.json)
+          HIGH_COUNT=$(echo "$HIGH_FINDINGS" | jq 'length')
 
-          # --- OSV findings (filter to CVSS >= 7) ---
-          OSV_HIGH_JSON='[]'
-          if [ -f /tmp/osv-out.json ]; then
-            OSV_HIGH_JSON=$(jq -c '[
-              .results[].packages[]? |
-              .package as $pkg |
-              .groups[]? |
-              select((.max_severity | tonumber? // 0) >= 7) |
-              {pkg: ($pkg.name + "@" + $pkg.version), ids: .ids, severity: .max_severity}
-            ]' /tmp/osv-out.json)
-          fi
-          OSV_COUNT=$(echo "$OSV_HIGH_JSON" | jq 'length')
-          OSV_HIGH=false
-          if [ "$OSV_COUNT" -gt 0 ]; then
-            OSV_HIGH=true
-          fi
-
-          # --- Combined verdict ---
           HAS_FINDINGS=false
-          if [ "$OWASP_HIGH" = "true" ] || [ "$OSV_HIGH" = "true" ]; then
+          if [ "$HIGH_COUNT" -gt 0 ]; then
             HAS_FINDINGS=true
           fi
 
-          echo "owasp_count=$OWASP_COUNT" >> "$GITHUB_OUTPUT"
-          echo "osv_count=$OSV_COUNT" >> "$GITHUB_OUTPUT"
+          echo "total_findings=$TOTAL_FINDINGS" >> "$GITHUB_OUTPUT"
+          echo "high_count=$HIGH_COUNT" >> "$GITHUB_OUTPUT"
           echo "has_findings=$HAS_FINDINGS" >> "$GITHUB_OUTPUT"
 
-          # Log to job summary so it's visible without downloading artifacts.
+          # Step summary so findings are visible in the GH Actions UI
+          # without downloading artifacts.
           {
-            echo "## Security Scan Findings"
+            echo "## OSV-Scanner Findings"
             echo ""
-            echo "- OWASP CVSS>=7 findings: \`$OWASP_COUNT\` (see uploaded HTML report for details)"
-            echo "- OSV CVSS>=7 findings: \`$OSV_COUNT\`"
-            if [ "$OSV_COUNT" -gt 0 ]; then
+            echo "- Total findings (any severity): \`$TOTAL_FINDINGS\`"
+            echo "- High findings (CVSS >= 7): \`$HIGH_COUNT\`"
+            if [ "$HIGH_COUNT" -gt 0 ]; then
               echo ""
-              echo "OSV findings:"
-              echo "$OSV_HIGH_JSON" | jq -r '.[] | "- \(.pkg) | \(.ids | join(",")) | severity \(.severity)"'
+              echo "Unsuppressed CVSS>=7 findings:"
+              echo "$HIGH_FINDINGS" | jq -r '.[] | "- \(.pkg) | \(.ids | join(",")) | severity \(.severity)"'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "$HAS_FINDINGS" = "true" ]; then
-            echo "::warning::Unsuppressed CVSS>=7 findings detected. See job summary."
-          else
-            echo "No unsuppressed CVSS>=7 findings."
-          fi
+          echo "OSV: $TOTAL_FINDINGS total findings, $HIGH_COUNT at CVSS>=7"
 
       # --- Terminal: PR event ---
-      # Fail the job so the PR's check goes red. No email; reviewers see
-      # the ❌ in the PR conversation and dig into the artifacts/summary.
+      # Fail the job so the PR's check goes red. No email.
       - name: Fail on findings (PR)
         if: github.event_name == 'pull_request' && steps.findings.outputs.has_findings == 'true'
         run: |
-          echo "::error::Unsuppressed CVSS>=7 finding(s) in this PR."
+          echo "::error::${{ steps.findings.outputs.high_count }} unsuppressed CVSS>=7 finding(s) in this PR. See the step summary or downloaded artifacts."
           echo ""
           echo "Fix by either:"
           echo "  1. Bumping the affected dependency to a patched version, or"
-          echo "  2. Adding a documented suppression entry to BOTH"
-          echo "     owasp-suppressions.xml AND osv-scanner.toml (keep them in sync)."
+          echo "  2. Adding a documented [[IgnoredVulns]] entry to osv-scanner.toml"
+          echo "     with a clear justification for why the CVE doesn't apply to our usage."
           exit 1
 
       # --- Terminal: scheduled/manual event ---
-      # On the weekly cron (and manual workflow_dispatch reruns), send the
-      # existing email notification and fail the job. Uses the same SMTP
-      # secrets as the old vulnerabilityCatcher.yml.
       - name: Compose email body
         if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.findings.outputs.has_findings == 'true'
         run: |
           {
             echo "<!DOCTYPE html><html><head><title>JDBC Driver Security Scan Results</title></head><body>"
             echo "<h1>Security Vulnerabilities Found</h1>"
-            echo "<p>Unsuppressed CVSS &gt;= 7 finding(s) detected in the weekly scan of the JDBC driver.</p>"
-            echo "<ul>"
-            echo "  <li>OWASP findings: ${{ steps.findings.outputs.owasp_count }}</li>"
-            echo "  <li>OSV findings: ${{ steps.findings.outputs.osv_count }}</li>"
-            echo "</ul>"
+            echo "<p><b>${{ steps.findings.outputs.high_count }}</b> unsuppressed CVSS &gt;= 7 finding(s) detected in the weekly scan of the JDBC driver."
+            echo "(Total OSV findings at any severity: ${{ steps.findings.outputs.total_findings }}.)</p>"
             echo "<p>Full reports are attached to the GitHub Actions run as artifacts: <a href='https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'>View Artifacts</a></p>"
             echo "</body></html>"
           } > security-scan-report.html
@@ -292,8 +248,6 @@ jobs:
         with:
           name: security-scan-reports
           path: |
-            jdbc-core/target/dependency-check-report.html
-            jdbc-core/target/dependency-check-report.json
             /tmp/osv-out.json
             target/bom.json
             security-scan-report.html
