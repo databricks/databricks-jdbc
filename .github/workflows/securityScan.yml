@@ -211,7 +211,14 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+          # Also dump the findings to the job log so they're visible in
+          # the default "Logs" view, not just the step summary panel.
           echo "OSV: $TOTAL_FINDINGS total findings, $HIGH_COUNT at CVSS>=7"
+          if [ "$TOTAL_FINDINGS" -gt 0 ]; then
+            echo ""
+            echo "All findings (sorted by severity desc):"
+            echo "$ALL_FINDINGS" | jq -r '.[] | "  [\(.severity)] \(.pkg)  \(.ids | join(", "))"'
+          fi
 
       # --- Terminal: PR event ---
       # Fail the job so the PR's check goes red. No email.
@@ -220,12 +227,22 @@ jobs:
       - name: Fail on findings (PR)
         if: github.event_name == 'pull_request' && steps.findings.outputs.high_count != '0'
         run: |
-          echo "::error::${{ steps.findings.outputs.high_count }} unsuppressed CVSS>=7 finding(s) in this PR. See the step summary or downloaded artifacts."
+          set -uo pipefail
+          # List the actual HIGH findings inline so the author sees what
+          # needs fixing without clicking through to the step summary
+          # panel or downloading artifacts.
+          HIGH_FINDINGS=$(jq -c '[.[] | select((.severity | tonumber? // 0) >= 7)]' /tmp/all-findings.json)
+
+          echo "::error::${{ steps.findings.outputs.high_count }} unsuppressed CVSS>=7 finding(s) in this PR:"
+          echo ""
+          echo "$HIGH_FINDINGS" | jq -r '.[] | "  [\(.severity)] \(.pkg)  \(.ids | join(", "))"'
           echo ""
           echo "Fix by either:"
           echo "  1. Bumping the affected dependency to a patched version, or"
           echo "  2. Adding a documented [[IgnoredVulns]] entry to osv-scanner.toml"
           echo "     with a clear justification for why the CVE doesn't apply to our usage."
+          echo ""
+          echo "Full step summary: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           exit 1
 
       # --- Terminal: scheduled/manual event ---
