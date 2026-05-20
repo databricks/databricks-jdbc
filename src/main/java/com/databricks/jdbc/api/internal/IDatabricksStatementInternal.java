@@ -37,4 +37,15 @@ public interface IDatabricksStatementInternal {
   default void markDirectResultsReceived() {
     // no-op by default
   }
+
+  /**
+   * Proactively closes the server-side operation to release server resources while keeping the
+   * client-side Statement open for reuse. Default no-op for implementations that don't support
+   * proactive close.
+   */
+  default void closeServerOperation() {
+    // no-op by default
+  }
+
+  long getLargeMaxRows() throws DatabricksSQLException;
 }

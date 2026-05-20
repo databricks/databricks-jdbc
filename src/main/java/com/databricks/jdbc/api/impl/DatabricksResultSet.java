@@ -288,10 +288,19 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public void close() throws DatabricksSQLException {
+    // Proactively close server operation when ResultSet is closed explicitly.
+    closeServerOperation();
     isClosed = true;
     this.executionResult.close();
     if (parentStatement != null) {
       parentStatement.handleResultSetClose(this);
+    }
+  }
+
+  /** Proactively closes the server-side operation via the parent statement. */
+  private void closeServerOperation() {
+    if (parentStatement != null) {
+      parentStatement.closeServerOperation();
     }
   }
 
