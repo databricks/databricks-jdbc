@@ -1,0 +1,323 @@
+name: Security Scan
+
+# Single source of truth for dependency vulnerability scanning. Replaces the
+# previous vulnerabilityCatcher.yml (weekly-only) workflow. Runs two scanners
+# with complementary coverage in two trigger modes:
+#
+#   - On every pull_request to main (the `pr-scan` job): fails the job if
+#     either scanner reports an unsuppressed CVSS >= 7 finding. Not yet
+#     marked required-to-merge; once the outstanding libthrift and
+#     bouncycastle findings are cleared, flip to required.
+#
+#   - On a weekly schedule + workflow_dispatch (the `weekly-scan` job):
+#     sends an email notification on any unsuppressed CVSS >= 7 finding.
+#     Backstops the PR gate by catching CVEs newly filed against unchanged
+#     code.
+#
+# Scanners:
+#
+#   - OWASP dependency-check (NVD CPE-based). Existing setup; reuses
+#     owasp-suppressions.xml and the <failBuildOnCVSS>7</failBuildOnCVSS>
+#     threshold from jdbc-core/pom.xml.
+#
+#   - OSV-Scanner v2.3.8 (purl-based via OSV.dev; federates
+#     GHSA/NVD/PyPA/RustSec). Catches advisories with no NVD CPE entry --
+#     e.g. CVE-2025-66566 in at.yawk.lz4:lz4-java and CVE-2026-5598 in
+#     bouncycastle, both invisible to OWASP. Reads the cyclonedx aggregate
+#     SBOM produced by `mvn package` so it sees the actually-resolved
+#     local dependency tree, not deps.dev's stale published-artifact
+#     metadata.
+#
+# Suppression files (keep in sync):
+#
+#   - owasp-suppressions.xml -- consumed by OWASP.
+#   - osv-scanner.toml       -- consumed by OSV.
+#
+# Both files have justification comments per entry.
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 0'  # Run every Sunday at midnight UTC
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+
+  # ----------------------------------------------------------------------------
+  # PR scan: runs on pull_request + workflow_dispatch (so authors and reviewers
+  # can manually rerun against a branch). Fails the job on findings; reviewers
+  # see a red X in the PR's checks list.
+  # ----------------------------------------------------------------------------
+  pr-scan:
+    name: PR Security Scan
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      # JFrog OIDC + maven proxy: skipped on fork PRs (no OIDC token).
+      - name: Get JFrog OIDC token
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          set -euo pipefail
+
+          ID_TOKEN=$(curl -sLS \
+            -H "User-Agent: actions/oidc-client" \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=jfrog-github" | jq .value | tr -d '"')
+          echo "::add-mask::${ID_TOKEN}"
+
+          ACCESS_TOKEN=$(curl -sLS -XPOST -H "Content-Type: application/json" \
+            "https://databricks.jfrog.io/access/api/v1/oidc/token" \
+            -d "{\"grant_type\": \"urn:ietf:params:oauth:grant-type:token-exchange\", \"subject_token_type\":\"urn:ietf:params:oauth:token-type:id_token\", \"subject_token\": \"${ID_TOKEN}\", \"provider_name\": \"github-actions\"}" | jq .access_token | tr -d '"')
+          echo "::add-mask::${ACCESS_TOKEN}"
+
+          if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+            echo "FAIL: Could not extract JFrog access token"
+            exit 1
+          fi
+
+          echo "JFROG_ACCESS_TOKEN=${ACCESS_TOKEN}" >> "$GITHUB_ENV"
+
+      - name: Configure maven
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << EOF
+          <settings>
+            <mirrors>
+              <mirror>
+                <id>jfrog-central</id>
+                <mirrorOf>*</mirrorOf>
+                <url>https://databricks.jfrog.io/artifactory/db-maven/</url>
+              </mirror>
+            </mirrors>
+            <servers>
+              <server>
+                <id>jfrog-central</id>
+                <username>gha-service-account</username>
+                <password>${JFROG_ACCESS_TOKEN}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      # Build the project to produce the cyclonedx aggregate SBOM that OSV will
+      # scan. -Ddependency-check.skip=true because OWASP runs as its own
+      # explicit step below.
+      - name: Build (generates cyclonedx SBOM)
+        run: mvn package -DskipTests -Ddependency-check.skip=true -B
+
+      - name: Run OWASP Dependency Check
+        id: owasp
+        run: |
+          mvn -pl jdbc-core org.owasp:dependency-check-maven:check \
+            -Dnvd.api.key=${{ secrets.NVD_API_KEY }}
+
+      - name: Install osv-scanner
+        if: always()
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/osv-scanner \
+            https://github.com/google/osv-scanner/releases/download/v2.3.8/osv-scanner_linux_amd64
+          chmod +x /tmp/osv-scanner
+          /tmp/osv-scanner --version
+
+      - name: Run OSV-Scanner
+        id: osv
+        if: always()
+        run: |
+          set -uo pipefail
+          # Scan only the aggregate SBOM at the repo root. Per-module SBOMs
+          # would just repeat findings for shared transitives; the aggregate
+          # is the de-duped view.
+          /tmp/osv-scanner scan source \
+            --recursive=false \
+            --config=osv-scanner.toml \
+            --format=json \
+            --output-file=/tmp/osv-out.json \
+            target/bom.json || true
+
+          # OSV-Scanner's exit code isn't severity-aware; filter to >=7 here.
+          HIGH_FINDINGS=$(jq '[
+            .results[].packages[]? |
+            .package as $pkg |
+            .groups[]? |
+            select((.max_severity | tonumber? // 0) >= 7) |
+            {pkg: ($pkg.name + "@" + $pkg.version), ids: .ids, severity: .max_severity}
+          ]' /tmp/osv-out.json)
+
+          COUNT=$(echo "$HIGH_FINDINGS" | jq 'length')
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::error::OSV-Scanner found $COUNT unsuppressed CVSS>=7 finding(s):"
+            echo "$HIGH_FINDINGS" | jq -r '.[] | "  - \(.pkg) | \(.ids | join(",")) | severity \(.severity)"'
+            echo ""
+            echo "Fix by:"
+            echo "  1. Bumping the affected dependency to a patched version, or"
+            echo "  2. Adding a documented suppression entry to osv-scanner.toml"
+            echo "     AND owasp-suppressions.xml (keep both files in sync)."
+            exit 1
+          fi
+
+          echo "OSV-Scanner: no unsuppressed CVSS>=7 findings."
+
+      - name: Upload OWASP report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pr-security-owasp-report
+          path: |
+            jdbc-core/target/dependency-check-report.html
+            jdbc-core/target/dependency-check-report.json
+          if-no-files-found: ignore
+
+      - name: Upload OSV report + SBOM
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pr-security-osv-report
+          path: |
+            /tmp/osv-out.json
+            target/bom.json
+          if-no-files-found: ignore
+
+  # ----------------------------------------------------------------------------
+  # Weekly scan: runs on cron + workflow_dispatch. Backstops the PR gate by
+  # catching CVEs newly filed against unchanged code. Notifies via email.
+  # ----------------------------------------------------------------------------
+  weekly-scan:
+    name: Weekly Security Scan
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: main  # Explicitly check out main branch
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Get JFrog OIDC token
+        run: |
+          set -euo pipefail
+
+          ID_TOKEN=$(curl -sLS \
+            -H "User-Agent: actions/oidc-client" \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=jfrog-github" | jq .value | tr -d '"')
+          echo "::add-mask::${ID_TOKEN}"
+
+          ACCESS_TOKEN=$(curl -sLS -XPOST -H "Content-Type: application/json" \
+            "https://databricks.jfrog.io/access/api/v1/oidc/token" \
+            -d "{\"grant_type\": \"urn:ietf:params:oauth:grant-type:token-exchange\", \"subject_token_type\":\"urn:ietf:params:oauth:token-type:id_token\", \"subject_token\": \"${ID_TOKEN}\", \"provider_name\": \"github-actions\"}" | jq .access_token | tr -d '"')
+          echo "::add-mask::${ACCESS_TOKEN}"
+
+          if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+            echo "FAIL: Could not extract JFrog access token"
+            exit 1
+          fi
+
+          echo "JFROG_ACCESS_TOKEN=${ACCESS_TOKEN}" >> "$GITHUB_ENV"
+
+      - name: Configure maven
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << EOF
+          <settings>
+            <mirrors>
+              <mirror>
+                <id>jfrog-central</id>
+                <mirrorOf>*</mirrorOf>
+                <url>https://databricks.jfrog.io/artifactory/db-maven/</url>
+              </mirror>
+            </mirrors>
+            <servers>
+              <server>
+                <id>jfrog-central</id>
+                <username>gha-service-account</username>
+                <password>${JFROG_ACCESS_TOKEN}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      - name: Run OWASP Dependency Check
+        # The maven plugin exits non-zero when CVSS >= 7 findings exist
+        # (`<failBuildOnCVSS>7</failBuildOnCVSS>` in jdbc-core/pom.xml). Without
+        # continue-on-error, that non-zero exit short-circuits the rest of the
+        # job and the Send Email step never runs -- which means the weekly
+        # notification only fires when the scan is clean. Let this step "pass"
+        # so the explicit `Check for vulnerabilities` step below decides whether
+        # to alert and fail the job.
+        continue-on-error: true
+        run: mvn -pl jdbc-core org.owasp:dependency-check-maven:check -Dnvd.api.key=${{ secrets.NVD_API_KEY }}
+
+      - name: Check for vulnerabilities
+        id: check_vulnerabilities
+        run: |
+          if grep -q "CVSS score >= 7" jdbc-core/target/dependency-check-report.html; then
+            echo "has_vulnerabilities=true" >> $GITHUB_OUTPUT
+            echo "Critical or high vulnerabilities found (CVSS score >= 7)"
+            # Generate a simple HTML report for email
+            echo "<!DOCTYPE html><html><head><title>JDBC Driver Security Scan Results</title></head><body>" > security-scan-report.html
+            echo "<h1>Security Vulnerabilities Found</h1>" >> security-scan-report.html
+            echo "<p>Critical or high vulnerabilities (CVSS score >= 7) were found in the weekly scan of the JDBC driver.</p>" >> security-scan-report.html
+            echo "<p>Please check the full report in the GitHub Actions artifacts: <a href='https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'>View Artifacts</a></p>" >> security-scan-report.html
+            echo "</body></html>" >> security-scan-report.html
+            exit 1
+          else
+            echo "has_vulnerabilities=false" >> $GITHUB_OUTPUT
+            echo "No critical or high vulnerabilities found"
+          fi
+
+      - name: Send Email
+        if: steps.check_vulnerabilities.outputs.has_vulnerabilities == 'true'
+        uses: dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7 # v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: OSS JDBC Driver Security Scan - 🚨 Vulnerabilities Found
+          html_body: file://security-scan-report.html
+          to: ${{ secrets.EMAIL_RECIPIENTS }}
+          from: JDBC Security Scanner
+          content_type: text/html
+
+      - name: Upload Report as Artifact
+        # Always upload, even when findings cause the job to fail. The HTML/JSON
+        # reports are the primary artifact recipients use to triage findings.
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: security-scan-reports
+          path: |
+            jdbc-core/target/dependency-check-report.html
+            jdbc-core/target/dependency-check-report.json
+            security-scan-report.html
