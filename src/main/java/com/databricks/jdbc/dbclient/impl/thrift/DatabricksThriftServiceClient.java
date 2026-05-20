@@ -296,6 +296,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       LOGGER.debug("Heartbeat check failed for statement {}: {}", statementId, e.getMessage());
       throw new DatabricksSQLException(
           "Heartbeat status check failed", e, DatabricksDriverErrorCode.INVALID_STATE);
+    } finally {
+      DatabricksThreadContextHolder.clearStatementInfo();
     }
   }
 

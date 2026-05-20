@@ -70,7 +70,8 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     // Use interface methods instead of instanceof check so mocks and
     // alternate implementations can also enable heartbeat
     if (connectionContext.isHeartbeatEnabled()) {
-      return new ResultHeartbeatManager(connectionContext.getHeartbeatIntervalSeconds());
+      return new ResultHeartbeatManager(
+          connectionContext.getHeartbeatIntervalSeconds(), connectionContext.getConnectionUuid());
     }
     return null;
   }

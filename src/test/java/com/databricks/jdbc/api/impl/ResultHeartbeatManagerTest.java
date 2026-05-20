@@ -27,7 +27,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testStartAndStopHeartbeat() throws Exception {
-    manager = new ResultHeartbeatManager(1);
+    manager = new ResultHeartbeatManager(1, "test-uuid");
     StatementId id = new StatementId("test-1");
     CountDownLatch firstExecution = new CountDownLatch(1);
 
@@ -42,7 +42,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testStopIsIdempotent() {
-    manager = new ResultHeartbeatManager(60);
+    manager = new ResultHeartbeatManager(60, "test-uuid");
     StatementId id = new StatementId("test-2");
 
     manager.startHeartbeat(id, () -> {});
@@ -54,7 +54,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testShutdownCancelsAll() {
-    manager = new ResultHeartbeatManager(60);
+    manager = new ResultHeartbeatManager(60, "test-uuid");
     manager.startHeartbeat(new StatementId("a"), () -> {});
     manager.startHeartbeat(new StatementId("b"), () -> {});
     manager.startHeartbeat(new StatementId("c"), () -> {});
@@ -67,7 +67,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testStartAfterShutdownIsNoOp() {
-    manager = new ResultHeartbeatManager(60);
+    manager = new ResultHeartbeatManager(60, "test-uuid");
     manager.shutdown();
 
     manager.startHeartbeat(new StatementId("late"), () -> {});
@@ -76,7 +76,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testNullStatementIdHandled() {
-    manager = new ResultHeartbeatManager(60);
+    manager = new ResultHeartbeatManager(60, "test-uuid");
     assertDoesNotThrow(() -> manager.startHeartbeat(null, () -> {}));
     assertDoesNotThrow(() -> manager.stopHeartbeat(null));
     assertEquals(0, manager.getActiveHeartbeatCount());
@@ -88,7 +88,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testReExecutionReplacesHeartbeat() throws Exception {
-    manager = new ResultHeartbeatManager(1);
+    manager = new ResultHeartbeatManager(1, "test-uuid");
     StatementId id = new StatementId("reuse");
     CountDownLatch firstRan = new CountDownLatch(1);
     CountDownLatch secondRan = new CountDownLatch(1);
@@ -121,7 +121,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testHeartbeatExecutesMultipleTimes() throws Exception {
-    manager = new ResultHeartbeatManager(1);
+    manager = new ResultHeartbeatManager(1, "test-uuid");
     CountDownLatch latch = new CountDownLatch(3);
 
     manager.startHeartbeat(new StatementId("interval"), latch::countDown);
@@ -135,7 +135,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testStoppedFlagSetOnStop() {
-    manager = new ResultHeartbeatManager(60);
+    manager = new ResultHeartbeatManager(60, "test-uuid");
     StatementId id = new StatementId("flag-test");
 
     manager.startHeartbeat(id, () -> {});
@@ -149,7 +149,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testStoppedFlagSetOnShutdown() {
-    manager = new ResultHeartbeatManager(60);
+    manager = new ResultHeartbeatManager(60, "test-uuid");
     StatementId id = new StatementId("shutdown-flag");
 
     manager.startHeartbeat(id, () -> {});
@@ -165,7 +165,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testStopRacingWithScheduledTick() throws Exception {
-    manager = new ResultHeartbeatManager(1);
+    manager = new ResultHeartbeatManager(1, "test-uuid");
     StatementId id = new StatementId("race");
     AtomicInteger rpcCount = new AtomicInteger(0);
     CountDownLatch firstTick = new CountDownLatch(1);
@@ -202,7 +202,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testShutdownWithBlockedTask() throws Exception {
-    manager = new ResultHeartbeatManager(1);
+    manager = new ResultHeartbeatManager(1, "test-uuid");
     CountDownLatch taskStarted = new CountDownLatch(1);
     CountDownLatch taskCanContinue = new CountDownLatch(1);
 
@@ -242,7 +242,7 @@ public class ResultHeartbeatManagerTest {
     // The validation is in DatabricksConnectionContext.getHeartbeatIntervalSeconds().
     // ResultHeartbeatManager itself receives a validated value.
     // Test that the manager handles 1-second interval (minimum valid).
-    manager = new ResultHeartbeatManager(1);
+    manager = new ResultHeartbeatManager(1, "test-uuid");
     CountDownLatch ran = new CountDownLatch(1);
     manager.startHeartbeat(new StatementId("min-interval"), ran::countDown);
     assertDoesNotThrow(() -> ran.await(5, TimeUnit.SECONDS));
@@ -254,7 +254,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testConcurrentStartForSameStatementId_replacesCleanly() throws Exception {
-    manager = new ResultHeartbeatManager(1);
+    manager = new ResultHeartbeatManager(1, "test-uuid");
     StatementId id = new StatementId("concurrent");
     AtomicInteger firstCount = new AtomicInteger(0);
     AtomicInteger secondCount = new AtomicInteger(0);
@@ -288,7 +288,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testGetStoppedFlagAfterStop_returnsSentinel() {
-    manager = new ResultHeartbeatManager(60);
+    manager = new ResultHeartbeatManager(60, "test-uuid");
     StatementId id = new StatementId("sentinel-test");
 
     manager.startHeartbeat(id, () -> {});
@@ -306,7 +306,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testStoppedFlagRaceWithScheduledTick_noLeakedRpc() throws Exception {
-    manager = new ResultHeartbeatManager(1);
+    manager = new ResultHeartbeatManager(1, "test-uuid");
     StatementId id = new StatementId("race-sentinel");
     AtomicInteger rpcCount = new AtomicInteger(0);
     CountDownLatch firstTick = new CountDownLatch(1);
@@ -344,7 +344,7 @@ public class ResultHeartbeatManagerTest {
 
   @Test
   void testStopThenShutdown_noLeakedRpcs() throws Exception {
-    manager = new ResultHeartbeatManager(1);
+    manager = new ResultHeartbeatManager(1, "test-uuid");
     StatementId id = new StatementId("cancel-to-close");
     AtomicInteger rpcCount = new AtomicInteger(0);
     CountDownLatch firstTick = new CountDownLatch(1);

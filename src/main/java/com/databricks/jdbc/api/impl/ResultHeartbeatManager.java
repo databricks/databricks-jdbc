@@ -48,14 +48,18 @@ class ResultHeartbeatManager {
   private static final java.util.concurrent.atomic.AtomicLong MANAGER_COUNTER =
       new java.util.concurrent.atomic.AtomicLong(0);
 
-  ResultHeartbeatManager(int intervalSeconds) {
+  ResultHeartbeatManager(int intervalSeconds, String connectionUuid) {
     this.intervalSeconds = intervalSeconds;
     long managerId = MANAGER_COUNTER.incrementAndGet();
+    String threadPrefix =
+        connectionUuid != null
+            ? "databricks-jdbc-heartbeat-" + connectionUuid + "-" + managerId
+            : "databricks-jdbc-heartbeat-" + managerId;
     this.scheduler =
         Executors.newScheduledThreadPool(
             HEARTBEAT_THREAD_POOL_SIZE,
             r -> {
-              Thread t = new Thread(r, "databricks-jdbc-heartbeat-" + managerId);
+              Thread t = new Thread(r, threadPrefix);
               t.setDaemon(true);
               return t;
             });

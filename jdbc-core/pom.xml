@@ -285,6 +285,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
+          <excludedGroups>e2e</excludedGroups>
           <excludes>
             <exclude>**/DatabricksDriverExamples.java</exclude>
             <exclude>**/integration/**/*.java</exclude>
