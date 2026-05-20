@@ -1,12 +1,20 @@
 name: Security Scan
 
-# Single workflow, single job. Triggered three ways:
+# Single workflow, single job. Triggered three ways with DIFFERENT
+# thresholds:
 #
-#   - pull_request to main: fail the job on any unsuppressed CVSS >= 7
-#     finding. Not yet required-to-merge in branch protection.
-#   - cron (weekly): same scan; on findings, send the existing email
-#     notification and fail the job.
-#   - workflow_dispatch: behaves like the cron run (sends email).
+#   - pull_request to main: fail the job on any unsuppressed
+#     CVSS >= 7 finding (HIGH+). MEDIUM/LOW findings show in the step
+#     summary but don't block merges. Not yet required-to-merge in
+#     branch protection.
+#
+#   - cron (weekly): report ALL findings regardless of severity. Sends
+#     an email with the full sorted list and fails the job on any
+#     finding. The intent is full situational awareness for the team --
+#     emerging MEDIUM risks should be visible before they cross the PR
+#     gate, and the weekly is read by humans, not enforced by code.
+#
+#   - workflow_dispatch: behaves like the cron run (full reporting).
 #
 # Scanner: OSV-Scanner v2.3.8 (purl-based via OSV.dev; federates GHSA,
 # NVD, PyPA, RustSec, Go vuln DB). Reads the cyclonedx aggregate SBOM
@@ -149,34 +157,42 @@ jobs:
 
       # Parse OSV's JSON into job outputs. The terminal steps below
       # (PR-fail and email) consume these outputs.
+      #
+      # Two thresholds: PR gating uses CVSS >= 7 (high_count) so we don't
+      # block merges on MEDIUM/LOW noise; the weekly email reports
+      # everything (total_findings) so the team has full situational
+      # awareness of emerging risk before it crosses the gate.
       - name: Collect findings
         id: findings
         run: |
           set -uo pipefail
 
-          # Total findings ignores severity; high findings filter to >=7.
-          # Log both so a mismatch (e.g. 50 total / 0 high) is visible --
-          # protects against silent fail-open if OSV ever changes its
-          # severity format (e.g. emits "HIGH" instead of a number, which
-          # `tonumber? // 0` would mask).
-          TOTAL_FINDINGS=$(jq '[.results[].packages[]? | .groups[]?] | length' /tmp/osv-out.json)
-          HIGH_FINDINGS=$(jq -c '[
+          # All findings (sorted by severity desc). Anything missing a
+          # CVSS score sorts to 0 -- visible in the report but not silent.
+          ALL_FINDINGS=$(jq -c '[
             .results[].packages[]? |
             .package as $pkg |
             .groups[]? |
-            select((.max_severity | tonumber? // 0) >= 7) |
-            {pkg: ($pkg.name + "@" + $pkg.version), ids: .ids, severity: .max_severity}
-          ]' /tmp/osv-out.json)
+            {pkg: ($pkg.name + "@" + $pkg.version), ids: .ids, severity: (.max_severity // "0")}
+          ] | sort_by(- (.severity | tonumber? // 0))' /tmp/osv-out.json)
+          TOTAL_FINDINGS=$(echo "$ALL_FINDINGS" | jq 'length')
+
+          # High findings (CVSS >= 7). Both counters are logged so a
+          # mismatch (e.g. 50 total / 0 high) is visible -- protects
+          # against silent fail-open if OSV ever changes its severity
+          # format (e.g. emits "HIGH" instead of a number, which
+          # `tonumber? // 0` would mask).
+          HIGH_FINDINGS=$(echo "$ALL_FINDINGS" | jq -c '[.[] | select((.severity | tonumber? // 0) >= 7)]')
           HIGH_COUNT=$(echo "$HIGH_FINDINGS" | jq 'length')
 
-          HAS_FINDINGS=false
-          if [ "$HIGH_COUNT" -gt 0 ]; then
-            HAS_FINDINGS=true
-          fi
+          # Persist the full findings list to a file rather than a job
+          # output -- GitHub Actions outputs are size-capped at 1 MB and
+          # the formatted email body can be larger than that for big
+          # finding lists.
+          echo "$ALL_FINDINGS" > /tmp/all-findings.json
 
           echo "total_findings=$TOTAL_FINDINGS" >> "$GITHUB_OUTPUT"
           echo "high_count=$HIGH_COUNT" >> "$GITHUB_OUTPUT"
-          echo "has_findings=$HAS_FINDINGS" >> "$GITHUB_OUTPUT"
 
           # Step summary so findings are visible in the GH Actions UI
           # without downloading artifacts.
@@ -184,11 +200,14 @@ jobs:
             echo "## OSV-Scanner Findings"
             echo ""
             echo "- Total findings (any severity): \`$TOTAL_FINDINGS\`"
-            echo "- High findings (CVSS >= 7): \`$HIGH_COUNT\`"
-            if [ "$HIGH_COUNT" -gt 0 ]; then
+            echo "- High findings (CVSS >= 7, PR-blocking): \`$HIGH_COUNT\`"
+            if [ "$TOTAL_FINDINGS" -gt 0 ]; then
               echo ""
-              echo "Unsuppressed CVSS>=7 findings:"
-              echo "$HIGH_FINDINGS" | jq -r '.[] | "- \(.pkg) | \(.ids | join(",")) | severity \(.severity)"'
+              echo "All findings (sorted by severity desc):"
+              echo ""
+              echo "| Severity | Package | IDs |"
+              echo "|---|---|---|"
+              echo "$ALL_FINDINGS" | jq -r '.[] | "| \(.severity) | \(.pkg) | \(.ids | join(",")) |"'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -196,8 +215,10 @@ jobs:
 
       # --- Terminal: PR event ---
       # Fail the job so the PR's check goes red. No email.
+      # PR gate is CVSS >= 7 only; MEDIUM/LOW findings show up in the
+      # step summary but don't block merges.
       - name: Fail on findings (PR)
-        if: github.event_name == 'pull_request' && steps.findings.outputs.has_findings == 'true'
+        if: github.event_name == 'pull_request' && steps.findings.outputs.high_count != '0'
         run: |
           echo "::error::${{ steps.findings.outputs.high_count }} unsuppressed CVSS>=7 finding(s) in this PR. See the step summary or downloaded artifacts."
           echo ""
@@ -208,20 +229,40 @@ jobs:
           exit 1
 
       # --- Terminal: scheduled/manual event ---
+      # Weekly reports ALL findings (not just CVSS >= 7) so the team sees
+      # emerging risk before it crosses the PR gate. PR-time is narrower
+      # to avoid blocking on MEDIUM/LOW noise; weekly is broader because
+      # it's read by humans, not enforced.
       - name: Compose email body
-        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.findings.outputs.has_findings == 'true'
+        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.findings.outputs.total_findings != '0'
         run: |
+          set -uo pipefail
           {
-            echo "<!DOCTYPE html><html><head><title>JDBC Driver Security Scan Results</title></head><body>"
+            echo "<!DOCTYPE html><html><head><title>JDBC Driver Security Scan Results</title>"
+            echo "<style>"
+            echo "  body { font-family: -apple-system, sans-serif; }"
+            echo "  table { border-collapse: collapse; margin-top: 1em; }"
+            echo "  th, td { border: 1px solid #ddd; padding: 6px 12px; text-align: left; }"
+            echo "  th { background: #f5f5f5; }"
+            echo "  tr.high { background: #ffe5e5; }"
+            echo "  tr.medium { background: #fff5e5; }"
+            echo "</style></head><body>"
             echo "<h1>Security Vulnerabilities Found</h1>"
-            echo "<p><b>${{ steps.findings.outputs.high_count }}</b> unsuppressed CVSS &gt;= 7 finding(s) detected in the weekly scan of the JDBC driver."
-            echo "(Total OSV findings at any severity: ${{ steps.findings.outputs.total_findings }}.)</p>"
+            echo "<p><b>${{ steps.findings.outputs.total_findings }}</b> total finding(s) on main; <b>${{ steps.findings.outputs.high_count }}</b> are CVSS &gt;= 7 (PR-blocking).</p>"
             echo "<p>Full reports are attached to the GitHub Actions run as artifacts: <a href='https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}'>View Artifacts</a></p>"
+            echo "<table><tr><th>Severity</th><th>Package</th><th>IDs</th></tr>"
+            jq -r '.[] |
+              (if (.severity | tonumber? // 0) >= 7 then "high"
+               elif (.severity | tonumber? // 0) >= 4 then "medium"
+               else "" end) as $cls |
+              "<tr class=\"\($cls)\"><td>\(.severity)</td><td>\(.pkg)</td><td>\(.ids | join(", "))</td></tr>"
+            ' /tmp/all-findings.json
+            echo "</table>"
             echo "</body></html>"
           } > security-scan-report.html
 
       - name: Send Email
-        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.findings.outputs.has_findings == 'true'
+        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.findings.outputs.total_findings != '0'
         uses: dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7 # v3
         with:
           server_address: smtp.gmail.com
@@ -235,9 +276,9 @@ jobs:
           content_type: text/html
 
       - name: Fail on findings (scheduled/manual)
-        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.findings.outputs.has_findings == 'true'
+        if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.findings.outputs.total_findings != '0'
         run: |
-          echo "::error::Unsuppressed CVSS>=7 finding(s) on main. Email sent."
+          echo "::error::${{ steps.findings.outputs.total_findings }} OSV finding(s) on main (${{ steps.findings.outputs.high_count }} at CVSS>=7). Email sent."
           exit 1
 
       # Always upload artifacts so triagers can pull the full reports
