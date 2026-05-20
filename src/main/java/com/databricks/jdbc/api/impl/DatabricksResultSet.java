@@ -299,7 +299,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public void close() throws DatabricksSQLException {
+<<<<<<< HEAD
     stopHeartbeat();
+=======
+    // Proactively close server operation when ResultSet is closed explicitly.
+    closeServerOperation();
+>>>>>>> upstream/main
     isClosed = true;
     if (executionResult != null) {
       executionResult.close();
@@ -309,6 +314,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
   }
 
+<<<<<<< HEAD
   /** Starts heartbeat polling if enabled on the connection and this result set is eligible. */
   private void startHeartbeatIfEnabled() {
     if (parentStatement == null || statementId == null) {
@@ -496,6 +502,15 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     return true;
   }
 
+=======
+  /** Proactively closes the server-side operation via the parent statement. */
+  private void closeServerOperation() {
+    if (parentStatement != null) {
+      parentStatement.closeServerOperation();
+    }
+  }
+
+>>>>>>> upstream/main
   private static TelemetryCollector resolveTelemetryCollector(
       IDatabricksStatementInternal parentStatement) {
     try {
