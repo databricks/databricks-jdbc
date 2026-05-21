@@ -30,6 +30,12 @@ upgrading. These changes do not affect metadata on All-Purpose Clusters.
   instead of `0` (`CASCADE`) for Thrift, and `3` instead of `null` for SEA.**
   This reflects that Unity Catalog foreign keys are informational and non-enforced.
 
+* **`PreparedStatement.setDate()` now sends parameter type as `DATE` instead of
+  `TIMESTAMP`.** Previously, `setDate()` incorrectly serialized the parameter
+  type as TIMESTAMP due to a mapping bug. Server-side behavior is unchanged
+  (Databricks accepts both), but applications that inspect parameter types may
+  see the difference.
+
 #### Default Behavior Changes
 
 * **Native geospatial type support (`GEOMETRY` and `GEOGRAPHY`) is now enabled
@@ -65,6 +71,7 @@ upgrading. These changes do not affect metadata on All-Purpose Clusters.
 - Bump shaded `netty-buffer`/`netty-common` from 4.2.12.Final to 4.2.13.Final to clear OWASP scanner reports for the May 2026 batch of netty codec CVEs (CVE-2026-42577/42579/42580/42581/42582/42583/42584/42585/42586/42587, CVE-2026-44248, CVE-2026-41417, CVE-2026-42578). The driver does not use any netty HTTP/codec components — these vulnerabilities are not exploitable in this usage — but the bump silences the false-positive CPE matches.
 - Bump shaded `commons-configuration2` from 2.10.1 to 2.15.0 to address [CVE-2026-45205](https://nvd.nist.gov/vuln/detail/CVE-2026-45205) (uncontrolled recursion when parsing untrusted YAML configurations). The driver does not parse untrusted YAML, so the practical risk is negligible.
 - Bump `lz4-java` from `org.lz4:lz4-java:1.8.1` to `at.yawk.lz4:lz4-java:1.10.1` to address [CVE-2025-66566](https://nvd.nist.gov/vuln/detail/CVE-2025-66566) (information leak via uncleared output buffers in the safe/unsafe Java decompressors). `org.lz4:lz4-java:1.8.1` is a relocation-only POM that resolves to `at.yawk.lz4:lz4-java:1.8.1`, so the published `databricks-jdbc-thin` artifact previously pulled the vulnerable fork transitively. The upstream `org.lz4` GA is no longer maintained; `at.yawk.lz4` is the fork that received the fix. Fixes #1455.
+- Fix `PreparedStatement.getMetaData()` crash (`IllegalArgumentException`) for SQL type aliases (VARCHAR, INTEGER, NUMERIC, DEC, REAL, NVARCHAR, NCHAR) returned by DESCRIBE QUERY
 - Fixed `DatabaseMetaData.getTables()` in Thrift mode returning rows when called with an empty `types` array. Per JDBC spec, empty types means "no types selected" and now correctly returns zero rows (matching SEA mode).
 - Fixed `?` characters inside SQL comments, string literals, and quoted identifiers being incorrectly counted as parameter placeholders when `supportManyParameters=1`. `SQLInterpolator` now uses `SqlCommentParser` to locate only real placeholders. Fixes #1331.
 - Fixed `MetadataOperationTimeout` not being applied when metadata operations use SHOW commands. Operations like `getTables`, `getSchemas`, and `getColumns` now respect the `MetadataOperationTimeout` connection property instead of hanging indefinitely with no timeout.

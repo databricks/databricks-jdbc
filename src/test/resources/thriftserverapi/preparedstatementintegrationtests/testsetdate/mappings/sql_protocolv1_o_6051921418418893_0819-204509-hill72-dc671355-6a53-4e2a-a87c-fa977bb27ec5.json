@@ -1,19 +1,19 @@
 {
-  "id" : "be5e8e38-35f7-4982-a05f-76cdca0b889f",
+  "id" : "dc671355-6a53-4e2a-a87c-fa977bb27ec5",
   "name" : "sql_protocolv1_o_6051921418418893_0819-204509-hill72",
   "request" : {
     "url" : "/sql/protocolv1/o/6051921418418893/0819-204509-hill72",
     "method" : "POST",
     "bodyPatterns" : [ {
-      "binaryEqualTo" : "gAEAAQAAAAtPcGVuU2Vzc2lvbgAAAAEMAAEIAAH////5DQAECwsAAAAACgUCAAAAAAAApQkMBQQLAAEAAAAFU1BBUksLAAIAAAAHZGVmYXVsdAACBQUBAAA="
+      "binaryEqualTo" : "gAEAAQAAAAxDbG9zZVNlc3Npb24AAAAHDAABDAABDAABCwABAAAAEElmYRD3TkxYqZGoHyg5HOwLAAIAAAAQrl0M5nJYQpORQfPYcqYBFwAAAAA="
     } ]
   },
   "response" : {
     "status" : 200,
-    "base64Body" : "gAEAAgAAAAtPcGVuU2Vzc2lvbgAAAAEMAAAMAAEIAAEAAAAAAAgAAgAApQkMAAMMAAELAAEAAAAQZzKdWFwqQY+Z1F4X450nkwsAAgAAABAZaks1azdDUb1dREmM2clnBg0BAAAACA0BAAClCQANAAQLCwAAAAAMBQQLAAEAAAAFc3BhcmsLAAIAAAAHZGVmYXVsdAACBQUBAAA=",
+    "base64Body" : "gAEAAgAAAAxDbG9zZVNlc3Npb24AAAAHDAAADAABCAABAAAAAAAAAA==",
     "headers" : {
-      "x-request-id" : "13f763b1-fa34-48cb-a634-179443d15be3",
-      "date" : "Tue, 21 Apr 2026 00:27:43 GMT",
+      "x-request-id" : "2dd09e08-ff59-4c9c-8eb3-8377c792a679",
+      "date" : "Thu, 21 May 2026 07:03:06 GMT",
       "server" : "databricks",
       "x-databricks-popp-response-code-details" : "via_upstream",
       "x-databricks-shard-debug" : "oregon-staging",
@@ -27,11 +27,11 @@
       "x-xss-protection" : "1; mode=block",
       "x-databricks-popp-routing-reason" : "deployment-name",
       "content-type" : "application/x-thrift",
-      "server-timing" : "request_id;dur=0;desc=\"13f763b1-fa34-48cb-a634-179443d15be3\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "server-timing" : "request_id;dur=0;desc=\"2dd09e08-ff59-4c9c-8eb3-8377c792a679\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
       "alt-svc" : "h3=\":443\"; ma=86400, h3-29=\":443\"; ma=86400",
       "x-databricks-apiproxy-response-code-details" : "via_upstream"
     }
   },
-  "uuid" : "be5e8e38-35f7-4982-a05f-76cdca0b889f",
-  "insertionIndex" : 193
+  "uuid" : "dc671355-6a53-4e2a-a87c-fa977bb27ec5",
+  "insertionIndex" : 1
 }

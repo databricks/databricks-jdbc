@@ -451,18 +451,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       String columnName = columnNames.get(i);
       String columnTypeText = columnDataTypes.get(i);
 
-      ColumnInfoTypeName columnTypeName;
-      if (columnTypeText.equalsIgnoreCase(TIMESTAMP_NTZ)) {
-        columnTypeName = ColumnInfoTypeName.TIMESTAMP;
+      String baseTypeName = metadataResultSetBuilder.stripBaseTypeName(columnTypeText);
+      ColumnInfoTypeName columnTypeName = DatabricksTypeUtil.getColumnInfoType(baseTypeName);
+
+      // Normalize columnTypeText for types that have a canonical display name
+      if (baseTypeName.equals(TIMESTAMP_NTZ)) {
         columnTypeText = TIMESTAMP;
-      } else if (columnTypeText.equalsIgnoreCase(VARIANT)) {
-        columnTypeName = ColumnInfoTypeName.STRING;
-        columnTypeText = VARIANT;
-      } else if (columnTypeText.toUpperCase().startsWith(INTERVAL)) {
-        columnTypeName = ColumnInfoTypeName.INTERVAL;
-      } else {
-        columnTypeName =
-            ColumnInfoTypeName.valueOf(metadataResultSetBuilder.stripBaseTypeName(columnTypeText));
       }
 
       int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
