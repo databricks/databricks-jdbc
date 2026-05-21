@@ -34,13 +34,14 @@ jobs:
       labels: linux-ubuntu-latest
 
     steps:
-      - name: Checkout triggering ref
-        # Use the ref that triggered the workflow so PR-branch dispatches test
-        # the PR-branch's workflow + script (not the base branch's stale copy).
-        # Resolves to comparator-v2 for dispatches on the base branch.
+      - name: Checkout comparator-v2 (or PR branch for dispatch)
+        # Schedule events from main (if this workflow ever moves to main): always
+        # checkout comparator-v2, where the comparator framework + script live.
+        # Dispatch events: checkout the triggering ref so PR branches can validate
+        # workflow/script changes pre-merge.
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.event_name == 'schedule' && 'comparator-v2' || github.ref }}
           fetch-depth: 1
 
       - name: Set up JDK 11
