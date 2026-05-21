@@ -242,6 +242,11 @@ echo "[1/5] Cloning repository..."
 git clone --branch comparator-v2 "${REPO_URL}" "${WORK_DIR}"
 cd "${WORK_DIR}"
 
+# Local-only git identity for the merge commit below (CI runners have no global config).
+# --local scope keeps this confined to the temp clone; caller's global config is untouched.
+git config --local user.name "JDBC Comparator Runner"
+git config --local user.email "actions@github.com"
+
 echo "[2/5] Merging ${MERGE_BRANCH} into comparator-v2..."
 git fetch origin "${MERGE_BRANCH}"
 git merge "origin/${MERGE_BRANCH}" --no-commit --no-ff -X theirs
