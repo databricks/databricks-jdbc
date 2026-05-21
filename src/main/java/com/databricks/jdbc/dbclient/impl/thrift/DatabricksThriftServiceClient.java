@@ -272,7 +272,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
 
   @Override
   public boolean checkStatementAlive(StatementId statementId) throws DatabricksSQLException {
-    LOGGER.debug("Heartbeat check for statement {} using Thrift client", statementId);
+    LOGGER.debug(
+        "Heartbeat check for statement {} using Thrift client", statementId.toSQLExecStatementId());
     DatabricksThreadContextHolder.setStatementId(statementId);
     try {
       TGetOperationStatusReq statusReq =
@@ -293,7 +294,10 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
           && state != TOperationState.ERROR_STATE
           && state != TOperationState.TIMEDOUT_STATE;
     } catch (TException e) {
-      LOGGER.debug("Heartbeat check failed for statement {}: {}", statementId, e.getMessage());
+      LOGGER.debug(
+          "Heartbeat check failed for statement {}: {}",
+          statementId.toSQLExecStatementId(),
+          e.getMessage());
       throw new DatabricksSQLException(
           "Heartbeat status check failed", e, DatabricksDriverErrorCode.INVALID_STATE);
     } finally {

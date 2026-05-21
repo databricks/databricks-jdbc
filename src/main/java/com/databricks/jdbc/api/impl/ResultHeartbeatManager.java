@@ -84,7 +84,9 @@ class ResultHeartbeatManager {
     resetStoppedFlag(statementId);
 
     LOGGER.debug(
-        "Starting heartbeat for statement {} with interval {}s", statementId, intervalSeconds);
+        "Starting heartbeat for statement {} with interval {}s",
+        statementId.toSQLExecStatementId(),
+        intervalSeconds);
 
     ScheduledFuture<?> future =
         scheduler.scheduleWithFixedDelay(
@@ -110,7 +112,7 @@ class ResultHeartbeatManager {
     ScheduledFuture<?> future = activeHeartbeats.remove(statementId);
     if (future != null) {
       future.cancel(false); // don't interrupt if currently running
-      LOGGER.debug("Stopped heartbeat for statement {}", statementId);
+      LOGGER.debug("Stopped heartbeat for statement {}", statementId.toSQLExecStatementId());
     }
   }
 
@@ -144,7 +146,9 @@ class ResultHeartbeatManager {
 
     for (Map.Entry<StatementId, ScheduledFuture<?>> entry : activeHeartbeats.entrySet()) {
       entry.getValue().cancel(false);
-      LOGGER.debug("Stopped heartbeat for statement {} during shutdown", entry.getKey());
+      LOGGER.debug(
+          "Stopped heartbeat for statement {} during shutdown",
+          entry.getKey().toSQLExecStatementId());
     }
     activeHeartbeats.clear();
 

@@ -437,25 +437,21 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               if (!alive) {
                 LOGGER.info(
                     "Heartbeat detected terminal state for statement {}, stopping",
-                    capturedStatementId);
+                    capturedStatementId.toSQLExecStatementId());
                 capturedMgr.stopHeartbeat(capturedStatementId);
               }
             } catch (Throwable e) {
-              // Catch Throwable (not just Exception) because ScheduledExecutorService
-              // suppresses subsequent executions on uncaught Error. Without this, an
-              // OOM or NoClassDefFoundError would silently kill the heartbeat.
               if (e instanceof VirtualMachineError) {
                 capturedMgr.stopHeartbeat(capturedStatementId);
                 throw (VirtualMachineError) e;
               }
-              // Re-read flag — may have been set during the RPC (connection closing)
               if (capturedMgr.getStoppedFlag(capturedStatementId).get()) {
                 return;
               }
               if (e instanceof java.sql.SQLFeatureNotSupportedException) {
                 LOGGER.debug(
                     "Heartbeat not supported by client for statement {}, stopping",
-                    capturedStatementId);
+                    capturedStatementId.toSQLExecStatementId());
                 capturedMgr.stopHeartbeat(capturedStatementId);
                 return;
               }
@@ -463,12 +459,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               if (failures == 1) {
                 LOGGER.info(
                     "Heartbeat failed for statement {} (first failure): {}",
-                    capturedStatementId,
+                    capturedStatementId.toSQLExecStatementId(),
                     e.getMessage());
               } else {
                 LOGGER.debug(
                     "Heartbeat failed for statement {} (failure {}/{}): {}",
-                    capturedStatementId,
+                    capturedStatementId.toSQLExecStatementId(),
                     failures,
                     maxConsecutiveFailures,
                     e.getMessage());
@@ -477,7 +473,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
                 LOGGER.warn(
                     "Heartbeat stopped for statement {} after {} consecutive failures. "
                         + "Server-side results may expire. Last error: {}",
-                    capturedStatementId,
+                    capturedStatementId.toSQLExecStatementId(),
                     failures,
                     e.getMessage());
                 capturedMgr.stopHeartbeat(capturedStatementId);
@@ -488,7 +484,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       mgr.startHeartbeat(capturedStatementId, heartbeatTask);
       LOGGER.debug(
           "Heartbeat started for statement {} (resultType={}, interval={}s)",
-          capturedStatementId,
+          capturedStatementId.toSQLExecStatementId(),
           resultSetType,
           mgr.getIntervalSeconds());
     } catch (Exception e) {
