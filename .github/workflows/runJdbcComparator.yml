@@ -10,17 +10,17 @@ on:
     # events, so the script's "empty = all" semantics give full coverage).
     inputs:
       suites:
-        description: 'SUITES_RUN_ONLY (comma-separated, blank = all suites)'
+        description: 'SUITES_RUN_ONLY (comma-separated; leave blank for full coverage matching cron)'
         required: false
-        default: 'DATABASE_METADATA'
+        default: ''
       metadata_methods:
-        description: 'METADATA_RUN_ONLY_METHODS (comma-separated, blank = all methods)'
+        description: 'METADATA_RUN_ONLY_METHODS (comma-separated; leave blank for all methods)'
         required: false
-        default: 'getCatalogs'
+        default: ''
       connection_config:
-        description: 'CONNECTION_CONFIG (comma-separated, blank = all configs)'
+        description: 'CONNECTION_CONFIG (comma-separated; leave blank for all configs)'
         required: false
-        default: 'DEFAULT_PARAMS'
+        default: ''
 
 permissions:
   id-token: write   # for JFrog OIDC token exchange
