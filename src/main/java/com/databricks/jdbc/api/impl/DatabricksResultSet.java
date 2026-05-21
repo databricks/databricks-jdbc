@@ -333,7 +333,15 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       }
       return false;
     }
-    boolean hasNext = this.executionResult.next();
+    boolean hasNext;
+    try {
+      hasNext = this.executionResult.next();
+    } catch (Exception e) {
+      // Stop heartbeat on iteration failure — prevents keeping the warehouse alive
+      // for an abandoned ResultSet (up to 10 ticks × interval before self-stop).
+      stopHeartbeat();
+      throw e;
+    }
     // Only count rows for customer iteration, not internal DML counting
     // (getUpdateCount() sets countingUpdateRows=true to iterate over affected-row counts
     // without inflating the user-visible row counter).
@@ -437,7 +445,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               // suppresses subsequent executions on uncaught Error. Without this, an
               // OOM or NoClassDefFoundError would silently kill the heartbeat.
               if (e instanceof VirtualMachineError) {
-                // Don't swallow fatal JVM errors — stop heartbeat and let it propagate
                 capturedMgr.stopHeartbeat(capturedStatementId);
                 throw (VirtualMachineError) e;
               }
@@ -445,7 +452,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               if (capturedMgr.getStoppedFlag(capturedStatementId).get()) {
                 return;
               }
-              // Unsupported client — stop immediately, don't retry 10 times
               if (e instanceof java.sql.SQLFeatureNotSupportedException) {
                 LOGGER.debug(
                     "Heartbeat not supported by client for statement {}, stopping",
