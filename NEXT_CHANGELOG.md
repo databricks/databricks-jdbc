@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-### BREAKING CHANGES in 3.4.1 — Metadata JDBC Spec Compliance
+### BREAKING CHANGES in 3.4.1
+
+#### Metadata JDBC Spec Compliance
 
 This release unifies metadata behavior across Thrift and SQL Exec API backends
 using SQL SHOW commands for all metadata operations on SQL warehouses. Several
@@ -28,19 +30,27 @@ upgrading. These changes do not affect metadata on All-Purpose Clusters.
   instead of `0` (`CASCADE`) for Thrift, and `3` instead of `null` for SEA.**
   This reflects that Unity Catalog foreign keys are informational and non-enforced.
 
+#### Default Behavior Changes
+
 * **Native geospatial type support (`GEOMETRY` and `GEOGRAPHY`) is now enabled
   by default.** `getObject()` now returns `IGeometry`/`IGeography` instances
   instead of EWKT strings. Set `EnableGeoSpatialSupport=0` to restore the
   previous behavior.
 
+* **`EnableArrow` connection property is deprecated and ignored.** Arrow
+  serialization is now always enabled. Setting `EnableArrow=0` previously
+  disabled Arrow and forced columnar/JSON inline results; this value is now
+  ignored and a deprecation warning is logged. For JSON inline results with
+  SEA, disable CloudFetch via `EnableQueryResultDownload=0`. Exception: on AIX
+  platforms and PowerPC architectures (`os.arch` contains `ppc`), `EnableArrow`
+  is still honoured and defaults to disabled due to known Arrow native library
+  compatibility issues.
+
 ### Added
-<<<<<<< HEAD
 - Added result set heartbeat / keep-alive to prevent server-side result expiry during slow consumption. When enabled via `EnableHeartbeat=1`, the driver periodically polls `GetStatementStatus` (SEA) or `GetOperationStatus` (Thrift) to keep the operation alive while the client reads results. Configurable interval via `HeartbeatIntervalSeconds` (default 60s). Heartbeat automatically stops when results are fully consumed, ResultSet is closed, or the server returns a terminal state. Disabled by default due to cost implications (heartbeats keep the warehouse running).
-=======
 - Metadata operations now use SQL SHOW commands for both Thrift and SEA backends,
   ensuring consistent behavior for SQL warehouses regardless of underlying
   protocol. To revert to native Thrift metadata RPCs, set `UseQueryForMetadata=0`.
->>>>>>> upstream/main
 
 ### Updated
 - `getColumnTypeName()` for DECIMAL columns now preserves precision/scale suffix (e.g., `"DECIMAL(10,2)"`) consistently across both Thrift and SEA backends.
@@ -59,6 +69,10 @@ upgrading. These changes do not affect metadata on All-Purpose Clusters.
 - Fixed `?` characters inside SQL comments, string literals, and quoted identifiers being incorrectly counted as parameter placeholders when `supportManyParameters=1`. `SQLInterpolator` now uses `SqlCommentParser` to locate only real placeholders. Fixes #1331.
 - Fixed `MetadataOperationTimeout` not being applied when metadata operations use SHOW commands. Operations like `getTables`, `getSchemas`, and `getColumns` now respect the `MetadataOperationTimeout` connection property instead of hanging indefinitely with no timeout.
 - Reclassify transient server errors to standard SQL states (08S01, 40001) across all Thrift error sites. This ensures UC unavailability and concurrent modification errors surface consistently for better retry handling. Note: Dashboards and branching logic keyed on legacy XXUCC or 42000 must be updated.
+- Fixed telemetry HTTP client socket leak that prevented CRaC checkpoint. After `Connection.close()`, delayed telemetry flush tasks could re-create HTTP clients that were never closed, leaking TCP sockets. Fixes #1325.
+- Fixed client-side enforcement of `maxRows` limit. When `statement.setMaxRows()` is set, `ResultSet.next()` now returns false once the row limit is reached, even if the server returns more rows. Applies to all result types (Thrift, SEA, inline, CloudFetch).
+- Bump shaded `bouncycastle` (`bcprov-jdk18on`, `bcpkix-jdk18on`) from 1.79 to 1.84 to address [CVE-2026-5598](https://github.com/advisories/GHSA-p93r-85wp-75v3) (covert timing channel, severity 8.9) and two related MEDIUM CVEs (GHSA-wg6q-6289-32hp, GHSA-c3fc-8qff-9hwx). All three are unsurfaced by NVD-CPE scanners but visible to GHSA-backed scanners like OSV.
+- Bump shaded `libthrift` from 0.19.0 to 0.23.0 to clear the May 2026 Apache Thrift advisory batch (GHSA-7pwc-h2j2-rjgj covering CVE-2026-41603/41604/41605/43869). The libthrift 0.21 release changed `ProcessFunction`'s generic signatures, which required regenerating the project's checked-in Thrift-generated Java sources with the matching compiler.
 
 ---
 *Note: When making changes, please add your change under the appropriate section

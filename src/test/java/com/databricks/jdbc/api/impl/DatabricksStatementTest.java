@@ -582,10 +582,115 @@ public class DatabricksStatementTest {
     assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
+  // https://github.com/databricks/databricks-jdbc/issues/1418 — DML statements whose subqueries
+  // or CTEs contain UNION / INTERSECT / EXCEPT were being mis-classified as ResultSet-producing.
+  @Test
+  public void testShouldReturnResultSet_InsertWithUnionInSubquery() {
+    String query =
+        "INSERT INTO my_catalog.my_schema.target_table "
+            + "SELECT * FROM ( "
+            + "  SELECT col1, col2 FROM src WHERE 1 = 0 "
+            + "  UNION ALL "
+            + "  SELECT col1, col2 FROM src WHERE 1 = 0 "
+            + ") t";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_InsertWithIntersectInSubquery() {
+    String query = "INSERT INTO t SELECT x FROM (SELECT x FROM a INTERSECT SELECT x FROM b) s";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_InsertWithExceptInSubquery() {
+    String query = "INSERT INTO t SELECT x FROM (SELECT x FROM a EXCEPT SELECT x FROM b) s";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_InsertWithSelectStarExceptColumnExclusion() {
+    // `SELECT * EXCEPT (col)` is Databricks column-exclusion syntax, not a set operator.
+    String query = "INSERT INTO t SELECT * EXCEPT (secret_col) FROM source";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_InsertOverwriteDirectoryWithIntersect() {
+    String query =
+        "INSERT OVERWRITE DIRECTORY 's3://bucket/path' USING CSV "
+            + "SELECT x FROM a INTERSECT SELECT x FROM b";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_UpdateWithUnionInSubquery() {
+    String query = "UPDATE t SET col = (SELECT x FROM a UNION SELECT x FROM b LIMIT 1)";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_DeleteWithExceptInSubquery() {
+    String query = "DELETE FROM t WHERE id IN (SELECT id FROM a EXCEPT SELECT id FROM b)";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_MergeWithUnionInSource() {
+    String query =
+        "MERGE INTO target t USING (SELECT id FROM a UNION SELECT id FROM b) s "
+            + "ON t.id = s.id WHEN MATCHED THEN DELETE";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_DmlPrefixOverriddenByNonRowcountConfig() {
+    // The NonRowcountQueryPrefixes opt-in path must still win over the DML short-circuit.
+    String query = "INSERT INTO t VALUES (1)";
+    assertTrue(
+        DatabricksStatement.shouldReturnResultSet(query, Arrays.asList("INSERT")),
+        "NonRowcountQueryPrefixes=INSERT should force ResultSet mode");
+  }
+
+  @Test
+  public void testShouldReturnResultSet_TopLevelParenthesizedUnionStillMatches() {
+    // Regression guard: top-level set operations starting with `(` still classify as ResultSet
+    // via SELECT_PATTERN's `^(\s*\()*\s*SELECT` prefix.
+    String query = "(SELECT a FROM t1) UNION (SELECT a FROM t2)";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
   @Test
   public void testShouldReturnResultSet_DeclareQuery() {
     String query = "DECLARE @var INT;";
     assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  // Regression guards for the `TABLE table_name` queryPrimary form in Spark SQL. These shapes
+  // were previously classified via the non-anchored UNION_PATTERN; removing that pattern
+  // requires explicit anchored coverage via TABLE_PATTERN.
+  @Test
+  public void testShouldReturnResultSet_TableUnionTable() {
+    String query = "TABLE my_catalog.my_schema.foo UNION TABLE my_catalog.my_schema.bar";
+    assertTrue(
+        DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()),
+        "TABLE foo UNION TABLE bar must be classified as ResultSet");
+  }
+
+  @Test
+  public void testShouldReturnResultSet_ParenthesizedTableUnionTable() {
+    String query = "(TABLE foo) UNION (TABLE bar)";
+    assertTrue(
+        DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()),
+        "(TABLE foo) UNION (TABLE bar) must be classified as ResultSet");
+  }
+
+  @Test
+  public void testShouldReturnResultSet_BareTableQuery() {
+    String query = "TABLE my_catalog.my_schema.foo";
+    assertTrue(
+        DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()),
+        "Bare TABLE foo must be classified as ResultSet");
   }
 
   @Test

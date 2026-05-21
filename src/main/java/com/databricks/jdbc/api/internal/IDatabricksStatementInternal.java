@@ -15,6 +15,8 @@ public interface IDatabricksStatementInternal {
 
   int getMaxRows() throws DatabricksSQLException;
 
+  long getLargeMaxRows() throws DatabricksSQLException;
+
   void setStatementId(StatementId statementId);
 
   StatementId getStatementId();
@@ -46,6 +48,4 @@ public interface IDatabricksStatementInternal {
   default void closeServerOperation() {
     // no-op by default
   }
-
-  long getLargeMaxRows() throws DatabricksSQLException;
 }

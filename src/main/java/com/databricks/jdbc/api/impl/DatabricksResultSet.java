@@ -83,6 +83,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   // for the lifetime of a result set.
   private final TelemetryCollector cachedTelemetryCollector;
 
+  // Client-side maxRows enforcement. This central check in next() is the single
+  // enforcement point using the full long precision from getLargeMaxRows().
+  // No per-impl maxRows enforcement exists — all implementations delegate to this check.
+  private final long maxRowsLimit;
+  private long rowsReturned = 0;
+  private boolean truncatedByMaxRows = false; // tracks client-side truncation for cursor methods
+  // Flag to bypass maxRows check during getUpdateCount() internal iteration,
+  // which calls next() to sum affected-row counts for DML statements.
+  private boolean countingUpdateRows = false;
+
   // Constructor for SEA result set
   public DatabricksResultSet(
       StatementStatus statementStatus,
@@ -122,6 +132,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.updateCount = null;
     this.parentStatement = parentStatement;
     this.cachedTelemetryCollector = resolveTelemetryCollector(parentStatement);
+    this.maxRowsLimit = resolveMaxRowsLimit(parentStatement);
     this.isClosed = false;
     this.wasNull = false;
     startHeartbeatIfEnabled();
@@ -144,6 +155,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.updateCount = null;
     this.parentStatement = parentStatement;
     this.cachedTelemetryCollector = resolveTelemetryCollector(parentStatement);
+    this.maxRowsLimit = resolveMaxRowsLimit(parentStatement);
     this.isClosed = false;
     this.wasNull = false;
     this.complexDatatypeSupport = complexDatatypeSupport;
@@ -191,6 +203,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.updateCount = null;
     this.parentStatement = parentStatement;
     this.cachedTelemetryCollector = resolveTelemetryCollector(parentStatement);
+    this.maxRowsLimit = resolveMaxRowsLimit(parentStatement);
     this.isClosed = false;
     this.wasNull = false;
     startHeartbeatIfEnabled();
@@ -223,6 +236,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.updateCount = null;
     this.parentStatement = null;
     this.cachedTelemetryCollector = null;
+    this.maxRowsLimit = 0;
     this.isClosed = false;
     this.wasNull = false;
   }
@@ -254,6 +268,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.updateCount = null;
     this.parentStatement = null;
     this.cachedTelemetryCollector = null;
+    this.maxRowsLimit = 0;
     this.isClosed = false;
     this.wasNull = false;
   }
@@ -274,10 +289,22 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.updateCount = null;
     this.parentStatement = null;
     this.cachedTelemetryCollector = null;
+    this.maxRowsLimit = 0;
     this.isClosed = false;
     this.wasNull = false;
   }
 
+  /**
+   * Advances the cursor to the next row of the result set. Returns {@code false} when no more rows
+   * are available or when the client-side {@code maxRows} limit has been reached.
+   *
+   * <p>{@code rowsReturned} tracks how many rows have been delivered to the caller through this
+   * ResultSet instance. It is only incremented during normal (non-DML-counting) iteration and
+   * assumes single-threaded access, which is the standard JDBC contract.
+   *
+   * @return {@code true} if the new current row is valid; {@code false} if there are no more rows
+   * @throws SQLException if the result set is closed or an error occurs
+   */
   @Override
   public boolean next() throws SQLException {
     checkIfClosed();
@@ -287,7 +314,32 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               + "For async execution, call getExecutionResult() first.",
           DatabricksDriverErrorCode.INVALID_STATE);
     }
+    // Client-side maxRows truncation: stop before delegating to the underlying result
+    // implementation when the limit has been reached. This is skipped during
+    // getUpdateCount() internal iteration (countingUpdateRows) to avoid breaking DML
+    // row counting. This is the single maxRows enforcement point for all implementations.
+    if (maxRowsLimit > 0 && rowsReturned >= maxRowsLimit && !countingUpdateRows) {
+      LOGGER.debug(
+          "maxRows limit ({}) reached for statement {}; returning false after {} rows",
+          maxRowsLimit,
+          statementId,
+          rowsReturned);
+      if (!truncatedByMaxRows) {
+        truncatedByMaxRows = true;
+        if (cachedTelemetryCollector != null) {
+          cachedTelemetryCollector.recordResultSetIteration(
+              statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), false);
+        }
+      }
+      return false;
+    }
     boolean hasNext = this.executionResult.next();
+    // Only count rows for customer iteration, not internal DML counting
+    // (getUpdateCount() sets countingUpdateRows=true to iterate over affected-row counts
+    // without inflating the user-visible row counter).
+    if (hasNext && !countingUpdateRows) {
+      rowsReturned++;
+    }
     if (cachedTelemetryCollector != null) {
       cachedTelemetryCollector.recordResultSetIteration(
           statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), hasNext);
@@ -521,6 +573,20 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       LOGGER.trace("Error resolving telemetry collector: {}", e.getMessage());
     }
     return null;
+  }
+
+  private static long resolveMaxRowsLimit(IDatabricksStatementInternal parentStatement) {
+    try {
+      if (parentStatement != null) {
+        // Use getLargeMaxRows() to preserve full long precision.
+        // getMaxRows() returns int and silently truncates values > Integer.MAX_VALUE.
+        return parentStatement.getLargeMaxRows();
+      }
+    } catch (SQLException e) {
+      // Narrow to SQLException (the only checked exception from getLargeMaxRows).
+      LOGGER.warn("Error resolving maxRows limit: {}", e.getMessage());
+    }
+    return 0;
   }
 
   @Override
@@ -864,7 +930,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean isAfterLast() throws SQLException {
     checkIfClosed();
-    return executionResult.getCurrentRow() >= resultSetMetaData.getTotalRows();
+    // Account for client-side maxRows truncation
+    return truncatedByMaxRows
+        || executionResult.getCurrentRow() >= resultSetMetaData.getTotalRows();
   }
 
   @Override
@@ -893,6 +961,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean isLast() throws SQLException {
     checkIfClosed();
+    // Account for client-side maxRows truncation: if the next next() call would
+    // hit the limit, this is the last row the caller will see.
+    if (maxRowsLimit > 0 && rowsReturned >= maxRowsLimit) {
+      return true;
+    }
     if (executionResult instanceof LazyThriftResult
         || executionResult instanceof StreamingColumnarResult
         || executionResult instanceof LazyThriftInlineArrowResult
@@ -933,6 +1006,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public int getRow() throws SQLException {
     checkIfClosed();
+    // JDBC spec: getRow() returns 0 when cursor is not on a valid row (after last)
+    if (truncatedByMaxRows) {
+      return 0;
+    }
     return (int) executionResult.getCurrentRow() + 1;
   }
 
@@ -2160,8 +2237,13 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       updateCount = 0L;
     } else if (hasUpdateCount()) {
       long rowsUpdated = 0;
-      while (next()) {
-        rowsUpdated += this.getLong(AFFECTED_ROWS_COUNT);
+      countingUpdateRows = true;
+      try {
+        while (next()) {
+          rowsUpdated += this.getLong(AFFECTED_ROWS_COUNT);
+        }
+      } finally {
+        countingUpdateRows = false;
       }
       updateCount = rowsUpdated;
     } else {
