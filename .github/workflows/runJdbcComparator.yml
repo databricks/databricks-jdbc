@@ -34,10 +34,13 @@ jobs:
       labels: linux-ubuntu-latest
 
     steps:
-      - name: Checkout comparator-v2
+      - name: Checkout triggering ref
+        # Use the ref that triggered the workflow so PR-branch dispatches test
+        # the PR-branch's workflow + script (not the base branch's stale copy).
+        # Resolves to comparator-v2 for dispatches on the base branch.
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          ref: comparator-v2
+          ref: ${{ github.ref }}
           fetch-depth: 1
 
       - name: Set up JDK 11
