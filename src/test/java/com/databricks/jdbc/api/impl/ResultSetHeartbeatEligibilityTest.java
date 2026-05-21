@@ -113,6 +113,22 @@ public class ResultSetHeartbeatEligibilityTest {
   }
 
   @Test
+  void testThriftSucceededIsEligible() {
+    // Thrift direct results arrive as SUCCEEDED (not CLOSED). isHeartbeatEligible() returns
+    // true for SUCCEEDED — the heartbeat is stopped by markDirectResultsReceived() on the
+    // Statement, not by the eligibility check.
+    DatabricksResultSet rs =
+        createResultSet(
+            StatementState.SUCCEEDED,
+            StatementType.QUERY,
+            DatabricksResultSet.ResultSetType.THRIFT_INLINE,
+            true);
+    assertTrue(
+        rs.isHeartbeatEligible(),
+        "Thrift SUCCEEDED is eligible — markDirectResultsReceived() handles the stop");
+  }
+
+  @Test
   void testUpdateCountNotEligible() {
     DatabricksResultSet rs =
         createResultSet(

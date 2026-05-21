@@ -974,8 +974,16 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
    */
   @Override
   public void markDirectResultsReceived() {
-    LOGGER.info("Statement {} received direct results (server closed operation)", statementId);
     this.directResultsReceived = true;
+    // Stop heartbeat — server already closed the operation, no point polling.
+    // Heartbeat may have been started by the ResultSet constructor before this
+    // call (Thrift direct results arrive as SUCCEEDED, not CLOSED).
+    if (statementId != null) {
+      ResultHeartbeatManager mgr = connection.getHeartbeatManager();
+      if (mgr != null) {
+        mgr.stopHeartbeat(statementId);
+      }
+    }
   }
 
   /**
