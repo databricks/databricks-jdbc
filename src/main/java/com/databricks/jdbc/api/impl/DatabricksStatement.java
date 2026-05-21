@@ -43,7 +43,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private int timeoutInSeconds;
   protected final DatabricksConnection connection;
   DatabricksResultSet resultSet;
-  private StatementId statementId;
+  private volatile StatementId statementId; // volatile: cancel() reads from a different thread
   private boolean isClosed;
   private boolean closeOnCompletion;
   private SQLWarning warnings = null;
