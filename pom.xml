@@ -61,31 +61,33 @@
     <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
     <spotless-maven-plugin.version>2.39.0</spotless-maven-plugin.version>
     <build-helper-maven-plugin.version>3.6.1</build-helper-maven-plugin.version>
+    <cyclonedx-maven-plugin.version>2.9.1</cyclonedx-maven-plugin.version>
 
     <!-- Dependency Versions -->
     <databricks-jdbc-version>3.3.3</databricks-jdbc-version>
     <arrow.version>18.3.0</arrow.version>
     <commons-lang3.version>3.18.0</commons-lang3.version>
-    <commons-configuration.version>2.10.1</commons-configuration.version>
+    <commons-configuration.version>2.15.0</commons-configuration.version>
     <commons-io.version>2.14.0</commons-io.version>
     <databricks-sdk.version>0.69.0</databricks-sdk.version>
     <httpclient.version>4.5.14</httpclient.version>
-    <async-httpclient.version>5.3.1</async-httpclient.version>
-    <thrift.version>0.19.0</thrift.version>
+    <async-httpclient.version>5.5.2</async-httpclient.version>
+    <httpcore5.version>5.3.6</httpcore5.version>
+    <thrift.version>0.23.0</thrift.version>
     <slf4j.version>2.0.13</slf4j.version>
-    <jackson.version>2.18.6</jackson.version>
+    <jackson.version>2.18.7</jackson.version>
     <gson.version>2.13.2</gson.version>
     <google.guava.version>33.0.0-jre</google.guava.version>
     <google.findbugs.annotations.version>3.0.1</google.findbugs.annotations.version>
     <immutables.value.version>2.9.2</immutables.value.version>
-    <lz4-compression.version>1.8.1</lz4-compression.version>
+    <lz4-compression.version>1.10.1</lz4-compression.version>
     <annotation.version>1.3.5</annotation.version>
-    <netty.version>4.2.12.Final</netty.version>
+    <netty.version>4.2.13.Final</netty.version>
     <grpc.version>1.71.0</grpc.version>
     <jts-core.version>1.20.0</jts-core.version>
     <resilience4j.version>1.7.0</resilience4j.version>
     <nimbusjose.version>10.0.2</nimbusjose.version>
-    <bouncycastle.version>1.79</bouncycastle.version>
+    <bouncycastle.version>1.84</bouncycastle.version>
     <jmh.version>1.37</jmh.version>
 
     <!-- Test Dependencies -->
@@ -170,6 +172,11 @@
           <artifactId>build-helper-maven-plugin</artifactId>
           <version>${build-helper-maven-plugin.version}</version>
         </plugin>
+        <plugin>
+          <groupId>org.cyclonedx</groupId>
+          <artifactId>cyclonedx-maven-plugin</artifactId>
+          <version>${cyclonedx-maven-plugin.version}</version>
+        </plugin>
       </plugins>
     </pluginManagement>
 
@@ -201,6 +208,38 @@
             </excludes>
           </java>
         </configuration>
+      </plugin>
+      <plugin>
+        <!--
+          Emits a CycloneDX SBOM (target/bom.json) per module + an aggregate
+          BOM at the root build dir during `mvn package`. The PR security
+          scan workflow feeds the aggregate BOM to osv-scanner so it scans
+          the actually-resolved local dependency tree, rather than relying
+          on deps.dev's metadata for the currently-published GA (which lags
+          behind whatever bumps are sitting on main).
+        -->
+        <groupId>org.cyclonedx</groupId>
+        <artifactId>cyclonedx-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>aggregate-bom</id>
+            <phase>package</phase>
+            <goals>
+              <goal>makeAggregateBom</goal>
+            </goals>
+            <configuration>
+              <outputFormat>json</outputFormat>
+              <schemaVersion>1.5</schemaVersion>
+              <!--
+                Override default: cyclonedx auto-skips modules with
+                maven.deploy.skip=true (like the parent and jdbc-core).
+                We want the SBOM for the security scan regardless of
+                deploy status.
+              -->
+              <skipNotDeployed>false</skipNotDeployed>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>

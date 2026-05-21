@@ -153,7 +153,11 @@ public class DatabricksHttpTTransport extends TTransport {
 
   @Override
   public TConfiguration getConfiguration() {
-    return null;
+    // libthrift >= 0.21 dereferences the return of getConfiguration() when
+    // reading messages (e.g. TProtocolUtil reading the recursion limit);
+    // returning null causes a NullPointerException in transport code paths
+    // that worked under 0.19. Return the framework default instead.
+    return TConfiguration.DEFAULT;
   }
 
   @Override

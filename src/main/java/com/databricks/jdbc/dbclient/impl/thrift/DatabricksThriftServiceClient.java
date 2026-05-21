@@ -42,6 +42,7 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.apache.thrift.TException;
 
 public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabricksMetadataClient {
 
@@ -267,6 +268,41 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     }
 
     return request;
+  }
+
+  @Override
+  public boolean checkStatementAlive(StatementId statementId) throws DatabricksSQLException {
+    LOGGER.debug(
+        "Heartbeat check for statement {} using Thrift client", statementId.toSQLExecStatementId());
+    DatabricksThreadContextHolder.setStatementId(statementId);
+    try {
+      TGetOperationStatusReq statusReq =
+          new TGetOperationStatusReq()
+              .setOperationHandle(getOperationHandle(statementId))
+              .setGetProgressUpdate(false);
+      TGetOperationStatusResp resp = thriftAccessor.getOperationStatus(statusReq, statementId);
+      TOperationState state = resp.getOperationState();
+      if (state == null) {
+        LOGGER.warn(
+            "Heartbeat for statement {} received null operation state, assuming alive",
+            statementId);
+        return true; // assume alive — server returned response but no state
+      }
+      // Terminal states mean the operation is no longer alive
+      return state != TOperationState.CANCELED_STATE
+          && state != TOperationState.CLOSED_STATE
+          && state != TOperationState.ERROR_STATE
+          && state != TOperationState.TIMEDOUT_STATE;
+    } catch (TException e) {
+      LOGGER.debug(
+          "Heartbeat check failed for statement {}: {}",
+          statementId.toSQLExecStatementId(),
+          e.getMessage());
+      throw new DatabricksSQLException(
+          "Heartbeat status check failed", e, DatabricksDriverErrorCode.INVALID_STATE);
+    } finally {
+      DatabricksThreadContextHolder.clearStatementInfo();
+    }
   }
 
   @Override

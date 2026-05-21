@@ -55,7 +55,11 @@ public enum DatabricksJdbcUrlParams {
   DISCOVERY_URL("OAuthDiscoveryURL", "OAuth discovery URL"), // Same as OIDC_DISCOVERY_ENDPOINT
   IDENTITY_FEDERATION_CLIENT_ID(
       "Identity_Federation_Client_Id", "OAuth Client ID for Token Federation"),
-  ENABLE_ARROW("EnableArrow", "Enable Arrow", "1"),
+  ENABLE_ARROW(
+      "EnableArrow",
+      "Deprecated: Arrow is always enabled. Value ignored except on AIX. "
+          + "Use EnableQueryResultDownload=0 for JSON inline results with SEA.",
+      "1"),
   DIRECT_RESULT("EnableDirectResults", "Enable direct results", "1"),
   LZ4_COMPRESSION_FLAG(
       "EnableQueryResultLZ4Compression", "Enable LZ4 compression"), // Backward compatibility
@@ -233,7 +237,15 @@ public enum DatabricksJdbcUrlParams {
   NON_ROWCOUNT_QUERY_PREFIXES(
       "NonRowcountQueryPrefixes",
       "Comma-separated list of query prefixes (like INSERT,UPDATE,DELETE) that should return result sets instead of row counts",
-      "");
+      ""),
+  ENABLE_HEARTBEAT(
+      "EnableHeartbeat",
+      "Enable periodic heartbeat polling to keep server-side results alive during slow consumption",
+      "0"),
+  HEARTBEAT_INTERVAL_SECONDS(
+      "HeartbeatIntervalSeconds",
+      "Interval in seconds between heartbeat RPCs to keep results alive",
+      "60");
 
   private final String paramName;
   private final String defaultValue;

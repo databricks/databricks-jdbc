@@ -126,6 +126,10 @@ public class DatabricksDriverFeatureFlagsContext {
             featureFlags.put(flag.getName(), flag.getValue());
           }
         }
+        LOGGER.debug(
+            "Feature flags from connector-service: endpoint={}, {}",
+            request.getURI(),
+            featureFlagsResponse);
 
         Integer ttlSeconds = featureFlagsResponse.getTtlSeconds();
         if (ttlSeconds != null) {

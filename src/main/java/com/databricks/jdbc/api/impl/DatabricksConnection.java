@@ -38,6 +38,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   private final Set<IDatabricksStatementInternal> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
   private final IDatabricksConnectionContext connectionContext;
+  private final ResultHeartbeatManager heartbeatManager;
 
   /**
    * Creates an instance of Databricks connection for given connection context.
@@ -49,6 +50,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     this.connectionContext = connectionContext;
     DatabricksThreadContextHolder.setConnectionContext(connectionContext);
     this.session = new DatabricksSession(connectionContext);
+    this.heartbeatManager = createHeartbeatManager(connectionContext);
   }
 
   @VisibleForTesting
@@ -58,8 +60,25 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     this.connectionContext = connectionContext;
     DatabricksThreadContextHolder.setConnectionContext(connectionContext);
     this.session = new DatabricksSession(connectionContext, testDatabricksClient);
+    this.heartbeatManager = createHeartbeatManager(connectionContext);
     UserAgentManager.setUserAgent(connectionContext);
     TelemetryHelper.updateTelemetryAppName(connectionContext, null);
+  }
+
+  private static ResultHeartbeatManager createHeartbeatManager(
+      IDatabricksConnectionContext connectionContext) {
+    // Use interface methods instead of instanceof check so mocks and
+    // alternate implementations can also enable heartbeat
+    if (connectionContext.isHeartbeatEnabled()) {
+      return new ResultHeartbeatManager(
+          connectionContext.getHeartbeatIntervalSeconds(), connectionContext.getConnectionUuid());
+    }
+    return null;
+  }
+
+  /** Returns the heartbeat manager, or null if heartbeat is disabled. */
+  ResultHeartbeatManager getHeartbeatManager() {
+    return heartbeatManager;
   }
 
   @Override
@@ -416,6 +435,11 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void close() throws SQLException {
     LOGGER.debug("public void close()");
+    // Shutdown heartbeat FIRST — prevents RPCs on closing connections and
+    // ensures shutdown runs even if statement.close() throws
+    if (heartbeatManager != null) {
+      heartbeatManager.shutdown();
+    }
     for (IDatabricksStatementInternal statement : statementSet) {
       statement.close(false);
       statementSet.remove(statement);
@@ -424,7 +448,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     TelemetryClientFactory.getInstance().closeTelemetryClient(connectionContext);
     DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext);
     DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
-    DatabricksHttpClientFactory.getInstance().removeClient(connectionContext);
+    DatabricksHttpClientFactory.getInstance().closeConnection(connectionContext);
     DatabricksThreadContextHolder.clearAllContext();
   }
 

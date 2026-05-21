@@ -57,6 +57,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private Supplier<DatabricksClientType> clientTypeSupplier;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
   @VisibleForTesting final String connectionUuid;
+  private final boolean enableArrow;
 
   private DatabricksConnectionContext(
       String connectionURL,
@@ -73,6 +74,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.customHeaders = parseCustomHeaders(parameters);
     this.computeResource = buildCompute();
     this.connectionUuid = UUID.randomUUID().toString();
+    this.enableArrow = resolveEnableArrow();
     this.clientTypeSupplier =
         new Supplier<>() {
           private DatabricksClientType cType;
@@ -97,6 +99,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.customHeaders = parseCustomHeaders(parameters);
     this.computeResource = null;
     this.connectionUuid = UUID.randomUUID().toString();
+    this.enableArrow = resolveEnableArrow();
   }
 
   /**
@@ -505,8 +508,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           remainingMs);
       return DatabricksClientType.THRIFT;
     }
-    // Check if Arrow is disabled - Thrift is required for inline mode
-    if (!Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_ARROW), "1")) {
+    // On AIX/PowerPC, Arrow may be disabled — check before routing to SEA
+    if (isAixOrPowerPc() && !shouldEnableArrow()) {
       return DatabricksClientType.THRIFT;
     }
     // Check if CloudFetch is disabled - Thrift is required for inline mode
@@ -669,7 +672,34 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public Boolean shouldEnableArrow() {
-    return Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_ARROW), "1");
+    return enableArrow;
+  }
+
+  /** Evaluates the Arrow enablement once at construction time. */
+  private boolean resolveEnableArrow() {
+    // Arrow is always enabled unless running on AIX or IBM Power (which have known
+    // issues with the Arrow native library). The EnableArrow connection property is
+    // deprecated and its value is ignored on non-AIX/IBM platforms.
+    if (isAixOrPowerPc()) {
+      // On AIX/PowerPC, Arrow native library has known issues — default to disabled.
+      // Honour explicit EnableArrow=1 if user sets it.
+      String explicitValue = getParameterIgnoreDefault(DatabricksJdbcUrlParams.ENABLE_ARROW);
+      if (explicitValue != null) {
+        return explicitValue.equals("1");
+      }
+      return false; // default disabled on AIX/PowerPC
+    }
+
+    // Log deprecation warning once if user explicitly set EnableArrow=0 (ignored)
+    String explicitValue = getParameterIgnoreDefault(DatabricksJdbcUrlParams.ENABLE_ARROW);
+    if (explicitValue != null && explicitValue.equals("0")) {
+      LOGGER.info(
+          "EnableArrow=0 is deprecated and ignored. Arrow serialization is always enabled. "
+              + "To use JSON inline results with SEA, disable CloudFetch via "
+              + "EnableQueryResultDownload=0.");
+    }
+
+    return true;
   }
 
   @Override
@@ -943,6 +973,33 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY).equals("1");
   }
 
+  public boolean isHeartbeatEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_HEARTBEAT).equals("1");
+  }
+
+  public int getHeartbeatIntervalSeconds() {
+    int interval;
+    try {
+      interval = Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HEARTBEAT_INTERVAL_SECONDS));
+    } catch (NumberFormatException e) {
+      LOGGER.warn(
+          "Invalid HeartbeatIntervalSeconds value '{}'. Using default 60.",
+          getParameter(DatabricksJdbcUrlParams.HEARTBEAT_INTERVAL_SECONDS));
+      return 60;
+    }
+    if (interval <= 0) {
+      LOGGER.warn("HeartbeatIntervalSeconds must be positive, got {}. Using default 60.", interval);
+      return 60;
+    }
+    if (interval > 3600) {
+      LOGGER.warn(
+          "HeartbeatIntervalSeconds {} is very large (> 1 hour). "
+              + "Heartbeat may not keep the operation alive.",
+          interval);
+    }
+    return interval;
+  }
+
   @Override
   public String getVolumeOperationAllowedPaths() {
     return getParameter(
@@ -1196,6 +1253,13 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private String getParameterIgnoreDefault(DatabricksJdbcUrlParams key) {
     return this.parameters.getOrDefault(key.getParamName().toLowerCase(), null);
+  }
+
+  /** Returns true if running on AIX or IBM PowerPC architecture. */
+  private static boolean isAixOrPowerPc() {
+    String osName = System.getProperty("os.name", "").toLowerCase();
+    String osArch = System.getProperty("os.arch", "").toLowerCase();
+    return osName.contains("aix") || osArch.contains("ppc");
   }
 
   /**

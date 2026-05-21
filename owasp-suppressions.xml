@@ -16,4 +16,119 @@
         <packageUrl regex="true">^pkg:maven/org\.apache\.arrow/.*$</packageUrl>
         <cve>CVE-2026-25087</cve>
     </suppress>
+
+    <!--
+      CVE-2024-52338 is a deserialization vulnerability in the Apache Arrow R
+      package on CRAN (R 4.0.0 - 16.1.0, fixed in R 17.0.0). The Apache advisory
+      explicitly states it does NOT affect other Arrow implementations or
+      bindings. The Java Arrow libraries (arrow-memory-core, arrow-vector, etc.)
+      are unaffected by both ecosystem (Java != R) and version range
+      (driver ships 18.3.0, which is outside the affected range).
+      See: https://nvd.nist.gov/vuln/detail/CVE-2024-52338
+           https://www.openwall.com/lists/oss-security/2024/11/28/3
+    -->
+    <suppress>
+        <notes><![CDATA[
+            CVE-2024-52338 affects the Apache Arrow R package only, not Java.
+            False positive due to CPE matching on the shared "apache:arrow" namespace.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.arrow/.*$</packageUrl>
+        <cve>CVE-2024-52338</cve>
+    </suppress>
+
+    <!--
+      CVE-2026-33186 is an authorization bypass in gRPC-Go server routing
+      (google.golang.org/grpc, fixed in 1.79.3). The Java gRPC libraries
+      (io.grpc:grpc-api, grpc-context, grpc-stub) are a completely separate
+      codebase (grpc-java) with independent release lines. The advisory record
+      lists only the Go module as affected. Additionally, the JDBC driver is a
+      gRPC client only (it does not run a gRPC server) and has no attack
+      surface for a server-side routing bug.
+      See: https://nvd.nist.gov/vuln/detail/CVE-2026-33186
+           https://github.com/advisories/GHSA-p77j-4mvh-x3m3
+    -->
+    <suppress>
+        <notes><![CDATA[
+            CVE-2026-33186 affects gRPC-Go (google.golang.org/grpc) only,
+            not gRPC-Java. False positive due to CPE matching on the shared
+            "grpc:grpc" namespace. Driver is a gRPC client; no server attack
+            surface.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/io\.grpc/.*$</packageUrl>
+        <cve>CVE-2026-33186</cve>
+    </suppress>
+
+    <!--
+      CVE-2026-0994 is a vulnerability in the protobuf Python library
+      (`pip install protobuf`, fixed in 5.29.6 / 6.33.5). The advisory record
+      lists only the pip module as affected; no Maven artifact is listed.
+      The Java protobuf library (com.google.protobuf:protobuf-java) shares a
+      CPE namespace with the Python library, causing the OWASP scanner to
+      match it incorrectly.
+      See: https://nvd.nist.gov/vuln/detail/CVE-2026-0994
+           https://github.com/advisories/GHSA-7gcm-g887-7qv7
+    -->
+    <suppress>
+        <notes><![CDATA[
+            CVE-2026-0994 affects pip protobuf (Python) only, not protobuf-java.
+            False positive due to CPE matching on the shared "google:protobuf"
+            / "protobuf:protobuf" namespace.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/com\.google\.protobuf/.*$</packageUrl>
+        <cve>CVE-2026-0994</cve>
+    </suppress>
+
+    <!--
+      Several CVEs in the May 2026 Apache Thrift advisory batch are scoped to
+      non-Java bindings (Go, Node.js, C_glib, Rust). They get matched against
+      the Java libthrift jar via the shared "apache:thrift" CPE namespace.
+      The driver uses libthrift as a Java client only (TBinaryProtocol over
+      HTTP); none of these vulnerabilities are reachable from Java usage.
+      The remaining libthrift CVEs whose binding is unspecified or known to
+      affect Java are NOT suppressed and will be cleared by a follow-up bump
+      to libthrift 0.23.0 (requires regenerating TCLIService.java).
+      See per-CVE notes below for the affected binding.
+    -->
+    <suppress>
+        <notes><![CDATA[
+            CVE-2025-48431 affects libthrift C_glib (invalid free), not the
+            Java binding. False positive due to shared "apache:thrift" CPE.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.thrift/libthrift@.*$</packageUrl>
+        <cve>CVE-2025-48431</cve>
+    </suppress>
+    <suppress>
+        <notes><![CDATA[
+            CVE-2026-41602 affects libthrift Go (TFramedTransport), not the
+            Java binding. False positive due to shared "apache:thrift" CPE.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.thrift/libthrift@.*$</packageUrl>
+        <cve>CVE-2026-41602</cve>
+    </suppress>
+    <suppress>
+        <notes><![CDATA[
+            CVE-2026-41636 affects libthrift Node.js (skip() recursion), not
+            the Java binding. False positive due to shared "apache:thrift" CPE.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.thrift/libthrift@.*$</packageUrl>
+        <cve>CVE-2026-41636</cve>
+    </suppress>
+    <suppress>
+        <notes><![CDATA[
+            CVE-2026-43868 affects libthrift Rust (memory allocation excess
+            size), not the Java binding. False positive due to shared
+            "apache:thrift" CPE.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.thrift/libthrift@.*$</packageUrl>
+        <cve>CVE-2026-43868</cve>
+    </suppress>
+    <suppress>
+        <notes><![CDATA[
+            CVE-2026-43870 affects libthrift Node.js (web_server.js multi-vuln),
+            not the Java binding. False positive due to shared "apache:thrift"
+            CPE.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/org\.apache\.thrift/libthrift@.*$</packageUrl>
+        <cve>CVE-2026-43870</cve>
+    </suppress>
 </suppressions>

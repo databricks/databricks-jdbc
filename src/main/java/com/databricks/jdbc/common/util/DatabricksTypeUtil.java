@@ -56,6 +56,13 @@ public class DatabricksTypeUtil {
   public static final String GEOMETRY = "GEOMETRY";
   public static final String GEOGRAPHY = "GEOGRAPHY";
   public static final String INTERVAL = "INTERVAL";
+  public static final String VARCHAR = "VARCHAR";
+  public static final String NVARCHAR = "NVARCHAR";
+  public static final String NCHAR = "NCHAR";
+  public static final String INTEGER = "INTEGER";
+  public static final String NUMERIC = "NUMERIC";
+  public static final String DEC = "DEC";
+  public static final String REAL = "REAL";
   public static final String GEOMETRY_CLASS_NAME = "com.databricks.jdbc.api.IGeometry";
   public static final String GEOGRAPHY_CLASS_NAME = "com.databricks.jdbc.api.IGeography";
   public static final String MEASURE = "measure";
@@ -73,13 +80,22 @@ public class DatabricksTypeUtil {
               ColumnInfoTypeName.BYTE,
               ColumnInfoTypeName.BIGINT));
 
-  // only used for PreparedStatement
+  /**
+   * Maps a SQL type name (as returned by DESCRIBE QUERY or schema metadata) to the corresponding
+   * {@link ColumnInfoTypeName}. Handles canonical names, Databricks aliases, and standard SQL
+   * aliases (VARCHAR, INTEGER, NUMERIC, DEC, REAL, NVARCHAR, NCHAR). Returns {@link
+   * ColumnInfoTypeName#USER_DEFINED_TYPE} for unrecognized types.
+   */
   public static ColumnInfoTypeName getColumnInfoType(String typeName) {
     switch (typeName) {
       case DatabricksTypeUtil.CHAR:
+      case DatabricksTypeUtil.NCHAR:
       case DatabricksTypeUtil.STRING:
-        return ColumnInfoTypeName.STRING; // both char, string passed as STRING param
+      case DatabricksTypeUtil.VARCHAR:
+      case DatabricksTypeUtil.NVARCHAR:
+        return ColumnInfoTypeName.STRING;
       case DatabricksTypeUtil.DATE:
+        return ColumnInfoTypeName.DATE;
       case DatabricksTypeUtil.TIMESTAMP:
       case DatabricksTypeUtil.TIMESTAMP_NTZ:
         return ColumnInfoTypeName.TIMESTAMP;
@@ -91,11 +107,13 @@ public class DatabricksTypeUtil {
       case DatabricksTypeUtil.BYTE:
         return ColumnInfoTypeName.BYTE;
       case DatabricksTypeUtil.INT:
+      case DatabricksTypeUtil.INTEGER:
         return ColumnInfoTypeName.INT;
       case DatabricksTypeUtil.BIGINT:
       case DatabricksTypeUtil.LONG:
         return ColumnInfoTypeName.LONG;
       case DatabricksTypeUtil.FLOAT:
+      case DatabricksTypeUtil.REAL:
         return ColumnInfoTypeName.FLOAT;
       case DatabricksTypeUtil.DOUBLE:
         return ColumnInfoTypeName.DOUBLE;
@@ -104,6 +122,8 @@ public class DatabricksTypeUtil {
       case DatabricksTypeUtil.BOOLEAN:
         return ColumnInfoTypeName.BOOLEAN;
       case DatabricksTypeUtil.DECIMAL:
+      case DatabricksTypeUtil.NUMERIC:
+      case DatabricksTypeUtil.DEC:
         return ColumnInfoTypeName.DECIMAL;
       case DatabricksTypeUtil.STRUCT:
         return ColumnInfoTypeName.STRUCT;
@@ -118,6 +138,14 @@ public class DatabricksTypeUtil {
         return ColumnInfoTypeName.INTERVAL;
       case DatabricksTypeUtil.VARIANT:
         return ColumnInfoTypeName.VARIANT;
+      case DatabricksTypeUtil.GEOMETRY:
+        return ColumnInfoTypeName.GEOMETRY;
+      case DatabricksTypeUtil.GEOGRAPHY:
+        return ColumnInfoTypeName.GEOGRAPHY;
+    }
+    // Handle INTERVAL sub-types like "INTERVAL DAY TO SECOND"
+    if (typeName.startsWith(DatabricksTypeUtil.INTERVAL)) {
+      return ColumnInfoTypeName.INTERVAL;
     }
     return ColumnInfoTypeName.USER_DEFINED_TYPE;
   }

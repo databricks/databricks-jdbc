@@ -21,6 +21,7 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.WarningUtil;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -82,6 +83,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   // for the lifetime of a result set.
   private final TelemetryCollector cachedTelemetryCollector;
 
+  // Client-side maxRows enforcement. This central check in next() is the single
+  // enforcement point using the full long precision from getLargeMaxRows().
+  // No per-impl maxRows enforcement exists — all implementations delegate to this check.
+  private final long maxRowsLimit;
+  private long rowsReturned = 0;
+  private boolean truncatedByMaxRows = false; // tracks client-side truncation for cursor methods
+  // Flag to bypass maxRows check during getUpdateCount() internal iteration,
+  // which calls next() to sum affected-row counts for DML statements.
+  private boolean countingUpdateRows = false;
+
   // Constructor for SEA result set
   public DatabricksResultSet(
       StatementStatus statementStatus,
@@ -121,8 +132,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.updateCount = null;
     this.parentStatement = parentStatement;
     this.cachedTelemetryCollector = resolveTelemetryCollector(parentStatement);
+    this.maxRowsLimit = resolveMaxRowsLimit(parentStatement);
     this.isClosed = false;
     this.wasNull = false;
+    startHeartbeatIfEnabled();
   }
 
   @VisibleForTesting
@@ -142,6 +155,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.updateCount = null;
     this.parentStatement = parentStatement;
     this.cachedTelemetryCollector = resolveTelemetryCollector(parentStatement);
+    this.maxRowsLimit = resolveMaxRowsLimit(parentStatement);
     this.isClosed = false;
     this.wasNull = false;
     this.complexDatatypeSupport = complexDatatypeSupport;
@@ -189,8 +203,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.updateCount = null;
     this.parentStatement = parentStatement;
     this.cachedTelemetryCollector = resolveTelemetryCollector(parentStatement);
+    this.maxRowsLimit = resolveMaxRowsLimit(parentStatement);
     this.isClosed = false;
     this.wasNull = false;
+    startHeartbeatIfEnabled();
   }
 
   /* Constructing results for getUDTs, getTypeInfo, getProcedures metadata calls */
@@ -220,6 +236,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.updateCount = null;
     this.parentStatement = null;
     this.cachedTelemetryCollector = null;
+    this.maxRowsLimit = 0;
     this.isClosed = false;
     this.wasNull = false;
   }
@@ -251,6 +268,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.updateCount = null;
     this.parentStatement = null;
     this.cachedTelemetryCollector = null;
+    this.maxRowsLimit = 0;
     this.isClosed = false;
     this.wasNull = false;
   }
@@ -271,28 +289,275 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.updateCount = null;
     this.parentStatement = null;
     this.cachedTelemetryCollector = null;
+    this.maxRowsLimit = 0;
     this.isClosed = false;
     this.wasNull = false;
   }
 
+  /**
+   * Advances the cursor to the next row of the result set. Returns {@code false} when no more rows
+   * are available or when the client-side {@code maxRows} limit has been reached.
+   *
+   * <p>{@code rowsReturned} tracks how many rows have been delivered to the caller through this
+   * ResultSet instance. It is only incremented during normal (non-DML-counting) iteration and
+   * assumes single-threaded access, which is the standard JDBC contract.
+   *
+   * @return {@code true} if the new current row is valid; {@code false} if there are no more rows
+   * @throws SQLException if the result set is closed or an error occurs
+   */
   @Override
   public boolean next() throws SQLException {
     checkIfClosed();
-    boolean hasNext = this.executionResult.next();
+    if (executionResult == null) {
+      throw new DatabricksSQLException(
+          "Cannot iterate: no result data available. "
+              + "For async execution, call getExecutionResult() first.",
+          DatabricksDriverErrorCode.INVALID_STATE);
+    }
+    // Client-side maxRows truncation: stop before delegating to the underlying result
+    // implementation when the limit has been reached. This is skipped during
+    // getUpdateCount() internal iteration (countingUpdateRows) to avoid breaking DML
+    // row counting. This is the single maxRows enforcement point for all implementations.
+    if (maxRowsLimit > 0 && rowsReturned >= maxRowsLimit && !countingUpdateRows) {
+      LOGGER.debug(
+          "maxRows limit ({}) reached for statement {}; returning false after {} rows",
+          maxRowsLimit,
+          statementId,
+          rowsReturned);
+      if (!truncatedByMaxRows) {
+        truncatedByMaxRows = true;
+        if (cachedTelemetryCollector != null) {
+          cachedTelemetryCollector.recordResultSetIteration(
+              statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), false);
+        }
+      }
+      return false;
+    }
+    boolean hasNext;
+    try {
+      hasNext = this.executionResult.next();
+    } catch (Exception e) {
+      // Stop heartbeat on iteration failure — prevents keeping the warehouse alive
+      // for an abandoned ResultSet (up to 10 ticks × interval before self-stop).
+      stopHeartbeat();
+      throw e;
+    }
+    // Only count rows for customer iteration, not internal DML counting
+    // (getUpdateCount() sets countingUpdateRows=true to iterate over affected-row counts
+    // without inflating the user-visible row counter).
+    if (hasNext && !countingUpdateRows) {
+      rowsReturned++;
+    }
     if (cachedTelemetryCollector != null) {
       cachedTelemetryCollector.recordResultSetIteration(
           statementId.toSQLExecStatementId(), resultSetMetaData.getChunkCount(), hasNext);
+    }
+    if (!hasNext) {
+      stopHeartbeat();
     }
     return hasNext;
   }
 
   @Override
   public void close() throws DatabricksSQLException {
+    stopHeartbeat();
+    // Proactively close server operation when ResultSet is closed explicitly.
+    closeServerOperation();
     isClosed = true;
-    this.executionResult.close();
+    if (executionResult != null) {
+      executionResult.close();
+    }
     if (parentStatement != null) {
       parentStatement.handleResultSetClose(this);
     }
+  }
+
+  /** Proactively closes the server-side operation via the parent statement. */
+  private void closeServerOperation() {
+    if (parentStatement != null) {
+      parentStatement.closeServerOperation();
+    }
+  }
+
+  /** Starts heartbeat polling if enabled on the connection and this result set is eligible. */
+  private void startHeartbeatIfEnabled() {
+    if (parentStatement == null || statementId == null) {
+      return;
+    }
+    if (!isHeartbeatEligible()) {
+      return;
+    }
+
+    try {
+      // Use JDBC unwrap() to handle pooled connection wrappers (HikariCP, DBCP)
+      java.sql.Connection rawConn = parentStatement.getStatement().getConnection();
+      DatabricksConnection conn;
+      if (rawConn instanceof DatabricksConnection) {
+        conn = (DatabricksConnection) rawConn;
+      } else if (rawConn.isWrapperFor(DatabricksConnection.class)) {
+        conn = rawConn.unwrap(DatabricksConnection.class);
+      } else {
+        LOGGER.debug("Cannot start heartbeat: connection is not a DatabricksConnection");
+        return;
+      }
+
+      ResultHeartbeatManager mgr = conn.getHeartbeatManager();
+      if (mgr == null) {
+        return; // heartbeat not enabled
+      }
+
+      // Capture only what the lambda needs — avoid capturing 'this' to prevent
+      // abandoned ResultSets from keeping the warehouse alive via heartbeat.
+      // Note: capturing 'client' retains a reference to the session/connection. If the
+      // connection is GC'd without close(), heartbeat RPCs will fail and self-stop after
+      // maxConsecutiveFailures (10 ticks, ~10 min at 60s interval). Acceptable tradeoff.
+      final IDatabricksClient client = conn.getSession().getDatabricksClient();
+      final StatementId capturedStatementId = this.statementId;
+      final int maxConsecutiveFailures = 10;
+      final java.util.concurrent.atomic.AtomicInteger consecutiveFailures =
+          new java.util.concurrent.atomic.AtomicInteger(0);
+      // Read the stopped flag from the manager on each tick instead of pre-capturing.
+      // Pre-capturing caused an orphan-flag bug: startHeartbeat() internally calls
+      // stopHeartbeat() which removes and replaces the flag, leaving the lambda with a
+      // permanently-true reference. Reading from the manager each tick always gets the
+      // current flag.
+      final ResultHeartbeatManager capturedMgr = mgr;
+
+      Runnable heartbeatTask =
+          () -> {
+            // Read current flag each tick — avoids orphan-flag issue
+            java.util.concurrent.atomic.AtomicBoolean stopped =
+                capturedMgr.getStoppedFlag(capturedStatementId);
+            if (stopped.get()) {
+              return; // client/session may be closed, skip RPC
+            }
+            try {
+              boolean alive = client.checkStatementAlive(capturedStatementId);
+              consecutiveFailures.set(0); // reset on success
+              if (!alive) {
+                LOGGER.info(
+                    "Heartbeat detected terminal state for statement {}, stopping",
+                    capturedStatementId.toSQLExecStatementId());
+                capturedMgr.stopHeartbeat(capturedStatementId);
+              }
+            } catch (Throwable e) {
+              if (e instanceof VirtualMachineError) {
+                capturedMgr.stopHeartbeat(capturedStatementId);
+                throw (VirtualMachineError) e;
+              }
+              if (capturedMgr.getStoppedFlag(capturedStatementId).get()) {
+                return;
+              }
+              if (e instanceof java.sql.SQLFeatureNotSupportedException) {
+                LOGGER.debug(
+                    "Heartbeat not supported by client for statement {}, stopping",
+                    capturedStatementId.toSQLExecStatementId());
+                capturedMgr.stopHeartbeat(capturedStatementId);
+                return;
+              }
+              int failures = consecutiveFailures.incrementAndGet();
+              if (failures == 1) {
+                LOGGER.info(
+                    "Heartbeat failed for statement {} (first failure): {}",
+                    capturedStatementId.toSQLExecStatementId(),
+                    e.getMessage());
+              } else {
+                LOGGER.debug(
+                    "Heartbeat failed for statement {} (failure {}/{}): {}",
+                    capturedStatementId.toSQLExecStatementId(),
+                    failures,
+                    maxConsecutiveFailures,
+                    e.getMessage());
+              }
+              if (failures >= maxConsecutiveFailures) {
+                LOGGER.warn(
+                    "Heartbeat stopped for statement {} after {} consecutive failures. "
+                        + "Server-side results may expire. Last error: {}",
+                    capturedStatementId.toSQLExecStatementId(),
+                    failures,
+                    e.getMessage());
+                capturedMgr.stopHeartbeat(capturedStatementId);
+              }
+            }
+          };
+
+      mgr.startHeartbeat(capturedStatementId, heartbeatTask);
+      LOGGER.debug(
+          "Heartbeat started for statement {} (resultType={}, interval={}s)",
+          capturedStatementId.toSQLExecStatementId(),
+          resultSetType,
+          mgr.getIntervalSeconds());
+    } catch (Exception e) {
+      LOGGER.debug("Failed to start heartbeat: {}", e.getMessage());
+    }
+  }
+
+  /** Stops the heartbeat for this result set's statement. Idempotent. */
+  private void stopHeartbeat() {
+    if (parentStatement == null || statementId == null) {
+      return;
+    }
+    try {
+      // Use same unwrap pattern as startHeartbeatIfEnabled() for pooled connections
+      java.sql.Connection rawConn = parentStatement.getStatement().getConnection();
+      DatabricksConnection conn;
+      if (rawConn instanceof DatabricksConnection) {
+        conn = (DatabricksConnection) rawConn;
+      } else if (rawConn.isWrapperFor(DatabricksConnection.class)) {
+        conn = rawConn.unwrap(DatabricksConnection.class);
+      } else {
+        return;
+      }
+      ResultHeartbeatManager mgr = conn.getHeartbeatManager();
+      if (mgr != null) {
+        mgr.stopHeartbeat(statementId);
+      }
+    } catch (Exception e) {
+      LOGGER.debug("Failed to stop heartbeat: {}", e.getMessage());
+    }
+  }
+
+  /**
+   * Determines whether this result set is eligible for heartbeat polling. Package-visible for
+   * testing.
+   *
+   * <p>Heartbeat is NOT needed when:
+   *
+   * <ul>
+   *   <li>No execution result (nothing to fetch, also covers async PENDING/RUNNING with no data)
+   *   <li>SEA inline (InlineJsonResult): all rows loaded in memory at construction
+   *   <li>Update count (DML): no result rows to keep alive
+   *   <li>Direct results (CLOSED state): server already closed, data fully delivered
+   *   <li>Async execution (PENDING/RUNNING): user controls polling via getExecutionResult()
+   * </ul>
+   */
+  boolean isHeartbeatEligible() {
+    // No execution result — nothing to fetch
+    if (executionResult == null) {
+      return false;
+    }
+    // SEA inline — all data loaded in memory at construction
+    if (resultSetType == ResultSetType.SEA_INLINE) {
+      return false;
+    }
+    // Update count — no result rows
+    if (statementType == StatementType.UPDATE) {
+      return false;
+    }
+    // Check execution state
+    if (executionStatus != null) {
+      com.databricks.jdbc.api.ExecutionState state = executionStatus.getExecutionState();
+      // Direct results — server already closed
+      if (state == com.databricks.jdbc.api.ExecutionState.CLOSED) {
+        return false;
+      }
+      // Async execution — user controls polling
+      if (state == com.databricks.jdbc.api.ExecutionState.PENDING
+          || state == com.databricks.jdbc.api.ExecutionState.RUNNING) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static TelemetryCollector resolveTelemetryCollector(
@@ -310,6 +575,20 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       LOGGER.trace("Error resolving telemetry collector: {}", e.getMessage());
     }
     return null;
+  }
+
+  private static long resolveMaxRowsLimit(IDatabricksStatementInternal parentStatement) {
+    try {
+      if (parentStatement != null) {
+        // Use getLargeMaxRows() to preserve full long precision.
+        // getMaxRows() returns int and silently truncates values > Integer.MAX_VALUE.
+        return parentStatement.getLargeMaxRows();
+      }
+    } catch (SQLException e) {
+      // Narrow to SQLException (the only checked exception from getLargeMaxRows).
+      LOGGER.warn("Error resolving maxRows limit: {}", e.getMessage());
+    }
+    return 0;
   }
 
   @Override
@@ -653,7 +932,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean isAfterLast() throws SQLException {
     checkIfClosed();
-    return executionResult.getCurrentRow() >= resultSetMetaData.getTotalRows();
+    // Account for client-side maxRows truncation
+    return truncatedByMaxRows
+        || executionResult.getCurrentRow() >= resultSetMetaData.getTotalRows();
   }
 
   @Override
@@ -682,6 +963,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public boolean isLast() throws SQLException {
     checkIfClosed();
+    // Account for client-side maxRows truncation: if the next next() call would
+    // hit the limit, this is the last row the caller will see.
+    if (maxRowsLimit > 0 && rowsReturned >= maxRowsLimit) {
+      return true;
+    }
     if (executionResult instanceof LazyThriftResult
         || executionResult instanceof StreamingColumnarResult
         || executionResult instanceof LazyThriftInlineArrowResult
@@ -722,6 +1008,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public int getRow() throws SQLException {
     checkIfClosed();
+    // JDBC spec: getRow() returns 0 when cursor is not on a valid row (after last)
+    if (truncatedByMaxRows) {
+      return 0;
+    }
     return (int) executionResult.getCurrentRow() + 1;
   }
 
@@ -1949,8 +2239,13 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       updateCount = 0L;
     } else if (hasUpdateCount()) {
       long rowsUpdated = 0;
-      while (next()) {
-        rowsUpdated += this.getLong(AFFECTED_ROWS_COUNT);
+      countingUpdateRows = true;
+      try {
+        while (next()) {
+          rowsUpdated += this.getLong(AFFECTED_ROWS_COUNT);
+        }
+      } finally {
+        countingUpdateRows = false;
       }
       updateCount = rowsUpdated;
     } else {

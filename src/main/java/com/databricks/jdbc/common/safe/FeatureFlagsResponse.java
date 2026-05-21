@@ -20,6 +20,19 @@ public class FeatureFlagsResponse {
     return ttlSeconds;
   }
 
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder("FeatureFlagsResponse{flags=[");
+    if (flags != null) {
+      for (int i = 0; i < flags.size(); i++) {
+        if (i > 0) sb.append(", ");
+        sb.append(flags.get(i));
+      }
+    }
+    sb.append("], ttlSeconds=").append(ttlSeconds).append("}");
+    return sb.toString();
+  }
+
   @JsonIgnoreProperties(ignoreUnknown = true)
   public static class FeatureFlagEntry {
     @JsonProperty("name")
@@ -34,6 +47,11 @@ public class FeatureFlagsResponse {
 
     public String getValue() {
       return value;
+    }
+
+    @Override
+    public String toString() {
+      return name + "=" + value;
     }
   }
 }

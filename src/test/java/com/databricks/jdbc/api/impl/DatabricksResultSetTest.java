@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.ExecutionState;
@@ -1406,5 +1408,181 @@ public class DatabricksResultSetTest {
     TelemetryCollector collector =
         TelemetryCollectorManager.getInstance().getOrCreateCollector(verifyContext);
     assertNotNull(collector);
+  }
+
+  // --- maxRows truncation tests ---
+
+  private DatabricksResultSet getResultSetWithMaxRows(int maxRows, IExecutionResult executionResult)
+      throws Exception {
+    IDatabricksStatementInternal stmt = mock(IDatabricksStatementInternal.class);
+    when(stmt.getLargeMaxRows()).thenReturn((long) maxRows);
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        STATEMENT_ID,
+        StatementType.QUERY,
+        stmt,
+        executionResult,
+        mockedResultSetMetadata,
+        false);
+  }
+
+  @Test
+  void testNextRespectsMaxRows() throws Exception {
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(3, mockedExecutionResult);
+
+    assertTrue(resultSet.next()); // row 1
+    assertTrue(resultSet.next()); // row 2
+    assertTrue(resultSet.next()); // row 3
+    assertFalse(resultSet.next()); // limit reached
+    assertFalse(resultSet.next()); // still false
+  }
+
+  @Test
+  void testNextMaxRowsZeroNoLimit() throws Exception {
+    // maxRows=0 means no limit; all 100 next() calls should succeed
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(0, mockedExecutionResult);
+
+    for (int i = 0; i < 100; i++) {
+      assertTrue(resultSet.next(), "next() should return true at iteration " + i);
+    }
+  }
+
+  @Test
+  void testNextMaxRowsNullParentNoLimit() throws Exception {
+    // parentStatement=null means maxRowsLimit=0 (no limit)
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.QUERY,
+            null, // null parentStatement
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            false);
+
+    for (int i = 0; i < 100; i++) {
+      assertTrue(resultSet.next(), "next() should return true at iteration " + i);
+    }
+  }
+
+  @Test
+  void testNextMaxRowsOneEdge() throws Exception {
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(1, mockedExecutionResult);
+
+    assertTrue(resultSet.next()); // row 1
+    assertFalse(resultSet.next()); // limit reached
+  }
+
+  @Test
+  void testNextMaxRowsDoesNotCallExecutionResultAfterLimit() throws Exception {
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(3, mockedExecutionResult);
+
+    resultSet.next(); // row 1
+    resultSet.next(); // row 2
+    resultSet.next(); // row 3
+    // These should NOT delegate to executionResult
+    resultSet.next();
+    resultSet.next();
+
+    // executionResult.next() should have been called exactly 3 times
+    verify(mockedExecutionResult, times(3)).next();
+  }
+
+  @Test
+  void testNextMaxRowsWithEmptyResultSet() throws Exception {
+    // maxRows > 0 but the underlying result set is empty; next() should return false immediately
+    when(mockedExecutionResult.next()).thenReturn(false);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(5, mockedExecutionResult);
+
+    assertFalse(resultSet.next(), "next() should return false on an empty result set");
+    assertFalse(
+        resultSet.next(),
+        "next() should still return false on subsequent calls to an empty result set");
+    // executionResult.next() should have been called because rowsReturned (0) < maxRows (5)
+    verify(mockedExecutionResult, times(2)).next();
+  }
+
+  @Test
+  void testNextMaxRowsGreaterThanActualRows() throws Exception {
+    // maxRows=10 but only 3 rows exist; result set should be naturally exhausted before the limit
+    when(mockedExecutionResult.next()).thenReturn(true, true, true, false);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(10, mockedExecutionResult);
+
+    assertTrue(resultSet.next()); // row 1
+    assertTrue(resultSet.next()); // row 2
+    assertTrue(resultSet.next()); // row 3
+    assertFalse(resultSet.next(), "next() should return false when data is exhausted before limit");
+  }
+
+  @Test
+  void testNextMaxRowsIdempotenceAfterLimit() throws Exception {
+    // Calling next() many times after the limit is reached should always return false
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(2, mockedExecutionResult);
+
+    assertTrue(resultSet.next()); // row 1
+    assertTrue(resultSet.next()); // row 2 (limit reached)
+    // All subsequent calls must consistently return false (idempotent behavior)
+    for (int i = 0; i < 10; i++) {
+      assertFalse(resultSet.next(), "next() must return false on repeated call #" + (i + 1));
+    }
+    // executionResult.next() should have been called exactly 2 times (the limit)
+    verify(mockedExecutionResult, times(2)).next();
+  }
+
+  @Test
+  void testCursorMethodsAfterMaxRowsTruncation() throws Exception {
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(3, mockedExecutionResult);
+
+    // Consume all 3 allowed rows
+    assertTrue(resultSet.next());
+    assertTrue(resultSet.next());
+    assertTrue(resultSet.next());
+
+    // On the last allowed row, isLast() should be true
+    assertTrue(resultSet.isLast(), "isLast() should be true on the last allowed row");
+
+    // next() returns false — truncated
+    assertFalse(resultSet.next());
+
+    // After truncation: cursor is logically after last row
+    assertTrue(resultSet.isAfterLast(), "isAfterLast() should be true after truncation");
+    assertEquals(0, resultSet.getRow(), "getRow() should return 0 when cursor is after last row");
+  }
+
+  @Test
+  void testGetUpdateCountBypassesMaxRows() throws Exception {
+    // Mock an UPDATE result set with maxRows=2 but 5 affected rows across 5 result rows.
+    // getUpdateCount() should sum all 5 rows (returning 5), proving the
+    // countingUpdateRows flag bypasses the maxRows limit during internal iteration.
+    InlineJsonResult mockExec = mock(InlineJsonResult.class);
+    when(mockExec.next()).thenReturn(true, true, true, true, true, false);
+    when(mockExec.getObject(0)).thenReturn(1L, 1L, 1L, 1L, 1L);
+
+    DatabricksResultSetMetaData mockMeta = mock(DatabricksResultSetMetaData.class);
+    when(mockMeta.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockMeta.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
+
+    IDatabricksStatementInternal stmt = mock(IDatabricksStatementInternal.class);
+    when(stmt.getLargeMaxRows()).thenReturn(2L);
+
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.UPDATE,
+            stmt,
+            mockExec,
+            mockMeta,
+            false);
+
+    // getUpdateCount() must iterate all 5 rows despite maxRows=2
+    assertEquals(5L, resultSet.getUpdateCount());
   }
 }

@@ -8,7 +8,6 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.integration.fakeservice.AbstractFakeServiceIntegrationTests;
 import com.databricks.jdbc.integration.fakeservice.FakeServiceExtension;
 import java.sql.*;
-import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
@@ -22,7 +21,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTests {
 
   private Connection connection;
-  private Connection inlineConnection;
 
   private static final String LEADING_TRAILING_SPACES = "   leading and trailing spaces   ";
   private static final String UNICODE_TEXT = "こんにちは";
@@ -32,15 +30,11 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
   @BeforeEach
   void setUp() throws SQLException {
     connection = getValidJDBCConnection();
-    Properties properties = new Properties();
-    properties.setProperty("enableArrow", "0");
-    inlineConnection = getValidJDBCConnection(properties);
   }
 
   @AfterEach
   void cleanUp() throws SQLException {
     closeConnection(connection);
-    closeConnection(inlineConnection);
   }
 
   @Test
@@ -63,28 +57,18 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
             + ") AS string_edge_cases(id, test_string) "
             + "ORDER BY id";
     ResultSet resultSet = executeQuery(connection, query);
-    ResultSet inlineResultSet = executeQuery(inlineConnection, query);
-
     validateStringResults(resultSet);
-    validateStringResults(inlineResultSet);
-
     resultSet.close();
-    inlineResultSet.close();
   }
 
   @ParameterizedTest
   @MethodSource("nullHandlingProvider")
   void testNullHandling(String query, int expectedType) throws SQLException {
     ResultSet resultSet = executeQuery(connection, query);
-    ResultSet inlineResultSet = executeQuery(inlineConnection, query);
     assertTrue(resultSet.next());
-    assertTrue(inlineResultSet.next());
     assertNull(resultSet.getObject(1));
-    assertNull(inlineResultSet.getObject(1));
     assertEquals(expectedType, resultSet.getMetaData().getColumnType(1));
-    assertEquals(expectedType, inlineResultSet.getMetaData().getColumnType(1));
     resultSet.close();
-    inlineResultSet.close();
   }
 
   private static Stream<Arguments> nullHandlingProvider() {
@@ -235,9 +219,7 @@ public class DataTypesIntegrationTests extends AbstractFakeServiceIntegrationTes
 
     String query = "SELECT id, ts FROM " + getFullyQualifiedTableName(tableName) + " ORDER BY id";
     ResultSet resultSet = executeQuery(connection, query);
-    ResultSet inlineResultSet = executeQuery(inlineConnection, query);
     validateTimestampResults(resultSet);
-    validateTimestampResults(inlineResultSet);
 
     deleteTable(connection, tableName);
     resultSet.close();

@@ -37,6 +37,7 @@ import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
@@ -412,6 +413,29 @@ public class DatabricksSdkClient implements IDatabricksClient {
         statementType,
         session,
         parentStatement);
+  }
+
+  @Override
+  public boolean checkStatementAlive(StatementId typedStatementId) throws SQLException {
+    String statementId = typedStatementId.toSQLExecStatementId();
+    // Use lightweight /status endpoint (~100 bytes) instead of full GetStatement (~21KB)
+    String statusPath = String.format(STATEMENT_STATUS_PATH_WITH_ID, statementId);
+    try {
+      Request req = new Request(Request.GET, statusPath, (String) null);
+      req.withHeaders(getHeaders("getStatementStatus"));
+      StatementStatus status = apiClient.execute(req, StatementStatus.class);
+      StatementState state = status.getState();
+      // Terminal states mean the operation is no longer alive
+      return state != StatementState.CANCELED
+          && state != StatementState.CLOSED
+          && state != StatementState.FAILED;
+    } catch (Exception e) {
+      // Catch all exceptions — SDK can throw DatabricksError, DatabricksException,
+      // IOException, or RuntimeException. All should count as transient heartbeat failures.
+      LOGGER.debug("Heartbeat check failed for statement {}: {}", statementId, e.getMessage());
+      throw new DatabricksSQLException(
+          "Heartbeat status check failed", e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
+    }
   }
 
   @Override
