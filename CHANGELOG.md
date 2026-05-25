@@ -53,7 +53,7 @@ upgrading. These changes do not affect metadata on All-Purpose Clusters.
   compatibility issues.
 
 ### Added
-- Added result set heartbeat / keep-alive to prevent server-side result expiry during slow consumption. When enabled via `EnableHeartbeat=1`, the driver periodically polls `GetStatementStatus` (SEA) or `GetOperationStatus` (Thrift) to keep the operation alive while the client reads results. Configurable interval via `HeartbeatIntervalSeconds` (default 60s). Heartbeat automatically stops when results are fully consumed, ResultSet is closed, or the server returns a terminal state. Disabled by default due to cost implications (heartbeats keep the warehouse running).
+- Added result set heartbeat / keep-alive to prevent server-side result expiry during slow consumption. When enabled via EnableHeartbeat=1, the driver periodically polls the backend to keep the operation alive while the client reads results. Configurable interval via `HeartbeatIntervalSeconds` (default 60s). Heartbeat automatically stops when results are fully consumed, ResultSet is closed, or the server returns a terminal state. Disabled by default due to cost implications (heartbeats keep the warehouse running).
 - Metadata operations now use SQL SHOW commands for both Thrift and SEA backends,
   ensuring consistent behavior for SQL warehouses regardless of underlying
   protocol. To revert to native Thrift metadata RPCs, set `UseQueryForMetadata=0`.
@@ -64,7 +64,7 @@ upgrading. These changes do not affect metadata on All-Purpose Clusters.
 - `EnableGeoSpatialSupport` no longer requires `EnableComplexDatatypeSupport=1`. Geospatial types (GEOMETRY, GEOGRAPHY) can now be enabled independently of complex type support (ARRAY, MAP, STRUCT).
 - Arrow schema deserialization failures (Thrift metadata path) now surface a dedicated driver error code `ARROW_SCHEMA_PARSING_ERROR` (vendor code `22000`) and a proper SQLSTATE `22000` (Data Exception) on the thrown `SQLException`, instead of the generic `RESULT_SET_ERROR` (1004) and the enum name as SQLSTATE. The exception message is unchanged.
 - When a Statement is re-executed, the previous server-side operation is now explicitly closed before starting the new execution, preventing orphaned server-side operations when Statements are reused.
-- Server-side operations are now closed proactively when `ResultSet.close()` is called, improving resource utilization. The client-side Statement remains open and reusable for re-execution. As a result, `getExecutionResult()` after result consumption returns the cached ResultSet instead of making a server RPC.
+- Server-side operations are now closed proactively when `ResultSet.close()` is called, improving resource utilization. The client-side Statement remains open and reusable for re-execution.
 
 ### Fixed
 - Bump shaded `jackson-core` from 2.18.6 to 2.18.7 to address [SNYK-JAVA-COMFASTERXMLJACKSONCORE-15907551](https://security.snyk.io/vuln/SNYK-JAVA-COMFASTERXMLJACKSONCORE-15907551) (DoS via oversized JSON documents bypassing size limits). Fixes #1436.
