@@ -59,6 +59,7 @@ upgrading. These changes do not affect metadata on All-Purpose Clusters.
   protocol. To revert to native Thrift metadata RPCs, set `UseQueryForMetadata=0`.
 
 ### Updated
+- Bump `databricks-sdk-java` from 0.69.0 to 0.106.0. The driver's own `AgentDetector` injection in `UserAgentManager.setUserAgent` is removed because SDK 0.106 now natively emits the `agent/<name>` User-Agent token via its built-in `UserAgent.agentProvider()`; keeping both layered produced a duplicate token on every SDK-routed request. The bootstrap `buildUserAgentForConnectorService` path retains its own `AgentDetector` call because it bypasses `UserAgent.asString()`.
 - `getColumnTypeName()` for DECIMAL columns now preserves precision/scale suffix (e.g., `"DECIMAL(10,2)"`) consistently across both Thrift and SEA backends.
 - `EnableGeoSpatialSupport` no longer requires `EnableComplexDatatypeSupport=1`. Geospatial types (GEOMETRY, GEOGRAPHY) can now be enabled independently of complex type support (ARRAY, MAP, STRUCT).
 - Arrow schema deserialization failures (Thrift metadata path) now surface a dedicated driver error code `ARROW_SCHEMA_PARSING_ERROR` (vendor code `22000`) and a proper SQLSTATE `22000` (Data Exception) on the thrown `SQLException`, instead of the generic `RESULT_SET_ERROR` (1004) and the enum name as SQLSTATE. The exception message is unchanged.
