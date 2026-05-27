@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -588,6 +589,21 @@ public class DatabricksThriftServiceClientTest {
     DatabricksResultSet resultSet =
         client.listTables(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, tableTypes);
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
+  }
+
+  @Test
+  void testListTablesWithEmptyTypesReturnsEmptyWithoutServerCall() throws SQLException {
+    // Per JDBC spec: empty types array means "no types selected" → return no rows.
+    // The driver must short-circuit and NOT send the Thrift request to the server.
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+
+    DatabricksResultSet resultSet =
+        client.listTables(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, new String[0]);
+
+    assertEquals(StatementState.SUCCEEDED, resultSet.getStatementStatus().getState());
+    assertFalse(resultSet.next(), "Empty types array must yield zero rows");
+    verify(thriftAccessor, never()).getThriftResponse(any());
   }
 
   @Test
@@ -1175,5 +1191,105 @@ public class DatabricksThriftServiceClientTest {
     ArgumentCaptor<TGetSchemasReq> captor = ArgumentCaptor.forClass(TGetSchemasReq.class);
     verify(thriftAccessor).getThriftResponse(captor.capture());
     assertEquals("my_catalog", captor.getValue().getCatalogName());
+  }
+
+  // =========================================================================
+  // checkStatementAlive — heartbeat support
+  // =========================================================================
+
+  @Test
+  public void testCheckStatementAlive_finishedState_returnsTrue() throws Exception {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+
+    TGetOperationStatusResp resp = new TGetOperationStatusResp();
+    resp.setOperationState(TOperationState.FINISHED_STATE);
+    when(thriftAccessor.getOperationStatus(
+            any(TGetOperationStatusReq.class), any(StatementId.class)))
+        .thenReturn(resp);
+
+    assertTrue(client.checkStatementAlive(TEST_STMT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_runningState_returnsTrue() throws Exception {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+
+    TGetOperationStatusResp resp = new TGetOperationStatusResp();
+    resp.setOperationState(TOperationState.RUNNING_STATE);
+    when(thriftAccessor.getOperationStatus(
+            any(TGetOperationStatusReq.class), any(StatementId.class)))
+        .thenReturn(resp);
+
+    assertTrue(client.checkStatementAlive(TEST_STMT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_canceledState_returnsFalse() throws Exception {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+
+    TGetOperationStatusResp resp = new TGetOperationStatusResp();
+    resp.setOperationState(TOperationState.CANCELED_STATE);
+    when(thriftAccessor.getOperationStatus(
+            any(TGetOperationStatusReq.class), any(StatementId.class)))
+        .thenReturn(resp);
+
+    assertFalse(client.checkStatementAlive(TEST_STMT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_closedState_returnsFalse() throws Exception {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+
+    TGetOperationStatusResp resp = new TGetOperationStatusResp();
+    resp.setOperationState(TOperationState.CLOSED_STATE);
+    when(thriftAccessor.getOperationStatus(
+            any(TGetOperationStatusReq.class), any(StatementId.class)))
+        .thenReturn(resp);
+
+    assertFalse(client.checkStatementAlive(TEST_STMT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_errorState_returnsFalse() throws Exception {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+
+    TGetOperationStatusResp resp = new TGetOperationStatusResp();
+    resp.setOperationState(TOperationState.ERROR_STATE);
+    when(thriftAccessor.getOperationStatus(
+            any(TGetOperationStatusReq.class), any(StatementId.class)))
+        .thenReturn(resp);
+
+    assertFalse(client.checkStatementAlive(TEST_STMT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_nullState_assumesAlive() throws Exception {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+
+    TGetOperationStatusResp resp = new TGetOperationStatusResp();
+    // operationState not set — null
+    when(thriftAccessor.getOperationStatus(
+            any(TGetOperationStatusReq.class), any(StatementId.class)))
+        .thenReturn(resp);
+
+    assertTrue(client.checkStatementAlive(TEST_STMT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_thriftException_wraps() throws Exception {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+
+    when(thriftAccessor.getOperationStatus(
+            any(TGetOperationStatusReq.class), any(StatementId.class)))
+        .thenThrow(new org.apache.thrift.TException("Connection refused"));
+
+    assertThrows(DatabricksSQLException.class, () -> client.checkStatementAlive(TEST_STMT_ID));
   }
 }

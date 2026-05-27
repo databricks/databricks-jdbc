@@ -6,7 +6,7 @@
   <parent>
     <groupId>com.databricks</groupId>
     <artifactId>databricks-jdbc-parent</artifactId>
-    <version>3.3.3</version>
+    <version>3.4.1</version>
   </parent>
 
   <artifactId>databricks-jdbc-core</artifactId>
@@ -171,7 +171,7 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.lz4</groupId>
+      <groupId>at.yawk.lz4</groupId>
       <artifactId>lz4-java</artifactId>
       <version>${lz4-compression.version}</version>
     </dependency>
@@ -218,7 +218,7 @@
     <dependency>
       <groupId>org.apache.httpcomponents.core5</groupId>
       <artifactId>httpcore5</artifactId>
-      <version>${async-httpclient.version}</version>
+      <version>${httpcore5.version}</version>
     </dependency>
     <dependency>
       <groupId>io.github.resilience4j</groupId>
@@ -285,6 +285,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
+          <excludedGroups>e2e</excludedGroups>
           <excludes>
             <exclude>**/DatabricksDriverExamples.java</exclude>
             <exclude>**/integration/**/*.java</exclude>

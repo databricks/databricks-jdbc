@@ -215,7 +215,11 @@ public class ClientConfigurator implements Closeable {
         .setOAuthRedirectUrl(redirectUrl);
 
     LOGGER.info("Using OAuth redirect URL: {}", redirectUrl);
-    databricksConfig.setScopes(connectionContext.getOAuthScopesForU2M());
+    // Wrap in a new ArrayList: SDK 0.106's DatabricksConfig.sortScopes() (invoked from
+    // innerResolve()) calls Collections.sort() in place on the list passed to setScopes,
+    // which throws UnsupportedOperationException for immutable lists (e.g. List.of,
+    // Collections.singletonList).
+    databricksConfig.setScopes(new ArrayList<>(connectionContext.getOAuthScopesForU2M()));
     TokenCache tokenCache;
     if (connectionContext.isTokenCacheEnabled()) {
       if (connectionContext.getTokenCachePassPhrase() == null) {

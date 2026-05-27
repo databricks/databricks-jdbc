@@ -351,10 +351,26 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_5, properties);
     assertTrue(connectionContext.shouldEnableArrow());
+    // EnableArrow=0 is deprecated and ignored on non-AIX platforms — always returns true
     connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_7, properties);
-    assertFalse(connectionContext.shouldEnableArrow());
+    assertTrue(connectionContext.shouldEnableArrow());
+  }
+
+  @Test
+  public void testShouldEnableArrow_defaultIsTrue() throws DatabricksSQLException {
+    // On non-AIX, Arrow is always enabled regardless of EnableArrow setting
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertTrue(ctx.shouldEnableArrow(), "Arrow should be enabled by default");
+  }
+
+  @Test
+  public void testShouldEnableArrow_explicitDisableIgnoredOnNonAix() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1 + ";EnableArrow=0", properties);
+    assertTrue(ctx.shouldEnableArrow(), "EnableArrow=0 should be ignored on non-AIX");
   }
 
   @Test
@@ -946,7 +962,9 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testClientTypeWhenArrowDisabled() throws DatabricksSQLException {
+  public void testClientTypeWhenArrowDisabled_nonAix_ignoredDefaultsToThrift()
+      throws DatabricksSQLException {
+    // EnableArrow=0 is ignored on non-AIX — but without SEA feature flag, defaults to THRIFT
     String urlWithArrowDisabled =
         "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableArrow=0";
@@ -968,7 +986,9 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testClientTypeWhenBothArrowAndCloudFetchDisabled() throws DatabricksSQLException {
+  public void testClientTypeWhenBothArrowAndCloudFetchDisabled_nonAix()
+      throws DatabricksSQLException {
+    // EnableArrow=0 ignored on non-AIX; CloudFetch disabled → THRIFT
     String urlWithBothDisabled =
         "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableArrow=0;EnableQueryResultDownload=0";
@@ -1104,11 +1124,12 @@ class DatabricksConnectionContextTest {
     "false, 1, 1, 1, true, THRIFT", // Explicit useThriftClient=1 returns THRIFT
     "false, 0, 1, 1, true, SEA", // Explicit useThriftClient=0 returns SEA
     "false, 0, 1, 1, false, SEA", // Explicit useThriftClient=0 returns SEA (ignores flag)
-    "false, null, 0, 1, true, THRIFT", // Arrow disabled returns THRIFT
+    "false, null, 0, 1, true, SEA", // Arrow param ignored (deprecated) + CloudFetch enabled +
+    // flag=true → SEA
     "false, null, 1, 0, true, THRIFT", // CloudFetch disabled returns THRIFT
     "false, null, 1, 1, true, SEA", // All enabled + flag=true returns SEA
     "false, null, 1, 1, false, THRIFT", // All enabled + flag=false returns THRIFT
-    "false, null, 0, 0, true, THRIFT", // Both Arrow and CloudFetch disabled returns THRIFT
+    "false, null, 0, 0, true, THRIFT", // CloudFetch disabled returns THRIFT (Arrow param ignored)
   })
   public void testClientTypeDecisionMatrix(
       boolean isCluster,
@@ -1782,5 +1803,82 @@ class DatabricksConnectionContextTest {
             properties);
     assertEquals(DatabricksClientType.SEA, ctx.getClientType());
     assertTrue(ctx.treatMetadataCatalogNameAsPattern());
+  }
+
+  // =========================================================================
+  // Heartbeat configuration
+  // =========================================================================
+
+  @Test
+  public void testHeartbeatDisabledByDefault() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertFalse(ctx.isHeartbeatEnabled());
+  }
+
+  @Test
+  public void testHeartbeatEnabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableHeartbeat=1", properties);
+    assertTrue(ctx.isHeartbeatEnabled());
+  }
+
+  @Test
+  public void testHeartbeatIntervalDefault() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertEquals(60, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatIntervalCustom() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=30", properties);
+    assertEquals(30, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatIntervalZeroDefaultsTo60() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=0", properties);
+    assertEquals(60, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatIntervalNegativeDefaultsTo60() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=-5", properties);
+    assertEquals(60, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatIntervalLargeValueAcceptedWithWarning() throws DatabricksSQLException {
+    // Values > 3600 are accepted but log a warning
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=7200", properties);
+    assertEquals(7200, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatExplicitlyDisabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableHeartbeat=0", properties);
+    assertFalse(ctx.isHeartbeatEnabled());
+  }
+
+  @Test
+  public void testHeartbeatInterfaceDefaultDisabled() {
+    // IDatabricksConnectionContext default methods
+    IDatabricksConnectionContext defaultCtx =
+        org.mockito.Mockito.mock(
+            IDatabricksConnectionContext.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+    assertFalse(defaultCtx.isHeartbeatEnabled());
+    assertEquals(60, defaultCtx.getHeartbeatIntervalSeconds());
   }
 }

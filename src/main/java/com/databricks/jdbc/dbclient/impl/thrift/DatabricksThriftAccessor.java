@@ -1030,7 +1030,11 @@ final class DatabricksThriftAccessor {
         internalErrorCode);
   }
 
-  private TGetOperationStatusResp getOperationStatus(
+  /**
+   * Gets the operation status for the given statement. Package-visible to allow heartbeat polling
+   * from {@link DatabricksThriftServiceClient#checkStatementAlive}.
+   */
+  TGetOperationStatusResp getOperationStatus(
       TGetOperationStatusReq statusReq, StatementId statementId) throws TException {
     long operationStatusStartTime = System.nanoTime();
     TGetOperationStatusResp operationStatus = getThriftClient().GetOperationStatus(statusReq);
