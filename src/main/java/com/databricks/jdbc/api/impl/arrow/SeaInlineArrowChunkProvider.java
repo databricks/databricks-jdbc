@@ -53,6 +53,10 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
   // Position tracking
   private final AtomicLong currentChunkIndex = new AtomicLong(-1);
   private final AtomicLong highestFetchedChunkIndex = new AtomicLong(-1);
+  // Single-writer: nextFetchChunkIndex and nextFetchRowOffset are only written by
+  // the prefetch thread (fetchNextChunkInternal), so separate AtomicLongs are safe.
+  // Unlike StreamingChunkProvider where download threads can also update the position
+  // (requiring a bundled FetchPosition holder), this provider has no second writer.
   private final AtomicLong nextFetchChunkIndex = new AtomicLong(1); // 0 is initial chunk
   private final AtomicLong nextFetchRowOffset = new AtomicLong(0);
   private final AtomicLong totalRowCount = new AtomicLong(0);
