@@ -72,9 +72,17 @@ public class ArrowStreamResult implements IExecutionResult {
           statementId.toSQLExecStatementId());
       this.chunkProvider = new EmptyChunkProvider();
     } else {
-      // Check if the result data contains the arrow data inline
       boolean isInlineArrow = resultData.getAttachment() != null;
-      if (isInlineArrow) {
+      IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+      if (isInlineArrow
+          && connectionContext.isBoundedSeaApiEnabled()
+          && !connectionContext.isCloudFetchEnabled()) {
+        LOGGER.debug(
+            "Creating ArrowStreamResult with SEA inline Arrow for statementId: {}",
+            statementId.toSQLExecStatementId());
+        this.chunkProvider =
+            new SeaInlineArrowChunkProvider(resultData, resultManifest, statementId, session);
+      } else if (isInlineArrow) {
         LOGGER.debug(
             "Creating ArrowStreamResult with inline attachment for statementId: {}",
             statementId.toSQLExecStatementId());

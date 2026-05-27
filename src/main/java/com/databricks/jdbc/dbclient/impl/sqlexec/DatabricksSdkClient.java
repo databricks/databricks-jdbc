@@ -164,6 +164,15 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (schema != null) {
       request.setSchema(schema);
     }
+    // Bounded SEA inline Arrow: tell server not to use cloud storage for results
+    if (connectionContext.isBoundedSeaApiEnabled() && !connectionContext.isCloudFetchEnabled()) {
+      if (sessionConf == null) {
+        sessionConf = new java.util.HashMap<>();
+      } else {
+        sessionConf = new java.util.HashMap<>(sessionConf);
+      }
+      sessionConf.put("can_cloud_download", "false");
+    }
     if (sessionConf != null && !sessionConf.isEmpty()) {
       request.setSessionConfigs(sessionConf);
     }
@@ -636,15 +645,27 @@ public class DatabricksSdkClient implements IDatabricksClient {
   @Override
   public ResultData getResultChunksData(StatementId typedStatementId, long chunkIndex)
       throws DatabricksSQLException {
+    return getResultChunksData(typedStatementId, chunkIndex, 0);
+  }
+
+  /**
+   * Fetches inline result data for a specific chunk, with row_offset for bounded SEA inline Arrow.
+   */
+  public ResultData getResultChunksData(
+      StatementId typedStatementId, long chunkIndex, long rowOffset) throws DatabricksSQLException {
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     String statementId = typedStatementId.toSQLExecStatementId();
     LOGGER.debug(
-        "public ResultData getResultChunksData(String statementId = {}, long chunkIndex = {})",
+        "getResultChunksData(statementId={}, chunkIndex={}, rowOffset={})",
         statementId,
-        chunkIndex);
+        chunkIndex,
+        rowOffset);
     GetStatementResultChunkNRequest request =
         new GetStatementResultChunkNRequest().setStatementId(statementId).setChunkIndex(chunkIndex);
     String path = String.format(RESULT_CHUNK_PATH, statementId, chunkIndex);
+    if (connectionContext.isBoundedSeaApiEnabled() && rowOffset > 0) {
+      path = path + "?row_offset=" + rowOffset;
+    }
     try {
       Request req = new Request(Request.GET, path, apiClient.serialize(request));
       req.withHeaders(getHeaders("getStatementResultN"));
@@ -767,17 +788,26 @@ public class DatabricksSdkClient implements IDatabricksClient {
       boolean executeAsync)
       throws SQLException {
     boolean cloudFetch = useCloudFetchForResult();
-    Format format = cloudFetch ? Format.ARROW_STREAM : Format.JSON_ARRAY;
+    // Bounded SEA inline Arrow: use ARROW_STREAM + INLINE_OR_EXTERNAL_LINKS even without CloudFetch
+    boolean boundedSeaInline = connectionContext.isBoundedSeaApiEnabled() && !cloudFetch;
+    Format format = (cloudFetch || boundedSeaInline) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition defaultDisposition =
         connectionContext.isSqlExecHybridResultsEnabled()
             ? Disposition.INLINE_OR_EXTERNAL_LINKS
             : Disposition.EXTERNAL_LINKS;
-    Disposition disposition = cloudFetch ? defaultDisposition : Disposition.INLINE;
+    Disposition disposition;
+    if (cloudFetch) {
+      disposition = defaultDisposition;
+    } else if (boundedSeaInline) {
+      disposition = Disposition.INLINE_OR_EXTERNAL_LINKS;
+    } else {
+      disposition = Disposition.INLINE;
+    }
     long maxRows =
         (parentStatement == null) ? DEFAULT_RESULT_ROW_LIMIT : parentStatement.getMaxRows();
     CompressionCodec compressionCodec = session.getCompressionCodec();
-    if (disposition.equals(Disposition.INLINE)) {
-      LOGGER.debug("Results are inline, skipping compression.");
+    if (disposition.equals(Disposition.INLINE) && !boundedSeaInline) {
+      LOGGER.debug("Results are inline JSON, skipping compression.");
       compressionCodec = CompressionCodec.NONE;
     }
     List<StatementParameterListItem> parameterListItems =
