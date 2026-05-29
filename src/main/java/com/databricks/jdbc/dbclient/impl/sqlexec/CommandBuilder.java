@@ -87,7 +87,7 @@ public class CommandBuilder {
       // Per JDBC spec, null catalog means "do not narrow the search" — list across all catalogs
       showSchemasSQL = SHOW_SCHEMAS_IN_ALL_CATALOGS_SQL;
     } else {
-      showSchemasSQL = String.format(SHOW_SCHEMAS_IN_CATALOG_SQL, catalogName);
+      showSchemasSQL = String.format(SHOW_SCHEMAS_IN_CATALOG_SQL, escapeSqlIdentifier(catalogName));
     }
     if (schemaPattern != null) {
       showSchemasSQL += String.format(LIKE_SQL, schemaPattern);
@@ -107,7 +107,7 @@ public class CommandBuilder {
       // Per JDBC spec, null catalog means "do not narrow the search" — list across all catalogs
       showTablesSQL = SHOW_TABLES_IN_ALL_CATALOGS_SQL;
     } else {
-      showTablesSQL = String.format(SHOW_TABLES_SQL, catalogName);
+      showTablesSQL = String.format(SHOW_TABLES_SQL, escapeSqlIdentifier(catalogName));
     }
     if (schemaPattern != null) {
       showTablesSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
@@ -125,7 +125,7 @@ public class CommandBuilder {
             catalogName, schemaPattern, tablePattern, columnPattern, sessionContext);
     LOGGER.debug(contextString);
     throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
-    String showColumnsSQL = String.format(SHOW_COLUMNS_SQL, catalogName);
+    String showColumnsSQL = String.format(SHOW_COLUMNS_SQL, escapeSqlIdentifier(catalogName));
 
     if (schemaPattern != null) {
       showColumnsSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
@@ -149,7 +149,7 @@ public class CommandBuilder {
 
     LOGGER.debug(contextString);
     throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
-    String showFunctionsSQL = String.format(SHOW_FUNCTIONS_SQL, catalogName);
+    String showFunctionsSQL = String.format(SHOW_FUNCTIONS_SQL, escapeSqlIdentifier(catalogName));
     if (schemaPattern != null) {
       showFunctionsSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
     }
@@ -174,7 +174,11 @@ public class CommandBuilder {
     hashMap.put(SCHEMA, schemaName);
     hashMap.put(TABLE, tableName);
     throwErrorIfNull(hashMap, contextString);
-    return String.format(SHOW_PRIMARY_KEYS_SQL, catalogName, schemaName, tableName);
+    return String.format(
+        SHOW_PRIMARY_KEYS_SQL,
+        escapeSqlIdentifier(catalogName),
+        escapeSqlIdentifier(schemaName),
+        escapeSqlIdentifier(tableName));
   }
 
   private String fetchForeignKeysSQL() throws DatabricksSQLException {
@@ -188,7 +192,11 @@ public class CommandBuilder {
     hashMap.put(SCHEMA, schemaName);
     hashMap.put(TABLE, tableName);
     throwErrorIfNull(hashMap, contextString);
-    return String.format(SHOW_FOREIGN_KEYS_SQL, catalogName, schemaName, tableName);
+    return String.format(
+        SHOW_FOREIGN_KEYS_SQL,
+        escapeSqlIdentifier(catalogName),
+        escapeSqlIdentifier(schemaName),
+        escapeSqlIdentifier(tableName));
   }
 
   public String getSQLString(CommandName command) throws DatabricksSQLException {
