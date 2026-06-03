@@ -1402,4 +1402,62 @@ public class DatabricksSdkClientTest {
             () -> databricksSdkClient.checkStatementAlive(STATEMENT_ID));
     assertTrue(exception.getMessage().contains("Heartbeat status check failed"));
   }
+
+  @Test
+  public void testWaitTimeout_directResultsDisabled_usesAsyncZero() throws Exception {
+    setupClientMocks(true, false);
+    // EnableDirectResults=0 -> getDirectResultMode() is false
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL + "EnableDirectResults=0", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    databricksSdkClient.executeStatement(
+        STATEMENT,
+        warehouse,
+        sqlParams,
+        StatementType.QUERY,
+        connection.getSession(),
+        statement,
+        null);
+
+    ArgumentCaptor<ExecuteStatementRequest> captor =
+        ArgumentCaptor.forClass(ExecuteStatementRequest.class);
+    verify(apiClient, atLeastOnce()).serialize(captor.capture());
+    // Direct results disabled -> async (0s), not the hybrid 10s path that truncates (ES-1714092).
+    assertEquals("0s", captor.getValue().getWaitTimeout());
+  }
+
+  @Test
+  public void testWaitTimeout_directResultsEnabled_leftUnset() throws Exception {
+    setupClientMocks(true, false);
+    // Default JDBC_URL has direct results enabled -> getDirectResultMode() is true
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    databricksSdkClient.executeStatement(
+        STATEMENT,
+        warehouse,
+        sqlParams,
+        StatementType.QUERY,
+        connection.getSession(),
+        statement,
+        null);
+
+    ArgumentCaptor<ExecuteStatementRequest> captor =
+        ArgumentCaptor.forClass(ExecuteStatementRequest.class);
+    verify(apiClient, atLeastOnce()).serialize(captor.capture());
+    // Direct results enabled -> WaitTimeout left unset (true SEA direct results).
+    assertNull(captor.getValue().getWaitTimeout());
+  }
 }
