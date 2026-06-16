@@ -11,6 +11,7 @@ import static com.databricks.jdbc.dbclient.impl.common.TypeValConstants.*;
 import static java.sql.DatabaseMetaData.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
+import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CommandName;
@@ -727,54 +728,41 @@ public class MetadataResultSetBuilder {
             object = null;
             break;
           default:
-            // If column does not match any of the special cases, try to get it from the ResultSet
-            try {
-              object = resultSet.getObject(mappedColumn.getResultSetColumnName());
-              if (mappedColumn.getColumnName().equals(IS_NULLABLE_COLUMN.getColumnName())) {
-                if (object == null || object.equals("true")) {
-                  object = "YES";
-                } else {
-                  object = "NO";
+            // If column does not match any of the special cases, try to get it from the ResultSet.
+            // When the column is known to be absent from the underlying result, compute the default
+            // directly instead of calling getObject() and catching "Invalid column index" — that
+            // throw is caught-and-recovered control flow, but its stack trace floods the
+            // DriverManager log writer (GitHub #1490).
+            if (isColumnAbsent(resultSet, mappedColumn.getResultSetColumnName())) {
+              object = getDefaultValueForMissingColumn(mappedColumn, typeVal);
+            } else {
+              try {
+                object = resultSet.getObject(mappedColumn.getResultSetColumnName());
+                if (mappedColumn.getColumnName().equals(IS_NULLABLE_COLUMN.getColumnName())) {
+                  if (object == null || object.equals("true")) {
+                    object = "YES";
+                  } else {
+                    object = "NO";
+                  }
+                } else if (mappedColumn
+                    .getColumnName()
+                    .equals(DECIMAL_DIGITS_COLUMN.getColumnName())) {
+                  object = getUpdatedDecimalDigits(stripBaseTypeName(typeVal), object);
+                } else if (mappedColumn
+                    .getColumnName()
+                    .equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
+                  if (object == null) {
+                    object = 0;
+                  }
+                } else if (mappedColumn.getColumnName().equals(REMARKS_COLUMN.getColumnName())) {
+                  if (object == null) {
+                    object = "";
+                  }
                 }
-              } else if (mappedColumn
-                  .getColumnName()
-                  .equals(DECIMAL_DIGITS_COLUMN.getColumnName())) {
-                object = getUpdatedDecimalDigits(stripBaseTypeName(typeVal), object);
-              } else if (mappedColumn
-                  .getColumnName()
-                  .equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
-                if (object == null) {
-                  object = 0;
-                }
-              } else if (mappedColumn.getColumnName().equals(REMARKS_COLUMN.getColumnName())) {
-                if (object == null) {
-                  object = "";
-                }
-              }
-            } catch (SQLException e) {
-              if (mappedColumn.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
-                // Check if geospatial support is disabled and this is a geospatial type
-                if (!ctx.isGeoSpatialSupportEnabled() && isGeospatialType(typeVal)) {
-                  object = Types.VARCHAR;
-                } else if (!ctx.isComplexDatatypeSupportEnabled() && isComplexType(typeVal)) {
-                  object = Types.VARCHAR;
-                } else {
-                  object = getCode(stripBaseTypeName(typeVal));
-                }
-              } else if (mappedColumn
-                  .getColumnName()
-                  .equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
-                object = getCharOctetLength(typeVal);
-                if (object.equals(0)) {
-                  object = null;
-                }
-              } else if (mappedColumn
-                  .getColumnName()
-                  .equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
-                object = getBufferLength(typeVal);
-              } else {
-                // Handle other cases where the result set does not contain the expected column
-                object = null;
+              } catch (SQLException e) {
+                // Safety net: column resolved but value could not be read; fall back to the
+                // default.
+                object = getDefaultValueForMissingColumn(mappedColumn, typeVal);
               }
             }
             if (mappedColumn.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
@@ -821,6 +809,53 @@ public class MetadataResultSetBuilder {
     }
     resultSet.unsetSilenceNonTerminalExceptions();
     return rows;
+  }
+
+  /**
+   * Returns {@code true} when {@code columnName} is known to be absent from the underlying result
+   * set, resolved the same way {@link DatabricksResultSet#getObject(String)} resolves names. Used
+   * to avoid the "Invalid column index" throw for columns the server did not return (GitHub #1490).
+   *
+   * <p>Returns {@code false} when the column is present or when metadata is unavailable (e.g. test
+   * mocks), so callers fall back to the original {@code getObject()} path and behavior is
+   * unchanged.
+   */
+  private boolean isColumnAbsent(DatabricksResultSet resultSet, String columnName) {
+    try {
+      ResultSetMetaData metaData = resultSet.getMetaData();
+      if (metaData instanceof DatabricksResultSetMetaData) {
+        // getColumnNameIndex returns a 1-based index, or -1 when the column is not present.
+        return ((DatabricksResultSetMetaData) metaData).getColumnNameIndex(columnName) <= 0;
+      }
+    } catch (SQLException e) {
+      // Metadata unavailable; preserve the legacy getObject() path.
+    }
+    return false;
+  }
+
+  /**
+   * Computes the default value for a column that is absent from the underlying result set. Mirrors
+   * the fallback that previously lived in the {@code catch} block of {@link #getRows}, so output is
+   * identical — only the triggering throw is avoided.
+   */
+  private Object getDefaultValueForMissingColumn(ResultColumn mappedColumn, String typeVal) {
+    if (mappedColumn.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
+      // Check if geospatial support is disabled and this is a geospatial type
+      if (!ctx.isGeoSpatialSupportEnabled() && isGeospatialType(typeVal)) {
+        return Types.VARCHAR;
+      } else if (!ctx.isComplexDatatypeSupportEnabled() && isComplexType(typeVal)) {
+        return Types.VARCHAR;
+      } else {
+        return getCode(stripBaseTypeName(typeVal));
+      }
+    } else if (mappedColumn.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
+      Object value = getCharOctetLength(typeVal);
+      return value.equals(0) ? null : value;
+    } else if (mappedColumn.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
+      return getBufferLength(typeVal);
+    }
+    // Result set does not contain the expected column and no special default applies.
+    return null;
   }
 
   /**
