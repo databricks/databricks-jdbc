@@ -135,6 +135,60 @@ public class DatabricksConnectionTest {
   }
 
   @Test
+  public void testSetCatalogAndSchemaWithPreWrappedBackticks() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+
+    String backtickWrappedCatalog = "`catalog-with-hyphen`";
+    when(databricksClient.executeStatement(
+            eq("SET CATALOG `catalog-with-hyphen`"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any(),
+            any()))
+        .thenReturn(resultSet);
+    connection.setCatalog(backtickWrappedCatalog);
+    assertEquals(connection.getCatalog(), "catalog-with-hyphen");
+
+    String backtickWrappedSchema = "`schema-with-hyphen`";
+    when(databricksClient.executeStatement(
+            eq("USE SCHEMA `schema-with-hyphen`"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any(),
+            any()))
+        .thenReturn(resultSet);
+    connection.setSchema(backtickWrappedSchema);
+    assertEquals(connection.getSchema(), "schema-with-hyphen");
+
+    verify(databricksClient)
+        .executeStatement(
+            eq("SET CATALOG `catalog-with-hyphen`"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any(),
+            any());
+    verify(databricksClient)
+        .executeStatement(
+            eq("USE SCHEMA `schema-with-hyphen`"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any(),
+            any());
+  }
+
+  @Test
   public void testSetCatalogAndSchemaWithHyphenatedIdentifiers() throws SQLException {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))

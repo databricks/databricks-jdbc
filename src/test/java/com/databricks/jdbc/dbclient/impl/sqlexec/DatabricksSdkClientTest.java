@@ -1311,4 +1311,153 @@ public class DatabricksSdkClientTest {
     assertTrue(exception.getMessage().contains("Results have expired"));
     assertNotNull(exception.getCause());
   }
+
+  // =========================================================================
+  // checkStatementAlive
+  // =========================================================================
+
+  @Test
+  public void testCheckStatementAlive_succeededState_returnsTrue() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus status = new StatementStatus().setState(StatementState.SUCCEEDED);
+
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class))).thenReturn(status);
+
+    assertTrue(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_runningState_returnsTrue() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus status = new StatementStatus().setState(StatementState.RUNNING);
+
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class))).thenReturn(status);
+
+    assertTrue(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_canceledState_returnsFalse() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus status = new StatementStatus().setState(StatementState.CANCELED);
+
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class))).thenReturn(status);
+
+    assertFalse(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_closedState_returnsFalse() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus status = new StatementStatus().setState(StatementState.CLOSED);
+
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class))).thenReturn(status);
+
+    assertFalse(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_failedState_returnsFalse() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus status = new StatementStatus().setState(StatementState.FAILED);
+
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class))).thenReturn(status);
+
+    assertFalse(databricksSdkClient.checkStatementAlive(STATEMENT_ID));
+  }
+
+  @Test
+  public void testCheckStatementAlive_exceptionWrapped() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    when(apiClient.execute(any(Request.class), eq(StatementStatus.class)))
+        .thenThrow(new RuntimeException("Network error"));
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> databricksSdkClient.checkStatementAlive(STATEMENT_ID));
+    assertTrue(exception.getMessage().contains("Heartbeat status check failed"));
+  }
+
+  @Test
+  public void testWaitTimeout_directResultsDisabled_usesAsyncZero() throws Exception {
+    setupClientMocks(true, false);
+    // EnableDirectResults=0 -> getDirectResultMode() is false
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL + "EnableDirectResults=0", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    databricksSdkClient.executeStatement(
+        STATEMENT,
+        warehouse,
+        sqlParams,
+        StatementType.QUERY,
+        connection.getSession(),
+        statement,
+        null);
+
+    ArgumentCaptor<ExecuteStatementRequest> captor =
+        ArgumentCaptor.forClass(ExecuteStatementRequest.class);
+    verify(apiClient, atLeastOnce()).serialize(captor.capture());
+    // Direct results disabled -> async (0s), not the hybrid 10s path that truncates (ES-1714092).
+    assertEquals("0s", captor.getValue().getWaitTimeout());
+  }
+
+  @Test
+  public void testWaitTimeout_directResultsEnabled_leftUnset() throws Exception {
+    setupClientMocks(true, false);
+    // Default JDBC_URL has direct results enabled -> getDirectResultMode() is true
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    databricksSdkClient.executeStatement(
+        STATEMENT,
+        warehouse,
+        sqlParams,
+        StatementType.QUERY,
+        connection.getSession(),
+        statement,
+        null);
+
+    ArgumentCaptor<ExecuteStatementRequest> captor =
+        ArgumentCaptor.forClass(ExecuteStatementRequest.class);
+    verify(apiClient, atLeastOnce()).serialize(captor.capture());
+    // Direct results enabled -> WaitTimeout left unset (true SEA direct results).
+    assertNull(captor.getValue().getWaitTimeout());
+  }
 }

@@ -308,6 +308,8 @@ public class TelemetryClientFactoryTest {
 
   private void setupMocksForTelemetryClient(IDatabricksConnectionContext context) {
     TelemetryClientFactory.getInstance().closeTelemetryClient(context);
+    // Remove from closed set so subsequent getTelemetryClient() calls succeed in tests
+    TelemetryClientFactory.getInstance().closedConnectionUuids.remove(context.getConnectionUuid());
     TelemetryAuthHelper.setupAuthMocks(context, clientConfigurator);
     Map<String, String> featureFlagMap = new HashMap<>();
     featureFlagMap.put(TELEMETRY_FEATURE_FLAG_NAME, "true");

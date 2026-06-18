@@ -49,6 +49,17 @@ class CommandBuilderTest {
     }
 
     @Test
+    @DisplayName("Should escape backticks in identifiers for primary keys")
+    void shouldEscapeBackticksInIdentifiersForPrimaryKeys() throws SQLException {
+      CommandBuilder builder =
+          new CommandBuilder("cat`alog", mockSession).setSchema("sch`ema").setTable("tab`le");
+
+      String sql = builder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
+
+      assertEquals("SHOW KEYS IN CATALOG `cat``alog` IN SCHEMA `sch``ema` IN TABLE `tab``le`", sql);
+    }
+
+    @Test
     @DisplayName("Should throw SQLException when catalog is null for primary keys")
     void shouldThrowExceptionWhenCatalogIsNullForPrimaryKeys() {
       CommandBuilder builder =
@@ -151,6 +162,16 @@ class CommandBuilderTest {
     }
 
     @Test
+    @DisplayName("Should escape backticks in catalog identifier for tables")
+    void shouldEscapeBackticksInCatalogIdentifierForTables() throws SQLException {
+      CommandBuilder builder = new CommandBuilder("cat`alog", mockSession);
+
+      String sql = builder.getSQLString(CommandName.LIST_TABLES);
+
+      assertEquals("SHOW TABLES IN CATALOG `cat``alog`", sql);
+    }
+
+    @Test
     @DisplayName("Should generate SCHEMA LIKE clause for empty string schema pattern")
     void shouldGenerateSchemaLikeClauseForEmptyStringSchemaPattern() throws SQLException {
       CommandBuilder builder = new CommandBuilder(TEST_CATALOG, mockSession).setSchemaPattern("");
@@ -202,6 +223,18 @@ class CommandBuilderTest {
     }
 
     @Test
+    @DisplayName("Should escape backticks in identifiers for foreign keys")
+    void shouldEscapeBackticksInIdentifiersForForeignKeys() throws SQLException {
+      CommandBuilder builder =
+          new CommandBuilder("cat`alog", mockSession).setSchema("sch`ema").setTable("tab`le");
+
+      String sql = builder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
+
+      assertEquals(
+          "SHOW FOREIGN KEYS IN CATALOG `cat``alog` IN SCHEMA `sch``ema` IN TABLE `tab``le`", sql);
+    }
+
+    @Test
     @DisplayName("Should throw SQLException when catalog is null for foreign keys")
     void shouldThrowExceptionWhenCatalogIsNullForForeignKeys() {
       CommandBuilder builder =
@@ -225,6 +258,18 @@ class CommandBuilderTest {
 
       assertThrows(SQLException.class, () -> builder.getSQLString(CommandName.LIST_FOREIGN_KEYS));
     }
+  }
+
+  @Test
+  @DisplayName("Should escape backticks in catalog identifiers for other metadata commands")
+  void shouldEscapeBackticksInCatalogIdentifiersForOtherMetadataCommands() throws SQLException {
+    CommandBuilder builder = new CommandBuilder("cat`alog", mockSession);
+
+    assertEquals("SHOW SCHEMAS IN `cat``alog`", builder.getSQLString(CommandName.LIST_SCHEMAS));
+    assertEquals(
+        "SHOW COLUMNS IN CATALOG `cat``alog`", builder.getSQLString(CommandName.LIST_COLUMNS));
+    assertEquals(
+        "SHOW FUNCTIONS IN CATALOG `cat``alog`", builder.getSQLString(CommandName.LIST_FUNCTIONS));
   }
 
   @Test

@@ -16,6 +16,7 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.core.StatementStatus;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.InputStream;
 import java.sql.*;
@@ -581,10 +582,115 @@ public class DatabricksStatementTest {
     assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
   }
 
+  // https://github.com/databricks/databricks-jdbc/issues/1418 — DML statements whose subqueries
+  // or CTEs contain UNION / INTERSECT / EXCEPT were being mis-classified as ResultSet-producing.
+  @Test
+  public void testShouldReturnResultSet_InsertWithUnionInSubquery() {
+    String query =
+        "INSERT INTO my_catalog.my_schema.target_table "
+            + "SELECT * FROM ( "
+            + "  SELECT col1, col2 FROM src WHERE 1 = 0 "
+            + "  UNION ALL "
+            + "  SELECT col1, col2 FROM src WHERE 1 = 0 "
+            + ") t";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_InsertWithIntersectInSubquery() {
+    String query = "INSERT INTO t SELECT x FROM (SELECT x FROM a INTERSECT SELECT x FROM b) s";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_InsertWithExceptInSubquery() {
+    String query = "INSERT INTO t SELECT x FROM (SELECT x FROM a EXCEPT SELECT x FROM b) s";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_InsertWithSelectStarExceptColumnExclusion() {
+    // `SELECT * EXCEPT (col)` is Databricks column-exclusion syntax, not a set operator.
+    String query = "INSERT INTO t SELECT * EXCEPT (secret_col) FROM source";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_InsertOverwriteDirectoryWithIntersect() {
+    String query =
+        "INSERT OVERWRITE DIRECTORY 's3://bucket/path' USING CSV "
+            + "SELECT x FROM a INTERSECT SELECT x FROM b";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_UpdateWithUnionInSubquery() {
+    String query = "UPDATE t SET col = (SELECT x FROM a UNION SELECT x FROM b LIMIT 1)";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_DeleteWithExceptInSubquery() {
+    String query = "DELETE FROM t WHERE id IN (SELECT id FROM a EXCEPT SELECT id FROM b)";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_MergeWithUnionInSource() {
+    String query =
+        "MERGE INTO target t USING (SELECT id FROM a UNION SELECT id FROM b) s "
+            + "ON t.id = s.id WHEN MATCHED THEN DELETE";
+    assertFalse(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  @Test
+  public void testShouldReturnResultSet_DmlPrefixOverriddenByNonRowcountConfig() {
+    // The NonRowcountQueryPrefixes opt-in path must still win over the DML short-circuit.
+    String query = "INSERT INTO t VALUES (1)";
+    assertTrue(
+        DatabricksStatement.shouldReturnResultSet(query, Arrays.asList("INSERT")),
+        "NonRowcountQueryPrefixes=INSERT should force ResultSet mode");
+  }
+
+  @Test
+  public void testShouldReturnResultSet_TopLevelParenthesizedUnionStillMatches() {
+    // Regression guard: top-level set operations starting with `(` still classify as ResultSet
+    // via SELECT_PATTERN's `^(\s*\()*\s*SELECT` prefix.
+    String query = "(SELECT a FROM t1) UNION (SELECT a FROM t2)";
+    assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
   @Test
   public void testShouldReturnResultSet_DeclareQuery() {
     String query = "DECLARE @var INT;";
     assertTrue(DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()));
+  }
+
+  // Regression guards for the `TABLE table_name` queryPrimary form in Spark SQL. These shapes
+  // were previously classified via the non-anchored UNION_PATTERN; removing that pattern
+  // requires explicit anchored coverage via TABLE_PATTERN.
+  @Test
+  public void testShouldReturnResultSet_TableUnionTable() {
+    String query = "TABLE my_catalog.my_schema.foo UNION TABLE my_catalog.my_schema.bar";
+    assertTrue(
+        DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()),
+        "TABLE foo UNION TABLE bar must be classified as ResultSet");
+  }
+
+  @Test
+  public void testShouldReturnResultSet_ParenthesizedTableUnionTable() {
+    String query = "(TABLE foo) UNION (TABLE bar)";
+    assertTrue(
+        DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()),
+        "(TABLE foo) UNION (TABLE bar) must be classified as ResultSet");
+  }
+
+  @Test
+  public void testShouldReturnResultSet_BareTableQuery() {
+    String query = "TABLE my_catalog.my_schema.foo";
+    assertTrue(
+        DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()),
+        "Bare TABLE foo must be classified as ResultSet");
   }
 
   @Test
@@ -1028,13 +1134,158 @@ public class DatabricksStatementTest {
     // First execution
     statement.executeQuery(STATEMENT);
 
-    // Second execution — previous ResultSet is closed per JDBC spec.
-    // Server handle is NOT explicitly closed (server manages handle lifecycle).
+    // Second execution — previous ResultSet closed. No server close because
+    // statementId is null in this mock setup (mock doesn't call setStatementId).
     statement.executeQuery(STATEMENT);
 
     verify(firstResult, times(1)).close();
     verify(client, never()).closeStatement(any(StatementId.class));
     assertEquals(secondResult, statement.getResultSet());
+  }
+
+  @Test
+  public void testReExecutionClosesServerOperation() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    DatabricksResultSet firstResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet secondResult = mock(DatabricksResultSet.class);
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(firstResult)
+        .thenReturn(secondResult);
+
+    // First execution
+    statement.executeQuery(STATEMENT);
+    // Simulate server setting the statementId (normally done inside executeStatement)
+    StatementId firstStatementId = new StatementId("first-stmt-id");
+    statement.setStatementId(firstStatementId);
+
+    // Second execution — should close the first server operation asynchronously
+    statement.executeQuery(STATEMENT);
+
+    verify(client, timeout(5000).times(1)).closeStatement(eq(firstStatementId));
+    verify(firstResult, times(1)).close();
+    assertEquals(secondResult, statement.getResultSet());
+  }
+
+  @Test
+  public void testReExecutionSkipsServerCloseForDirectResults() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    DatabricksResultSet firstResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet secondResult = mock(DatabricksResultSet.class);
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(firstResult)
+        .thenReturn(secondResult);
+
+    // First execution with direct results (server already closed the operation)
+    statement.executeQuery(STATEMENT);
+    statement.setStatementId(new StatementId("direct-stmt-id"));
+    statement.markDirectResultsReceived();
+
+    // Second execution — should NOT close server operation (already closed by server)
+    statement.executeQuery(STATEMENT);
+
+    verify(client, never()).closeStatement(any(StatementId.class));
+    verify(firstResult, times(1)).close();
+  }
+
+  @Test
+  public void testReExecutionHandlesCloseFailureGracefully() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    DatabricksResultSet firstResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet secondResult = mock(DatabricksResultSet.class);
+    StatementId firstStatementId = new StatementId("failing-stmt-id");
+
+    // closeStatement throws (e.g., operation already expired on server)
+    doThrow(new DatabricksSQLException("Operation not found", "HY000"))
+        .when(client)
+        .closeStatement(eq(firstStatementId));
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(firstResult)
+        .thenReturn(secondResult);
+
+    statement.executeQuery(STATEMENT);
+    statement.setStatementId(firstStatementId);
+
+    // Re-execution should succeed even though closing previous operation failed
+    assertDoesNotThrow(() -> statement.executeQuery(STATEMENT));
+    assertEquals(secondResult, statement.getResultSet());
+    // Verify the async close was attempted
+    verify(client, timeout(5000).times(1)).closeStatement(eq(firstStatementId));
+  }
+
+  @Test
+  public void testReExecutionHandlesTransportErrorGracefully() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    DatabricksResultSet firstResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet secondResult = mock(DatabricksResultSet.class);
+    StatementId firstStatementId = new StatementId("transport-error-stmt-id");
+
+    // closeStatement throws a transport-level error (e.g., unexpected server response,
+    // corrupted framed transport). This is the scarier failure mode — not just "not found"
+    // but a low-level I/O error that could corrupt shared transport state.
+    doThrow(new RuntimeException("HTTP request failed by code: 500, unexpected response"))
+        .when(client)
+        .closeStatement(eq(firstStatementId));
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(firstResult)
+        .thenReturn(secondResult);
+
+    statement.executeQuery(STATEMENT);
+    statement.setStatementId(firstStatementId);
+
+    // Re-execution must succeed even with transport-level close failure.
+    // The new execution creates a fresh server operation with a new statementId.
+    assertDoesNotThrow(() -> statement.executeQuery(STATEMENT));
+    assertEquals(secondResult, statement.getResultSet());
+    // Verify the async close was attempted
+    verify(client, timeout(5000).times(1)).closeStatement(eq(firstStatementId));
   }
 
   @Test
@@ -1681,5 +1932,260 @@ public class DatabricksStatementTest {
     assertEquals(-1, statement.getUpdateCount(), "getUpdateCount() should return -1");
 
     statement.close();
+  }
+
+  // =========================================================================
+  // Proactive server operation close
+  // =========================================================================
+
+  @Test
+  public void testCloseServerOperation_closesServerAndSkipsRpcOnStatementClose() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setStatementId(STATEMENT_ID);
+
+    // Proactively close the server operation (simulates next() returning false)
+    statement.closeServerOperation();
+
+    // Statement should still be open
+    assertFalse(statement.isClosed());
+
+    // closeStatement should have been called once (proactive close)
+    verify(client, times(1)).closeStatement(STATEMENT_ID);
+
+    // Now close the statement — should NOT call closeStatement again
+    statement.close();
+    verify(client, times(1)).closeStatement(STATEMENT_ID); // still 1, not 2
+  }
+
+  @Test
+  public void testCloseServerOperation_idempotent() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setStatementId(STATEMENT_ID);
+
+    // Call twice — should only close once
+    statement.closeServerOperation();
+    statement.closeServerOperation();
+
+    verify(client, times(1)).closeStatement(STATEMENT_ID);
+  }
+
+  @Test
+  public void testCloseServerOperation_skippedForDirectResults() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setStatementId(STATEMENT_ID);
+    statement.markDirectResultsReceived();
+
+    // Should be a no-op since directResults already closed the server operation
+    statement.closeServerOperation();
+
+    verify(client, never()).closeStatement(any(StatementId.class));
+  }
+
+  @Test
+  public void testCloseServerOperation_skippedWhenNoStatementId() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    // statementId is null — should be a no-op
+
+    statement.closeServerOperation();
+
+    verify(client, never()).closeStatement(any(StatementId.class));
+  }
+
+  @Test
+  public void testCloseServerOperation_resetsAfterFlagClear() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setStatementId(STATEMENT_ID);
+
+    // First proactive close
+    statement.closeServerOperation();
+    verify(client, times(1)).closeStatement(STATEMENT_ID);
+
+    // Second call is no-op (flag set)
+    statement.closeServerOperation();
+    verify(client, times(1)).closeStatement(STATEMENT_ID);
+
+    // Statement.close() is also no-op for server RPC (flag set)
+    statement.close();
+    verify(client, times(1)).closeStatement(STATEMENT_ID);
+  }
+
+  @Test
+  public void testCloseServerOperation_errorSwallowed() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setStatementId(STATEMENT_ID);
+
+    // Server close fails — should not throw
+    doThrow(new DatabricksSQLException("Server error", DatabricksDriverErrorCode.SDK_CLIENT_ERROR))
+        .when(client)
+        .closeStatement(STATEMENT_ID);
+
+    assertDoesNotThrow(() -> statement.closeServerOperation());
+
+    // Flag should NOT be set on failure — Statement.close() should retry
+    verify(client, times(1)).closeStatement(STATEMENT_ID);
+    // The second closeServerOperation call should retry since flag wasn't set
+    reset(client); // clear the throw stub
+    statement.closeServerOperation();
+    verify(client, times(1)).closeStatement(STATEMENT_ID);
+  }
+
+  @Test
+  public void testCloseServerOperation_cancelSkipsAfterProactiveClose() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setStatementId(STATEMENT_ID);
+
+    // Proactively close server operation
+    statement.closeServerOperation();
+    verify(client, times(1)).closeStatement(STATEMENT_ID);
+
+    // cancel() should be a no-op — server operation already closed
+    statement.cancel();
+    verify(client, never()).cancelStatement(any(StatementId.class));
+  }
+
+  @Test
+  public void testCloseServerOperation_getExecutionResultReturnsCachedAfterClose()
+      throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setStatementId(STATEMENT_ID);
+    // Set resultSet field via reflection to simulate executeQuery having run
+    java.lang.reflect.Field rsField = DatabricksStatement.class.getDeclaredField("resultSet");
+    rsField.setAccessible(true);
+    rsField.set(statement, resultSet);
+
+    // Proactively close server operation
+    statement.closeServerOperation();
+
+    // getExecutionResult() should return cached result, not make RPC
+    ResultSet cached = statement.getExecutionResult();
+    assertNotNull(cached);
+    assertEquals(resultSet, cached);
+    verify(client, never())
+        .getStatementResult(any(StatementId.class), any(IDatabricksSession.class), any());
+  }
+
+  @Test
+  public void testStatementReusableAfterProactiveClose() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    // First execution
+    statement.executeQuery(STATEMENT);
+    statement.closeServerOperation();
+    assertFalse(statement.isClosed(), "Statement should stay open after proactive close");
+
+    // Re-execute — should work, flag reset by resetForNewExecution
+    statement.executeQuery(STATEMENT);
+    assertFalse(statement.isClosed());
+
+    // Both executions should have called executeStatement
+    verify(client, times(2))
+        .executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any());
+  }
+
+  @Test
+  public void testResultSetClose_triggersProactiveServerClose() throws Exception {
+    // Verify that ResultSet.close() triggers closeServerOperation on the parent Statement,
+    // and that Statement.close() then skips the duplicate RPC.
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    IExecutionResult execResult = mock(IExecutionResult.class);
+    DatabricksResultSetMetaData rsMeta = mock(DatabricksResultSetMetaData.class);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.QUERY,
+            statement,
+            execResult,
+            rsMeta,
+            false);
+    statement.setStatementId(STATEMENT_ID);
+    statement.resultSet = resultSet;
+
+    // Close ResultSet — should trigger proactive server close
+    resultSet.close();
+    verify(client, times(1)).closeStatement(STATEMENT_ID);
+
+    // Close Statement — should skip RPC since server operation already closed
+    statement.close();
+    verify(client, times(1)).closeStatement(STATEMENT_ID); // still 1, not 2
+  }
+
+  @Test
+  public void testStatementClose_noDoubleRpc_whenResultSetNotClosed() throws Exception {
+    // Verify that Statement.close() with a non-closed ResultSet fires exactly one RPC:
+    // ResultSet.close() inside Statement.close() triggers proactive close, and the
+    // subsequent check sees serverOperationClosed=true and skips.
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    IExecutionResult execResult = mock(IExecutionResult.class);
+    DatabricksResultSetMetaData rsMeta = mock(DatabricksResultSetMetaData.class);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.QUERY,
+            statement,
+            execResult,
+            rsMeta,
+            false);
+    statement.setStatementId(STATEMENT_ID);
+    statement.resultSet = resultSet;
+
+    // Close Statement directly (without closing ResultSet first)
+    statement.close();
+
+    // Should fire exactly one closeStatement RPC, not two
+    verify(client, times(1)).closeStatement(STATEMENT_ID);
   }
 }

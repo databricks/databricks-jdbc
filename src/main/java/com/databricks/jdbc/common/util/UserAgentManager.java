@@ -63,9 +63,6 @@ public class UserAgentManager {
         }
       }
     }
-
-    // Detect AI coding agent and append to user agent
-    AgentDetector.detect().ifPresent(product -> UserAgent.withOtherInfo(AGENT_KEY, product));
   }
 
   /**

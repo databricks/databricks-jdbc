@@ -132,7 +132,11 @@ public class CommandConstants {
         .build();
   }
 
+  public static String escapeSqlIdentifier(String identifier) {
+    return identifier == null ? null : identifier.replace("`", "``");
+  }
+
   private static String getCatalogPrefix(String catalog) {
-    return (catalog == null) ? "system" : "`" + catalog + "`";
+    return (catalog == null) ? "system" : "`" + escapeSqlIdentifier(catalog) + "`";
   }
 }
