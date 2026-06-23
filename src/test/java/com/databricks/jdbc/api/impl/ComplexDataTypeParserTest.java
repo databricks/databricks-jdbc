@@ -413,4 +413,63 @@ public class ComplexDataTypeParserTest {
     String result = parser.formatMapString(jsonString, "MAP<STRING,INT>");
     assertEquals(expected, result);
   }
+
+  /**
+   * Regression test for issue #1505: when complex datatype support is disabled, a map whose values
+   * are arrays previously rendered the value as empty (e.g. {@code {0:}}) because the formatter
+   * called {@code JsonNode.asText()} on the array node, which returns "".
+   */
+  @Test
+  void testFormatMapString_withIntKeyAndArrayValue() {
+    String jsonString = "[{\"key\":0,\"value\":[34277,0]}]";
+    String expected = "{0:[34277,0]}";
+
+    String result = parser.formatMapString(jsonString, "MAP<INT,ARRAY<BIGINT>>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapString_withStringKeyAndArrayValues() {
+    String jsonString = "[{\"key\":\"arr1\",\"value\":[1,2]},{\"key\":\"arr2\",\"value\":[3,4,5]}]";
+    String expected = "{\"arr1\":[1,2],\"arr2\":[3,4,5]}";
+
+    String result = parser.formatMapString(jsonString, "MAP<STRING,ARRAY<INT>>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapString_withStructValue() {
+    String jsonString = "[{\"key\":\"k\",\"value\":{\"a\":1,\"b\":\"x\"}}]";
+    String expected = "{\"k\":{\"a\":1,\"b\":\"x\"}}";
+
+    String result = parser.formatMapString(jsonString, "MAP<STRING,STRUCT<a:INT,b:STRING>>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapString_withNestedMapValue() {
+    String jsonString = "[{\"key\":0,\"value\":[{\"key\":\"a\",\"value\":1}]}]";
+    String expected = "{0:{\"a\":1}}";
+
+    String result = parser.formatMapString(jsonString, "MAP<INT,MAP<STRING,INT>>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapString_withNullComplexValue() {
+    String jsonString = "[{\"key\":0,\"value\":null}]";
+    String expected = "{0:null}";
+
+    String result = parser.formatMapString(jsonString, "MAP<INT,ARRAY<INT>>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatComplexTypeString_withMapOfArrays() {
+    String jsonString = "[{\"key\":0,\"value\":[34277,0]}]";
+    String expected = "{0:[34277,0]}";
+
+    String result = parser.formatComplexTypeString(jsonString, "MAP", "MAP<INT,ARRAY<BIGINT>>");
+    assertEquals(expected, result);
+  }
 }

@@ -69,6 +69,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
    * @return the converted value
    */
   private V convertValue(V value, String valueType) {
+    if (value == null) {
+      return null;
+    }
     try {
       LOGGER.debug("Converting value of type: {}", valueType);
       if (valueType.startsWith(DatabricksTypeUtil.STRUCT)) {

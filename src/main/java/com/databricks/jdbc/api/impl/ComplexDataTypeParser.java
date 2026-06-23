@@ -337,10 +337,17 @@ public class ComplexDataTypeParser {
     try {
       JsonNode node = JsonUtil.getMapper().readTree(jsonString);
       if (node.isArray() && node.size() > 0 && node.get(0).has("key")) {
-        String[] kv = new String[] {"STRING", "STRING"};
+        // When the MAP type metadata is available, delegate to the recursive typed parser so
+        // that nested complex values (ARRAY/STRUCT/MAP) are formatted correctly. The
+        // hand-rolled loop below calls JsonNode.asText(), which returns "" for container nodes
+        // and therefore drops nested values (issue #1505). DatabricksMap#toString reproduces
+        // the same {key:value} output for scalar maps.
         if (mapMetadata != null && mapMetadata.startsWith(DatabricksTypeUtil.MAP)) {
-          kv = MetadataParser.parseMapMetadata(mapMetadata).split(",", 2);
+          return parseToMap(node, mapMetadata).toString();
         }
+
+        // Fallback for missing/non-MAP metadata: treat keys and values as strings.
+        String[] kv = new String[] {"STRING", "STRING"};
 
         String keyType = kv[0].trim();
         String valueType = kv[1].trim();

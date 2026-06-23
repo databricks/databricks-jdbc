@@ -48,6 +48,10 @@ public class DatabricksArray implements Array {
 
     for (int i = 0; i < elements.size(); i++) {
       Object element = elements.get(i);
+      if (element == null) {
+        convertedElements[i] = null;
+        continue;
+      }
       try {
         if (elementType.startsWith(DatabricksTypeUtil.STRUCT)) {
           if (element instanceof Map) {

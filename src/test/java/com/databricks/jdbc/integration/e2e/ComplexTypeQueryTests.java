@@ -320,8 +320,14 @@ public class ComplexTypeQueryTests {
         Object obj = rs.getObject("mapOfArrays");
         assertTrue(obj instanceof String);
         String text = (String) obj;
-        assertTrue(text.contains("arr1"));
-        assertTrue(text.contains("3"));
+        // Both keys and every array element must survive. Issue #1505 dropped the array
+        // values entirely on the Arrow path (e.g. "{arr1:,arr2:}"); 3, 4 and 5 only appear
+        // inside the array values, so their presence guards against that regression.
+        assertTrue(text.contains("arr1"), text);
+        assertTrue(text.contains("arr2"), text);
+        assertTrue(text.contains("3"), text);
+        assertTrue(text.contains("4"), text);
+        assertTrue(text.contains("5"), text);
       }
     }
   }
