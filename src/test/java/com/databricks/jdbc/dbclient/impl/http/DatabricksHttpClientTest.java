@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
@@ -307,6 +308,35 @@ public class DatabricksHttpClientTest {
             clientList.get(j),
             "HTTP client instances should be unique per connection");
       }
+    }
+  }
+
+  // SEC-20597: closing connections must not accumulate entries in the static map, while
+  // use-after-close still returns the sentinel (issue #1325).
+  @Test
+  public void testCloseConnectionDoesNotLeakInstances() {
+    DatabricksHttpClientFactory factory = DatabricksHttpClientFactory.getInstance();
+    factory.reset();
+    System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
+    try {
+      int n = 50;
+      for (int i = 0; i < n; i++) {
+        IDatabricksConnectionContext ctx = mock(IDatabricksConnectionContext.class);
+        when(ctx.getConnectionUuid()).thenReturn("leak-uuid-" + i);
+        when(ctx.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+
+        factory.getClient(ctx, HttpClientType.COMMON);
+        factory.closeConnection(ctx);
+
+        // use-after-close still returns the sentinel
+        assertInstanceOf(
+            ClosedConnectionHttpClient.class, factory.getClient(ctx, HttpClientType.COMMON));
+      }
+      // No live-client entries accumulate across many open/close cycles.
+      assertEquals(0, factory.liveClientCount());
+    } finally {
+      System.clearProperty(IS_FAKE_SERVICE_TEST_PROP);
+      factory.reset();
     }
   }
 }
