@@ -360,10 +360,19 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public void close() throws DatabricksSQLException {
+    // Idempotency guard. Besides making close() safe to call more than once, this also breaks the
+    // mutual recursion that occurs when closeOnCompletion() is enabled (ES-1978361): closing the
+    // ResultSet notifies the parent Statement (handleResultSetClose), which closes the Statement,
+    // which closes the ResultSet again. Returning early on the re-entrant call stops the loop.
+    if (isClosed) {
+      return;
+    }
+    // Mark closed before notifying the parent Statement, so any re-entrant close() triggered via
+    // handleResultSetClose() short-circuits at the guard above instead of recursing.
+    isClosed = true;
     stopHeartbeat();
     // Proactively close server operation when ResultSet is closed explicitly.
     closeServerOperation();
-    isClosed = true;
     if (executionResult != null) {
       executionResult.close();
     }

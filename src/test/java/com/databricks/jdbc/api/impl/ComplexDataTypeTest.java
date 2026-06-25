@@ -4,10 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.math.BigDecimal;
 import java.sql.*;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import org.junit.jupiter.api.Test;
 
 public class ComplexDataTypeTest {
@@ -642,5 +644,54 @@ public class ComplexDataTypeTest {
 
     assertTrue(attrs[6] instanceof byte[]);
     assertArrayEquals("binaryData".getBytes(), (byte[]) attrs[6]);
+  }
+
+  /**
+   * ES-1978662: a nested TIMESTAMP serialized as epoch microseconds must not be timezone-shifted.
+   * The JVM default zone is forced to a fixed UTC-5 zone so the shift is caught on any host/CI.
+   */
+  @Test
+  public void testStructTimestampFromEpochMicrosIsNotTimezoneShifted() throws SQLException {
+    TimeZone originalTimeZone = TimeZone.getDefault();
+    try {
+      TimeZone.setDefault(TimeZone.getTimeZone("America/Bogota"));
+
+      // Epoch micros for 2017-03-26 01:01:02.345 UTC.
+      long epochMicros = Instant.parse("2017-03-26T01:01:02.345Z").toEpochMilli() * 1_000L;
+      String json = "{\"ts_field\":" + epochMicros + "}";
+      String metadata = "STRUCT<ts_field:TIMESTAMP>";
+
+      DatabricksStruct struct =
+          new ComplexDataTypeParser().parseJsonStringToDbStruct(json, metadata);
+      Object value = struct.getAttributes()[0];
+
+      assertTrue(value instanceof Timestamp);
+      assertEquals(Timestamp.valueOf("2017-03-26 01:01:02.345"), value);
+      assertEquals("2017-03-26 01:01:02.345", value.toString());
+    } finally {
+      TimeZone.setDefault(originalTimeZone);
+    }
+  }
+
+  /** Same fix applies to TIMESTAMP elements inside an ARRAY. */
+  @Test
+  public void testArrayTimestampFromEpochMicrosIsNotTimezoneShifted() throws SQLException {
+    TimeZone originalTimeZone = TimeZone.getDefault();
+    try {
+      TimeZone.setDefault(TimeZone.getTimeZone("America/Bogota"));
+
+      long epochMicros = Instant.parse("2017-03-26T01:01:02.345Z").toEpochMilli() * 1_000L;
+      String json = "[" + epochMicros + "]";
+      String metadata = "ARRAY<TIMESTAMP>";
+
+      DatabricksArray array = new ComplexDataTypeParser().parseJsonStringToDbArray(json, metadata);
+      Object value = ((Object[]) array.getArray())[0];
+
+      assertTrue(value instanceof Timestamp);
+      assertEquals(Timestamp.valueOf("2017-03-26 01:01:02.345"), value);
+      assertEquals("2017-03-26 01:01:02.345", value.toString());
+    } finally {
+      TimeZone.setDefault(originalTimeZone);
+    }
   }
 }

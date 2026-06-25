@@ -2188,4 +2188,74 @@ public class DatabricksStatementTest {
     // Should fire exactly one closeStatement RPC, not two
     verify(client, times(1)).closeStatement(STATEMENT_ID);
   }
+
+  /**
+   * Regression test for ES-1978361. With closeOnCompletion() enabled, closing the ResultSet must
+   * not recurse infinitely between ResultSet.close() and Statement.close() (previously a
+   * StackOverflowError). Exercises the ResultSet.close() entry point with a real ResultSet wired to
+   * a real Statement.
+   */
+  @Test
+  public void testCloseOnCompletion_resultSetCloseDoesNotRecurse() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    IExecutionResult execResult = mock(IExecutionResult.class);
+    DatabricksResultSetMetaData rsMeta = mock(DatabricksResultSetMetaData.class);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.QUERY,
+            statement,
+            execResult,
+            rsMeta,
+            false);
+    statement.setStatementId(STATEMENT_ID);
+    statement.resultSet = resultSet;
+    statement.closeOnCompletion();
+    assertTrue(statement.isCloseOnCompletion());
+
+    // Closing the ResultSet auto-closes the Statement (closeOnCompletion). Must not StackOverflow.
+    assertDoesNotThrow(() -> resultSet.close());
+
+    assertTrue(resultSet.isClosed());
+    assertTrue(statement.isClosed());
+    // Server operation must be closed at most once despite the close path being entered twice.
+    verify(client, atMost(1)).closeStatement(STATEMENT_ID);
+  }
+
+  /**
+   * Regression test for ES-1978361, statement-close entry point. Closing the Statement (which
+   * closes its ResultSet, which calls back via closeOnCompletion) must not recurse infinitely.
+   */
+  @Test
+  public void testCloseOnCompletion_statementCloseDoesNotRecurse() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+
+    IExecutionResult execResult = mock(IExecutionResult.class);
+    DatabricksResultSetMetaData rsMeta = mock(DatabricksResultSetMetaData.class);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.QUERY,
+            statement,
+            execResult,
+            rsMeta,
+            false);
+    statement.setStatementId(STATEMENT_ID);
+    statement.resultSet = resultSet;
+    statement.closeOnCompletion();
+
+    assertDoesNotThrow(() -> statement.close());
+
+    assertTrue(statement.isClosed());
+    assertTrue(resultSet.isClosed());
+  }
 }

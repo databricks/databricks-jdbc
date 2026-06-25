@@ -468,6 +468,7 @@ public class DatabricksResultSetMetaDataTest {
     } else {
       assertFalse(metaData.getIsCloudFetchUsed());
     }
+    assertFalse(metaData.getIsTruncated());
   }
 
   @Test
@@ -481,6 +482,26 @@ public class DatabricksResultSetMetaDataTest {
     metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
     assertFalse(metaData.getIsCloudFetchUsed());
+  }
+
+  @Test
+  public void testSdkTruncated() {
+    ResultManifest resultManifest = getResultManifest();
+    resultManifest.setTruncated(null);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, true, connectionContext);
+    assertFalse(metaData.getIsTruncated());
+
+    resultManifest.setTruncated(true);
+    metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+    assertTrue(metaData.getIsTruncated());
+
+    resultManifest.setTruncated(false);
+    metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+    assertFalse(metaData.getIsTruncated());
   }
 
   @Test

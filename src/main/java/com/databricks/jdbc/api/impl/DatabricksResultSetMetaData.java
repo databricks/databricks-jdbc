@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -44,6 +45,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final long totalRows;
   private Long chunkCount;
   private final boolean isCloudFetchUsed;
+  private final boolean truncated;
 
   /**
    * Constructs a {@code DatabricksResultSetMetaData} object for a SEA result set.
@@ -144,6 +146,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.totalRows = resultManifest.getTotalRowCount();
     this.chunkCount = resultManifest.getTotalChunkCount();
     this.isCloudFetchUsed = usesExternalLinks;
+    this.truncated = Objects.requireNonNullElse(resultManifest.getTruncated(), false);
   }
 
   /**
@@ -260,6 +263,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.totalRows = rows;
     this.chunkCount = chunkCount;
     this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
+    this.truncated = false;
   }
 
   /**
@@ -309,6 +313,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
+    this.truncated = false;
   }
 
   /**
@@ -361,6 +366,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
+    this.truncated = false;
   }
 
   /**
@@ -419,6 +425,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
+    this.truncated = false;
   }
 
   /**
@@ -487,6 +494,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     }
     this.statementId = statementId;
     this.isCloudFetchUsed = false;
+    this.truncated = false;
     this.totalRows = -1;
     this.columns = columnsBuilder.build();
     this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
@@ -637,6 +645,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   private boolean getIsCloudFetchFromManifest(TGetResultSetMetadataResp resultManifest) {
     return resultManifest.getResultFormat() == TSparkRowSetType.URL_BASED_SET;
+  }
+
+  public boolean getIsTruncated() {
+    return truncated;
   }
 
   public Long getChunkCount() {
