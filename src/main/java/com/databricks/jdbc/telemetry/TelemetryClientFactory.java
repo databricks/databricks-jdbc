@@ -11,8 +11,10 @@ import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -37,10 +39,12 @@ public class TelemetryClientFactory {
   /**
    * Tracks connection UUIDs that have been closed. {@link #getTelemetryClient} checks this set and
    * returns {@link NoopTelemetryClient} for closed connections, preventing re-creation of orphaned
-   * TelemetryClients (issue #1325). Growth is bounded by total connections closed over JVM lifetime
-   * (~80 bytes per UUID) — negligible for typical connection pool sizes.
+   * TelemetryClients (issue #1325). Weak keys: an entry is reclaimed once the connection's UUID
+   * becomes unreachable, so this does not grow without bound.
    */
-  @VisibleForTesting final Set<String> closedConnectionUuids = ConcurrentHashMap.newKeySet();
+  @VisibleForTesting
+  final Set<String> closedConnectionUuids =
+      Collections.synchronizedSet(Collections.newSetFromMap(new WeakHashMap<String, Boolean>()));
 
   private final ExecutorService telemetryExecutorService;
   private ScheduledExecutorService sharedSchedulerService;
