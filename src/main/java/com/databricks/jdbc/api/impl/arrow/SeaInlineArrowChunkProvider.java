@@ -1,6 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
-import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
+import static com.databricks.jdbc.common.util.DecompressionUtil.decompressLazy;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
@@ -13,8 +13,9 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -50,16 +51,19 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
   // Indexed chunk storage (mirrors ThriftStreamingProvider's ConcurrentHashMap<Long, Batch>)
   private final ConcurrentMap<Long, ArrowResultChunk> chunks = new ConcurrentHashMap<>();
 
-  // Position tracking
-  private final AtomicLong currentChunkIndex = new AtomicLong(-1);
+  // Ordered queue of chunk indices for consumption — populated by constructor and prefetch thread.
+  // The consumer polls from this queue to know which server chunk index to read next.
+  private final ConcurrentLinkedQueue<Long> consumptionOrder = new ConcurrentLinkedQueue<>();
+
+  // Position tracking — uses server-provided chunk indices, not sequential counters.
+  private volatile long currentChunkIndex = -1;
   private final AtomicLong highestFetchedChunkIndex = new AtomicLong(-1);
   // Single-writer: nextFetchChunkIndex and nextFetchRowOffset are only written by
   // the prefetch thread (fetchNextChunkInternal), so separate AtomicLongs are safe.
-  // Unlike StreamingChunkProvider where download threads can also update the position
-  // (requiring a bundled FetchPosition holder), this provider has no second writer.
-  private final AtomicLong nextFetchChunkIndex = new AtomicLong(1); // 0 is initial chunk
+  private final AtomicLong nextFetchChunkIndex = new AtomicLong(-1);
   private final AtomicLong nextFetchRowOffset = new AtomicLong(0);
   private final AtomicLong totalRowCount = new AtomicLong(0);
+  private final AtomicLong consumedChunkCount = new AtomicLong(0);
 
   // State and synchronization (mirrors ThriftStreamingProvider's lock + conditions)
   private volatile boolean endOfStream = false;
@@ -94,7 +98,8 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
     this.maxBatchesInMemory = Math.max(2, configuredMax);
     this.chunkReadyTimeoutSeconds = ctx.getChunkReadyTimeoutSeconds();
 
-    // Process initial chunk
+    // Process initial chunk — use index 0 as the canonical key for the first inline chunk
+    long initialChunkIndex = 0L;
     ArrowResultChunk firstChunk = processResultData(initialResultData);
     long rowCount = initialResultData.getRowCount() != null ? initialResultData.getRowCount() : 0;
     long rowOffset =
@@ -102,9 +107,10 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
     totalRowCount.addAndGet(rowCount);
     nextFetchRowOffset.set(rowOffset + rowCount);
 
-    // Store initial chunk
-    chunks.put(0L, firstChunk);
-    highestFetchedChunkIndex.set(0);
+    // Store initial chunk and enqueue for consumption
+    chunks.put(initialChunkIndex, firstChunk);
+    consumptionOrder.add(initialChunkIndex);
+    highestFetchedChunkIndex.set(initialChunkIndex);
     chunksInMemory.incrementAndGet();
 
     // Determine if there are more chunks
@@ -132,7 +138,7 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
   public boolean hasNextChunk() {
     if (closed) return false;
     if (!endOfStream) return true;
-    return currentChunkIndex.get() < highestFetchedChunkIndex.get();
+    return !consumptionOrder.isEmpty();
   }
 
   @Override
@@ -142,19 +148,33 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
     checkPrefetchError();
 
     // Release previous chunk
-    long prevIndex = currentChunkIndex.get();
-    if (prevIndex >= 0) {
-      releaseChunk(prevIndex);
+    if (currentChunkIndex >= 0) {
+      releaseChunk(currentChunkIndex);
     }
 
     if (!hasNextChunk()) {
       return false;
     }
 
-    long nextIndex = currentChunkIndex.incrementAndGet();
+    // Poll the next server chunk index from the consumption queue.
+    // If the queue is empty but endOfStream is false, wait for prefetch to enqueue one.
+    Long nextIndex = consumptionOrder.poll();
+    if (nextIndex == null) {
+      waitForNextChunkEnqueued();
+      nextIndex = consumptionOrder.poll();
+    }
+
+    if (nextIndex == null) {
+      if (endOfStream) return false;
+      throw new DatabricksSQLException(
+          "No chunk available after waiting", DatabricksDriverErrorCode.CHUNK_READY_ERROR);
+    }
+
+    currentChunkIndex = nextIndex;
+    consumedChunkCount.incrementAndGet();
     notifyConsumerAdvanced();
 
-    // Wait for the chunk to be available (mirrors ThriftStreamingProvider.getCurrentBatch)
+    // Wait for the chunk data to be available
     ArrowResultChunk chunk = chunks.get(nextIndex);
     if (chunk == null) {
       LOGGER.debug("Chunk {} not yet available, waiting for prefetch", nextIndex);
@@ -174,9 +194,8 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
 
   @Override
   public ArrowResultChunk getChunk() {
-    long idx = currentChunkIndex.get();
-    if (idx < 0) return null;
-    return chunks.get(idx);
+    if (currentChunkIndex < 0) return null;
+    return chunks.get(currentChunkIndex);
   }
 
   @Override
@@ -216,7 +235,7 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
 
   @Override
   public long getChunkCount() {
-    return currentChunkIndex.get() + 1;
+    return consumedChunkCount.get();
   }
 
   @Override
@@ -288,8 +307,9 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
     ArrowResultChunk chunk = processResultData(resultData);
     long rowCount = resultData.getRowCount() != null ? resultData.getRowCount() : 0;
 
-    // Store chunk and update state
+    // Store chunk, enqueue for consumption, and update state
     chunks.put(chunkIndex, chunk);
+    consumptionOrder.add(chunkIndex);
     chunksInMemory.incrementAndGet();
     highestFetchedChunkIndex.updateAndGet(cur -> Math.max(cur, chunkIndex));
     totalRowCount.addAndGet(rowCount);
@@ -326,6 +346,38 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
       }
       LOGGER.debug("Released chunk {}, chunks in memory: {}", chunkIndex, chunksInMemory.get());
       notifyConsumerAdvanced();
+    }
+  }
+
+  /** Waits until the prefetch thread enqueues a chunk index into the consumption queue. */
+  private void waitForNextChunkEnqueued() throws DatabricksSQLException {
+    prefetchLock.lock();
+    try {
+      long waitStartTime = System.currentTimeMillis();
+      long timeoutMillis = chunkReadyTimeoutSeconds * 1000L;
+
+      while (!closed && consumptionOrder.isEmpty() && !endOfStream) {
+        checkPrefetchError();
+        long elapsedMillis = System.currentTimeMillis() - waitStartTime;
+        if (elapsedMillis >= timeoutMillis) {
+          throw new DatabricksSQLException(
+              "Timeout waiting for next chunk to be enqueued (timeout: "
+                  + chunkReadyTimeoutSeconds
+                  + "s)",
+              DatabricksDriverErrorCode.CHUNK_READY_ERROR);
+        }
+        try {
+          chunkAvailable.await(timeoutMillis - elapsedMillis, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new DatabricksSQLException(
+              "Interrupted waiting for chunk",
+              e,
+              DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
+        }
+      }
+    } finally {
+      prefetchLock.unlock();
     }
   }
 
@@ -417,7 +469,11 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
 
   // ==================== Data Processing ====================
 
-  /** Decompresses attachment bytes and creates an ArrowResultChunk. */
+  /**
+   * Creates an ArrowResultChunk from attachment bytes using streaming decompression. The
+   * decompressed data is never fully materialized in memory — LZ4FrameInputStream decompresses
+   * lazily as ArrowStreamReader reads batches.
+   */
   private ArrowResultChunk processResultData(ResultData resultData) throws DatabricksSQLException {
     byte[] attachment = resultData.getAttachment();
     if (attachment == null || attachment.length == 0) {
@@ -426,12 +482,10 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
           DatabricksDriverErrorCode.RESULT_SET_ERROR);
     }
 
-    byte[] decompressedBytes =
-        decompress(attachment, compressionCodec, "SEA inline Arrow chunk decompression");
+    InputStream decompressedStream =
+        decompressLazy(attachment, compressionCodec, "SEA inline Arrow chunk decompression");
 
     long rowCount = resultData.getRowCount() != null ? resultData.getRowCount() : 0;
-    return ArrowResultChunk.builder()
-        .withInputStream(new ByteArrayInputStream(decompressedBytes), rowCount)
-        .build();
+    return ArrowResultChunk.builder().withInputStream(decompressedStream, rowCount).build();
   }
 }
