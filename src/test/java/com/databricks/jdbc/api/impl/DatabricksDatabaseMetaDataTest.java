@@ -95,9 +95,19 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
-  public void supportsBatchUpdates_returnsFalse() throws Exception {
+  public void supportsBatchUpdates_returnsFalseByDefault() throws Exception {
+    // Default EnableBatchedInserts=0, so batch support is not advertised
     boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
     assertFalse(supportsBatchUpdates);
+  }
+
+  @Test
+  public void supportsBatchUpdates_returnsTrueWhenBatchedInsertsEnabled() throws Exception {
+    String urlWithBatchedInserts = WAREHOUSE_JDBC_URL + ";EnableBatchedInserts=1";
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContext.parse(urlWithBatchedInserts, new Properties()));
+    boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
+    assertTrue(supportsBatchUpdates);
   }
 
   @Test

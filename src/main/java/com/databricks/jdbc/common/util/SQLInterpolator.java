@@ -6,8 +6,13 @@ import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class SQLInterpolator {
+
+  // Hex literal emitted by setBytes (X'<hex>'); only this shape is spliced unquoted (SEC-20590).
+  private static final Pattern HEX_LITERAL_PATTERN = Pattern.compile("X'[0-9A-Fa-f]*'");
+
   protected static String escapeInputs(String input) {
     if (input == null) return null;
     StringBuilder out = new StringBuilder(input.length() + 16);
@@ -50,8 +55,12 @@ public class SQLInterpolator {
     if (object == null || object.value() == null) {
       return NULL_STRING;
     } else if (object.type() == ColumnInfoTypeName.BINARY) {
-      // Don't wrap within quotes. Don't treat hex literals as string.
-      return object.value().toString();
+      // Splice raw only if it's a genuine hex literal; otherwise escape to avoid SQL injection.
+      String binaryValue = object.value().toString();
+      if (HEX_LITERAL_PATTERN.matcher(binaryValue).matches()) {
+        return binaryValue;
+      }
+      return escapeInputs(binaryValue);
     } else if (object.value() instanceof String) {
       return escapeInputs(object.value().toString());
     } else if (object.type() == ColumnInfoTypeName.TIMESTAMP

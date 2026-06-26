@@ -1278,7 +1278,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public boolean supportsBatchUpdates() throws SQLException {
     LOGGER.debug("public boolean supportsBatchUpdates()");
     throwExceptionIfConnectionIsClosed();
-    return false;
+    // Advertise batch support only when the multi-row INSERT optimization is enabled, so
+    // batch-aware clients use executeBatch() instead of one executeUpdate() per row.
+    return session.getConnectionContext().isBatchedInsertsEnabled();
   }
 
   @Override

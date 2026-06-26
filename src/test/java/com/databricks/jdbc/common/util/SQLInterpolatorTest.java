@@ -94,6 +94,23 @@ public class SQLInterpolatorTest {
     assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
   }
 
+  // SEC-20590: a non-hex String typed as BINARY must be escaped, not executed as SQL.
+  @Test
+  public void testBinaryTypeRejectsNonHexString() throws DatabricksValidationException {
+    String sql = "SELECT ?";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, "current_user()", DatabricksTypeUtil.BINARY));
+    assertEquals("SELECT 'current_user()'", SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testBinaryTypeEscapesMaliciousHexLookalike() throws DatabricksValidationException {
+    String sql = "SELECT ?";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, "X'41' OR 1=1 --", DatabricksTypeUtil.BINARY));
+    assertEquals("SELECT 'X''41'' OR 1=1 --'", SQLInterpolator.interpolateSQL(sql, params));
+  }
+
   @Test
   public void testTimestampType() throws DatabricksValidationException {
     String sql = "INSERT INTO events (id, created_at) VALUES (?, ?)";
