@@ -74,7 +74,7 @@
     <async-httpclient.version>5.5.2</async-httpclient.version>
     <httpcore5.version>5.3.6</httpcore5.version>
     <thrift.version>0.23.0</thrift.version>
-    <slf4j.version>2.0.13</slf4j.version>
+    <slf4j.version>2.0.18</slf4j.version>
     <jackson.version>2.18.8</jackson.version>
     <gson.version>2.13.2</gson.version>
     <google.guava.version>33.0.0-jre</google.guava.version>
