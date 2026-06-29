@@ -198,13 +198,15 @@ jobs:
         id: cache-key
         shell: bash
         run: |
-          # Include timestamp so each warmer run creates a new cache entry
-          # (GitHub Actions caches are immutable — can't overwrite existing keys).
-          # The restore step uses prefix 'maven-deps-' to match the latest entry.
-          # Old entries auto-expire after 7 days of no access.
+          # Key layout: maven-deps-<pom-hash>-<timestamp>
+          # The pom hash comes FIRST so the consumer's hash-scoped restore-keys
+          # prefix (maven-deps-<pom-hash>) matches only caches warmed for the
+          # same pom, and picks the newest by timestamp. The timestamp keeps each
+          # warmer run a distinct entry (GitHub Actions caches are immutable —
+          # keys can't be overwritten). Old entries auto-expire after 7 days.
           TIMESTAMP=$(date -u +%Y%m%d%H%M%S)
           POM_HASH=${{ hashFiles('**/pom.xml') }}
-          echo "key=maven-deps-${TIMESTAMP}-${POM_HASH}" >> $GITHUB_OUTPUT
+          echo "key=maven-deps-${POM_HASH}-${TIMESTAMP}" >> $GITHUB_OUTPUT
 
       - name: Save Maven dependency cache
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4

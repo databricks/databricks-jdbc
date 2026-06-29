@@ -19,7 +19,10 @@ runs:
       with:
         path: ~/.m2/repository
         key: maven-deps-${{ hashFiles('**/pom.xml') }}
-        restore-keys: maven-deps-
+        # Scope the prefix fallback to this pom's hash so we never restore a
+        # cache warmed for a different pom (e.g. main). The warmer saves keys as
+        # maven-deps-<hash>-<timestamp>, so this matches the newest such entry.
+        restore-keys: maven-deps-${{ hashFiles('**/pom.xml') }}
 
     - name: Configure Maven for cache-only resolution (fork)
       if: inputs.is-fork == 'true'
@@ -109,4 +112,5 @@ runs:
       with:
         path: ~/.m2
         key: maven-deps-${{ hashFiles('**/pom.xml') }}
-        restore-keys: maven-deps-
+        # Scope the prefix fallback to this pom's hash (see fork path above).
+        restore-keys: maven-deps-${{ hashFiles('**/pom.xml') }}
