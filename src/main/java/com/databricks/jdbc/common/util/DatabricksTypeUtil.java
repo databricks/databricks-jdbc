@@ -183,8 +183,14 @@ public class DatabricksTypeUtil {
       case STRING:
       case MAP:
       case INTERVAL:
-      case NULL:
         return Types.VARCHAR;
+      case NULL:
+        // An untyped NULL literal column (e.g. SELECT NULL AS col, server type name VOID/NULL)
+        // must report Types.NULL, not a concrete type. Reporting VARCHAR made Spark's V2 JDBC
+        // federation map the column to StringType and fail Cast.canCast(StringType, NullType),
+        // wedging pushed-down "SELECT DISTINCT ..., NULL AS col" queries (ES-1915324). Types.NULL
+        // lets Spark fall back gracefully, matching the JDBC spec and MySQL/H2.
+        return Types.NULL;
       case TIMESTAMP:
         return Types.TIMESTAMP;
       case DATE:

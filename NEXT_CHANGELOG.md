@@ -19,6 +19,7 @@
 - Fixed `getColumns()` flooding the `DriverManager` log writer with caught-and-recovered `Invalid column index` stack traces.
 - Fixed timezone-shifted TIMESTAMP values when retrieving nested complex types (STRUCT/ARRAY/MAP) with `EnableComplexDatatypeSupport=1`.
 - Fixed `DatabricksDatabaseMetaData.supportsBatchUpdates()` always returning `false`, which caused batch-aware JDBC clients (e.g. Apache Hop) to skip `executeBatch()` and fall back to one INSERT per row. It now returns `true` when `EnableBatchedInserts=1`, so those clients use the optimized multi-row INSERT path.
+- Fixed untyped `NULL` literal columns (e.g. `SELECT NULL AS col`, server type name `VOID`/`NULL`) reporting `Types.VARCHAR`. They now report `Types.NULL`, matching the JDBC spec. This unblocks Spark V2 JDBC federation, where the previous mapping made Spark resolve the column to `StringType` and fail a `Cast.canCast(StringType, NullType)` assertion, wedging pushed-down `SELECT DISTINCT ..., NULL AS col` queries.
 
 ---
 *Note: When making changes, please add your change under the appropriate section

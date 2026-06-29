@@ -84,7 +84,7 @@ class DatabricksTypeUtilTest {
             Map.entry(ColumnInfoTypeName.STRING, Types.VARCHAR),
             Map.entry(ColumnInfoTypeName.MAP, Types.VARCHAR),
             Map.entry(ColumnInfoTypeName.INTERVAL, Types.VARCHAR),
-            Map.entry(ColumnInfoTypeName.NULL, Types.VARCHAR),
+            Map.entry(ColumnInfoTypeName.NULL, Types.NULL),
             Map.entry(ColumnInfoTypeName.TIMESTAMP, Types.TIMESTAMP),
             Map.entry(ColumnInfoTypeName.DATE, Types.DATE),
             Map.entry(ColumnInfoTypeName.STRUCT, Types.STRUCT),
@@ -101,6 +101,22 @@ class DatabricksTypeUtilTest {
                 DatabricksTypeUtil.getColumnType(typeName),
                 () -> "Unexpected type for " + typeName));
     assertEquals(Types.OTHER, DatabricksTypeUtil.getColumnType(null));
+  }
+
+  /**
+   * Regression test for ES-1915324: an untyped {@code NULL} literal column (e.g. {@code SELECT NULL
+   * AS col}) must map to {@link Types#NULL}, not a concrete type. When the driver reported {@link
+   * Types#VARCHAR} here, Spark's V2 JDBC federation mapped it to {@code StringType} and {@code
+   * Cast.canCast(StringType, NullType)} failed, wedging pushed-down {@code SELECT DISTINCT ...,
+   * NULL AS col} queries. Reporting {@link Types#NULL} lets Spark fall back gracefully, which
+   * matches the JDBC spec and MySQL/H2.
+   */
+  @Test
+  void testGetColumnTypeForNullIsSqlNull() {
+    assertEquals(Types.NULL, DatabricksTypeUtil.getColumnType(ColumnInfoTypeName.NULL));
+    // VOID is the server's type name for the same untyped-null literal and resolves to NULL.
+    assertEquals(ColumnInfoTypeName.NULL, DatabricksTypeUtil.getColumnInfoType("VOID"));
+    assertEquals(ColumnInfoTypeName.NULL, DatabricksTypeUtil.getColumnInfoType("NULL"));
   }
 
   @Test
