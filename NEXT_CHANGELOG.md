@@ -8,6 +8,7 @@
 - Bumped the Databricks SDK for Java dependency from `0.106.0` to `0.118.0`.
 
 ### Fixed
+- Hardened the OAuth U2M token cache at rest (encryption key derivation and file permissions).
 - Fixed `DatabaseMetaData.getURL()` exposing credentials embedded in the connection URL; secret parameters are now masked (the URL is otherwise unchanged).
 - Fixed presigned URL credentials not being fully redacted in logs.
 - Fixed access token exposure in DEBUG logs.
