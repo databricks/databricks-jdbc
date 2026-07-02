@@ -1,6 +1,7 @@
 package com.databricks.jdbc.comparator.error;
 
 import com.databricks.jdbc.comparator.ComparisonResult;
+import java.sql.ResultSet;
 import java.util.function.Function;
 
 /**
@@ -26,6 +27,34 @@ public final class Captures {
       return CapturedOutcome.returned(call.call());
     } catch (Throwable t) {
       return CapturedOutcome.threw(t);
+    }
+  }
+
+  /**
+   * Runs a driver call and returns its result on success, or the thrown {@link Throwable} itself on
+   * failure — so the value can be handed directly to {@link
+   * com.databricks.jdbc.comparator.ResultSetComparator#compare}, which dispatches on runtime type
+   * (ResultSet vs Throwable) and, when the error gate is on, compares thrown errors deeply.
+   *
+   * <p>Wrap ONLY the driver call; keep provider bookkeeping outside so harness bugs still
+   * propagate.
+   */
+  public static Object resultOrThrowable(JdbcCall call) {
+    try {
+      return call.call();
+    } catch (Throwable t) {
+      return t;
+    }
+  }
+
+  /** Closes the value if it is a ResultSet; ignores nulls, non-ResultSets, and close errors. */
+  public static void closeIfResultSet(Object value) {
+    if (value instanceof ResultSet) {
+      try {
+        ((ResultSet) value).close();
+      } catch (Exception ignored) {
+        // best-effort cleanup
+      }
     }
   }
 

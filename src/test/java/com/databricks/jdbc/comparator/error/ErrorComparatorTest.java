@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.comparator.ComparisonResult;
 import java.sql.SQLException;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /** Unit tests for the pure error capture/compare logic (no JDBC connection required). */
@@ -134,13 +135,80 @@ public class ErrorComparatorTest {
   }
 
   @Test
-  void unrecognizedModeDefaultsToOffInsteadOfThrowing() {
+  void unrecognizedModeDefaultsToShadowInsteadOfThrowing() {
     String prev = System.getProperty("ERROR_COMPARISON_MODE");
     try {
       System.setProperty("ERROR_COMPARISON_MODE", "shaddow"); // typo
       ErrorPolicy p = ErrorPolicy.active();
-      assertEquals(ErrorPolicy.Mode.OFF, p.mode());
-      assertFalse(p.isDeepComparisonEnabled());
+      // Fail safe: a bad value must not throw. It falls back to the default (shadow), which is
+      // itself CI-safe (records DIFF rows, never fails the build).
+      assertEquals(ErrorPolicy.Mode.SHADOW, p.mode());
+      assertTrue(p.isDeepComparisonEnabled());
+    } finally {
+      if (prev == null) {
+        System.clearProperty("ERROR_COMPARISON_MODE");
+      } else {
+        System.setProperty("ERROR_COMPARISON_MODE", prev);
+      }
+    }
+  }
+
+  @Test
+  void unsetModeDefaultsToShadow() {
+    String prev = System.getProperty("ERROR_COMPARISON_MODE");
+    try {
+      System.clearProperty("ERROR_COMPARISON_MODE");
+      assertEquals(ErrorPolicy.Mode.SHADOW, ErrorPolicy.active().mode());
+    } finally {
+      if (prev != null) {
+        System.setProperty("ERROR_COMPARISON_MODE", prev);
+      }
+    }
+  }
+
+  // ---- ErrorDiffs gate (used by DML/Volume providers) ----
+
+  @Test
+  void errorDiffsOffModeDoesLegacyClassOnly() {
+    withMode(
+        "off",
+        () -> {
+          // Same class, different SQLState/message -> OFF must NOT emit a SQLState/message diff.
+          CapturedOutcome l = CapturedOutcome.threw(new SQLException("a", "42P01", 1));
+          CapturedOutcome r = CapturedOutcome.threw(new SQLException("b", "08000", 2));
+          assertTrue(ErrorDiffs.compare(l, r, "v ").isEmpty());
+        });
+  }
+
+  @Test
+  void errorDiffsShadowModeComparesDeeply() {
+    withMode(
+        "shadow",
+        () -> {
+          CapturedOutcome l = CapturedOutcome.threw(new SQLException("a", "42P01", 1));
+          CapturedOutcome r = CapturedOutcome.threw(new SQLException("b", "08000", 2));
+          List<String> diffs = ErrorDiffs.compare(l, r, "v ");
+          assertTrue(diffs.stream().anyMatch(d -> d.contains("SQLState mismatch")));
+        });
+  }
+
+  @Test
+  void errorDiffsOffModeStillFlagsDifferingClass() {
+    withMode(
+        "off",
+        () -> {
+          CapturedOutcome l = CapturedOutcome.threw(new SQLException("a", "42P01", 1));
+          CapturedOutcome r = CapturedOutcome.threw(new java.sql.SQLDataException("b", "42P01", 1));
+          List<String> diffs = ErrorDiffs.compare(l, r, "v ");
+          assertTrue(diffs.stream().anyMatch(d -> d.contains("exception type mismatch")));
+        });
+  }
+
+  private static void withMode(String mode, Runnable body) {
+    String prev = System.getProperty("ERROR_COMPARISON_MODE");
+    try {
+      System.setProperty("ERROR_COMPARISON_MODE", mode);
+      body.run();
     } finally {
       if (prev == null) {
         System.clearProperty("ERROR_COMPARISON_MODE");

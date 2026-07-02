@@ -1,9 +1,13 @@
 package com.databricks.jdbc.comparator.suite;
 
 import com.databricks.jdbc.comparator.ComparisonResult;
+import com.databricks.jdbc.comparator.error.CapturedOutcome;
+import com.databricks.jdbc.comparator.error.Captures;
+import com.databricks.jdbc.comparator.error.ErrorDiffs;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -106,33 +110,21 @@ public class VolumeOperationsProvider implements SuiteProvider {
       String sql2,
       List<String> differences,
       String operation) {
-    Object result1 = executeSql(conn1, sql1);
-    Object result2 = executeSql(conn2, sql2);
+    CapturedOutcome left = Captures.capture(() -> executeSql(conn1, sql1));
+    CapturedOutcome right = Captures.capture(() -> executeSql(conn2, sql2));
 
-    if (result1 instanceof Exception && result2 instanceof Exception) {
-      String type1 = result1.getClass().getSimpleName();
-      String type2 = result2.getClass().getSimpleName();
-      if (!type1.equals(type2)) {
-        differences.add(operation + ": exception type mismatch: " + type1 + " vs " + type2);
+    if (left.threw() || right.threw()) {
+      // Honor the ERROR_COMPARISON_MODE gate: deep comparison when enabled, legacy class-only
+      // when off (the rollout kill switch), matching the ResultSetComparator path.
+      for (String d : ErrorDiffs.compare(left, right, "result ")) {
+        differences.add(operation + ": " + d);
       }
-      String msg1 = ((Exception) result1).getMessage();
-      String msg2 = ((Exception) result2).getMessage();
-      if (msg1 != null && msg2 != null && !msg1.equals(msg2)) {
-        differences.add(
-            operation + ": exception message mismatch: '" + msg1 + "' vs '" + msg2 + "'");
-      }
-    } else if (result1 instanceof Exception) {
-      differences.add(operation + ": Thrift threw " + ((Exception) result1).getMessage());
-    } else if (result2 instanceof Exception) {
-      differences.add(operation + ": SEA threw " + ((Exception) result2).getMessage());
     }
   }
 
-  private Object executeSql(Connection conn, String sql) {
+  private boolean executeSql(Connection conn, String sql) throws SQLException {
     try (Statement stmt = conn.createStatement()) {
       return stmt.execute(sql);
-    } catch (Exception e) {
-      return e;
     }
   }
 }
