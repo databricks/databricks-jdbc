@@ -19,6 +19,7 @@
 - Fixed `getColumns()` flooding the `DriverManager` log writer with caught-and-recovered `Invalid column index` stack traces.
 - Fixed timezone-shifted TIMESTAMP values when retrieving nested complex types (STRUCT/ARRAY/MAP) with `EnableComplexDatatypeSupport=1`.
 - Fixed `DatabricksDatabaseMetaData.supportsBatchUpdates()` always returning `false`, which caused batch-aware JDBC clients (e.g. Apache Hop) to skip `executeBatch()` and fall back to one INSERT per row. It now returns `true` when `EnableBatchedInserts=1`, so those clients use the optimized multi-row INSERT path.
+- Fixed `Connection.setReadOnly(true)` throwing `DatabricksSQLFeatureNotSupportedException`, which broke clients (e.g. Trino/Starburst GenericJDBC, HikariCP, DBCP) that call it during connection initialization. Per the JDBC spec, `setReadOnly` is a hint the driver may ignore; it is now a no-op and `isReadOnly()` continues to return `false`.
 
 ---
 *Note: When making changes, please add your change under the appropriate section
