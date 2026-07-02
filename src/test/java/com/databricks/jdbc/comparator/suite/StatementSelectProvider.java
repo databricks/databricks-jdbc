@@ -2,6 +2,7 @@ package com.databricks.jdbc.comparator.suite;
 
 import com.databricks.jdbc.comparator.ComparisonResult;
 import com.databricks.jdbc.comparator.ResultSetComparator;
+import com.databricks.jdbc.comparator.error.Captures;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -45,12 +46,22 @@ public class StatementSelectProvider implements SuiteProvider {
   public ComparisonResult execute(
       Connection conn1, Connection conn2, TestCase testCase, String label) throws Exception {
     String query = testCase.getIdentifier();
+    // Capture each side's executeQuery as result-or-throwable so a one-sided or divergent error is
+    // compared instead of aborting the case. ResultSetComparator.compare dispatches on type:
+    // both ResultSets -> cell comparison; a Throwable involved -> deep error comparison.
     try (Statement stmt1 = conn1.createStatement();
-        Statement stmt2 = conn2.createStatement();
-        ResultSet rs1 = stmt1.executeQuery(query);
-        ResultSet rs2 = stmt2.executeQuery(query)) {
-      assertCloudFetchExpectation(testCase, rs1, rs2);
-      return ResultSetComparator.compare(label, query, testCase.getArgs(), rs1, rs2);
+        Statement stmt2 = conn2.createStatement()) {
+      Object r1 = Captures.resultOrThrowable(() -> stmt1.executeQuery(query));
+      Object r2 = Captures.resultOrThrowable(() -> stmt2.executeQuery(query));
+      try {
+        if (r1 instanceof ResultSet && r2 instanceof ResultSet) {
+          assertCloudFetchExpectation(testCase, (ResultSet) r1, (ResultSet) r2);
+        }
+        return ResultSetComparator.compare(label, query, testCase.getArgs(), r1, r2);
+      } finally {
+        Captures.closeIfResultSet(r1);
+        Captures.closeIfResultSet(r2);
+      }
     }
   }
 }

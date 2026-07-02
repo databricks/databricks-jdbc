@@ -2,6 +2,7 @@ package com.databricks.jdbc.comparator.suite;
 
 import com.databricks.jdbc.comparator.ComparisonResult;
 import com.databricks.jdbc.comparator.ResultSetComparator;
+import com.databricks.jdbc.comparator.error.Captures;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -71,16 +72,22 @@ public class StatementOtherProvider implements SuiteProvider {
     } else if (isExecuteOnly(sql)) {
       try (Statement s1 = conn1.createStatement();
           Statement s2 = conn2.createStatement()) {
-        Object result1 = s1.execute(sql);
-        Object result2 = s2.execute(sql);
+        // execute() returns a Boolean; a thrown error is captured and compared, not aborted.
+        Object result1 = Captures.resultOrThrowable(() -> s1.execute(sql));
+        Object result2 = Captures.resultOrThrowable(() -> s2.execute(sql));
         return ResultSetComparator.compare(label, sql, testCase.getArgs(), result1, result2);
       }
     } else {
       try (Statement s1 = conn1.createStatement();
-          Statement s2 = conn2.createStatement();
-          ResultSet rs1 = s1.executeQuery(sql);
-          ResultSet rs2 = s2.executeQuery(sql)) {
-        return ResultSetComparator.compare(label, sql, testCase.getArgs(), rs1, rs2);
+          Statement s2 = conn2.createStatement()) {
+        Object r1 = Captures.resultOrThrowable(() -> s1.executeQuery(sql));
+        Object r2 = Captures.resultOrThrowable(() -> s2.executeQuery(sql));
+        try {
+          return ResultSetComparator.compare(label, sql, testCase.getArgs(), r1, r2);
+        } finally {
+          Captures.closeIfResultSet(r1);
+          Captures.closeIfResultSet(r2);
+        }
       }
     }
   }

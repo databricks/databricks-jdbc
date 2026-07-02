@@ -2,8 +2,12 @@ package com.databricks.jdbc.comparator.suite;
 
 import com.databricks.jdbc.comparator.ComparisonResult;
 import com.databricks.jdbc.comparator.ResultSetComparator;
+import com.databricks.jdbc.comparator.error.CapturedOutcome;
+import com.databricks.jdbc.comparator.error.Captures;
+import com.databricks.jdbc.comparator.error.ErrorDiffs;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -114,7 +118,7 @@ public class StatementDmlProvider implements SuiteProvider {
     return result;
   }
 
-  /** Executes DML on both connections and compares update counts and exceptions. */
+  /** Executes DML on both connections and compares update counts and errors. */
   private void compareDml(
       Connection conn1,
       Connection conn2,
@@ -122,36 +126,24 @@ public class StatementDmlProvider implements SuiteProvider {
       String sql2,
       List<String> differences,
       String operation) {
-    Object result1 = executeDml(conn1, sql1);
-    Object result2 = executeDml(conn2, sql2);
+    CapturedOutcome left = Captures.capture(() -> executeDml(conn1, sql1));
+    CapturedOutcome right = Captures.capture(() -> executeDml(conn2, sql2));
 
-    if (result1 instanceof Exception && result2 instanceof Exception) {
-      String type1 = result1.getClass().getSimpleName();
-      String type2 = result2.getClass().getSimpleName();
-      if (!type1.equals(type2)) {
-        differences.add(operation + ": exception type mismatch: " + type1 + " vs " + type2);
+    if (left.threw() || right.threw()) {
+      // An error on either side. Honor the ERROR_COMPARISON_MODE gate so `off` disables deep
+      // comparison here just as it does on the ResultSetComparator path (the rollout kill switch).
+      for (String d : ErrorDiffs.compare(left, right, "update count ")) {
+        differences.add(operation + ": " + d);
       }
-    } else if (result1 instanceof Exception) {
+    } else if (!left.value().equals(right.value())) {
       differences.add(
-          operation
-              + ": Thrift threw "
-              + result1.getClass().getSimpleName()
-              + " but SEA succeeded");
-    } else if (result2 instanceof Exception) {
-      differences.add(
-          operation + ": Thrift succeeded but SEA threw " + result2.getClass().getSimpleName());
-    } else {
-      if (!result1.equals(result2)) {
-        differences.add(operation + ": update count mismatch: " + result1 + " vs " + result2);
-      }
+          operation + ": update count mismatch: " + left.value() + " vs " + right.value());
     }
   }
 
-  private Object executeDml(Connection conn, String sql) {
+  private int executeDml(Connection conn, String sql) throws SQLException {
     try (Statement stmt = conn.createStatement()) {
       return stmt.executeUpdate(sql);
-    } catch (Exception e) {
-      return e;
     }
   }
 

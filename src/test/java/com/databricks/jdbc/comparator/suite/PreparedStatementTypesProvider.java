@@ -2,6 +2,7 @@ package com.databricks.jdbc.comparator.suite;
 
 import com.databricks.jdbc.comparator.ComparisonResult;
 import com.databricks.jdbc.comparator.ResultSetComparator;
+import com.databricks.jdbc.comparator.error.Captures;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.Arrays;
@@ -183,10 +184,17 @@ public class PreparedStatementTypesProvider implements SuiteProvider {
       test.setter.set(ps1);
       test.setter.set(ps2);
 
-      try (ResultSet rs1 = ps1.executeQuery();
-          ResultSet rs2 = ps2.executeQuery()) {
-        assertCloudFetchExpectation(testCase, rs1, rs2);
-        return ResultSetComparator.compare(label, sql, testCase.getArgs(), rs1, rs2);
+      // Capture executeQuery per side so a one-sided/divergent error is compared, not aborted.
+      Object r1 = Captures.resultOrThrowable(ps1::executeQuery);
+      Object r2 = Captures.resultOrThrowable(ps2::executeQuery);
+      try {
+        if (r1 instanceof ResultSet && r2 instanceof ResultSet) {
+          assertCloudFetchExpectation(testCase, (ResultSet) r1, (ResultSet) r2);
+        }
+        return ResultSetComparator.compare(label, sql, testCase.getArgs(), r1, r2);
+      } finally {
+        Captures.closeIfResultSet(r1);
+        Captures.closeIfResultSet(r2);
       }
     }
   }
