@@ -1,5 +1,9 @@
 package com.databricks.jdbc.comparator;
 
+import com.databricks.jdbc.comparator.error.CapturedOutcome;
+import com.databricks.jdbc.comparator.error.ErrorComparator;
+import com.databricks.jdbc.comparator.error.ErrorComparison;
+import com.databricks.jdbc.comparator.error.ErrorPolicy;
 import java.io.IOException;
 import java.io.Reader;
 import java.sql.ResultSet;
@@ -121,6 +125,10 @@ public class ResultSetComparator {
       } else {
         result.dataDifferences = compareData(rs1, rs2);
       }
+    } else if (compareErrorsDeeply(
+        queryType, queryOrMethod, methodArgs, result1, result2, result)) {
+      // Deep error comparison handled it (at least one side is a Throwable and the
+      // ERROR_COMPARISON_MODE gate is on). Diffs, if any, were folded into `result`.
     } else if (!(result1 instanceof ResultSet) && !(result2 instanceof ResultSet)) {
       // Both are not of type ResultSet
       if (result1 == null || !resultIsSame(result1, result2)) {
@@ -146,7 +154,46 @@ public class ResultSetComparator {
     return result;
   }
 
+  /**
+   * When {@code ERROR_COMPARISON_MODE} is on and at least one side is a {@link Throwable}, compares
+   * the errors deeply (class + SQLState + code + serverCode + message) and folds any diffs into
+   * {@code result}. Returns true when it handled the comparison; false (a no-op) when the gate is
+   * off or neither side threw, so the legacy branches below take over unchanged.
+   */
+  private static boolean compareErrorsDeeply(
+      String queryType,
+      String queryOrMethod,
+      Object[] methodArgs,
+      Object result1,
+      Object result2,
+      ComparisonResult result) {
+    ErrorPolicy policy = ErrorPolicy.active();
+    if (!policy.isDeepComparisonEnabled()) {
+      return false;
+    }
+    if (!(result1 instanceof Throwable) && !(result2 instanceof Throwable)) {
+      return false;
+    }
+    CapturedOutcome left = toOutcome(result1);
+    CapturedOutcome right = toOutcome(result2);
+    ErrorComparison comparison =
+        ErrorComparator.compare(left, right, ResultSetComparator::describeResult);
+    result.metadataDifferences.addAll(comparison.metadataDiffs);
+    result.dataDifferences.addAll(comparison.dataDiffs);
+    return true;
+  }
+
+  private static CapturedOutcome toOutcome(Object result) {
+    if (result instanceof Throwable) {
+      return CapturedOutcome.threw((Throwable) result);
+    }
+    return CapturedOutcome.returned(result);
+  }
+
   private static String describeResult(Object result) {
+    if (result == null) {
+      return "null";
+    }
     if (result instanceof ResultSet) {
       try {
         ResultSet rs = (ResultSet) result;

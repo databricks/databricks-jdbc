@@ -28,9 +28,11 @@ public class ComparisonResult {
   public String csvSummary() {
     List<String> parts = new ArrayList<>();
 
-    // Exception vs ResultSet — already concise, keep as is
+    // Exception vs ResultSet — already concise, keep as is. Legacy diffs use the " vs class "
+    // marker; deep error comparison uses the stable "Error one-sided: " prefix (which survives
+    // regardless of whether the non-throwing side renders to a class, a scalar, or null).
     for (String d : metadataDifferences) {
-      if (d.contains(" vs class ")) {
+      if (d.contains(" vs class ") || d.startsWith("Error one-sided: ")) {
         parts.add(d);
       }
     }
@@ -51,6 +53,14 @@ public class ComparisonResult {
             .filter(d -> d.contains("mismatch"))
             .count();
     if (rowMismatches > 0) parts.add(rowMismatches + " data mismatches");
+
+    // Count error-field mismatches (e.g., "Error SQLState mismatch: ...") emitted by
+    // ErrorComparator for both-threw cases.
+    long errorMismatches =
+        dataDifferences.stream()
+            .filter(d -> d.startsWith("Error ") && d.contains("mismatch"))
+            .count();
+    if (errorMismatches > 0) parts.add(errorMismatches + " error mismatches");
 
     return parts.isEmpty() ? "" : String.join(", ", parts);
   }
