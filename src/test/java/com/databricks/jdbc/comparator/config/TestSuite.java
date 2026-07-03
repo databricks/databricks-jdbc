@@ -38,7 +38,15 @@ public enum TestSuite {
   // Negative suites that mutate connection/session state — each opens its OWN fresh connections
   // via ConnectionFactory (closed in a finally), so they never poison the shared connections.
   NEGATIVE_CONNECTION_STATE(new NegativeConnectionStateProvider()),
-  NEGATIVE_TRANSACTION(new NegativeTransactionProvider());
+  NEGATIVE_TRANSACTION(new NegativeTransactionProvider()),
+
+  // Negative suites that open their own deliberately-broken or slow connections via
+  // ConnectionFactory. NEGATIVE_VOLUME runs under the VOLUME_OPERATIONS config (needs
+  // VolumeOperationAllowedLocalPaths), so it is excluded from DEFAULT_PARAMS like the positive
+  // VOLUME_OPERATIONS suite.
+  NEGATIVE_CONNECTION(new NegativeConnectionProvider()),
+  NEGATIVE_CANCEL_TIMEOUT(new NegativeCancelTimeoutProvider()),
+  NEGATIVE_VOLUME(new NegativeVolumeProvider());
 
   private final SuiteProvider provider;
 
