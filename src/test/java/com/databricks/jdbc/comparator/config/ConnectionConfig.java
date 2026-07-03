@@ -21,7 +21,11 @@ public enum ConnectionConfig {
       "Default params",
       Map.of(),
       null,
-      allExcept(TestSuite.COMPLEX_TYPES, TestSuite.GEOSPATIAL, TestSuite.VOLUME_OPERATIONS)),
+      allExcept(
+          TestSuite.COMPLEX_TYPES,
+          TestSuite.GEOSPATIAL,
+          TestSuite.VOLUME_OPERATIONS,
+          TestSuite.NEGATIVE_VOLUME)),
 
   COMPRESSION_DISABLED(
       "Compression disabled",
@@ -69,7 +73,7 @@ public enum ConnectionConfig {
       "Volume operations",
       Map.of("VolumeOperationAllowedLocalPaths", "/tmp"),
       null,
-      EnumSet.of(TestSuite.VOLUME_OPERATIONS)),
+      EnumSet.of(TestSuite.VOLUME_OPERATIONS, TestSuite.NEGATIVE_VOLUME)),
 
   PRO_WAREHOUSE(
       "Pro warehouse",

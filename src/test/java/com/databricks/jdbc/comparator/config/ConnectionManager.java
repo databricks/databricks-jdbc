@@ -42,6 +42,19 @@ public class ConnectionManager implements AutoCloseable {
     return DriverManager.getConnection(url, "token", token);
   }
 
+  /**
+   * Opens a NEW, uncached connection for an arbitrary URL and token — used by suites that build a
+   * deliberately-broken URL/token to capture the resulting failure. The caller owns closing it.
+   */
+  public Connection openUncached(String url, String tokenOverride) throws SQLException {
+    return DriverManager.getConnection(url, "token", tokenOverride);
+  }
+
+  /** The shared PAT. */
+  public String getToken() {
+    return token;
+  }
+
   /** Returns all active connection URLs, useful for report headers. */
   public List<String> getActiveUrls() {
     return new ArrayList<>(cache.keySet());

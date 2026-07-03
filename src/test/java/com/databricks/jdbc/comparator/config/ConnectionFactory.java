@@ -23,4 +23,23 @@ public interface ConnectionFactory {
    * @param side "LEFT" or "RIGHT" (case-insensitive)
    */
   Connection openFresh(String side) throws SQLException;
+
+  /**
+   * The resolved (healthy) JDBC URL for the named side. Exposed so suites that deliberately open
+   * broken connections (e.g. NEGATIVE_CONNECTION) can start from a good URL and corrupt one piece
+   * of it (host, warehouse, a connection param) while leaving the rest valid.
+   *
+   * @param side "LEFT" or "RIGHT" (case-insensitive)
+   */
+  String urlFor(String side);
+
+  /** The shared PAT used for all connections. Exposed for suites that test bad-token auth. */
+  String token();
+
+  /**
+   * Opens a new, uncached connection for an arbitrary URL + token — the escape hatch for suites
+   * that build a deliberately-broken URL/token and need to capture the resulting failure. The
+   * caller owns closing whatever is returned.
+   */
+  Connection open(String url, String token) throws SQLException;
 }

@@ -153,10 +153,28 @@ public class JDBCDriverComparisonTest {
       // config's resolved LEFT/RIGHT URLs; the returned connections are NOT cached, so the suite
       // owns closing them and cannot poison the shared connections above.
       ConnectionFactory factory =
-          side -> {
-            if ("LEFT".equalsIgnoreCase(side)) return connectionManager.openUncached(leftUrl);
-            if ("RIGHT".equalsIgnoreCase(side)) return connectionManager.openUncached(rightUrl);
-            throw new IllegalArgumentException("side must be LEFT or RIGHT, got: " + side);
+          new ConnectionFactory() {
+            @Override
+            public Connection openFresh(String side) throws SQLException {
+              return connectionManager.openUncached(urlFor(side));
+            }
+
+            @Override
+            public String urlFor(String side) {
+              if ("LEFT".equalsIgnoreCase(side)) return leftUrl;
+              if ("RIGHT".equalsIgnoreCase(side)) return rightUrl;
+              throw new IllegalArgumentException("side must be LEFT or RIGHT, got: " + side);
+            }
+
+            @Override
+            public String token() {
+              return connectionManager.getToken();
+            }
+
+            @Override
+            public Connection open(String url, String token) throws SQLException {
+              return connectionManager.openUncached(url, token);
+            }
           };
 
       for (TestSuite suite : config.getApplicableSuites()) {

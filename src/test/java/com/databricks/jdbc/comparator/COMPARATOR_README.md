@@ -260,6 +260,9 @@ If both are present for a method, **runOnly takes precedence**: argument combina
 | `NEGATIVE_STATEMENT_BATCH` | executeBatch partial/full failure + per-element BatchUpdateException counts |
 | `NEGATIVE_CONNECTION_STATE` | setCatalog/setSchema/setClientInfo/USE to nonexistent targets (own fresh connections) |
 | `NEGATIVE_TRANSACTION` | commit/rollback with autocommit on; DDL inside a manual transaction (own fresh connections) |
+| `NEGATIVE_CONNECTION` | connect failures — bad token, unknown host, bad warehouse, bad ConnCatalog/ConnSchema (own broken connections) |
+| `NEGATIVE_CANCEL_TIMEOUT` | cancel() mid/after/double + setQueryTimeout(1) on a slow query (own fresh connections) |
+| `NEGATIVE_VOLUME` | GET/PUT/REMOVE failures + op-after-close (runs under the `VOLUME_OPERATIONS` config) |
 
 Negative suites compare each endpoint's **error behavior** (exception class, SQLState, vendor code,
 message) via the `ERROR_COMPARISON_MODE` gate (default `shadow`). See
