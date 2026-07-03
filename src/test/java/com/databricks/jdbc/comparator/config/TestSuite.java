@@ -46,7 +46,12 @@ public enum TestSuite {
   // VOLUME_OPERATIONS suite.
   NEGATIVE_CONNECTION(new NegativeConnectionProvider()),
   NEGATIVE_CANCEL_TIMEOUT(new NegativeCancelTimeoutProvider()),
-  NEGATIVE_VOLUME(new NegativeVolumeProvider());
+  NEGATIVE_VOLUME(new NegativeVolumeProvider()),
+
+  // Specialized negative suites — row-limit rejection, ResultSet misuse, async extension API.
+  NEGATIVE_STATEMENT_SELECT_TRUNCATED(new NegativeStatementSelectTruncatedProvider()),
+  NEGATIVE_RESULTSET(new NegativeResultSetProvider()),
+  NEGATIVE_ASYNC(new NegativeAsyncProvider());
 
   private final SuiteProvider provider;
 

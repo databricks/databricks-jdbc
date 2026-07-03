@@ -263,6 +263,9 @@ If both are present for a method, **runOnly takes precedence**: argument combina
 | `NEGATIVE_CONNECTION` | connect failures — bad token, unknown host, bad warehouse, bad ConnCatalog/ConnSchema (own broken connections) |
 | `NEGATIVE_CANCEL_TIMEOUT` | cancel() mid/after/double + setQueryTimeout(1) on a slow query (own fresh connections) |
 | `NEGATIVE_VOLUME` | GET/PUT/REMOVE failures + op-after-close (runs under the `VOLUME_OPERATIONS` config) |
+| `NEGATIVE_STATEMENT_SELECT_TRUNCATED` | Invalid setMaxRows/setLargeMaxRows values (negative row limits) |
+| `NEGATIVE_RESULTSET` | ResultSet misuse — next()/getObject() after close, out-of-range column (CloudFetch link-expiry not deterministically reproducible; see provider javadoc) |
+| `NEGATIVE_ASYNC` | Databricks async extension — getExecutionResult before/after execute, executeAsync on invalid SQL |
 
 Negative suites compare each endpoint's **error behavior** (exception class, SQLState, vendor code,
 message) via the `ERROR_COMPARISON_MODE` gate (default `shadow`). See
