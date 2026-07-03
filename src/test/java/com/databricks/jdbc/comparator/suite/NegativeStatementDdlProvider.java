@@ -91,9 +91,7 @@ public class NegativeStatementDdlProvider implements SuiteProvider {
       CapturedOutcome left = Captures.capture(() -> execUpdate(conn1, c.sql.sql(SCHEMA1)));
       CapturedOutcome right = Captures.capture(() -> execUpdate(conn2, c.sql.sql(SCHEMA2)));
       ComparisonResult result = new ComparisonResult(label, c.description, testCase.getArgs());
-      for (String d : ErrorDiffs.compare(left, right, "update count ")) {
-        result.dataDifferences.add(d);
-      }
+      ErrorDiffs.foldInto(result, left, right, "update count ", "");
       return result;
     } finally {
       exec(conn1, "DROP SCHEMA IF EXISTS " + SCHEMA1 + " CASCADE");

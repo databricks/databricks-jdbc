@@ -3,6 +3,7 @@ package com.databricks.jdbc.comparator;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.databricks.jdbc.comparator.config.ConnectionConfig;
+import com.databricks.jdbc.comparator.config.ConnectionFactory;
 import com.databricks.jdbc.comparator.config.ConnectionManager;
 import com.databricks.jdbc.comparator.config.Endpoint;
 import com.databricks.jdbc.comparator.config.TestSuite;
@@ -138,13 +139,25 @@ public class JDBCDriverComparisonTest {
     for (ConnectionConfig config : ConnectionConfig.activeConfigs()) {
       Connection leftConn;
       Connection rightConn;
+      final String leftUrl = config.buildUrl(BASE_LEFT_URL);
+      final String rightUrl = config.buildUrl(BASE_RIGHT_URL);
       try {
-        leftConn = connectionManager.getConnection(config.buildUrl(BASE_LEFT_URL));
-        rightConn = connectionManager.getConnection(config.buildUrl(BASE_RIGHT_URL));
+        leftConn = connectionManager.getConnection(leftUrl);
+        rightConn = connectionManager.getConnection(rightUrl);
       } catch (SQLException e) {
         throw new RuntimeException(
             "Failed to create connections for config: " + config.getDisplayName(), e);
       }
+
+      // Per-config factory for suites that need dedicated (uncached) connections. Bound to this
+      // config's resolved LEFT/RIGHT URLs; the returned connections are NOT cached, so the suite
+      // owns closing them and cannot poison the shared connections above.
+      ConnectionFactory factory =
+          side -> {
+            if ("LEFT".equalsIgnoreCase(side)) return connectionManager.openUncached(leftUrl);
+            if ("RIGHT".equalsIgnoreCase(side)) return connectionManager.openUncached(rightUrl);
+            throw new IllegalArgumentException("side must be LEFT or RIGHT, got: " + side);
+          };
 
       for (TestSuite suite : config.getApplicableSuites()) {
         if (allowedSuites != null && !allowedSuites.contains(suite.name())) continue;
@@ -158,7 +171,7 @@ public class JDBCDriverComparisonTest {
         String label = config.getDisplayName() + " | " + suite.name();
 
         for (TestCase tc : testCases) {
-          allTests.add(Arguments.of(label, leftConn, rightConn, suite, tc));
+          allTests.add(Arguments.of(label, leftConn, rightConn, factory, suite, tc));
         }
       }
     }
@@ -172,6 +185,7 @@ public class JDBCDriverComparisonTest {
       String comparisonName,
       Connection conn1,
       Connection conn2,
+      ConnectionFactory factory,
       TestSuite suite,
       TestCase testCase) {
     assertDoesNotThrow(
@@ -186,7 +200,8 @@ public class JDBCDriverComparisonTest {
                   ? comparisonName.substring(0, comparisonName.indexOf(" | "))
                   : comparisonName;
           try {
-            ComparisonResult result = suite.getProvider().execute(conn1, conn2, testCase, label);
+            ComparisonResult result =
+                suite.getProvider().execute(conn1, conn2, factory, testCase, label);
             reporter.addResult(result);
 
             // CSV: per-combo rows for metadata, single row for other suites

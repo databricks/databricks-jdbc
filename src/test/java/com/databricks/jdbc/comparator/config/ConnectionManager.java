@@ -33,6 +33,15 @@ public class ConnectionManager implements AutoCloseable {
     return conn;
   }
 
+  /**
+   * Opens a NEW connection for the given URL that is NOT cached — the caller owns its lifecycle and
+   * must close it. Used by suites whose cases mutate/destroy connection state and therefore need a
+   * dedicated, throwaway connection rather than the shared cached one.
+   */
+  public Connection openUncached(String url) throws SQLException {
+    return DriverManager.getConnection(url, "token", token);
+  }
+
   /** Returns all active connection URLs, useful for report headers. */
   public List<String> getActiveUrls() {
     return new ArrayList<>(cache.keySet());

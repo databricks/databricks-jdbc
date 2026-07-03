@@ -92,9 +92,7 @@ public class NegativeStatementBatchProvider implements SuiteProvider {
       CapturedOutcome right = Captures.capture(() -> s2.executeBatch());
 
       ComparisonResult result = new ComparisonResult(label, c.description, testCase.getArgs());
-      for (String d : ErrorDiffs.compare(left, right, "batch counts ")) {
-        result.dataDifferences.add(d);
-      }
+      ErrorDiffs.foldInto(result, left, right, "batch counts ", "");
       // When both threw BatchUpdateException, also compare the per-element update counts.
       String counts = compareUpdateCounts(left, right);
       if (counts != null) {
