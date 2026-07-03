@@ -255,6 +255,9 @@ If both are present for a method, **runOnly takes precedence**: argument combina
 | `NEGATIVE_PARAM_BINDING` | Bad PreparedStatement bindings (index, count, type, precision) |
 | `NEGATIVE_PREPARED_METADATA` | clearParameters + unbound execute; getMetaData on invalid SQL |
 | `NEGATIVE_TYPE_CONVERSION` | Incompatible ResultSet.getX() conversions (overflow, wrong target) |
+| `NEGATIVE_STATEMENT_DDL` | Error-provoking CREATE / ALTER / DROP (missing/duplicate objects, bad namespace, malformed) |
+| `NEGATIVE_STATEMENT_DML` | Error-provoking INSERT / UPDATE / DELETE (type mismatch, NOT NULL, missing table, overflow) |
+| `NEGATIVE_STATEMENT_BATCH` | executeBatch partial/full failure + per-element BatchUpdateException counts |
 
 Negative suites compare each endpoint's **error behavior** (exception class, SQLState, vendor code,
 message) via the `ERROR_COMPARISON_MODE` gate (default `shadow`). See

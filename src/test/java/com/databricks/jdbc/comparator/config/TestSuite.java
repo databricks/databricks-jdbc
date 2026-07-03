@@ -27,7 +27,13 @@ public enum TestSuite {
   NEGATIVE_STATEMENT_OTHER(new NegativeStatementOtherProvider()),
   NEGATIVE_PARAM_BINDING(new NegativeParamBindingProvider()),
   NEGATIVE_PREPARED_METADATA(new NegativePreparedMetadataProvider()),
-  NEGATIVE_TYPE_CONVERSION(new NegativeTypeConversionProvider());
+  NEGATIVE_TYPE_CONVERSION(new NegativeTypeConversionProvider()),
+
+  // Negative suites that mutate catalog objects — isolated in their own namespace
+  // under comparator_ddl_tests (seeded fresh and dropped), so safe on the shared connections.
+  NEGATIVE_STATEMENT_DDL(new NegativeStatementDdlProvider()),
+  NEGATIVE_STATEMENT_DML(new NegativeStatementDmlProvider()),
+  NEGATIVE_STATEMENT_BATCH(new NegativeStatementBatchProvider());
 
   private final SuiteProvider provider;
 
