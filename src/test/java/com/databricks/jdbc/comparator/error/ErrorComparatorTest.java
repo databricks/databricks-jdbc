@@ -204,6 +204,16 @@ public class ErrorComparatorTest {
         });
   }
 
+  @Test
+  void errorDiffsNeitherThrewIsEmptyInBothModes() {
+    // Both sides returned (e.g. DROP TABLE IF EXISTS succeeds on both) -> no diffs, no NPE.
+    // error() is null for a RETURNED outcome, so this guards the legacy-path null dereference.
+    CapturedOutcome l = CapturedOutcome.returned(0);
+    CapturedOutcome r = CapturedOutcome.returned(0);
+    withMode("off", () -> assertTrue(ErrorDiffs.compare(l, r, "v ").isEmpty()));
+    withMode("shadow", () -> assertTrue(ErrorDiffs.compare(l, r, "v ").isEmpty()));
+  }
+
   private static void withMode(String mode, Runnable body) {
     String prev = System.getProperty("ERROR_COMPARISON_MODE");
     try {

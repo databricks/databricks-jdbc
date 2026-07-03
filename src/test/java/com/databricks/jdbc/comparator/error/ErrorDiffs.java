@@ -24,6 +24,13 @@ public final class ErrorDiffs {
    */
   public static List<String> compare(
       CapturedOutcome left, CapturedOutcome right, String returnedLabel) {
+    // Neither side threw — nothing to compare here (mirrors the deep path's NOT_APPLICABLE).
+    // Guard centrally so every caller is safe, including callers that invoke compare()
+    // unconditionally (the negative DDL/DML/Batch suites); their both-succeed cases (e.g.
+    // DROP TABLE IF EXISTS) must not dereference the null error() in off mode.
+    if (!left.threw() && !right.threw()) {
+      return Collections.emptyList();
+    }
     ErrorPolicy policy = ErrorPolicy.active();
     if (!policy.isDeepComparisonEnabled()) {
       return legacyClassOnly(left, right);
