@@ -3,30 +3,25 @@ package com.databricks.jdbc.comparator.error;
 /**
  * Controls whether errors are compared deeply, via the {@code ERROR_COMPARISON_MODE} gate.
  *
- * <p>Modes advance with the rollout: {@code off} (legacy class-only check) → {@code shadow}
- * (compare and report, never fail CI) → {@code authoritative} (un-baselined error diffs fail the
- * build). The default is {@code shadow}: deep comparison runs and records DIFF rows, but a DIFF row
- * does not fail the build (only a re-thrown Throwable does), so the default is CI-safe. Read the
- * active policy via {@link #active()}.
+ * <p>Modes: {@code off} (legacy class-only check) and {@code shadow} (deep comparison — compare and
+ * report). The default is {@code shadow}: deep comparison runs and records DIFF rows in the
+ * report/CSV, but a DIFF never fails the run (only a re-thrown Throwable does). Read the active
+ * policy via {@link #active()}.
  *
- * <p>Message normalization and tolerance/baseline handling are intentionally omitted for now — we
- * compare the raw fields (class, SQLState, vendor code, message) and will add tolerance later, from
- * observed shadow-run data, only if it proves necessary.
+ * <p>Message normalization and tolerance/baseline handling are intentionally omitted — we compare
+ * the raw fields (class, SQLState, vendor code, message). (An enforcement mode that fails the run
+ * on divergences is out of scope here; it can be added later, from observed shadow-run data.)
  */
 public final class ErrorPolicy {
 
   public enum Mode {
     OFF,
-    SHADOW,
-    AUTHORITATIVE
+    SHADOW
   }
 
   private static final String MODE_PROPERTY = "ERROR_COMPARISON_MODE";
 
-  /**
-   * Default when the flag is unset, empty, or unrecognized. Shadow is CI-safe (records, never
-   * fails). Advanced to {@code authoritative} in the final rollout PR.
-   */
+  /** Default when the flag is unset, empty, or unrecognized. Shadow reports but never fails. */
   private static final Mode DEFAULT_MODE = Mode.SHADOW;
 
   private final Mode mode;
@@ -55,8 +50,6 @@ public final class ErrorPolicy {
     switch (raw.trim().toLowerCase()) {
       case "shadow":
         return Mode.SHADOW;
-      case "authoritative":
-        return Mode.AUTHORITATIVE;
       case "off":
         return Mode.OFF;
       default:
@@ -65,7 +58,7 @@ public final class ErrorPolicy {
         System.err.println(
             "[comparator] Unknown ERROR_COMPARISON_MODE '"
                 + raw
-                + "' (expected off|shadow|authoritative); defaulting to "
+                + "' (expected off|shadow); defaulting to "
                 + DEFAULT_MODE.name().toLowerCase()
                 + ".");
         return DEFAULT_MODE;
@@ -76,7 +69,7 @@ public final class ErrorPolicy {
     return mode;
   }
 
-  /** True when deep error comparison should run at all (shadow or authoritative). */
+  /** True when deep error comparison should run at all (shadow). */
   public boolean isDeepComparisonEnabled() {
     return mode != Mode.OFF;
   }

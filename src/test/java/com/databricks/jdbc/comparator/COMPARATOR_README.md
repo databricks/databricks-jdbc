@@ -268,13 +268,30 @@ If both are present for a method, **runOnly takes precedence**: argument combina
 | `NEGATIVE_ASYNC` | Databricks async extension — getExecutionResult before/after execute, executeAsync on invalid SQL |
 
 Negative suites compare each endpoint's **error behavior** (exception class, SQLState, vendor code,
-message) via the `ERROR_COMPARISON_MODE` gate (default `shadow`). See
-[`error/`](error/) for the comparison engine.
+message) via the `ERROR_COMPARISON_MODE` gate. See [`error/`](error/) for the comparison engine.
+
+### `ERROR_COMPARISON_MODE`
+
+| Mode | Behavior |
+|---|---|
+| `off` | Legacy: only the exception class is checked (`isAssignableFrom`). |
+| `shadow` | Deep error comparison runs and is recorded as `DIFF` rows, but **never fails** the run. |
+
+The default (both `run-comparator.sh` and the weekly CI) is **shadow**: the comparison runs and
+every Thrift-vs-SEA error divergence is recorded in the report/CSV, but the run stays green. Diffs
+are reviewed from the report; baseline noisy/accepted ones with
+`-DSKIP_DIFF_PATTERNS='<substring>|<substring>'`.
+
+Exception-class comparison is intentionally **strict** (exact match), not the legacy subclass
+tolerance. Message text is compared **raw** (no normalization) — a deliberate choice; message-only
+divergences show up as `DIFF` rows.
+
+> An enforcement mode that *fails* the run on divergences is intentionally not included yet — it
+> can be added later from observed shadow-run data (which divergences are real vs. accepted).
 
 Suites whose cases mutate or destroy connection/session state (`NEGATIVE_CONNECTION_STATE`,
-`NEGATIVE_TRANSACTION`, and — later — connection/cancel/volume cases) open their **own dedicated,
-uncached connections** via `ConnectionFactory.openFresh(side)` and close them in a `finally`, so
-they never poison the shared connections the other suites reuse. Providers request this by
-overriding the `execute(conn1, conn2, ConnectionFactory, testCase, label)` overload of
-`SuiteProvider`.
+`NEGATIVE_TRANSACTION`, `NEGATIVE_CONNECTION`, `NEGATIVE_CANCEL_TIMEOUT`) open their **own dedicated,
+uncached connections** via `ConnectionFactory` and close them in a `finally`, so they never poison
+the shared connections the other suites reuse. Providers request this by overriding the
+`execute(conn1, conn2, ConnectionFactory, testCase, label)` overload of `SuiteProvider`.
 

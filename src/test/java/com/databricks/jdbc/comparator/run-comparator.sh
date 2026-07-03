@@ -104,6 +104,12 @@ METADATA_SKIP_SCHEMAS="${METADATA_SKIP_SCHEMAS:-information_schema}"
 METADATA_PARALLEL_THREADS="${METADATA_PARALLEL_THREADS:-50}"
 SKIP_DIFF_PATTERNS="${SKIP_DIFF_PATTERNS:-}"  # geo and variant fixes merged — no filtering needed
 
+# Error comparison mode: off | shadow.
+#   off    — legacy: only the exception class is checked
+#   shadow — deep error comparison (class/SQLState/code/message/one-sided) recorded as DIFF rows in
+#            the report/CSV; never fails the run (DEFAULT)
+ERROR_COMPARISON_MODE="${ERROR_COMPARISON_MODE:-shadow}"
+
 # Workspace setup (empty = skip, "recreate" = drop + create all test data)
 WORKSPACE_SETUP="${WORKSPACE_SETUP:-}"
 
@@ -305,6 +311,9 @@ if [ -n "${PRO_WAREHOUSE_ID}" ]; then
 fi
 if [ -n "${WORKSPACE_SETUP}" ]; then
   MVN_ARGS="${MVN_ARGS} -DWORKSPACE_SETUP=${WORKSPACE_SETUP}"
+fi
+if [ -n "${ERROR_COMPARISON_MODE}" ]; then
+  MVN_ARGS="${MVN_ARGS} -DERROR_COMPARISON_MODE=${ERROR_COMPARISON_MODE}"
 fi
 
 MVN_ARGS="${MVN_ARGS} -DMETADATA_FILTER_CONFIG=${FILTER_FILE}"
