@@ -9,8 +9,10 @@ package com.databricks.jdbc.comparator.config;
  *
  * <ol>
  *   <li>{@code <SIDE>_HTTP_PATH} — full path, escape hatch.
- *   <li>{@code <SIDE>_CLUSTER} — {@code orgId:clusterId} → {@code /sql/protocolv1/o/<orgId>/<clusterId>}.
- *   <li>{@code <SIDE>_WAREHOUSE} — {@code <warehouseId>} → {@code /sql/1.0/warehouses/<warehouseId>}.
+ *   <li>{@code <SIDE>_CLUSTER} — {@code orgId:clusterId} → {@code
+ *       /sql/protocolv1/o/<orgId>/<clusterId>}.
+ *   <li>{@code <SIDE>_WAREHOUSE} — {@code <warehouseId>} → {@code
+ *       /sql/1.0/warehouses/<warehouseId>}.
  * </ol>
  *
  * <p>If none of the above is set on either side, callers should fall back to the legacy
@@ -95,7 +97,10 @@ public final class Endpoint {
         throw new IllegalArgumentException(
             prefix + "CLUSTER must be of the form orgId:clusterId, got: " + cluster);
       }
-      return "/sql/protocolv1/o/" + cluster.substring(0, colon) + "/" + cluster.substring(colon + 1);
+      return "/sql/protocolv1/o/"
+          + cluster.substring(0, colon)
+          + "/"
+          + cluster.substring(colon + 1);
     }
 
     String warehouse = System.getProperty(prefix + "WAREHOUSE");
@@ -114,8 +119,7 @@ public final class Endpoint {
     if (transport == null) return SEA;
     String lower = transport.toLowerCase();
     if (!SEA.equals(lower) && !THRIFT.equals(lower)) {
-      throw new IllegalArgumentException(
-          "transport must be 'sea' or 'thrift', got: " + transport);
+      throw new IllegalArgumentException("transport must be 'sea' or 'thrift', got: " + transport);
     }
     return lower;
   }

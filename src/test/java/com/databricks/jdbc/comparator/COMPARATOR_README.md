@@ -250,4 +250,13 @@ If both are present for a method, **runOnly takes precedence**: argument combina
 | `NULL_HANDLING` | wasNull() verification |
 | `VOLUME_OPERATIONS` | UC Volume PUT / GET / DELETE |
 | `DATABASE_METADATA` | All DatabaseMetaData methods (~13,500 argument combinations) |
+| `NEGATIVE_STATEMENT_SELECT` | Error-provoking SELECTs (missing table/column, syntax, cast, wrong method) |
+| `NEGATIVE_STATEMENT_OTHER` | Error-provoking SHOW / DESCRIBE / EXPLAIN / SET + JDBC-API misuse |
+| `NEGATIVE_PARAM_BINDING` | Bad PreparedStatement bindings (index, count, type, precision) |
+| `NEGATIVE_PREPARED_METADATA` | clearParameters + unbound execute; getMetaData on invalid SQL |
+| `NEGATIVE_TYPE_CONVERSION` | Incompatible ResultSet.getX() conversions (overflow, wrong target) |
+
+Negative suites compare each endpoint's **error behavior** (exception class, SQLState, vendor code,
+message) via the `ERROR_COMPARISON_MODE` gate (default `shadow`). See
+[`error/`](error/) for the comparison engine.
 
