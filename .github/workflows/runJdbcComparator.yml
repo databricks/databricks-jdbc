@@ -113,6 +113,9 @@ jobs:
           COMPARATOR_WAREHOUSE: ${{ vars.COMPARATOR_WAREHOUSE }}
           PRO_WAREHOUSE_ID: ${{ vars.PRO_WAREHOUSE_ID }}
           RUN_NAME: ci-weekly-${{ github.run_id }}
+          # Deep error comparison runs in shadow: every Thrift-vs-SEA error divergence is recorded
+          # in the report/CSV, but the run stays green.
+          ERROR_COMPARISON_MODE: shadow
           # Scoping knobs — workflow_dispatch.inputs populate these when
           # manually triggered. For schedule events, inputs are empty,
           # which the script treats as "run everything".
