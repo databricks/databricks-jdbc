@@ -33,7 +33,12 @@ public enum TestSuite {
   // under comparator_ddl_tests (seeded fresh and dropped), so safe on the shared connections.
   NEGATIVE_STATEMENT_DDL(new NegativeStatementDdlProvider()),
   NEGATIVE_STATEMENT_DML(new NegativeStatementDmlProvider()),
-  NEGATIVE_STATEMENT_BATCH(new NegativeStatementBatchProvider());
+  NEGATIVE_STATEMENT_BATCH(new NegativeStatementBatchProvider()),
+
+  // Negative suites that mutate connection/session state — each opens its OWN fresh connections
+  // via ConnectionFactory (closed in a finally), so they never poison the shared connections.
+  NEGATIVE_CONNECTION_STATE(new NegativeConnectionStateProvider()),
+  NEGATIVE_TRANSACTION(new NegativeTransactionProvider());
 
   private final SuiteProvider provider;
 

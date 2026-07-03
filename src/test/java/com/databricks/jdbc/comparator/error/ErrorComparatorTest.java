@@ -205,6 +205,39 @@ public class ErrorComparatorTest {
   }
 
   @Test
+  void foldIntoPutsOneSidedInMetadataSoCsvSummaryKeepsIt() {
+    // A one-sided outcome (one threw, one returned) must land in metadataDifferences and survive
+    // csvSummary() — the bug that produced an empty CSV summary when it was mis-filed in data.
+    withMode(
+        "shadow",
+        () -> {
+          CapturedOutcome thrower = CapturedOutcome.threw(new SQLException("boom", "42P07", 0));
+          CapturedOutcome returned = CapturedOutcome.returned(Boolean.FALSE);
+          ComparisonResult result = new ComparisonResult("t", "q", new Object[0]);
+          ErrorDiffs.foldInto(result, thrower, returned, "result ", "");
+          assertTrue(
+              result.metadataDifferences.stream().anyMatch(d -> d.startsWith("Error one-sided: ")));
+          assertTrue(result.dataDifferences.isEmpty());
+          assertFalse(result.csvSummary().isEmpty(), "one-sided diff must appear in CSV summary");
+        });
+  }
+
+  @Test
+  void foldIntoPutsFieldMismatchInData() {
+    withMode(
+        "shadow",
+        () -> {
+          CapturedOutcome l = CapturedOutcome.threw(new SQLException("a", "42P01", 1));
+          CapturedOutcome r = CapturedOutcome.threw(new SQLException("b", "08000", 2));
+          ComparisonResult result = new ComparisonResult("t", "q", new Object[0]);
+          ErrorDiffs.foldInto(result, l, r, "v ", "OP: ");
+          assertTrue(result.metadataDifferences.isEmpty());
+          assertTrue(
+              result.dataDifferences.stream().anyMatch(d -> d.startsWith("OP: Error SQLState")));
+        });
+  }
+
+  @Test
   void errorDiffsNeitherThrewIsEmptyInBothModes() {
     // Both sides returned (e.g. DROP TABLE IF EXISTS succeeds on both) -> no diffs, no NPE.
     // error() is null for a RETURNED outcome, so this guards the legacy-path null dereference.

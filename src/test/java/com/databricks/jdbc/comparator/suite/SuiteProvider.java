@@ -3,6 +3,7 @@ package com.databricks.jdbc.comparator.suite;
 import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.comparator.ComparisonResult;
 import com.databricks.jdbc.comparator.JDBCDriverComparisonTest;
+import com.databricks.jdbc.comparator.config.ConnectionFactory;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -28,6 +29,26 @@ public interface SuiteProvider {
    */
   ComparisonResult execute(Connection conn1, Connection conn2, TestCase testCase, String label)
       throws Exception;
+
+  /**
+   * Overload for suites that need to open their own dedicated connections (destructive/stateful
+   * cases: {@code setCatalog}, {@code setAutoCommit}, {@code cancel}, {@code close}, {@code
+   * setClientInfo}). The default ignores the factory and delegates to the shared-connection {@link
+   * #execute}; only isolation-heavy providers override it. The harness always calls this form.
+   *
+   * <p>An overriding provider must close every connection it opens from {@code factory} (in a
+   * {@code finally}); {@code conn1}/{@code conn2} remain the shared connections and must NOT be
+   * closed.
+   */
+  default ComparisonResult execute(
+      Connection conn1,
+      Connection conn2,
+      ConnectionFactory factory,
+      TestCase testCase,
+      String label)
+      throws Exception {
+    return execute(conn1, conn2, testCase, label);
+  }
 
   /**
    * Asserts CloudFetch expectation on both ResultSets if set on the test case. Call after executing
