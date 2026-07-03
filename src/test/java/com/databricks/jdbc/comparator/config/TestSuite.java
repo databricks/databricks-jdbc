@@ -20,7 +20,14 @@ public enum TestSuite {
   GEOSPATIAL(new GeospatialProvider()),
   NULL_HANDLING(new NullHandlingProvider()),
   VOLUME_OPERATIONS(new VolumeOperationsProvider()),
-  DATABASE_METADATA(new DatabaseMetaDataProvider());
+  DATABASE_METADATA(new DatabaseMetaDataProvider()),
+
+  // Negative (error-provoking) suites — read-only, run on the shared connections.
+  NEGATIVE_STATEMENT_SELECT(new NegativeStatementSelectProvider()),
+  NEGATIVE_STATEMENT_OTHER(new NegativeStatementOtherProvider()),
+  NEGATIVE_PARAM_BINDING(new NegativeParamBindingProvider()),
+  NEGATIVE_PREPARED_METADATA(new NegativePreparedMetadataProvider()),
+  NEGATIVE_TYPE_CONVERSION(new NegativeTypeConversionProvider());
 
   private final SuiteProvider provider;
 
