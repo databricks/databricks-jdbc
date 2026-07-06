@@ -57,7 +57,8 @@ public final class ErrorComparator {
       dataDiffs.add("Error code mismatch: " + l.vendorCode + " vs " + r.vendorCode);
     }
     if (!equalsNullSafe(l.message, r.message)) {
-      dataDiffs.add("Error message mismatch: '" + l.message + "' vs '" + r.message + "'");
+      dataDiffs.add(
+          "Error message mismatch: '" + oneLine(l.message) + "' vs '" + oneLine(r.message) + "'");
     }
 
     ErrorComparison.Verdict verdict =
@@ -67,6 +68,15 @@ public final class ErrorComparator {
 
   private static boolean equalsNullSafe(Object a, Object b) {
     return a == null ? b == null : a.equals(b);
+  }
+
+  /**
+   * Collapses embedded line breaks to a literal {@code \n} so a multi-line driver message (e.g. the
+   * connect wrapper "…: <host>\n<cause>") stays on a single line in the report/CSV. Comparison is
+   * still done on the raw message; only the rendered diff string is flattened.
+   */
+  private static String oneLine(String s) {
+    return s == null ? null : s.replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n");
   }
 
   /**
