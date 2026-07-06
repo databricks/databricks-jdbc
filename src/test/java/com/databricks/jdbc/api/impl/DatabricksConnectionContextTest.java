@@ -2032,4 +2032,39 @@ class DatabricksConnectionContextTest {
 
     assertDoesNotThrow(() -> DatabricksConnectionContext.parse(url, props));
   }
+
+  @Test
+  public void testBrowserAuthDoesNotReadCredsFromUserPassword() throws DatabricksSQLException {
+    // U2M browser flow (Auth_Flow=2) must NOT pick up user/password as the OAuth client
+    // id/secret — doing so would silently turn a public-client PKCE flow into a confidential
+    // client. The fallback is scoped to M2M client-credentials only (issue #1132).
+    String url =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=11;Auth_Flow=2;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999";
+    Properties props = new Properties();
+    props.setProperty("user", "some-user");
+    props.setProperty("password", "some-password");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
+    assertNull(ctx.getClientSecret());
+    assertNull(ctx.getNullableClientId());
+  }
+
+  @Test
+  public void testRefreshTokenFlowDoesNotReadCredsFromUserPassword() throws DatabricksSQLException {
+    // Token-passthrough / refresh flow (Auth_Flow=0) must NOT pick up user/password as the OAuth
+    // client id/secret. The fallback is scoped to M2M client-credentials only (issue #1132).
+    String url =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=11;Auth_Flow=0;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999";
+    Properties props = new Properties();
+    props.setProperty("user", "some-user");
+    props.setProperty("password", "some-password");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
+    assertNull(ctx.getClientSecret());
+    assertNull(ctx.getNullableClientId());
+  }
 }

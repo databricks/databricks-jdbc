@@ -224,30 +224,31 @@ public class DatabricksDriverPropertyUtil {
   }
 
   /**
-   * Reports {@code OAuth2ClientId} as missing unless it is present or supplied via the JDBC
-   * user/UID fallback (see issue #1132).
+   * Reports {@code OAuth2Secret} as missing unless a client id is resolvable — either from the
+   * explicit param or, in M2M mode, from the JDBC user/UID fallback (see issue #1132). Uses the
+   * resolved value from {@link DatabricksConnectionContext#getNullableClientId()} rather than raw
+   * key presence, so a UID/user of {@code "token"} (the PAT sentinel, which the resolver ignores)
+   * is correctly still reported as missing.
    */
   private static void addMissingClientId(
       List<DriverPropertyInfo> missingPropertyInfos,
       DatabricksConnectionContext connectionContext) {
-    if (connectionContext.isPropertyPresent(CLIENT_ID)
-        || connectionContext.isPropertyPresent(USER)
-        || connectionContext.isPropertyPresent(UID)) {
+    if (connectionContext.getNullableClientId() != null) {
       return;
     }
     missingPropertyInfos.add(getUrlParamInfo(CLIENT_ID, true));
   }
 
   /**
-   * Reports {@code OAuth2Secret} as missing unless it is present or supplied via the JDBC
-   * password/PWD fallback (see issue #1132).
+   * Reports {@code OAuth2Secret} as missing unless a client secret is resolvable — either from the
+   * explicit param or, in M2M mode, from the JDBC password/PWD fallback (see issue #1132). Uses the
+   * resolved value from {@link DatabricksConnectionContext#getClientSecret()} so it stays
+   * consistent with what the auth flow actually receives.
    */
   private static void addMissingClientSecret(
       List<DriverPropertyInfo> missingPropertyInfos,
       DatabricksConnectionContext connectionContext) {
-    if (connectionContext.isPropertyPresent(CLIENT_SECRET)
-        || connectionContext.isPropertyPresent(PWD)
-        || connectionContext.isPropertyPresent(PASSWORD)) {
+    if (connectionContext.getClientSecret() != null) {
       return;
     }
     missingPropertyInfos.add(getUrlParamInfo(CLIENT_SECRET, true));

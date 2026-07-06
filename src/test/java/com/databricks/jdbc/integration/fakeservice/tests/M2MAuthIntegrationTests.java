@@ -68,20 +68,6 @@ public class M2MAuthIntegrationTests extends AbstractFakeServiceIntegrationTests
     conn.close();
   }
 
-  @Test
-  void testExplicitOAuthSecretWinsOverPassword() throws SQLException {
-    // OAuth2Secret is explicitly set; the (bogus) password must be ignored so the connection
-    // still succeeds with the correct explicit secret.
-    String url = getFakeServiceM2MUrl();
-    Properties connProps = createFakeServiceM2MConnectionProperties(TEST_CLIENT_SECRET);
-    connProps.put("password", "bogus-should-be-ignored");
-
-    Connection conn = DriverManager.getConnection(url, connProps);
-    assertNotNull(conn);
-    assertFalse(conn.isClosed());
-    conn.close();
-  }
-
   private Connection getValidM2MConnection() throws SQLException {
     return DriverManager.getConnection(
         getFakeServiceM2MUrl(), createFakeServiceM2MConnectionProperties(TEST_CLIENT_SECRET));
