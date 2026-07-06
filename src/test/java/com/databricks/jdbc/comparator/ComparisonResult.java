@@ -54,13 +54,17 @@ public class ComparisonResult {
             .count();
     if (rowMismatches > 0) parts.add(rowMismatches + " data mismatches");
 
-    // Count error-field mismatches (e.g., "Error SQLState mismatch: ...") emitted by
-    // ErrorComparator for both-threw cases.
-    long errorMismatches =
+    // List which error fields mismatched (e.g., "Error SQLState mismatch: ...") emitted by
+    // ErrorComparator for both-threw cases. With only four comparable fields (class, SQLState,
+    // code, message) naming them stays short and is far more useful than a bare count.
+    List<String> errorFields =
         dataDifferences.stream()
-            .filter(d -> d.startsWith("Error ") && d.contains("mismatch"))
-            .count();
-    if (errorMismatches > 0) parts.add(errorMismatches + " error mismatches");
+            .filter(d -> d.startsWith("Error ") && d.contains(" mismatch"))
+            .map(d -> d.substring("Error ".length(), d.indexOf(" mismatch")))
+            .collect(Collectors.toList());
+    if (!errorFields.isEmpty()) {
+      parts.add("error mismatch: " + String.join(", ", errorFields));
+    }
 
     return parts.isEmpty() ? "" : String.join(", ", parts);
   }
