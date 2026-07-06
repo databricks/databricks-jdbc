@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.comparator.ComparisonResult;
 import com.databricks.jdbc.comparator.error.CapturedOutcome;
 import com.databricks.jdbc.comparator.error.Captures;
+import com.databricks.jdbc.comparator.error.ErrorDiffs;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -124,8 +125,12 @@ public class NegativeTypeConversionProvider implements SuiteProvider {
       }
       CapturedOutcome left = Captures.capture(() -> c.getter.get(rs1));
       CapturedOutcome right = Captures.capture(() -> c.getter.get(rs2));
-      return Captures.compareCall(
-          label, c.description, testCase.getArgs(), left, right, v -> "value " + v);
+      // Route through ErrorDiffs (not Captures.compareCall) so the ERROR_COMPARISON_MODE=off kill
+      // switch is honored here too: off falls back to the legacy class-only check, on compares
+      // deeply. foldInto also preserves the one-sided/field-mismatch metadata/data split.
+      ComparisonResult result = new ComparisonResult(label, c.description, testCase.getArgs());
+      ErrorDiffs.foldInto(result, left, right, "value ", "");
+      return result;
     }
   }
 }

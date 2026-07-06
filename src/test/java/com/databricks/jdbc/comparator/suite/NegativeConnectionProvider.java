@@ -43,6 +43,19 @@ public class NegativeConnectionProvider implements SuiteProvider {
           new Case(
               "Bad token (auth failure)",
               (url, token) -> new String[] {url, "dapi0000000000000000000000000000badx"}),
+          new Case("Blank token (missing credential)", (url, token) -> new String[] {url, ""}),
+          new Case(
+              "Invalid authMech",
+              (url, token) ->
+                  new String[] {url.replaceFirst("authMech=[^;]*", "authMech=99"), token}),
+          new Case(
+              "Non-existent cluster id",
+              (url, token) ->
+                  new String[] {
+                    url.replaceFirst(
+                        "httpPath=[^;]*", "httpPath=/sql/protocolv1/o/0/0000-000000-nosuchcl"),
+                    token
+                  }),
           new Case(
               "Unknown host",
               (url, token) ->

@@ -156,9 +156,9 @@ public class ResultSetComparator {
 
   /**
    * When {@code ERROR_COMPARISON_MODE} is on and at least one side is a {@link Throwable}, compares
-   * the errors deeply (class + SQLState + code + serverCode + message) and folds any diffs into
-   * {@code result}. Returns true when it handled the comparison; false (a no-op) when the gate is
-   * off or neither side threw, so the legacy branches below take over unchanged.
+   * the errors deeply (class + SQLState + code + message) and folds any diffs into {@code result}.
+   * Returns true when it handled the comparison; false (a no-op) when the gate is off or neither
+   * side threw, so the legacy branches below take over unchanged.
    */
   private static boolean compareErrorsDeeply(
       String queryType,
