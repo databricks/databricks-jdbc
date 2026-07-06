@@ -2032,19 +2032,4 @@ class DatabricksConnectionContextTest {
 
     assertDoesNotThrow(() -> DatabricksConnectionContext.parse(url, props));
   }
-
-  @Test
-  public void testUsesCredentialsFromUserPasswordFlag() throws DatabricksSQLException {
-    Properties props = new Properties();
-    props.setProperty("password", "my-oauth-secret");
-    DatabricksConnectionContext fallbackCtx =
-        (DatabricksConnectionContext) DatabricksConnectionContext.parse(OAUTH_M2M_BASE_URL, props);
-    assertTrue(fallbackCtx.usesOAuthCredentialsFromUserPassword());
-
-    String explicitUrl = OAUTH_M2M_BASE_URL + ";OAuth2Secret=explicit-secret";
-    DatabricksConnectionContext explicitCtx =
-        (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(explicitUrl, new Properties());
-    assertFalse(explicitCtx.usesOAuthCredentialsFromUserPassword());
-  }
 }

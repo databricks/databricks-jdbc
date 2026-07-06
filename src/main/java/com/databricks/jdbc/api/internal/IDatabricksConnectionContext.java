@@ -479,16 +479,4 @@ public interface IDatabricksConnectionContext {
    * @return the link prefetch window size (default: 128)
    */
   int getLinkPrefetchWindow();
-
-  /**
-   * Returns whether the OAuth client id or secret is being sourced from the JDBC {@code
-   * user}/{@code password} connection properties (the fallback for {@code OAuth2ClientId}/{@code
-   * OAuth2Secret}) rather than the explicit OAuth params. For telemetry only — no credential values
-   * are exposed.
-   *
-   * @return true if the user/password OAuth-credential fallback is in effect
-   */
-  default boolean usesOAuthCredentialsFromUserPassword() {
-    return false;
-  }
 }

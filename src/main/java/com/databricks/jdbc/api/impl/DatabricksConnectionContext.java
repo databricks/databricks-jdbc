@@ -392,25 +392,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public boolean usesOAuthCredentialsFromUserPassword() {
-    // True when OAuth is in use and the client id or secret is being sourced from the JDBC
-    // user/password fallback rather than the explicit OAuth2ClientId/OAuth2Secret params. Used for
-    // telemetry only — no credential values are recorded.
-    if (!isOAuthMode()) {
-      return false;
-    }
-    boolean secretFromPwd =
-        nullOrEmptyString(getParameter(DatabricksJdbcUrlParams.CLIENT_SECRET))
-            && !nullOrEmptyString(getUserProvidedSecret());
-    String user = getUserProvidedIdentity();
-    boolean clientIdFromUser =
-        nullOrEmptyString(getParameter(DatabricksJdbcUrlParams.CLIENT_ID))
-            && !nullOrEmptyString(user)
-            && !VALID_UID_VALUE.equals(user);
-    return secretFromPwd || clientIdFromUser;
-  }
-
-  @Override
   public String getGoogleServiceAccount() {
     return getParameter(DatabricksJdbcUrlParams.GOOGLE_SERVICE_ACCOUNT);
   }
