@@ -107,6 +107,39 @@ class ValidationUtilTest {
     assertEquals(expectedValid, ValidationUtil.isValidJdbcUrl(url), description);
   }
 
+  @Test
+  void testValidateUidParameter_PatMode_RejectsNonTokenUid() {
+    java.util.Map<String, String> params = new java.util.HashMap<>();
+    params.put("authmech", "3");
+    params.put("uid", "some-user");
+    assertThrows(DatabricksSQLException.class, () -> ValidationUtil.validateUidParameter(params));
+  }
+
+  @Test
+  void testValidateUidParameter_PatMode_AllowsTokenUid() {
+    java.util.Map<String, String> params = new java.util.HashMap<>();
+    params.put("authmech", "3");
+    params.put("uid", "token");
+    assertDoesNotThrow(() -> ValidationUtil.validateUidParameter(params));
+  }
+
+  @Test
+  void testValidateUidParameter_OAuthMode_AllowsClientIdUid() {
+    // In OAuth mode the UID may carry the OAuth client id, so any value is accepted (issue #1132).
+    java.util.Map<String, String> params = new java.util.HashMap<>();
+    params.put("authmech", "11");
+    params.put("uid", "my-oauth-client-id");
+    assertDoesNotThrow(() -> ValidationUtil.validateUidParameter(params));
+  }
+
+  @Test
+  void testValidateUidParameter_DefaultMechRejectsNonTokenUid() {
+    // Absent AuthMech defaults to PAT, so the token-only restriction still applies.
+    java.util.Map<String, String> params = new java.util.HashMap<>();
+    params.put("uid", "some-user");
+    assertThrows(DatabricksSQLException.class, () -> ValidationUtil.validateUidParameter(params));
+  }
+
   private static Stream<Arguments> jdbcUrlValidityTestCases() {
     return Stream.of(
         Arguments.of(VALID_URL_1, "Valid URL with auth_flow=2 and log path", true),

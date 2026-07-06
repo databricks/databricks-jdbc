@@ -47,6 +47,41 @@ public class M2MAuthIntegrationTests extends AbstractFakeServiceIntegrationTests
         .contains("Connection failure while using the OSS Databricks JDBC driver.");
   }
 
+  @Test
+  void testSuccessfulM2MConnectionWithSecretFromUserPassword() throws SQLException {
+    // Client id and secret supplied via the JDBC user/password fields instead of
+    // OAuth2ClientId/OAuth2Secret, so BI tools can mask them (issue #1132).
+    String url = getFakeServiceM2MUrl();
+    Properties connProps = new Properties();
+    connProps.put("user", TEST_CLIENT_ID);
+    connProps.put("password", TEST_CLIENT_SECRET);
+    connProps.put(
+        DatabricksJdbcUrlParams.CONN_CATALOG.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_CATALOG.getParamName()));
+    connProps.put(
+        DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName(),
+        FakeServiceConfigLoader.getProperty(DatabricksJdbcUrlParams.CONN_SCHEMA.getParamName()));
+
+    Connection conn = DriverManager.getConnection(url, connProps);
+    assertNotNull(conn);
+    assertFalse(conn.isClosed());
+    conn.close();
+  }
+
+  @Test
+  void testExplicitOAuthSecretWinsOverPassword() throws SQLException {
+    // OAuth2Secret is explicitly set; the (bogus) password must be ignored so the connection
+    // still succeeds with the correct explicit secret.
+    String url = getFakeServiceM2MUrl();
+    Properties connProps = createFakeServiceM2MConnectionProperties(TEST_CLIENT_SECRET);
+    connProps.put("password", "bogus-should-be-ignored");
+
+    Connection conn = DriverManager.getConnection(url, connProps);
+    assertNotNull(conn);
+    assertFalse(conn.isClosed());
+    conn.close();
+  }
+
   private Connection getValidM2MConnection() throws SQLException {
     return DriverManager.getConnection(
         getFakeServiceM2MUrl(), createFakeServiceM2MConnectionProperties(TEST_CLIENT_SECRET));

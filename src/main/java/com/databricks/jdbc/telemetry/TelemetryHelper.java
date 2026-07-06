@@ -233,7 +233,9 @@ public class TelemetryHelper {
           .setEnableTokenCache(connectionContext.isTokenCacheEnabled())
           .setHttpPath(connectionContext.getHttpPath())
           .setEnableMetricViewMetadata(connectionContext.getEnableMetricViewMetadata())
-          .setQueryTags(connectionContext.getSessionConfigs().get(QUERY_TAGS));
+          .setQueryTags(connectionContext.getSessionConfigs().get(QUERY_TAGS))
+          .setUsesOAuthCredentialsFromUserPassword(
+              connectionContext.usesOAuthCredentialsFromUserPassword());
     } catch (DatabricksValidationException e) {
       // If configuration validation fails, return null to skip telemetry export
       // This prevents invalid configuration from breaking telemetry

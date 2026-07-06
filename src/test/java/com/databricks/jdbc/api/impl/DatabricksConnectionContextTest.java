@@ -1915,4 +1915,136 @@ class DatabricksConnectionContextTest {
     assertFalse(defaultCtx.isHeartbeatEnabled());
     assertEquals(60, defaultCtx.getHeartbeatIntervalSeconds());
   }
+
+  // ===== OAuth M2M credentials from user/password (issue #1132) =====
+
+  private static final String OAUTH_M2M_BASE_URL =
+      "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=11;Auth_Flow=1;"
+          + "httpPath=/sql/1.0/warehouses/9999999999999999";
+
+  @Test
+  public void testOAuthSecretFallsBackToPassword() throws DatabricksSQLException {
+    // OAuth2Secret not set; the client secret should be read from the JDBC password field
+    // so BI tools (e.g. DBeaver) can mask it instead of exposing it in the URL.
+    Properties props = new Properties();
+    props.setProperty("password", "my-oauth-secret");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(OAUTH_M2M_BASE_URL, props);
+    assertEquals("my-oauth-secret", ctx.getClientSecret());
+  }
+
+  @Test
+  public void testOAuthSecretFallsBackToPwd() throws DatabricksSQLException {
+    // pwd is an accepted alias for password (mirrors getToken()).
+    Properties props = new Properties();
+    props.setProperty("pwd", "pwd-secret");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(OAUTH_M2M_BASE_URL, props);
+    assertEquals("pwd-secret", ctx.getClientSecret());
+  }
+
+  @Test
+  public void testExplicitOAuthSecretWinsOverPassword() throws DatabricksSQLException {
+    // When OAuth2Secret is explicitly set it takes precedence over the password fallback,
+    // preserving backward compatibility for existing URLs.
+    String url = OAUTH_M2M_BASE_URL + ";OAuth2Secret=explicit-secret";
+    Properties props = new Properties();
+    props.setProperty("password", "password-secret");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
+    assertEquals("explicit-secret", ctx.getClientSecret());
+  }
+
+  @Test
+  public void testOAuthClientIdFallsBackToUser() throws DatabricksSQLException {
+    // OAuth2ClientId not set; the client id should be read from the JDBC user field.
+    Properties props = new Properties();
+    props.setProperty("user", "my-client-id");
+    props.setProperty("password", "my-oauth-secret");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(OAUTH_M2M_BASE_URL, props);
+    assertEquals("my-client-id", ctx.getNullableClientId());
+    assertEquals("my-client-id", ctx.getClientId());
+  }
+
+  @Test
+  public void testOAuthClientIdFallsBackToUid() throws DatabricksSQLException {
+    // uid (non-"token") is accepted as the client id in OAuth mode.
+    String url = OAUTH_M2M_BASE_URL + ";UID=uid-client-id";
+    Properties props = new Properties();
+    props.setProperty("password", "my-oauth-secret");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
+    assertEquals("uid-client-id", ctx.getNullableClientId());
+  }
+
+  @Test
+  public void testExplicitOAuthClientIdWinsOverUser() throws DatabricksSQLException {
+    String url = OAUTH_M2M_BASE_URL + ";OAuth2ClientId=explicit-client-id";
+    Properties props = new Properties();
+    props.setProperty("user", "user-client-id");
+    props.setProperty("password", "my-oauth-secret");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
+    assertEquals("explicit-client-id", ctx.getNullableClientId());
+  }
+
+  @Test
+  public void testOAuthClientIdIgnoresTokenUser() throws DatabricksSQLException {
+    // "token" is the reserved PAT username sentinel and must not be treated as a client id.
+    Properties props = new Properties();
+    props.setProperty("user", "token");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(OAUTH_M2M_BASE_URL, props);
+    assertNull(ctx.getNullableClientId());
+  }
+
+  @Test
+  public void testPatModeDoesNotReadSecretFromPassword() throws DatabricksSQLException {
+    // AuthMech=3 (PAT): the OAuth client secret fallback must not kick in; getClientSecret
+    // stays null and the password remains the PAT token.
+    String url =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999";
+    Properties props = new Properties();
+    props.setProperty("password", "my-pat-token");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
+    assertNull(ctx.getClientSecret());
+    assertEquals("my-pat-token", ctx.getToken());
+  }
+
+  @Test
+  public void testUidOAuthClientIdAllowedInOAuthMode() throws DatabricksSQLException {
+    // A non-"token" UID must be allowed in OAuth mode (it is the client id), whereas in PAT
+    // mode it is still rejected (covered by testUidValidation_InvalidUidValue).
+    String url = OAUTH_M2M_BASE_URL + ";UID=some-client-id";
+    Properties props = new Properties();
+    props.setProperty("password", "my-oauth-secret");
+
+    assertDoesNotThrow(() -> DatabricksConnectionContext.parse(url, props));
+  }
+
+  @Test
+  public void testUsesCredentialsFromUserPasswordFlag() throws DatabricksSQLException {
+    Properties props = new Properties();
+    props.setProperty("password", "my-oauth-secret");
+    DatabricksConnectionContext fallbackCtx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(OAUTH_M2M_BASE_URL, props);
+    assertTrue(fallbackCtx.usesOAuthCredentialsFromUserPassword());
+
+    String explicitUrl = OAUTH_M2M_BASE_URL + ";OAuth2Secret=explicit-secret";
+    DatabricksConnectionContext explicitCtx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(explicitUrl, new Properties());
+    assertFalse(explicitCtx.usesOAuthCredentialsFromUserPassword());
+  }
 }

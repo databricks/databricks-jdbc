@@ -142,6 +142,9 @@ public class DriverConnectionParameters {
   @JsonProperty("query_tags")
   String queryTags;
 
+  @JsonProperty("uses_oauth_credentials_from_user_password")
+  boolean usesOAuthCredentialsFromUserPassword;
+
   public DriverConnectionParameters setHttpPath(String httpPath) {
     this.httpPath = httpPath;
     return this;
@@ -372,6 +375,12 @@ public class DriverConnectionParameters {
     return this;
   }
 
+  public DriverConnectionParameters setUsesOAuthCredentialsFromUserPassword(
+      boolean usesOAuthCredentialsFromUserPassword) {
+    this.usesOAuthCredentialsFromUserPassword = usesOAuthCredentialsFromUserPassword;
+    return this;
+  }
+
   @Override
   public String toString() {
     return new ToStringer(DriverConnectionParameters.class)
@@ -420,6 +429,7 @@ public class DriverConnectionParameters {
         .add("asyncPollIntervalMillis", asyncPollIntervalMillis)
         .add("enableMetricViewMetadata", enableMetricViewMetadata)
         .add("queryTags", queryTags)
+        .add("usesOAuthCredentialsFromUserPassword", usesOAuthCredentialsFromUserPassword)
         .toString();
   }
 }

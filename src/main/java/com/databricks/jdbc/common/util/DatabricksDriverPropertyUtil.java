@@ -131,8 +131,8 @@ public class DatabricksDriverPropertyUtil {
         switch (authFlow) {
           case TOKEN_PASSTHROUGH:
             if (connectionContext.getOAuthRefreshToken() != null) {
-              addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_ID, true);
-              addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_SECRET, true);
+              addMissingClientId(missingPropertyInfos, connectionContext);
+              addMissingClientSecret(missingPropertyInfos, connectionContext);
               handleTokenEndpointAndDiscoveryMode(missingPropertyInfos, connectionContext);
             } else {
               addMissingProperty(
@@ -149,8 +149,8 @@ public class DatabricksDriverPropertyUtil {
             } else if (connectionContext.getCloud() == Cloud.AZURE) {
               addMissingProperty(missingPropertyInfos, connectionContext, AZURE_TENANT_ID, false);
             }
-            addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_SECRET, true);
-            addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_ID, true);
+            addMissingClientSecret(missingPropertyInfos, connectionContext);
+            addMissingClientId(missingPropertyInfos, connectionContext);
 
             if (connectionContext.isPropertyPresent(USE_JWT_ASSERTION)) {
               if (connectionContext.useJWTAssertion()) {
@@ -221,5 +221,35 @@ public class DatabricksDriverPropertyUtil {
     if (!connectionContext.isPropertyPresent(param)) {
       missingPropertyInfos.add(getUrlParamInfo(param, required));
     }
+  }
+
+  /**
+   * Reports {@code OAuth2ClientId} as missing unless it is present or supplied via the JDBC
+   * user/UID fallback (see issue #1132).
+   */
+  private static void addMissingClientId(
+      List<DriverPropertyInfo> missingPropertyInfos,
+      DatabricksConnectionContext connectionContext) {
+    if (connectionContext.isPropertyPresent(CLIENT_ID)
+        || connectionContext.isPropertyPresent(USER)
+        || connectionContext.isPropertyPresent(UID)) {
+      return;
+    }
+    missingPropertyInfos.add(getUrlParamInfo(CLIENT_ID, true));
+  }
+
+  /**
+   * Reports {@code OAuth2Secret} as missing unless it is present or supplied via the JDBC
+   * password/PWD fallback (see issue #1132).
+   */
+  private static void addMissingClientSecret(
+      List<DriverPropertyInfo> missingPropertyInfos,
+      DatabricksConnectionContext connectionContext) {
+    if (connectionContext.isPropertyPresent(CLIENT_SECRET)
+        || connectionContext.isPropertyPresent(PWD)
+        || connectionContext.isPropertyPresent(PASSWORD)) {
+      return;
+    }
+    missingPropertyInfos.add(getUrlParamInfo(CLIENT_SECRET, true));
   }
 }

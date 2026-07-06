@@ -338,7 +338,33 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getNullableClientId() {
-    return getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
+    String clientId = getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
+    if (nullOrEmptyString(clientId) && isOAuthMode()) {
+      // Fall back to the JDBC username (user/UID from getConnection(url, user, password)) so BI
+      // tools can supply the OAuth client id without embedding OAuth2ClientId in the URL. The PAT
+      // sentinel value "token" is not a client id and is ignored (see issue #1132).
+      String user = getUserProvidedIdentity();
+      if (!nullOrEmptyString(user) && !VALID_UID_VALUE.equals(user)) {
+        return user;
+      }
+    }
+    return clientId;
+  }
+
+  /** Returns the identity supplied via the JDBC {@code UID}/{@code user} property, or null. */
+  private String getUserProvidedIdentity() {
+    return getParameter(DatabricksJdbcUrlParams.UID, getParameter(DatabricksJdbcUrlParams.USER));
+  }
+
+  /** Returns the secret supplied via the JDBC {@code PWD}/{@code password} property, or null. */
+  private String getUserProvidedSecret() {
+    return getParameter(
+        DatabricksJdbcUrlParams.PWD, getParameter(DatabricksJdbcUrlParams.PASSWORD));
+  }
+
+  /** Returns true when OAuth (AuthMech=11) authentication is in use. */
+  private boolean isOAuthMode() {
+    return getAuthMech() == AuthMech.OAUTH;
   }
 
   @Override
@@ -353,7 +379,35 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getClientSecret() {
-    return getParameter(DatabricksJdbcUrlParams.CLIENT_SECRET);
+    String clientSecret = getParameter(DatabricksJdbcUrlParams.CLIENT_SECRET);
+    if (nullOrEmptyString(clientSecret) && isOAuthMode()) {
+      // Fall back to the JDBC password (PWD/password from getConnection(url, user, password)) so BI
+      // tools can mask the OAuth secret instead of exposing OAuth2Secret in the URL (issue #1132).
+      String pwd = getUserProvidedSecret();
+      if (!nullOrEmptyString(pwd)) {
+        return pwd;
+      }
+    }
+    return clientSecret;
+  }
+
+  @Override
+  public boolean usesOAuthCredentialsFromUserPassword() {
+    // True when OAuth is in use and the client id or secret is being sourced from the JDBC
+    // user/password fallback rather than the explicit OAuth2ClientId/OAuth2Secret params. Used for
+    // telemetry only — no credential values are recorded.
+    if (!isOAuthMode()) {
+      return false;
+    }
+    boolean secretFromPwd =
+        nullOrEmptyString(getParameter(DatabricksJdbcUrlParams.CLIENT_SECRET))
+            && !nullOrEmptyString(getUserProvidedSecret());
+    String user = getUserProvidedIdentity();
+    boolean clientIdFromUser =
+        nullOrEmptyString(getParameter(DatabricksJdbcUrlParams.CLIENT_ID))
+            && !nullOrEmptyString(user)
+            && !VALID_UID_VALUE.equals(user);
+    return secretFromPwd || clientIdFromUser;
   }
 
   @Override
