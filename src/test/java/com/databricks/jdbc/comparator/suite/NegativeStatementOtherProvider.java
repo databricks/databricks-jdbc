@@ -36,6 +36,11 @@ public class NegativeStatementOtherProvider implements SuiteProvider {
             "DESCRIBE a non-existent table"),
         new TestCase("SET = 'x'", "SET with an invalid (empty) parameter name"),
         new TestCase(
+            "SET TIMEZONE = '__no_such_timezone__'",
+            "SET a valid conf to an invalid value (bad timezone)"),
+        new TestCase(
+            "SELECT 1; SELECT 2", "multi-statement script (;-separated) in a single execute()"),
+        new TestCase(
             "EXPLAIN SELECT __no_such_column__ FROM " + TABLE, "EXPLAIN of an invalid query"),
         new TestCase(GET_MORE_RESULTS, "getMoreResults() after all results are consumed"),
         new TestCase(GET_UPDATE_COUNT, "getUpdateCount() before execute()"));

@@ -58,6 +58,12 @@ public class NegativeStatementDmlProvider implements SuiteProvider {
               s -> "DELETE FROM " + s + ".__no_such__ WHERE id = 1"),
           new Case("executeUpdate on a SELECT (wrong method)", s -> "SELECT * FROM " + s + ".seed"),
           new Case(
+              "UPDATE a non-updatable view",
+              s -> "UPDATE " + s + ".seed_view SET name = 'x' WHERE id = 1"),
+          new Case(
+              "DELETE from a non-updatable view",
+              s -> "DELETE FROM " + s + ".seed_view WHERE id = 1"),
+          new Case(
               "Write overflow: CAST('123456' AS DECIMAL(2,0))",
               s ->
                   "INSERT INTO "
@@ -100,6 +106,9 @@ public class NegativeStatementDmlProvider implements SuiteProvider {
     exec(conn, "CREATE SCHEMA " + schema);
     exec(conn, "CREATE TABLE " + schema + ".seed (id INT NOT NULL, name STRING)");
     exec(conn, "INSERT INTO " + schema + ".seed VALUES (1, 'alice')");
+    // Views are read-only in Databricks/Spark, so UPDATE/DELETE against one must fail on both
+    // sides.
+    exec(conn, "CREATE VIEW " + schema + ".seed_view AS SELECT id, name FROM " + schema + ".seed");
   }
 
   private int execUpdate(Connection conn, String sql) throws Exception {

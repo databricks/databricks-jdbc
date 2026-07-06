@@ -1,5 +1,6 @@
 package com.databricks.jdbc.comparator.suite;
 
+import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.comparator.ComparisonResult;
 import com.databricks.jdbc.comparator.error.CapturedOutcome;
 import com.databricks.jdbc.comparator.error.Captures;
@@ -68,7 +69,23 @@ public class NegativeTypeConversionProvider implements SuiteProvider {
           new Case(
               "getBigDecimal() on a STRUCT column",
               "SELECT struct_column FROM " + TABLE + " WHERE struct_column IS NOT NULL LIMIT 1",
-              rs -> rs.getBigDecimal(1)));
+              rs -> rs.getBigDecimal(1)),
+          // Cross-type complex getters: the getter targets the WRONG complex type, so it hits an
+          // error path in both configs — the disabled-support guard when complex types are off, or
+          // a ClassCastException when they are on. (Type-matched getters would succeed under
+          // complex-enabled, giving a vacuous NOT_APPLICABLE pass with no value comparison.)
+          new Case(
+              "getMap() on an ARRAY column (wrong complex type)",
+              "SELECT array_column FROM " + TABLE + " WHERE array_column IS NOT NULL LIMIT 1",
+              rs -> rs.unwrap(IDatabricksResultSet.class).getMap(1)),
+          new Case(
+              "getArray() on a MAP column (wrong complex type)",
+              "SELECT map_column FROM " + TABLE + " WHERE map_column IS NOT NULL LIMIT 1",
+              rs -> rs.getArray(1)),
+          new Case(
+              "getStruct() on an ARRAY column (wrong complex type)",
+              "SELECT array_column FROM " + TABLE + " WHERE array_column IS NOT NULL LIMIT 1",
+              rs -> rs.unwrap(IDatabricksResultSet.class).getStruct(1)));
 
   @Override
   public List<TestCase> getTestCases() {
