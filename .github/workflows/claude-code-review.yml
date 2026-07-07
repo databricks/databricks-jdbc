@@ -42,7 +42,7 @@ jobs:
           echo "number=$(echo "$PR_DATA" | jq -r .number)" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           # Use the commit SHA instead of the branch ref to prevent
           # the branch from being moved between the API call and checkout

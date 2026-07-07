@@ -29,7 +29,7 @@ jobs:
       labels: linux-ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.event.workflow_run.head_sha }}
           fetch-tags: true
@@ -114,7 +114,7 @@ jobs:
       labels: linux-ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.event.workflow_run.head_sha }}
           fetch-tags: true
@@ -218,7 +218,7 @@ jobs:
 
       - name: Verify main release exists
         if: github.event_name == 'workflow_run'
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v7
         with:
           script: |
             const tag = '${{ steps.get_tag.outputs.tag }}';
@@ -235,7 +235,7 @@ jobs:
             }
 
       - name: Upload Thin JAR to GitHub Release
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
           tag_name: ${{ steps.get_tag.outputs.tag }}
           files: |
