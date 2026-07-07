@@ -113,7 +113,7 @@ public class TelemetryHttpClientLeakTest {
       // call chain that triggered the leak before the fix.
       AtomicInteger reCreationCount = new AtomicInteger(0);
       mockedStatic
-          .when(() -> TelemetryHelper.exportTelemetryLog(any(), any()))
+          .when(() -> TelemetryHelper.exportTelemetryLog(any(), any(), any()))
           .thenAnswer(
               invocation -> {
                 int before =
@@ -233,7 +233,7 @@ public class TelemetryHttpClientLeakTest {
 
   private void stubExportTelemetryLog(MockedStatic<TelemetryHelper> mockedStatic) {
     mockedStatic
-        .when(() -> TelemetryHelper.exportTelemetryLog(any(), any()))
+        .when(() -> TelemetryHelper.exportTelemetryLog(any(), any(), any()))
         .thenAnswer(invocation -> null);
   }
 }

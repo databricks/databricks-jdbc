@@ -6,6 +6,117 @@ The release notes summarize enhancements, new features, known issues, workflow c
 
 Version History ==============================================================
 
+3.4.1 ========================================================================
+Released 2026-05-26
+
+Breaking Changes
+
+ * Metadata JDBC Spec Compliance (SQL warehouses only; All-Purpose Clusters unaffected):
+
+   * getTables/getColumns/getSchemas: Catalog parameter is now an exact-match
+     identifier per JDBC spec. Passing % or wildcard patterns as catalog no longer
+     returns results across all catalogs. Use null to search all catalogs.
+
+   * getTables with empty types array: Now returns zero rows per JDBC spec.
+     Use null to return all table types.
+
+   * getSchemas: Now includes information_schema in results. Excludes global_temp
+     schema (previously returned by Thrift for all catalogs).
+
+   * getPrimaryKeys/getImportedKeys/getCrossReference with non-existent catalog,
+     schema, or table: Now returns empty ResultSet instead of throwing SQLException.
+
+   * getImportedKeys UPDATE_RULE/DELETE_RULE: Now returns 3 (NO_ACTION) instead
+     of 0 (CASCADE) for Thrift and 3 instead of null for SEA, reflecting that
+     Unity Catalog foreign keys are informational and non-enforced.
+
+   * PreparedStatement.setDate() now sends parameter type as DATE instead of
+     TIMESTAMP. Server-side behavior is unchanged; applications that inspect
+     parameter types may see the difference.
+
+ * Native geospatial type support (GEOMETRY, GEOGRAPHY) is now enabled by default.
+   getObject() now returns IGeometry/IGeography instances instead of EWKT strings.
+   Set EnableGeoSpatialSupport=0 to restore the previous behavior.
+
+ * EnableArrow connection property is deprecated and ignored. Arrow serialization
+   is now always enabled. Setting EnableArrow=0 is a no-op (a deprecation warning
+   is logged). Exception: on AIX and PowerPC (os.arch contains "ppc"), EnableArrow
+   is still honored and defaults to disabled.
+
+Enhancements & New Features
+
+ * Added result set heartbeat / keep-alive (EnableHeartbeat=1) to prevent
+   server-side result expiry during slow consumption. The driver periodically polls
+   the backend while the client reads results. Configurable via HeartbeatIntervalSeconds
+   (default 60s). Disabled by default due to cost implications (heartbeats keep
+   the warehouse running).
+
+ * Metadata operations now use SQL SHOW commands for both Thrift and SEA backends,
+   ensuring consistent behavior for SQL warehouses regardless of protocol.
+   To revert to native Thrift metadata RPCs, set UseQueryForMetadata=0.
+
+ * EnableGeoSpatialSupport no longer requires EnableComplexDatatypeSupport=1.
+   Geospatial types can now be enabled independently of complex type support.
+
+ * getColumnTypeName() for DECIMAL columns now preserves precision/scale suffix
+   (e.g., "DECIMAL(10,2)") consistently across Thrift and SEA backends.
+
+ * Arrow schema deserialization failures now surface a dedicated error code
+   ARROW_SCHEMA_PARSING_ERROR (vendor code 22000, SQLSTATE 22000) instead of
+   the generic RESULT_SET_ERROR.
+
+ * When a Statement is re-executed, the previous server-side operation is now
+   explicitly closed, preventing orphaned server-side operations on reuse.
+
+ * Server-side operations are now closed proactively when ResultSet.close() is
+   called, improving server-side resource utilization. The Statement remains open
+   and reusable.
+
+ * Added MetadataOperationTimeout support for SHOW-commands metadata path.
+   Operations like getTables, getSchemas, and getColumns now respect the
+   MetadataOperationTimeout connection property.
+
+ * Transient server errors are now classified with standard SQL states: 08S01
+   (communication link failure) and 40001 (concurrent modification) for better
+   retry handling by frameworks.
+
+ * Bumped databricks-sdk-java from 0.69.0 to 0.106.0.
+
+Resolved Issues
+
+ * Fixed DML misclassification for statements containing UNION, INTERSECT, or
+   EXCEPT. Statement.execute() now correctly returns false for DML that includes
+   these set operators.
+
+ * Fixed client-side maxRows enforcement. When setMaxRows() is set, ResultSet.next()
+   returns false once the row limit is reached, across all result types (Thrift,
+   SEA, inline, CloudFetch).
+
+ * Fixed SQLInterpolator treating ? in SQL comments, string literals, and quoted
+   identifiers as parameter placeholders when supportManyParameters=1. Fixes #1331.
+
+ * Fixed PreparedStatement.getMetaData() crash (IllegalArgumentException) for SQL
+   type aliases (VARCHAR, INTEGER, NUMERIC, DEC, REAL, NVARCHAR, NCHAR) returned
+   by DESCRIBE QUERY.
+
+ * Fixed double-backtick wrapping in setCatalog() and setSchema(). Names already
+   wrapped in backticks are no longer double-wrapped.
+
+ * Fixed getTables(types=[]) returning rows in Thrift mode. An empty types array
+   now correctly returns zero rows per JDBC spec.
+
+ * Fixed telemetry HTTP client socket leak that prevented CRaC checkpoint. Delayed
+   flush tasks could re-create HTTP clients after Connection.close(), leaking TCP
+   sockets. Fixes #1325.
+
+ * Bumped shaded jackson-core 2.18.6 to 2.18.7 (SNYK-JAVA-COMFASTERXMLJACKSONCORE-15907551).
+ * Bumped shaded httpclient5/httpcore5 5.3.1 to 5.5.2 (CVE-2025-8671).
+ * Bumped shaded netty 4.2.12.Final to 4.2.13.Final (CVE-2026-42577 batch).
+ * Bumped shaded commons-configuration2 2.10.1 to 2.15.0 (CVE-2026-45205).
+ * Bumped shaded bouncycastle 1.79 to 1.84 (CVE-2026-5598 and two related MEDIUM CVEs).
+ * Bumped shaded libthrift 0.19.0 to 0.23.0 (CVE-2026-41603 batch).
+ * Bumped lz4-java to at.yawk.lz4:lz4-java:1.10.1 (CVE-2025-66566). Fixes #1455.
+
 3.3.3 ========================================================================
 Released 2026-04-29
 

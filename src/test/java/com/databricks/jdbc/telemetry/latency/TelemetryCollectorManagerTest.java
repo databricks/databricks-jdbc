@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
@@ -27,9 +28,11 @@ public class TelemetryCollectorManagerTest {
     // Create mock contexts with different UUIDs
     context1 = mock(IDatabricksConnectionContext.class);
     when(context1.getConnectionUuid()).thenReturn("connection-uuid-1");
+    when(context1.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.OFF);
 
     context2 = mock(IDatabricksConnectionContext.class);
     when(context2.getConnectionUuid()).thenReturn("connection-uuid-2");
+    when(context2.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.OFF);
   }
 
   @AfterEach
@@ -225,6 +228,27 @@ public class TelemetryCollectorManagerTest {
     // Verify collector was removed from manager
     TelemetryCollector newCollector = manager.getOrCreateCollector(context1);
     assertNotSame(collector, newCollector, "After removal, should get a new collector instance");
+  }
+
+  @Test
+  void testCollectorStoresCorrectConnectionContext() {
+    TelemetryCollector collector1 = manager.getOrCreateCollector(context1);
+    TelemetryCollector collector2 = manager.getOrCreateCollector(context2);
+
+    assertSame(context1, collector1.getConnectionContext(), "Collector 1 should store context1");
+    assertSame(context2, collector2.getConnectionContext(), "Collector 2 should store context2");
+  }
+
+  @Test
+  void testCollectorContextNotAffectedBySubsequentConnectionCreation() {
+    TelemetryCollector collector1 = manager.getOrCreateCollector(context1);
+    // Creating a second collector should not affect the first collector's stored context
+    manager.getOrCreateCollector(context2);
+
+    assertSame(
+        context1,
+        collector1.getConnectionContext(),
+        "Collector 1's context should remain context1 even after context2 collector is created");
   }
 
   @Test

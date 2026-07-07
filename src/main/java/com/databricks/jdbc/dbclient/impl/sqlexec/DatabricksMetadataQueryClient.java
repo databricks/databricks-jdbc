@@ -5,6 +5,7 @@ import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.impl.ImmutableSqlParameter;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
@@ -44,6 +45,11 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     this.queryExecutionClient = queryExecutionClient;
     this.metadataResultSetBuilder =
         new MetadataResultSetBuilder(queryExecutionClient.getConnectionContext());
+  }
+
+  @Override
+  public IDatabricksConnectionContext getConnectionContext() {
+    return queryExecutionClient.getConnectionContext();
   }
 
   @Override
