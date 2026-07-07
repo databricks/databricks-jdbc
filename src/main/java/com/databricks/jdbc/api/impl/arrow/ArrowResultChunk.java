@@ -101,15 +101,16 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
           chunkLink.getExternalLink(),
           speedThreshold);
 
-      // Decompress (if needed) and parse
+      // Decompress and parse. The decompression is streamed straight into the Arrow reader so the
+      // full decompressed payload is never materialized on-heap alongside the compressed bytes.
       long decompressStart = System.nanoTime();
       try {
         String ctx =
             String.format(
                 "Data decompression for chunk index [%d] and statement [%s]",
                 this.chunkIndex, this.statementId);
-        InputStream data = DecompressionUtil.decompressToStream(compressed, compressionCodec, ctx);
-        initializeData(data);
+        initializeData(
+            DecompressionUtil.decompressToInputStream(compressed, compressionCodec, ctx));
       } catch (Exception e) {
         handleFailure(e, ChunkStatus.PROCESSING_FAILED);
       }
