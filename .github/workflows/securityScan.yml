@@ -60,7 +60,7 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
 
       - name: Set up JDK 11
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
         with:
           java-version: '11'
           distribution: 'temurin'
@@ -253,7 +253,7 @@ jobs:
 
       - name: Send Email
         if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.findings.outputs.total_findings != '0'
-        uses: dawidd6/action-send-mail@2cea9617b09d79a095af21254fbcb7ae95903dde # v3.12.0
+        uses: dawidd6/action-send-mail@94de994a9f6fffee200243214e17002e2920bb59 # v18
         with:
           server_address: smtp.gmail.com
           server_port: 465
