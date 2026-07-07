@@ -25,7 +25,10 @@ public enum ConnectionConfig {
           TestSuite.COMPLEX_TYPES,
           TestSuite.GEOSPATIAL,
           TestSuite.VOLUME_OPERATIONS,
-          TestSuite.NEGATIVE_VOLUME)),
+          TestSuite.NEGATIVE_VOLUME,
+          // Runs under TRANSACTIONS_ENABLED instead — under default params IgnoreTransactions=1
+          // makes commit/rollback/setAutoCommit no-ops, so the suite would test nothing.
+          TestSuite.NEGATIVE_TRANSACTION)),
 
   COMPRESSION_DISABLED(
       "Compression disabled",
@@ -74,6 +77,15 @@ public enum ConnectionConfig {
       Map.of("VolumeOperationAllowedLocalPaths", "/tmp"),
       null,
       EnumSet.of(TestSuite.VOLUME_OPERATIONS, TestSuite.NEGATIVE_VOLUME)),
+
+  // Transactions actually engaged (driver default IgnoreTransactions=1 makes setAutoCommit/commit/
+  // rollback no-ops, so the transaction suites are inert by default). Set to 0 to exercise the real
+  // transaction path.
+  TRANSACTIONS_ENABLED(
+      "Transactions enabled",
+      Map.of("IgnoreTransactions", "0"),
+      null,
+      EnumSet.of(TestSuite.NEGATIVE_TRANSACTION)),
 
   PRO_WAREHOUSE(
       "Pro warehouse",
