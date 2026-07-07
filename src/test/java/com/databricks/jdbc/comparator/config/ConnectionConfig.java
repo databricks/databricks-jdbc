@@ -46,7 +46,9 @@ public enum ConnectionConfig {
       "ComplexTypes enabled",
       Map.of("EnableComplexDatatypeSupport", "1"),
       null,
-      EnumSet.of(TestSuite.COMPLEX_TYPES)),
+      // Also exercises NEGATIVE_TYPE_CONVERSION's complex getters with support ON (the wrong-type
+      // getters hit the Arrow ClassCastException path instead of the disabled-support guard).
+      EnumSet.of(TestSuite.COMPLEX_TYPES, TestSuite.NEGATIVE_TYPE_CONVERSION)),
 
   GEOSPATIAL_DISABLED(
       "Geospatial disabled",
@@ -70,7 +72,10 @@ public enum ConnectionConfig {
       "Direct results disabled",
       Map.of("EnableDirectResults", "0"),
       null,
-      EnumSet.of(TestSuite.STATEMENT_SELECT)),
+      // Also exercises NEGATIVE_STATEMENT_SELECT: with direct results off, Thrift surfaces runtime
+      // errors (div-by-zero, cast failure) via a different exception class/message than the
+      // default.
+      EnumSet.of(TestSuite.STATEMENT_SELECT, TestSuite.NEGATIVE_STATEMENT_SELECT)),
 
   VOLUME_OPERATIONS(
       "Volume operations",

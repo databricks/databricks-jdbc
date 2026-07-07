@@ -34,11 +34,17 @@ public class NegativeTypeConversionProvider implements SuiteProvider {
     final String description;
     final String query;
     final Getter getter;
+    final Boolean expectCloudFetch;
 
     Case(String description, String query, Getter getter) {
+      this(description, query, getter, null);
+    }
+
+    Case(String description, String query, Getter getter, Boolean expectCloudFetch) {
       this.description = description;
       this.query = query;
       this.getter = getter;
+      this.expectCloudFetch = expectCloudFetch;
     }
   }
 
@@ -86,12 +92,30 @@ public class NegativeTypeConversionProvider implements SuiteProvider {
           new Case(
               "getStruct() on an ARRAY column (wrong complex type)",
               "SELECT array_column FROM " + TABLE + " WHERE array_column IS NOT NULL LIMIT 1",
-              rs -> rs.unwrap(IDatabricksResultSet.class).getStruct(1)));
+              rs -> rs.unwrap(IDatabricksResultSet.class).getStruct(1)),
+          // CloudFetch variants: force a large (CloudFetch) result with SELECT * over the full
+          // table, then apply the wrong complex getter to the complex column (read by name). These
+          // exercise the Arrow/CloudFetch complex path at scale, mirroring the positive suites.
+          new Case(
+              "getMap() on an ARRAY column (wrong complex type, CloudFetch)",
+              "SELECT * FROM " + TABLE + " ORDER BY id",
+              rs -> rs.unwrap(IDatabricksResultSet.class).getMap(rs.findColumn("array_column")),
+              true),
+          new Case(
+              "getArray() on a MAP column (wrong complex type, CloudFetch)",
+              "SELECT * FROM " + TABLE + " ORDER BY id",
+              rs -> rs.getArray(rs.findColumn("map_column")),
+              true),
+          new Case(
+              "getStruct() on an ARRAY column (wrong complex type, CloudFetch)",
+              "SELECT * FROM " + TABLE + " ORDER BY id",
+              rs -> rs.unwrap(IDatabricksResultSet.class).getStruct(rs.findColumn("array_column")),
+              true));
 
   @Override
   public List<TestCase> getTestCases() {
     return CASES.stream()
-        .map(c -> new TestCase(c.description, c.description))
+        .map(c -> new TestCase(c.description, new Object[0], c.description, c.expectCloudFetch))
         .collect(Collectors.toList());
   }
 
@@ -109,6 +133,8 @@ public class NegativeTypeConversionProvider implements SuiteProvider {
         Statement s2 = conn2.createStatement();
         ResultSet rs1 = s1.executeQuery(c.query);
         ResultSet rs2 = s2.executeQuery(c.query)) {
+      // For CloudFetch variants, verify the large result actually used CloudFetch on both sides.
+      assertCloudFetchExpectation(testCase, rs1, rs2);
       // Both queries must return the same shape; if a side has no row, the getter can't run — that
       // is a harness/data problem, so let it propagate (fail loudly) rather than compare noise.
       boolean has1 = rs1.next();

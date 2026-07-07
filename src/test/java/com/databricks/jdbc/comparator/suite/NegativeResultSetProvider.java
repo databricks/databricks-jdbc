@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Negative ResultSet-iteration cases — mis-using a ResultSet after it (or its statement) is closed,
@@ -27,38 +28,88 @@ import java.util.List;
 public class NegativeResultSetProvider implements SuiteProvider {
 
   private static final String TABLE = "comparator_tests.oss_jdbc_tests.test_result_set_types";
+  private static final String INLINE_QUERY = "SELECT id FROM " + TABLE + " LIMIT 1";
+  // Wide + full-table scan → a CloudFetch-backed result (same pattern the positive SELECT suite
+  // uses), so the misuse runs against a chunk/link-backed ResultSet rather than an inline one.
+  private static final String CLOUDFETCH_QUERY = "SELECT * FROM " + TABLE + " ORDER BY id";
 
-  private static final String NEXT_AFTER_CLOSE = "next() after the ResultSet is closed";
-  private static final String GET_AFTER_CLOSE = "getObject() after the ResultSet is closed";
-  private static final String GET_AFTER_STMT_CLOSE = "next() after the Statement is closed";
-  private static final String COLUMN_OUT_OF_RANGE = "getObject() on an out-of-range column index";
+  private enum Kind {
+    NEXT_AFTER_CLOSE,
+    GET_AFTER_CLOSE,
+    GET_AFTER_STMT_CLOSE,
+    COLUMN_OUT_OF_RANGE
+  }
+
+  private static final class Case {
+    final String description;
+    final Kind kind;
+    final String query;
+
+    Case(String description, Kind kind, String query) {
+      this.description = description;
+      this.kind = kind;
+      this.query = query;
+    }
+  }
+
+  private static final List<Case> CASES =
+      Arrays.asList(
+          new Case("next() after the ResultSet is closed", Kind.NEXT_AFTER_CLOSE, INLINE_QUERY),
+          new Case("getObject() after the ResultSet is closed", Kind.GET_AFTER_CLOSE, INLINE_QUERY),
+          new Case("next() after the Statement is closed", Kind.GET_AFTER_STMT_CLOSE, INLINE_QUERY),
+          new Case(
+              "getObject() on an out-of-range column index",
+              Kind.COLUMN_OUT_OF_RANGE,
+              INLINE_QUERY),
+          // CloudFetch-backed variants: identical misuse on a large (CloudFetch) result. The errors
+          // are client-side, so they are expected to match inline — this exercises the CloudFetch
+          // result path for parity with the positive suites.
+          new Case(
+              "next() after the ResultSet is closed (CloudFetch)",
+              Kind.NEXT_AFTER_CLOSE,
+              CLOUDFETCH_QUERY),
+          new Case(
+              "getObject() after the ResultSet is closed (CloudFetch)",
+              Kind.GET_AFTER_CLOSE,
+              CLOUDFETCH_QUERY),
+          new Case(
+              "next() after the Statement is closed (CloudFetch)",
+              Kind.GET_AFTER_STMT_CLOSE,
+              CLOUDFETCH_QUERY),
+          new Case(
+              "getObject() on an out-of-range column index (CloudFetch)",
+              Kind.COLUMN_OUT_OF_RANGE,
+              CLOUDFETCH_QUERY));
 
   @Override
   public List<TestCase> getTestCases() {
-    return Arrays.asList(
-        new TestCase(NEXT_AFTER_CLOSE, NEXT_AFTER_CLOSE),
-        new TestCase(GET_AFTER_CLOSE, GET_AFTER_CLOSE),
-        new TestCase(GET_AFTER_STMT_CLOSE, GET_AFTER_STMT_CLOSE),
-        new TestCase(COLUMN_OUT_OF_RANGE, COLUMN_OUT_OF_RANGE));
+    return CASES.stream()
+        .map(c -> new TestCase(c.description, c.description))
+        .collect(Collectors.toList());
   }
 
   @Override
   public ComparisonResult execute(
       Connection conn1, Connection conn2, TestCase testCase, String label) throws Exception {
-    String id = testCase.getIdentifier();
-    CapturedOutcome left = Captures.capture(() -> runCase(conn1, id));
-    CapturedOutcome right = Captures.capture(() -> runCase(conn2, id));
-    ComparisonResult result = new ComparisonResult(label, id, testCase.getArgs());
+    Case c =
+        CASES.stream()
+            .filter(x -> x.description.equals(testCase.getIdentifier()))
+            .findFirst()
+            .orElseThrow(
+                () -> new IllegalArgumentException("Unknown case: " + testCase.getIdentifier()));
+    CapturedOutcome left = Captures.capture(() -> runCase(conn1, c));
+    CapturedOutcome right = Captures.capture(() -> runCase(conn2, c));
+    ComparisonResult result = new ComparisonResult(label, c.description, testCase.getArgs());
     ErrorDiffs.foldInto(result, left, right, "result ", "");
     return result;
   }
 
-  private Object runCase(Connection conn, String id) throws Exception {
-    switch (id) {
+  private Object runCase(Connection conn, Case c) throws Exception {
+    switch (c.kind) {
       case NEXT_AFTER_CLOSE:
         {
           Statement s = conn.createStatement();
-          ResultSet rs = s.executeQuery("SELECT id FROM " + TABLE + " LIMIT 1");
+          ResultSet rs = s.executeQuery(c.query);
           rs.close();
           try {
             return rs.next(); // ResultSet closed
@@ -69,7 +120,7 @@ public class NegativeResultSetProvider implements SuiteProvider {
       case GET_AFTER_CLOSE:
         {
           Statement s = conn.createStatement();
-          ResultSet rs = s.executeQuery("SELECT id FROM " + TABLE + " LIMIT 1");
+          ResultSet rs = s.executeQuery(c.query);
           rs.next();
           rs.close();
           try {
@@ -81,20 +132,20 @@ public class NegativeResultSetProvider implements SuiteProvider {
       case GET_AFTER_STMT_CLOSE:
         {
           Statement s = conn.createStatement();
-          ResultSet rs = s.executeQuery("SELECT id FROM " + TABLE + " LIMIT 1");
+          ResultSet rs = s.executeQuery(c.query);
           s.close(); // closing the statement closes the ResultSet
           return rs.next();
         }
       case COLUMN_OUT_OF_RANGE:
         {
           try (Statement s = conn.createStatement();
-              ResultSet rs = s.executeQuery("SELECT id FROM " + TABLE + " LIMIT 1")) {
+              ResultSet rs = s.executeQuery(c.query)) {
             rs.next();
             return rs.getObject(999); // out-of-range column index
           }
         }
       default:
-        throw new IllegalArgumentException("Unknown case: " + id);
+        throw new IllegalArgumentException("Unknown kind: " + c.kind);
     }
   }
 }
