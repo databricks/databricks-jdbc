@@ -1,6 +1,9 @@
 package com.databricks.jdbc.telemetry.latency;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.lang.reflect.InvocationHandler;
@@ -75,9 +78,13 @@ public class DatabricksMetricsTimedProcessor {
               argsStr,
               executionTimeMillis);
           try {
+            // Resolve the collector from the timed target's own connection context so that
+            // selection and stamping derive from the same per-connection source. Falling back to
+            // the thread-local here would misattribute telemetry when multiple connections are used
+            // on one thread (ES-1961329).
             TelemetryCollector collector =
                 TelemetryCollectorManager.getInstance()
-                    .getCollectorSafely(DatabricksThreadContextHolder::getConnectionContext);
+                    .getCollectorSafely(this::resolveConnectionContext);
             if (collector != null) {
               collector.recordOperationLatency(executionTimeMillis, methodName);
             }
@@ -94,6 +101,23 @@ public class DatabricksMetricsTimedProcessor {
         // throws the real cause. It does not log latency.
         throw e.getCause();
       }
+    }
+
+    /**
+     * Resolves the connection context used to select the telemetry collector. Prefers the target's
+     * own per-connection context (available on {@link IDatabricksClient}) so telemetry is
+     * attributed to the connection that actually executed the operation, rather than whichever
+     * connection last populated the shared thread-local. Falls back to the thread-local for targets
+     * that are not connection-scoped clients.
+     */
+    private IDatabricksConnectionContext resolveConnectionContext() {
+      if (target instanceof IDatabricksClient) {
+        return ((IDatabricksClient) target).getConnectionContext();
+      }
+      if (target instanceof IDatabricksMetadataClient) {
+        return ((IDatabricksMetadataClient) target).getConnectionContext();
+      }
+      return DatabricksThreadContextHolder.getConnectionContext();
     }
   }
 }

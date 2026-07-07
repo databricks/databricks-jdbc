@@ -3,11 +3,14 @@
 ## [Unreleased]
 
 ### Added
+- OAuth M2M (client credentials) connections can now supply the client secret via the JDBC `password`/`PWD` property and the client id via the JDBC `user`/`UID` property, instead of embedding `OAuth2Secret`/`OAuth2ClientId` in the connection URL. This lets BI tools (e.g. DBeaver) mask the OAuth secret in their password field rather than exposing it in the clear-text JDBC URL. Explicit `OAuth2ClientId`/`OAuth2Secret` still take precedence when present, so existing URLs are unaffected.
 
 ### Updated
 - Bumped the Databricks SDK for Java dependency from `0.106.0` to `0.118.0`.
 
 ### Fixed
+- Fixed telemetry misattribution when multiple connections (e.g. Thrift and SEA) are used on the same thread. Per-statement telemetry events could be tagged with another connection's context (e.g. transport mode); each connection's telemetry now uses its own context instead of a shared thread-local value.
+- Hardened the OAuth U2M token cache at rest (encryption key derivation and file permissions).
 - Fixed `DatabaseMetaData.getURL()` exposing credentials embedded in the connection URL; secret parameters are now masked (the URL is otherwise unchanged).
 - Fixed presigned URL credentials not being fully redacted in logs.
 - Fixed access token exposure in DEBUG logs.
@@ -19,6 +22,7 @@
 - Fixed `getColumns()` flooding the `DriverManager` log writer with caught-and-recovered `Invalid column index` stack traces.
 - Fixed timezone-shifted TIMESTAMP values when retrieving nested complex types (STRUCT/ARRAY/MAP) with `EnableComplexDatatypeSupport=1`.
 - Fixed `DatabricksDatabaseMetaData.supportsBatchUpdates()` always returning `false`, which caused batch-aware JDBC clients (e.g. Apache Hop) to skip `executeBatch()` and fall back to one INSERT per row. It now returns `true` when `EnableBatchedInserts=1`, so those clients use the optimized multi-row INSERT path.
+- Fixed `Connection.setReadOnly(true)` throwing `DatabricksSQLFeatureNotSupportedException`, which broke clients (e.g. Trino/Starburst GenericJDBC, HikariCP, DBCP) that call it during connection initialization. Per the JDBC spec, `setReadOnly` is a hint the driver may ignore; it is now a no-op and `isReadOnly()` continues to return `false`.
 
 ---
 *Note: When making changes, please add your change under the appropriate section

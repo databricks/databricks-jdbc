@@ -338,7 +338,47 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getNullableClientId() {
-    return getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
+    String clientId = getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
+    if (nullOrEmptyString(clientId) && isM2MClientCredentialsMode()) {
+      // Fall back to the JDBC username (user/UID from getConnection(url, user, password)) so BI
+      // tools can supply the OAuth client id without embedding OAuth2ClientId in the URL (issue
+      // #1132). The PAT sentinel value "token" is not a client id and is ignored.
+      String user = getUserProvidedClientId();
+      if (user != null) {
+        return user;
+      }
+    }
+    return clientId;
+  }
+
+  /**
+   * Returns the OAuth client id supplied via the JDBC {@code UID}/{@code user} property, treating
+   * the PAT sentinel {@code "token"} and blank values as absent. Returns null if none is usable.
+   */
+  private String getUserProvidedClientId() {
+    String user = getUserProvidedIdentity();
+    return (!nullOrEmptyString(user) && !VALID_UID_VALUE.equals(user)) ? user : null;
+  }
+
+  /** Returns the identity supplied via the JDBC {@code UID}/{@code user} property, or null. */
+  private String getUserProvidedIdentity() {
+    return getParameter(DatabricksJdbcUrlParams.UID, getParameter(DatabricksJdbcUrlParams.USER));
+  }
+
+  /** Returns the secret supplied via the JDBC {@code PWD}/{@code password} property, or null. */
+  private String getUserProvidedSecret() {
+    return getParameter(
+        DatabricksJdbcUrlParams.PWD, getParameter(DatabricksJdbcUrlParams.PASSWORD));
+  }
+
+  /**
+   * Returns true only for the OAuth M2M client-credentials flow (AuthMech=11, Auth_Flow=1), the
+   * flow for which reading the client id/secret from the JDBC user/password is intended (issue
+   * #1132). Scoped this narrowly so it never alters the U2M browser (public-client PKCE) or
+   * token-passthrough flows.
+   */
+  private boolean isM2MClientCredentialsMode() {
+    return getAuthMech() == AuthMech.OAUTH && getAuthFlow() == AuthFlow.CLIENT_CREDENTIALS;
   }
 
   @Override
@@ -353,7 +393,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getClientSecret() {
-    return getParameter(DatabricksJdbcUrlParams.CLIENT_SECRET);
+    String clientSecret = getParameter(DatabricksJdbcUrlParams.CLIENT_SECRET);
+    if (nullOrEmptyString(clientSecret) && isM2MClientCredentialsMode()) {
+      // Fall back to the JDBC password (PWD/password from getConnection(url, user, password)) so BI
+      // tools can mask the OAuth secret instead of exposing OAuth2Secret in the URL (issue #1132).
+      String pwd = getUserProvidedSecret();
+      if (!nullOrEmptyString(pwd)) {
+        return pwd;
+      }
+    }
+    return clientSecret;
   }
 
   @Override

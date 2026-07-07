@@ -466,12 +466,14 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public void setReadOnly(boolean readOnly) throws SQLException {
-    LOGGER.debug("public void setReadOnly(boolean readOnly)");
+    LOGGER.debug("public void setReadOnly(boolean readOnly = {})", readOnly);
     throwExceptionIfConnectionIsClosed();
-    if (readOnly) {
-      throw new DatabricksSQLFeatureNotSupportedException(
-          "Databricks OSS JDBC does not support readOnly mode.");
-    }
+    // Per the JDBC spec, setReadOnly is a hint used to enable database optimizations. The
+    // Databricks
+    // backend does not enforce a connection-level read-only mode, so this is treated as a no-op
+    // rather than throwing. isReadOnly() continues to report false since the hint is not enforced.
+    // Throwing here breaks common clients (e.g. HikariCP, DBCP, Trino/Starburst) that call
+    // setReadOnly(true) during connection initialization.
   }
 
   @Override
