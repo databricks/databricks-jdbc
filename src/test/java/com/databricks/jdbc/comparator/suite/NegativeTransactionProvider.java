@@ -24,14 +24,15 @@ import java.util.stream.Collectors;
 public class NegativeTransactionProvider implements SuiteProvider {
 
   // Throwaway table for the DDL-in-transaction case, in a schema known to exist so the case fails
-  // (if it does) for the transaction reason, not a missing namespace. Dropped in a finally so no
-  // stray state remains whether the DDL is rejected or (on a backend where DDL isn't
-  // transactional) succeeds.
-  private static final String TXN_TMP_TABLE = "comparator_tests.oss_jdbc_tests.neg_txn_tmp";
+  // (if it does) for the transaction reason, not a missing namespace. Each side gets its OWN table
+  // name (per the DDL/DML suites' per-side isolation) so LEFT creating it doesn't make RIGHT fail
+  // with "table already exists". Dropped before and after use so no stray state remains whether the
+  // DDL is rejected or (on a backend where DDL isn't transactional) succeeds.
+  private static final String TXN_TMP_TABLE_BASE = "comparator_tests.oss_jdbc_tests.neg_txn_tmp";
 
   @FunctionalInterface
   private interface ConnAction {
-    Object run(Connection conn) throws Exception;
+    Object run(Connection conn, String tmpTable) throws Exception;
   }
 
   private static final class Case {
@@ -48,24 +49,24 @@ public class NegativeTransactionProvider implements SuiteProvider {
       Arrays.asList(
           new Case(
               "commit() with autocommit on",
-              conn -> {
+              (conn, tmpTable) -> {
                 conn.setAutoCommit(true);
                 conn.commit();
                 return "ok";
               }),
           new Case(
               "rollback() with autocommit on",
-              conn -> {
+              (conn, tmpTable) -> {
                 conn.setAutoCommit(true);
                 conn.rollback();
                 return "ok";
               }),
           new Case(
               "DDL inside a manual transaction (setAutoCommit(false))",
-              conn -> {
+              (conn, tmpTable) -> {
                 conn.setAutoCommit(false);
                 try (Statement s = conn.createStatement()) {
-                  return s.execute("CREATE TABLE " + TXN_TMP_TABLE + " (id INT)");
+                  return s.execute("CREATE TABLE " + tmpTable + " (id INT)");
                 }
               }));
 
@@ -99,26 +100,40 @@ public class NegativeTransactionProvider implements SuiteProvider {
             .orElseThrow(
                 () -> new IllegalArgumentException("Unknown case: " + testCase.getIdentifier()));
 
+    // Distinct table name per side so LEFT's CREATE doesn't collide with RIGHT's.
+    String leftTable = TXN_TMP_TABLE_BASE + "_left";
+    String rightTable = TXN_TMP_TABLE_BASE + "_right";
+
     Connection left = factory.openFresh("LEFT");
     Connection right = factory.openFresh("RIGHT");
     try {
-      CapturedOutcome lo = Captures.capture(() -> c.action.run(left));
-      CapturedOutcome ro = Captures.capture(() -> c.action.run(right));
+      // Clean slate before the captured call (bookkeeping) so a leftover table from a prior crashed
+      // run can't make the CREATE case fail for the wrong reason.
+      dropTxnTmp(left, leftTable);
+      dropTxnTmp(right, rightTable);
+      CapturedOutcome lo = Captures.capture(() -> c.action.run(left, leftTable));
+      CapturedOutcome ro = Captures.capture(() -> c.action.run(right, rightTable));
       ComparisonResult result = new ComparisonResult(label, c.description, testCase.getArgs());
       ErrorDiffs.foldInto(result, lo, ro, "result ", "");
       return result;
     } finally {
-      // Drop the throwaway table on both sides in case a backend committed the DDL, then close.
-      dropTxnTmp(left);
-      dropTxnTmp(right);
+      // Drop each side's throwaway table in case a backend committed the DDL, then close.
+      dropTxnTmp(left, leftTable);
+      dropTxnTmp(right, rightTable);
       closeQuietly(left);
       closeQuietly(right);
     }
   }
 
-  private static void dropTxnTmp(Connection conn) {
+  private static void dropTxnTmp(Connection conn, String tmpTable) {
+    try {
+      // Reset autocommit so the DROP commits even if a case left the connection mid-transaction.
+      conn.setAutoCommit(true);
+    } catch (Exception ignored) {
+      // best-effort
+    }
     try (Statement s = conn.createStatement()) {
-      s.execute("DROP TABLE IF EXISTS " + TXN_TMP_TABLE);
+      s.execute("DROP TABLE IF EXISTS " + tmpTable);
     } catch (Exception ignored) {
       // best-effort cleanup
     }
