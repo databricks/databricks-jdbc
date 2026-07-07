@@ -24,6 +24,10 @@ public class JulLoggerTest {
   @BeforeEach
   void setUp() {
     mockLogger = Mockito.mock(Logger.class);
+    // By default treat every level as enabled so the existing verify-based tests
+    // exercise the real logging path. Individual tests override this to assert the
+    // level-guard added for GitHub issue #1511.
+    Mockito.when(mockLogger.isLoggable(Mockito.any())).thenReturn(true);
     julLogger = new JulLogger("test");
     julLogger.logger = mockLogger;
   }
@@ -115,6 +119,35 @@ public class JulLoggerTest {
             julLogger.error(
                 exception, "Unable to fetch functions, returning empty result set {}", exception),
         "error(Throwable, String, Object...) should not throw when formatted message contains % characters");
+  }
+
+  @Test
+  void testNoLoggingWhenLevelDisabled() {
+    // Regression test for GitHub issue #1511: when the configured level would discard
+    // the record, log() must short-circuit before doing any work (notably the expensive
+    // getCaller() stack-trace walk), so logp() is never invoked.
+    Mockito.when(mockLogger.isLoggable(Mockito.any())).thenReturn(false);
+
+    julLogger.trace("trace message");
+    julLogger.debug("debug message");
+    julLogger.info("info message");
+    julLogger.warn("warn message");
+    julLogger.error("error message");
+    julLogger.error(new Exception("boom"), "error with throwable");
+
+    Mockito.verify(mockLogger, Mockito.never())
+        .logp(
+            Mockito.any(Level.class),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            Mockito.anyString());
+    Mockito.verify(mockLogger, Mockito.never())
+        .logp(
+            Mockito.any(Level.class),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            Mockito.any(Throwable.class));
   }
 
   @Test

@@ -156,6 +156,13 @@ public class JulLogger implements JdbcLogger {
   }
 
   private void log(Level level, String message, Throwable throwable) {
+    // Skip the work (notably the expensive getCaller() stack-trace walk) when the
+    // configured level would discard this record anyway. See GitHub issue #1511:
+    // reading array/complex-type columns logs once per element, and an unconditional
+    // stack walk per element dominates CPU even when logging is effectively disabled.
+    if (!logger.isLoggable(level)) {
+      return;
+    }
     String[] callerClassMethod = getCaller();
     if (throwable == null) {
       logger.logp(level, callerClassMethod[0], callerClassMethod[1], message);
