@@ -137,6 +137,22 @@ public class ArrowToJavaObjectConverterTest {
     enableArrowNullChecking();
   }
 
+  @Test
+  public void testCollatedStringWithNullRequiredType() throws Exception {
+    // A collated string column (e.g. STRING COLLATE UTF8_LCASE) is reported with a type_name that
+    // does not map to any ColumnInfoTypeName, so requiredType arrives as null. The type must be
+    // recovered from the metadata prefix and read as a string rather than throwing an NPE.
+    VarCharVector vector = new VarCharVector("collatedVector", this.bufferAllocator);
+    vector.allocateNew(1);
+    vector.set(0, "Hello".getBytes());
+    vector.setValueCount(1);
+
+    assertEquals(
+        "Hello", convert(vector, 0, null, "STRING COLLATE UTF8_LCASE", new ColumnInfo()));
+
+    vector.close();
+  }
+
   private void disableArrowNullChecking() {
     System.setProperty("arrow.enable_null_check_for_get", "false");
   }
