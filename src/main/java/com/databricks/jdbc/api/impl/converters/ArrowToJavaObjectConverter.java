@@ -101,10 +101,9 @@ public class ArrowToJavaObjectConverter {
       return null;
     }
     if (requiredType == null) {
+      // Do not log the raw cell value, which may contain sensitive data; log only the metadata.
       String errorMessage =
-          String.format(
-              "Unable to determine column type for value %s with metadata %s",
-              object, arrowMetadata);
+          String.format("Unable to determine column type from metadata %s", arrowMetadata);
       LOGGER.error(errorMessage);
       throw new DatabricksValidationException(errorMessage);
     }

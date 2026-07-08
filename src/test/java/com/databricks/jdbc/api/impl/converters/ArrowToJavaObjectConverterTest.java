@@ -153,6 +153,22 @@ public class ArrowToJavaObjectConverterTest {
     vector.close();
   }
 
+  @Test
+  public void testUnresolvableTypeThrowsValidationException() throws Exception {
+    // A non-null value whose type cannot be resolved (null requiredType and metadata matching no
+    // known prefix) must throw a DatabricksValidationException rather than a NullPointerException.
+    VarCharVector vector = new VarCharVector("unknownVector", this.bufferAllocator);
+    vector.allocateNew(1);
+    vector.set(0, "value".getBytes());
+    vector.setValueCount(1);
+
+    assertThrows(
+        DatabricksValidationException.class,
+        () -> convert(vector, 0, null, "SOME_UNKNOWN_TYPE", new ColumnInfo()));
+
+    vector.close();
+  }
+
   private void disableArrowNullChecking() {
     System.setProperty("arrow.enable_null_check_for_get", "false");
   }
