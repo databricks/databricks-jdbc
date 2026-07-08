@@ -413,4 +413,42 @@ public class ComplexDataTypeParserTest {
     String result = parser.formatMapString(jsonString, "MAP<STRING,INT>");
     assertEquals(expected, result);
   }
+
+  /** Reproduces https://github.com/databricks/databricks-jdbc/issues/1505 */
+  @Test
+  void testFormatMapString_withArrayValue() throws DatabricksParsingException {
+    // SELECT MAP(0, ARRAY(34277,0)) with EnableArrow=1
+    String jsonString = "[{\"key\":0,\"value\":[34277,0]}]";
+    String expected = "{0:[34277,0]}";
+
+    String result = parser.formatMapString(jsonString, "MAP<INT,ARRAY<BIGINT>>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapString_withStructValue() throws DatabricksParsingException {
+    String jsonString = "[{\"key\":1,\"value\":{\"a\":10,\"b\":20}}]";
+    String expected = "{1:{\"a\":10,\"b\":20}}";
+
+    String result = parser.formatMapString(jsonString, "MAP<INT,STRUCT<a:INT,b:INT>>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapString_withMapValue() throws DatabricksParsingException {
+    String jsonString = "[{\"key\":1,\"value\":[{\"key\":2,\"value\":3}]}]";
+    String expected = "{1:[{\"key\":2,\"value\":3}]}";
+
+    String result = parser.formatMapString(jsonString, "MAP<INT,MAP<INT,INT>>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapString_withStringArrayValue() throws DatabricksParsingException {
+    String jsonString = "[{\"key\":\"a\",\"value\":[\"x\",\"y\"]}]";
+    String expected = "{\"a\":[\"x\",\"y\"]}";
+
+    String result = parser.formatMapString(jsonString, "MAP<STRING,ARRAY<STRING>>");
+    assertEquals(expected, result);
+  }
 }

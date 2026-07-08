@@ -379,6 +379,10 @@ public class ComplexDataTypeParser {
           // Handle null valueNode
           if (valueNode == null || valueNode.isNull()) {
             result.append("null");
+          } else if (valueNode.isContainerNode()) {
+            // Nested complex value (ARRAY/STRUCT/MAP): asText() returns "" for
+            // container nodes, so emit the JSON directly (e.g. {0:[34277,0]}).
+            result.append(valueNode.toString());
           } else if (isStringValue) {
             result.append("\"").append(valueNode.asText()).append("\"");
           } else {
