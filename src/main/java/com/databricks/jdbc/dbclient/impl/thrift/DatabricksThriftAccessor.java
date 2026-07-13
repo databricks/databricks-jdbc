@@ -846,7 +846,10 @@ final class DatabricksThriftAccessor {
             originalSqlState,
             remappedSqlState);
       }
-      throw new DatabricksSQLException(status.getErrorMessage(), remappedSqlState);
+      throw new DatabricksSQLException(
+          status.getErrorMessage(),
+          remappedSqlState,
+          DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
   }
 
@@ -876,7 +879,8 @@ final class DatabricksThriftAccessor {
             remappedSqlState,
             statementId);
       }
-      throw new DatabricksSQLException(errorMsg, remappedSqlState);
+      throw new DatabricksSQLException(
+          errorMsg, remappedSqlState, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
 
     if (statusResp.isSetOperationState()
@@ -907,7 +911,8 @@ final class DatabricksThriftAccessor {
             remappedSqlState,
             statementId);
       }
-      throw new DatabricksSQLException(errorMsg, remappedSqlState);
+      throw new DatabricksSQLException(
+          errorMsg, remappedSqlState, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
   }
 

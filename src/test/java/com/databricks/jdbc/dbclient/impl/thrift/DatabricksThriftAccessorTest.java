@@ -321,6 +321,7 @@ public class DatabricksThriftAccessorTest {
 
     assertEquals("Error executing statement", exception.getMessage());
     assertEquals("42000", exception.getSQLState());
+    assertEquals(1003, exception.getErrorCode()); // EXECUTE_STATEMENT_FAILED stable code
   }
 
   @Test
@@ -541,6 +542,7 @@ public class DatabricksThriftAccessorTest {
     // Verify the enriched message includes errorCode instead of "error: [null]"
     assertTrue(exception.getMessage().contains("errorCode=502"));
     assertFalse(exception.getMessage().contains("error: [null]"));
+    assertEquals(1003, exception.getErrorCode()); // EXECUTE_STATEMENT_FAILED stable code
   }
 
   @Test
@@ -1345,6 +1347,7 @@ public class DatabricksThriftAccessorTest {
         "40001",
         e.getSQLState(),
         "Expected ConcurrentModificationException with 42000 to be remapped to 40001");
+    assertEquals(1003, e.getErrorCode()); // EXECUTE_STATEMENT_FAILED stable code
   }
 
   private TFetchResultsReq getFetchResultsRequest(boolean includeMetadata)
