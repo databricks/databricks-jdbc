@@ -275,6 +275,48 @@ public class ArrowStreamResultTest {
   }
 
   @Test
+  public void testGetObjectOutOfRangeColumnThrowsSqlException() throws Exception {
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount((long) this.numberOfChunks)
+            .setTotalRowCount(this.numberOfChunks * 110L)
+            .setTotalByteCount(1000L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setChunks(this.chunkInfos)
+            .setSchema(
+                new ResultSchema()
+                    .setColumns(
+                        ImmutableList.of(
+                            new ColumnInfo().setTypeName(ColumnInfoTypeName.INT),
+                            new ColumnInfo().setTypeName(ColumnInfoTypeName.DOUBLE)))
+                    .setColumnCount(2L));
+
+    ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, 0L, false));
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    DatabricksSession session = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    setupMockResponse();
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
+    result.next();
+
+    // An out-of-range column index must throw a spec-compliant DatabricksSQLException, not a raw
+    // java.lang.IndexOutOfBoundsException (JDBC contract; matches the Thrift/inline result impls).
+    DatabricksSQLException tooHigh =
+        assertThrows(DatabricksSQLException.class, () -> result.getObject(5));
+    assertEquals("INVALID_STATE", tooHigh.getSQLState());
+    assertTrue(tooHigh.getMessage().contains("Column index out of bounds"));
+
+    DatabricksSQLException negative =
+        assertThrows(DatabricksSQLException.class, () -> result.getObject(-1));
+    assertEquals("INVALID_STATE", negative.getSQLState());
+  }
+
+  @Test
   public void testComplexTypeHandling() {
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.ARRAY));
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.MAP));

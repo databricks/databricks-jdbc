@@ -23,6 +23,7 @@ import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -246,6 +247,10 @@ public class ArrowStreamResult implements IExecutionResult {
   /** {@inheritDoc} */
   @Override
   public Object getObject(int columnIndex) throws DatabricksSQLException {
+    if (columnIndex < 0 || columnIndex >= columnInfos.size()) {
+      throw new DatabricksSQLException(
+          "Column index out of bounds: " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE);
+    }
     ColumnInfo columnInfo = columnInfos.get(columnIndex);
     ColumnInfoTypeName requiredType = columnInfo.getTypeName();
     String arrowMetadata = chunkIterator.getType(columnIndex);
