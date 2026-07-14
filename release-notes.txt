@@ -47,6 +47,9 @@ Fixed
  * Fixed getColumnTypeName() returning TIMESTAMP for TIMESTAMP_NTZ columns
    (regression from 3.0.7); set EnableTimestampNtzTypeName=0 to restore the
    previous behavior.
+ * Fixed SQLException.getErrorCode() inconsistency between transports for
+   statement-execution failures: Thrift now reports EXECUTE_STATEMENT_FAILED
+   (1003) matching SEA (was 0). SQLState and message unchanged.
 
 
 3.4.1 ========================================================================
