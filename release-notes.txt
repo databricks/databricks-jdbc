@@ -6,6 +6,49 @@ The release notes summarize enhancements, new features, known issues, workflow c
 
 Version History ==============================================================
 
+3.4.2 ========================================================================
+Released 2026-07-14
+
+Added
+
+ * UseBoundedSeaApi connection property (default off) for the bounded SEA API
+   CloudFetch contract (row_offset on GetResultData; next_chunk_index for chunk
+   discovery). Requires server support.
+ * OAuth M2M (client credentials): client secret may be supplied via the JDBC
+   password/PWD property and client id via user/UID, instead of embedding
+   OAuth2Secret/OAuth2ClientId in the connection URL. Explicit
+   OAuth2ClientId/OAuth2Secret still take precedence.
+
+Updated
+
+ * Bumped Databricks SDK for Java from 0.106.0 to 0.118.0.
+
+Fixed
+
+ * Security: masked credentials in DatabaseMetaData.getURL(); redacted presigned
+   URL credentials and access tokens in logs; hardened the OAuth U2M token cache
+   at rest; fixed a SQL injection in binary parameter handling.
+ * Fixed telemetry misattribution across multiple connections on the same thread.
+ * Fixed StackOverflowError / hang when closing a ResultSet or Statement with
+   closeOnCompletion() enabled.
+ * Fixed setCatalog()/setSchema() producing invalid SQL when the identifier was
+   already backtick-wrapped; fixed metadata SQL generation for identifiers
+   containing backticks.
+ * Fixed SEA result truncation when direct results are disabled.
+ * Fixed getColumns() flooding the DriverManager log writer with recovered
+   Invalid column index stack traces.
+ * Fixed timezone-shifted TIMESTAMP values in nested complex types with
+   EnableComplexDatatypeSupport=1.
+ * Fixed MAP columns with complex value types rendering values as empty when
+   fetched via Arrow with EnableComplexDatatypeSupport disabled.
+ * Fixed supportsBatchUpdates() always returning false (now true when
+   EnableBatchedInserts=1).
+ * Fixed Connection.setReadOnly(true) throwing; it is now a no-op per spec.
+ * Fixed getColumnTypeName() returning TIMESTAMP for TIMESTAMP_NTZ columns
+   (regression from 3.0.7); set EnableTimestampNtzTypeName=0 to restore the
+   previous behavior.
+
+
 3.4.1 ========================================================================
 Released 2026-05-26
 
