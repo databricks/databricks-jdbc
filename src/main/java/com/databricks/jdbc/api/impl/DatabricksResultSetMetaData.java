@@ -105,13 +105,15 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           }
 
           // For collated string columns (e.g. "STRING COLLATE UTF8_LCASE") getTypeName() returns
-          // null because the collated type name does not map to a ColumnInfoTypeName. Recover STRING
-          // from the typeText prefix so the java.sql type resolves to VARCHAR instead of OTHER; the
+          // null because the collated type name does not map to a ColumnInfoTypeName. Recover
+          // STRING from the typeText so the java.sql type resolves to VARCHAR instead of OTHER; the
           // original typeText is preserved so getColumnTypeName() still reports the collated type.
-          if (columnTypeName == null
-              && columnInfo.getTypeText() != null
-              && columnInfo.getTypeText().toUpperCase().startsWith(STRING)) {
-            columnTypeName = ColumnInfoTypeName.STRING;
+          if (columnTypeName == null) {
+            ColumnInfoTypeName recovered =
+                DatabricksTypeUtil.recoverStringType(columnInfo.getTypeText());
+            if (recovered != null) {
+              columnTypeName = recovered;
+            }
           }
 
           // Check if we need to convert geospatial types to string when geospatial support is

@@ -170,6 +170,24 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
+  public void testColumnsWithCollatedStringLowerCase() throws SQLException {
+    // Recovery must be case-insensitive so a lower/mixed-case collated type text resolves the same
+    // way (VARCHAR) as the upper-case form, matching the value path.
+    ResultManifest resultManifest = new ResultManifest();
+    resultManifest.setTotalRowCount(1L);
+    ResultSchema schema = new ResultSchema();
+    schema.setColumnCount(1L);
+
+    ColumnInfo collatedColumnInfo = getColumn("name", null, "string collate utf8_lcase");
+    schema.setColumns(List.of(collatedColumnInfo));
+    resultManifest.setSchema(schema);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+    assertEquals(Types.VARCHAR, metaData.getColumnType(1));
+  }
+
+  @Test
   public void testColumnsWithTimestampNTZ_legacyTypeNameDisabled() throws SQLException {
     // With EnableTimestampNtzTypeName=0 the type name is normalized to TIMESTAMP to
     // match the legacy (v2.x.x) driver behavior. The java.sql type is unchanged.

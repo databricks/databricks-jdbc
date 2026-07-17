@@ -92,9 +92,9 @@ public class ArrowToJavaObjectConverter {
       }
       // A collated string column (e.g. "STRING COLLATE UTF8_LCASE") is reported with a type_name
       // that does not map to any ColumnInfoTypeName, leaving requiredType null. Recover the type
-      // from the metadata prefix so the value is read as a string instead of throwing an NPE below.
-      if (requiredType == null && arrowMetadata.startsWith(STRING)) {
-        requiredType = ColumnInfoTypeName.STRING;
+      // from the metadata so the value is read as a string instead of throwing an NPE below.
+      if (requiredType == null) {
+        requiredType = recoverStringType(arrowMetadata);
       }
     }
     if (object == null) {
