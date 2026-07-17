@@ -109,11 +109,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           // STRING from the typeText so the java.sql type resolves to VARCHAR instead of OTHER; the
           // original typeText is preserved so getColumnTypeName() still reports the collated type.
           if (columnTypeName == null) {
-            ColumnInfoTypeName recovered =
-                DatabricksTypeUtil.recoverStringType(columnInfo.getTypeText());
-            if (recovered != null) {
-              columnTypeName = recovered;
-            }
+            columnTypeName = DatabricksTypeUtil.recoverStringType(columnInfo.getTypeText());
           }
 
           // Check if we need to convert geospatial types to string when geospatial support is
