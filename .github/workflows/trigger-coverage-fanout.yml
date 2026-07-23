@@ -27,10 +27,14 @@ on:
 jobs:
   trigger-coverage-fanout:
     if: |
-      github.event.pull_request.merged == true
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main'
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Check if JDBC driver source changed
         id: changed
