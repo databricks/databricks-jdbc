@@ -7,8 +7,8 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
@@ -42,7 +42,7 @@ class SeaInlineArrowChunkProviderTest {
 
   @Mock private IDatabricksSession mockSession;
   @Mock private IDatabricksConnectionContext mockConnectionContext;
-  @Mock private DatabricksSdkClient mockSdkClient;
+  @Mock private IDatabricksClient mockSdkClient;
 
   private SeaInlineArrowChunkProvider provider;
 

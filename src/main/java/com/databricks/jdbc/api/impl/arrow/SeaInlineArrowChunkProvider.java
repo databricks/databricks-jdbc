@@ -5,8 +5,8 @@ import static com.databricks.jdbc.common.util.DecompressionUtil.decompressLazy;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -301,7 +301,7 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
 
     LOGGER.debug("Fetching inline chunk {} at offset {}", chunkIndex, rowOffset);
 
-    DatabricksSdkClient client = (DatabricksSdkClient) session.getDatabricksClient();
+    IDatabricksClient client = session.getDatabricksClient();
     ResultData resultData = client.getResultChunksData(statementId, chunkIndex, rowOffset);
 
     ArrowResultChunk chunk = processResultData(resultData);
@@ -358,16 +358,20 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
 
       while (!closed && consumptionOrder.isEmpty() && !endOfStream) {
         checkPrefetchError();
-        long elapsedMillis = System.currentTimeMillis() - waitStartTime;
-        if (elapsedMillis >= timeoutMillis) {
-          throw new DatabricksSQLException(
-              "Timeout waiting for next chunk to be enqueued (timeout: "
-                  + chunkReadyTimeoutSeconds
-                  + "s)",
-              DatabricksDriverErrorCode.CHUNK_READY_ERROR);
-        }
         try {
-          chunkAvailable.await(timeoutMillis - elapsedMillis, TimeUnit.MILLISECONDS);
+          if (chunkReadyTimeoutSeconds <= 0) {
+            chunkAvailable.await();
+          } else {
+            long elapsedMillis = System.currentTimeMillis() - waitStartTime;
+            if (elapsedMillis >= timeoutMillis) {
+              throw new DatabricksSQLException(
+                  "Timeout waiting for next chunk to be enqueued (timeout: "
+                      + chunkReadyTimeoutSeconds
+                      + "s)",
+                  DatabricksDriverErrorCode.CHUNK_READY_ERROR);
+            }
+            chunkAvailable.await(timeoutMillis - elapsedMillis, TimeUnit.MILLISECONDS);
+          }
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           throw new DatabricksSQLException(
@@ -407,24 +411,26 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
               DatabricksDriverErrorCode.CHUNK_READY_ERROR);
         }
 
-        long elapsedMillis = System.currentTimeMillis() - waitStartTime;
-        if (elapsedMillis >= timeoutMillis) {
-          LOGGER.error(
-              "Timeout waiting for chunk {} to be created (timeout: {}s)",
-              chunkIndex,
-              chunkReadyTimeoutSeconds);
-          throw new DatabricksSQLException(
-              "Timeout waiting for chunk "
-                  + chunkIndex
-                  + " to be created (timeout: "
-                  + chunkReadyTimeoutSeconds
-                  + "s)",
-              DatabricksDriverErrorCode.CHUNK_READY_ERROR);
-        }
-
         try {
-          long remainingMillis = timeoutMillis - elapsedMillis;
-          chunkAvailable.await(remainingMillis, TimeUnit.MILLISECONDS);
+          if (chunkReadyTimeoutSeconds <= 0) {
+            chunkAvailable.await();
+          } else {
+            long elapsedMillis = System.currentTimeMillis() - waitStartTime;
+            if (elapsedMillis >= timeoutMillis) {
+              LOGGER.error(
+                  "Timeout waiting for chunk {} to be created (timeout: {}s)",
+                  chunkIndex,
+                  chunkReadyTimeoutSeconds);
+              throw new DatabricksSQLException(
+                  "Timeout waiting for chunk "
+                      + chunkIndex
+                      + " to be created (timeout: "
+                      + chunkReadyTimeoutSeconds
+                      + "s)",
+                  DatabricksDriverErrorCode.CHUNK_READY_ERROR);
+            }
+            chunkAvailable.await(timeoutMillis - elapsedMillis, TimeUnit.MILLISECONDS);
+          }
         } catch (InterruptedException e) {
           Thread.currentThread().interrupt();
           LOGGER.warn("Interrupted waiting for chunk {} creation", chunkIndex);

@@ -651,6 +651,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   /**
    * Fetches inline result data for a specific chunk, with row_offset for bounded SEA inline Arrow.
    */
+  @Override
   public ResultData getResultChunksData(
       StatementId typedStatementId, long chunkIndex, long rowOffset) throws DatabricksSQLException {
     DatabricksThreadContextHolder.setStatementId(typedStatementId);

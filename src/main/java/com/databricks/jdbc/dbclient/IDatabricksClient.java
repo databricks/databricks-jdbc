@@ -164,6 +164,16 @@ public interface IDatabricksClient {
   ResultData getResultChunksData(StatementId statementId, long chunkIndex)
       throws DatabricksSQLException;
 
+  /**
+   * Fetches inline result data for a chunk at the given row offset.
+   *
+   * @param statementId statement whose result data should be fetched
+   * @param chunkIndex server-provided chunk index
+   * @param rowOffset row offset required by the bounded SEA API
+   */
+  ResultData getResultChunksData(StatementId statementId, long chunkIndex, long rowOffset)
+      throws DatabricksSQLException;
+
   IDatabricksConnectionContext getConnectionContext();
 
   /**

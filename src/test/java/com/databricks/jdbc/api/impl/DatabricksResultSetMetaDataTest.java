@@ -147,6 +147,17 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
+  public void testMissingTotalRowCountIsUnknown() {
+    ResultManifest resultManifest = getResultManifest().setTotalRowCount(null);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+
+    assertEquals(-1, metaData.getTotalRows());
+    assertFalse(metaData.hasKnownTotalRows());
+  }
+
+  @Test
   public void testColumnsDifferingOnlyInCaseThrift() throws SQLException {
     TGetResultSetMetadataResp resultManifest = new TGetResultSetMetadataResp();
     resultManifest.setSchema(
