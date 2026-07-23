@@ -1,0 +1,298 @@
+name: Trigger Integration Tests
+
+# Dispatches the JDBC proxy suite in databricks/databricks-driver-test to run
+# against THIS PR's driver commit, and reports the result back as the "JDBC
+# Integration Tests" check.
+#
+# REPLAY ONLY — deliberately. A dispatched run always uses proxy_mode=replay:
+# driver-test builds the driver at the PR commit and serves committed recordings
+# (no credentials, no live warehouse). We never trigger a passthrough / live E2E
+# run from a PR — those are slow and flaky and would block PRs from landing;
+# passthrough remains a manual/nightly-only path in driver-test.
+#
+# Pattern mirrors the databricks-sql-go / adbc-csharp senders: ordinary PR events
+# get an immediate green stub for the required "JDBC Integration Tests" check;
+# maintainers preview on demand with a label; the merge queue runs the real
+# required replay gate.
+#
+# Labels (replay backends):
+#   - `integration-test`     → Thrift replay
+#   - `integration-test-sea` → SEA replay
+#
+# Required external setup:
+#   1. `INTEGRATION_TEST_APP_ID` / `INTEGRATION_TEST_PRIVATE_KEY` repo secrets for
+#      the dispatcher GitHub App are installed in this repo.
+#   2. The App is installed on databricks-driver-test (actions: write, to send
+#      repository_dispatch) and on databricks-jdbc (checks: write, so driver-test
+#      can report the "JDBC Integration Tests" check back here).
+#   3. The two trigger labels exist: `integration-test`, `integration-test-sea`.
+#   4. Merge-queue branch protection lists `JDBC Integration Tests` as required.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  merge_group: # the required gate runs here
+
+permissions: {}
+
+jobs:
+  # Drop the trigger labels when new commits are pushed, forcing a maintainer to
+  # re-review before re-running (security: a labeled PR that gets new commits
+  # must be re-approved).
+  remove-label-on-new-commit:
+    if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Remove integration-test labels
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const present = context.payload.pull_request.labels.map((l) => l.name);
+            const triggerLabels = ['integration-test', 'integration-test-sea'];
+            const removed = [];
+            for (const name of triggerLabels) {
+              if (!present.includes(name)) continue;
+              try {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name,
+                });
+                removed.push(name);
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+            }
+            if (removed.length) {
+              const pr = context.payload.pull_request;
+              const isFromFork = pr.head.repo?.full_name !== pr.base.repo.full_name;
+              const repoType = isFromFork ? '**fork PR**' : 'PR';
+              const body = [
+                'Integration test approval reset.',
+                '',
+                `New commits were pushed to this ${repoType}. Label(s) \`${removed.join('`, `')}\` were removed for security.`,
+                '',
+                '**A maintainer must re-review and re-add a label to preview tests again.** (The real gate runs in the merge queue.)',
+                '',
+                `Latest commit: ${pr.head.sha.substring(0, 7)}`,
+              ].join('\n');
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  # Ordinary PR (not a label event): post a green stub so the required "JDBC
+  # Integration Tests" check is satisfied on the PR. The real run happens in the
+  # merge queue; a label previews it on the PR.
+  skip-integration-tests-pr:
+    if: github.event_name == 'pull_request' && github.event.action != 'labeled'
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+    permissions:
+      checks: write
+    steps:
+      - name: Skip JDBC Integration Tests (stub)
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'JDBC Integration Tests',
+              head_sha: context.payload.pull_request.head.sha,
+              status: 'completed',
+              conclusion: 'success',
+              completed_at: new Date().toISOString(),
+              output: {
+                title: 'Skipped on PR - runs in merge queue',
+                summary: 'JDBC integration tests are skipped on ordinary PR events and run as a required gate (Thrift replay) in the merge queue. Preview on this PR by adding a label: `integration-test` (Thrift replay) or `integration-test-sea` (SEA replay). All runs are replay-only — no live warehouse.',
+              },
+            });
+
+  # Labeled PR: preview on demand. `integration-test` → Thrift replay,
+  # `integration-test-sea` → SEA replay.
+  trigger-tests-pr:
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action == 'labeled' &&
+      (github.event.label.name == 'integration-test' ||
+       github.event.label.name == 'integration-test-sea')
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+    permissions:
+      # Commenting on a PR needs pull-requests:write; checks:write for the failure
+      # check. The dispatch itself uses the App token, not GITHUB_TOKEN.
+      issues: write
+      pull-requests: write
+      checks: write
+    steps:
+      - name: Resolve backend from label
+        id: mode
+        # All previews are REPLAY. The label only selects the backend.
+        run: |
+          case "${{ github.event.label.name }}" in
+            integration-test-sea) echo "jdbc_mode=sea"    >> "$GITHUB_OUTPUT" ;;
+            *)                     echo "jdbc_mode=thrift" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Generate GitHub App token (driver-test repo)
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        with:
+          app-id: ${{ secrets.INTEGRATION_TEST_APP_ID }}
+          private-key: ${{ secrets.INTEGRATION_TEST_PRIVATE_KEY }}
+          owner: databricks
+          repositories: databricks-driver-test
+          permission-contents: write
+
+      - name: Dispatch jdbc-pr-test (replay) to driver-test
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          JDBC_MODE: ${{ steps.mode.outputs.jdbc_mode }}
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const pr = context.payload.pull_request;
+            await github.rest.repos.createDispatchEvent({
+              owner: 'databricks',
+              repo: 'databricks-driver-test',
+              event_type: 'jdbc-pr-test',
+              client_payload: {
+                pr_number: `${pr.number}`,
+                commit_sha: pr.head.sha,
+                pr_repo: context.repo.owner + '/' + context.repo.repo,
+                pr_url: pr.html_url,
+                proxy_mode: 'replay',
+                jdbc_mode: process.env.JDBC_MODE,
+              },
+            });
+            core.info(`Dispatched jdbc-pr-test (${process.env.JDBC_MODE}/replay) for PR #${pr.number} @ ${pr.head.sha}`);
+
+      - name: Fail check on dispatch error
+        if: failure()
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'JDBC Integration Tests',
+              head_sha: context.payload.pull_request.head.sha,
+              status: 'completed',
+              conclusion: 'failure',
+              completed_at: new Date().toISOString(),
+              output: {
+                title: 'Failed - error dispatching tests',
+                summary: 'An error occurred while dispatching JDBC integration tests. Check this workflow run for details.',
+              },
+            });
+
+      - name: Comment on PR
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          JDBC_MODE: ${{ steps.mode.outputs.jdbc_mode }}
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `JDBC integration tests triggered (\`${process.env.JDBC_MODE}\` / \`replay\`). [View workflow runs](https://github.com/databricks/databricks-driver-test/actions).`,
+            });
+
+  # Merge queue: the required gate. Runs Thrift replay once before merge.
+  merge-queue-jdbc:
+    if: github.event_name == 'merge_group'
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - name: Extract PR number from merge queue ref
+        id: extract-pr
+        env:
+          MERGE_QUEUE_REF: ${{ github.event.merge_group.head_ref }}
+        run: |
+          # Merge-queue refs are refs/heads/gh-readonly-queue/<base>/pr-<n>-<sha>. Anchor
+          # to the trailing pr-<n>-<sha> so a base branch name that itself contains a
+          # "pr-<digits>" segment can't be matched instead of the real, last PR number.
+          if [[ "$MERGE_QUEUE_REF" =~ /pr-([0-9]+)-[0-9a-f]+$ ]]; then
+            echo "pr_number=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "Error: failed to extract PR number from merge group ref: '$MERGE_QUEUE_REF'" >&2
+            exit 1
+          fi
+
+      - name: Generate GitHub App token (driver-test repo)
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        with:
+          app-id: ${{ secrets.INTEGRATION_TEST_APP_ID }}
+          private-key: ${{ secrets.INTEGRATION_TEST_PRIVATE_KEY }}
+          owner: databricks
+          repositories: databricks-driver-test
+          permission-contents: write
+
+      - name: Dispatch jdbc-pr-test (thrift replay) for merge queue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          PR_NUMBER: ${{ steps.extract-pr.outputs.pr_number }}
+          HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const prNumber = process.env.PR_NUMBER;
+            await github.rest.repos.createDispatchEvent({
+              owner: 'databricks',
+              repo: 'databricks-driver-test',
+              event_type: 'jdbc-pr-test',
+              client_payload: {
+                pr_number: prNumber,
+                commit_sha: process.env.HEAD_SHA,
+                pr_repo: context.repo.owner + '/' + context.repo.repo,
+                pr_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/pull/${prNumber}`,
+                proxy_mode: 'replay',
+                // The required merge-queue gate runs the Thrift backend only. The SEA
+                // leg is previewed on demand via `integration-test-sea` but is not a
+                // required gate (kept off the critical path; promote once stable).
+                jdbc_mode: 'thrift',
+              },
+            });
+            core.info(`Merge-queue dispatch jdbc-pr-test (thrift/replay) for PR #${prNumber} @ ${process.env.HEAD_SHA}`);
+
+      - name: Fail check on dispatch error
+        if: failure()
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          HEAD_SHA: ${{ github.event.merge_group.head_sha }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'JDBC Integration Tests',
+              head_sha: process.env.HEAD_SHA,
+              status: 'completed',
+              conclusion: 'failure',
+              completed_at: new Date().toISOString(),
+              output: {
+                title: 'Failed - error dispatching tests',
+                summary: 'An error occurred while dispatching JDBC integration tests. Check this workflow run for details.',
+              },
+            });
