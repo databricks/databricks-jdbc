@@ -3,7 +3,7 @@ name: Enforce Release Freeze
 on:
   pull_request:
     branches: [main]
-  merge_group: # Required-check placeholder: the freeze gate is enforced at PR time; in the queue this job no-ops to success
+  merge_group: # Register this required check for the merge queue; the job itself skips in the queue (see job-level if:)
     branches: [main]
 
 permissions:
@@ -11,26 +11,23 @@ permissions:
 
 jobs:
   freeze-check:
+    # PR-semantic gate (reads github.event.pull_request.*), already enforced at PR time.
+    # Skip in the merge queue, where no pull_request payload exists; a skipped required
+    # check counts as a pass under branch protection, so the queue is not blocked.
+    if: github.event_name != 'merge_group'
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
 
     steps:
-      - name: Skip in merge queue
-        if: github.event_name == 'merge_group'
-        run: echo "Release-freeze gate already enforced at PR time; nothing to check on the merge commit."
-
       - name: Check out repository
-        if: github.event_name != 'merge_group'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Set up jq
-        if: github.event_name != 'merge_group'
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Fetch PR message
         id: pr-message
-        if: github.event_name != 'merge_group'
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
@@ -45,7 +42,6 @@ jobs:
           echo "$sanitized_pr_message"
 
       - name: Enforce branch freeze logic
-        if: github.event_name != 'merge_group'
         shell: bash
         env:
           # GITHUB_HEAD_REF: Source branch name for PRs
