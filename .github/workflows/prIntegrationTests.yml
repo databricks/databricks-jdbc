@@ -4,6 +4,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [main]
+  merge_group: # Re-run (mocked, no secrets) against the queued merge commit so this stays a valid required check under a merge queue
+    branches: [main]
 
 permissions:
   id-token: write
