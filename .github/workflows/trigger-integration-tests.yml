@@ -15,9 +15,10 @@ name: Trigger Integration Tests
 # maintainers preview on demand with a label; the merge queue runs the real
 # required replay gate.
 #
-# Labels (replay backends):
-#   - `integration-test`     → Thrift replay
-#   - `integration-test-sea` → SEA replay
+# ONE request per PR: the sender does NOT pick a backend. driver-test's receiver
+# (jdbc-integration-tests.yml) decides which backends to run (thrift + sea) from
+# its recordings and fans them out into one "JDBC Integration Tests" check. A
+# single `integration-test` label previews the full replay run.
 #
 # Required external setup:
 #   1. `INTEGRATION_TEST_APP_ID` / `INTEGRATION_TEST_PRIVATE_KEY` repo secrets for
@@ -25,7 +26,7 @@ name: Trigger Integration Tests
 #   2. The App is installed on databricks-driver-test (actions: write, to send
 #      repository_dispatch) and on databricks-jdbc (checks: write, so driver-test
 #      can report the "JDBC Integration Tests" check back here).
-#   3. The two trigger labels exist: `integration-test`, `integration-test-sea`.
+#   3. The `integration-test` trigger label exists.
 #   4. Merge-queue branch protection lists `JDBC Integration Tests` as required.
 
 on:
@@ -53,7 +54,7 @@ jobs:
         with:
           script: |
             const present = context.payload.pull_request.labels.map((l) => l.name);
-            const triggerLabels = ['integration-test', 'integration-test-sea'];
+            const triggerLabels = ['integration-test'];
             const removed = [];
             for (const name of triggerLabels) {
               if (!present.includes(name)) continue;
@@ -116,18 +117,18 @@ jobs:
               completed_at: new Date().toISOString(),
               output: {
                 title: 'Skipped on PR - runs in merge queue',
-                summary: 'JDBC integration tests are skipped on ordinary PR events and run as a required gate (Thrift replay) in the merge queue. Preview on this PR by adding a label: `integration-test` (Thrift replay) or `integration-test-sea` (SEA replay). All runs are replay-only — no live warehouse.',
+                summary: 'JDBC integration tests are skipped on ordinary PR events and run as a required gate (thrift + sea replay) in the merge queue. Preview on this PR by adding the `integration-test` label. All runs are replay-only — no live warehouse; driver-test runs both backends.',
               },
             });
 
-  # Labeled PR: preview on demand. `integration-test` → Thrift replay,
-  # `integration-test-sea` → SEA replay.
+  # Labeled PR: preview on demand. One `integration-test` label → full replay
+  # (driver-test runs both thrift + sea). No per-backend label — the receiver
+  # owns backend selection.
   trigger-tests-pr:
     if: |
       github.event_name == 'pull_request' &&
       github.event.action == 'labeled' &&
-      (github.event.label.name == 'integration-test' ||
-       github.event.label.name == 'integration-test-sea')
+      github.event.label.name == 'integration-test'
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
@@ -138,15 +139,6 @@ jobs:
       pull-requests: write
       checks: write
     steps:
-      - name: Resolve backend from label
-        id: mode
-        # All previews are REPLAY. The label only selects the backend.
-        run: |
-          case "${{ github.event.label.name }}" in
-            integration-test-sea) echo "jdbc_mode=sea"    >> "$GITHUB_OUTPUT" ;;
-            *)                     echo "jdbc_mode=thrift" >> "$GITHUB_OUTPUT" ;;
-          esac
-
       - name: Generate GitHub App token (driver-test repo)
         id: app-token
         uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
@@ -159,8 +151,6 @@ jobs:
 
       - name: Dispatch jdbc-pr-test (replay) to driver-test
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        env:
-          JDBC_MODE: ${{ steps.mode.outputs.jdbc_mode }}
         with:
           github-token: ${{ steps.app-token.outputs.token }}
           script: |
@@ -175,10 +165,9 @@ jobs:
                 pr_repo: context.repo.owner + '/' + context.repo.repo,
                 pr_url: pr.html_url,
                 proxy_mode: 'replay',
-                jdbc_mode: process.env.JDBC_MODE,
               },
             });
-            core.info(`Dispatched jdbc-pr-test (${process.env.JDBC_MODE}/replay) for PR #${pr.number} @ ${pr.head.sha}`);
+            core.info(`Dispatched jdbc-pr-test (replay, all backends) for PR #${pr.number} @ ${pr.head.sha}`);
 
       - name: Fail check on dispatch error
         if: failure()
@@ -202,18 +191,16 @@ jobs:
 
       - name: Comment on PR
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        env:
-          JDBC_MODE: ${{ steps.mode.outputs.jdbc_mode }}
         with:
           script: |
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `JDBC integration tests triggered (\`${process.env.JDBC_MODE}\` / \`replay\`). [View workflow runs](https://github.com/databricks/databricks-driver-test/actions).`,
+              body: `JDBC integration tests triggered (\`replay\`, thrift + sea). [View workflow runs](https://github.com/databricks/databricks-driver-test/actions).`,
             });
 
-  # Merge queue: the required gate. Runs Thrift replay once before merge.
+  # Merge queue: the required gate. Runs the full replay matrix (thrift + sea).
   merge-queue-jdbc:
     if: github.event_name == 'merge_group'
     runs-on:
@@ -267,13 +254,11 @@ jobs:
                 pr_repo: context.repo.owner + '/' + context.repo.repo,
                 pr_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/pull/${prNumber}`,
                 proxy_mode: 'replay',
-                // The required merge-queue gate runs the Thrift backend only. The SEA
-                // leg is previewed on demand via `integration-test-sea` but is not a
-                // required gate (kept off the critical path; promote once stable).
-                jdbc_mode: 'thrift',
+                // No backend field — the receiver runs the full replay matrix
+                // (thrift + sea), both required at merge.
               },
             });
-            core.info(`Merge-queue dispatch jdbc-pr-test (thrift/replay) for PR #${prNumber} @ ${process.env.HEAD_SHA}`);
+            core.info(`Merge-queue dispatch jdbc-pr-test (replay, all backends) for PR #${prNumber} @ ${process.env.HEAD_SHA}`);
 
       - name: Fail check on dispatch error
         if: failure()
