@@ -848,6 +848,32 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  public void testIsDescribableQuery() {
+    // Plain SELECT
+    assertTrue(DatabricksStatement.isDescribableQuery("SELECT 1 AS a, 'x' AS b"));
+    // CTE (WITH ...) queries - regression coverage for issue #1562
+    assertTrue(
+        DatabricksStatement.isDescribableQuery(
+            "WITH cte AS (SELECT * FROM sales) SELECT * FROM cte"));
+    assertTrue(
+        DatabricksStatement.isDescribableQuery("  wiTh cte AS (SELECT 1 AS a) SELECT * FROM cte"));
+    assertTrue(
+        DatabricksStatement.isDescribableQuery(
+            "/* comment */ WITH cte AS (SELECT 1 AS a) SELECT * FROM cte"));
+    // VALUES, FROM (...) and parenthesized selects are also describable via DESCRIBE QUERY
+    assertTrue(DatabricksStatement.isDescribableQuery("VALUES (1, 'a'), (2, 'b')"));
+    assertTrue(DatabricksStatement.isDescribableQuery("FROM (SELECT 1 AS a)"));
+    assertTrue(DatabricksStatement.isDescribableQuery("(SELECT 1 AS a)"));
+
+    // Statements that DESCRIBE QUERY does not accept must be excluded
+    assertFalse(DatabricksStatement.isDescribableQuery("SHOW TABLES"));
+    assertFalse(DatabricksStatement.isDescribableQuery("EXPLAIN SELECT 1"));
+    assertFalse(DatabricksStatement.isDescribableQuery("DESCRIBE QUERY SELECT 1"));
+    assertFalse(DatabricksStatement.isDescribableQuery("INSERT INTO t VALUES (1)"));
+    assertFalse(DatabricksStatement.isDescribableQuery("SET x = 1"));
+  }
+
+  @Test
   public void testIsInsertQuery() {
     // Test basic INSERT statements
     assertTrue(DatabricksStatement.isInsertQuery("INSERT INTO users (id, name) VALUES (?, ?)"));

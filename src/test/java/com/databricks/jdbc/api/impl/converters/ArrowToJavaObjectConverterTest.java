@@ -137,6 +137,67 @@ public class ArrowToJavaObjectConverterTest {
     enableArrowNullChecking();
   }
 
+  @Test
+  public void testCollatedStringWithNullRequiredType() throws Exception {
+    // A collated string column (e.g. STRING COLLATE UTF8_LCASE) is reported with a type_name that
+    // does not map to any ColumnInfoTypeName, so requiredType arrives as null. The type must be
+    // recovered from the metadata and read as a string rather than throwing an NPE.
+    VarCharVector vector = new VarCharVector("collatedVector", this.bufferAllocator);
+    vector.allocateNew(1);
+    vector.set(0, "Hello".getBytes());
+    vector.setValueCount(1);
+
+    assertEquals("Hello", convert(vector, 0, null, "STRING COLLATE UTF8_LCASE", new ColumnInfo()));
+
+    vector.close();
+  }
+
+  @Test
+  public void testCollatedStringLowerCaseMetadata() throws Exception {
+    // The collated type text may arrive in lower/mixed case; recovery must be case-insensitive so
+    // the value path and the metadata path agree (both use DatabricksTypeUtil.recoverStringType).
+    VarCharVector vector = new VarCharVector("collatedVector", this.bufferAllocator);
+    vector.allocateNew(1);
+    vector.set(0, "Hello".getBytes());
+    vector.setValueCount(1);
+
+    assertEquals("Hello", convert(vector, 0, null, "string collate utf8_lcase", new ColumnInfo()));
+
+    vector.close();
+  }
+
+  @Test
+  public void testTypeStartingWithStringWordIsNotCoercedToString() throws Exception {
+    // A hypothetical future type whose name merely begins with the letters STRING (e.g. STRINGVIEW)
+    // must NOT be silently coerced to STRING; recovery matches on a word boundary only.
+    VarCharVector vector = new VarCharVector("stringViewVector", this.bufferAllocator);
+    vector.allocateNew(1);
+    vector.set(0, "Hello".getBytes());
+    vector.setValueCount(1);
+
+    assertThrows(
+        DatabricksValidationException.class,
+        () -> convert(vector, 0, null, "STRINGVIEW", new ColumnInfo()));
+
+    vector.close();
+  }
+
+  @Test
+  public void testUnresolvableTypeThrowsValidationException() throws Exception {
+    // A non-null value whose type cannot be resolved (null requiredType and metadata matching no
+    // known prefix) must throw a DatabricksValidationException rather than a NullPointerException.
+    VarCharVector vector = new VarCharVector("unknownVector", this.bufferAllocator);
+    vector.allocateNew(1);
+    vector.set(0, "value".getBytes());
+    vector.setValueCount(1);
+
+    assertThrows(
+        DatabricksValidationException.class,
+        () -> convert(vector, 0, null, "SOME_UNKNOWN_TYPE", new ColumnInfo()));
+
+    vector.close();
+  }
+
   private void disableArrowNullChecking() {
     System.setProperty("arrow.enable_null_check_for_get", "false");
   }

@@ -20,7 +20,7 @@ Add the following dependency to your `pom.xml`:
 <dependency>
   <groupId>com.databricks</groupId>
   <artifactId>databricks-jdbc</artifactId>
-  <version>3.4.1</version>
+  <version>3.4.2</version>
 </dependency>
 ```
 

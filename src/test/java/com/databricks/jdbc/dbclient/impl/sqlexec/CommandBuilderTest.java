@@ -273,6 +273,29 @@ class CommandBuilderTest {
   }
 
   @Test
+  @DisplayName("Should generate SHOW COLUMNS IN ALL CATALOGS when catalog is null")
+  void shouldGenerateCorrectSqlForColumnsFromAllCatalogs() throws SQLException {
+    CommandBuilder builder = new CommandBuilder(null, mockSession);
+
+    assertEquals(SHOW_COLUMNS_IN_ALL_CATALOGS_SQL, builder.getSQLString(CommandName.LIST_COLUMNS));
+  }
+
+  @Test
+  @DisplayName(
+      "Should append SCHEMA/TABLE/column LIKE clauses to SHOW COLUMNS IN ALL CATALOGS when catalog is null")
+  void shouldGenerateCorrectSqlForColumnsFromAllCatalogsWithPatterns() throws SQLException {
+    CommandBuilder builder =
+        new CommandBuilder(null, mockSession)
+            .setSchemaPattern("testSchema")
+            .setTablePattern("testTable")
+            .setColumnPattern("testColumn");
+
+    assertEquals(
+        "SHOW COLUMNS IN ALL CATALOGS SCHEMA LIKE 'testSchema' TABLE LIKE 'testTable' LIKE 'testColumn'",
+        builder.getSQLString(CommandName.LIST_COLUMNS));
+  }
+
+  @Test
   @DisplayName("Should throw exception for unsupported command")
   void shouldThrowExceptionForUnsupportedCommand() {
     CommandBuilder builder = new CommandBuilder(TEST_CATALOG, mockSession);

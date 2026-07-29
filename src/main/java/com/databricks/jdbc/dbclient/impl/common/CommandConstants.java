@@ -25,6 +25,8 @@ public class CommandConstants {
   public static final String SHOW_TABLES_SQL = "SHOW TABLES" + IN_CATALOG_SQL;
   public static final String SHOW_TABLES_IN_ALL_CATALOGS_SQL = "SHOW TABLES" + IN_ALL_CATALOGS_SQL;
   public static final String SHOW_COLUMNS_SQL = "SHOW COLUMNS" + IN_CATALOG_SQL;
+  public static final String SHOW_COLUMNS_IN_ALL_CATALOGS_SQL =
+      "SHOW COLUMNS" + IN_ALL_CATALOGS_SQL;
   public static final String SHOW_FUNCTIONS_SQL = "SHOW FUNCTIONS" + IN_CATALOG_SQL;
   public static final String SHOW_SCHEMAS_IN_ALL_CATALOGS_SQL =
       "SHOW SCHEMAS" + IN_ALL_CATALOGS_SQL;

@@ -22,6 +22,7 @@ import com.databricks.jdbc.common.CommandName;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.common.CrossReferenceKeysDatabricksResultSetAdapter;
 import com.databricks.jdbc.dbclient.impl.common.ImportedKeysDatabricksResultSetAdapter;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -426,6 +427,95 @@ public class DatabricksMetadataQueryClientTest {
         assertEquals(actualMetaData.isNullable(i + 1), ResultSetMetaData.columnNullable);
       }
     }
+  }
+
+  private void stubColumnsMetaData() throws SQLException {
+    doReturn(13).when(mockedMetaData).getColumnCount();
+    doReturn(COL_NAME_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(1);
+    doReturn(CATALOG_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(2);
+    doReturn(SCHEMA_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(3);
+    doReturn(TABLE_NAME_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(4);
+    doReturn(COLUMN_TYPE_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(5);
+    doReturn(COLUMN_SIZE_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(6);
+    doReturn(DECIMAL_DIGITS_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(7);
+    doReturn(NUM_PREC_RADIX_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(8);
+    doReturn(NULLABLE_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(9);
+    doReturn(REMARKS_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(10);
+    doReturn(ORDINAL_POSITION_COLUMN.getResultSetColumnName())
+        .when(mockedMetaData)
+        .getColumnName(11);
+    doReturn(IS_AUTO_INCREMENT_COLUMN.getResultSetColumnName())
+        .when(mockedMetaData)
+        .getColumnName(12);
+    doReturn(IS_GENERATED_COLUMN.getResultSetColumnName()).when(mockedMetaData).getColumnName(13);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+  }
+
+  @Test
+  void testListColumnsAllCatalogs() throws SQLException {
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+    when(mockClient.executeStatement(
+            eq("SHOW COLUMNS IN ALL CATALOGS SCHEMA LIKE 'testSchema' TABLE LIKE 'testTable'"),
+            eq(mockedComputeResource),
+            any(),
+            eq(StatementType.METADATA),
+            eq(session),
+            any(),
+            eq(MetadataOperationType.GET_COLUMNS)))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.next()).thenReturn(true, false);
+    stubColumnsMetaData();
+
+    // Null catalog issues a single "SHOW COLUMNS IN ALL CATALOGS" instead of enumerating catalogs
+    DatabricksResultSet actualResult =
+        metadataClient.listColumns(session, null, TEST_SCHEMA, TEST_TABLE, null);
+
+    assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+    assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
+    assertEquals(1, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    // Should NOT fall back to enumerating catalogs via SHOW CATALOGS
+    verify(mockClient, never())
+        .executeStatement(eq("SHOW CATALOGS"), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void testListColumnsAllCatalogs_fallsBackOnParseSyntaxError() throws SQLException {
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+
+    // "SHOW COLUMNS IN ALL CATALOGS" is unsupported on older DBR versions — the server returns a
+    // parse syntax error, and the client falls back to enumerating catalogs (fetchColumnsAcross
+    // Catalogs), which drives the metadata client returned by the session.
+    DatabricksSQLException parseError =
+        new DatabricksSQLException(
+            "syntax error at or near \"ALL CATALOGS\"", PARSE_SYNTAX_ERROR_SQL_STATE);
+    when(mockClient.executeStatement(
+            eq("SHOW COLUMNS IN ALL CATALOGS"),
+            eq(mockedComputeResource),
+            any(),
+            eq(StatementType.METADATA),
+            eq(session),
+            any(),
+            eq(MetadataOperationType.GET_COLUMNS)))
+        .thenThrow(parseError);
+
+    // Fallback enumerates catalogs through the session's metadata client. Return no catalogs so
+    // the fallback yields an empty result set without needing the parallel per-catalog fan-out.
+    IDatabricksMetadataClient sessionMetadataClient = mock(IDatabricksMetadataClient.class);
+    when(session.getDatabricksMetadataClient()).thenReturn(sessionMetadataClient);
+    when(session.getConnectionContext()).thenReturn(mock(IDatabricksConnectionContext.class));
+    DatabricksResultSet emptyCatalogs = mock(DatabricksResultSet.class);
+    when(emptyCatalogs.next()).thenReturn(false);
+    when(sessionMetadataClient.listCatalogs(session)).thenReturn(emptyCatalogs);
+
+    DatabricksResultSet actualResult = metadataClient.listColumns(session, null, null, null, null);
+
+    assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
+    assertEquals(METADATA_STATEMENT_ID, actualResult.getStatementId());
+    assertEquals(0, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    // Verify the fallback path was taken: catalogs were enumerated via the session client
+    verify(sessionMetadataClient).listCatalogs(session);
   }
 
   @ParameterizedTest

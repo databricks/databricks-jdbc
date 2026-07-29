@@ -15,6 +15,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Optional;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
@@ -79,6 +80,32 @@ public class DatabricksTypeUtil {
               ColumnInfoTypeName.TINYINT,
               ColumnInfoTypeName.BYTE,
               ColumnInfoTypeName.BIGINT));
+
+  /**
+   * Recovers {@link ColumnInfoTypeName#STRING} from a server type name/text when the enum type
+   * could not be resolved (i.e. {@code getTypeName()} is null). A collated string column is
+   * reported as {@code "STRING COLLATE UTF8_LCASE"}, which does not map to any {@link
+   * ColumnInfoTypeName}; without this the value read NPEs and the metadata reports {@code OTHER}.
+   *
+   * <p>Matches on a word boundary so {@code "STRING"} and {@code "STRING COLLATE ..."} are
+   * recovered but hypothetical future types such as {@code "STRINGVIEW"} are not. Case-insensitive
+   * via {@link Locale#ROOT} so both sites (value and metadata paths) agree regardless of the case
+   * the server emits.
+   *
+   * @param typeText the server type text (e.g. arrow metadata or {@code ColumnInfo.getTypeText()})
+   * @return {@link ColumnInfoTypeName#STRING} if the text denotes a (possibly collated) string,
+   *     otherwise {@code null}
+   */
+  public static ColumnInfoTypeName recoverStringType(String typeText) {
+    if (typeText == null) {
+      return null;
+    }
+    String upper = typeText.toUpperCase(Locale.ROOT);
+    if (upper.equals(STRING) || upper.startsWith(STRING + " ") || upper.startsWith(STRING + "(")) {
+      return ColumnInfoTypeName.STRING;
+    }
+    return null;
+  }
 
   /**
    * Maps a SQL type name (as returned by DESCRIBE QUERY or schema metadata) to the corresponding

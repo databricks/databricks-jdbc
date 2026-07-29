@@ -586,14 +586,12 @@ public class DatabricksResultSetTest {
 
   @Test
   void testGetMap() throws SQLException {
-    // Define expected map entries
-    Object[] mapEntries = {"key1", 100, "key2", 200};
-
     // Mock DatabricksMap
-    DatabricksMap<String, Integer> mockMap = mock(DatabricksMap.class);
+    DatabricksMap<String, Integer> mockMap =
+        new DatabricksMap<>(Map.of("key1", 100, "key2", 200), "MAP<STRING, INT>");
 
     // Mock execution result
-    when(mockedExecutionResult.getObject(4)).thenReturn(Map.of("key1", 100, "key2", 200));
+    when(mockedExecutionResult.getObject(4)).thenReturn(mockMap);
     when(mockedResultSetMetadata.getColumnNameIndex("int_map")).thenReturn(5);
 
     // Instantiate result set
@@ -614,6 +612,57 @@ public class DatabricksResultSetTest {
     // Retrieve map by label
     Map<String, Integer> retrievedMapByLabel = resultSet.getMap("int_map");
     assertNotNull(retrievedMapByLabel, "Retrieved map by label should not be null");
+  }
+
+  @Test
+  void testComplexGetterWrongTypeThrowsDatabricksSQLException() throws SQLException {
+    DatabricksArray array = new DatabricksArray(List.of("a"), "ARRAY<STRING>");
+    DatabricksMap<String, Integer> map = new DatabricksMap<>(Map.of("k", 1), "MAP<STRING, INT>");
+    DatabricksStruct struct = new DatabricksStruct(Map.of("id", 1), "STRUCT<id: INT>");
+
+    when(mockedExecutionResult.getObject(0)).thenReturn(array);
+    when(mockedExecutionResult.getObject(1)).thenReturn(map);
+    when(mockedExecutionResult.getObject(2)).thenReturn(struct);
+    when(mockedExecutionResult.getObject(3)).thenReturn(null);
+
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.METADATA,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            true);
+
+    assertNotNull(resultSet.getArray(1));
+    assertNotNull(resultSet.getMap(2));
+    assertNotNull(resultSet.getStruct(3));
+    assertNull(resultSet.getArray(4));
+
+    DatabricksSQLException getMapOnArray =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getMap(1));
+    assertEquals(
+        DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR.name(),
+        getMapOnArray.getSQLState());
+
+    DatabricksSQLException getArrayOnMap =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getArray(2));
+    assertEquals(
+        DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR.name(),
+        getArrayOnMap.getSQLState());
+
+    DatabricksSQLException getStructOnArray =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getStruct(1));
+    assertEquals(
+        DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR.name(),
+        getStructOnArray.getSQLState());
+
+    DatabricksSQLException getArrayOnStruct =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getArray(3));
+    assertEquals(
+        DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR.name(),
+        getArrayOnStruct.getSQLState());
   }
 
   @Test

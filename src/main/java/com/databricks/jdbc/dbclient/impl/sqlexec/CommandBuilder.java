@@ -124,8 +124,13 @@ public class CommandBuilder {
             "Building command for fetching columns. Catalog %s, SchemaPattern %s, TablePattern %s, ColumnPattern %s and session context : %s",
             catalogName, schemaPattern, tablePattern, columnPattern, sessionContext);
     LOGGER.debug(contextString);
-    throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
-    String showColumnsSQL = String.format(SHOW_COLUMNS_SQL, escapeSqlIdentifier(catalogName));
+    String showColumnsSQL;
+    if (catalogName == null) {
+      // Per JDBC spec, null catalog means "do not narrow the search" — list across all catalogs
+      showColumnsSQL = SHOW_COLUMNS_IN_ALL_CATALOGS_SQL;
+    } else {
+      showColumnsSQL = String.format(SHOW_COLUMNS_SQL, escapeSqlIdentifier(catalogName));
+    }
 
     if (schemaPattern != null) {
       showColumnsSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
