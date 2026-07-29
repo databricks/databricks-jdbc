@@ -90,9 +90,22 @@ public class ArrowToJavaObjectConverter {
       if (arrowMetadata.startsWith(GEOGRAPHY)) {
         requiredType = ColumnInfoTypeName.GEOGRAPHY;
       }
+      // A collated string column (e.g. "STRING COLLATE UTF8_LCASE") is reported with a type_name
+      // that does not map to any ColumnInfoTypeName, leaving requiredType null. Recover the type
+      // from the metadata so the value is read as a string instead of throwing an NPE below.
+      if (requiredType == null) {
+        requiredType = recoverStringType(arrowMetadata);
+      }
     }
     if (object == null) {
       return null;
+    }
+    if (requiredType == null) {
+      // Do not log the raw cell value, which may contain sensitive data; log only the metadata.
+      String errorMessage =
+          String.format("Unable to determine column type from metadata %s", arrowMetadata);
+      LOGGER.error(errorMessage);
+      throw new DatabricksValidationException(errorMessage);
     }
     switch (requiredType) {
       case BYTE:

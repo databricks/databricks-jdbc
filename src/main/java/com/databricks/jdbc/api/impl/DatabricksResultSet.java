@@ -1598,7 +1598,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
-
+    if (obj != null && !(obj instanceof DatabricksArray)) {
+      throw new DatabricksSQLException(
+          "Column "
+              + columnIndex
+              + " is not an ARRAY; cannot use getArray() (actual type: "
+              + obj.getClass().getSimpleName()
+              + ")",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
+    }
     return (DatabricksArray) obj;
   }
 
@@ -1630,7 +1639,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
-
+    if (obj != null && !(obj instanceof DatabricksStruct)) {
+      throw new DatabricksSQLException(
+          "Column "
+              + columnIndex
+              + " is not a STRUCT; cannot use getStruct() (actual type: "
+              + obj.getClass().getSimpleName()
+              + ")",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
+    }
     return (DatabricksStruct) obj;
   }
 
@@ -1663,7 +1681,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
-
+    if (obj != null && !(obj instanceof DatabricksMap)) {
+      throw new DatabricksSQLException(
+          "Column "
+              + columnIndex
+              + " is not a MAP; cannot use getMap() (actual type: "
+              + obj.getClass().getSimpleName()
+              + ")",
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR,
+          silenceNonTerminalExceptions);
+    }
     return (Map<String, Object>) obj;
   }
 

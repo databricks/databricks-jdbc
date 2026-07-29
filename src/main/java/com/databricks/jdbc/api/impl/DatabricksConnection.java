@@ -435,21 +435,43 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void close() throws SQLException {
     LOGGER.debug("public void close()");
-    // Shutdown heartbeat FIRST — prevents RPCs on closing connections and
-    // ensures shutdown runs even if statement.close() throws
-    if (heartbeatManager != null) {
-      heartbeatManager.shutdown();
+    try {
+      try {
+        // Shutdown heartbeat first to prevent RPCs on a closing connection.
+        if (heartbeatManager != null) {
+          heartbeatManager.shutdown();
+        }
+      } finally {
+        try {
+          for (IDatabricksStatementInternal statement : statementSet) {
+            statement.close(false);
+            statementSet.remove(statement);
+          }
+        } finally {
+          this.session.close();
+        }
+      }
+    } finally {
+      // Each cleanup step must run even if an earlier one fails. In particular,
+      // closeConnection() stops the IdleConnectionEvictor owned by this connection.
+      try {
+        TelemetryClientFactory.getInstance().closeTelemetryClient(connectionContext);
+      } finally {
+        try {
+          DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext);
+        } finally {
+          try {
+            DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
+          } finally {
+            try {
+              DatabricksHttpClientFactory.getInstance().closeConnection(connectionContext);
+            } finally {
+              DatabricksThreadContextHolder.clearAllContext();
+            }
+          }
+        }
+      }
     }
-    for (IDatabricksStatementInternal statement : statementSet) {
-      statement.close(false);
-      statementSet.remove(statement);
-    }
-    this.session.close();
-    TelemetryClientFactory.getInstance().closeTelemetryClient(connectionContext);
-    DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext);
-    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
-    DatabricksHttpClientFactory.getInstance().closeConnection(connectionContext);
-    DatabricksThreadContextHolder.clearAllContext();
   }
 
   @Override

@@ -440,4 +440,25 @@ class DatabricksTypeUtilTest {
     assertEquals(
         "DECIMAL(8,8)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("0.00000123")));
   }
+
+  @Test
+  public void testRecoverStringType() {
+    // Plain and collated string, any case -> STRING
+    assertEquals(ColumnInfoTypeName.STRING, DatabricksTypeUtil.recoverStringType("STRING"));
+    assertEquals(
+        ColumnInfoTypeName.STRING,
+        DatabricksTypeUtil.recoverStringType("STRING COLLATE UTF8_LCASE"));
+    assertEquals(
+        ColumnInfoTypeName.STRING,
+        DatabricksTypeUtil.recoverStringType("string collate utf8_lcase"));
+    assertEquals(ColumnInfoTypeName.STRING, DatabricksTypeUtil.recoverStringType("STRING(10)"));
+
+    // Word-boundary: a longer type merely starting with STRING is not coerced
+    assertNull(DatabricksTypeUtil.recoverStringType("STRINGVIEW"));
+    assertNull(DatabricksTypeUtil.recoverStringType("STRINGSET"));
+
+    // Non-string / null
+    assertNull(DatabricksTypeUtil.recoverStringType("INT"));
+    assertNull(DatabricksTypeUtil.recoverStringType(null));
+  }
 }

@@ -239,7 +239,7 @@ public class ComplexDataTypeParserTest {
   @Test
   void testTimestampAsEpochMicrosInStruct() throws DatabricksParsingException {
     // TIMESTAMP inside STRUCT — Arrow serializes as epoch microseconds
-    // 1696519230000000 micros = 1696519230000 millis (2023-10-05 15:20:30 UTC)
+    // 1696519230000000 micros represents the UTC wall-clock value 2023-10-05 15:20:30.
     String json = "{\"ts\":1696519230000000}";
 
     DatabricksStruct dbStruct = parser.parseJsonStringToDbStruct(json, "STRUCT<ts:TIMESTAMP>");
@@ -250,7 +250,7 @@ public class ComplexDataTypeParserTest {
       assertEquals(1, attrs.length);
       assertInstanceOf(Timestamp.class, attrs[0]);
       Timestamp ts = (Timestamp) attrs[0];
-      assertEquals(1696519230000L, ts.getTime());
+      assertEquals(Timestamp.valueOf("2023-10-05 15:20:30"), ts);
       assertEquals(0, ts.getNanos() % 1_000_000); // no sub-millisecond component
     } catch (Exception e) {
       fail("Should not throw: " + e.getMessage());
@@ -270,7 +270,7 @@ public class ComplexDataTypeParserTest {
       assertEquals(1, elements.length);
       assertInstanceOf(Timestamp.class, elements[0]);
       Timestamp ts = (Timestamp) elements[0];
-      assertEquals(1696519230000L, ts.getTime());
+      assertEquals(Timestamp.valueOf("2023-10-05 15:20:30"), ts);
     } catch (Exception e) {
       fail("Should not throw: " + e.getMessage());
     }
@@ -287,7 +287,7 @@ public class ComplexDataTypeParserTest {
 
     Object val = dbMap.get("key1");
     assertInstanceOf(Timestamp.class, val);
-    assertEquals(1696519230000L, ((Timestamp) val).getTime());
+    assertEquals(Timestamp.valueOf("2023-10-05 15:20:30"), val);
   }
 
   @Test

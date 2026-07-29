@@ -829,6 +829,22 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     return SELECT_PATTERN.matcher(trimmedQuery).find();
   }
 
+  /**
+   * Returns whether the query can have its result-set metadata retrieved via {@code DESCRIBE QUERY}
+   * without executing it. {@code DESCRIBE QUERY} accepts the query forms that produce a result set
+   * from a top-level query expression: {@code SELECT}, {@code WITH} (CTEs), {@code VALUES}, {@code
+   * FROM (...)} and parenthesized selects. Other result-set-producing statements such as {@code
+   * SHOW}, {@code DESCRIBE} and {@code EXPLAIN} are not valid inputs to {@code DESCRIBE QUERY} and
+   * must be excluded.
+   */
+  static boolean isDescribableQuery(String query) {
+    String trimmedQuery = trimCommentsAndWhitespaces(query);
+    return SELECT_PATTERN.matcher(trimmedQuery).find()
+        || WITH_PATTERN.matcher(trimmedQuery).find()
+        || VALUES_PATTERN.matcher(trimmedQuery).find()
+        || FROM_PATTERN.matcher(trimmedQuery).find();
+  }
+
   static boolean isInsertQuery(String query) {
     if (query == null || query.trim().isEmpty()) {
       return false;

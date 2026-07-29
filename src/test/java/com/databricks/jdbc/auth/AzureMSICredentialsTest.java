@@ -183,9 +183,9 @@ public class AzureMSICredentialsTest {
   @Test
   void should_ThrowException_When_HttpClientThrowsException() throws Exception {
     // Setup mock to throw exception
-    when(mockHttpClient.execute(any(HttpGet.class)))
-        .thenThrow(
-            new DatabricksHttpException("Network error", DatabricksDriverErrorCode.INVALID_STATE));
+    DatabricksHttpException httpException =
+        new DatabricksHttpException("Network error", DatabricksDriverErrorCode.INVALID_STATE);
+    when(mockHttpClient.execute(any(HttpGet.class))).thenThrow(httpException);
 
     AzureMSICredentials credentials = new AzureMSICredentials(mockHttpClient, null);
 

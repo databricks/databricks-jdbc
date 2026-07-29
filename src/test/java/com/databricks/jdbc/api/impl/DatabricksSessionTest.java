@@ -170,6 +170,39 @@ public class DatabricksSessionTest {
   }
 
   @Test
+  public void testCloseIgnoresExpiredToken() throws SQLException {
+    // Reproduce GitHub #1221: when the auth token expires, deleteSession() gets a 401.
+    // close() must still clean up local session state (sessionInfo = null, isOpen = false).
+    setupWarehouse(true /* useThrift */);
+
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .computeResource(WAREHOUSE_COMPUTE)
+            .build();
+    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
+
+    // Simulate expired-token HTTP 401 error from deleteSession
+    DatabricksSQLException expiredTokenEx =
+        new DatabricksSQLException(
+            "HTTP request failed by code: 401, status line: HTTP/1.1 401 Unauthorized.", "08000");
+    doThrow(expiredTokenEx).when(thriftClient).deleteSession(any());
+
+    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
+    session.open();
+    assertTrue(session.isOpen());
+
+    // Must not throw — expired token during close() is silently swallowed
+    assertDoesNotThrow(session::close);
+
+    // Local state must be cleaned up despite the error
+    assertFalse(session.isOpen());
+    assertNull(session.getSessionId());
+
+    verify(thriftClient).deleteSession(any());
+  }
+
+  @Test
   public void testCloseIgnoresInvalidSession() throws SQLException {
     setupWarehouse(true /* useThrift */);
 

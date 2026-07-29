@@ -291,6 +291,38 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testGetMetaData_NoResultSet_CteQuery_UsesDescribeQuery() throws Exception {
+    // Regression test for issue #1562: getMetaData() must return metadata for CTE (WITH ...)
+    // queries before execution, matching the behavior of plain SELECT queries. Previously this
+    // returned null because the guard only recognized queries literally starting with SELECT.
+    String cteQuery = "WITH cte AS (SELECT * FROM sales) SELECT * FROM cte";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, cteQuery);
+
+    // DESCRIBE QUERY returns one row per column: (col_name, data_type, ...)
+    when(resultSet.next()).thenReturn(true, true, false);
+    when(resultSet.getString(1)).thenReturn("a", "b");
+    when(resultSet.getString(2)).thenReturn("int", "string");
+    when(client.executeStatement(
+            eq("DESCRIBE QUERY " + cteQuery),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            any(),
+            any()))
+        .thenReturn(resultSet);
+
+    ResultSetMetaData metaData = statement.getMetaData();
+    assertNotNull(metaData);
+    assertEquals(2, metaData.getColumnCount());
+    assertEquals("a", metaData.getColumnName(1));
+    assertEquals("b", metaData.getColumnName(2));
+  }
+
+  @Test
   public void testExecuteBatchStatementThrowsError() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL_WITH_BATCHED_INSERTS, new Properties());

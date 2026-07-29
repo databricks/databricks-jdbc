@@ -200,13 +200,9 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
 
     catalog = autoFillCatalog(catalog, currentCatalog);
 
-    // Fetch columns from all catalogs if catalog is null
-    if (catalog == null) {
-      LOGGER.debug("Catalog is null, fetching columns across all catalogs");
-      return fetchColumnsAcrossCatalogs(
-          session, schemaNamePattern, tableNamePattern, columnNamePattern);
-    }
-
+    // When catalog is null, CommandBuilder emits "SHOW COLUMNS IN ALL CATALOGS" so the server
+    // enumerates every catalog in a single call (mirroring listSchemas/listTables). Older DBR
+    // versions that don't support that syntax are handled by the parse-error fallback below.
     CommandBuilder commandBuilder =
         new CommandBuilder(catalog, session)
             .setSchemaPattern(schemaNamePattern)
@@ -218,7 +214,13 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       return metadataResultSetBuilder.getColumnsResult(
           getResultSet(SQL, session, MetadataOperationType.GET_COLUMNS));
     } catch (SQLException e) {
-      if (isObjectNotFoundException(e)
+      if (catalog == null && PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())) {
+        // Fallback for older DBR versions that don't support "SHOW COLUMNS IN ALL CATALOGS":
+        // enumerate the catalogs and issue a per-catalog SHOW COLUMNS.
+        LOGGER.debug("SQL command failed with syntax error. Fetching columns across all catalogs.");
+        return fetchColumnsAcrossCatalogs(
+            session, schemaNamePattern, tableNamePattern, columnNamePattern);
+      } else if (isObjectNotFoundException(e)
           || isEmptyPatternError(schemaNamePattern, tableNamePattern, columnNamePattern)) {
         LOGGER.debug("Error for getColumns ({}), returning empty result set.", e.getSQLState());
         return metadataResultSetBuilder.getColumnsResult(new ArrayList<>());
