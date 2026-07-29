@@ -140,6 +140,42 @@ class ValidationUtilTest {
     assertThrows(DatabricksSQLException.class, () -> ValidationUtil.validateUidParameter(params));
   }
 
+  @ParameterizedTest
+  @MethodSource("supportedAuthMechTestCases")
+  void testValidateAuthMech_SupportedValues(String authMech) {
+    java.util.Map<String, String> params = new java.util.HashMap<>();
+    if (authMech != null) {
+      params.put("authmech", authMech);
+    }
+    assertDoesNotThrow(() -> ValidationUtil.validateAuthMech(params));
+  }
+
+  private static Stream<Arguments> supportedAuthMechTestCases() {
+    return Stream.of(
+        Arguments.of("3"), // PAT
+        Arguments.of("11"), // OAuth
+        Arguments.of((String) null)); // omitted -> default applies
+  }
+
+  @ParameterizedTest
+  @MethodSource("unsupportedAuthMechTestCases")
+  void testValidateAuthMech_UnsupportedValueThrowsInputValidationError(String authMech) {
+    java.util.Map<String, String> params = new java.util.HashMap<>();
+    params.put("authmech", authMech);
+    DatabricksSQLException ex =
+        assertThrows(DatabricksSQLException.class, () -> ValidationUtil.validateAuthMech(params));
+    assertEquals("INPUT_VALIDATION_ERROR", ex.getSQLState());
+  }
+
+  private static Stream<Arguments> unsupportedAuthMechTestCases() {
+    return Stream.of(
+        Arguments.of("99"), // unsupported integer
+        Arguments.of("0"), // unsupported integer
+        Arguments.of("1"), // unsupported integer
+        Arguments.of("non-numeric"), // not an integer
+        Arguments.of("")); // empty
+  }
+
   private static Stream<Arguments> jdbcUrlValidityTestCases() {
     return Stream.of(
         Arguments.of(VALID_URL_1, "Valid URL with auth_flow=2 and log path", true),

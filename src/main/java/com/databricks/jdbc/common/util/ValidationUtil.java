@@ -176,10 +176,35 @@ public class ValidationUtil {
    */
   public static void validateInputProperties(Map<String, String> parameters)
       throws DatabricksValidationException {
-    // Validate UID parameter
+    // Fail fast on an unsupported AuthMech before the client-configurator machinery runs.
+    validateAuthMech(parameters);
     validateUidParameter(parameters);
+  }
 
-    // Future property validations can be added here
+  /**
+   * Validates the AuthMech parameter. Reuses {@link AuthMech#fromValue} as the single source of
+   * truth for supported values, so adding a new AuthMech only requires updating {@code AuthMech}.
+   *
+   * @param parameters Map of JDBC connection parameters
+   * @throws DatabricksValidationException if AuthMech is present but not a supported value
+   */
+  public static void validateAuthMech(Map<String, String> parameters)
+      throws DatabricksValidationException {
+    String authMech = parameters.get(DatabricksJdbcUrlParams.AUTH_MECH.getParamName());
+    if (authMech == null) {
+      // Omitted -> default AuthMech applies.
+      return;
+    }
+    Integer authMechValue = null;
+    try {
+      authMechValue = Integer.parseInt(authMech);
+    } catch (NumberFormatException e) {
+      // Not an integer -> unsupported (handled below).
+    }
+    if (authMechValue == null || AuthMech.fromValue(authMechValue) == null) {
+      throw new DatabricksValidationException(
+          String.format("Does not support authMech value %s", authMech));
+    }
   }
 
   /**
