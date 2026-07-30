@@ -158,6 +158,86 @@ public class DatabricksThriftAccessorTest {
     assertEquals(resultSet.getStatementStatus().getState(), StatementState.SUCCEEDED);
   }
 
+  // RESULTFETCH-009: a single metadata-less empty FetchResults batch with hasMoreRows=true must be
+  // skipped and a follow-up FetchResults issued, instead of throwing an NPE on null metadata.
+  @Test
+  void testExecute_skipsMetadataLessEmptyBatch()
+      throws TException, SQLException, DatabricksValidationException {
+    setup(false);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+
+    // Intermediate empty batch: zero rows, hasMoreRows=true, and NO result-set metadata.
+    TFetchResultsResp emptyBatch =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(new TRowSet().setStartRowOffset(0).setRows(new ArrayList<>()))
+            .setHasMoreRows(true);
+
+    when(thriftClient.FetchResults(getFetchResultsRequest(true)))
+        .thenReturn(emptyBatch)
+        .thenReturn(fetchResultsResponse);
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(operationStatusFinishedResp);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
+
+    DatabricksResultSet resultSet =
+        accessor.execute(request, parentStatement, session, StatementType.SQL);
+    assertEquals(StatementState.SUCCEEDED, resultSet.getStatementStatus().getState());
+    // The empty batch must have triggered a follow-up FetchResults.
+    verify(thriftClient, times(2)).FetchResults(getFetchResultsRequest(true));
+  }
+
+  // RESULTFETCH-010: multiple consecutive metadata-less empty batches must each be skipped, with
+  // FetchResults re-issued until metadata/rows arrive.
+  @Test
+  void testExecute_skipsMultipleConsecutiveMetadataLessEmptyBatches()
+      throws TException, SQLException, DatabricksValidationException {
+    setup(false);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+
+    TFetchResultsResp emptyBatch1 =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(new TRowSet().setStartRowOffset(0).setRows(new ArrayList<>()))
+            .setHasMoreRows(true);
+    TFetchResultsResp emptyBatch2 =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(new TRowSet().setStartRowOffset(0).setRows(new ArrayList<>()))
+            .setHasMoreRows(true);
+
+    when(thriftClient.FetchResults(getFetchResultsRequest(true)))
+        .thenReturn(emptyBatch1)
+        .thenReturn(emptyBatch2)
+        .thenReturn(fetchResultsResponse);
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(operationStatusFinishedResp);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
+
+    DatabricksResultSet resultSet =
+        accessor.execute(request, parentStatement, session, StatementType.SQL);
+    assertEquals(StatementState.SUCCEEDED, resultSet.getStatementStatus().getState());
+    verify(thriftClient, times(3)).FetchResults(getFetchResultsRequest(true));
+  }
+
   @Test
   void testExecuteAsync() throws TException, SQLException, DatabricksValidationException {
     setup(true);
