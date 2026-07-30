@@ -50,16 +50,23 @@ jobs:
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
-    # Budget = setup + warmup + author + teardown. Setup+warmup (checkout, JDK,
-    # build, test-compile of jdbc-core -am, plugin/surefire resolution, repo-id
-    # normalization) is the heaviest non-author cost — call it ~10 min. The
-    # author step is capped at 45 min (see its own timeout-minutes), leaving
-    # 60-45=15 min for everything else, which comfortably covers setup+warmup
-    # plus teardown (publish + outcome comment). With the test repo warmed
-    # offline the real work converges in ~15-20 min; the headroom absorbs a hard
-    # bug without letting a stuck run idle for an hour. Bounding the author step
-    # below the job wall means a runaway fails that step cleanly (the outcome
-    # comment still posts) instead of the whole job being force-cancelled.
+    # Budget = setup + warmup + author + teardown, and the invariant that keeps
+    # the always()-guarded outcome comment alive is:
+    #     max(setup+warmup) + author_cap + teardown  <=  job_cap
+    # The author cap is STEP-relative (it starts only after setup+warmup), so a
+    # long warmup could otherwise push author_start+45 to the 60-min wall and
+    # leave zero room for teardown — re-introducing the bare "job cancelled, no
+    # issue comment" this PR exists to prevent. We size for headroom instead of
+    # hoping warmup stays short:
+    #     author_cap = 40  (see Run author's timeout-minutes)
+    #     teardown   ~= 2   (publish + Comment outcome; observed <15s)
+    #     => allowed setup+warmup = 60 - 40 - 2 = 18 min
+    # Observed setup+warmup is ~4.5 min (checkout, JDK, build, test-compile of
+    # jdbc-core -am, plugin/surefire resolution, one JUnit-Platform test run,
+    # repo-id normalization), so there is ~13 min of slack before the invariant
+    # is even at risk. With the repo warmed offline the real author work
+    # converges in ~15-20 min; the 40-min cap absorbs a hard bug while still
+    # guaranteeing teardown headroom regardless of warmup variance.
     timeout-minutes: 60
     concurrency:
       # One author run per issue; a re-label while a run is in flight queues.
@@ -266,9 +273,11 @@ jobs:
         # killed here (this step fails) rather than at the job wall (the whole job
         # is force-cancelled). Failing the step lets the always()-guarded outcome
         # comment still run and report a real failure on the issue instead of a
-        # bare "job cancelled". 45 min leaves ~10 min of the 60-min job for setup
-        # + teardown.
-        timeout-minutes: 45
+        # bare "job cancelled". Capped at 40 (not 45) so the guarantee holds even
+        # if warmup runs long: 40 + ~2 teardown leaves 18 min for setup+warmup
+        # under the 60-min job wall, ~4x the observed ~4.5 min. See the job-level
+        # timeout-minutes comment for the full budget arithmetic.
+        timeout-minutes: 40
         # Run from RUNNER_TEMP so the engine-rendered prompt's context file
         # (issue_body.txt, resolved against cwd) is read from there and the checkout
         # stays clean — publish's leftover check fails on any untracked path in the
