@@ -50,7 +50,17 @@ jobs:
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
-    timeout-minutes: 45
+    # Budget = setup + warmup + author + teardown. Setup+warmup (checkout, JDK,
+    # build, test-compile of jdbc-core -am, plugin/surefire resolution, repo-id
+    # normalization) is the heaviest non-author cost — call it ~10 min. The
+    # author step is capped at 45 min (see its own timeout-minutes), leaving
+    # 60-45=15 min for everything else, which comfortably covers setup+warmup
+    # plus teardown (publish + outcome comment). With the test repo warmed
+    # offline the real work converges in ~15-20 min; the headroom absorbs a hard
+    # bug without letting a stuck run idle for an hour. Bounding the author step
+    # below the job wall means a runaway fails that step cleanly (the outcome
+    # comment still posts) instead of the whole job being force-cancelled.
+    timeout-minutes: 60
     concurrency:
       # One author run per issue; a re-label while a run is in flight queues.
       group: engineer-bot-issue-${{ github.event.issue.number || inputs.issue_number }}
@@ -87,6 +97,66 @@ jobs:
         # agent's diff. dependency-check.skip: the OWASP check needs NVD network +
         # is slow and not needed for the agent's build.
         run: mvn -pl jdbc-core -am -B clean install -DskipTests -Ddependency-check.skip=true
+
+      # Warm the TEST-scoped repo while creds are still live. The agent's bug-fix
+      # flow runs `mvn test`, but the build above skips the test phase — so the
+      # test-compile classpath and the Surefire JUnit-Platform provider never land
+      # in ~/.m2. Once creds are scrubbed and Maven goes offline, the agent cannot
+      # fetch them and burns its whole budget fighting "surefire-junit-platform
+      # (absent)" / cache-miss errors (observed: ~25 min wasted, job timed out).
+      # Resolve everything the offline `mvn test` will need, HERE. Mirrors the
+      # dependency-warming in .github/workflows/warmMavenCache.yml.
+      - name: Warm test dependencies for the offline agent
+        run: |
+          set -euo pipefail
+          # Compile the test sources so all test-scoped deps are downloaded.
+          mvn -pl jdbc-core -am -B test-compile -Ddependency-check.skip=true
+          # Pull all plugins referenced by the build into ~/.m2.
+          mvn -pl jdbc-core -B dependency:resolve-plugins -Ddependency-check.skip=true || true
+          # The Surefire JUnit-Platform provider is resolved LAZILY by Surefire
+          # only when it actually executes JUnit-Platform tests — test-compile
+          # never triggers it, so fetch it explicitly at the repo's pinned version.
+          # Fall back to 3.1.2 (matching warmMavenCache.yml) if help:evaluate
+          # can't resolve the expression: under `set -euo pipefail` a failed/empty
+          # command substitution does NOT abort the assignment, so without an
+          # explicit default SUREFIRE_VERSION could go empty, producing a
+          # malformed coordinate that the trailing `|| true` would silently
+          # swallow — re-introducing the exact "surefire-junit-platform (absent)"
+          # dead-end this step exists to prevent.
+          SUREFIRE_VERSION=$(mvn -pl jdbc-core -B help:evaluate \
+            -Dexpression=maven-surefire-plugin.version -q -DforceStdout 2>/dev/null \
+            | tail -n1)
+          [ -n "$SUREFIRE_VERSION" ] || SUREFIRE_VERSION="3.1.2"
+          mvn -B dependency:get \
+            -Dartifact="org.apache.maven.surefire:surefire-junit-platform:${SUREFIRE_VERSION}" || true
+          # Finally, actually EXECUTE one fast unit test while creds are live.
+          # test-compile + the explicit get above resolve the test classpath and
+          # the provider jar, but anything Surefire resolves LAZILY at execution
+          # time (JUnit-Platform engine internals, provider transitives) only
+          # lands in ~/.m2 once a JUnit-Platform run really happens. This is what
+          # warmMavenCache.yml relies on — run the same fast test it uses so the
+          # offline `mvn test` inside Run author can't hit an execution-time
+          # resolution miss. `|| true`: warming the repo is the goal, not the
+          # test verdict (the agent runs its own tests later).
+          mvn -pl jdbc-core -B test \
+            -Dtest="DatabricksParameterMetaDataTest#testInitialization" \
+            -Ddependency-check.skip=true || true
+
+      # Normalize the repo-id tracking markers BEFORE going offline. Artifacts
+      # downloaded through the JFrog mirror record their source repo id
+      # (`jfrog-central`) in each `_remote.repositories`. Under the agent's empty
+      # offline settings that id is absent from the resolution context, so Maven
+      # rejects the cached artifact as "present, but unavailable" and the agent
+      # thrashes on the `trackingFilename` workaround. Rewriting the id to
+      # `central` (the implicit default repo) makes the warmed repo resolve
+      # cleanly offline. Same technique warmMavenCache.yml uses before caching.
+      - name: Normalize _remote.repositories for offline resolution
+        run: |
+          set -euo pipefail
+          COUNT=$(find ~/.m2/repository -name '_remote.repositories' -print | wc -l)
+          find ~/.m2/repository -name '_remote.repositories' \
+            -exec sed -i 's/jfrog-central/central/g' {} \;
+          echo "Normalized ${COUNT} _remote.repositories markers (jfrog-central -> central)"
 
       # `mvn install` above ran spotless:apply (bound to the compile phase), which
       # may have reformatted tracked .java files that were already in the tree.
@@ -192,6 +262,13 @@ jobs:
 
       - name: Run author
         id: author
+        # Bound the model-driven step BELOW the job timeout so a stuck agent is
+        # killed here (this step fails) rather than at the job wall (the whole job
+        # is force-cancelled). Failing the step lets the always()-guarded outcome
+        # comment still run and report a real failure on the issue instead of a
+        # bare "job cancelled". 45 min leaves ~10 min of the 60-min job for setup
+        # + teardown.
+        timeout-minutes: 45
         # Run from RUNNER_TEMP so the engine-rendered prompt's context file
         # (issue_body.txt, resolved against cwd) is read from there and the checkout
         # stays clean — publish's leftover check fails on any untracked path in the

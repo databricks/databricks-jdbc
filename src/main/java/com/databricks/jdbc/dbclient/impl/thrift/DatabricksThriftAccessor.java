@@ -550,28 +550,43 @@ final class DatabricksThriftAccessor {
   }
 
   private TFetchResultsResp executeFetchRequest(TFetchResultsReq request) throws SQLException {
-    TFetchResultsResp response;
-    try {
-      response = getThriftClient().FetchResults(request);
-    } catch (TException e) {
-      String errorMessage =
-          String.format(
-              "Error while fetching results from Thrift server. Request maxRows=%d, "
-                  + "maxBytes=%d, Error {%s}",
-              request.getMaxRows(), request.getMaxBytes(), e.getMessage());
-      throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
-    }
-
     String statementId = StatementId.loggableStatementId(request.getOperationHandle());
-    verifySuccessStatus(
-        response.getStatus(),
-        String.format(
-            "Error while fetching results Request maxRows=%d, maxBytes=%d. "
-                + "Response hasMoreRows=%s",
-            request.getMaxRows(), request.getMaxBytes(), response.hasMoreRows),
-        statementId);
+    while (true) {
+      TFetchResultsResp response;
+      try {
+        response = getThriftClient().FetchResults(request);
+      } catch (TException e) {
+        String errorMessage =
+            String.format(
+                "Error while fetching results from Thrift server. Request maxRows=%d, "
+                    + "maxBytes=%d, Error {%s}",
+                request.getMaxRows(), request.getMaxBytes(), e.getMessage());
+        throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
+      }
 
-    return response;
+      verifySuccessStatus(
+          response.getStatus(),
+          String.format(
+              "Error while fetching results Request maxRows=%d, maxBytes=%d. "
+                  + "Response hasMoreRows=%s",
+              request.getMaxRows(), request.getMaxBytes(), response.hasMoreRows),
+          statementId);
+
+      // A legitimate intermediate empty batch: the server returned no result-set metadata but
+      // signalled hasMoreRows=true, meaning the rows (and metadata) arrive on a subsequent
+      // FetchResults. The initial-fetch consumers dereference the metadata, so skip this batch and
+      // re-issue FetchResults until metadata arrives (or hasMoreRows becomes false). This mirrors
+      // the behaviour of the reference C#/ADBC drivers.
+      if (response.getResultSetMetadata() == null && response.isHasMoreRows()) {
+        LOGGER.debug(
+            "Skipping metadata-less empty FetchResults batch (hasMoreRows=true) for statement {}"
+                + " and re-fetching",
+            statementId);
+        continue;
+      }
+
+      return response;
+    }
   }
 
   private TFetchResultsReq createFetchResultsReqWithDefaults(TOperationHandle operationHandle) {
