@@ -50,11 +50,16 @@ jobs:
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
-    # Setup (~4 min) + the model-driven author step. With the test repo warmed
-    # offline (see warmup steps below) the real work converges in ~15-20 min;
-    # the headroom absorbs a hard bug without letting a stuck run idle for an
-    # hour. The agent itself is bounded tighter by its own step timeout so a
-    # runaway fails cleanly and still leaves time for the outcome comment.
+    # Budget = setup + warmup + author + teardown. Setup+warmup (checkout, JDK,
+    # build, test-compile of jdbc-core -am, plugin/surefire resolution, repo-id
+    # normalization) is the heaviest non-author cost — call it ~10 min. The
+    # author step is capped at 45 min (see its own timeout-minutes), leaving
+    # 60-45=15 min for everything else, which comfortably covers setup+warmup
+    # plus teardown (publish + outcome comment). With the test repo warmed
+    # offline the real work converges in ~15-20 min; the headroom absorbs a hard
+    # bug without letting a stuck run idle for an hour. Bounding the author step
+    # below the job wall means a runaway fails that step cleanly (the outcome
+    # comment still posts) instead of the whole job being force-cancelled.
     timeout-minutes: 60
     concurrency:
       # One author run per issue; a re-label while a run is in flight queues.
@@ -111,9 +116,17 @@ jobs:
           # The Surefire JUnit-Platform provider is resolved LAZILY by Surefire
           # only when it actually executes JUnit-Platform tests — test-compile
           # never triggers it, so fetch it explicitly at the repo's pinned version.
+          # Fall back to 3.1.2 (matching warmMavenCache.yml) if help:evaluate
+          # can't resolve the expression: under `set -euo pipefail` a failed/empty
+          # command substitution does NOT abort the assignment, so without an
+          # explicit default SUREFIRE_VERSION could go empty, producing a
+          # malformed coordinate that the trailing `|| true` would silently
+          # swallow — re-introducing the exact "surefire-junit-platform (absent)"
+          # dead-end this step exists to prevent.
           SUREFIRE_VERSION=$(mvn -pl jdbc-core -B help:evaluate \
             -Dexpression=maven-surefire-plugin.version -q -DforceStdout 2>/dev/null \
             | tail -n1)
+          [ -n "$SUREFIRE_VERSION" ] || SUREFIRE_VERSION="3.1.2"
           mvn -B dependency:get \
             -Dartifact="org.apache.maven.surefire:surefire-junit-platform:${SUREFIRE_VERSION}" || true
 
