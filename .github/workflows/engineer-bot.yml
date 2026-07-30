@@ -129,6 +129,18 @@ jobs:
           [ -n "$SUREFIRE_VERSION" ] || SUREFIRE_VERSION="3.1.2"
           mvn -B dependency:get \
             -Dartifact="org.apache.maven.surefire:surefire-junit-platform:${SUREFIRE_VERSION}" || true
+          # Finally, actually EXECUTE one fast unit test while creds are live.
+          # test-compile + the explicit get above resolve the test classpath and
+          # the provider jar, but anything Surefire resolves LAZILY at execution
+          # time (JUnit-Platform engine internals, provider transitives) only
+          # lands in ~/.m2 once a JUnit-Platform run really happens. This is what
+          # warmMavenCache.yml relies on — run the same fast test it uses so the
+          # offline `mvn test` inside Run author can't hit an execution-time
+          # resolution miss. `|| true`: warming the repo is the goal, not the
+          # test verdict (the agent runs its own tests later).
+          mvn -pl jdbc-core -B test \
+            -Dtest="DatabricksParameterMetaDataTest#testInitialization" \
+            -Ddependency-check.skip=true || true
 
       # Normalize the repo-id tracking markers BEFORE going offline. Artifacts
       # downloaded through the JFrog mirror record their source repo id
