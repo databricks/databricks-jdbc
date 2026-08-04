@@ -154,6 +154,34 @@ public class MetadataTests {
   }
 
   @Test
+  void testGetTablesEmptyTypesMatchesAll() throws SQLException {
+    // Per the JDBC DatabaseMetaData.getTables contract, an empty types[] array carries no type
+    // constraint and must match ALL table types, identical to passing null.
+    DatabaseMetaData metaData = connection.getMetaData();
+    String catalog = getDatabricksCatalog();
+    String schema = getDatabricksSchema();
+    String tableName = "empty_types_match_all_test_table";
+    setupDatabaseTable(connection, tableName);
+    try {
+      // Sanity check: null types (match-all) lists the table.
+      try (ResultSet tablesNull = metaData.getTables(catalog, schema, tableName, null)) {
+        assertTrue(
+            tablesNull.next(),
+            "null types should match all table types and list the created table");
+      }
+      // Empty types[] must behave identically to null (match-all), not match-none.
+      try (ResultSet tablesEmpty =
+          metaData.getTables(catalog, schema, tableName, new String[] {})) {
+        assertTrue(
+            tablesEmpty.next(),
+            "empty types[] should match all table types and list the created table");
+      }
+    } finally {
+      deleteTable(connection, tableName);
+    }
+  }
+
+  @Test
   void testTableInformationExactMatch() throws SQLException {
     DatabaseMetaData metaData = connection.getMetaData();
     String catalog = "main";

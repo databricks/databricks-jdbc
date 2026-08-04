@@ -512,9 +512,10 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
             session.toString(), catalog, schemaNamePattern, tableNamePattern);
     LOGGER.debug(context);
 
-    // Per JDBC spec: null types = return all types; empty array = return nothing
+    // Per JDBC spec: a null or empty types list carries no type constraint and matches all table
+    // types. Normalize an empty array to null so it behaves identically to null (match-all).
     if (tableTypes != null && tableTypes.length == 0) {
-      return metadataResultSetBuilder.getTablesResult(catalog, tableTypes, new ArrayList<>());
+      tableTypes = null;
     }
 
     if (!metadataResultSetBuilder.shouldAllowCatalogAccess(catalog, null, session)) {

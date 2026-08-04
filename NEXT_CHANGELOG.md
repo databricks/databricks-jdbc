@@ -8,6 +8,8 @@
 - `DatabaseMetaData.getColumns(...)` with a `null` catalog now issues a single `SHOW COLUMNS IN ALL CATALOGS` statement (consistent with `getSchemas`/`getTables`) instead of enumerating every catalog and issuing a per-catalog `SHOW COLUMNS`. Older DBR versions that do not support the syntax transparently fall back to the previous enumerate-and-fan-out behavior.
 
 ### Fixed
+- Fixed `DatabaseMetaData.getTables(...)` treating an empty `types` array (`new String[]{}`) as "match no table types" (returning zero rows). Per the JDBC contract, an empty or `null` type list carries no type constraint and now matches all table types, identical to passing `null`. Affects both the SEA and Thrift metadata paths.
+
 - Fixed `IdleConnectionEvictor` thread leak in long-running applications. Driver-side resources (HTTP client, background threads) are now always released when `Connection.close()` is called, even if statement cleanup or server-side session termination fails.
 
 - Throw `DatabricksSQLException` instead of an unchecked `ClassCastException` when a complex-type getter (`getArray`, `getStruct`, `getMap`) is called on a column of a different complex type.
