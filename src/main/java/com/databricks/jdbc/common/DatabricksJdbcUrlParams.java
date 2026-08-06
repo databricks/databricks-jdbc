@@ -198,6 +198,10 @@ public enum DatabricksJdbcUrlParams {
       "EnableSeaSyncMetadata",
       "Enable x-databricks-sea-can-run-fully-sync header for synchronous metadata requests in SEA mode",
       "1"),
+  ENABLE_THRIFT_NATIVE_METADATA(
+      "EnableThriftNativeMetadata",
+      "Require Thrift-native execution for metadata requests in SEA mode",
+      "0"),
   DISABLE_OAUTH_REFRESH_TOKEN(
       "DisableOauthRefreshToken",
       "Disable requesting OAuth refresh tokens (omit offline_access unless explicitly provided)",
