@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -220,6 +221,34 @@ public class DatabricksMetadataQueryClientTest {
   }
 
   @Test
+  void nativeListTablesAppliesExactRequestedCatalogFilter() throws SQLException {
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    when(mockClient.executeStatement(
+            eq("SHOW TABLES IN CATALOG `COMPARATOR-TESTS`"),
+            eq(mockedComputeResource),
+            any(),
+            eq(StatementType.METADATA),
+            eq(session),
+            any(),
+            eq(MetadataOperationType.GET_TABLES)))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.isThriftNativeMetadataResult()).thenReturn(true);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    when(mockedMetaData.getColumnCount()).thenReturn(TABLE_COLUMNS.size());
+    when(mockedResultSet.next()).thenReturn(true, false);
+    when(mockedResultSet.getObject(1)).thenReturn("comparator-tests");
+    when(mockedResultSet.getObject(2)).thenReturn(TEST_SCHEMA);
+    when(mockedResultSet.getObject(3)).thenReturn(TEST_TABLE);
+    when(mockedResultSet.getObject(4)).thenReturn("TABLE");
+
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+    DatabricksResultSet result =
+        metadataClient.listTables(session, "COMPARATOR-TESTS", null, null, null);
+
+    assertFalse(result.next());
+  }
+
+  @Test
   void listSchemasReturnsEmptyWhenCatalogIsEmptyString() throws SQLException {
     IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
     when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(false);
@@ -371,7 +400,7 @@ public class DatabricksMetadataQueryClientTest {
             eq(StatementType.METADATA),
             eq(session),
             any(),
-            any(MetadataOperationType.class)))
+            eq(MetadataOperationType.GET_COLUMNS)))
         .thenReturn(mockedResultSet);
     when(mockedResultSet.next()).thenReturn(true, false);
 
@@ -676,7 +705,7 @@ public class DatabricksMetadataQueryClientTest {
             eq(StatementType.METADATA),
             eq(session),
             any(),
-            eq(MetadataOperationType.GET_CROSS_REFERENCE)))
+            eq(MetadataOperationType.GET_IMPORTED_KEYS)))
         .thenReturn(mockedResultSet);
     when(mockedResultSet.next()).thenReturn(true, false);
     for (ResultColumn resultColumn : IMPORTED_KEYS_COLUMNS) {
@@ -723,7 +752,7 @@ public class DatabricksMetadataQueryClientTest {
             eq(StatementType.METADATA),
             eq(session),
             any(),
-            eq(MetadataOperationType.GET_CROSS_REFERENCE)))
+            eq(MetadataOperationType.GET_IMPORTED_KEYS)))
         .thenThrow(exception);
     try (DatabricksResultSet actualResult =
         metadataClient.listImportedKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE)) {
@@ -1318,7 +1347,7 @@ public class DatabricksMetadataQueryClientTest {
             eq(StatementType.METADATA),
             eq(session),
             any(),
-            eq(MetadataOperationType.GET_CROSS_REFERENCE)))
+            eq(MetadataOperationType.GET_IMPORTED_KEYS)))
         .thenThrow(exception);
 
     // This should throw the original exception, not NPE
@@ -1378,7 +1407,7 @@ public class DatabricksMetadataQueryClientTest {
             eq(StatementType.METADATA),
             eq(session),
             any(),
-            any(MetadataOperationType.class)))
+            isNull()))
         .thenReturn(mockedCatalogResultSet);
 
     when(mockedCatalogResultSet.next()).thenReturn(true, false);

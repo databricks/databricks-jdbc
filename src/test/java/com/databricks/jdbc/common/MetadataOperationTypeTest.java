@@ -1,7 +1,9 @@
 package com.databricks.jdbc.common;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -13,13 +15,14 @@ public class MetadataOperationTypeTest {
   @Test
   void testAllEnumValuesExist() {
     // Verify all expected enum values exist
-    assertEquals(9, MetadataOperationType.values().length);
+    assertEquals(10, MetadataOperationType.values().length);
     assertNotNull(MetadataOperationType.GET_CATALOGS);
     assertNotNull(MetadataOperationType.GET_SCHEMAS);
     assertNotNull(MetadataOperationType.GET_TABLES);
     assertNotNull(MetadataOperationType.GET_COLUMNS);
     assertNotNull(MetadataOperationType.GET_FUNCTIONS);
     assertNotNull(MetadataOperationType.GET_PRIMARY_KEYS);
+    assertNotNull(MetadataOperationType.GET_IMPORTED_KEYS);
     assertNotNull(MetadataOperationType.GET_CROSS_REFERENCE);
     assertNotNull(MetadataOperationType.GET_PROCEDURES);
     assertNotNull(MetadataOperationType.GET_PROCEDURE_COLUMNS);
@@ -33,6 +36,7 @@ public class MetadataOperationTypeTest {
     "GET_COLUMNS, GetColumns",
     "GET_FUNCTIONS, GetFunctions",
     "GET_PRIMARY_KEYS, GetPrimaryKeys",
+    "GET_IMPORTED_KEYS, GetCrossReference",
     "GET_CROSS_REFERENCE, GetCrossReference",
     "GET_PROCEDURES, GetProcedures",
     "GET_PROCEDURE_COLUMNS, GetProcedureColumns"
@@ -75,6 +79,18 @@ public class MetadataOperationTypeTest {
   @Test
   void testGetCrossReferenceHeaderValue() {
     assertEquals("GetCrossReference", MetadataOperationType.GET_CROSS_REFERENCE.getHeaderValue());
+  }
+
+  @Test
+  void testCrossReferenceUsesShowWhileImportedKeysCanUseThriftNative() {
+    assertFalse(MetadataOperationType.GET_CROSS_REFERENCE.isThriftNativeSupported());
+    assertTrue(MetadataOperationType.GET_IMPORTED_KEYS.isThriftNativeSupported());
+  }
+
+  @Test
+  void testProcedureOperationsUseInformationSchemaQueries() {
+    assertFalse(MetadataOperationType.GET_PROCEDURES.isThriftNativeSupported());
+    assertFalse(MetadataOperationType.GET_PROCEDURE_COLUMNS.isThriftNativeSupported());
   }
 
   @Test

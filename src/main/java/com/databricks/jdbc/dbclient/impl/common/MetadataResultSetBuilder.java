@@ -15,13 +15,16 @@ import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CommandName;
+import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultColumn;
+import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.StatementState;
 import com.google.common.annotations.VisibleForTesting;
@@ -502,6 +505,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getFunctionsResult(DatabricksResultSet resultSet, String catalog)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getFunctionsResult(catalog, getRowsByIndex(resultSet));
+    }
     List<List<Object>> rows = getRowsForFunctions(resultSet, FUNCTION_COLUMNS, catalog);
     return buildResultSet(
         FUNCTION_COLUMNS,
@@ -513,6 +519,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getProceduresResult(DatabricksResultSet resultSet)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getProceduresResult(getRowsByIndex(resultSet));
+    }
     List<List<Object>> rows = getRowsForProcedures(resultSet);
     return buildResultSet(
         PROCEDURES_COLUMNS,
@@ -532,6 +541,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getProcedureColumnsResult(DatabricksResultSet resultSet)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getProcedureColumnsResult(getRowsByIndex(resultSet));
+    }
     List<List<Object>> rows = getRowsForProcedureColumns(resultSet);
     return buildResultSet(
         PROCEDURE_COLUMNS_COLUMNS,
@@ -550,6 +562,9 @@ public class MetadataResultSetBuilder {
   }
 
   public DatabricksResultSet getColumnsResult(DatabricksResultSet resultSet) throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getColumnsResult(getRowsByIndex(resultSet));
+    }
     List<List<Object>> rows = getRows(resultSet, COLUMN_COLUMNS, defaultAdapter);
     return buildResultSet(
         COLUMN_COLUMNS,
@@ -560,6 +575,9 @@ public class MetadataResultSetBuilder {
   }
 
   public DatabricksResultSet getCatalogsResult(DatabricksResultSet resultSet) throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getCatalogsResult(getRowsByIndex(resultSet));
+    }
     List<List<Object>> rows = getRows(resultSet, CATALOG_COLUMNS, defaultAdapter);
     return buildResultSet(
         CATALOG_COLUMNS,
@@ -571,6 +589,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getSchemasResult(DatabricksResultSet resultSet, String catalog)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getSchemasResult(getRowsByIndex(resultSet));
+    }
     List<List<Object>> rows =
         getRowsForSchemas(
             resultSet, SCHEMA_COLUMNS, catalog, new SchemasDatabricksResultSetAdapter());
@@ -582,20 +603,22 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_SCHEMAS);
   }
 
-  public DatabricksResultSet getTablesResult(DatabricksResultSet resultSet, String[] tableTypes)
-      throws SQLException {
+  public DatabricksResultSet getTablesResult(
+      DatabricksResultSet resultSet, String catalog, String[] tableTypes) throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getTablesResult(catalog, tableTypes, getRowsByIndex(resultSet));
+    }
     List<String> allowedTableTypes = List.of(tableTypes);
     List<List<Object>> rows =
         getRows(resultSet, TABLE_COLUMNS, defaultAdapter).stream()
-            .filter(row -> allowedTableTypes.contains(row.get(3))) // Filtering based on table type
+            .filter(row -> allowedTableTypes.contains(row.get(3)))
             .collect(Collectors.toList());
 
-    // Sort in order TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME (matching Thrift mode)
     rows.sort(
-        Comparator.comparing((List<Object> r) -> (String) r.get(3)) // TABLE_TYPE
-            .thenComparing(r -> (String) r.get(0)) // TABLE_CAT
-            .thenComparing(r -> (String) r.get(1)) // TABLE_SCHEM
-            .thenComparing(r -> (String) r.get(2))); // TABLE_NAME
+        Comparator.comparing((List<Object> r) -> (String) r.get(3))
+            .thenComparing(r -> (String) r.get(0))
+            .thenComparing(r -> (String) r.get(1))
+            .thenComparing(r -> (String) r.get(2)));
 
     return buildResultSet(
         TABLE_COLUMNS,
@@ -622,6 +645,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getPrimaryKeysResult(DatabricksResultSet resultSet)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getPrimaryKeysResult(getRowsByIndex(resultSet));
+    }
     List<List<Object>> rows = getRows(resultSet, PRIMARY_KEYS_COLUMNS, defaultAdapter);
     return buildResultSet(
         PRIMARY_KEYS_COLUMNS,
@@ -633,6 +659,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getImportedKeysResult(DatabricksResultSet resultSet)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getImportedKeys(getRowsByIndex(resultSet));
+    }
     List<List<Object>> rows = getRows(resultSet, IMPORTED_KEYS_COLUMNS, importedKeysAdapter);
     return buildResultSet(
         IMPORTED_KEYS_COLUMNS,
@@ -660,6 +689,87 @@ public class MetadataResultSetBuilder {
         METADATA_STATEMENT_ID,
         resultSet.getMetaData(),
         CommandName.GET_CROSS_REFERENCE);
+  }
+
+  public static boolean hasThriftNativeMetadataSchema(
+      ResultManifest manifest, MetadataOperationType operationType) {
+    List<ResultColumn> expectedColumns = getThriftNativeColumns(operationType);
+    if (manifest == null
+        || manifest.getSchema() == null
+        || manifest.getSchema().getColumns() == null
+        || expectedColumns == null) {
+      return false;
+    }
+
+    List<ColumnInfo> actualColumns = new ArrayList<>(manifest.getSchema().getColumns());
+    int minimumColumnCount =
+        operationType == MetadataOperationType.GET_COLUMNS
+            ? expectedColumns.size() - 1
+            : expectedColumns.size();
+    if (actualColumns.size() < minimumColumnCount
+        || actualColumns.size() > expectedColumns.size()) {
+      return false;
+    }
+
+    for (int i = 0; i < actualColumns.size(); i++) {
+      ColumnInfo actualColumn = actualColumns.get(i);
+      if (actualColumn == null
+          || !isExpectedThriftNativeColumnName(
+              actualColumn.getName(), expectedColumns.get(i).getColumnName())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private static List<ResultColumn> getThriftNativeColumns(MetadataOperationType operationType) {
+    if (operationType == null || !operationType.isThriftNativeSupported()) {
+      return null;
+    }
+    switch (operationType) {
+      case GET_CATALOGS:
+        return CATALOG_COLUMNS;
+      case GET_SCHEMAS:
+        return SCHEMA_COLUMNS;
+      case GET_TABLES:
+        return TABLE_COLUMNS;
+      case GET_COLUMNS:
+        return COLUMN_COLUMNS;
+      case GET_FUNCTIONS:
+        return FUNCTION_COLUMNS;
+      case GET_PRIMARY_KEYS:
+        return PRIMARY_KEYS_COLUMNS;
+      case GET_IMPORTED_KEYS:
+        return IMPORTED_KEYS_COLUMNS;
+      default:
+        return null;
+    }
+  }
+
+  private static boolean isExpectedThriftNativeColumnName(
+      String actualColumnName, String expectedColumnName) {
+    if (actualColumnName == null) {
+      return false;
+    }
+    return expectedColumnName.equalsIgnoreCase(actualColumnName)
+        || ("IS_AUTOINCREMENT".equalsIgnoreCase(expectedColumnName)
+            && "IS_AUTO_INCREMENT".equalsIgnoreCase(actualColumnName))
+        || ("KEY_SEQ".equalsIgnoreCase(expectedColumnName)
+            && "KEQ_SEQ".equalsIgnoreCase(actualColumnName));
+  }
+
+  private List<List<Object>> getRowsByIndex(DatabricksResultSet resultSet) throws SQLException {
+    List<List<Object>> rows = new ArrayList<>();
+    resultSet.setSilenceNonTerminalExceptions();
+    int columnCount = resultSet.getMetaData().getColumnCount();
+    while (resultSet.next()) {
+      List<Object> row = new ArrayList<>(columnCount);
+      for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+        row.add(resultSet.getObject(columnIndex));
+      }
+      rows.add(row);
+    }
+    return rows;
   }
 
   private boolean isTextType(String typeVal) {
