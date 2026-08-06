@@ -71,8 +71,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       }
       String SQL = String.format("SELECT '%s' AS catalog", currentCatalog);
       LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
-      return metadataResultSetBuilder.getCatalogsResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_CATALOGS));
+      return metadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session, null));
     }
 
     CommandBuilder commandBuilder = new CommandBuilder(session);
@@ -146,6 +145,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       return metadataResultSetBuilder.getTablesResult(catalog, tableTypes, new ArrayList<>());
     }
     String[] validatedTableTypes = tableTypes != null ? tableTypes : DEFAULT_TABLE_TYPES;
+    String requestedCatalog = catalog;
 
     // Only fetch currentCatalog if multiple catalog support is disabled
     String currentCatalog = isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null;
@@ -164,7 +164,9 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     LOGGER.debug(String.format("SQL command to fetch tables: {%s}", SQL));
     try {
       return metadataResultSetBuilder.getTablesResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_TABLES), validatedTableTypes);
+          getResultSet(SQL, session, MetadataOperationType.GET_TABLES),
+          requestedCatalog,
+          validatedTableTypes);
     } catch (SQLException e) {
       if ((PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState()) && catalog == null)
           || isObjectNotFoundException(e)
@@ -381,7 +383,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
     try {
       return metadataResultSetBuilder.getImportedKeysResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_CROSS_REFERENCE));
+          getResultSet(SQL, session, MetadataOperationType.GET_IMPORTED_KEYS));
     } catch (SQLException e) {
       if (PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState()) || isObjectNotFoundException(e)) {
         LOGGER.debug(

@@ -952,6 +952,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         tableNamePattern,
         types);
     throwExceptionIfConnectionIsClosed();
+    if (containsEmptyString(catalog, schemaPattern, tableNamePattern)) {
+      return metadataResultSetBuilder.getTablesResult(catalog, types, new ArrayList<>());
+    }
     return session
         .getDatabricksMetadataClient()
         .listTables(session, catalog, schemaPattern, tableNamePattern, types);
@@ -989,6 +992,10 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             tableNamePattern,
             columnNamePattern));
     throwExceptionIfConnectionIsClosed();
+
+    if (containsEmptyString(catalog, schemaPattern, tableNamePattern, columnNamePattern)) {
+      return metadataResultSetBuilder.getColumnsResult(new ArrayList<>());
+    }
 
     return session
         .getDatabricksMetadataClient()
@@ -1082,6 +1089,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             schema,
             table));
     throwExceptionIfConnectionIsClosed();
+    validateKeyBasedMetadataArguments(catalog, schema, table);
     return session.getDatabricksMetadataClient().listPrimaryKeys(session, catalog, schema, table);
   }
 
@@ -1095,6 +1103,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             schema,
             table));
     throwExceptionIfConnectionIsClosed();
+    validateKeyBasedMetadataArguments(catalog, schema, table);
 
     return session.getDatabricksMetadataClient().listImportedKeys(session, catalog, schema, table);
   }
@@ -1109,6 +1118,11 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             schema,
             table));
     throwExceptionIfConnectionIsClosed();
+
+    if (table == null) {
+      throw new DatabricksSQLException(
+          "Invalid argument: tableName may not be null", DatabricksDriverErrorCode.INVALID_STATE);
+    }
 
     return session.getDatabricksMetadataClient().listExportedKeys(session, catalog, schema, table);
   }
@@ -1597,6 +1611,29 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     if (!connection.getSession().isOpen()) {
       throw new DatabricksSQLException(
           "Connection closed!", DatabricksDriverErrorCode.CONNECTION_CLOSED);
+    }
+  }
+
+  private static boolean containsEmptyString(String... values) {
+    for (String value : values) {
+      if (value != null && value.isEmpty()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static void validateKeyBasedMetadataArguments(String catalog, String schema, String table)
+      throws DatabricksSQLException {
+    if (table == null || table.isEmpty()) {
+      throw new DatabricksSQLException(
+          "Invalid argument: tableName may not be null or empty",
+          DatabricksDriverErrorCode.INVALID_STATE);
+    }
+    if (catalog != null && schema == null) {
+      throw new DatabricksSQLException(
+          "Invalid argument: schema may not be null when catalog is specified",
+          DatabricksDriverErrorCode.INVALID_STATE);
     }
   }
 }
