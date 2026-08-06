@@ -21,6 +21,7 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
@@ -66,6 +67,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private static final String ASYNC_TIMEOUT_VALUE = "0s";
   private static final String HEADER_METADATA_OPERATION_TYPE =
       "X-Databricks-Metadata-Operation-Type";
+  private static final String HEADER_REQUIRE_THRIFT_NATIVE_METADATA =
+      "X-Databricks-Require-Thrift-Native-Metadata";
+  private static final String HEADER_TRAFFIC_ID = "x-databricks-traffic-id";
+  private static final String THRIFT_NATIVE_METADATA_TRAFFIC_ID =
+      "testenv://liteswap/sea-metadata-via-thrift";
 
   private final IDatabricksConnectionContext connectionContext;
   private final ClientConfigurator clientConfigurator;
@@ -220,6 +226,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
       if (metadataOperationType != null) {
         additionalHeaders.put(
             HEADER_METADATA_OPERATION_TYPE, metadataOperationType.getHeaderValue());
+        if (connectionContext.isThriftNativeMetadataEnabled()) {
+          additionalHeaders.put(HEADER_REQUIRE_THRIFT_NATIVE_METADATA, "true");
+          additionalHeaders.put(HEADER_TRAFFIC_ID, THRIFT_NATIVE_METADATA_TRAFFIC_ID);
+        }
       }
       req.withHeaders(getHeaders("executeStatement", statementType, false, additionalHeaders));
       response = apiClient.execute(req, ExecuteStatementResponse.class);
@@ -329,6 +339,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       handleFailedExecution(response, statementId, sql);
     }
 
+    boolean thriftNativeMetadataResult =
+        connectionContext.isThriftNativeMetadataEnabled()
+            && metadataOperationType != null
+            && MetadataResultSetBuilder.matchesThriftNativeMetadataSchema(
+                response.getManifest(), metadataOperationType);
+
     // Defer markDirectResultsReceived until AFTER ResultSet construction.
     // VolumeOperationResult (created during ResultSet construction) accesses
     // statement properties that require the statement to be in a valid state.
@@ -343,7 +359,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
             response.getManifest(),
             statementType,
             session,
-            parentStatement);
+            parentStatement,
+            thriftNativeMetadataResult);
 
     if (shouldMarkDirectResults) {
       LOGGER.debug(
