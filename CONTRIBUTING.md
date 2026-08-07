@@ -123,6 +123,10 @@ Note that when running the repository tests using maven or editor, logs will be 
   extension built on [WireMock](https://wiremock.org/), which helps simulate production-like environments while reducing
   reliance on live systems. This approach improves CI/CD efficiency. For more details on the testing framework, refer to
   the repository's [README.md](https://github.com/databricks/databricks-jdbc/blob/main/README.md).
+- To run a single test, use:
+  ```bash
+  mvn test -pl . -Dtest=ClassName#methodName
+  ```
 
 ## Coding Style
 
