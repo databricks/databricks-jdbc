@@ -1226,11 +1226,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public boolean isThriftNativeMetadataEnabled() {
-    return getParameter(DatabricksJdbcUrlParams.ENABLE_THRIFT_NATIVE_METADATA).equals("1");
-  }
-
-  @Override
   public boolean getDisableOauthRefreshToken() {
     return getParameter(DatabricksJdbcUrlParams.DISABLE_OAUTH_REFRESH_TOKEN, "1").equals("1");
   }

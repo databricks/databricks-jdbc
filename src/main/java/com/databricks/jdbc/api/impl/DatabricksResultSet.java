@@ -76,7 +76,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private ResultSetType resultSetType = ResultSetType.UNASSIGNED;
 
   private boolean complexDatatypeSupport = false;
-  private boolean thriftNativeMetadataResult = false;
 
   // Cached telemetry collector resolved once at construction time to avoid
   // per-row overhead in next(). The connection-to-collector mapping is stable
@@ -93,30 +92,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
-    this(
-        statementStatus,
-        statementId,
-        resultData,
-        resultManifest,
-        statementType,
-        session,
-        parentStatement,
-        false);
-  }
-
-  public DatabricksResultSet(
-      StatementStatus statementStatus,
-      StatementId statementId,
-      ResultData resultData,
-      ResultManifest resultManifest,
-      StatementType statementType,
-      IDatabricksSession session,
-      IDatabricksStatementInternal parentStatement,
-      boolean thriftNativeMetadataResult)
-      throws SQLException {
     this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
-    this.thriftNativeMetadataResult = thriftNativeMetadataResult;
     if (resultData != null) {
       this.executionResult =
           ExecutionResultFactory.getResultSet(
@@ -528,10 +505,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public ResultSetMetaData getMetaData() throws SQLException {
     return resultSetMetaData;
-  }
-
-  public boolean isThriftNativeMetadataResult() {
-    return thriftNativeMetadataResult;
   }
 
   /**

@@ -3,7 +3,6 @@
 ## [Unreleased]
 
 ### Added
-- Added `EnableThriftNativeMetadata` to request and consume Thrift-native SEA metadata results.
 
 ### Updated
 

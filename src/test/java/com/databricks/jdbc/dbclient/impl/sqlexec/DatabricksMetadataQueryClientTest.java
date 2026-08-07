@@ -370,7 +370,7 @@ public class DatabricksMetadataQueryClientTest {
             eq(StatementType.METADATA),
             eq(session),
             any(),
-            eq(MetadataOperationType.GET_COLUMNS)))
+            any(MetadataOperationType.class)))
         .thenReturn(mockedResultSet);
     when(mockedResultSet.next()).thenReturn(true, false);
 
