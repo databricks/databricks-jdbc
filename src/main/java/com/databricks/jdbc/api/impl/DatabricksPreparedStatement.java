@@ -121,7 +121,19 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             connection,
             interpolateParameters,
             (sqlToExecute, params, statementType, closeStatement) ->
-                executeInternal(sqlToExecute, params, statementType, closeStatement));
+                executeInternal(sqlToExecute, params, statementType, closeStatement),
+            new PreparedStatementBatchExecutor.NativeBatchExecutor() {
+              @Override
+              public boolean isSupported() {
+                return supportsNativeParameterBatching();
+              }
+
+              @Override
+              public long[] execute(String sql, List<BatchParameterSet> parameterSets)
+                  throws SQLException {
+                return executeNativeBatchInternal(sql, parameterSets);
+              }
+            });
 
     long[] updateCounts = batchExecutor.executeBatch(batchParameterSets);
 
