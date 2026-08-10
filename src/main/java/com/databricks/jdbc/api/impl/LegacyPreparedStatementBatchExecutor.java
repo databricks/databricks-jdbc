@@ -56,6 +56,11 @@ class LegacyPreparedStatementBatchExecutor {
     }
   }
 
+  long[] executeIndividually(List<BatchParameterSet> batchParameterSets)
+      throws DatabricksBatchUpdateException {
+    return executeIndividualStatements(batchParameterSets);
+  }
+
   private boolean canUseBatchedInsert() {
     // Check if batched inserts are enabled via connection property
     if (!connection.getConnectionContext().isBatchedInsertsEnabled()) {

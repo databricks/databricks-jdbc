@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
@@ -473,6 +474,46 @@ public class DatabricksPreparedStatementTest {
     Object snapshottedValue = parametersCaptor.getValue().get(1).value();
     assertEquals(expectedTimestamp, snapshottedValue);
     assertNotSame(timestamp, snapshottedValue);
+  }
+
+  @Test
+  public void testExecuteBatchUsesSupportedNativeClient() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL + "EnableNativeBatching=1;", new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, thriftClient);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, "INSERT INTO target (id, name) VALUES (?, ?)");
+    statement.setInt(1, 1);
+    statement.setString(2, "first");
+    statement.addBatch();
+    statement.setInt(1, 2);
+    statement.setString(2, "second");
+    statement.addBatch();
+    when(thriftClient.supportsNativeParameterBatching(any())).thenReturn(true);
+    when(thriftClient.executeStatementBatch(
+            anyString(),
+            any(),
+            any(),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    when(resultSet.getBatchUpdateCounts(2)).thenReturn(new long[] {1, 1});
+
+    assertArrayEquals(new int[] {1, 1}, statement.executeBatch());
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<BatchParameterSet>> parameterSetsCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(thriftClient)
+        .executeStatementBatch(
+            eq("INSERT INTO target (id, name) VALUES (?, ?)"),
+            any(),
+            parameterSetsCaptor.capture(),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement));
+    assertEquals(2, parameterSetsCaptor.getValue().size());
   }
 
   public static ImmutableSqlParameter getSqlParam(

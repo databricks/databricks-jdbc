@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -69,8 +70,6 @@ class PreparedStatementBatchExecutorTest {
 
   @Test
   void ineligibleSqlFallsBackToIndividualExecution() throws Exception {
-    setBatchedInsertsEnabled(true);
-    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
     List<BatchParameterSet> batch = createBatch(1);
     when(statementExecutor.execute(eq(UPDATE_SQL), anyMap(), eq(StatementType.UPDATE), eq(false)))
         .thenReturn(firstResultSet);
@@ -115,6 +114,68 @@ class PreparedStatementBatchExecutorTest {
 
     assertArrayEquals(new long[] {6}, counts);
     verify(nativeBatchExecutor, never()).execute(anyString(), eq(batch));
+  }
+
+  @Test
+  void unboundParameterCompatibilityErrorFallsBackToLegacyExecution() throws Exception {
+    setBatchedInsertsEnabled(false);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(1);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch))
+        .thenThrow(
+            new SQLException("[UNBOUND_SQL_PARAMETER] Native batching is unsupported", "42P02", 0));
+    when(statementExecutor.execute(eq(INSERT_SQL), anyMap(), eq(StatementType.UPDATE), eq(false)))
+        .thenReturn(firstResultSet);
+    when(firstResultSet.getUpdateCount()).thenReturn(4L);
+
+    long[] counts = newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch);
+
+    assertArrayEquals(new long[] {4}, counts);
+    verify(statementExecutor)
+        .execute(INSERT_SQL, batch.get(0).getParameterBindings(), StatementType.UPDATE, false);
+  }
+
+  @Test
+  void nonCompatibilityNativeErrorDoesNotFallback() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(2);
+    SQLException cause =
+        new SQLException("[PARAMETER_BATCH_ERROR] Too many parameters", "22023", 7);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch)).thenThrow(cause);
+
+    DatabricksBatchUpdateException exception =
+        assertThrows(
+            DatabricksBatchUpdateException.class,
+            () -> newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch));
+
+    assertEquals("22023", exception.getSQLState());
+    assertEquals(7, exception.getErrorCode());
+    assertSame(cause, exception.getCause());
+    assertArrayEquals(
+        new long[] {Statement.EXECUTE_FAILED, Statement.EXECUTE_FAILED},
+        exception.getLargeUpdateCounts());
+    verifyNoInteractions(statementExecutor);
+  }
+
+  @Test
+  void unboundSqlStateWithoutCompatibilityMarkerDoesNotFallback() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(1);
+    SQLException cause = new SQLException("A different unbound parameter error", "42P02", 3);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch)).thenThrow(cause);
+
+    DatabricksBatchUpdateException exception =
+        assertThrows(
+            DatabricksBatchUpdateException.class,
+            () -> newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch));
+
+    assertSame(cause, exception.getCause());
+    verifyNoInteractions(statementExecutor);
   }
 
   @Test
