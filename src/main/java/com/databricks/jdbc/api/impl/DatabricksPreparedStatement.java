@@ -94,7 +94,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public int[] executeBatch() throws DatabricksBatchUpdateException {
+  public int[] executeBatch() throws SQLException {
     LOGGER.debug("public int executeBatch()");
     long[] largeUpdateCount = executeLargeBatch();
     int[] updateCount = new int[largeUpdateCount.length];
@@ -107,7 +107,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public long[] executeLargeBatch() throws DatabricksBatchUpdateException {
+  public long[] executeLargeBatch() throws SQLException {
     LOGGER.debug("public long executeLargeBatch()");
 
     if (batchParameterSets.isEmpty()) {
@@ -135,16 +135,27 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
               }
             });
 
-    long[] updateCounts = batchExecutor.executeBatch(batchParameterSets);
+    long[] updateCounts;
+    try {
+      updateCounts = batchExecutor.executeBatch(batchParameterSets);
+    } catch (NativeBatchResultException e) {
+      // The backend already completed the batch. Clear it before propagating the count-read error
+      // so a caller retry cannot insert the same rows again.
+      clearBatchAfterExecution();
+      throw e;
+    }
 
     // Clear the batch after successful execution per JDBC spec
+    clearBatchAfterExecution();
+    return updateCounts;
+  }
+
+  private void clearBatchAfterExecution() {
     try {
       clearBatch();
     } catch (SQLException e) {
-      LOGGER.error("Failed to clear batch after successful execution", e);
+      LOGGER.error("Failed to clear batch after execution", e);
     }
-
-    return updateCounts;
   }
 
   @Override
