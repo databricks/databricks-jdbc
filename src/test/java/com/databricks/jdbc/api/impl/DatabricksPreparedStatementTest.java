@@ -516,6 +516,44 @@ public class DatabricksPreparedStatementTest {
     assertEquals(2, parameterSetsCaptor.getValue().size());
   }
 
+  @Test
+  public void testExecuteBatchThrowsResultErrorWhenNativeCountsCannotBeRead() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL + "EnableNativeBatching=1;", new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, thriftClient);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, "INSERT INTO target (id) VALUES (?)");
+    statement.setInt(1, 1);
+    statement.addBatch();
+    when(thriftClient.supportsNativeParameterBatching(any())).thenReturn(true);
+    when(thriftClient.executeStatementBatch(
+            anyString(),
+            any(),
+            any(),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement)))
+        .thenReturn(resultSet);
+    SQLException countError = new SQLException("Missing update-count column", "RESULT_SET_ERROR");
+    when(resultSet.getBatchUpdateCounts(1)).thenThrow(countError);
+
+    NativeBatchResultException exception =
+        assertThrows(NativeBatchResultException.class, statement::executeBatch);
+
+    assertEquals("RESULT_SET_ERROR", exception.getSQLState());
+    assertSame(countError, exception.getCause());
+    assertTrue(exception.getMessage().contains("Inserted rows may already be committed"));
+    assertArrayEquals(new int[0], statement.executeBatch());
+    verify(thriftClient, times(1))
+        .executeStatementBatch(
+            anyString(),
+            any(),
+            any(),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement));
+  }
+
   public static ImmutableSqlParameter getSqlParam(
       int parameterIndex, Object x, String databricksType) {
     return ImmutableSqlParameter.builder()

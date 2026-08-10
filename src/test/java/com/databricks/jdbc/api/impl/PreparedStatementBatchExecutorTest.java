@@ -161,6 +161,27 @@ class PreparedStatementBatchExecutorTest {
   }
 
   @Test
+  void resultExtractionFailureThrowsDedicatedException() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(2);
+    SQLException cause = new SQLException("Missing update-count column", "RESULT_SET_ERROR", 11);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch))
+        .thenThrow(new NativeBatchResultException(cause));
+
+    NativeBatchResultException exception =
+        assertThrows(
+            NativeBatchResultException.class,
+            () -> newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch));
+
+    assertEquals("RESULT_SET_ERROR", exception.getSQLState());
+    assertSame(cause, exception.getCause());
+    assertTrue(exception.getMessage().contains("Inserted rows may already be committed"));
+    verifyNoInteractions(statementExecutor);
+  }
+
+  @Test
   void unboundSqlStateWithoutCompatibilityMarkerDoesNotFallback() throws Exception {
     when(connection.getConnectionContext()).thenReturn(connectionContext);
     when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);

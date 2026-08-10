@@ -67,8 +67,7 @@ class PreparedStatementBatchExecutor {
     this.nativeExecutor = nativeExecutor;
   }
 
-  long[] executeBatch(List<BatchParameterSet> batchParameterSets)
-      throws DatabricksBatchUpdateException {
+  long[] executeBatch(List<BatchParameterSet> batchParameterSets) throws SQLException {
     if (batchParameterSets.isEmpty()) {
       return new long[0];
     }
@@ -81,6 +80,8 @@ class PreparedStatementBatchExecutor {
     }
     try {
       return nativeExecutor.execute(sql, batchParameterSets);
+    } catch (NativeBatchResultException e) {
+      throw e;
     } catch (SQLException e) {
       if (isUnsupportedNativeBatching(e)) {
         return legacyExecutor.executeBatch(batchParameterSets);
