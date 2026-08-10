@@ -972,7 +972,11 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
             stackTraceMessage,
             getFutureBatchResult(sql, parameterSets, StatementType.UPDATE),
             true);
-    return result.getBatchUpdateCounts(parameterSets.size());
+    try {
+      return result.getBatchUpdateCounts(parameterSets.size());
+    } catch (SQLException e) {
+      throw new NativeBatchResultException(e);
+    }
   }
 
   CompletableFuture<DatabricksResultSet> getFutureResult(
