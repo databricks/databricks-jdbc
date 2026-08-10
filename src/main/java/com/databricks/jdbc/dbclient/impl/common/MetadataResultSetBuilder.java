@@ -21,7 +21,6 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.jdbc.model.core.ResultManifest;
@@ -43,6 +42,16 @@ public class MetadataResultSetBuilder {
       new DefaultDatabricksResultSetAdapter();
   private static final IDatabricksResultSetAdapter importedKeysAdapter =
       new ImportedKeysDatabricksResultSetAdapter();
+  // SHOW schemas use disjoint names, so one JDBC-only column distinguishes native results.
+  private static final Map<MetadataOperationType, String> THRIFT_NATIVE_METADATA_SENTINELS =
+      Map.of(
+          MetadataOperationType.GET_CATALOGS, "TABLE_CAT",
+          MetadataOperationType.GET_SCHEMAS, "TABLE_CATALOG",
+          MetadataOperationType.GET_TABLES, "REF_GENERATION",
+          MetadataOperationType.GET_COLUMNS, "ORDINAL_POSITION",
+          MetadataOperationType.GET_FUNCTIONS, "FUNCTION_TYPE",
+          MetadataOperationType.GET_PRIMARY_KEYS, "PK_NAME",
+          MetadataOperationType.GET_IMPORTED_KEYS, "DEFERRABILITY");
 
   // Static data for TYPE_INFO metadata - JDBC type information constants
   private static final Object[][] TYPE_INFO_DATA =
@@ -693,69 +702,20 @@ public class MetadataResultSetBuilder {
 
   public static boolean hasThriftNativeMetadataSchema(
       ResultManifest manifest, MetadataOperationType operationType) {
-    List<ResultColumn> expectedColumns = getThriftNativeColumns(operationType);
+    String nativeSentinel =
+        operationType == null ? null : THRIFT_NATIVE_METADATA_SENTINELS.get(operationType);
     if (manifest == null
         || manifest.getSchema() == null
         || manifest.getSchema().getColumns() == null
-        || expectedColumns == null) {
+        || nativeSentinel == null) {
       return false;
     }
 
-    List<ColumnInfo> actualColumns = new ArrayList<>(manifest.getSchema().getColumns());
-    int minimumColumnCount =
-        operationType == MetadataOperationType.GET_COLUMNS
-            ? expectedColumns.size() - 1
-            : expectedColumns.size();
-    if (actualColumns.size() < minimumColumnCount
-        || actualColumns.size() > expectedColumns.size()) {
-      return false;
-    }
-
-    for (int i = 0; i < actualColumns.size(); i++) {
-      ColumnInfo actualColumn = actualColumns.get(i);
-      if (actualColumn == null
-          || !isExpectedThriftNativeColumnName(
-              actualColumn.getName(), expectedColumns.get(i).getColumnName())) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  private static List<ResultColumn> getThriftNativeColumns(MetadataOperationType operationType) {
-    if (operationType == null || !operationType.isThriftNativeSupported()) {
-      return null;
-    }
-    switch (operationType) {
-      case GET_CATALOGS:
-        return CATALOG_COLUMNS;
-      case GET_SCHEMAS:
-        return SCHEMA_COLUMNS;
-      case GET_TABLES:
-        return TABLE_COLUMNS;
-      case GET_COLUMNS:
-        return COLUMN_COLUMNS;
-      case GET_FUNCTIONS:
-        return FUNCTION_COLUMNS;
-      case GET_PRIMARY_KEYS:
-        return PRIMARY_KEYS_COLUMNS;
-      case GET_IMPORTED_KEYS:
-        return IMPORTED_KEYS_COLUMNS;
-      default:
-        return null;
-    }
-  }
-
-  private static boolean isExpectedThriftNativeColumnName(
-      String actualColumnName, String expectedColumnName) {
-    if (actualColumnName == null) {
-      return false;
-    }
-    return expectedColumnName.equalsIgnoreCase(actualColumnName)
-        || ("IS_AUTOINCREMENT".equalsIgnoreCase(expectedColumnName)
-            && "IS_AUTO_INCREMENT".equalsIgnoreCase(actualColumnName))
-        || ("KEY_SEQ".equalsIgnoreCase(expectedColumnName)
-            && "KEQ_SEQ".equalsIgnoreCase(actualColumnName));
+    return manifest.getSchema().getColumns().stream()
+        .filter(Objects::nonNull)
+        .map(column -> column.getName())
+        .filter(Objects::nonNull)
+        .anyMatch(nativeSentinel::equalsIgnoreCase);
   }
 
   private List<List<Object>> getRowsByIndex(DatabricksResultSet resultSet) throws SQLException {
