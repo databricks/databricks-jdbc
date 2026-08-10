@@ -4,6 +4,7 @@ import static com.databricks.jdbc.TestConstants.*;
 import static java.sql.JDBCType.DECIMAL;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -30,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.stream.Stream;
@@ -437,6 +439,40 @@ public class DatabricksPreparedStatementTest {
     for (int i = 0; i < 4; i++) {
       assertEquals(Statement.EXECUTE_FAILED, updateCounts[i]);
     }
+  }
+
+  @Test
+  public void testAddBatchSnapshotsMutableParameterValues() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, "INSERT INTO events (created_at) VALUES (?)");
+    Timestamp timestamp = Timestamp.valueOf("2026-08-10 12:34:56.123456789");
+    Timestamp expectedTimestamp = Timestamp.valueOf(timestamp.toString());
+
+    statement.setTimestamp(1, timestamp);
+    statement.addBatch();
+    timestamp.setTime(0);
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<Map<Integer, ImmutableSqlParameter>> parametersCaptor =
+        ArgumentCaptor.forClass(Map.class);
+    when(client.executeStatement(
+            anyString(),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            parametersCaptor.capture(),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+    when(resultSet.getUpdateCount()).thenReturn(1L);
+
+    assertArrayEquals(new int[] {1}, statement.executeBatch());
+    Object snapshottedValue = parametersCaptor.getValue().get(1).value();
+    assertEquals(expectedTimestamp, snapshottedValue);
+    assertNotSame(timestamp, snapshottedValue);
   }
 
   public static ImmutableSqlParameter getSqlParam(
