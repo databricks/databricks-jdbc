@@ -86,16 +86,16 @@ public class NativePreparedStatementBatchIntegrationTests
                               + "\","
                               + "\"parameter_sets\":["
                               + "{\"parameters\":["
-                              + "{\"ordinal\":0,\"type\":\"INT\"},"
-                              + "{\"ordinal\":1,\"type\":\"STRING\"},"
-                              + "{\"ordinal\":2,\"type\":\"STRING\"}]},"
+                              + "{\"ordinal\":0,\"type\":\"INT\",\"value\":\"1\"},"
+                              + "{\"ordinal\":1,\"type\":\"STRING\",\"value\":\"first-a\"},"
+                              + "{\"ordinal\":2,\"type\":\"STRING\",\"value\":\"first-b\"}]},"
                               + "{\"parameters\":["
-                              + "{\"ordinal\":0,\"type\":\"INT\"},"
-                              + "{\"ordinal\":1,\"type\":\"STRING\"},"
-                              + "{\"ordinal\":2,\"type\":\"STRING\"}]}"
+                              + "{\"ordinal\":0,\"type\":\"INT\",\"value\":\"2\"},"
+                              + "{\"ordinal\":1,\"type\":\"STRING\",\"value\":\"second-a\"},"
+                              + "{\"ordinal\":2,\"type\":\"STRING\",\"value\":\"second-b\"}]}"
                               + "]"
                               + "}",
-                          true,
+                          false,
                           true)));
     }
   }
