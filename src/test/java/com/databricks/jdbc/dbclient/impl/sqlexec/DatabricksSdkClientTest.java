@@ -15,11 +15,13 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtilsTest;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -38,6 +40,7 @@ import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.service.sql.*;
+import com.fasterxml.jackson.databind.JsonNode;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -228,6 +231,73 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testNativeBatchCapabilityIsWarehouseOnly() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    assertTrue(databricksSdkClient.supportsNativeParameterBatching(warehouse));
+    assertFalse(
+        databricksSdkClient.supportsNativeParameterBatching(
+            new AllPurposeCluster("org", "cluster")));
+  }
+
+  @Test
+  public void testExecuteStatementBatchBuildsSeaParameterSets() throws Exception {
+    setupClientMocks(true, false);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setMaxRows(100);
+    List<BatchParameterSet> parameterSets =
+        List.of(
+            BatchParameterSet.from(
+                Map.of(
+                    1,
+                    getSqlParam(1, 1, DatabricksTypeUtil.INT),
+                    2,
+                    getSqlParam(2, "first", DatabricksTypeUtil.STRING))),
+            BatchParameterSet.from(
+                Map.of(
+                    1,
+                    getSqlParam(1, 2, DatabricksTypeUtil.INT),
+                    2,
+                    getSqlParam(2, "second", DatabricksTypeUtil.STRING))));
+
+    databricksSdkClient.executeStatementBatch(
+        "INSERT INTO target VALUES (?, ?)",
+        warehouse,
+        parameterSets,
+        StatementType.UPDATE,
+        connection.getSession(),
+        statement);
+
+    ArgumentCaptor<ExecuteStatementRequest> captor =
+        ArgumentCaptor.forClass(ExecuteStatementRequest.class);
+    verify(apiClient, atLeastOnce()).serialize(captor.capture());
+    ExecuteStatementRequest request = captor.getValue();
+    assertNull(request.getParameters());
+    assertNull(request.getRowLimit());
+    assertEquals(2, request.getParameterSets().size());
+    List<StatementParameterSet> capturedSets = new ArrayList<>(request.getParameterSets());
+    List<StatementParameterListItem> firstSet =
+        new ArrayList<>(capturedSets.get(0).getParameters());
+    assertEquals(0, ((PositionalStatementParameterListItem) firstSet.get(0)).getOrdinal());
+    assertEquals(1, ((PositionalStatementParameterListItem) firstSet.get(1)).getOrdinal());
+    assertEquals("first", firstSet.get(1).getValue());
+    JsonNode requestJson = JsonUtil.getMapper().valueToTree(request);
+    assertTrue(requestJson.has("parameter_sets"));
+    assertTrue(requestJson.get("parameters").isNull());
+    assertTrue(requestJson.get("row_limit").isNull());
+  }
+
+  @Test
   public void testExecuteStatementAsync() throws Exception {
     setupClientMocks(false, true);
     IDatabricksConnectionContext connectionContext =
@@ -338,6 +408,36 @@ public class DatabricksSdkClientTest {
 
     assertNotEquals("HY008", exception.getSQLState());
     assertTrue(exception.getMessage().contains("execution failed"));
+  }
+
+  @Test
+  public void testHandleFailedExecutionPreservesUnboundParameterFallbackSignal() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    StatementStatus failedStatus =
+        new StatementStatus()
+            .setState(StatementState.FAILED)
+            .setSqlState("42P02")
+            .setError(
+                new ServiceError()
+                    .setMessage("[UNBOUND_SQL_PARAMETER] Found an unbound parameter")
+                    .setErrorCode(ServiceErrorCode.BAD_REQUEST));
+    ExecuteStatementResponse response =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(failedStatus);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                databricksSdkClient.handleFailedExecution(
+                    response, STATEMENT_ID.toSQLExecStatementId(), STATEMENT));
+
+    assertEquals("42P02", exception.getSQLState());
+    assertTrue(exception.getMessage().contains("[UNBOUND_SQL_PARAMETER]"));
   }
 
   @Test
