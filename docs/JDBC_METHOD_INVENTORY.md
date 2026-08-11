@@ -700,7 +700,7 @@ OUT/INOUT parameters, named parameters, and return-value syntax (`{? = call ...}
 | `updatesAreDetected(int)` | YES | - | No | RARE | Returns false |
 | `deletesAreDetected(int)` | YES | - | No | RARE | Returns false |
 | `insertsAreDetected(int)` | YES | - | No | RARE | Returns false |
-| `supportsBatchUpdates()` | YES | - | No | RARE | Returns false |
+| `supportsBatchUpdates()` | YES | - | No | RARE | Returns true when native or legacy batching is enabled |
 | `getUDTs(String, String, String, int[])` | YES | - | No | RARE | Returns empty ResultSet |
 | `getConnection()` | YES | - | No | OCCASIONAL | Returns parent connection |
 | `supportsSavepoints()` | YES | - | No | RARE | Returns false |
