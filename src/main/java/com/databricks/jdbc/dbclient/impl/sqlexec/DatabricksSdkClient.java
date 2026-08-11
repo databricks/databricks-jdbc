@@ -392,6 +392,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksSession session,
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
+    LOGGER.debug(
+        "Executing native parameter batch with {} parameter sets on {}",
+        parameterSets.size(),
+        computeResource);
     ExecuteStatementRequest request =
         getBatchRequest(
             statementType,
