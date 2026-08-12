@@ -504,6 +504,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   public DatabricksClientType getClientTypeFromContext() {
     if (computeResource instanceof AllPurposeCluster) {
+      if (isApcSeaPrototype()) {
+        return DatabricksClientType.SEA;
+      }
       return DatabricksClientType.THRIFT;
     }
     // First we will check if user as explicitly provided a client type, and we will honour that
@@ -582,6 +585,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   public void setClientType(DatabricksClientType clientType) {
     this.clientTypeSupplier = () -> clientType;
+  }
+
+  @Override
+  public boolean isApcPrototypeEnabled() {
+    return computeResource instanceof AllPurposeCluster && ApcSeaPrototype.isEnabled();
+  }
+
+  @Override
+  public boolean isApcSeaPrototype() {
+    return isApcPrototypeEnabled()
+        && "0".equals(getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT));
   }
 
   @Override
@@ -1115,14 +1129,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       if (defaultStringColumnLength < 0
           || defaultStringColumnLength > MAX_DEFAULT_STRING_COLUMN_LENGTH) {
         LOGGER.warn(
-            "DefaultStringColumnLength value {} is out of bounds (0 to 32767). Falling back to default value 255.",
+            "DefaultStringColumnLength value {} is out of bounds (0 to 32767). Falling back to"
+                + " default value 255.",
             defaultStringColumnLength);
         return DEFUALT_STRING_COLUMN_LENGTH;
       }
       return defaultStringColumnLength;
     } catch (NumberFormatException e) {
       LOGGER.warn(
-          "Invalid number format for DefaultStringColumnLength. Falling back to default value 255.");
+          "Invalid number format for DefaultStringColumnLength. Falling back to default value"
+              + " 255.");
       return DEFUALT_STRING_COLUMN_LENGTH;
     }
   }
@@ -1134,7 +1150,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           getParameter(DatabricksJdbcUrlParams.MAX_CONCURRENT_PRESIGNED_REQUESTS));
     } catch (NumberFormatException e) {
       LOGGER.warn(
-          "Invalid number format for MaxVolumeOperationConcurrentPresignedRequests. Falling back to default value 50.");
+          "Invalid number format for MaxVolumeOperationConcurrentPresignedRequests. Falling back to"
+              + " default value 50.");
       return DEFAULT_MAX_CONCURRENT_PRESIGNED_REQUESTS;
     }
   }

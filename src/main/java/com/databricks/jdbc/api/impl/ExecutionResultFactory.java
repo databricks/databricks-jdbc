@@ -56,8 +56,9 @@ class ExecutionResultFactory {
     TelemetryHelper.setResultFormat(
         session.getConnectionContext(), statementId, manifest.getFormat());
     LOGGER.info("Processing result of format {} from SQL Execution API", manifest.getFormat());
-    // We use JSON_ARRAY for metadata and update commands, and ARROW_STREAM for query results
+    // JSON_ARRAY serves metadata and updates; Arrow formats serve query results.
     switch (manifest.getFormat()) {
+      case ARROW_BATCH:
       case ARROW_STREAM:
         return new ArrowStreamResult(manifest, data, statementId, session);
       case JSON_ARRAY:

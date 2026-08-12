@@ -14,10 +14,11 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.core.ArrowBatch;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
-import com.databricks.sdk.service.sql.Format;
 import java.io.ByteArrayOutputStream;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -72,6 +73,28 @@ public class ExecutionResultFactoryTest {
         ExecutionResultFactory.getResultSet(data, manifest, STATEMENT_ID, session, parentStatement);
 
     assertInstanceOf(ArrowStreamResult.class, result);
+  }
+
+  @Test
+  public void testGetResultSet_nativeArrowBatch() throws SQLException {
+    when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+    lenient().when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    ResultManifest manifest =
+        new ResultManifest()
+            .setFormat(Format.ARROW_BATCH)
+            .setTotalChunkCount(1L)
+            .setTotalRowCount(0L)
+            .setSchema(new ResultSchema().setColumnCount(0L).setColumns(Collections.emptyList()));
+    ResultData data =
+        new ResultData().setArrowBatches(Collections.<ArrowBatch>emptyList()).setRowCount(0L);
+
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(data, manifest, STATEMENT_ID, session, parentStatement);
+
+    assertInstanceOf(ArrowStreamResult.class, result);
+    assertFalse(result.next());
+    result.close();
   }
 
   @Test

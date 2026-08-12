@@ -2,7 +2,6 @@ package com.databricks.jdbc.model.core;
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
-import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Collection;

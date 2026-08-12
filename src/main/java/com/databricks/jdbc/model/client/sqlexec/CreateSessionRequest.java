@@ -19,6 +19,9 @@ public class CreateSessionRequest {
   @JsonProperty("session_confs")
   private Map<String, String> sessionConfigs;
 
+  @JsonProperty("backend_compute")
+  private BackendCompute backendCompute;
+
   public CreateSessionRequest setWarehouseId(String warehouseId) {
     this.warehouseId = warehouseId;
     return this;
@@ -53,5 +56,14 @@ public class CreateSessionRequest {
 
   public Map<String, String> getSessionConfigs() {
     return sessionConfigs;
+  }
+
+  public CreateSessionRequest setBackendCompute(BackendCompute backendCompute) {
+    this.backendCompute = backendCompute;
+    return this;
+  }
+
+  public BackendCompute getBackendCompute() {
+    return backendCompute;
   }
 }

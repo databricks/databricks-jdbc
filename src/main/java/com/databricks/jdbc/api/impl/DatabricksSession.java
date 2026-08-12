@@ -4,6 +4,7 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.REDACTED_TOKEN;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.common.ApcSeaPrototype;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
@@ -161,6 +162,9 @@ public class DatabricksSession implements IDatabricksSession {
               databricksClient.createSession(
                   this.computeResource, this.catalog, this.schema, this.sessionConfigs);
         } catch (DatabricksTemporaryRedirectException e) {
+          if (connectionContext.isApcSeaPrototype()) {
+            throw e;
+          }
           this.connectionContext.setClientType(DatabricksClientType.THRIFT);
           this.databricksClient =
               DatabricksMetricsTimedProcessor.createProxy(
@@ -179,6 +183,9 @@ public class DatabricksSession implements IDatabricksSession {
           // Handle 429 rate limit error during SEA session creation
           // Only handle if using SEA client (not applicable to Thrift)
           if (connectionContext.getClientType() == DatabricksClientType.SEA) {
+            if (connectionContext.isApcSeaPrototype()) {
+              throw e;
+            }
             LOGGER.warn(
                 "SEA session creation failed with HTTP {} (rate limit exceeded) after retries. "
                     + "Recording failure and falling back to Thrift client for this connection. "
@@ -218,6 +225,7 @@ public class DatabricksSession implements IDatabricksSession {
           }
         }
         this.isSessionOpen = true;
+        ApcSeaPrototype.emitRouteMarker(connectionContext);
       }
     }
   }
@@ -388,7 +396,8 @@ public class DatabricksSession implements IDatabricksSession {
       }
     } catch (Exception e) {
       LOGGER.warn(
-          "Failed to get current catalog and schema from database, falling back to session values: {}",
+          "Failed to get current catalog and schema from database, falling back to session values:"
+              + " {}",
           e.getMessage());
     }
     return new String[] {this.catalog, this.schema};

@@ -16,6 +16,7 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import java.sql.ResultSetMetaData;
@@ -824,7 +825,7 @@ public class DatabricksResultSetMetaDataTest {
     ResultManifest resultManifest = new ResultManifest();
     resultManifest.setTotalRowCount(2L);
     // Explicitly set format to JSON_ARRAY to test SQL Exec API JSON format
-    resultManifest.setFormat(com.databricks.sdk.service.sql.Format.JSON_ARRAY);
+    resultManifest.setFormat(Format.JSON_ARRAY);
 
     ResultSchema schema = new ResultSchema();
     schema.setColumnCount(3L);
@@ -877,7 +878,7 @@ public class DatabricksResultSetMetaDataTest {
 
     ResultManifest resultManifest = new ResultManifest();
     resultManifest.setTotalRowCount(2L);
-    resultManifest.setFormat(com.databricks.sdk.service.sql.Format.JSON_ARRAY);
+    resultManifest.setFormat(Format.JSON_ARRAY);
 
     ResultSchema schema = new ResultSchema();
     schema.setColumnCount(5L);

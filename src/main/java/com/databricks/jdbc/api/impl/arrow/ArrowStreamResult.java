@@ -21,6 +21,7 @@ import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -65,7 +66,12 @@ public class ArrowStreamResult implements IExecutionResult {
     this.session = session;
 
     Long totalChunkCount = resultManifest.getTotalChunkCount();
-    if (totalChunkCount != null && totalChunkCount == 0) {
+    if (resultManifest.getFormat() == Format.ARROW_BATCH) {
+      LOGGER.debug(
+          "Creating ArrowStreamResult with native Arrow batches for statementId: {}",
+          statementId.toSQLExecStatementId());
+      this.chunkProvider = new ArrowBatchInlineChunkProvider(resultData, resultManifest);
+    } else if (totalChunkCount != null && totalChunkCount == 0) {
       LOGGER.debug(
           "Empty result (total_chunk_count=0) for statementId: {}, skipping chunk fetching",
           statementId.toSQLExecStatementId());
@@ -446,7 +452,8 @@ public class ArrowStreamResult implements IExecutionResult {
     long nextRowOffset = lastLink.getRowOffset() + lastLink.getRowCount();
 
     LOGGER.debug(
-        "Converting ExternalLinks to ChunkLinkFetchResult: linkCount={}, hasMore={}, nextFetchIndex={}, nextRowOffset={}",
+        "Converting ExternalLinks to ChunkLinkFetchResult: linkCount={}, hasMore={},"
+            + " nextFetchIndex={}, nextRowOffset={}",
         linkList.size(),
         hasMore,
         nextFetchIndex,

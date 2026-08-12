@@ -19,6 +19,7 @@ import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.telemetry.*;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
@@ -26,7 +27,6 @@ import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.UserAgent;
-import com.databricks.sdk.service.sql.Format;
 import com.google.common.annotations.VisibleForTesting;
 import java.nio.charset.Charset;
 import java.time.Instant;
@@ -300,7 +300,8 @@ public class TelemetryHelper {
     } catch (Exception e) {
       String errorMessage =
           String.format(
-              "Connection config is not available, using no-auth telemetry client. Error: %s; Context: %s",
+              "Connection config is not available, using no-auth telemetry client. Error: %s;"
+                  + " Context: %s",
               e.getMessage(), context);
       LOGGER.trace(errorMessage);
       return null;

@@ -460,6 +460,73 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void testAllPurposeClusterPrototypeRequiresExplicitSeaSelection()
+      throws DatabricksSQLException {
+    System.setProperty(ApcSeaPrototype.ENABLED_PROPERTY, "true");
+    try {
+      IDatabricksConnectionContext defaultContext =
+          DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+      IDatabricksConnectionContext thriftContext =
+          DatabricksConnectionContext.parse(
+              TestConstants.VALID_CLUSTER_URL + ";UseThriftClient=1", properties);
+
+      assertEquals(DatabricksClientType.THRIFT, defaultContext.getClientType());
+      assertFalse(defaultContext.isApcSeaPrototype());
+      assertEquals(DatabricksClientType.THRIFT, thriftContext.getClientType());
+      assertFalse(thriftContext.isApcSeaPrototype());
+    } finally {
+      System.clearProperty(ApcSeaPrototype.ENABLED_PROPERTY);
+    }
+  }
+
+  @Test
+  public void testAllPurposeClusterPrototypeAllowsExplicitSeaSelection()
+      throws DatabricksSQLException {
+    System.setProperty(ApcSeaPrototype.ENABLED_PROPERTY, "true");
+    try {
+      IDatabricksConnectionContext connectionContext =
+          DatabricksConnectionContext.parse(
+              TestConstants.VALID_CLUSTER_URL + ";UseThriftClient=0", properties);
+
+      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+      assertTrue(connectionContext.isApcPrototypeEnabled());
+      assertTrue(connectionContext.isApcSeaPrototype());
+    } finally {
+      System.clearProperty(ApcSeaPrototype.ENABLED_PROPERTY);
+    }
+  }
+
+  @Test
+  public void testAllPurposeClusterPrototypeIgnoresSeaCircuitBreaker()
+      throws DatabricksSQLException {
+    System.setProperty(ApcSeaPrototype.ENABLED_PROPERTY, "true");
+    SeaCircuitBreakerManager.record429Failure();
+    try {
+      IDatabricksConnectionContext connectionContext =
+          DatabricksConnectionContext.parse(
+              TestConstants.VALID_CLUSTER_URL + ";UseThriftClient=0", properties);
+
+      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+      assertTrue(connectionContext.isApcSeaPrototype());
+    } finally {
+      SeaCircuitBreakerManager.reset();
+      System.clearProperty(ApcSeaPrototype.ENABLED_PROPERTY);
+    }
+  }
+
+  @Test
+  public void testAllPurposeClusterExplicitSeaSelectionKeepsDefaultBehavior()
+      throws DatabricksSQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_CLUSTER_URL + ";UseThriftClient=0", properties);
+
+    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+    assertFalse(connectionContext.isApcPrototypeEnabled());
+    assertFalse(connectionContext.isApcSeaPrototype());
+  }
+
+  @Test
   public void testRowsFetchedPerBlockDefault() throws DatabricksSQLException {
     // Test with default value
     DatabricksConnectionContext connectionContext =
