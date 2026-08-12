@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl.arrow;
 
-import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.ArrowUtil.createArrowByteStream;
 import static com.databricks.jdbc.common.util.ArrowUtil.getColumnInfoList;
 import static com.databricks.jdbc.common.util.ArrowUtil.getSerializedSchema;
@@ -35,7 +34,6 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
   private long globalRowIndex;
   private final IDatabricksSession session;
   private final IDatabricksStatementInternal statement;
-  private final int maxRows;
   private boolean hasReachedEnd;
   private boolean isClosed;
   private long totalRowsFetched;
@@ -58,7 +56,6 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
     this.currentResponse = initialResponse;
     this.statement = statement;
     this.session = session;
-    this.maxRows = statement != null ? statement.getMaxRows() : DEFAULT_RESULT_ROW_LIMIT;
     this.globalRowIndex = -1;
     this.hasReachedEnd = false;
     this.isClosed = false;
@@ -163,13 +160,6 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
       return false;
     }
 
-    // Check if we've reached the maxRows limit
-    boolean hasRowLimit = maxRows > 0;
-    if (hasRowLimit && globalRowIndex + 1 >= maxRows) {
-      hasReachedEnd = true;
-      return false;
-    }
-
     // Try to advance in current chunk
     if (currentChunkIterator != null && currentChunkIterator.hasNextRow()) {
       boolean advanced = currentChunkIterator.nextRow();
@@ -206,12 +196,6 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
   @Override
   public boolean hasNext() {
     if (isClosed || hasReachedEnd) {
-      return false;
-    }
-
-    // Check maxRows limit
-    boolean hasRowLimit = maxRows > 0;
-    if (hasRowLimit && globalRowIndex + 1 >= maxRows) {
       return false;
     }
 

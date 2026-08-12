@@ -102,6 +102,7 @@ public class DatabricksDriverFeatureFlagsContext {
           .getDatabricksConfig()
           .authenticate()
           .forEach(request::addHeader);
+      connectionContext.getCustomHeaders().forEach(request::addHeader);
       fetchAndSetFlagsFromServer(httpClient, request);
     } catch (Exception e) {
       LOGGER.trace(
@@ -125,6 +126,10 @@ public class DatabricksDriverFeatureFlagsContext {
             featureFlags.put(flag.getName(), flag.getValue());
           }
         }
+        LOGGER.debug(
+            "Feature flags from connector-service: endpoint={}, {}",
+            request.getURI(),
+            featureFlagsResponse);
 
         Integer ttlSeconds = featureFlagsResponse.getTtlSeconds();
         if (ttlSeconds != null) {

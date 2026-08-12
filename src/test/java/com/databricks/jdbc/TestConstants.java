@@ -321,4 +321,17 @@ public class TestConstants {
   public static final List<TSparkArrowBatch> ARROW_BATCH_LIST =
       Collections.singletonList(
           new TSparkArrowBatch().setRowCount(0).setBatch(new byte[] {65, 66, 67}));
+
+  // SPOG URLs with ?o= query parameter in httpPath
+  public static final String VALID_SPOG_URL_WAREHOUSE =
+      "jdbc:databricks://spog.cloud.databricks.com/default;ssl=1;AuthMech=3;"
+          + "httpPath=/sql/1.0/warehouses/abc123?o=6051921418418893;UseThriftClient=1";
+
+  public static final String VALID_SPOG_URL_ENDPOINT =
+      "jdbc:databricks://spog.cloud.databricks.com/default;ssl=1;AuthMech=3;"
+          + "httpPath=/sql/1.0/endpoints/abc123?o=6051921418418893;UseThriftClient=0";
+
+  public static final String VALID_SPOG_URL_WAREHOUSE_NO_EXTRA_PARAMS =
+      "jdbc:databricks://spog.cloud.databricks.com/default;ssl=1;AuthMech=3;"
+          + "httpPath=/sql/1.0/warehouses/abc123?o=6051921418418893";
 }

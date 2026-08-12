@@ -1,0 +1,24 @@
+{
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "oregon-staging_6051921418418893.jobs_sql_2026-06-26_04_results_single_chunk_test",
+    "request": {
+        "url": "/oregon-staging/6051921418418893.jobs/sql/2026-06-26/04/results_single_chunk_test",
+        "method": "GET"
+    },
+    "response": {
+        "status": 200,
+        "bodyFileName": "oregon-staging_6051921418418893.jobs_sql_2026-06-26_04_results_single_chunk_test.bin",
+        "headers": {
+            "Accept-Ranges": "bytes",
+            "Server": "AmazonS3",
+            "ETag": "\"single-chunk-test-etag\"",
+            "Last-Modified": "Thu, 26 Jun 2026 04:51:18 GMT",
+            "x-amz-request-id": "single-chunk-test-request-id",
+            "x-amz-server-side-encryption": "AES256",
+            "x-amz-id-2": "single-chunk-test-id-2",
+            "Date": "Thu, 26 Jun 2026 04:51:18 GMT",
+            "Content-Type": "application/octet-stream"
+        }
+    },
+    "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}

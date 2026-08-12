@@ -20,6 +20,7 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Iterator;
@@ -241,7 +242,9 @@ public class ComplexDataTypeParser {
             long seconds = Math.floorDiv(micros, 1_000_000L);
             long microsRemainder = Math.floorMod(micros, 1_000_000L);
             Instant instant = Instant.ofEpochSecond(seconds, microsRemainder * 1_000);
-            return Timestamp.from(instant);
+            // Build from the UTC wall-clock; Timestamp.from(instant) gets re-rendered in the JVM
+            // default timezone, shifting nested TIMESTAMP fields (ES-1978662).
+            return Timestamp.valueOf(LocalDateTime.ofInstant(instant, ZoneOffset.UTC));
           } catch (NumberFormatException nfe) {
             LOGGER.error(e, "Failed to parse TIMESTAMP value '{}' as epoch microseconds", text);
             throw e;
@@ -376,6 +379,10 @@ public class ComplexDataTypeParser {
           // Handle null valueNode
           if (valueNode == null || valueNode.isNull()) {
             result.append("null");
+          } else if (valueNode.isContainerNode()) {
+            // Nested complex value (ARRAY/STRUCT/MAP): asText() returns "" for
+            // container nodes, so emit the JSON directly (e.g. {0:[34277,0]}).
+            result.append(valueNode.toString());
           } else if (isStringValue) {
             result.append("\"").append(valueNode.asText()).append("\"");
           } else {

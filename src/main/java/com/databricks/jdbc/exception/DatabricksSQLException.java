@@ -27,14 +27,14 @@ public class DatabricksSQLException extends SQLException {
     this(reason, sqlState, DatabricksVendorCode.getVendorCode(cause), cause);
   }
 
-  // This constructor is used to export chunk download failure logs
-  // TODO : Check chunk retry telemetry logic
+  // Chunk-download path: routes statementId + chunkIndex into the telemetry record so failures
+  // can be bucketed per chunk. Other constructors do not carry chunkIndex.
   public DatabricksSQLException(
       String reason, Throwable cause, String statementId, Long chunkIndex, String sqlState) {
     super(reason, sqlState, DatabricksVendorCode.getVendorCode(cause), cause);
     exportFailureLog(
         DatabricksThreadContextHolder.getConnectionContext(),
-        DatabricksDriverErrorCode.CONNECTION_ERROR.name(),
+        sqlState,
         reason,
         statementId,
         chunkIndex,
@@ -51,8 +51,16 @@ public class DatabricksSQLException extends SQLException {
 
   public DatabricksSQLException(
       String reason, String sqlState, DatabricksDriverErrorCode internalError) {
-    super(reason, sqlState);
-    logTelemetryEvent(sqlState, reason, false);
+    this(reason, sqlState, internalError, false);
+  }
+
+  public DatabricksSQLException(
+      String reason,
+      String sqlState,
+      DatabricksDriverErrorCode internalError,
+      boolean silentExceptions) {
+    super(reason, sqlState, internalError.getCode());
+    logTelemetryEvent(sqlState, reason, silentExceptions);
   }
 
   public DatabricksSQLException(String reason, String sqlState, int vendorCode) {

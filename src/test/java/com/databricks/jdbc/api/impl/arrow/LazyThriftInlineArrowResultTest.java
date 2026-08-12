@@ -145,7 +145,6 @@ public class LazyThriftInlineArrowResultTest {
     byte[] arrowData = createValidArrowData(1, 0);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, 0, false);
 
-    when(statement.getMaxRows()).thenReturn(0);
     when(statement.getStatementId()).thenReturn(STATEMENT_ID);
 
     LazyThriftInlineArrowResult result =
@@ -166,7 +165,6 @@ public class LazyThriftInlineArrowResultTest {
     byte[] arrowData = createValidArrowData(1, 1);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, 1, false);
 
-    when(statement.getMaxRows()).thenReturn(0);
     when(statement.getStatementId()).thenReturn(STATEMENT_ID);
 
     LazyThriftInlineArrowResult result =
@@ -189,7 +187,6 @@ public class LazyThriftInlineArrowResultTest {
     byte[] arrowData = createValidArrowData(1, 1);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, 1, false);
 
-    when(statement.getMaxRows()).thenReturn(0);
     when(statement.getStatementId()).thenReturn(STATEMENT_ID);
 
     LazyThriftInlineArrowResult result =
@@ -206,7 +203,6 @@ public class LazyThriftInlineArrowResultTest {
     byte[] arrowData = createValidArrowData(1, 0);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, 0, true);
 
-    when(statement.getMaxRows()).thenReturn(0);
     when(statement.getStatementId()).thenReturn(STATEMENT_ID);
 
     LazyThriftInlineArrowResult result =
@@ -222,7 +218,6 @@ public class LazyThriftInlineArrowResultTest {
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, rowCount, false);
 
-    when(statement.getMaxRows()).thenReturn(0);
     when(statement.getStatementId()).thenReturn(STATEMENT_ID);
 
     LazyThriftInlineArrowResult result =
@@ -251,7 +246,6 @@ public class LazyThriftInlineArrowResultTest {
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, rowCount, false);
 
-    when(statement.getMaxRows()).thenReturn(0);
     when(statement.getStatementId()).thenReturn(STATEMENT_ID);
     when(session.getConnectionContext()).thenReturn(connectionContext);
 
@@ -282,7 +276,6 @@ public class LazyThriftInlineArrowResultTest {
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, rowCount, false);
 
-    when(statement.getMaxRows()).thenReturn(0);
     when(statement.getStatementId()).thenReturn(STATEMENT_ID);
     when(session.getConnectionContext()).thenReturn(connectionContext);
 
@@ -309,7 +302,6 @@ public class LazyThriftInlineArrowResultTest {
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, rowCount, false);
 
-    when(statement.getMaxRows()).thenReturn(0);
     when(statement.getStatementId()).thenReturn(STATEMENT_ID);
     // Note: session.getConnectionContext() is not stubbed here because the column index
     // validation happens before the connection context is accessed
@@ -333,36 +325,11 @@ public class LazyThriftInlineArrowResultTest {
   }
 
   @Test
-  void testMaxRowsLimitEnforced() throws SQLException {
-    int totalRows = 10;
-    int maxRows = 3;
-    byte[] arrowData = createValidArrowData(1, totalRows);
-    TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, totalRows, false);
-
-    when(statement.getMaxRows()).thenReturn(maxRows);
-    when(statement.getStatementId()).thenReturn(STATEMENT_ID);
-
-    LazyThriftInlineArrowResult result =
-        new LazyThriftInlineArrowResult(initialResponse, statement, session);
-
-    // Should only be able to iterate up to maxRows
-    int rowsRetrieved = 0;
-    while (result.next()) {
-      rowsRetrieved++;
-    }
-
-    assertEquals(maxRows, rowsRetrieved);
-    assertFalse(result.hasNext());
-    assertEquals(maxRows - 1, result.getCurrentRow()); // 0-based index
-  }
-
-  @Test
   void testGetArrowMetadataReturnsMetadata() throws SQLException {
     int rowCount = 1;
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, rowCount, false);
 
-    when(statement.getMaxRows()).thenReturn(0);
     when(statement.getStatementId()).thenReturn(STATEMENT_ID);
 
     LazyThriftInlineArrowResult result =
@@ -386,7 +353,6 @@ public class LazyThriftInlineArrowResultTest {
     // Second chunk with hasMoreRows = false
     TFetchResultsResp secondResponse = createFetchResultsResp(arrowData2, rowsPerChunk, false);
 
-    when(statement.getMaxRows()).thenReturn(0);
     when(statement.getStatementId()).thenReturn(STATEMENT_ID);
     when(session.getDatabricksClient()).thenReturn(databricksClient);
     when(databricksClient.getMoreResults(statement)).thenReturn(secondResponse);
@@ -418,7 +384,6 @@ public class LazyThriftInlineArrowResultTest {
     byte[] arrowData = createValidArrowData(1, rowCount);
     TFetchResultsResp initialResponse = createFetchResultsResp(arrowData, rowCount, false);
 
-    when(statement.getMaxRows()).thenReturn(0);
     when(statement.getStatementId()).thenReturn(STATEMENT_ID);
 
     LazyThriftInlineArrowResult result =

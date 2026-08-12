@@ -326,6 +326,38 @@ public class ComplexTypeQueryTests {
     }
   }
 
+  /**
+   * Reproduces https://github.com/databricks/databricks-jdbc/issues/1505 — a MAP whose value is a
+   * complex type (ARRAY) previously rendered its values as empty ({@code {0:}}) when complex
+   * datatype support was disabled and results were fetched via Arrow.
+   */
+  @ParameterizedTest
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
+  void testMapWithArrayValue(int thriftVal, int complexSupport) throws SQLException {
+    setupConnection(thriftVal, complexSupport);
+
+    String sql = "SELECT MAP(0, ARRAY(34277,0)) AS m";
+    DatabricksResultSet rs = (DatabricksResultSet) executeQuery(connection, sql);
+    assertNotNull(rs);
+    while (rs.next()) {
+      if (complexSupport == 1) {
+        @SuppressWarnings("unchecked")
+        Map<Integer, Array> map = rs.getMap("m");
+        assertNotNull(map);
+        Array arr = map.get(0);
+        assertNotNull(arr);
+        assertArrayEquals(new Object[] {34277, 0}, (Object[]) arr.getArray());
+      } else {
+        assertThrows(SQLException.class, () -> rs.getMap("m"));
+        Object obj = rs.getObject("m");
+        assertTrue(obj instanceof String);
+        String text = (String) obj;
+        // The array value must be fully present, not collapsed to "{0:}".
+        assertEquals("{0:[34277,0]}", text);
+      }
+    }
+  }
+
   @ParameterizedTest
   @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testArrayOfMaps(int thriftVal, int complexSupport) throws SQLException {

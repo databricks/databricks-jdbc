@@ -52,6 +52,7 @@ public class SqlExecApiHybridResultsIntegrationTests extends AbstractFakeService
       assertEquals(maxRows, metaData.getTotalRows());
       // For small query, arrow results are received inline in hybrid mode
       assertFalse(metaData.getIsCloudFetchUsed());
+      assertFalse(metaData.getIsTruncated());
 
       // For small query, arrow results are received inline in hybrid mode so no cloud fetch calls
       // are made
@@ -93,6 +94,7 @@ public class SqlExecApiHybridResultsIntegrationTests extends AbstractFakeService
       assertEquals(maxRows, metaData.getTotalRows());
       // For large query, arrow results are fetched using cloud fetch
       assertTrue(metaData.getIsCloudFetchUsed());
+      assertFalse(metaData.getIsTruncated());
 
       // The number of cloud fetch calls should be equal to the number of chunks
       final int cloudFetchCalls =

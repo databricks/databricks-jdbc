@@ -43,15 +43,15 @@ public class CrossReferenceKeysDatabricksResultSetAdapter
     boolean isParentCatalogMatching =
         resultSet
             .getString(parentCatalogNameColumn.getResultSetColumnName())
-            .equals(targetParentCatalogName);
+            .equalsIgnoreCase(targetParentCatalogName);
     boolean isParentNamespaceMatching =
         resultSet
             .getString(parentNamespaceColumn.getResultSetColumnName())
-            .equals(targetParentNamespaceName);
+            .equalsIgnoreCase(targetParentNamespaceName);
     boolean isParentTableMatching =
         resultSet
             .getString(parentTableNameColumn.getResultSetColumnName())
-            .equals(targetParentTableName);
+            .equalsIgnoreCase(targetParentTableName);
 
     if (!isParentTableMatching || !isParentCatalogMatching || !isParentNamespaceMatching) {
       return false;

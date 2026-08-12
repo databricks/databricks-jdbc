@@ -284,4 +284,67 @@ class InsertStatementParserTest {
 
     return "INSERT INTO large_table (" + columns + ") VALUES (" + values + ")";
   }
+
+  @Test
+  void testParseInsertWithHyphenatedTableName() {
+    String sql = "INSERT INTO catalog.schema.`my-table` (id, name, value) VALUES (?, ?, ?)";
+    InsertInfo info = InsertStatementParser.parseInsert(sql);
+
+    assertNotNull(info);
+    assertEquals("catalog.schema.`my-table`", info.getTableName());
+    assertEquals(Arrays.asList("id", "name", "value"), info.getColumns());
+  }
+
+  @Test
+  void testParseInsertWithSpacesInTableName() {
+    String sql = "INSERT INTO `my table` (id, name) VALUES (?, ?)";
+    InsertInfo info = InsertStatementParser.parseInsert(sql);
+
+    assertNotNull(info);
+    assertEquals("`my table`", info.getTableName());
+    assertEquals(Arrays.asList("id", "name"), info.getColumns());
+  }
+
+  @Test
+  void testParseInsertWithAllSegmentsQuoted() {
+    String sql = "INSERT INTO `my-catalog`.`my-schema`.`my-table` (id, name) VALUES (?, ?)";
+    InsertInfo info = InsertStatementParser.parseInsert(sql);
+
+    assertNotNull(info);
+    assertEquals("`my-catalog`.`my-schema`.`my-table`", info.getTableName());
+    assertEquals(Arrays.asList("id", "name"), info.getColumns());
+  }
+
+  @Test
+  void testParseInsertWithMixedQuotedAndUnquotedSegments() {
+    String sql = "INSERT INTO catalog.`my-schema`.normal_table (id, name) VALUES (?, ?)";
+    InsertInfo info = InsertStatementParser.parseInsert(sql);
+
+    assertNotNull(info);
+    assertEquals("catalog.`my-schema`.normal_table", info.getTableName());
+    assertEquals(Arrays.asList("id", "name"), info.getColumns());
+  }
+
+  @Test
+  void testGenerateMultiRowInsertWithHyphenatedTableName() throws Exception {
+    String sql = "INSERT INTO catalog.schema.`my-table` (id, name, value) VALUES (?, ?, ?)";
+    InsertInfo info = InsertStatementParser.parseInsert(sql);
+
+    assertNotNull(info);
+    String multiRowSql = InsertStatementParser.generateMultiRowInsert(info, 3);
+    String expected =
+        "INSERT INTO catalog.schema.`my-table` (`id`, `name`, `value`) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)";
+    assertEquals(expected, multiRowSql);
+  }
+
+  @Test
+  void testParseInsertWithEscapedBackticksInTableName() {
+    // Table names containing literal backticks use doubled backticks as escape: `my``table`
+    String sql = "INSERT INTO catalog.schema.`my``table` (id, name) VALUES (?, ?)";
+    InsertInfo info = InsertStatementParser.parseInsert(sql);
+
+    assertNotNull(info);
+    assertEquals("catalog.schema.`my``table`", info.getTableName());
+    assertEquals(Arrays.asList("id", "name"), info.getColumns());
+  }
 }

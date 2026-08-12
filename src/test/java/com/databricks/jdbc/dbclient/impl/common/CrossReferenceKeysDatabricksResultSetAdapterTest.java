@@ -126,6 +126,45 @@ public class CrossReferenceKeysDatabricksResultSetAdapterTest {
   }
 
   @Test
+  public void testIncludeRowMatchesCaseInsensitively() throws SQLException {
+    List<ResultColumn> columns = new ArrayList<>();
+
+    // Mock the ResultSet to return lowercase values while adapter was constructed with mixed case
+    when(mockResultSet.getString(PARENT_CATALOG_NAME.getResultSetColumnName()))
+        .thenReturn("targetcatalog");
+    when(mockResultSet.getString(PARENT_NAMESPACE_NAME.getResultSetColumnName()))
+        .thenReturn("targetschema");
+    when(mockResultSet.getString(PARENT_TABLE_NAME.getResultSetColumnName()))
+        .thenReturn("targettable");
+
+    boolean result = crossRefAdapter.includeRow(mockResultSet, columns);
+
+    assertTrue(result, "includeRow should match case-insensitively");
+  }
+
+  @Test
+  public void testIncludeRowMatchesUppercaseInput() throws SQLException {
+    List<ResultColumn> columns = new ArrayList<>();
+
+    // Adapter constructed with mixed case, server returns lowercase
+    CrossReferenceKeysDatabricksResultSetAdapter uppercaseAdapter =
+        new CrossReferenceKeysDatabricksResultSetAdapter(
+            "TARGETCATALOG", "TARGETSCHEMA", "TARGETTABLE");
+
+    when(mockResultSet.getString(PARENT_CATALOG_NAME.getResultSetColumnName()))
+        .thenReturn("targetcatalog");
+    when(mockResultSet.getString(PARENT_NAMESPACE_NAME.getResultSetColumnName()))
+        .thenReturn("targetschema");
+    when(mockResultSet.getString(PARENT_TABLE_NAME.getResultSetColumnName()))
+        .thenReturn("targettable");
+
+    boolean result = uppercaseAdapter.includeRow(mockResultSet, columns);
+
+    assertTrue(
+        result, "includeRow should match when user passes uppercase and server returns lowercase");
+  }
+
+  @Test
   public void testInheritanceFromImportedKeysAdapter() {
     assertInstanceOf(ImportedKeysDatabricksResultSetAdapter.class, crossRefAdapter);
   }

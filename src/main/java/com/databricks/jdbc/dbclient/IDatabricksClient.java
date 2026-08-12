@@ -107,6 +107,20 @@ public interface IDatabricksClient {
   void cancelStatement(StatementId statementId) throws DatabricksSQLException;
 
   /**
+   * Checks the status of a statement without fetching results. Used for heartbeat polling to keep
+   * server-side operation state alive during slow result consumption.
+   *
+   * @param statementId statement to check status for
+   * @return true if the statement is still in a non-terminal state (alive), false if terminal
+   */
+  default boolean checkStatementAlive(StatementId statementId) throws SQLException {
+    // Throw instead of returning false — returning false is treated as "terminal state"
+    // by the heartbeat task, causing misleading logs. Throwing is more accurate for
+    // clients that don't support heartbeat.
+    throw new java.sql.SQLFeatureNotSupportedException("Heartbeat not supported by this client");
+  }
+
+  /**
    * Fetches result for underlying statement-Id
    *
    * @param statementId statement which should be checked for status

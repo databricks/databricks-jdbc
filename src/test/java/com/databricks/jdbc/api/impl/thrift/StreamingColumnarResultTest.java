@@ -35,7 +35,6 @@ public class StreamingColumnarResultTest {
     lenient().when(session.getDatabricksClient()).thenReturn(databricksClient);
     lenient().when(session.getConnectionContext()).thenReturn(connectionContext);
     lenient().when(connectionContext.getThriftMaxBatchesInMemory()).thenReturn(3);
-    lenient().when(statement.getMaxRows()).thenReturn(0); // No limit by default
   }
 
   @Test
@@ -112,36 +111,6 @@ public class StreamingColumnarResultTest {
       assertFalse(result.next());
 
       verify(databricksClient, atLeastOnce()).getMoreResults(statement);
-    } finally {
-      result.close();
-    }
-  }
-
-  @Test
-  void testMaxRowsLimit() throws SQLException {
-    when(statement.getMaxRows()).thenReturn(2);
-
-    // Use hasMoreRows=false so the prefetch thread doesn't try to fetch
-    TFetchResultsResp response =
-        createResponseWithStringData(
-            Arrays.asList("row1_col1", "row1_col2"),
-            Arrays.asList("row2_col1", "row2_col2"),
-            Arrays.asList("row3_col1", "row3_col2"),
-            false);
-
-    StreamingColumnarResult result = new StreamingColumnarResult(response, statement, session);
-
-    try {
-      // Should only get 2 rows due to maxRows limit
-      assertTrue(result.next());
-      assertEquals("row1_col1", result.getObject(0));
-
-      assertTrue(result.next());
-      assertEquals("row2_col1", result.getObject(0));
-
-      // Should stop due to maxRows limit even though there's more data
-      assertFalse(result.hasNext());
-      assertFalse(result.next());
     } finally {
       result.close();
     }
@@ -284,49 +253,6 @@ public class StreamingColumnarResultTest {
         caughtException.getMessage().contains("Prefetch failed")
             || caughtException.getMessage().contains("Network error"),
         "Exception should contain error details: " + caughtException.getMessage());
-  }
-
-  @Test
-  void testMaxRowsLimitAcrossBatches() throws SQLException, InterruptedException {
-    // MaxRows limit of 3, spanning across 2 batches (2 rows each)
-    when(statement.getMaxRows()).thenReturn(3);
-
-    TFetchResultsResp firstBatch =
-        createResponseWithStringData(
-            Arrays.asList("row1_col1", "row1_col2"),
-            Arrays.asList("row2_col1", "row2_col2"),
-            true); // hasMoreRows = true
-
-    TFetchResultsResp secondBatch =
-        createResponseWithStringData(
-            Arrays.asList("row3_col1", "row3_col2"),
-            Arrays.asList("row4_col1", "row4_col2"),
-            false);
-
-    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
-
-    StreamingColumnarResult result = new StreamingColumnarResult(firstBatch, statement, session);
-
-    try {
-      // Give prefetch thread time to start
-      Thread.sleep(100);
-
-      // Consume first batch (rows 0 and 1)
-      assertTrue(result.next());
-      assertEquals("row1_col1", result.getObject(0));
-      assertTrue(result.next());
-      assertEquals("row2_col1", result.getObject(0));
-
-      // Get one row from second batch (row 2)
-      assertTrue(result.next());
-      assertEquals("row3_col1", result.getObject(0));
-
-      // Should stop at maxRows=3
-      assertFalse(result.hasNext());
-      assertFalse(result.next());
-    } finally {
-      result.close();
-    }
   }
 
   @Test

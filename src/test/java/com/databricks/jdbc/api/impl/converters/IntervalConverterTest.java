@@ -133,6 +133,43 @@ class IntervalConverterTest {
   }
 
   @Nested
+  @DisplayName("Arrow/Spark internal format (CloudFetch)")
+  class CloudFetchFormat {
+
+    @ParameterizedTest(name = "[{index}] metadata={0} → year-month")
+    @CsvSource({"INTERVAL_YEAR_MONTH", "INTERVAL YEAR TO MONTH"})
+    void testYearMonthFormats(String meta) {
+      Period p = Period.ofMonths(14);
+      IntervalConverter ic = new IntervalConverter(meta);
+      assertEquals("1-2", ic.toLiteral(p));
+    }
+
+    @ParameterizedTest(name = "[{index}] metadata={0} → day-time")
+    @CsvSource({"INTERVAL_DAY_TIME", "INTERVAL DAY TO SECOND"})
+    void testDayTimeFormats(String meta) {
+      Duration d = Duration.ofHours(25).plusMinutes(30);
+      IntervalConverter ic = new IntervalConverter(meta);
+      assertEquals("1 01:30:00.000000000", ic.toLiteral(d));
+    }
+
+    @Test
+    @DisplayName("INTERVAL_YEAR_MONTH with negative period")
+    void testCloudFetchNegativeYearMonth() {
+      Period p = Period.ofMonths(-14);
+      IntervalConverter ic = new IntervalConverter("INTERVAL_YEAR_MONTH");
+      assertEquals("-1-2", ic.toLiteral(p));
+    }
+
+    @Test
+    @DisplayName("INTERVAL_DAY_TIME with negative duration")
+    void testCloudFetchNegativeDayTime() {
+      Duration d = Duration.ofHours(-49).plusMinutes(-10).plusSeconds(-5);
+      IntervalConverter ic = new IntervalConverter("INTERVAL_DAY_TIME");
+      assertEquals("-2 01:10:05.000000000", ic.toLiteral(d));
+    }
+  }
+
+  @Nested
   @DisplayName("Error conditions")
   class Errors {
     @Test

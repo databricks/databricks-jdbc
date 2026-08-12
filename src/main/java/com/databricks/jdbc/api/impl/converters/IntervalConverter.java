@@ -39,7 +39,8 @@ public class IntervalConverter {
   private final boolean isYearMonth;
 
   /**
-   * @param arrowMetadata e.g. "INTERVAL YEAR TO MONTH" or "INTERVAL HOUR TO SECOND"
+   * @param arrowMetadata e.g. "INTERVAL YEAR TO MONTH", "INTERVAL HOUR TO SECOND", or
+   *     "INTERVAL_YEAR_MONTH", "INTERVAL_DAY_TIME" (Arrow/Spark internal format from CloudFetch)
    */
   public IntervalConverter(String arrowMetadata) {
     String trimmed = arrowMetadata.trim().toUpperCase();

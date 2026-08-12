@@ -2,6 +2,7 @@ package com.databricks.jdbc.telemetry.latency;
 
 import static com.databricks.jdbc.telemetry.TelemetryHelper.getStatementIdString;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
@@ -25,15 +26,19 @@ public class TelemetryCollector {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TelemetryCollector.class);
 
+  private final IDatabricksConnectionContext connectionContext;
+
   // Per-statement latency tracking using StatementLatencyDetails
   private final ConcurrentHashMap<String, StatementTelemetryDetails> statementTrackers =
       new ConcurrentHashMap<>();
 
   /**
    * Package-private constructor - instances should only be created via TelemetryCollectorManager
+   *
+   * @param connectionContext the connection context this collector is associated with
    */
-  TelemetryCollector() {
-    // Constructor for per-connection instances
+  TelemetryCollector(IDatabricksConnectionContext connectionContext) {
+    this.connectionContext = connectionContext;
   }
 
   /**
@@ -77,6 +82,7 @@ public class TelemetryCollector {
       return;
     }
     TelemetryHelper.exportTelemetryLog(
+        connectionContext,
         new StatementTelemetryDetails(statementId)
             .recordOperationLatency(latencyMillis, operationType),
         TelemetryLogLevel.INFO);
@@ -117,8 +123,8 @@ public class TelemetryCollector {
     LOGGER.trace(" {} pending telemetry details for telemetry export", statementTrackers.size());
     statementTrackers.forEach(
         (statementId, statementTelemetryDetails) -> {
-          // Info log level is used to export the latency telemetry
-          TelemetryHelper.exportTelemetryLog(statementTelemetryDetails, TelemetryLogLevel.INFO);
+          TelemetryHelper.exportTelemetryLog(
+              connectionContext, statementTelemetryDetails, TelemetryLogLevel.INFO);
         });
     statementTrackers.clear();
   }
@@ -145,6 +151,11 @@ public class TelemetryCollector {
   }
 
   @VisibleForTesting
+  public IDatabricksConnectionContext getConnectionContext() {
+    return connectionContext;
+  }
+
+  @VisibleForTesting
   boolean isCloseOperation(OperationType operationType) {
     return (operationType == OperationType.CLOSE_STATEMENT
         || operationType == OperationType.CANCEL_STATEMENT
@@ -162,8 +173,8 @@ public class TelemetryCollector {
    */
   private void exportTelemetryDetailsAndClear(String statementId) {
     StatementTelemetryDetails statementTelemetryDetails = statementTrackers.remove(statementId);
-    // Info log level is used to export the latency telemetry
-    TelemetryHelper.exportTelemetryLog(statementTelemetryDetails, TelemetryLogLevel.INFO);
+    TelemetryHelper.exportTelemetryLog(
+        connectionContext, statementTelemetryDetails, TelemetryLogLevel.INFO);
   }
 
   public void setResultFormat(

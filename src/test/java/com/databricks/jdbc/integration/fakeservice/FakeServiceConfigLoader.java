@@ -33,7 +33,8 @@ public class FakeServiceConfigLoader {
   private static final String SQL_GATEWAY_FAKE_SERVICE_TEST_PROPS =
       "sqlgatewayfakeservicetest.properties";
 
-  private static final String FAKE_SERVICE_USER_AGENT = "DatabricksJdbcDriverOss-FakeService";
+  private static final String FAKE_SERVICE_USER_AGENT =
+      "DatabricksJDBCDriverOSS/" + com.databricks.jdbc.common.util.DriverUtil.getDriverVersion();
 
   private static final String THRIFT_SERVER_FAKE_SERVICE_TEST_PROPS =
       "thriftserverfakeservicetest.properties";

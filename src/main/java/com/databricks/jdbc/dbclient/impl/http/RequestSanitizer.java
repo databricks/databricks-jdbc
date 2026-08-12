@@ -3,11 +3,25 @@ package com.databricks.jdbc.dbclient.impl.http;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import org.apache.http.client.methods.HttpUriRequest;
 
 public class RequestSanitizer {
-  private static final List<String> SENSITIVE_QUERY_PARAMS =
-      List.of("X-Amz-Security-Token", "X-Amz-Signature", "X-Amz-Credential");
+  // Signature/credential params in AWS, Azure (sig) and GCS presigned URLs.
+  private static final Set<String> SENSITIVE_QUERY_PARAMS =
+      new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+
+  static {
+    SENSITIVE_QUERY_PARAMS.addAll(
+        List.of(
+            "X-Amz-Security-Token",
+            "X-Amz-Signature",
+            "X-Amz-Credential",
+            "sig",
+            "X-Goog-Signature",
+            "X-Goog-Credential"));
+  }
 
   public static String sanitizeRequest(HttpUriRequest request) {
     try {

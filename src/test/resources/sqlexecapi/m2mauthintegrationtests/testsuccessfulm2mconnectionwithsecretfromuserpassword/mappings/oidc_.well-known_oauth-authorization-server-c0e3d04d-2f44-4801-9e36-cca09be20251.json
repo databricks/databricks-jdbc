@@ -1,0 +1,23 @@
+{
+  "id" : "c0e3d04d-2f44-4801-9e36-cca09be20251",
+  "name" : "oidc_.well-known_oauth-authorization-server",
+  "request" : {
+    "url" : "/oidc/.well-known/oauth-authorization-server",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"authorization_endpoint\":\"https:\\/\\/adb-3989642981527262.2.azuredatabricks.net\\/oidc\\/v1\\/authorize\",\"token_endpoint\":\"https:\\/\\/adb-3989642981527262.2.azuredatabricks.net\\/oidc\\/v1\\/token\",\"issuer\":\"https:\\/\\/adb-3989642981527262.2.azuredatabricks.net\\/oidc\",\"jwks_uri\":\"https:\\/\\/norwayeast.azuredatabricks.net\\/oidc\\/jwks.json\",\"scopes_supported\":[\"all-apis\",\"email\",\"offline_access\",\"openid\",\"profile\",\"sql\"],\"response_types_supported\":[\"code\",\"id_token\"],\"response_modes_supported\":[\"query\",\"fragment\",\"form_post\"],\"grant_types_supported\":[\"client_credentials\",\"authorization_code\",\"refresh_token\"],\"code_challenge_methods_supported\":[\"S256\"],\"token_endpoint_auth_methods_supported\":[\"client_secret_basic\",\"client_secret_post\",\"none\"],\"subject_types_supported\":[\"public\"],\"id_token_signing_alg_values_supported\":[\"RS256\"],\"claims_supported\":[\"iss\",\"sub\",\"aud\",\"iat\",\"exp\",\"jti\",\"name\",\"family_name\",\"given_name\",\"preferred_username\"],\"request_uri_parameter_supported\":false}",
+    "headers" : {
+      "x-request-id" : "5db09df8-38b2-42cc-b6e5-b04f284f0de1",
+      "date" : "Wed, 8 Jan 2025 07:17:39 GMT",
+      "server" : "databricks",
+      "x-content-type-options" : "nosniff",
+      "vary" : "Accept-Encoding",
+      "content-type" : "application/json; charset=UTF-8",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload"
+    }
+  },
+  "uuid" : "c0e3d04d-2f44-4801-9e36-cca09be20251",
+  "insertionIndex" : 3
+}

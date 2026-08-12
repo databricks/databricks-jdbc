@@ -13,7 +13,7 @@ public final class EnvironmentVariables {
       false; // By default, we should not process the sql
 
   public static final TProtocolVersion JDBC_THRIFT_VERSION =
-      TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9;
+      TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V10;
 
   public static final int DEFAULT_SLEEP_DELAY = 100; // 100 milliseconds
 }

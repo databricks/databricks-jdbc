@@ -436,7 +436,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     checkIfClosed();
     if (resultSet == null) {
 
-      if (DatabricksStatement.isSelectQuery(sql)) {
+      if (DatabricksStatement.isDescribableQuery(sql)) {
         LOGGER.info(
             "Fetching metadata before executing the query, some values may not be available");
         return getMetaDataFromDescribeQuery();

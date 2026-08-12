@@ -1109,15 +1109,11 @@ class StreamingChunkProviderTest {
       assertTrue(provider.next());
       assertNotNull(provider.getChunk());
 
-      // Attempting to get chunk 1 should fail - the error from prefetch should propagate
-      // Either next() or getChunk() should throw or return indicating failure
-      assertTrue(provider.next(), "next() succeeds as endOfStream not yet known");
-
-      // getChunk() should throw because chunk 1 was never created due to fetch failure
+      // Attempting to get chunk 1 should fail - the prefetch error propagates via next()
       assertThrows(
           DatabricksSQLException.class,
-          () -> provider.getChunk(),
-          "getChunk() should throw when chunk creation failed due to link fetch error");
+          () -> provider.next(),
+          "next() should throw when prefetch failed to fetch the link for chunk 1");
     }
 
     @Test
@@ -1176,14 +1172,11 @@ class StreamingChunkProviderTest {
       assertTrue(provider.next());
       assertNotNull(provider.getChunk());
 
-      // Attempting to get chunk 1 should fail - the runtime exception should propagate
-      assertTrue(provider.next(), "next() succeeds as endOfStream not yet known");
-
-      // getChunk() should throw because chunk 1 was never created due to NPE
+      // Attempting to get chunk 1 should fail - the runtime exception propagates via next()
       assertThrows(
-          Exception.class,
-          () -> provider.getChunk(),
-          "getChunk() should throw when chunk creation failed due to runtime exception");
+          DatabricksSQLException.class,
+          () -> provider.next(),
+          "next() should throw when prefetch failed due to runtime exception in link fetcher");
     }
   }
 
@@ -1575,16 +1568,18 @@ class StreamingChunkProviderTest {
       // Prefetch thread calls fetchLinks(3, 300) to get the second batch
       when(mockLinkFetcher.fetchLinks(eq(3L), eq(300L))).thenReturn(batch1);
 
-      // Coalesced refetch for chunk 1: fetchLinks(1, 100) returns fresh link
+      // Coalesced refetch for chunk 1: fetchLinks(1, 100) returns fresh link for chunk 1 only.
+      // hasMore=true so the refresh doesn't set endOfStreamReached (there are still chunks 3-5).
       ExternalLink freshLink1 = createExternalLink(1, rowsPerChunk, 2L, FAR_FUTURE_EXPIRATION);
       ChunkLinkFetchResult refetchBatch1 =
-          ChunkLinkFetchResult.of(Collections.singletonList(freshLink1), false, -1, 200L);
+          ChunkLinkFetchResult.of(Collections.singletonList(freshLink1), true, 3L, 200L);
       when(mockLinkFetcher.fetchLinks(eq(1L), eq(100L))).thenReturn(refetchBatch1);
 
-      // Coalesced refetch for chunk 4: fetchLinks(4, 400) returns fresh link
+      // Coalesced refetch for chunk 4: fetchLinks(4, 400) returns fresh link for chunk 4 only.
+      // hasMore=true so the refresh doesn't prematurely set endOfStreamReached.
       ExternalLink freshLink4 = createExternalLink(4, rowsPerChunk, 5L, FAR_FUTURE_EXPIRATION);
       ChunkLinkFetchResult refetchBatch4 =
-          ChunkLinkFetchResult.of(Collections.singletonList(freshLink4), false, -1, 500L);
+          ChunkLinkFetchResult.of(Collections.singletonList(freshLink4), true, 5L, 500L);
       when(mockLinkFetcher.fetchLinks(eq(4L), eq(400L))).thenReturn(refetchBatch4);
 
       setupHttpClientWithTracking(6, 30);
@@ -1668,6 +1663,148 @@ class StreamingChunkProviderTest {
           1,
           fetchLinksCallCount.get(),
           "Only one fetchLinks RPC should be made despite 3 concurrent refresh requests");
+    }
+  }
+
+  // ==================== Category 7: Refresh Reconciliation (Bounded SEA API) ===========
+
+  @Nested
+  @DisplayName("Category 7: Refresh Reconciliation (Bounded SEA API)")
+  class RefreshReconciliationTests {
+
+    @Test
+    @DisplayName("Should create new chunks discovered during link refresh")
+    void testRefreshCreatesNewChunks() throws Exception {
+      // Setup: Initial links have chunks 0-1 with hasMore=true.
+      // Chunk 1 expires, coalesced refetch returns fresh chunk 1 + new chunk 2 (end of stream).
+      // Provider should discover chunk 2 from the refresh and make it available.
+      long rowsPerChunk = 100L;
+
+      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 2, rowsPerChunk, true, Set.of(1));
+
+      // Prefetch will try to fetch chunk 2, but we want the refresh to discover it first.
+      // Make the prefetch slow so refresh wins the race.
+      CountDownLatch prefetchCalled = new CountDownLatch(1);
+      lenient()
+          .when(mockLinkFetcher.fetchLinks(eq(2L), eq(200L)))
+          .thenAnswer(
+              inv -> {
+                prefetchCalled.countDown();
+                TimeUnit.MILLISECONDS.sleep(500); // Slow prefetch
+                return createLinkBatch(2, 1, rowsPerChunk, false, Collections.emptySet());
+              });
+
+      // Refresh for expired chunk 1 also discovers chunk 2
+      ExternalLink freshLink1 = createExternalLink(1, rowsPerChunk, 2L, FAR_FUTURE_EXPIRATION);
+      ExternalLink newLink2 = createExternalLink(2, rowsPerChunk, null, FAR_FUTURE_EXPIRATION);
+      ChunkLinkFetchResult refetchBatch =
+          ChunkLinkFetchResult.of(List.of(freshLink1, newLink2), false, -1, 300L);
+      when(mockLinkFetcher.fetchLinks(eq(1L), eq(100L))).thenReturn(refetchBatch);
+
+      setupHttpClientWithTracking(3, 30);
+
+      provider = createProvider(initialLinks, LINK_PREFETCH_WINDOW, MAX_CHUNKS_IN_MEMORY);
+
+      // Consume all 3 chunks — chunk 2 was discovered via refresh reconciliation
+      for (int i = 0; i < 3; i++) {
+        assertTrue(provider.next(), "next() should succeed for chunk " + i);
+        assertNotNull(provider.getChunk(), "Chunk " + i + " should be available");
+      }
+
+      assertFalse(provider.hasNextChunk());
+      assertEquals(3, provider.getChunkCount());
+    }
+
+    @Test
+    @DisplayName("Should update end-of-stream from refresh response")
+    void testRefreshSetsEndOfStream() throws Exception {
+      // Setup: Initial links have chunks 0-1 with hasMore=true.
+      // Chunk 1 expires, refetch returns fresh chunk 1 with hasMore=false.
+      // This should set endOfStreamReached, preventing further prefetch.
+      long rowsPerChunk = 100L;
+
+      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 2, rowsPerChunk, true, Set.of(1));
+
+      // Refresh for chunk 1: returns the fresh link with hasMore=false (end of stream)
+      ExternalLink freshLink1 = createExternalLink(1, rowsPerChunk, null, FAR_FUTURE_EXPIRATION);
+      ChunkLinkFetchResult refetchBatch =
+          ChunkLinkFetchResult.of(Collections.singletonList(freshLink1), false, -1, 200L);
+      when(mockLinkFetcher.fetchLinks(eq(1L), eq(100L))).thenReturn(refetchBatch);
+
+      // Stub chunk 2 fetch as a fallback in case prefetch races with the refresh signal.
+      // The test's correctness assertion is that exactly 2 chunks are consumed — not 3.
+      lenient()
+          .when(mockLinkFetcher.fetchLinks(eq(2L), anyLong()))
+          .thenReturn(ChunkLinkFetchResult.of(Collections.emptyList(), false, -1, 200L));
+
+      setupHttpClientWithTracking(2, 30);
+
+      provider = createProvider(initialLinks, LINK_PREFETCH_WINDOW, MAX_CHUNKS_IN_MEMORY);
+
+      // Consume both chunks
+      for (int i = 0; i < 2; i++) {
+        assertTrue(provider.next(), "next() should succeed for chunk " + i);
+        assertNotNull(provider.getChunk(), "Chunk " + i + " should be available");
+      }
+
+      assertFalse(provider.hasNextChunk());
+      assertEquals(2, provider.getChunkCount());
+    }
+
+    @Test
+    @DisplayName("Should advance nextFetchPosition from refresh when it discovers further chunks")
+    void testRefreshAdvancesFetchPosition() throws Exception {
+      // Setup: Initial links have chunks 0-2 with hasMore=true.
+      // Chunk 1 expires, refetch returns fresh links for chunks 1-4 with hasMore=true
+      // at nextFetchIndex=5. This should advance the prefetch position past chunks 3-4,
+      // avoiding duplicate fetches.
+      long rowsPerChunk = 100L;
+
+      ChunkLinkFetchResult initialLinks = createLinkBatch(0, 3, rowsPerChunk, true, Set.of(1));
+
+      // Refresh discovers chunks 1-4 (advancing well past initial nextFetchIndex=3)
+      List<ExternalLink> refreshLinks = new ArrayList<>();
+      refreshLinks.add(createExternalLink(1, rowsPerChunk, 2L, FAR_FUTURE_EXPIRATION));
+      refreshLinks.add(createExternalLink(2, rowsPerChunk, 3L, FAR_FUTURE_EXPIRATION));
+      refreshLinks.add(createExternalLink(3, rowsPerChunk, 4L, FAR_FUTURE_EXPIRATION));
+      refreshLinks.add(createExternalLink(4, rowsPerChunk, 5L, FAR_FUTURE_EXPIRATION));
+      ChunkLinkFetchResult refetchBatch = ChunkLinkFetchResult.of(refreshLinks, true, 5L, 500L);
+      when(mockLinkFetcher.fetchLinks(eq(1L), eq(100L))).thenReturn(refetchBatch);
+
+      // Prefetch should skip to chunk 5 after refresh advances position.
+      // Stub chunk 5 fetch as the expected path.
+      ChunkLinkFetchResult batch5 =
+          createLinkBatch(5, 2, rowsPerChunk, false, Collections.emptySet());
+      when(mockLinkFetcher.fetchLinks(eq(5L), eq(500L))).thenReturn(batch5);
+
+      // The prefetch thread may race to fetch chunk 3 before the refresh advances the position.
+      // Stub it leniently: if it fires, return chunks 3-4 with nextFetchIndex=5 so the test
+      // still reaches the same end state and count of 7 regardless of which path wins the race.
+      List<ExternalLink> earlyBatch3 = new ArrayList<>();
+      earlyBatch3.add(createExternalLink(3, rowsPerChunk, 4L, FAR_FUTURE_EXPIRATION));
+      earlyBatch3.add(createExternalLink(4, rowsPerChunk, 5L, FAR_FUTURE_EXPIRATION));
+      lenient()
+          .when(mockLinkFetcher.fetchLinks(eq(3L), anyLong()))
+          .thenReturn(ChunkLinkFetchResult.of(earlyBatch3, true, 5L, 500L));
+
+      setupHttpClientWithTracking(7, 30);
+
+      provider = createProvider(initialLinks, LINK_PREFETCH_WINDOW, MAX_CHUNKS_IN_MEMORY);
+
+      // Consume all 7 chunks (0-6)
+      int consumed = 0;
+      while (provider.hasNextChunk()) {
+        assertTrue(provider.next());
+        assertNotNull(provider.getChunk());
+        consumed++;
+        if (consumed > 10) fail("Infinite loop detected");
+      }
+
+      assertEquals(7, consumed);
+      assertEquals(7, provider.getChunkCount());
+
+      // Verify prefetch reached chunk 5 (after refresh advanced the position)
+      verify(mockLinkFetcher).fetchLinks(eq(5L), eq(500L));
     }
   }
 }

@@ -1,0 +1,25 @@
+{
+  "id" : "443ff9f8-8682-4b22-9d45-8dce0a2c5b38",
+  "name" : "oregon-staging_6051921418418893.jobs_sql_2026-06-26_04_results_2026-06-26t044933z_0565b0e5-2ac3-4458-a1e6-861b3e4b8661",
+  "request" : {
+    "url" : "/oregon-staging/6051921418418893.jobs/sql/2026-06-26/04/results_2026-06-26T04%3A49%3A33Z_0565b0e5-2ac3-4458-a1e6-861b3e4b8661?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20260626T045124Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=1e363ab60f0495c04b358bb4e74b2bcf9ae667053895b7b3c6555100ce08fea3",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "bodyFileName" : "oregon-staging_6051921418418893.jobs_sql_2026-06-26_04_results_2026-06-26t044933z_0565b0e5-2ac3-4458-a1e6-861b3e4b8661-443ff9f8-8682-4b22-9d45-8dce0a2c5b38.txt",
+    "headers" : {
+      "Accept-Ranges" : "bytes",
+      "Server" : "AmazonS3",
+      "ETag" : "\"15f205536ef9e7450b85b9de3341265f\"",
+      "Last-Modified" : "Fri, 26 Jun 2026 04:49:34 GMT",
+      "x-amz-request-id" : "MWZAQ0X02Q0B6AXK",
+      "x-amz-server-side-encryption" : "AES256",
+      "x-amz-id-2" : "A3+3hLz7d36TxTCy1dpY29dp5Yl4wWn9/p4mRljTAaagxBzfT58lF9xN1l7enqvlw608ewziGKVSwf99XxUZdqpD/3Bflq9f",
+      "Date" : "Fri, 26 Jun 2026 04:51:26 GMT",
+      "Content-Type" : "binary/octet-stream"
+    }
+  },
+  "uuid" : "443ff9f8-8682-4b22-9d45-8dce0a2c5b38",
+  "insertionIndex" : 5
+}

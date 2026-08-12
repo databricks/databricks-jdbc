@@ -367,9 +367,9 @@ class InlineJsonResultTest {
 
   @Test
   void testJsonArrayWithComplexTypesEnabledButGeospatialDisabled() throws DatabricksSQLException {
-    // This test validates the scenario where EnableComplexDatatypeSupport=1 but
-    // EnableGeoSpatialSupport=0 (disabled). This simulates a real-world scenario where
-    // users enable complex types for ARRAY/MAP/STRUCT but want geospatial data as strings.
+    // This test validates that with EnableGeoSpatialSupport=0, geospatial columns
+    // return as strings regardless of EnableComplexDatatypeSupport setting.
+    // The two flags are independent.
     //
     // Expected behavior:
     // - Geospatial column TYPES in metadata should report as STRING

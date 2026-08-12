@@ -53,11 +53,24 @@ public class DecompressionUtil {
     }
   }
 
-  public static InputStream decompressToStream(
+  /**
+   * Returns a stream that decompresses {@code compressedInput} lazily as it is read, so the full
+   * decompressed payload is never materialized alongside the compressed bytes. Only LZ4_FRAME is
+   * wrapped in a decompressing decorator; a {@code null}/NONE codec returns the raw bytes as-is.
+   *
+   * <p>Any {@link IOException} from constructing the LZ4 decoder propagates to the caller ({@code
+   * ArrowResultChunk.downloadData}), which handles it as a chunk-processing failure — the same
+   * terminal path as any other decompression error.
+   */
+  public static InputStream decompressToInputStream(
       byte[] compressedInput, CompressionCodec compressionCodec, String context)
-      throws DatabricksSQLException {
-    byte[] uncompressed = decompress(compressedInput, compressionCodec, context);
-    return new ByteArrayInputStream(uncompressed);
+      throws IOException {
+    if (compressionCodec == CompressionCodec.LZ4_FRAME) {
+      LOGGER.debug("Streaming LZ4 Frame decompression. Context: {}", context);
+      return new LZ4FrameInputStream(new ByteArrayInputStream(compressedInput));
+    }
+    // null / NONE codec: no decompression needed.
+    return new ByteArrayInputStream(compressedInput);
   }
 
   public static InputStream decompress(

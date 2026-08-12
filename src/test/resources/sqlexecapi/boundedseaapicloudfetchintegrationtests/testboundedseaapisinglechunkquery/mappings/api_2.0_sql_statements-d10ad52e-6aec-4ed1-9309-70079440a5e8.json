@@ -1,0 +1,40 @@
+{
+    "id": "d10ad52e-6aec-4ed1-9309-70079440a5e8",
+    "name": "api_2.0_sql_statements",
+    "request": {
+        "url": "/api/2.0/sql/statements/",
+        "method": "POST",
+        "bodyPatterns": [
+            {
+                "equalToJson": "{\"statement\":\"SELECT * FROM main.tpcds_sf100_delta.catalog_sales limit 10\",\"warehouse_id\":\"dd43ee29fedd958d\",\"row_limit\":10,\"session_id\":\"01f1711a-aad5-1c78-a296-61e968534b4e\",\"disposition\":\"INLINE_OR_EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+                "ignoreArrayOrder": true,
+                "ignoreExtraElements": true
+            }
+        ]
+    },
+    "response": {
+        "status": 200,
+        "body": "{\"statement_id\":\"01f1711a-ab53-1c6a-8352-efc5b5eb4706\",\"status\":{\"state\":\"CLOSED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":34,\"columns\":[{\"name\":\"cs_sold_date_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":0},{\"name\":\"cs_sold_time_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":1},{\"name\":\"cs_ship_date_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":2},{\"name\":\"cs_bill_customer_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":3},{\"name\":\"cs_bill_cdemo_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":4},{\"name\":\"cs_bill_hdemo_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":5},{\"name\":\"cs_bill_addr_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":6},{\"name\":\"cs_ship_customer_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":7},{\"name\":\"cs_ship_cdemo_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":8},{\"name\":\"cs_ship_hdemo_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":9},{\"name\":\"cs_ship_addr_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":10},{\"name\":\"cs_call_center_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":11},{\"name\":\"cs_catalog_page_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":12},{\"name\":\"cs_ship_mode_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":13},{\"name\":\"cs_warehouse_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":14},{\"name\":\"cs_item_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":15},{\"name\":\"cs_promo_sk\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":16},{\"name\":\"cs_order_number\",\"type_text\":\"BIGINT\",\"type_name\":\"LONG\",\"position\":17},{\"name\":\"cs_quantity\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":18},{\"name\":\"cs_wholesale_cost\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":19,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_list_price\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":20,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_sales_price\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":21,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_ext_discount_amt\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":22,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_ext_sales_price\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":23,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_ext_wholesale_cost\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":24,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_ext_list_price\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":25,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_ext_tax\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":26,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_coupon_amt\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":27,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_ext_ship_cost\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":28,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_net_paid\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":29,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_net_paid_inc_tax\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":30,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_net_paid_inc_ship\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":31,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_net_paid_inc_ship_tax\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":32,\"type_precision\":7,\"type_scale\":2},{\"name\":\"cs_net_profit\",\"type_text\":\"DECIMAL(7,2)\",\"type_name\":\"DECIMAL\",\"position\":33,\"type_precision\":7,\"type_scale\":2}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":10,\"byte_count\":1852}],\"total_row_count\":10,\"total_byte_count\":1852,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":10,\"byte_count\":1852,\"external_link\":\"https://e2-dogfood-core.s3.us-west-2.amazonaws.com/oregon-staging/6051921418418893.jobs/sql/2026-06-26/04/results_single_chunk_test\",\"expiration\":\"2026-06-26T05:06:24.468Z\"}]}}",
+        "headers": {
+            "x-request-id": "33792c19-5d05-453b-9758-efaa03275575",
+            "date": "Fri, 26 Jun 2026 04:51:18 GMT",
+            "server": "databricks",
+            "x-databricks-popp-response-code-details": "via_upstream",
+            "x-databricks-shard-debug": "oregon-staging",
+            "vary": "Accept-Encoding",
+            "x-databricks-popp-fast-path-routing-reason": "not_eligible",
+            "x-databricks-popp-shadow-routing-reason": "spog-domain-checker-false",
+            "x-databricks-upstream-cluster": "oregon-staging-h2",
+            "x-databricks-org-id": "6051921418418893",
+            "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+            "x-content-type-options": "nosniff",
+            "x-databricks-popp-routing-reason": "deployment-name",
+            "content-type": "application/json",
+            "server-timing": "request_id;dur=0;desc=\"33792c19-5d05-453b-9758-efaa03275575\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+            "alt-svc": "h3=\":443\"; ma=86400, h3-29=\":443\"; ma=86400",
+            "x-databricks-apiproxy-response-code-details": "via_upstream"
+        }
+    },
+    "uuid": "d10ad52e-6aec-4ed1-9309-70079440a5e8",
+    "insertionIndex": 8
+}

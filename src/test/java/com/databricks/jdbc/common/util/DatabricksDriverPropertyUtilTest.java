@@ -106,4 +106,35 @@ public class DatabricksDriverPropertyUtilTest {
         PROXY_PWD.getParamName(),
         PROXY_PORT.getParamName());
   }
+
+  private void assertNotMissingProperties(
+      String jdbcUrl, Properties info, String... notExpectedProperties)
+      throws DatabricksSQLException {
+    List<DriverPropertyInfo> missingProperties =
+        DatabricksDriverPropertyUtil.getMissingProperties(jdbcUrl, info);
+    for (String notExpected : notExpectedProperties) {
+      assertFalse(
+          missingProperties.stream().anyMatch(p -> p.name.equals(notExpected)),
+          "Should not report missing property: " + notExpected);
+    }
+  }
+
+  @Test
+  public void testM2MSecretFromPasswordNotReportedMissing() throws DatabricksSQLException {
+    // When user/password supply the OAuth client id/secret, they must not be flagged as missing
+    // (issue #1132).
+    String jdbcUrl = test_host + "AuthMech=11;Auth_Flow=1;";
+    Properties info = new Properties();
+    info.setProperty("user", "my-client-id");
+    info.setProperty("password", "my-oauth-secret");
+    assertNotMissingProperties(
+        jdbcUrl, info, CLIENT_ID.getParamName(), CLIENT_SECRET.getParamName());
+  }
+
+  @Test
+  public void testM2MMissingSecretStillReportedWithoutPassword() throws DatabricksSQLException {
+    // Without user/password and without explicit OAuth params, both are still reported missing.
+    String jdbcUrl = test_host + "AuthMech=11;Auth_Flow=1;";
+    assertMissingProperties(jdbcUrl, CLIENT_ID.getParamName(), CLIENT_SECRET.getParamName());
+  }
 }

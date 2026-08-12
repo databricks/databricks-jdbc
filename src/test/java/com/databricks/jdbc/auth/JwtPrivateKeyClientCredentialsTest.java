@@ -86,9 +86,9 @@ public class JwtPrivateKeyClientCredentialsTest {
 
   @Test
   public void testRetrieveTokenExceptionHandling() throws DatabricksHttpException {
-    when(httpClient.execute(any()))
-        .thenThrow(
-            new DatabricksHttpException("Network error", DatabricksDriverErrorCode.INVALID_STATE));
+    DatabricksHttpException httpException =
+        new DatabricksHttpException("Network error", DatabricksDriverErrorCode.INVALID_STATE);
+    when(httpClient.execute(any())).thenThrow(httpException);
     Exception exception =
         assertThrows(
             DatabricksException.class,

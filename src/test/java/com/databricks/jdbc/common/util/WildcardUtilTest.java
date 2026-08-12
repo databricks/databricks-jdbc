@@ -63,6 +63,21 @@ public class WildcardUtilTest {
     assertFalse(wildcardUtil.isMatchAnything(null));
   }
 
+  @Test
+  void testIsNullOrWildcard() {
+    assertTrue(WildcardUtil.isNullOrWildcard(null));
+    assertTrue(WildcardUtil.isNullOrWildcard("*"));
+    assertTrue(WildcardUtil.isNullOrWildcard("%"));
+    assertFalse(WildcardUtil.isNullOrWildcard("test"));
+    assertFalse(WildcardUtil.isNullOrWildcard(""));
+    assertFalse(WildcardUtil.isNullOrWildcard("abc%"));
+  }
+
+  @Test
+  void testJdbcPatternToHiveNull() {
+    assertNull(WildcardUtil.jdbcPatternToHive(null));
+  }
+
   private static Stream<Arguments> escapeCatalogNamePatterns() {
     return Stream.of(
         Arguments.of(null, null, "Null input returns null"),

@@ -1,11 +1,18 @@
 package com.databricks.jdbc.dbclient;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimed;
 import java.sql.SQLException;
 
 public interface IDatabricksMetadataClient {
+
+  /**
+   * Returns the connection context this metadata client is bound to. Used so telemetry can be
+   * attributed to the owning connection rather than a shared thread-local (ES-1961329).
+   */
+  IDatabricksConnectionContext getConnectionContext();
 
   /** Returns information about types supported by Databricks server */
   @DatabricksMetricsTimed

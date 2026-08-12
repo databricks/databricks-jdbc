@@ -4,10 +4,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.oauth.Token;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.Base64;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -283,5 +287,91 @@ public class EncryptedFileTokenCacheTest {
     Token loadedToken = tokenCache.load();
     assertNotNull(loadedToken);
     assertEquals(tokenType, loadedToken.getTokenType());
+  }
+
+  @Test
+  void should_NotBeDecryptableWithHardcodedSalt() throws Exception {
+    EncryptedFileTokenCache cache = new EncryptedFileTokenCache(tokenCachePath, TEST_PASSPHRASE);
+    cache.save(
+        new Token(
+            ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS)));
+
+    byte[] combined = Base64.getDecoder().decode(Files.readAllBytes(tokenCachePath));
+    byte[] iv = Arrays.copyOfRange(combined, 0, 16);
+    byte[] ct = Arrays.copyOfRange(combined, 16, combined.length);
+    javax.crypto.SecretKeyFactory f =
+        javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+    javax.crypto.SecretKey key =
+        new javax.crypto.spec.SecretKeySpec(
+            f.generateSecret(
+                    new javax.crypto.spec.PBEKeySpec(
+                        TEST_PASSPHRASE.toCharArray(),
+                        "DatabricksJdbcTokenCache".getBytes(),
+                        65536,
+                        256))
+                .getEncoded(),
+            "AES");
+    boolean cracked;
+    try {
+      javax.crypto.Cipher c = javax.crypto.Cipher.getInstance("AES/CBC/PKCS5Padding");
+      c.init(javax.crypto.Cipher.DECRYPT_MODE, key, new javax.crypto.spec.IvParameterSpec(iv));
+      String out = new String(c.doFinal(ct));
+      cracked = out.contains(REFRESH_TOKEN);
+    } catch (Exception e) {
+      cracked = false;
+    }
+    assertFalse(cracked, "Token must not be derivable from passphrase + hardcoded salt");
+  }
+
+  @Test
+  void should_UseRandomPerFileSalt() throws Exception {
+    Path p1 = tempDir.resolve("c1");
+    Path p2 = tempDir.resolve("c2");
+    Token t =
+        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS));
+    new EncryptedFileTokenCache(p1, TEST_PASSPHRASE).save(t);
+    new EncryptedFileTokenCache(p2, TEST_PASSPHRASE).save(t);
+    byte[] a = Arrays.copyOfRange(Base64.getDecoder().decode(Files.readAllBytes(p1)), 0, 16);
+    byte[] b = Arrays.copyOfRange(Base64.getDecoder().decode(Files.readAllBytes(p2)), 0, 16);
+    assertFalse(Arrays.equals(a, b), "Salt (first 16 bytes) must differ per file");
+  }
+
+  @Test
+  void should_LoadFromFreshInstance_SamePassphrase() throws Exception {
+    Token t =
+        new Token(ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS));
+    new EncryptedFileTokenCache(tokenCachePath, TEST_PASSPHRASE).save(t);
+    Token loaded = new EncryptedFileTokenCache(tokenCachePath, TEST_PASSPHRASE).load();
+    assertNotNull(loaded);
+    assertEquals(REFRESH_TOKEN, loaded.getRefreshToken());
+  }
+
+  @Test
+  void should_WriteOwnerOnlyPermissions() throws Exception {
+    org.junit.jupiter.api.Assumptions.assumeTrue(
+        FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+    EncryptedFileTokenCache cache = new EncryptedFileTokenCache(tokenCachePath, TEST_PASSPHRASE);
+    cache.save(
+        new Token(
+            ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS)));
+    assertEquals(
+        PosixFilePermissions.fromString("rw-------"),
+        Files.getPosixFilePermissions(tokenCachePath));
+  }
+
+  @Test
+  void should_KeepOwnerOnlyPermissions_AfterOverwriteAndFromLoosePreexisting() throws Exception {
+    org.junit.jupiter.api.Assumptions.assumeTrue(
+        FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+    Files.write(tokenCachePath, new byte[] {1, 2, 3});
+    Files.setPosixFilePermissions(tokenCachePath, PosixFilePermissions.fromString("rw-r--r--"));
+    EncryptedFileTokenCache cache = new EncryptedFileTokenCache(tokenCachePath, TEST_PASSPHRASE);
+    cache.save(
+        new Token(
+            ACCESS_TOKEN, TOKEN_TYPE, REFRESH_TOKEN, Instant.now().plus(1, ChronoUnit.HOURS)));
+    assertEquals(
+        PosixFilePermissions.fromString("rw-------"),
+        Files.getPosixFilePermissions(tokenCachePath),
+        "overwrite must normalize to 0600");
   }
 }

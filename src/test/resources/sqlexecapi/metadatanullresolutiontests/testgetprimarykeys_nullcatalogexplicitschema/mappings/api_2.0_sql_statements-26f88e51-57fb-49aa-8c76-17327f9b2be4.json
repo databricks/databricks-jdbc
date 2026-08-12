@@ -1,0 +1,38 @@
+{
+  "id" : "26f88e51-57fb-49aa-8c76-17327f9b2be4",
+  "name" : "api_2.0_sql_statements",
+  "request" : {
+    "url" : "/api/2.0/sql/statements/",
+    "method" : "POST",
+    "bodyPatterns" : [ {
+      "equalToJson" : "{\"statement\":\"SHOW KEYS IN CATALOG `main` IN SCHEMA `sea_null_resolve_test` IN TABLE `null_resolve_parent`\",\"warehouse_id\":\"dd43ee29fedd958d\",\"session_id\":\"01f13244-5c5d-1aab-af13-5efdc0ae3a5d\",\"disposition\":\"EXTERNAL_LINKS\",\"format\":\"ARROW_STREAM\",\"on_wait_timeout\":\"CONTINUE\",\"parameters\":[],\"result_compression\":\"LZ4_FRAME\"}",
+      "ignoreArrayOrder" : true,
+      "ignoreExtraElements" : true
+    } ]
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"statement_id\":\"01f13244-6003-1ce3-b162-d81d1a572cd2\",\"status\":{\"state\":\"SUCCEEDED\"},\"manifest\":{\"format\":\"ARROW_STREAM\",\"schema\":{\"column_count\":14,\"columns\":[{\"name\":\"catalogName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":0},{\"name\":\"namespace\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":1},{\"name\":\"tableName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":2},{\"name\":\"col_name\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":3},{\"name\":\"keySeq\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":4},{\"name\":\"constraintName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":5},{\"name\":\"constraintType\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":6},{\"name\":\"parentCatalogName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":7},{\"name\":\"parentNamespace\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":8},{\"name\":\"parentTableName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":9},{\"name\":\"parentColName\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":10},{\"name\":\"updateRule\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":11},{\"name\":\"deleteRule\",\"type_text\":\"STRING\",\"type_name\":\"STRING\",\"position\":12},{\"name\":\"deferrability\",\"type_text\":\"INT\",\"type_name\":\"INT\",\"position\":13}]},\"total_chunk_count\":1,\"chunks\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":1090}],\"total_row_count\":1,\"total_byte_count\":1090,\"truncated\":false,\"result_compression\":\"LZ4_FRAME\"},\"result\":{\"external_links\":[{\"chunk_index\":0,\"row_offset\":0,\"row_count\":1,\"byte_count\":1090,\"external_link\":\"https://e2-dogfood-core.s3.us-west-2.amazonaws.com/oregon-staging/6051921418418893.jobs/sql/extended/results_2026-04-08T06%3A41%3A07Z_3d65a3a5-6f63-44ec-87c3-5ef256232638?[REDACTED]X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20260407T054108Z&X-Amz-SignedHeaders=host&X-Amz-Expires=899&[REDACTED]X-Amz-Signature=33ba1c92a40cf6743fa050d837b21ef93701df25046d5a3699bf333b457a4287\",\"expiration\":\"2026-04-07T05:56:08.023Z\"}]}}",
+    "headers" : {
+      "x-request-id" : "e62807f7-abb3-4abd-8e4e-abb50ec27ad4",
+      "date" : "Tue, 7 Apr 2026 05:41:08 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-popp-fast-path-routing-reason" : "not_eligible",
+      "x-databricks-popp-shadow-routing-reason" : "spog-domain-checker-false",
+      "x-databricks-upstream-cluster" : "oregon-staging-h2",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "server-timing" : "request_id;dur=0;desc=\"e62807f7-abb3-4abd-8e4e-abb50ec27ad4\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":443\"; ma=86400, h3-29=\":443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "26f88e51-57fb-49aa-8c76-17327f9b2be4",
+  "insertionIndex" : 21
+}

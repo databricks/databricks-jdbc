@@ -11,6 +11,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.sdk.core.DatabricksError;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -286,8 +287,10 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
                     triggerNextBatchDownload();
                   }
                 }
-              } catch (SQLException e) {
-                // If the download fails, complete exceptionally all pending futures
+              } catch (SQLException | DatabricksError e) {
+                // DatabricksError (RuntimeException) is thrown by the SDK client on HTTP
+                // errors (e.g. 404 when result expires). Without catching it, link futures
+                // are left unresolved, causing download tasks to block indefinitely.
                 handleBatchDownloadError(batchStartIndex, e);
               }
             });
@@ -299,7 +302,7 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
    * <p>Completes all pending futures exceptionally with the encountered error and resets the
    * download progress flag.
    */
-  private void handleBatchDownloadError(long batchStartIndex, SQLException e) {
+  private void handleBatchDownloadError(long batchStartIndex, Exception e) {
     LOGGER.error(
         e,
         "Failed to download links for batch starting at {} : {}",

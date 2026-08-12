@@ -107,6 +107,75 @@ class ValidationUtilTest {
     assertEquals(expectedValid, ValidationUtil.isValidJdbcUrl(url), description);
   }
 
+  @Test
+  void testValidateUidParameter_PatMode_RejectsNonTokenUid() {
+    java.util.Map<String, String> params = new java.util.HashMap<>();
+    params.put("authmech", "3");
+    params.put("uid", "some-user");
+    assertThrows(DatabricksSQLException.class, () -> ValidationUtil.validateUidParameter(params));
+  }
+
+  @Test
+  void testValidateUidParameter_PatMode_AllowsTokenUid() {
+    java.util.Map<String, String> params = new java.util.HashMap<>();
+    params.put("authmech", "3");
+    params.put("uid", "token");
+    assertDoesNotThrow(() -> ValidationUtil.validateUidParameter(params));
+  }
+
+  @Test
+  void testValidateUidParameter_OAuthMode_AllowsClientIdUid() {
+    // In OAuth mode the UID may carry the OAuth client id, so any value is accepted (issue #1132).
+    java.util.Map<String, String> params = new java.util.HashMap<>();
+    params.put("authmech", "11");
+    params.put("uid", "my-oauth-client-id");
+    assertDoesNotThrow(() -> ValidationUtil.validateUidParameter(params));
+  }
+
+  @Test
+  void testValidateUidParameter_DefaultMechRejectsNonTokenUid() {
+    // Absent AuthMech defaults to PAT, so the token-only restriction still applies.
+    java.util.Map<String, String> params = new java.util.HashMap<>();
+    params.put("uid", "some-user");
+    assertThrows(DatabricksSQLException.class, () -> ValidationUtil.validateUidParameter(params));
+  }
+
+  @ParameterizedTest
+  @MethodSource("supportedAuthMechTestCases")
+  void testValidateAuthMech_SupportedValues(String authMech) {
+    java.util.Map<String, String> params = new java.util.HashMap<>();
+    if (authMech != null) {
+      params.put("authmech", authMech);
+    }
+    assertDoesNotThrow(() -> ValidationUtil.validateAuthMech(params));
+  }
+
+  private static Stream<Arguments> supportedAuthMechTestCases() {
+    return Stream.of(
+        Arguments.of("3"), // PAT
+        Arguments.of("11"), // OAuth
+        Arguments.of((String) null)); // omitted -> default applies
+  }
+
+  @ParameterizedTest
+  @MethodSource("unsupportedAuthMechTestCases")
+  void testValidateAuthMech_UnsupportedValueThrowsInputValidationError(String authMech) {
+    java.util.Map<String, String> params = new java.util.HashMap<>();
+    params.put("authmech", authMech);
+    DatabricksSQLException ex =
+        assertThrows(DatabricksSQLException.class, () -> ValidationUtil.validateAuthMech(params));
+    assertEquals("INPUT_VALIDATION_ERROR", ex.getSQLState());
+  }
+
+  private static Stream<Arguments> unsupportedAuthMechTestCases() {
+    return Stream.of(
+        Arguments.of("99"), // unsupported integer
+        Arguments.of("0"), // unsupported integer
+        Arguments.of("1"), // unsupported integer
+        Arguments.of("non-numeric"), // not an integer
+        Arguments.of("")); // empty
+  }
+
   private static Stream<Arguments> jdbcUrlValidityTestCases() {
     return Stream.of(
         Arguments.of(VALID_URL_1, "Valid URL with auth_flow=2 and log path", true),
@@ -128,6 +197,13 @@ class ValidationUtilTest {
             "Valid URL with invalid compression type",
             true),
         Arguments.of(INVALID_URL_1, "Invalid non-Databricks JDBC URL", false),
-        Arguments.of(INVALID_URL_2, "Invalid malformed JDBC scheme", false));
+        Arguments.of(INVALID_URL_2, "Invalid malformed JDBC scheme", false),
+        Arguments.of(
+            VALID_SPOG_URL_WAREHOUSE, "Valid SPOG URL with ?o= in warehouse httpPath", true),
+        Arguments.of(VALID_SPOG_URL_ENDPOINT, "Valid SPOG URL with ?o= in endpoint httpPath", true),
+        Arguments.of(
+            VALID_SPOG_URL_WAREHOUSE_NO_EXTRA_PARAMS,
+            "Valid SPOG URL with ?o= at end of URL",
+            true));
   }
 }

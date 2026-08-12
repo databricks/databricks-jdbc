@@ -2,6 +2,7 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 
+import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -175,15 +176,41 @@ public class ValidationUtil {
    */
   public static void validateInputProperties(Map<String, String> parameters)
       throws DatabricksValidationException {
-    // Validate UID parameter
+    // Fail fast on an unsupported AuthMech before the client-configurator machinery runs.
+    validateAuthMech(parameters);
     validateUidParameter(parameters);
-
-    // Future property validations can be added here
   }
 
   /**
-   * Validates the UID parameter in JDBC connection properties. UID must either be omitted or set to
-   * "token".
+   * Validates the AuthMech parameter. Reuses {@link AuthMech#fromValue} as the single source of
+   * truth for supported values, so adding a new AuthMech only requires updating {@code AuthMech}.
+   *
+   * @param parameters Map of JDBC connection parameters
+   * @throws DatabricksValidationException if AuthMech is present but not a supported value
+   */
+  public static void validateAuthMech(Map<String, String> parameters)
+      throws DatabricksValidationException {
+    String authMech = parameters.get(DatabricksJdbcUrlParams.AUTH_MECH.getParamName());
+    if (authMech == null) {
+      // Omitted -> default AuthMech applies.
+      return;
+    }
+    Integer authMechValue = null;
+    try {
+      authMechValue = Integer.parseInt(authMech);
+    } catch (NumberFormatException e) {
+      // Not an integer -> unsupported (handled below).
+    }
+    if (authMechValue == null || AuthMech.fromValue(authMechValue) == null) {
+      throw new DatabricksValidationException(
+          String.format("Does not support authMech value %s", authMech));
+    }
+  }
+
+  /**
+   * Validates the UID parameter in JDBC connection properties. For token (PAT) auth, UID must
+   * either be omitted or set to "token". In OAuth mode (AuthMech=11) any UID value is allowed,
+   * since the UID may carry the OAuth client id (see issue #1132).
    *
    * @param parameters Map of JDBC connection parameters
    * @throws DatabricksValidationException if UID validation fails
@@ -191,12 +218,27 @@ public class ValidationUtil {
   public static void validateUidParameter(Map<String, String> parameters)
       throws DatabricksValidationException {
     String uid = parameters.get(DatabricksJdbcUrlParams.UID.getParamName());
+    // In OAuth mode the UID may be the OAuth client id, so skip the "token"-only restriction.
+    if (isOAuthMech(parameters)) {
+      return;
+    }
     // UID must either be omitted or set to "token"
     if (uid != null && !uid.equals(VALID_UID_VALUE)) {
       LOGGER.error(DatabricksVendorCode.INCORRECT_UID.getMessage());
       throw new DatabricksValidationException(
           DatabricksVendorCode.INCORRECT_UID.getMessage(),
           DatabricksVendorCode.INCORRECT_UID.getCode());
+    }
+  }
+
+  /** Returns true when the parameters select OAuth (AuthMech=11) authentication. */
+  private static boolean isOAuthMech(Map<String, String> parameters) {
+    String authMech = parameters.get(DatabricksJdbcUrlParams.AUTH_MECH.getParamName());
+    try {
+      return AuthMech.parseAuthMech(authMech) == AuthMech.OAUTH;
+    } catch (RuntimeException e) {
+      // Malformed AuthMech — defer to normal validation; treat as non-OAuth here.
+      return false;
     }
   }
 }

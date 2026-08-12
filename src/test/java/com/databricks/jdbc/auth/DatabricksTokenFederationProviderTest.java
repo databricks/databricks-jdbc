@@ -106,10 +106,9 @@ public class DatabricksTokenFederationProviderTest {
   @Test
   public void testRetrieveTokensFailure() throws Exception {
 
-    when(mockHttpClient.execute(any(HttpPost.class)))
-        .thenThrow(
-            new DatabricksHttpException(
-                "Connection error", DatabricksDriverErrorCode.CONNECTION_ERROR));
+    DatabricksHttpException httpException =
+        new DatabricksHttpException("Connection error", DatabricksDriverErrorCode.CONNECTION_ERROR);
+    when(mockHttpClient.execute(any(HttpPost.class))).thenThrow(httpException);
 
     assertThrows(
         DatabricksDriverException.class,

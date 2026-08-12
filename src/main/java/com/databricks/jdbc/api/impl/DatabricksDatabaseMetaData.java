@@ -28,7 +28,7 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public static final String PRODUCT_NAME = "SparkSQL";
   public static final int DATABASE_MAJOR_VERSION = 3;
   public static final int DATABASE_MINOR_VERSION = 3;
-  public static final int DATABASE_PATCH_VERSION = 1;
+  public static final int DATABASE_PATCH_VERSION = 3;
   public static final Integer MAX_NAME_LENGTH = 128;
   public static final String NUMERIC_FUNCTIONS =
       "ABS,ACOS,ASIN,ATAN,ATAN2,CEILING,COS,COT,DEGREES,EXP,FLOOR,LOG,LOG10,MOD,PI,POWER,RADIANS,RAND,ROUND,SIGN,SIN,SQRT,TAN,TRUNCATE";
@@ -64,7 +64,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public String getURL() throws SQLException {
     LOGGER.debug("public String getURL()");
-    return this.session.getConnectionContext().getConnectionURL();
+    return DatabricksConnectionContext.redactConnectionURL(
+        this.session.getConnectionContext().getConnectionURL());
   }
 
   @Override
@@ -1132,9 +1133,18 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             foreignTable));
 
     throwExceptionIfConnectionIsClosed();
-    if (parentTable == null && foreignTable == null) {
+    // Thrift requires parentTable — null or empty parentTable is invalid
+    if (parentTable == null || parentTable.isEmpty()) {
+      LOGGER.debug("getCrossReference: parentTable is null or empty, throwing");
       throw new DatabricksSQLException(
-          "Invalid argument: foreignTable and parentTableName are both null",
+          "Invalid argument: parentTable may not be null or empty",
+          DatabricksDriverErrorCode.INVALID_STATE);
+    }
+    // Empty foreign table is also invalid — Thrift server rejects it
+    if (foreignTable != null && foreignTable.isEmpty()) {
+      LOGGER.debug("getCrossReference: foreignTable is empty string, throwing");
+      throw new DatabricksSQLException(
+          "Invalid argument: foreignTable may not be empty",
           DatabricksDriverErrorCode.INVALID_STATE);
     }
 
@@ -1269,7 +1279,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public boolean supportsBatchUpdates() throws SQLException {
     LOGGER.debug("public boolean supportsBatchUpdates()");
     throwExceptionIfConnectionIsClosed();
-    return false;
+    // Advertise batch support only when the multi-row INSERT optimization is enabled, so
+    // batch-aware clients use executeBatch() instead of one executeUpdate() per row.
+    return session.getConnectionContext().isBatchedInsertsEnabled();
   }
 
   @Override

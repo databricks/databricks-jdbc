@@ -296,9 +296,6 @@ public interface IDatabricksConnectionContext {
   /** Returns true if driver should use hybrid results in SQL_EXEC API. */
   boolean isSqlExecHybridResultsEnabled();
 
-  /** Returns true if driver should use direct results in SQL_EXEC API. */
-  boolean isSqlExecDirectResultsEnabled();
-
   /** Returns the Azure tenant ID for the Azure Databricks workspace. */
   String getAzureTenantId();
 
@@ -311,11 +308,15 @@ public interface IDatabricksConnectionContext {
   /** Returns true if driver return complex data type java objects natively as opposed to string */
   boolean isComplexDatatypeSupportEnabled();
 
-  /**
-   * Returns true if driver returns GEOMETRY and GEOGRAPHY types natively. Requires
-   * isComplexDatatypeSupportEnabled() to be true
-   */
+  /** Returns true if driver returns GEOMETRY and GEOGRAPHY types natively. */
   boolean isGeoSpatialSupportEnabled();
+
+  /**
+   * Returns true if {@code ResultSetMetaData.getColumnTypeName()} should report "TIMESTAMP_NTZ" for
+   * TIMESTAMP_NTZ columns. When false, the type name is normalized to "TIMESTAMP" to match the
+   * legacy (v2.x.x) driver behavior.
+   */
+  boolean isTimestampNtzTypeNameEnabled();
 
   /** Returns the size for HTTP connection pool */
   int getHttpConnectionPoolSize() throws DatabricksValidationException;
@@ -412,6 +413,16 @@ public interface IDatabricksConnectionContext {
   /** Returns the timeout in seconds for metadata polling operations. 0 means no timeout. */
   int getMetadataOperationTimeout();
 
+  /** Returns whether heartbeat/keep-alive polling is enabled. */
+  default boolean isHeartbeatEnabled() {
+    return false;
+  }
+
+  /** Returns the heartbeat polling interval in seconds. */
+  default int getHeartbeatIntervalSeconds() {
+    return 60;
+  }
+
   /** Returns whether batched INSERT optimization is enabled */
   boolean isBatchedInsertsEnabled();
 
@@ -456,6 +467,9 @@ public interface IDatabricksConnectionContext {
    * @return true if CloudFetch is enabled, false otherwise
    */
   boolean isCloudFetchEnabled();
+
+  /** Returns whether bounded SEA API mode is enabled for CloudFetch. */
+  boolean isBoundedSeaApiEnabled();
 
   /**
    * Returns the maximum number of batches to keep in memory for Thrift streaming.

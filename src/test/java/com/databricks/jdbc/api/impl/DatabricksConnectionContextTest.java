@@ -88,6 +88,40 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void testRedactConnectionURL_masksSecretsKeepsRest() {
+    String url =
+        "jdbc:databricks://host.databricks.com:443/default;transportMode=https;ssl=1;"
+            + "AuthMech=3;httpPath=/sql/1.0/warehouses/abc;UID=token;"
+            + "PWD=dapiSECRET;OAuth2Secret=clientSecretVal;Auth_AccessToken=tokenVal";
+
+    String redacted = DatabricksConnectionContext.redactConnectionURL(url);
+
+    // Secrets masked.
+    assertFalse(redacted.contains("dapiSECRET"));
+    assertFalse(redacted.contains("clientSecretVal"));
+    assertFalse(redacted.contains("tokenVal"));
+    assertTrue(redacted.contains("PWD=****"));
+    assertTrue(redacted.contains("OAuth2Secret=****"));
+    assertTrue(redacted.contains("Auth_AccessToken=****"));
+    // Non-secret params and host preserved.
+    assertTrue(redacted.contains("jdbc:databricks://host.databricks.com:443/default"));
+    assertTrue(redacted.contains("httpPath=/sql/1.0/warehouses/abc"));
+    assertTrue(redacted.contains("UID=token"));
+  }
+
+  @Test
+  public void testRedactConnectionURL_caseInsensitiveKeyAndNullSafe() {
+    assertNull(DatabricksConnectionContext.redactConnectionURL(null));
+    // Key match is case-insensitive (driver lowercases param keys when parsing).
+    String redacted =
+        DatabricksConnectionContext.redactConnectionURL(
+            "jdbc:databricks://h:443/default;pwd=secret;ProxyPwd=proxySecret");
+    assertFalse(redacted.contains("secret"));
+    assertTrue(redacted.contains("pwd=****"));
+    assertTrue(redacted.contains("ProxyPwd=****"));
+  }
+
+  @Test
   public void testParseValid() throws DatabricksSQLException {
     // test provided port
     DatabricksConnectionContext connectionContext =
@@ -302,6 +336,20 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void parse_rejectsUnsupportedAuthMech_withInputValidationError() {
+    // An unsupported AuthMech must fail fast at connect time with a clean INPUT_VALIDATION_ERROR,
+    // instead of crashing deep inside client-configurator setup with a "Recursive update" /
+    // StackOverflowError.
+    String url =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999;ssl=1;AuthMech=99;"
+            + "httpPath=/sql/1.0/warehouses/999999999";
+    DatabricksSQLException ex =
+        assertThrows(
+            DatabricksSQLException.class, () -> DatabricksConnectionContext.parse(url, properties));
+    assertEquals("INPUT_VALIDATION_ERROR", ex.getSQLState());
+  }
+
+  @Test
   public void testFetchSchemaType() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
@@ -351,10 +399,26 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_5, properties);
     assertTrue(connectionContext.shouldEnableArrow());
+    // EnableArrow=0 is deprecated and ignored on non-AIX platforms — always returns true
     connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_7, properties);
-    assertFalse(connectionContext.shouldEnableArrow());
+    assertTrue(connectionContext.shouldEnableArrow());
+  }
+
+  @Test
+  public void testShouldEnableArrow_defaultIsTrue() throws DatabricksSQLException {
+    // On non-AIX, Arrow is always enabled regardless of EnableArrow setting
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertTrue(ctx.shouldEnableArrow(), "Arrow should be enabled by default");
+  }
+
+  @Test
+  public void testShouldEnableArrow_explicitDisableIgnoredOnNonAix() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1 + ";EnableArrow=0", properties);
+    assertTrue(ctx.shouldEnableArrow(), "EnableArrow=0 should be ignored on non-AIX");
   }
 
   @Test
@@ -813,7 +877,7 @@ class DatabricksConnectionContextTest {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
-    assertTrue(connectionContext.isSqlExecDirectResultsEnabled());
+    assertTrue(connectionContext.getDirectResultMode());
 
     // Test when EnableSQLExecDirectResults=1
     String urlWithDirectResults =
@@ -822,7 +886,7 @@ class DatabricksConnectionContextTest {
     connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(urlWithDirectResults, properties);
-    assertTrue(connectionContext.isSqlExecDirectResultsEnabled());
+    assertTrue(connectionContext.getDirectResultMode());
 
     // Test when EnableSQLExecDirectResults=0
     String urlWithoutDirectResults =
@@ -831,7 +895,7 @@ class DatabricksConnectionContextTest {
     connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(urlWithoutDirectResults, properties);
-    assertFalse(connectionContext.isSqlExecDirectResultsEnabled());
+    assertFalse(connectionContext.getDirectResultMode());
   }
 
   @Test
@@ -946,7 +1010,9 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testClientTypeWhenArrowDisabled() throws DatabricksSQLException {
+  public void testClientTypeWhenArrowDisabled_nonAix_ignoredDefaultsToThrift()
+      throws DatabricksSQLException {
+    // EnableArrow=0 is ignored on non-AIX — but without SEA feature flag, defaults to THRIFT
     String urlWithArrowDisabled =
         "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableArrow=0";
@@ -968,7 +1034,9 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testClientTypeWhenBothArrowAndCloudFetchDisabled() throws DatabricksSQLException {
+  public void testClientTypeWhenBothArrowAndCloudFetchDisabled_nonAix()
+      throws DatabricksSQLException {
+    // EnableArrow=0 ignored on non-AIX; CloudFetch disabled → THRIFT
     String urlWithBothDisabled =
         "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableArrow=0;EnableQueryResultDownload=0";
@@ -1104,11 +1172,12 @@ class DatabricksConnectionContextTest {
     "false, 1, 1, 1, true, THRIFT", // Explicit useThriftClient=1 returns THRIFT
     "false, 0, 1, 1, true, SEA", // Explicit useThriftClient=0 returns SEA
     "false, 0, 1, 1, false, SEA", // Explicit useThriftClient=0 returns SEA (ignores flag)
-    "false, null, 0, 1, true, THRIFT", // Arrow disabled returns THRIFT
+    "false, null, 0, 1, true, SEA", // Arrow param ignored (deprecated) + CloudFetch enabled +
+    // flag=true → SEA
     "false, null, 1, 0, true, THRIFT", // CloudFetch disabled returns THRIFT
     "false, null, 1, 1, true, SEA", // All enabled + flag=true returns SEA
     "false, null, 1, 1, false, THRIFT", // All enabled + flag=false returns THRIFT
-    "false, null, 0, 0, true, THRIFT", // Both Arrow and CloudFetch disabled returns THRIFT
+    "false, null, 0, 0, true, THRIFT", // CloudFetch disabled returns THRIFT (Arrow param ignored)
   })
   public void testClientTypeDecisionMatrix(
       boolean isCluster,
@@ -1356,5 +1425,660 @@ class DatabricksConnectionContextTest {
         DatabricksConnectionContext.parse(
             TestConstants.VALID_URL_1 + ";OAuthWebServerTimeout=300", properties);
     assertEquals(300, connectionContext.getOAuthWebServerTimeout());
+  }
+
+  // ==================== SPOG ?o= Tests ====================
+
+  @Test
+  void testBuildPropertiesMap_preservesQueryParamInHttpPath() {
+    String params = "ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/abc123?o=999;UseThriftClient=1";
+    ImmutableMap<String, String> result = buildPropertiesMap(params, new Properties());
+
+    assertEquals("/sql/1.0/warehouses/abc123?o=999", result.get("httppath"));
+    assertEquals("1", result.get("usethriftclient"));
+  }
+
+  @Test
+  void testBuildPropertiesMap_handlesValueWithMultipleEquals() {
+    String params = "httpPath=/sql/1.0/warehouses/abc?o=999&other=foo";
+    ImmutableMap<String, String> result = buildPropertiesMap(params, new Properties());
+
+    assertEquals("/sql/1.0/warehouses/abc?o=999&other=foo", result.get("httppath"));
+  }
+
+  @Test
+  void testBuildPropertiesMap_handlesValueWithNoEquals() {
+    String params = "keyonly";
+    ImmutableMap<String, String> result = buildPropertiesMap(params, new Properties());
+
+    assertEquals("", result.get("keyonly"));
+  }
+
+  @Test
+  void testSpogContext_extractsOrgIdFromHttpPath() throws DatabricksSQLException {
+    Properties props = new Properties();
+    props.put("user", "token");
+    props.put("password", "test-token");
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_SPOG_URL_WAREHOUSE, props);
+
+    Map<String, String> headers = ctx.getCustomHeaders();
+    assertEquals("6051921418418893", headers.get("x-databricks-org-id"));
+  }
+
+  @Test
+  void testSpogContext_extractsCleanWarehouseId() throws DatabricksSQLException {
+    Properties props = new Properties();
+    props.put("user", "token");
+    props.put("password", "test-token");
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_SPOG_URL_WAREHOUSE, props);
+
+    // Warehouse ID should be "abc123" not "abc123?o=6051921418418893"
+    assertTrue(ctx.getComputeResource() instanceof Warehouse);
+    assertEquals("abc123", ((Warehouse) ctx.getComputeResource()).getWarehouseId());
+  }
+
+  @Test
+  void testSpogContext_noOrgIdWithoutQueryParam() throws DatabricksSQLException {
+    Properties props = new Properties();
+    props.put("user", "token");
+    props.put("password", "test-token");
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
+
+    Map<String, String> headers = ctx.getCustomHeaders();
+    assertFalse(headers.containsKey("x-databricks-org-id"));
+  }
+
+  @Test
+  void testSpogContext_explicitHeaderTakesPrecedence() throws DatabricksSQLException {
+    String url =
+        "jdbc:databricks://host/default;ssl=1;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/abc123?o=frompath;"
+            + "http.header.x-databricks-org-id=fromheader";
+    Properties props = new Properties();
+    props.put("user", "token");
+    props.put("password", "test-token");
+    IDatabricksConnectionContext ctx = DatabricksConnectionContext.parse(url, props);
+
+    Map<String, String> headers = ctx.getCustomHeaders();
+    assertEquals("fromheader", headers.get("x-databricks-org-id"));
+  }
+
+  @Test
+  public void testDefaultGetterCoverage() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    // Exercise default-value getters for coverage
+    assertNull(ctx.getPassThroughAccessToken());
+    assertTrue(ctx.getLogFileSize() > 0);
+    assertTrue(ctx.getLogFileCount() > 0);
+    assertNotNull(ctx.shouldRetryTemporarilyUnavailableError());
+    assertNotNull(ctx.shouldRetryRateLimitError());
+    assertTrue(ctx.getTemporarilyUnavailableRetryTimeout() >= 0);
+    assertTrue(ctx.getRateLimitRetryTimeout() >= 0);
+    assertTrue(ctx.getApiRetryTimeout() >= 0);
+    assertFalse(ctx.enableShowCommandsForGetFunctions());
+    assertFalse(ctx.treatMetadataCatalogNameAsPattern());
+  }
+
+  @Test
+  public void testUseQueryForMetadataDefaultFalseForWarehouse() throws DatabricksSQLException {
+    // Warehouse without explicit setting — requires both client default AND server flag.
+    // Client default is "1" but no server flag set → false
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertFalse(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadataDefaultFalseForCluster() throws DatabricksSQLException {
+    // Cluster without explicit setting — always false regardless of defaults
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+    assertFalse(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadataExplicitTrueOnCluster() throws DatabricksSQLException {
+    // Cluster URL with explicit UseQueryForMetadata=1 — should be honoured
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_CLUSTER_URL + ";UseQueryForMetadata=1", properties);
+    assertTrue(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadataExplicitFalseOnWarehouse() throws DatabricksSQLException {
+    // Warehouse URL with explicit UseQueryForMetadata=0 — should be honoured
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";UseQueryForMetadata=0", properties);
+    assertFalse(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadata_serverFlagEnabled_warehouseReturnsTrue()
+      throws DatabricksSQLException {
+    // Warehouse without explicit setting — client default "1" + server flag enabled → true
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertTrue(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadata_serverFlagDisabled_warehouseReturnsFalse()
+      throws DatabricksSQLException {
+    // Warehouse without explicit setting — client default "1" but server flag disabled → false
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc",
+        "false");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertFalse(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadata_serverFlagEnabled_clusterIgnored()
+      throws DatabricksSQLException {
+    // All-purpose cluster — always false, server flag and client default both ignored
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertFalse(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadata_clientExplicit1_overridesServerFlagDisabled()
+      throws DatabricksSQLException {
+    // Client sets UseQueryForMetadata=1 — should be honoured even if server flag is disabled
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_1 + ";UseQueryForMetadata=1", properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc",
+        "false");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertTrue(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testUseQueryForMetadata_clientExplicit0_overridesServerFlagEnabled()
+      throws DatabricksSQLException {
+    // Client sets UseQueryForMetadata=0 — should be honoured even if server flag is enabled
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_1 + ";UseQueryForMetadata=0", properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertFalse(ctx.useQueryForMetadata());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Geospatial flag independence from complex datatype flag
+  // ---------------------------------------------------------------------------
+
+  @Test
+  public void testGeospatialEnabled_complexDisabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableGeoSpatialSupport=1;EnableComplexDatatypeSupport=0",
+            properties);
+    assertTrue(ctx.isGeoSpatialSupportEnabled());
+    assertFalse(ctx.isComplexDatatypeSupportEnabled());
+  }
+
+  @Test
+  public void testGeospatialDisabled_complexEnabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableGeoSpatialSupport=0;EnableComplexDatatypeSupport=1",
+            properties);
+    assertFalse(ctx.isGeoSpatialSupportEnabled());
+    assertTrue(ctx.isComplexDatatypeSupportEnabled());
+  }
+
+  @Test
+  public void testGeospatialAndComplexBothEnabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableGeoSpatialSupport=1;EnableComplexDatatypeSupport=1",
+            properties);
+    assertTrue(ctx.isGeoSpatialSupportEnabled());
+    assertTrue(ctx.isComplexDatatypeSupportEnabled());
+  }
+
+  @Test
+  public void testGeospatialAndComplexBothDisabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableGeoSpatialSupport=0;EnableComplexDatatypeSupport=0",
+            properties);
+    assertFalse(ctx.isGeoSpatialSupportEnabled());
+    assertFalse(ctx.isComplexDatatypeSupportEnabled());
+  }
+
+  @Test
+  public void testGeospatialDefaultEnabled() throws DatabricksSQLException {
+    // Neither flag set — geospatial defaults to enabled, complex datatypes to disabled
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertTrue(ctx.isGeoSpatialSupportEnabled());
+    assertFalse(ctx.isComplexDatatypeSupportEnabled());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Client type selection with Thrift-native metadata params
+  // ---------------------------------------------------------------------------
+
+  @Test
+  public void testUseQueryForMetadata0_forcesThrift() throws DatabricksSQLException {
+    // UseQueryForMetadata=0 without UseThriftClient → forces Thrift
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";UseQueryForMetadata=0", properties);
+    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
+  }
+
+  @Test
+  public void testTreatCatalogAsPattern1_forcesThrift() throws DatabricksSQLException {
+    // TreatMetadataCatalogNameAsPattern=1 without UseThriftClient → forces Thrift
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";TreatMetadataCatalogNameAsPattern=1", properties);
+    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
+  }
+
+  @Test
+  public void testBothMetadataParams_forcesThrift() throws DatabricksSQLException {
+    // Both UseQueryForMetadata=0 and TreatMetadataCatalogNameAsPattern=1 → forces Thrift
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1
+                + ";UseQueryForMetadata=0;TreatMetadataCatalogNameAsPattern=1",
+            properties);
+    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
+  }
+
+  @Test
+  public void testUseQueryForMetadata0_withExplicitSEA_honoursSEA() throws DatabricksSQLException {
+    // UseThriftClient=0 (explicit SEA) + UseQueryForMetadata=0 → SEA wins
+    // User explicitly chose SEA, so we honour that even though metadata param won't work
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";UseThriftClient=0;UseQueryForMetadata=0", properties);
+    assertEquals(DatabricksClientType.SEA, ctx.getClientType());
+  }
+
+  @Test
+  public void testTreatCatalogAsPattern1_withExplicitSEA_honoursSEA()
+      throws DatabricksSQLException {
+    // UseThriftClient=0 (explicit SEA) + TreatMetadataCatalogNameAsPattern=1 → SEA wins
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";UseThriftClient=0;TreatMetadataCatalogNameAsPattern=1",
+            properties);
+    assertEquals(DatabricksClientType.SEA, ctx.getClientType());
+  }
+
+  @Test
+  public void testUseQueryForMetadata0_withExplicitThrift_staysThrift()
+      throws DatabricksSQLException {
+    // UseThriftClient=1 (explicit Thrift) + UseQueryForMetadata=0 → Thrift
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";UseThriftClient=1;UseQueryForMetadata=0", properties);
+    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
+  }
+
+  @Test
+  public void testUseQueryForMetadata1_doesNotForceThrift() throws DatabricksSQLException {
+    // UseQueryForMetadata=1 (SHOW commands) with explicit SEA → should remain SEA
+    // Proves our new check doesn't trigger for UseQueryForMetadata=1
+    // VALID_URL_2 has UseThriftClient=0, so it's SEA
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_2 + ";UseQueryForMetadata=1", properties_with_pwd);
+    assertEquals(DatabricksClientType.SEA, ctx.getClientType());
+  }
+
+  @Test
+  public void testTreatCatalogAsPattern0_doesNotForceThrift() throws DatabricksSQLException {
+    // TreatMetadataCatalogNameAsPattern=0 (default, literal match) with explicit SEA → stays SEA
+    // Proves our new check doesn't trigger for the default/disabled value
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_2 + ";TreatMetadataCatalogNameAsPattern=0",
+            properties_with_pwd);
+    assertEquals(DatabricksClientType.SEA, ctx.getClientType());
+  }
+
+  @Test
+  public void testNoMetadataParams_defaultBehavior() throws DatabricksSQLException {
+    // No metadata params, no UseThriftClient → other checks decide (Arrow, CF, SAFE flag).
+    // VALID_URL_1 has no UseThriftClient and no SAFE flag in tests, so downstream
+    // checks (Arrow disabled, CF disabled, no flag) fall through to Thrift default.
+    // This tests that our metadata param check doesn't interfere with the default path.
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
+  }
+
+  @Test
+  public void testUseQueryForMetadataFalseString_doesNotForceThrift()
+      throws DatabricksSQLException {
+    // "false" is not "0" — our check uses .equals("0"), so "false" doesn't trigger it.
+    // With explicit SEA (VALID_URL_2), should stay SEA.
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_2 + ";UseQueryForMetadata=false", properties_with_pwd);
+    assertEquals(DatabricksClientType.SEA, ctx.getClientType());
+  }
+
+  @Test
+  public void testTreatCatalogAsPatternTrueString_doesNotForceThrift()
+      throws DatabricksSQLException {
+    // "true" is not "1" — our check uses .equals("1"), so "true" doesn't trigger it.
+    // With explicit SEA (VALID_URL_2), should stay SEA.
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_2 + ";TreatMetadataCatalogNameAsPattern=true",
+            properties_with_pwd);
+    assertEquals(DatabricksClientType.SEA, ctx.getClientType());
+  }
+
+  @Test
+  public void testCluster_metadataParamsIgnored() throws DatabricksSQLException {
+    // All-Purpose Cluster always uses Thrift regardless of metadata params
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_CLUSTER_URL + ";UseQueryForMetadata=0", properties);
+    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
+
+    ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_CLUSTER_URL + ";TreatMetadataCatalogNameAsPattern=1", properties);
+    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
+  }
+
+  @Test
+  public void testUseQueryForMetadata0_withExplicitSEA_useQueryForMetadataStillFalse()
+      throws DatabricksSQLException {
+    // Even though SEA is forced, UseQueryForMetadata=0 should still report false
+    // (the metadata param value is independent of client type selection)
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";UseThriftClient=0;UseQueryForMetadata=0", properties);
+    assertEquals(DatabricksClientType.SEA, ctx.getClientType());
+    assertFalse(ctx.useQueryForMetadata());
+  }
+
+  @Test
+  public void testTreatCatalogAsPattern1_withExplicitSEA_treatCatalogStillTrue()
+      throws DatabricksSQLException {
+    // Even though SEA is forced, TreatMetadataCatalogNameAsPattern=1 should still report true
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";UseThriftClient=0;TreatMetadataCatalogNameAsPattern=1",
+            properties);
+    assertEquals(DatabricksClientType.SEA, ctx.getClientType());
+    assertTrue(ctx.treatMetadataCatalogNameAsPattern());
+  }
+
+  // =========================================================================
+  // Heartbeat configuration
+  // =========================================================================
+
+  @Test
+  public void testHeartbeatDisabledByDefault() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertFalse(ctx.isHeartbeatEnabled());
+  }
+
+  @Test
+  public void testHeartbeatEnabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableHeartbeat=1", properties);
+    assertTrue(ctx.isHeartbeatEnabled());
+  }
+
+  @Test
+  public void testHeartbeatIntervalDefault() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertEquals(60, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatIntervalCustom() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=30", properties);
+    assertEquals(30, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatIntervalZeroDefaultsTo60() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=0", properties);
+    assertEquals(60, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatIntervalNegativeDefaultsTo60() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=-5", properties);
+    assertEquals(60, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatIntervalLargeValueAcceptedWithWarning() throws DatabricksSQLException {
+    // Values > 3600 are accepted but log a warning
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";HeartbeatIntervalSeconds=7200", properties);
+    assertEquals(7200, ctx.getHeartbeatIntervalSeconds());
+  }
+
+  @Test
+  public void testHeartbeatExplicitlyDisabled() throws DatabricksSQLException {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContext.parse(
+            TestConstants.VALID_URL_1 + ";EnableHeartbeat=0", properties);
+    assertFalse(ctx.isHeartbeatEnabled());
+  }
+
+  @Test
+  public void testHeartbeatInterfaceDefaultDisabled() {
+    // IDatabricksConnectionContext default methods
+    IDatabricksConnectionContext defaultCtx =
+        org.mockito.Mockito.mock(
+            IDatabricksConnectionContext.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+    assertFalse(defaultCtx.isHeartbeatEnabled());
+    assertEquals(60, defaultCtx.getHeartbeatIntervalSeconds());
+  }
+
+  // ===== OAuth M2M credentials from user/password (issue #1132) =====
+
+  private static final String OAUTH_M2M_BASE_URL =
+      "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=11;Auth_Flow=1;"
+          + "httpPath=/sql/1.0/warehouses/9999999999999999";
+
+  @Test
+  public void testOAuthSecretFallsBackToPassword() throws DatabricksSQLException {
+    // OAuth2Secret not set; the client secret should be read from the JDBC password field
+    // so BI tools (e.g. DBeaver) can mask it instead of exposing it in the URL.
+    Properties props = new Properties();
+    props.setProperty("password", "my-oauth-secret");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(OAUTH_M2M_BASE_URL, props);
+    assertEquals("my-oauth-secret", ctx.getClientSecret());
+  }
+
+  @Test
+  public void testOAuthSecretFallsBackToPwd() throws DatabricksSQLException {
+    // pwd is an accepted alias for password (mirrors getToken()).
+    Properties props = new Properties();
+    props.setProperty("pwd", "pwd-secret");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(OAUTH_M2M_BASE_URL, props);
+    assertEquals("pwd-secret", ctx.getClientSecret());
+  }
+
+  @Test
+  public void testExplicitOAuthSecretWinsOverPassword() throws DatabricksSQLException {
+    // When OAuth2Secret is explicitly set it takes precedence over the password fallback,
+    // preserving backward compatibility for existing URLs.
+    String url = OAUTH_M2M_BASE_URL + ";OAuth2Secret=explicit-secret";
+    Properties props = new Properties();
+    props.setProperty("password", "password-secret");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
+    assertEquals("explicit-secret", ctx.getClientSecret());
+  }
+
+  @Test
+  public void testOAuthClientIdFallsBackToUser() throws DatabricksSQLException {
+    // OAuth2ClientId not set; the client id should be read from the JDBC user field.
+    Properties props = new Properties();
+    props.setProperty("user", "my-client-id");
+    props.setProperty("password", "my-oauth-secret");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(OAUTH_M2M_BASE_URL, props);
+    assertEquals("my-client-id", ctx.getNullableClientId());
+    assertEquals("my-client-id", ctx.getClientId());
+  }
+
+  @Test
+  public void testOAuthClientIdFallsBackToUid() throws DatabricksSQLException {
+    // uid (non-"token") is accepted as the client id in OAuth mode.
+    String url = OAUTH_M2M_BASE_URL + ";UID=uid-client-id";
+    Properties props = new Properties();
+    props.setProperty("password", "my-oauth-secret");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
+    assertEquals("uid-client-id", ctx.getNullableClientId());
+  }
+
+  @Test
+  public void testExplicitOAuthClientIdWinsOverUser() throws DatabricksSQLException {
+    String url = OAUTH_M2M_BASE_URL + ";OAuth2ClientId=explicit-client-id";
+    Properties props = new Properties();
+    props.setProperty("user", "user-client-id");
+    props.setProperty("password", "my-oauth-secret");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
+    assertEquals("explicit-client-id", ctx.getNullableClientId());
+  }
+
+  @Test
+  public void testOAuthClientIdIgnoresTokenUser() throws DatabricksSQLException {
+    // "token" is the reserved PAT username sentinel and must not be treated as a client id.
+    Properties props = new Properties();
+    props.setProperty("user", "token");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(OAUTH_M2M_BASE_URL, props);
+    assertNull(ctx.getNullableClientId());
+  }
+
+  @Test
+  public void testPatModeDoesNotReadSecretFromPassword() throws DatabricksSQLException {
+    // AuthMech=3 (PAT): the OAuth client secret fallback must not kick in; getClientSecret
+    // stays null and the password remains the PAT token.
+    String url =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999";
+    Properties props = new Properties();
+    props.setProperty("password", "my-pat-token");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
+    assertNull(ctx.getClientSecret());
+    assertEquals("my-pat-token", ctx.getToken());
+  }
+
+  @Test
+  public void testUidOAuthClientIdAllowedInOAuthMode() throws DatabricksSQLException {
+    // A non-"token" UID must be allowed in OAuth mode (it is the client id), whereas in PAT
+    // mode it is still rejected (covered by testUidValidation_InvalidUidValue).
+    String url = OAUTH_M2M_BASE_URL + ";UID=some-client-id";
+    Properties props = new Properties();
+    props.setProperty("password", "my-oauth-secret");
+
+    assertDoesNotThrow(() -> DatabricksConnectionContext.parse(url, props));
+  }
+
+  @Test
+  public void testBrowserAuthDoesNotReadCredsFromUserPassword() throws DatabricksSQLException {
+    // U2M browser flow (Auth_Flow=2) must NOT pick up user/password as the OAuth client
+    // id/secret — doing so would silently turn a public-client PKCE flow into a confidential
+    // client. The fallback is scoped to M2M client-credentials only (issue #1132).
+    String url =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=11;Auth_Flow=2;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999";
+    Properties props = new Properties();
+    props.setProperty("user", "some-user");
+    props.setProperty("password", "some-password");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
+    assertNull(ctx.getClientSecret());
+    assertNull(ctx.getNullableClientId());
+  }
+
+  @Test
+  public void testRefreshTokenFlowDoesNotReadCredsFromUserPassword() throws DatabricksSQLException {
+    // Token-passthrough / refresh flow (Auth_Flow=0) must NOT pick up user/password as the OAuth
+    // client id/secret. The fallback is scoped to M2M client-credentials only (issue #1132).
+    String url =
+        "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=11;Auth_Flow=0;"
+            + "httpPath=/sql/1.0/warehouses/9999999999999999";
+    Properties props = new Properties();
+    props.setProperty("user", "some-user");
+    props.setProperty("password", "some-password");
+
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
+    assertNull(ctx.getClientSecret());
+    assertNull(ctx.getNullableClientId());
   }
 }

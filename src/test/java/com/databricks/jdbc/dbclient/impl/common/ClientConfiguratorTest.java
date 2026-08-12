@@ -724,8 +724,10 @@ public class ClientConfiguratorTest {
     configurator = new ClientConfigurator(mockContext);
     DatabricksConfig config = configurator.getDatabricksConfig();
 
+    // SDK 0.106+ sorts scopes alphabetically during DatabricksConfig.innerResolve() for
+    // refresh-token cache de-duplication, so offline_access comes before sql in the result.
     assertEquals(
-        List.of(DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE),
+        List.of(DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE, DatabricksJdbcConstants.SQL_SCOPE),
         config.getScopes());
   }
 

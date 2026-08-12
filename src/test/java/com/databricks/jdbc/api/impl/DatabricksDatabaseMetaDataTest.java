@@ -95,9 +95,19 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
-  public void supportsBatchUpdates_returnsFalse() throws Exception {
+  public void supportsBatchUpdates_returnsFalseByDefault() throws Exception {
+    // Default EnableBatchedInserts=0, so batch support is not advertised
     boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
     assertFalse(supportsBatchUpdates);
+  }
+
+  @Test
+  public void supportsBatchUpdates_returnsTrueWhenBatchedInsertsEnabled() throws Exception {
+    String urlWithBatchedInserts = WAREHOUSE_JDBC_URL + ";EnableBatchedInserts=1";
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContext.parse(urlWithBatchedInserts, new Properties()));
+    boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
+    assertTrue(supportsBatchUpdates);
   }
 
   @Test
@@ -828,7 +838,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetDatabaseProductVersion() throws SQLException {
     String result = metaData.getDatabaseProductVersion();
-    assertEquals("3.3.1", result);
+    assertEquals("3.3.3", result);
   }
 
   @Test
@@ -840,7 +850,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetDriverVersion() throws SQLException {
     String result = metaData.getDriverVersion();
-    assertEquals("3.3.1", result);
+    assertEquals("3.4.2", result);
   }
 
   @Test
@@ -852,7 +862,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetDriverMinorVersion() {
     int result = metaData.getDriverMinorVersion();
-    assertEquals(3, result);
+    assertEquals(4, result);
   }
 
   @Test

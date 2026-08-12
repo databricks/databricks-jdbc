@@ -16,6 +16,7 @@ public class UserAgentManager {
   public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient";
   public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient";
   private static final String VERSION_FILLER = "version";
+  private static final String AGENT_KEY = "agent";
 
   /**
    * Parse custom user agent string into name and version components.
@@ -105,6 +106,10 @@ public class UserAgentManager {
         }
       }
     }
+
+    // Detect AI coding agent and append to user agent
+    AgentDetector.detect()
+        .ifPresent(product -> userAgent.append(" ").append(AGENT_KEY).append("/").append(product));
 
     return userAgent.toString();
   }

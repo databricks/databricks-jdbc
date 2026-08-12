@@ -8,6 +8,7 @@ public class PathConstants {
   public static final String STATEMENT_PATH = BASE_PATH + "statements/";
   public static final String STATEMENT_PATH_WITH_ID = STATEMENT_PATH + "%s";
   public static final String CANCEL_STATEMENT_PATH_WITH_ID = STATEMENT_PATH + "%s/cancel";
+  public static final String STATEMENT_STATUS_PATH_WITH_ID = STATEMENT_PATH + "%s/status";
   public static final String RESULT_CHUNK_PATH = STATEMENT_PATH_WITH_ID + "/result/chunks/%s";
   public static final String TELEMETRY_PATH = "/telemetry-ext";
   public static final String TELEMETRY_PATH_UNAUTHENTICATED = "/telemetry-unauth";
