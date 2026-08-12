@@ -2,8 +2,8 @@
 # ============================================================================
 # JDBC Driver Comparator — Standalone Runner
 #
-# This script pulls the latest code, merges main into comparator-v2,
-# runs the comparator, and outputs logs + report.
+# This script either prepares the remote comparator-v2 line or clones one exact
+# local source revision, runs the comparator, and captures reproducibility artifacts.
 #
 # Usage (local):
 #   export DATABRICKS_COMPARATOR_TOKEN=dapi...
@@ -89,7 +89,7 @@ PRO_WAREHOUSE_ID="${PRO_WAREHOUSE_ID:-}"
 CONNECTION_CONFIG="${CONNECTION_CONFIG:-}"
 
 # Test suites to run (comma-separated, empty = all suites for the config)
-# Options: STATEMENT_SELECT, STATEMENT_SELECT_TRUNCATED, STATEMENT_DDL, STATEMENT_DML,
+# Options: APC_CORE, STATEMENT_SELECT, STATEMENT_SELECT_TRUNCATED, STATEMENT_DDL, STATEMENT_DML,
 #          STATEMENT_OTHER, PREPARED_STATEMENT_TYPES, PREPARED_STATEMENT_METADATA,
 #          COMPLEX_TYPES, GEOSPATIAL, NULL_HANDLING, VOLUME_OPERATIONS, DATABASE_METADATA
 SUITES_RUN_ONLY="${SUITES_RUN_ONLY:-}"
@@ -116,7 +116,14 @@ WORKSPACE_SETUP="${WORKSPACE_SETUP:-}"
 # Git repo
 REPO_URL="${REPO_URL:-https://github.com/databricks/databricks-jdbc.git}"
 MERGE_BRANCH="${MERGE_BRANCH:-main}"  # branch to merge into comparator-v2 (e.g., main, feature-branch)
-WORK_DIR="${WORK_DIR:-/tmp/jdbc-comparator-$$}"
+LOCAL_SOURCE_REPO="${LOCAL_SOURCE_REPO:-}"
+LOCAL_SOURCE_REF="${LOCAL_SOURCE_REF:-HEAD}"
+LOCAL_SOURCE_ALLOW_DIRTY="${LOCAL_SOURCE_ALLOW_DIRTY:-0}"
+WORK_DIR="${WORK_DIR:-}"
+OUTPUT_DIR="${OUTPUT_DIR:-}"
+MAVEN_BIN="${MAVEN_BIN:-mvn}"
+GIT_BIN="${GIT_BIN:-git}"
+APC_SEA_PROTOTYPE="${APC_SEA_PROTOTYPE:-0}"
 
 # Run name (used in log/report filenames for easy identification, empty = generic name)
 RUN_NAME="${RUN_NAME:-}"
@@ -201,6 +208,24 @@ FILTER_JSON='{
 
 set -e
 
+# Capture current directory before any clone/cd and create a disposable worktree by default.
+ORIGINAL_DIR="$(pwd)"
+OUTPUT_DIR="${OUTPUT_DIR:-${ORIGINAL_DIR}}"
+mkdir -p "${OUTPUT_DIR}"
+
+WORK_DIR_OWNED=0
+if [ -z "${WORK_DIR}" ]; then
+  WORK_DIR="$(mktemp -d /tmp/jdbc-comparator.XXXXXX)"
+  WORK_DIR_OWNED=1
+fi
+
+cleanup_work_dir() {
+  if [ "${WORK_DIR_OWNED}" = "1" ] && [ -n "${WORK_DIR}" ] && [ "${WORK_DIR}" != "/" ]; then
+    rm -rf -- "${WORK_DIR}"
+  fi
+}
+trap cleanup_work_dir EXIT
+
 # Validate required env
 if [ -z "${DATABRICKS_COMPARATOR_TOKEN}" ]; then
   echo "ERROR: DATABRICKS_COMPARATOR_TOKEN is not set." >&2
@@ -240,22 +265,80 @@ echo "Config: ${CONNECTION_CONFIG:-all}"
 echo "Output: ${LOG_FILE}, ${REPORT_FILE}, ${CSV_FILE_NAME}"
 echo ""
 
-# Capture current directory before cd
-ORIGINAL_DIR="$(pwd)"
-
 # Clone and prepare
-echo "[1/5] Cloning repository..."
-git clone --branch comparator-v2 "${REPO_URL}" "${WORK_DIR}"
-cd "${WORK_DIR}"
+if [ -n "${LOCAL_SOURCE_REPO}" ]; then
+  echo "[1/5] Resolving local source..."
+  if ! "${GIT_BIN}" -C "${LOCAL_SOURCE_REPO}" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "ERROR: LOCAL_SOURCE_REPO is not a Git repository: ${LOCAL_SOURCE_REPO}" >&2
+    exit 1
+  fi
+  LOCAL_SOURCE_SHA="$("${GIT_BIN}" -C "${LOCAL_SOURCE_REPO}" rev-parse "${LOCAL_SOURCE_REF}^{commit}")"
+  if [ -n "$("${GIT_BIN}" -C "${LOCAL_SOURCE_REPO}" status --porcelain --untracked-files=normal)" ]; then
+    SOURCE_DIRTY="true"
+    DIRTY_DECISION="ignored-uncommitted-changes"
+    if [ "${LOCAL_SOURCE_ALLOW_DIRTY}" != "1" ]; then
+      echo "ERROR: Local source is dirty; commit/stash it or set LOCAL_SOURCE_ALLOW_DIRTY=1." >&2
+      exit 1
+    fi
+  else
+    SOURCE_DIRTY="false"
+    DIRTY_DECISION="accepted-clean-source"
+  fi
 
-# Local-only git identity for the merge commit below (CI runners have no global config).
-# --local scope keeps this confined to the temp clone; caller's global config is untouched.
-git config --local user.name "JDBC Comparator Runner"
-git config --local user.email "actions@github.com"
+  echo "[2/5] Cloning local source revision ${LOCAL_SOURCE_SHA}..."
+  "${GIT_BIN}" clone --no-checkout "${LOCAL_SOURCE_REPO}" "${WORK_DIR}"
+  cd "${WORK_DIR}"
+  "${GIT_BIN}" checkout --detach "${LOCAL_SOURCE_SHA}"
+  SOURCE_MODE="local"
+  SOURCE_REF="${LOCAL_SOURCE_REF}"
+  SOURCE_SHA="$("${GIT_BIN}" rev-parse HEAD)"
+else
+  echo "[1/5] Cloning repository..."
+  "${GIT_BIN}" clone --branch comparator-v2 "${REPO_URL}" "${WORK_DIR}"
+  cd "${WORK_DIR}"
 
-echo "[2/5] Merging ${MERGE_BRANCH} into comparator-v2..."
-git fetch origin "${MERGE_BRANCH}"
-git merge "origin/${MERGE_BRANCH}" --no-commit --no-ff -X theirs
+  # Local-only git identity for the merge below (CI runners have no global config).
+  "${GIT_BIN}" config --local user.name "JDBC Comparator Runner"
+  "${GIT_BIN}" config --local user.email "actions@github.com"
+
+  echo "[2/5] Merging ${MERGE_BRANCH} into comparator-v2..."
+  "${GIT_BIN}" fetch origin "${MERGE_BRANCH}"
+  "${GIT_BIN}" merge "origin/${MERGE_BRANCH}" --no-commit --no-ff -X theirs
+  SOURCE_MODE="remote-merge"
+  SOURCE_REF="comparator-v2+${MERGE_BRANCH}"
+  SOURCE_SHA="$("${GIT_BIN}" rev-parse HEAD)"
+  SOURCE_DIRTY="true"
+  DIRTY_DECISION="expected-uncommitted-merge"
+fi
+
+{
+  echo "SOURCE_MODE=${SOURCE_MODE}"
+  echo "SOURCE_REF=${SOURCE_REF}"
+  echo "SOURCE_SHA=${SOURCE_SHA}"
+  echo "SOURCE_DIRTY=${SOURCE_DIRTY}"
+  echo "DIRTY_DECISION=${DIRTY_DECISION}"
+} > "${OUTPUT_DIR}/source-metadata.env"
+
+{
+  echo "SOURCE_SHA=${SOURCE_SHA}"
+  echo "COMPARATOR_HOST=${COMPARATOR_HOST}"
+  echo "COMPARATOR_WAREHOUSE=${COMPARATOR_WAREHOUSE}"
+  echo "LEFT_WAREHOUSE=${LEFT_WAREHOUSE}"
+  echo "LEFT_CLUSTER=${LEFT_CLUSTER}"
+  echo "LEFT_HTTP_PATH=${LEFT_HTTP_PATH}"
+  echo "LEFT_TRANSPORT=${LEFT_TRANSPORT}"
+  echo "LEFT_LABEL=${LEFT_LABEL}"
+  echo "RIGHT_WAREHOUSE=${RIGHT_WAREHOUSE}"
+  echo "RIGHT_CLUSTER=${RIGHT_CLUSTER}"
+  echo "RIGHT_HTTP_PATH=${RIGHT_HTTP_PATH}"
+  echo "RIGHT_TRANSPORT=${RIGHT_TRANSPORT}"
+  echo "RIGHT_LABEL=${RIGHT_LABEL}"
+  echo "CONNECTION_CONFIG=${CONNECTION_CONFIG}"
+  echo "SUITES_RUN_ONLY=${SUITES_RUN_ONLY}"
+  echo "WORKSPACE_SETUP=${WORKSPACE_SETUP}"
+  echo "APC_SEA_PROTOTYPE=${APC_SEA_PROTOTYPE}"
+  echo "ENABLE_HEARTBEAT=0"
+} > "${OUTPUT_DIR}/run-config.env"
 
 # Write filter config
 echo "[3/5] Writing filter config..."
@@ -315,15 +398,18 @@ fi
 if [ -n "${ERROR_COMPARISON_MODE}" ]; then
   MVN_ARGS="${MVN_ARGS} -DERROR_COMPARISON_MODE=${ERROR_COMPARISON_MODE}"
 fi
+if [ "${APC_SEA_PROTOTYPE}" = "1" ]; then
+  MVN_ARGS="${MVN_ARGS} -Ddatabricks.jdbc.apc.sea.prototype.enabled=true"
+fi
 
 MVN_ARGS="${MVN_ARGS} -DMETADATA_FILTER_CONFIG=${FILTER_FILE}"
 
-echo "Command: mvn test ${MVN_ARGS} ${SKIP_DIFF_ARG:+\"$SKIP_DIFF_ARG\"}"
+echo "Command: ${MAVEN_BIN} test ${MVN_ARGS} ${SKIP_DIFF_ARG:+\"$SKIP_DIFF_ARG\"}"
 echo ""
 
 # Run (don't exit on Maven failure — we still need to collect output)
 set +e
-mvn test ${MVN_ARGS} ${SKIP_DIFF_ARG:+"$SKIP_DIFF_ARG"} 2>&1 | tee "${WORK_DIR}/full-output.txt"
+"${MAVEN_BIN}" test ${MVN_ARGS} ${SKIP_DIFF_ARG:+"$SKIP_DIFF_ARG"} 2>&1 | tee "${WORK_DIR}/full-output.txt"
 MVN_EXIT=${PIPESTATUS[0]}
 set -e
 
@@ -332,14 +418,17 @@ echo ""
 echo "[5/5] Collecting output..."
 
 # Copy logs
-cp "${WORK_DIR}/full-output.txt" "${ORIGINAL_DIR}/${LOG_FILE}"
+cp "${WORK_DIR}/full-output.txt" "${OUTPUT_DIR}/${LOG_FILE}"
+echo "${MVN_EXIT}" > "${OUTPUT_DIR}/process-exit-code.txt"
+grep -oE 'JDBC_APC_ROUTE route=(THRIFT|SEA) compute=APC no_fallback=(true|false)' \
+  "${WORK_DIR}/full-output.txt" > "${OUTPUT_DIR}/route-markers.txt" || true
 
 # Copy report
 REPORT=$(ls ${WORK_DIR}/jdbc-core/jdbc-comparison-report-*.txt 2>/dev/null | head -1)
 if [ -n "${REPORT}" ]; then
-  cp "${REPORT}" "${ORIGINAL_DIR}/${REPORT_FILE}"
-  REPORT_LINES=$(wc -l < "${ORIGINAL_DIR}/${REPORT_FILE}")
-  echo "Report: ${ORIGINAL_DIR}/${REPORT_FILE} (${REPORT_LINES} lines)"
+  cp "${REPORT}" "${OUTPUT_DIR}/${REPORT_FILE}"
+  REPORT_LINES=$(wc -l < "${OUTPUT_DIR}/${REPORT_FILE}")
+  echo "Report: ${OUTPUT_DIR}/${REPORT_FILE} (${REPORT_LINES} lines)"
 else
   echo "No report file generated"
 fi
@@ -347,7 +436,7 @@ fi
 # Copy CSV results
 CSV_FILE=$(ls ${WORK_DIR}/jdbc-core/jdbc-comparison-results-*.csv 2>/dev/null | head -1)
 if [ -n "${CSV_FILE}" ]; then
-  CSV_DEST="${ORIGINAL_DIR}/${CSV_FILE_NAME}"
+  CSV_DEST="${OUTPUT_DIR}/${CSV_FILE_NAME}"
   cp "${CSV_FILE}" "${CSV_DEST}"
   CSV_LINES=$(wc -l < "${CSV_DEST}")
   echo "CSV: ${CSV_DEST} (${CSV_LINES} rows)"
@@ -355,18 +444,20 @@ else
   echo "No CSV file generated"
 fi
 
-echo "Logs: ${ORIGINAL_DIR}/${LOG_FILE}"
+echo "Logs: ${OUTPUT_DIR}/${LOG_FILE}"
 
 # Cleanup
 echo ""
-echo "Cleaning up work directory..."
-rm -rf "${WORK_DIR}"
+if [ "${WORK_DIR_OWNED}" = "1" ]; then
+  echo "Cleaning up disposable work directory..."
+else
+  echo "Leaving caller-provided work directory: ${WORK_DIR}"
+fi
 
 # Summary
 echo ""
 echo "=== Done ==="
-echo "Report: ${REPORT_FILE}"
-echo "Logs: ${LOG_FILE}"
+echo "Artifacts: ${OUTPUT_DIR}"
 echo "MVN exit: ${MVN_EXIT}"
 
 exit ${MVN_EXIT:-0}

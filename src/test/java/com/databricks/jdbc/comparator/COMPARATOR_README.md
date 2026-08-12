@@ -67,6 +67,34 @@ Setup DDL (when `WORKSPACE_SETUP=recreate|validate`) always runs against the LEF
 
 Both endpoints share `COMPARATOR_HOST` and the single `DATABRICKS_COMPARATOR_TOKEN`.
 
+### APC prototype axis
+
+The local prototype adds one explicit-only `APC_CORE` suite. It compares the same interactive
+cluster through direct Thrift on LEFT and SEA/Reyder on RIGHT. It is intentionally absent from a
+normal/default comparator run and becomes applicable to `DEFAULT_PARAMS` only when
+`SUITES_RUN_ONLY=APC_CORE` is set.
+
+```bash
+export DATABRICKS_COMPARATOR_TOKEN=...
+export COMPARATOR_HOST=adb-xxx.azuredatabricks.net
+export LEFT_CLUSTER='<org-id>:<cluster-id>'
+export LEFT_TRANSPORT=thrift
+export RIGHT_CLUSTER="$LEFT_CLUSTER"
+export RIGHT_TRANSPORT=sea
+export CONNECTION_CONFIG=DEFAULT_PARAMS
+export SUITES_RUN_ONLY=APC_CORE
+export APC_SEA_PROTOTYPE=1
+
+LOCAL_SOURCE_REPO=/path/to/clean/databricks-jdbc \
+LOCAL_SOURCE_REF=comparator-apc-prototype \
+./src/test/java/com/databricks/jdbc/comparator/run-comparator.sh
+```
+
+`APC_CORE` uses only deterministic literal SELECTs and keeps heartbeat at its disabled default. It
+does not exercise metadata, GetStatementStatus, prepared statements, DDL/DML, large results, or
+performance thresholds. The companion plugin validates parity from the CSV and route artifacts;
+the runner's Maven exit code alone is only an execution-health signal.
+
 ## Running
 
 ### Basic usage
@@ -205,6 +233,10 @@ If both are present for a method, **runOnly takes precedence**: argument combina
 | `METADATA_PARALLEL_THREADS` | `1` | Parallel threads |
 | `METADATA_FILTER_CONFIG` | _(none)_ | Absolute path to JSON filter |
 | `WORKSPACE_SETUP` | _(skip)_ | Set to `recreate` for fresh setup |
+| `LOCAL_SOURCE_REPO` | _(none)_ | Clone an exact clean local source commit instead of fetching the remote comparator line |
+| `LOCAL_SOURCE_REF` | `HEAD` | Commit/ref resolved inside `LOCAL_SOURCE_REPO` |
+| `OUTPUT_DIR` | invocation directory | Destination for logs, report, CSV, source/config metadata, process exit, and route markers |
+| `APC_SEA_PROTOTYPE` | `0` | Set to `1` only for the local APC-over-SEA prototype |
 
 ### Connection Configs
 
@@ -238,6 +270,7 @@ If both are present for a method, **runOnly takes precedence**: argument combina
 
 | Suite | Description |
 |---|---|
+| `APC_CORE` | Explicit-only, no-data literal SELECT parity for one APC through direct Thrift and SEA/Reyder |
 | `STATEMENT_SELECT` | SELECT queries at various sizes (inline + CloudFetch) |
 | `STATEMENT_SELECT_TRUNCATED` | setMaxRows / setLargeMaxRows truncation |
 | `STATEMENT_DDL` | CREATE / ALTER / DROP |
@@ -294,4 +327,3 @@ Suites whose cases mutate or destroy connection/session state (`NEGATIVE_CONNECT
 uncached connections** via `ConnectionFactory` and close them in a `finally`, so they never poison
 the shared connections the other suites reuse. Providers request this by overriding the
 `execute(conn1, conn2, ConnectionFactory, testCase, label)` overload of `SuiteProvider`.
-

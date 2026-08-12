@@ -9,6 +9,7 @@ import com.databricks.jdbc.comparator.suite.*;
  * <p>To add a new suite: create a {@link SuiteProvider} implementation and wire it here.
  */
 public enum TestSuite {
+  APC_CORE(new ApcCoreProvider()),
   STATEMENT_SELECT(new StatementSelectProvider()),
   STATEMENT_SELECT_TRUNCATED(new StatementSelectTruncatedProvider()),
   STATEMENT_DDL(new StatementDdlProvider()),
