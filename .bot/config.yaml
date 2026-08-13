@@ -112,7 +112,8 @@ flow: bug-fix
 # prompts/retrospective_system.md, so the engine's built-in base prompt is used.
 # (A set-but-missing system_prompt file would be a hard error; an UNSET key uses
 # the base. Add the key later only if you write a repo-specific additive prompt.)
-# The learning log is created on first write — no seed file needed.
+# An initial learning log is seeded at log_path so the author.knowledge_log read
+# path is a real file from day one; the retrospective appends dated sections to it.
 retrospective:
   log_path: .claude/knowledge/learning-log.md   # MUST match author.knowledge_log above
   branch_prefix: ai/learning-pr-
