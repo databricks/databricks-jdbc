@@ -15,8 +15,10 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.sql.SQLException;
@@ -49,9 +51,23 @@ class ExecutionResultFactory {
   private static IExecutionResult getResultHandler(
       ResultData data, ResultManifest manifest, StatementId statementId, IDatabricksSession session)
       throws DatabricksSQLException {
+    if (manifest == null) {
+      throw new DatabricksParsingException(
+          "Result response is missing its manifest", DatabricksDriverErrorCode.INVALID_STATE);
+    }
     if (manifest.getFormat() == null) {
       throw new DatabricksParsingException(
           "Empty response format", DatabricksDriverErrorCode.INVALID_STATE);
+    }
+    if (manifest.getFormat() == Format.ARROW_BATCH) {
+      ResultSchema schema = manifest.getSchema();
+      if (schema == null
+          || schema.getColumnCount() == null
+          || (schema.getColumnCount() > 0 && schema.getColumns() == null)) {
+        throw new DatabricksParsingException(
+            "ARROW_BATCH response is missing its schema",
+            DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+      }
     }
     TelemetryHelper.setResultFormat(
         session.getConnectionContext(), statementId, manifest.getFormat());

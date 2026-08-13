@@ -21,12 +21,17 @@ public class WorkspaceSetup {
 
   private static final String SETUP_PROPERTY = "WORKSPACE_SETUP";
 
-  public static void run(Connection conn) throws SQLException {
+  @FunctionalInterface
+  public interface ConnectionSupplier {
+    Connection get() throws SQLException;
+  }
+
+  public static void run(ConnectionSupplier connectionSupplier) throws SQLException {
     String mode = System.getProperty(SETUP_PROPERTY);
     if (mode == null || mode.isEmpty()) return;
 
     if ("recreate".equalsIgnoreCase(mode)) {
-      recreate(conn);
+      recreate(connectionSupplier.get());
     } else {
       log("Unknown mode: " + mode + ". Expected: recreate");
     }

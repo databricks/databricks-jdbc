@@ -125,12 +125,12 @@ public enum ConnectionConfig {
   }
 
   public boolean appliesTo(TestSuite suite) {
-    return applicableSuites.contains(suite) || isExplicitApcCoreSelection(suite);
+    return applicableSuites.contains(suite);
   }
 
   public EnumSet<TestSuite> getApplicableSuites() {
     EnumSet<TestSuite> suites = EnumSet.copyOf(applicableSuites);
-    if (isExplicitApcCoreSelection(TestSuite.APC_CORE)) {
+    if (isExplicitApcCoreSelection()) {
       suites.add(TestSuite.APC_CORE);
     }
     return suites;
@@ -164,7 +164,7 @@ public enum ConnectionConfig {
     for (Map.Entry<String, String> entry : params.entrySet()) {
       sb.append(';').append(entry.getKey()).append('=').append(entry.getValue());
     }
-    if (isExplicitApcCoreSelection(TestSuite.APC_CORE)) {
+    if (isExplicitApcCoreSelection()) {
       sb.append(";EnableHeartbeat=0");
     }
     return sb.toString();
@@ -174,8 +174,8 @@ public enum ConnectionConfig {
     return EnumSet.complementOf(EnumSet.copyOf(Arrays.asList(excluded)));
   }
 
-  private boolean isExplicitApcCoreSelection(TestSuite suite) {
-    if (this != DEFAULT_PARAMS || suite != TestSuite.APC_CORE) {
+  private boolean isExplicitApcCoreSelection() {
+    if (this != DEFAULT_PARAMS) {
       return false;
     }
     String suiteFilter = System.getProperty("SUITES_RUN_ONLY");

@@ -3,21 +3,22 @@ package com.databricks.jdbc.model.client.sqlexec;
 import com.databricks.sdk.support.QueryParam;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** Request fields not carried in the GetStatementResult path. */
-public class GetStatementResultRequest {
-  @JsonProperty("statement_id")
-  private String statementId;
+/** Query parameters for an APC GetResultData request. */
+public class GetResultDataQuery {
+  @JsonProperty("row_offset")
+  @QueryParam("row_offset")
+  private Long rowOffset;
 
   @JsonProperty("backend_compute")
   @QueryParam("backend_compute")
   private BackendCompute backendCompute;
 
-  public String getStatementId() {
-    return statementId;
+  public Long getRowOffset() {
+    return rowOffset;
   }
 
-  public GetStatementResultRequest setStatementId(String statementId) {
-    this.statementId = statementId;
+  public GetResultDataQuery setRowOffset(Long rowOffset) {
+    this.rowOffset = rowOffset;
     return this;
   }
 
@@ -25,7 +26,7 @@ public class GetStatementResultRequest {
     return backendCompute;
   }
 
-  public GetStatementResultRequest setBackendCompute(BackendCompute backendCompute) {
+  public GetResultDataQuery setBackendCompute(BackendCompute backendCompute) {
     this.backendCompute = backendCompute;
     return this;
   }

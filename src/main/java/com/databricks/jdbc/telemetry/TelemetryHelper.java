@@ -300,8 +300,7 @@ public class TelemetryHelper {
     } catch (Exception e) {
       String errorMessage =
           String.format(
-              "Connection config is not available, using no-auth telemetry client. Error: %s;"
-                  + " Context: %s",
+              "Connection config is not available, using no-auth telemetry client. Error: %s; Context: %s",
               e.getMessage(), context);
       LOGGER.trace(errorMessage);
       return null;

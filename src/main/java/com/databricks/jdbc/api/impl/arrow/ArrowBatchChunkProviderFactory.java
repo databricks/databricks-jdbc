@@ -8,30 +8,40 @@ import com.databricks.jdbc.model.core.ArrowBatch;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.io.ByteArrayInputStream;
 import java.util.List;
 
-/** Provides one inline chunk assembled from APC native Arrow record-batch messages. */
-class ArrowBatchInlineChunkProvider implements ChunkProvider {
-  private final long totalRows;
-  private final ArrowResultChunk arrowResultChunk;
-  private long currentChunkIndex = -1;
-  private boolean isClosed;
+/** Builds the ordinary one-chunk provider for APC native Arrow record batches. */
+final class ArrowBatchChunkProviderFactory {
+  private ArrowBatchChunkProviderFactory() {}
 
-  ArrowBatchInlineChunkProvider(ResultData resultData, ResultManifest resultManifest)
+  static ChunkProvider create(ResultData resultData, ResultManifest resultManifest)
       throws DatabricksSQLException {
     if (resultData == null) {
       throw parsingError("ARROW_BATCH response is missing result data");
     }
+    if (resultManifest == null) {
+      throw parsingError("ARROW_BATCH response is missing its manifest");
+    }
+    if (resultData.getNextChunkIndex() != null
+        || resultData.getNextChunkInternalLink() != null
+        || (resultData.getExternalLinks() != null && !resultData.getExternalLinks().isEmpty())
+        || (resultManifest.getTotalChunkCount() != null
+            && resultManifest.getTotalChunkCount() > 1)) {
+      throw parsingError("Paginated or external-link ARROW_BATCH responses are not supported");
+    }
+
     List<ArrowBatch> arrowBatches = resultData.getArrowBatches();
-    this.totalRows = validateAndCountRows(arrowBatches, resultData, resultManifest);
+    long totalRows = validateAndCountRows(arrowBatches, resultData, resultManifest);
+    ByteArrayInputStream stream =
+        createArrowBatchByteStream(resultManifest.getArrowSchema(), arrowBatches);
     try {
-      this.arrowResultChunk =
-          ArrowResultChunk.builder()
-              .withInputStream(
-                  createArrowBatchByteStream(resultManifest.getSchema(), arrowBatches), totalRows)
-              .build();
-    } catch (DatabricksParsingException e) {
-      throw e;
+      InlineChunkProvider provider = new InlineChunkProvider(stream, totalRows);
+      if (totalRows > 0) {
+        return provider;
+      }
+      provider.close();
+      return new EmptyChunkProvider();
     } catch (RuntimeException e) {
       throw new DatabricksParsingException(
           "Failed to parse native Arrow batches: " + e.getMessage(),
@@ -84,45 +94,5 @@ class ArrowBatchInlineChunkProvider implements ChunkProvider {
   private static DatabricksParsingException parsingError(String message) {
     return new DatabricksParsingException(
         message, DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
-  }
-
-  @Override
-  public boolean hasNextChunk() {
-    return totalRows > 0 && currentChunkIndex == -1;
-  }
-
-  @Override
-  public boolean next() {
-    if (!hasNextChunk()) {
-      return false;
-    }
-    currentChunkIndex++;
-    return true;
-  }
-
-  @Override
-  public ArrowResultChunk getChunk() {
-    return arrowResultChunk;
-  }
-
-  @Override
-  public void close() {
-    isClosed = true;
-    arrowResultChunk.releaseChunk();
-  }
-
-  @Override
-  public long getRowCount() {
-    return totalRows;
-  }
-
-  @Override
-  public long getChunkCount() {
-    return 0;
-  }
-
-  @Override
-  public boolean isClosed() {
-    return isClosed;
   }
 }

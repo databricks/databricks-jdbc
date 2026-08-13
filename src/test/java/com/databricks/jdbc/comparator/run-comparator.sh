@@ -212,6 +212,7 @@ set -e
 ORIGINAL_DIR="$(pwd)"
 OUTPUT_DIR="${OUTPUT_DIR:-${ORIGINAL_DIR}}"
 mkdir -p "${OUTPUT_DIR}"
+OUTPUT_DIR="$(cd "${OUTPUT_DIR}" && pwd -P)"
 
 WORK_DIR_OWNED=0
 if [ -z "${WORK_DIR}" ]; then

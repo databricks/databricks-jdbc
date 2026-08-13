@@ -375,8 +375,7 @@ public class DatabricksSessionTest {
     setupWarehouse(false /* useThrift */);
     DatabricksSession session = new DatabricksSession(connectionContext);
     assertEquals(
-        "DatabricksSession[compute='SQL Warehouse with warehouse ID {warehouse_id}',"
-            + " schema='default']",
+        "DatabricksSession[compute='SQL Warehouse with warehouse ID {warehouse_id}', schema='default']",
         session.toString());
   }
 
@@ -557,8 +556,7 @@ public class DatabricksSessionTest {
       assertInstanceOf(
           DatabricksMetadataQueryClient.class,
           session.getDatabricksMetadataClient(),
-          "After SEA→Thrift redirect with UseQueryForMetadata=1, metadata client should be"
-              + " DatabricksMetadataQueryClient");
+          "After SEA→Thrift redirect with UseQueryForMetadata=1, metadata client should be DatabricksMetadataQueryClient");
     }
   }
 }

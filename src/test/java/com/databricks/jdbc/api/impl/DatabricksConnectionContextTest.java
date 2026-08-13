@@ -497,7 +497,7 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testAllPurposeClusterPrototypeIgnoresSeaCircuitBreaker()
+  public void testAllPurposeClusterPrototypeFailsWhenSeaCircuitBreakerIsOpen()
       throws DatabricksSQLException {
     System.setProperty(ApcSeaPrototype.ENABLED_PROPERTY, "true");
     SeaCircuitBreakerManager.record429Failure();
@@ -506,7 +506,9 @@ class DatabricksConnectionContextTest {
           DatabricksConnectionContext.parse(
               TestConstants.VALID_CLUSTER_URL + ";UseThriftClient=0", properties);
 
-      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+      DatabricksDriverException exception =
+          assertThrows(DatabricksDriverException.class, connectionContext::getClientType);
+      assertTrue(exception.getMessage().contains("fallback is disabled"));
       assertTrue(connectionContext.isApcSeaPrototype());
     } finally {
       SeaCircuitBreakerManager.reset();

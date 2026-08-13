@@ -12,6 +12,7 @@ import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ArrowBatch;
@@ -20,6 +21,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,6 +32,8 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
+import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.SchemaUtility;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -85,6 +89,7 @@ public class ExecutionResultFactoryTest {
             .setFormat(Format.ARROW_BATCH)
             .setTotalChunkCount(1L)
             .setTotalRowCount(0L)
+            .setArrowSchema(emptyArrowSchema())
             .setSchema(new ResultSchema().setColumnCount(0L).setColumns(Collections.emptyList()));
     ResultData data =
         new ResultData().setArrowBatches(Collections.<ArrowBatch>emptyList()).setRowCount(0L);
@@ -95,6 +100,35 @@ public class ExecutionResultFactoryTest {
     assertInstanceOf(ArrowStreamResult.class, result);
     assertFalse(result.next());
     result.close();
+  }
+
+  @Test
+  public void testGetResultSet_nativeArrowBatchRequiresManifestAndSchema() {
+    ResultData data =
+        new ResultData().setArrowBatches(Collections.<ArrowBatch>emptyList()).setRowCount(0L);
+
+    assertThrows(
+        DatabricksParsingException.class,
+        () ->
+            ExecutionResultFactory.getResultSet(
+                data, null, STATEMENT_ID, session, parentStatement));
+    assertThrows(
+        DatabricksParsingException.class,
+        () ->
+            ExecutionResultFactory.getResultSet(
+                data,
+                new ResultManifest().setFormat(Format.ARROW_BATCH),
+                STATEMENT_ID,
+                session,
+                parentStatement));
+  }
+
+  private static byte[] emptyArrowSchema() {
+    try {
+      return SchemaUtility.serialize(new Schema(Collections.emptyList()));
+    } catch (IOException e) {
+      throw new AssertionError(e);
+    }
   }
 
   @Test

@@ -18,15 +18,12 @@ import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowBatch;
 import com.databricks.jdbc.model.client.thrift.generated.TTableSchema;
 import com.databricks.jdbc.model.core.ArrowBatch;
 import com.databricks.jdbc.model.core.ColumnInfo;
-import com.databricks.jdbc.model.core.ColumnInfoTypeName;
-import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -127,145 +124,28 @@ public final class ArrowUtil {
     return new Schema(fields);
   }
 
-  /** Serializes a SQL Execution API result schema as the first message of an Arrow IPC stream. */
-  private static byte[] serializeResultSchema(ResultSchema resultSchema)
-      throws DatabricksParsingException {
-    Schema arrowSchema = resultSchemaToArrowSchema(resultSchema);
-    try {
-      return SchemaUtility.serialize(arrowSchema);
-    } catch (IOException e) {
-      throw new DatabricksParsingException(
-          "Failed to serialize SQL Execution API Arrow schema: " + e.getMessage(),
-          e,
-          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
-    }
-  }
-
-  /** Converts the structured SQL Execution API schema used by native APC Arrow batches. */
-  public static Schema resultSchemaToArrowSchema(ResultSchema resultSchema)
-      throws DatabricksParsingException {
-    if (resultSchema == null || resultSchema.getColumnCount() == null) {
-      throw arrowBatchSchemaError("missing result schema or column count");
-    }
-    if (resultSchema.getColumnCount() < 0) {
-      throw arrowBatchSchemaError("negative column count");
-    }
-
-    Collection<ColumnInfo> columns = resultSchema.getColumns();
-    int actualColumnCount = columns == null ? 0 : columns.size();
-    if (resultSchema.getColumnCount() != actualColumnCount) {
-      throw arrowBatchSchemaError(
-          String.format(
-              "column count mismatch: manifest=%d columns=%d",
-              resultSchema.getColumnCount(), actualColumnCount));
-    }
-
-    List<Field> fields = new ArrayList<>(actualColumnCount);
-    if (columns == null) {
-      return new Schema(fields);
-    }
-    for (ColumnInfo column : columns) {
-      if (column == null || column.getName() == null || column.getName().isEmpty()) {
-        throw arrowBatchSchemaError("missing column or column name");
-      }
-      fields.add(new Field(column.getName(), new FieldType(true, toArrowType(column), null), null));
-    }
-    return new Schema(fields);
-  }
-
   /** Builds a complete Arrow IPC stream from one schema and ordered record-batch messages. */
   public static ByteArrayInputStream createArrowBatchByteStream(
-      ResultSchema resultSchema, List<ArrowBatch> arrowBatches) throws DatabricksParsingException {
+      byte[] arrowSchema, List<ArrowBatch> arrowBatches) throws DatabricksParsingException {
+    if (arrowSchema == null || arrowSchema.length == 0) {
+      throw arrowBatchError("missing arrow_schema");
+    }
     if (arrowBatches == null) {
-      throw arrowBatchSchemaError("missing arrow_batches");
+      throw arrowBatchError("missing arrow_batches");
     }
     ByteArrayOutputStream output = new ByteArrayOutputStream();
-    try {
-      output.write(serializeResultSchema(resultSchema));
-      for (ArrowBatch arrowBatch : arrowBatches) {
-        output.write(arrowBatch.getBatch());
-      }
-      output.write(ARROW_STREAM_END_MARKER);
-      return new ByteArrayInputStream(output.toByteArray());
-    } catch (IOException e) {
-      throw new DatabricksParsingException(
-          "Failed to assemble native Arrow batches: " + e.getMessage(),
-          e,
-          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+    output.write(arrowSchema, 0, arrowSchema.length);
+    for (ArrowBatch arrowBatch : arrowBatches) {
+      byte[] batch = arrowBatch.getBatch();
+      output.write(batch, 0, batch.length);
     }
+    output.write(ARROW_STREAM_END_MARKER, 0, ARROW_STREAM_END_MARKER.length);
+    return new ByteArrayInputStream(output.toByteArray());
   }
 
-  private static ArrowType toArrowType(ColumnInfo column) throws DatabricksParsingException {
-    ColumnInfoTypeName typeName = column.getTypeName();
-    if (typeName == null) {
-      typeName = DatabricksTypeUtil.recoverStringType(column.getTypeText());
-    }
-    if (typeName == null) {
-      throw arrowBatchSchemaError("missing type for column " + column.getName());
-    }
-
-    switch (typeName) {
-      case BOOLEAN:
-        return ArrowType.Bool.INSTANCE;
-      case BYTE:
-      case TINYINT:
-        return new ArrowType.Int(8, true);
-      case SHORT:
-      case SMALLINT:
-        return new ArrowType.Int(16, true);
-      case INT:
-        return new ArrowType.Int(32, true);
-      case BIGINT:
-      case LONG:
-        return new ArrowType.Int(64, true);
-      case FLOAT:
-        return new ArrowType.FloatingPoint(
-            org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE);
-      case DOUBLE:
-        return new ArrowType.FloatingPoint(
-            org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE);
-      case CHAR:
-      case STRING:
-        return ArrowType.Utf8.INSTANCE;
-      case BINARY:
-        return ArrowType.Binary.INSTANCE;
-      case DATE:
-        return new ArrowType.Date(org.apache.arrow.vector.types.DateUnit.DAY);
-      case TIMESTAMP:
-        return new ArrowType.Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND, null);
-      case DECIMAL:
-        return decimalArrowType(column);
-      case NULL:
-      case VOID:
-        return ArrowType.Null.INSTANCE;
-      default:
-        throw arrowBatchSchemaError(
-            "unsupported type " + typeName + " for column " + column.getName());
-    }
-  }
-
-  private static ArrowType decimalArrowType(ColumnInfo column) throws DatabricksParsingException {
-    if (column.getTypePrecision() == null || column.getTypeScale() == null) {
-      throw arrowBatchSchemaError("missing decimal precision or scale for " + column.getName());
-    }
-    try {
-      int precision = Math.toIntExact(column.getTypePrecision());
-      int scale = Math.toIntExact(column.getTypeScale());
-      if (precision < 1 || precision > 38 || scale < 0 || scale > precision) {
-        throw arrowBatchSchemaError(
-            String.format(
-                "invalid decimal(%d,%d) for column %s", precision, scale, column.getName()));
-      }
-      return new ArrowType.Decimal(precision, scale, 128);
-    } catch (ArithmeticException e) {
-      throw arrowBatchSchemaError(
-          "decimal precision or scale is out of range for " + column.getName());
-    }
-  }
-
-  private static DatabricksParsingException arrowBatchSchemaError(String detail) {
+  private static DatabricksParsingException arrowBatchError(String detail) {
     return new DatabricksParsingException(
-        "Cannot construct native Arrow-batch schema: " + detail,
+        "Cannot assemble native Arrow batches: " + detail,
         DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
   }
 

@@ -396,8 +396,7 @@ public class DatabricksSession implements IDatabricksSession {
       }
     } catch (Exception e) {
       LOGGER.warn(
-          "Failed to get current catalog and schema from database, falling back to session values:"
-              + " {}",
+          "Failed to get current catalog and schema from database, falling back to session values: {}",
           e.getMessage());
     }
     return new String[] {this.catalog, this.schema};

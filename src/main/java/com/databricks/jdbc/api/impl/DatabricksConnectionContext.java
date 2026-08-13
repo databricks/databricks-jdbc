@@ -505,6 +505,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public DatabricksClientType getClientTypeFromContext() {
     if (computeResource instanceof AllPurposeCluster) {
       if (isApcSeaPrototype()) {
+        if (SeaCircuitBreakerManager.isCircuitOpen()) {
+          throw new DatabricksDriverException(
+              "APC SEA prototype cannot run while the SEA circuit breaker is open; "
+                  + "fallback is disabled",
+              DatabricksDriverErrorCode.CONNECTION_ERROR);
+        }
         return DatabricksClientType.SEA;
       }
       return DatabricksClientType.THRIFT;
@@ -1129,16 +1135,14 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       if (defaultStringColumnLength < 0
           || defaultStringColumnLength > MAX_DEFAULT_STRING_COLUMN_LENGTH) {
         LOGGER.warn(
-            "DefaultStringColumnLength value {} is out of bounds (0 to 32767). Falling back to"
-                + " default value 255.",
+            "DefaultStringColumnLength value {} is out of bounds (0 to 32767). Falling back to default value 255.",
             defaultStringColumnLength);
         return DEFUALT_STRING_COLUMN_LENGTH;
       }
       return defaultStringColumnLength;
     } catch (NumberFormatException e) {
       LOGGER.warn(
-          "Invalid number format for DefaultStringColumnLength. Falling back to default value"
-              + " 255.");
+          "Invalid number format for DefaultStringColumnLength. Falling back to default value 255.");
       return DEFUALT_STRING_COLUMN_LENGTH;
     }
   }
@@ -1150,8 +1154,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           getParameter(DatabricksJdbcUrlParams.MAX_CONCURRENT_PRESIGNED_REQUESTS));
     } catch (NumberFormatException e) {
       LOGGER.warn(
-          "Invalid number format for MaxVolumeOperationConcurrentPresignedRequests. Falling back to"
-              + " default value 50.");
+          "Invalid number format for MaxVolumeOperationConcurrentPresignedRequests. Falling back to default value 50.");
       return DEFAULT_MAX_CONCURRENT_PRESIGNED_REQUESTS;
     }
   }

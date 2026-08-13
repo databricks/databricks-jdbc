@@ -83,7 +83,7 @@ public class JDBCDriverComparisonTest {
 
     // Workspace validation/setup — only runs when -DWORKSPACE_SETUP=validate|create.
     // Setup runs against LEFT by convention; LEFT must be the side that supports the suite DDL.
-    WorkspaceSetup.run(connectionManager.getConnection(BASE_LEFT_URL));
+    WorkspaceSetup.run(() -> connectionManager.getConnection(BASE_LEFT_URL));
 
     String timestamp = Instant.now().toString().replaceAll("[:.]+", "-");
     List<String> headerLines =
@@ -128,6 +128,11 @@ public class JDBCDriverComparisonTest {
    * <p>Configs with no applicable suites or suites with no provider/test cases are skipped.
    */
   static Stream<Arguments> provideAllTests() {
+    return buildTestArguments(connectionManager, BASE_LEFT_URL, BASE_RIGHT_URL);
+  }
+
+  static Stream<Arguments> buildTestArguments(
+      ConnectionManager manager, String baseLeftUrl, String baseRightUrl) {
     List<Arguments> allTests = new ArrayList<>();
 
     String suiteFilter = System.getProperty("SUITES_RUN_ONLY");
@@ -139,11 +144,11 @@ public class JDBCDriverComparisonTest {
     for (ConnectionConfig config : ConnectionConfig.activeConfigs()) {
       Connection leftConn;
       Connection rightConn;
-      final String leftUrl = config.buildUrl(BASE_LEFT_URL);
-      final String rightUrl = config.buildUrl(BASE_RIGHT_URL);
+      final String leftUrl = config.buildUrl(baseLeftUrl);
+      final String rightUrl = config.buildUrl(baseRightUrl);
       try {
-        leftConn = connectionManager.getConnection(leftUrl);
-        rightConn = connectionManager.getConnection(rightUrl);
+        leftConn = manager.getConnection(leftUrl);
+        rightConn = manager.getConnection(rightUrl);
       } catch (SQLException e) {
         throw new RuntimeException(
             "Failed to create connections for config: " + config.getDisplayName(), e);
@@ -156,7 +161,7 @@ public class JDBCDriverComparisonTest {
           new ConnectionFactory() {
             @Override
             public Connection openFresh(String side) throws SQLException {
-              return connectionManager.openUncached(urlFor(side));
+              return manager.openUncached(urlFor(side));
             }
 
             @Override
@@ -168,12 +173,12 @@ public class JDBCDriverComparisonTest {
 
             @Override
             public String token() {
-              return connectionManager.getToken();
+              return manager.getToken();
             }
 
             @Override
             public Connection open(String url, String token) throws SQLException {
-              return connectionManager.openUncached(url, token);
+              return manager.openUncached(url, token);
             }
           };
 
