@@ -11,7 +11,7 @@ public enum MetadataOperationType {
   GET_COLUMNS("GetColumns", true),
   GET_FUNCTIONS("GetFunctions", true),
   GET_PRIMARY_KEYS("GetPrimaryKeys", true),
-  GET_CROSS_REFERENCE("GetCrossReference", false),
+  GET_CROSS_REFERENCE("GetCrossReference", true),
   GET_PROCEDURES("GetProcedures", false),
   GET_PROCEDURE_COLUMNS("GetProcedureColumns", false);
 

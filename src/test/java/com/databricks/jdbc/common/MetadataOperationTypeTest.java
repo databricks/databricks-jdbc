@@ -3,6 +3,7 @@ package com.databricks.jdbc.common;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -79,8 +80,8 @@ public class MetadataOperationTypeTest {
   }
 
   @Test
-  void testCrossReferenceUsesShow() {
-    assertFalse(MetadataOperationType.GET_CROSS_REFERENCE.isThriftNativeSupported());
+  void testCrossReferenceUsesThriftNative() {
+    assertTrue(MetadataOperationType.GET_CROSS_REFERENCE.isThriftNativeSupported());
   }
 
   @Test

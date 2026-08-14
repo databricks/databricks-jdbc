@@ -71,8 +71,8 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       }
       String SQL = String.format("SELECT '%s' AS catalog", currentCatalog);
       LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
-      // Do not request native GetCatalogs: this query intentionally returns only currentCatalog.
-      return metadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session, null));
+      return metadataResultSetBuilder.getCatalogsResult(
+          getResultSet(SQL, session, MetadataOperationType.GET_CATALOGS), currentCatalog);
     }
 
     CommandBuilder commandBuilder = new CommandBuilder(session);
