@@ -21,11 +21,13 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
+import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.LongStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -89,6 +91,66 @@ public class DatabricksSessionTest {
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());
+  }
+
+  @Test
+  public void testSessionVersionTracksConcurrentMaximumAndClearsOnClose() throws SQLException {
+    setupWarehouse(false /* useThrift */);
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .sessionVersion(10L)
+            .computeResource(WAREHOUSE_COMPUTE)
+            .build();
+    when(sdkClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
+    DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
+    session.open();
+
+    LongStream.rangeClosed(1, 1000)
+        .parallel()
+        .forEach(
+            version ->
+                session.updateSessionVersion(
+                    SESSION_ID, new SessionVersion().setVersionId(version)));
+    session.updateSessionVersion(SESSION_ID, new SessionVersion().setVersionId(500L));
+    session.updateSessionVersion(SESSION_ID, new SessionVersion());
+    session.updateSessionVersion(SESSION_ID, null);
+
+    assertEquals(1000L, session.getSessionVersion().getVersionId());
+    session.close();
+    assertNull(session.getSessionVersion());
+  }
+
+  @Test
+  public void testSessionVersionRejectsLateUpdatesAfterCloseAndReopen() throws SQLException {
+    setupWarehouse(false /* useThrift */);
+    String replacementSessionId = "replacement_session_id";
+    when(sdkClient.createSession(any(), any(), any(), any()))
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .sessionId(SESSION_ID)
+                .sessionVersion(10L)
+                .computeResource(WAREHOUSE_COMPUTE)
+                .build())
+        .thenReturn(
+            ImmutableSessionInfo.builder()
+                .sessionId(replacementSessionId)
+                .sessionVersion(20L)
+                .computeResource(WAREHOUSE_COMPUTE)
+                .build());
+    DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
+    session.open();
+    session.close();
+
+    session.updateSessionVersion(SESSION_ID, new SessionVersion().setVersionId(99L));
+    assertNull(session.getSessionVersion());
+
+    session.open();
+    session.updateSessionVersion(SESSION_ID, new SessionVersion().setVersionId(99L));
+    assertEquals(20L, session.getSessionVersion().getVersionId());
+
+    session.updateSessionVersion(replacementSessionId, new SessionVersion().setVersionId(21L));
+    assertEquals(21L, session.getSessionVersion().getVersionId());
   }
 
   @Test

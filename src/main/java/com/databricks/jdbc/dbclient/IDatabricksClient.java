@@ -120,6 +120,11 @@ public interface IDatabricksClient {
     throw new java.sql.SQLFeatureNotSupportedException("Heartbeat not supported by this client");
   }
 
+  default boolean checkStatementAlive(StatementId statementId, IDatabricksSession session)
+      throws SQLException {
+    return checkStatementAlive(statementId);
+  }
+
   /**
    * Fetches result for underlying statement-Id
    *

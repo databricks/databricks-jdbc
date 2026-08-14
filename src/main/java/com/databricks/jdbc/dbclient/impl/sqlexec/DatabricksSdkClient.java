@@ -37,6 +37,8 @@ import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.SessionExecutionMode;
+import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
@@ -116,7 +118,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
         schema,
         sessionConf);
     CreateSessionRequest request =
-        new CreateSessionRequest().setWarehouseId(((Warehouse) warehouse).getWarehouseId());
+        new CreateSessionRequest()
+            .setWarehouseId(((Warehouse) warehouse).getWarehouseId())
+            .setExecutionMode(SessionExecutionMode.FAST);
     if (catalog != null) {
       request.setCatalog(catalog);
     }
@@ -153,11 +157,20 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     }
-    DatabricksThreadContextHolder.setSessionId(createSessionResponse.getSessionId());
-    return ImmutableSessionInfo.builder()
-        .computeResource(warehouse)
-        .sessionId(createSessionResponse.getSessionId())
-        .build();
+    String sessionId = createSessionResponse == null ? null : createSessionResponse.getSessionId();
+    if (sessionId == null || sessionId.isEmpty()) {
+      throw new DatabricksSQLException(
+          "Create session response did not include session_id",
+          DatabricksDriverErrorCode.CONNECTION_ERROR);
+    }
+    DatabricksThreadContextHolder.setSessionId(sessionId);
+    ImmutableSessionInfo.Builder sessionInfo =
+        ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(sessionId);
+    SessionVersion initialVersion = createSessionResponse.getSessionVersion();
+    if (initialVersion != null && initialVersion.getVersionId() != null) {
+      sessionInfo.sessionVersion(initialVersion.getVersionId());
+    }
+    return sessionInfo.build();
   }
 
   @Override
@@ -200,7 +213,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
         session,
         parentStatement,
         metadataOperationType);
-    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
+    String requestSessionId = session.getSessionId();
+    DatabricksThreadContextHolder.setSessionId(requestSessionId);
     long pollCount = 0;
     long executionStartTime = Instant.now().toEpochMilli();
     DatabricksThreadContextHolder.setStatementType(statementType);
@@ -210,6 +224,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             sql,
             ((Warehouse) computeResource).getWarehouseId(),
             session,
+            requestSessionId,
             parameters,
             parentStatement,
             false);
@@ -223,6 +238,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       }
       req.withHeaders(getHeaders("executeStatement", statementType, false, additionalHeaders));
       response = apiClient.execute(req, ExecuteStatementResponse.class);
+      updateSessionVersion(session, requestSessionId, response.getStatus());
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement request";
       LOGGER.error(errorMessage, e);
@@ -289,6 +305,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         Request req = new Request(Request.GET, getStatusPath, apiClient.serialize(request));
         req.withHeaders(getHeaders("getStatement"));
         response = wrapGetStatementResponse(apiClient.execute(req, GetStatementResponse.class));
+        updateSessionVersion(session, requestSessionId, response.getStatus());
       } catch (IOException e) {
         String errorMessage = "Error while processing the get statement response";
         LOGGER.error(errorMessage, e);
@@ -369,7 +386,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
         computeResource.toString(),
         session,
         parentStatement);
-    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
+    String requestSessionId = session.getSessionId();
+    DatabricksThreadContextHolder.setSessionId(requestSessionId);
     StatementType statementType = StatementType.SQL;
     ExecuteStatementRequest request =
         getRequest(
@@ -377,6 +395,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
             sql,
             ((Warehouse) computeResource).getWarehouseId(),
             session,
+            requestSessionId,
             parameters,
             parentStatement,
             true);
@@ -385,6 +404,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Request req = new Request(Request.POST, STATEMENT_PATH, apiClient.serialize(request));
       req.withHeaders(getHeaders("executeStatement", statementType, true));
       response = apiClient.execute(req, ExecuteStatementResponse.class);
+      updateSessionVersion(session, requestSessionId, response.getStatus());
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement async request";
       LOGGER.error(errorMessage, e);
@@ -417,13 +437,21 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   @Override
   public boolean checkStatementAlive(StatementId typedStatementId) throws SQLException {
+    return checkStatementAlive(typedStatementId, null);
+  }
+
+  @Override
+  public boolean checkStatementAlive(StatementId typedStatementId, IDatabricksSession session)
+      throws SQLException {
     String statementId = typedStatementId.toSQLExecStatementId();
+    String requestSessionId = session == null ? null : session.getSessionId();
     // Use lightweight /status endpoint (~100 bytes) instead of full GetStatement (~21KB)
     String statusPath = String.format(STATEMENT_STATUS_PATH_WITH_ID, statementId);
     try {
       Request req = new Request(Request.GET, statusPath, (String) null);
       req.withHeaders(getHeaders("getStatementStatus"));
       StatementStatus status = apiClient.execute(req, StatementStatus.class);
+      updateSessionVersion(session, requestSessionId, status);
       StatementState state = status.getState();
       // Terminal states mean the operation is no longer alive
       return state != StatementState.CANCELED
@@ -445,7 +473,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksStatementInternal parentStatement)
       throws SQLException {
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
-    DatabricksThreadContextHolder.setSessionId(session.getSessionId());
+    String requestSessionId = session.getSessionId();
+    DatabricksThreadContextHolder.setSessionId(requestSessionId);
     String statementId = typedStatementId.toSQLExecStatementId();
     GetStatementRequest request = new GetStatementRequest().setStatementId(statementId);
     String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);
@@ -454,6 +483,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Request req = new Request(Request.GET, getStatusPath, apiClient.serialize(request));
       req.withHeaders(getHeaders("getStatement"));
       response = apiClient.execute(req, GetStatementResponse.class);
+      if (parentStatement == null || parentStatement.shouldTrackSessionVersion()) {
+        updateSessionVersion(session, requestSessionId, response.getStatus());
+      }
     } catch (IOException e) {
       String errorMessage = "Error while processing the get statement result request";
       LOGGER.error(errorMessage, e);
@@ -712,6 +744,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String sql,
       String warehouseId,
       IDatabricksSession session,
+      String requestSessionId,
       Map<Integer, ImmutableSqlParameter> parameters,
       IDatabricksStatementInternal parentStatement,
       boolean executeAsync)
@@ -734,13 +767,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
         parameters.values().stream().map(this::mapToParameterListItem).collect(Collectors.toList());
     ExecuteStatementRequest request =
         new ExecuteStatementRequest()
-            .setSessionId(session.getSessionId())
+            .setSessionId(requestSessionId)
             .setStatement(sql)
             .setWarehouseId(warehouseId)
             .setDisposition(disposition)
             .setFormat(format)
             .setResultCompression(compressionCodec)
             .setParameters(parameterListItems);
+    SessionVersion sessionVersion = session.getSessionVersion();
+    if (sessionVersion != null) {
+      request.setSessionVersion(sessionVersion);
+    }
     if (executeAsync) {
       request.setWaitTimeout(ASYNC_TIMEOUT_VALUE);
     } else {
@@ -821,6 +858,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
         .setStatus(getStatementResponse.getStatus())
         .setManifest(getStatementResponse.getManifest())
         .setResult(getStatementResponse.getResult());
+  }
+
+  private void updateSessionVersion(
+      IDatabricksSession session, String requestSessionId, StatementStatus status) {
+    if (session != null && status != null) {
+      session.updateSessionVersion(requestSessionId, status.getSessionVersion());
+    }
   }
 
   /**
