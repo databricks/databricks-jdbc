@@ -215,10 +215,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
             parameters,
             parentStatement,
             false);
-    boolean requestThriftNativeMetadata =
-        connectionContext.isThriftNativeMetadataEnabled()
-            && metadataOperationType != null
-            && metadataOperationType.isThriftNativeSupported();
     ExecuteStatementResponse response;
     try {
       Request req = new Request(Request.POST, STATEMENT_PATH, apiClient.serialize(request));
@@ -226,7 +222,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       if (metadataOperationType != null) {
         additionalHeaders.put(
             HEADER_METADATA_OPERATION_TYPE, metadataOperationType.getHeaderValue());
-        if (requestThriftNativeMetadata) {
+        if (connectionContext.isThriftNativeMetadataEnabled()
+            && metadataOperationType.isThriftNativeSupported()) {
           additionalHeaders.put(HEADER_REQUIRE_THRIFT_NATIVE_METADATA, "true");
         }
       }

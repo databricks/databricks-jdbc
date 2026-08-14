@@ -82,8 +82,8 @@ public class MetadataOperationTypeTest {
   }
 
   @Test
-  void testCrossReferenceUsesShowWhileImportedKeysCanUseThriftNative() {
-    assertFalse(MetadataOperationType.GET_CROSS_REFERENCE.isThriftNativeSupported());
+  void testCrossReferenceOperationsUseThriftNative() {
+    assertTrue(MetadataOperationType.GET_CROSS_REFERENCE.isThriftNativeSupported());
     assertTrue(MetadataOperationType.GET_IMPORTED_KEYS.isThriftNativeSupported());
   }
 

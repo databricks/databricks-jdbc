@@ -607,9 +607,10 @@ public class MetadataResultSetBuilder {
     List<String> allowedTableTypes = List.of(tableTypes);
     List<List<Object>> rows =
         getRows(resultSet, TABLE_COLUMNS, defaultAdapter).stream()
-            .filter(row -> allowedTableTypes.contains(row.get(3)))
+            .filter(row -> allowedTableTypes.contains(row.get(3))) // Filtering based on table type
             .collect(Collectors.toList());
 
+    // Sort in order TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME (matching Thrift mode)
     rows.sort(
         Comparator.comparing((List<Object> r) -> (String) r.get(3))
             .thenComparing(r -> (String) r.get(0))
@@ -673,6 +674,19 @@ public class MetadataResultSetBuilder {
       String targetParentNamespaceName,
       String targetParentTableName)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      List<List<Object>> rows = getRowsByIndex(resultSet);
+      int parentCatalogIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_CAT);
+      int parentSchemaIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_SCHEM);
+      int parentTableIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_NAME);
+      rows.removeIf(
+          row ->
+              !((String) row.get(parentCatalogIndex)).equalsIgnoreCase(targetParentCatalogName)
+                  || !((String) row.get(parentSchemaIndex))
+                      .equalsIgnoreCase(targetParentNamespaceName)
+                  || !((String) row.get(parentTableIndex)).equalsIgnoreCase(targetParentTableName));
+      return getCrossRefsResult(rows);
+    }
     final CrossReferenceKeysDatabricksResultSetAdapter crossReferenceKeysResultSetAdapter =
         new CrossReferenceKeysDatabricksResultSetAdapter(
             targetParentCatalogName, targetParentNamespaceName, targetParentTableName);
@@ -688,8 +702,8 @@ public class MetadataResultSetBuilder {
   }
 
   private List<List<Object>> getRowsByIndex(DatabricksResultSet resultSet) throws SQLException {
+    // Native metadata already uses JDBC column order; avoid SHOW-specific column mappings.
     List<List<Object>> rows = new ArrayList<>();
-    resultSet.setSilenceNonTerminalExceptions();
     int columnCount = resultSet.getMetaData().getColumnCount();
     while (resultSet.next()) {
       List<Object> row = new ArrayList<>(columnCount);

@@ -71,6 +71,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       }
       String SQL = String.format("SELECT '%s' AS catalog", currentCatalog);
       LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
+      // Native GetCatalogs returns all catalogs, so keep this synthetic query on the SQL path.
       return metadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session, null));
     }
 
@@ -145,6 +146,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       return metadataResultSetBuilder.getTablesResult(catalog, tableTypes, new ArrayList<>());
     }
     String[] validatedTableTypes = tableTypes != null ? tableTypes : DEFAULT_TABLE_TYPES;
+    // Preserve null so native post-processing does not add an exact catalog filter.
     String requestedCatalog = catalog;
 
     // Only fetch currentCatalog if multiple catalog support is disabled
