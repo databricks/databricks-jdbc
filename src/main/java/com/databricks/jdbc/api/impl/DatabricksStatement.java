@@ -45,7 +45,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   protected final DatabricksConnection connection;
   DatabricksResultSet resultSet;
   private volatile StatementId statementId; // volatile: cancel() reads from a different thread
-  private String originatingSessionId;
+  private volatile String originatingSessionId;
   private boolean isClosed;
   private boolean closeOnCompletion;
   private SQLWarning warnings = null;
