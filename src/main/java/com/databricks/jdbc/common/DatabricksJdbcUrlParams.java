@@ -217,7 +217,7 @@ public enum DatabricksJdbcUrlParams {
       "0"),
   ENABLE_THRIFT_NATIVE_METADATA(
       "EnableThriftNativeMetadata",
-      "Require Thrift-native execution for metadata requests in SEA mode",
+      "Request Thrift-native SEA results for catalogs, schemas, tables, columns, functions, primary keys, imported keys, and cross references",
       "0"),
   DISABLE_OAUTH_REFRESH_TOKEN(
       "DisableOauthRefreshToken",

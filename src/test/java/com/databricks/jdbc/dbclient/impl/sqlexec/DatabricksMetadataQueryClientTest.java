@@ -248,6 +248,35 @@ public class DatabricksMetadataQueryClientTest {
   }
 
   @Test
+  void nativeListTablesWithNullTypesReturnsUnrecognizedTypes() throws SQLException {
+    when(session.getComputeResource()).thenReturn(mockedComputeResource);
+    when(mockClient.executeStatement(
+            eq("SHOW TABLES IN CATALOG `catalog1`"),
+            eq(mockedComputeResource),
+            any(),
+            eq(StatementType.METADATA),
+            eq(session),
+            any(),
+            eq(MetadataOperationType.GET_TABLES)))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.isThriftNativeMetadataResult()).thenReturn(true);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    when(mockedMetaData.getColumnCount()).thenReturn(TABLE_COLUMNS.size());
+    when(mockedResultSet.next()).thenReturn(true, false);
+    when(mockedResultSet.getObject(1)).thenReturn(TEST_CATALOG);
+    when(mockedResultSet.getObject(2)).thenReturn(TEST_SCHEMA);
+    when(mockedResultSet.getObject(3)).thenReturn(TEST_TABLE);
+    when(mockedResultSet.getObject(4)).thenReturn("FUTURE_TABLE_TYPE");
+
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+    DatabricksResultSet result = metadataClient.listTables(session, TEST_CATALOG, null, null, null);
+
+    assertTrue(result.next());
+    assertEquals("FUTURE_TABLE_TYPE", result.getString("TABLE_TYPE"));
+    assertFalse(result.next());
+  }
+
+  @Test
   void listSchemasReturnsEmptyWhenCatalogIsEmptyString() throws SQLException {
     IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
     when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(false);
@@ -1075,6 +1104,44 @@ public class DatabricksMetadataQueryClientTest {
   }
 
   @Test
+  void nativeListFunctionsPreservesNullRequestedCatalog() throws SQLException {
+    when(session.getComputeResource()).thenReturn(WAREHOUSE_COMPUTE);
+    when(session.getCurrentCatalog()).thenReturn("current_catalog");
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(true);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+    when(mockClient.executeStatement(
+            eq(
+                "SHOW FUNCTIONS IN CATALOG `current_catalog` SCHEMA LIKE 'testSchema' LIKE 'functionPattern'"),
+            eq(WAREHOUSE_COMPUTE),
+            any(),
+            eq(StatementType.METADATA),
+            eq(session),
+            any(),
+            eq(MetadataOperationType.GET_FUNCTIONS)))
+        .thenReturn(mockedResultSet);
+    when(mockedResultSet.isThriftNativeMetadataResult()).thenReturn(true);
+    when(mockedResultSet.getMetaData()).thenReturn(mockedMetaData);
+    when(mockedMetaData.getColumnCount()).thenReturn(FUNCTION_COLUMNS.size());
+    when(mockedResultSet.next()).thenReturn(true, false);
+    when(mockedResultSet.getObject(1)).thenReturn("current_catalog");
+    when(mockedResultSet.getObject(2)).thenReturn(TEST_SCHEMA);
+    when(mockedResultSet.getObject(3)).thenReturn("function");
+    when(mockedResultSet.getObject(4)).thenReturn(null);
+    when(mockedResultSet.getObject(5)).thenReturn((short) 1);
+    when(mockedResultSet.getObject(6)).thenReturn("function");
+
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+    DatabricksResultSet result =
+        metadataClient.listFunctions(session, null, TEST_SCHEMA, TEST_FUNCTION_PATTERN);
+
+    assertTrue(result.next());
+    assertNull(result.getString("FUNCTION_CAT"));
+    assertEquals("function", result.getString("FUNCTION_NAME"));
+    assertFalse(result.next());
+  }
+
+  @Test
   void testKeyBasedOpsThrowForNullTable() {
     DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
 
@@ -1404,6 +1471,23 @@ public class DatabricksMetadataQueryClientTest {
     assertEquals(1, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
     assertTrue(actualResult.next());
     assertEquals("my_catalog", actualResult.getString("TABLE_CAT"));
+    verify(mockClient, never())
+        .executeStatement(anyString(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void testListCatalogsPreservesEmptyCurrentCatalogLikeThrift() throws SQLException {
+    when(session.getCurrentCatalog()).thenReturn("");
+    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+    when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(false);
+    when(mockClient.getConnectionContext()).thenReturn(mockContext);
+
+    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
+    DatabricksResultSet result = metadataClient.listCatalogs(session);
+
+    assertTrue(result.next());
+    assertEquals("", result.getString("TABLE_CAT"));
+    assertFalse(result.next());
     verify(mockClient, never())
         .executeStatement(anyString(), any(), any(), any(), any(), any(), any());
   }

@@ -3,7 +3,6 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.TestConstants.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -712,21 +711,6 @@ public class DatabricksDatabaseMetaDataTest {
     assertNotNull(resultSet);
   }
 
-  private static Stream<Arguments> emptyTableMetadataArguments() {
-    return Stream.of(
-        Arguments.of("", null, null), Arguments.of(null, "", null), Arguments.of(null, null, ""));
-  }
-
-  @ParameterizedTest
-  @MethodSource("emptyTableMetadataArguments")
-  public void testGetTablesReturnsEmptyForEmptyArgument(
-      String catalog, String schemaPattern, String tableNamePattern) throws SQLException {
-    ResultSet resultSet = metaData.getTables(catalog, schemaPattern, tableNamePattern, null);
-
-    assertFalse(resultSet.next());
-    verify(metadataClient, never()).listTables(any(), any(), any(), any(), any());
-  }
-
   @Test
   public void testGetTables_tableNamePatternLowercaseConversion() throws SQLException {
     ArgumentCaptor<String> patternCaptor = ArgumentCaptor.forClass(String.class);
@@ -749,26 +733,6 @@ public class DatabricksDatabaseMetaDataTest {
     assertNotNull(resultSet);
   }
 
-  private static Stream<Arguments> emptyColumnMetadataArguments() {
-    return Stream.of(
-        Arguments.of("", null, null, null),
-        Arguments.of(null, "", null, null),
-        Arguments.of(null, null, "", null),
-        Arguments.of(null, null, null, ""));
-  }
-
-  @ParameterizedTest
-  @MethodSource("emptyColumnMetadataArguments")
-  public void testGetColumnsReturnsEmptyForEmptyArgument(
-      String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
-      throws SQLException {
-    ResultSet resultSet =
-        metaData.getColumns(catalog, schemaPattern, tableNamePattern, columnNamePattern);
-
-    assertFalse(resultSet.next());
-    verify(metadataClient, never()).listColumns(any(), any(), any(), any(), any());
-  }
-
   @Test
   public void testGetSchemas_SqlExec() throws SQLException {
     when(session.getConnectionContext())
@@ -789,31 +753,8 @@ public class DatabricksDatabaseMetaDataTest {
 
   @Test
   public void testGetPrimaryKeys() throws SQLException {
-    ResultSet resultSet = metaData.getPrimaryKeys(null, null, "table");
+    ResultSet resultSet = metaData.getPrimaryKeys(null, null, null);
     assertNotNull(resultSet);
-  }
-
-  @Test
-  public void testKeyMetadataMethodsValidateArgumentsConsistently() {
-    DatabricksSQLException primaryKeysException =
-        assertThrows(DatabricksSQLException.class, () -> metaData.getPrimaryKeys(null, null, null));
-    DatabricksSQLException importedKeysException =
-        assertThrows(DatabricksSQLException.class, () -> metaData.getImportedKeys(null, null, ""));
-    DatabricksSQLException schemaException =
-        assertThrows(
-            DatabricksSQLException.class, () -> metaData.getPrimaryKeys("catalog", null, "table"));
-    DatabricksSQLException exportedKeysException =
-        assertThrows(
-            DatabricksSQLException.class, () -> metaData.getExportedKeys(null, null, null));
-
-    assertEquals("INVALID_STATE", primaryKeysException.getSQLState());
-    assertEquals(
-        "Invalid argument: tableName may not be null or empty", primaryKeysException.getMessage());
-    assertEquals(primaryKeysException.getMessage(), importedKeysException.getMessage());
-    assertEquals(
-        "Invalid argument: schema may not be null when catalog is specified",
-        schemaException.getMessage());
-    assertEquals("Invalid argument: tableName may not be null", exportedKeysException.getMessage());
   }
 
   @Test

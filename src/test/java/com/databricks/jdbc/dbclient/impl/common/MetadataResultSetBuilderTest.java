@@ -789,6 +789,18 @@ public class MetadataResultSetBuilderTest {
   }
 
   @Test
+  void testGetTablesResultFiltersNullCatalog() throws SQLException {
+    List<List<Object>> rows = new ArrayList<>();
+    rows.add(Arrays.asList("catalog1", "schema1", "named_table", "TABLE", null));
+    rows.add(Arrays.asList(null, null, "unqualified_table", "TABLE", null));
+
+    ResultSet filteredResult = metadataResultSetBuilder.getTablesResult("catalog1", null, rows);
+    assertTrue(filteredResult.next());
+    assertEquals("named_table", filteredResult.getString("TABLE_NAME"));
+    assertFalse(filteredResult.next());
+  }
+
+  @Test
   void testGetTablesResultSortingInSeaMode() throws SQLException {
     // Create mock DatabricksResultSet with rows in unsorted order
     DatabricksResultSet mockResultSet = mock(DatabricksResultSet.class, withSettings().lenient());

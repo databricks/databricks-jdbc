@@ -63,10 +63,12 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     // If multiple catalog support is disabled, return only the current catalog
     if (isMultipleCatalogSupportDisabled()) {
       String currentCatalog = session.getCurrentCatalog();
-      if (currentCatalog == null || currentCatalog.isEmpty()) {
+      // Match Thrift: preserve an empty current catalog and default only a null value.
+      if (currentCatalog == null) {
         currentCatalog = "spark";
         LOGGER.debug(
-            "Current catalog is null or empty when multiple catalog support is disabled. Using default catalog: {}",
+            "Current catalog is null when multiple catalog support is disabled. Using default"
+                + " catalog: {}",
             currentCatalog);
       }
       return metadataResultSetBuilder.getCatalogsResult(List.of(List.of(currentCatalog)));
@@ -162,10 +164,12 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     LOGGER.debug("SQL command to fetch tables: {}", SQL);
     LOGGER.debug(String.format("SQL command to fetch tables: {%s}", SQL));
     try {
+      DatabricksResultSet resultSet = getResultSet(SQL, session, MetadataOperationType.GET_TABLES);
+      // Thrift treats null as all types; SHOW results use the driver's supported defaults.
+      String[] resultTableTypes =
+          resultSet.isThriftNativeMetadataResult() ? tableTypes : validatedTableTypes;
       return metadataResultSetBuilder.getTablesResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_TABLES),
-          requestedCatalog,
-          validatedTableTypes);
+          resultSet, requestedCatalog, resultTableTypes);
     } catch (SQLException e) {
       if ((PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState()) && catalog == null)
           || isObjectNotFoundException(e)
@@ -237,6 +241,8 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       String schemaNamePattern,
       String functionNamePattern)
       throws SQLException {
+    String requestedCatalog = catalog;
+
     // Only fetch currentCatalog if multiple catalog support is disabled
     String currentCatalog = isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null;
     if (!metadataResultSetBuilder.shouldAllowCatalogAccess(catalog, currentCatalog, session)) {
@@ -267,8 +273,10 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FUNCTIONS);
     LOGGER.debug("SQL command to fetch functions: {}", SQL);
     try {
+      DatabricksResultSet resultSet =
+          getResultSet(SQL, session, MetadataOperationType.GET_FUNCTIONS);
       return metadataResultSetBuilder.getFunctionsResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_FUNCTIONS), catalog);
+          resultSet, resultSet.isThriftNativeMetadataResult() ? requestedCatalog : catalog);
     } catch (SQLException e) {
       if (isObjectNotFoundException(e)) {
         LOGGER.debug("Object not found for getFunctions, returning empty result set.");
@@ -413,7 +421,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
 
     catalog = autoFillCatalog(catalog, currentCatalog);
 
-    // Exported keys not tracked in DBSQL. Returning empty result set
+    // SEA query metadata cannot express Thrift's parent-only cross-reference request.
     return metadataResultSetBuilder.getExportedKeys(new ArrayList<>());
   }
 
