@@ -334,6 +334,25 @@ public class DatabricksSdkClientTest {
                         && ((ExecuteStatementRequest) request).getSessionVersion() == null));
     assertEquals(
         UPDATED_SESSION_VERSION, connection.getSession().getSessionVersion().getVersionId());
+
+    clearInvocations(apiClient);
+    DatabricksStatement nextStatement = new DatabricksStatement(connection);
+    databricksSdkClient.executeStatement(
+        STATEMENT,
+        warehouse,
+        sqlParams,
+        StatementType.QUERY,
+        connection.getSession(),
+        nextStatement,
+        null);
+
+    verify(apiClient, atLeastOnce())
+        .serialize(
+            argThat(
+                request ->
+                    request instanceof ExecuteStatementRequest
+                        && sessionVersion(UPDATED_SESSION_VERSION)
+                            .equals(((ExecuteStatementRequest) request).getSessionVersion())));
   }
 
   @Test
@@ -354,9 +373,17 @@ public class DatabricksSdkClientTest {
             STATEMENT, warehouse, sqlParams, connection.getSession(), statement);
     assertEquals(STATEMENT_ID, statement.getStatementId());
     assertNull(resultSet.getMetaData());
+    assertEquals(
+        UPDATED_SESSION_VERSION, connection.getSession().getSessionVersion().getVersionId());
 
     // Verify a Request with POST method is created and executed
-    verify(apiClient).serialize(any(ExecuteStatementRequest.class));
+    verify(apiClient)
+        .serialize(
+            argThat(
+                request ->
+                    request instanceof ExecuteStatementRequest
+                        && sessionVersion(INITIAL_SESSION_VERSION)
+                            .equals(((ExecuteStatementRequest) request).getSessionVersion())));
     verify(apiClient)
         .execute(
             argThat(
