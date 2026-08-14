@@ -107,8 +107,15 @@ public final class DatabricksJdbcConstants {
   public static final String AAD_CLIENT_ID = "databricks-sql-jdbc";
   public static final String GCP_GOOGLE_CREDENTIALS_AUTH_TYPE = "google-credentials";
   public static final String GCP_GOOGLE_ID_AUTH_TYPE = "google-id";
-  public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = "08000";
+
+  /** SQL state used by Thrift for generic operation errors (SQLSTATE 08000). */
+  public static final String OPERATION_ERROR_SQLSTATE = "08000";
+
+  public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = OPERATION_ERROR_SQLSTATE;
   public static final String QUERY_EXECUTION_TIMEOUT_SQLSTATE = "57KD0";
+
+  /** Standard SQL state for syntax error or access rule violation (SQLSTATE 42000). */
+  public static final String SYNTAX_OR_ACCESS_VIOLATION_SQLSTATE = "42000";
 
   /** Standard SQL state for operation cancelled (SQLSTATE HY008). */
   public static final String OPERATION_CANCELLED_SQLSTATE = "HY008";

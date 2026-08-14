@@ -1,5 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.OPERATION_ERROR_SQLSTATE;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.SYNTAX_OR_ACCESS_VIOLATION_SQLSTATE;
 import static com.databricks.jdbc.common.MetadataResultConstants.*;
 import static com.databricks.jdbc.dbclient.impl.common.CommandConstants.METADATA_STATEMENT_ID;
 
@@ -69,10 +71,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
             "Current catalog is null or empty when multiple catalog support is disabled. Using default catalog: {}",
             currentCatalog);
       }
-      String SQL = String.format("SELECT '%s' AS catalog", currentCatalog);
-      LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
-      return metadataResultSetBuilder.getCatalogsResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_CATALOGS));
+      return metadataResultSetBuilder.getCatalogsResult(List.of(List.of(currentCatalog)));
     }
 
     CommandBuilder commandBuilder = new CommandBuilder(session);
@@ -145,7 +144,12 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     if (tableTypes != null && tableTypes.length == 0) {
       return metadataResultSetBuilder.getTablesResult(catalog, tableTypes, new ArrayList<>());
     }
+    // Runtime does not reliably enforce empty or exact type filters. SHOW uses supported defaults;
+    // native results are post-filtered with the original JDBC types below.
     String[] validatedTableTypes = tableTypes != null ? tableTypes : DEFAULT_TABLE_TYPES;
+    // Runtime treats catalog as a pattern and can return temporary views outside it. Preserve the
+    // original JDBC catalog for exact native-result filtering before resolving catalog below.
+    String requestedCatalog = catalog;
 
     // Only fetch currentCatalog if multiple catalog support is disabled
     String currentCatalog = isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null;
@@ -163,9 +167,15 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     LOGGER.debug("SQL command to fetch tables: {}", SQL);
     LOGGER.debug(String.format("SQL command to fetch tables: {%s}", SQL));
     try {
+      DatabricksResultSet resultSet = getResultSet(SQL, session, MetadataOperationType.GET_TABLES);
+      String[] resultTableTypes =
+          resultSet.isThriftNativeMetadataResult() ? tableTypes : validatedTableTypes;
       return metadataResultSetBuilder.getTablesResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_TABLES), validatedTableTypes);
+          resultSet, requestedCatalog, resultTableTypes);
     } catch (SQLException e) {
+      if (isThriftNativeMetadataRequested()) {
+        throw e;
+      }
       if ((PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState()) && catalog == null)
           || isObjectNotFoundException(e)
           || isEmptyPatternError(schemaNamePattern, tableNamePattern)) {
@@ -214,6 +224,9 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       return metadataResultSetBuilder.getColumnsResult(
           getResultSet(SQL, session, MetadataOperationType.GET_COLUMNS));
     } catch (SQLException e) {
+      if (isThriftNativeMetadataRequested()) {
+        throw e;
+      }
       if (catalog == null && PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())) {
         // Fallback for older DBR versions that don't support "SHOW COLUMNS IN ALL CATALOGS":
         // enumerate the catalogs and issue a per-catalog SHOW COLUMNS.
@@ -236,6 +249,11 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       String schemaNamePattern,
       String functionNamePattern)
       throws SQLException {
+    // Native GetFunctions ignores catalog filtering and returns an empty FUNCTION_CAT. Preserve
+    // the original JDBC argument (including null) for Thrift's native-only column override; the
+    // SHOW path is catalog-aware and uses the resolved catalog below.
+    String requestedCatalog = catalog;
+
     // Only fetch currentCatalog if multiple catalog support is disabled
     String currentCatalog = isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null;
     if (!metadataResultSetBuilder.shouldAllowCatalogAccess(catalog, currentCatalog, session)) {
@@ -266,8 +284,10 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FUNCTIONS);
     LOGGER.debug("SQL command to fetch functions: {}", SQL);
     try {
+      DatabricksResultSet resultSet =
+          getResultSet(SQL, session, MetadataOperationType.GET_FUNCTIONS);
       return metadataResultSetBuilder.getFunctionsResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_FUNCTIONS), catalog);
+          resultSet, resultSet.isThriftNativeMetadataResult() ? requestedCatalog : catalog);
     } catch (SQLException e) {
       if (isObjectNotFoundException(e)) {
         LOGGER.debug("Object not found for getFunctions, returning empty result set.");
@@ -401,7 +421,9 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     if (table == null) {
       LOGGER.debug("listExportedKeys: table is null, throwing");
       throw new DatabricksSQLException(
-          "Invalid argument: tableName may not be null", DatabricksDriverErrorCode.INVALID_STATE);
+          "Invalid argument: tableName may not be null",
+          SYNTAX_OR_ACCESS_VIOLATION_SQLSTATE,
+          DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
 
     // Only fetch currentCatalog if multiple catalog support is disabled
@@ -488,6 +510,11 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
         && !queryExecutionClient.getConnectionContext().getEnableMultipleCatalogSupport();
   }
 
+  private boolean isThriftNativeMetadataRequested() {
+    IDatabricksConnectionContext connectionContext = queryExecutionClient.getConnectionContext();
+    return connectionContext != null && connectionContext.isThriftNativeMetadataEnabled();
+  }
+
   /**
    * Returns true if any of the provided patterns is an empty string. Empty string patterns generate
    * invalid LIKE '' clauses that cause server errors. Per JDBC spec, empty string means "without a
@@ -531,11 +558,19 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
    */
   private String[] resolveKeyBasedParams(
       String catalog, String schema, String table, IDatabricksSession session) throws SQLException {
-    if (table == null || table.isEmpty()) {
-      LOGGER.debug("resolveKeyBasedParams: table is null or empty, throwing");
+    if (table == null) {
+      LOGGER.debug("resolveKeyBasedParams: table is null, throwing");
       throw new DatabricksSQLException(
           "Invalid argument: tableName may not be null or empty",
-          DatabricksDriverErrorCode.INVALID_STATE);
+          SYNTAX_OR_ACCESS_VIOLATION_SQLSTATE,
+          DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
+    }
+    if (table.isEmpty()) {
+      LOGGER.debug("resolveKeyBasedParams: table is empty, throwing");
+      throw new DatabricksSQLException(
+          "Invalid argument: tableName may not be null or empty",
+          OPERATION_ERROR_SQLSTATE,
+          DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
 
     if (catalog == null) {
@@ -549,7 +584,8 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
           "resolveKeyBasedParams: schema is null with explicit catalog '{}', throwing", catalog);
       throw new DatabricksSQLException(
           "Invalid argument: schema may not be null when catalog is specified",
-          DatabricksDriverErrorCode.INVALID_STATE);
+          OPERATION_ERROR_SQLSTATE,
+          DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
 
     // Safety net: getCurrentCatalogAndSchema() returned null values
@@ -560,7 +596,8 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
           schema);
       throw new DatabricksSQLException(
           "Invalid argument: could not resolve catalog or schema",
-          DatabricksDriverErrorCode.INVALID_STATE);
+          OPERATION_ERROR_SQLSTATE,
+          DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
 
     return new String[] {catalog, schema, table};
