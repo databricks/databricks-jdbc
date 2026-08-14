@@ -3,7 +3,6 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
-import static com.databricks.jdbc.common.MetadataResultConstants.COLUMN_COLUMNS;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import static com.databricks.jdbc.model.core.ColumnInfoTypeName.DECIMAL;
 import static com.databricks.jdbc.model.core.ColumnInfoTypeName.INT;
@@ -49,6 +48,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -92,6 +93,15 @@ public class DatabricksSdkClientTest {
 
   private void setupClientMocks(
       boolean includeResults, boolean async, List<ColumnInfo> manifestColumns) throws IOException {
+    setupClientMocks(includeResults, async, manifestColumns, null);
+  }
+
+  private void setupClientMocks(
+      boolean includeResults,
+      boolean async,
+      List<ColumnInfo> manifestColumns,
+      Boolean isNativeMetadataResult)
+      throws IOException {
     List<StatementParameterListItem> params =
         new ArrayList<>() {
           {
@@ -133,6 +143,7 @@ public class DatabricksSdkClientTest {
                       new ResultSchema()
                           .setColumns(manifestColumns)
                           .setColumnCount((long) manifestColumns.size()))
+                  .setIsNativeMetadataResult(isNativeMetadataResult)
                   .setTotalRowCount(0L));
     }
 
@@ -1199,17 +1210,11 @@ public class DatabricksSdkClientTest {
 
   @Test
   public void testRequireThriftNativeMetadataHeaderIsAddedForGetColumns() throws Exception {
-    List<ColumnInfo> nativeColumns =
-        COLUMN_COLUMNS.subList(0, COLUMN_COLUMNS.size() - 1).stream()
-            .map(
-                column ->
-                    new ColumnInfo()
-                        .setName(column.getColumnName())
-                        .setTypeName(STRING)
-                        .setTypeText("STRING"))
-            .collect(java.util.stream.Collectors.toList());
-    nativeColumns.get(nativeColumns.size() - 1).setName("IS_AUTO_INCREMENT");
-    setupClientMocks(true, false, nativeColumns);
+    setupClientMocks(
+        true,
+        false,
+        List.of(new ColumnInfo().setName("col_name").setTypeName(STRING).setTypeText("STRING")),
+        Boolean.TRUE);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(
             JDBC_URL + "EnableThriftNativeMetadata=1;", new Properties());
@@ -1243,9 +1248,17 @@ public class DatabricksSdkClientTest {
             eq(ExecuteStatementResponse.class));
   }
 
-  @Test
-  public void testThriftNativeMetadataResultRequiresMatchingResponseSchema() throws Exception {
-    setupClientMocks(true, false);
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(booleans = false)
+  public void testNativeMetadataSchemaDoesNotOverrideManifestFlag(Boolean manifestFlag)
+      throws Exception {
+    setupClientMocks(
+        true,
+        false,
+        List.of(
+            new ColumnInfo().setName("ORDINAL_POSITION").setTypeName(STRING).setTypeText("STRING")),
+        manifestFlag);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(
             JDBC_URL + "EnableThriftNativeMetadata=1;", new Properties());
@@ -1266,6 +1279,40 @@ public class DatabricksSdkClientTest {
             MetadataOperationType.GET_COLUMNS);
 
     assertFalse(resultSet.isThriftNativeMetadataResult());
+  }
+
+  @Test
+  public void testNativeMetadataManifestFlagDoesNotDependOnRequestHeader() throws Exception {
+    setupClientMocks(true, false, new ArrayList<>(), Boolean.TRUE);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+
+    DatabricksResultSet resultSet =
+        databricksSdkClient.executeStatement(
+            "SHOW COLUMNS",
+            warehouse,
+            new HashMap<>(),
+            StatementType.METADATA,
+            connection.getSession(),
+            new DatabricksStatement(connection),
+            MetadataOperationType.GET_COLUMNS);
+
+    assertTrue(resultSet.isThriftNativeMetadataResult());
+
+    verify(apiClient, atLeastOnce())
+        .execute(
+            argThat(
+                req -> {
+                  Map<String, String> headers = req.getHeaders();
+                  return headers != null
+                      && !headers.containsKey("X-Databricks-Require-Thrift-Native-Metadata");
+                }),
+            eq(ExecuteStatementResponse.class));
   }
 
   @Test

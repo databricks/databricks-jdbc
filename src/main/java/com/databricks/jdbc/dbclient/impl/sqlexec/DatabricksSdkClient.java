@@ -21,7 +21,6 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
-import com.databricks.jdbc.dbclient.impl.common.MetadataResultSetBuilder;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.dbclient.impl.common.TracingUtil;
@@ -340,9 +339,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
 
     boolean thriftNativeMetadataResult =
-        requestThriftNativeMetadata
-            && MetadataResultSetBuilder.hasThriftNativeMetadataSchema(
-                response.getManifest(), metadataOperationType);
+        response.getManifest() != null
+            && Boolean.TRUE.equals(response.getManifest().getIsNativeMetadataResult());
 
     // Defer markDirectResultsReceived until AFTER ResultSet construction.
     // VolumeOperationResult (created during ResultSet construction) accesses

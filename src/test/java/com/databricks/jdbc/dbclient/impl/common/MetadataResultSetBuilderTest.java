@@ -7,12 +7,8 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
-import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
-import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ResultColumn;
-import com.databricks.jdbc.model.core.ResultManifest;
-import com.databricks.jdbc.model.core.ResultSchema;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -69,99 +65,6 @@ public class MetadataResultSetBuilderTest {
         metadataResultSetBuilder::getPrimaryKeysResult, PRIMARY_KEYS_COLUMNS);
     assertThriftNativeMetadataResultIsRebuilt(
         metadataResultSetBuilder::getImportedKeysResult, IMPORTED_KEYS_COLUMNS);
-  }
-
-  @ParameterizedTest
-  @MethodSource("nativeMetadataSentinels")
-  void testThriftNativeMetadataSchemaDetectionUsesOnlySentinel(
-      MetadataOperationType operationType, String sentinel) {
-    List<ColumnInfo> columns =
-        List.of(
-            new ColumnInfo().setName("RENAMED_LEADING_COLUMN"),
-            new ColumnInfo().setName(sentinel.toLowerCase(java.util.Locale.ROOT)),
-            new ColumnInfo().setName("ADDED_TRAILING_COLUMN"));
-
-    assertTrue(
-        MetadataResultSetBuilder.hasThriftNativeMetadataSchema(
-            manifestWithColumns(columns), operationType));
-  }
-
-  @ParameterizedTest
-  @MethodSource("nativeMetadataSentinels")
-  void testSchemaWithoutSentinelIsNotClassifiedAsThriftNative(
-      MetadataOperationType operationType, String sentinel) {
-    List<ColumnInfo> columns =
-        List.of(
-            new ColumnInfo().setName("TABLE_NAME"),
-            new ColumnInfo().setName("KEY_SEQ"),
-            new ColumnInfo().setName("SHOW_RESULT_COLUMN"));
-
-    assertFalse(
-        MetadataResultSetBuilder.hasThriftNativeMetadataSchema(
-            manifestWithColumns(columns), operationType),
-        sentinel);
-  }
-
-  @Test
-  void testThriftNativeGetColumnsSchemaSupportsCurrentServerContractWithoutMutation() {
-    List<ColumnInfo> actualColumns =
-        COLUMN_COLUMNS.subList(0, COLUMN_COLUMNS.size() - 1).stream()
-            .map(column -> new ColumnInfo().setName(column.getColumnName()))
-            .collect(java.util.stream.Collectors.toList());
-    actualColumns.get(actualColumns.size() - 1).setName("IS_AUTO_INCREMENT");
-
-    assertTrue(
-        MetadataResultSetBuilder.hasThriftNativeMetadataSchema(
-            manifestWithColumns(actualColumns), MetadataOperationType.GET_COLUMNS));
-    assertEquals("IS_AUTO_INCREMENT", actualColumns.get(actualColumns.size() - 1).getName());
-  }
-
-  @Test
-  void testUnsupportedOperationIsNotClassifiedAsThriftNative() {
-    List<ColumnInfo> columns =
-        PROCEDURES_COLUMNS.stream()
-            .map(column -> new ColumnInfo().setName(column.getColumnName()))
-            .collect(java.util.stream.Collectors.toList());
-
-    assertFalse(
-        MetadataResultSetBuilder.hasThriftNativeMetadataSchema(
-            manifestWithColumns(columns), MetadataOperationType.GET_PROCEDURES));
-  }
-
-  @Test
-  void testMalformedSchemaIsNotClassifiedAsThriftNative() {
-    assertFalse(
-        MetadataResultSetBuilder.hasThriftNativeMetadataSchema(
-            null, MetadataOperationType.GET_COLUMNS));
-    assertFalse(
-        MetadataResultSetBuilder.hasThriftNativeMetadataSchema(
-            new ResultManifest(), MetadataOperationType.GET_COLUMNS));
-    assertFalse(
-        MetadataResultSetBuilder.hasThriftNativeMetadataSchema(
-            new ResultManifest().setSchema(new ResultSchema()), MetadataOperationType.GET_COLUMNS));
-    assertFalse(
-        MetadataResultSetBuilder.hasThriftNativeMetadataSchema(
-            manifestWithColumns(Arrays.asList(null, new ColumnInfo())),
-            MetadataOperationType.GET_COLUMNS));
-    assertFalse(
-        MetadataResultSetBuilder.hasThriftNativeMetadataSchema(
-            manifestWithColumns(List.of(new ColumnInfo().setName("ORDINAL_POSITION"))), null));
-  }
-
-  private static Stream<Arguments> nativeMetadataSentinels() {
-    return Stream.of(
-        Arguments.of(MetadataOperationType.GET_CATALOGS, "TABLE_CAT"),
-        Arguments.of(MetadataOperationType.GET_SCHEMAS, "TABLE_CATALOG"),
-        Arguments.of(MetadataOperationType.GET_TABLES, "REF_GENERATION"),
-        Arguments.of(MetadataOperationType.GET_COLUMNS, "ORDINAL_POSITION"),
-        Arguments.of(MetadataOperationType.GET_FUNCTIONS, "FUNCTION_TYPE"),
-        Arguments.of(MetadataOperationType.GET_PRIMARY_KEYS, "PK_NAME"),
-        Arguments.of(MetadataOperationType.GET_IMPORTED_KEYS, "DEFERRABILITY"));
-  }
-
-  private static ResultManifest manifestWithColumns(List<ColumnInfo> columns) {
-    return new ResultManifest()
-        .setSchema(new ResultSchema().setColumnCount((long) columns.size()).setColumns(columns));
   }
 
   @Test

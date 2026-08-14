@@ -15,7 +15,6 @@ import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CommandName;
-import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.Nullable;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -23,7 +22,6 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultColumn;
-import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.StatementState;
 import com.google.common.annotations.VisibleForTesting;
@@ -42,17 +40,6 @@ public class MetadataResultSetBuilder {
       new DefaultDatabricksResultSetAdapter();
   private static final IDatabricksResultSetAdapter importedKeysAdapter =
       new ImportedKeysDatabricksResultSetAdapter();
-  // SHOW schemas use disjoint names, so one JDBC-only column distinguishes native results.
-  private static final Map<MetadataOperationType, String> THRIFT_NATIVE_METADATA_SENTINELS =
-      Map.of(
-          MetadataOperationType.GET_CATALOGS, "TABLE_CAT",
-          MetadataOperationType.GET_SCHEMAS, "TABLE_CATALOG",
-          MetadataOperationType.GET_TABLES, "REF_GENERATION",
-          MetadataOperationType.GET_COLUMNS, "ORDINAL_POSITION",
-          MetadataOperationType.GET_FUNCTIONS, "FUNCTION_TYPE",
-          MetadataOperationType.GET_PRIMARY_KEYS, "PK_NAME",
-          MetadataOperationType.GET_IMPORTED_KEYS, "DEFERRABILITY");
-
   // Static data for TYPE_INFO metadata - JDBC type information constants
   private static final Object[][] TYPE_INFO_DATA =
       new Object[][] {
@@ -698,24 +685,6 @@ public class MetadataResultSetBuilder {
         METADATA_STATEMENT_ID,
         resultSet.getMetaData(),
         CommandName.GET_CROSS_REFERENCE);
-  }
-
-  public static boolean hasThriftNativeMetadataSchema(
-      ResultManifest manifest, MetadataOperationType operationType) {
-    String nativeSentinel =
-        operationType == null ? null : THRIFT_NATIVE_METADATA_SENTINELS.get(operationType);
-    if (manifest == null
-        || manifest.getSchema() == null
-        || manifest.getSchema().getColumns() == null
-        || nativeSentinel == null) {
-      return false;
-    }
-
-    return manifest.getSchema().getColumns().stream()
-        .filter(Objects::nonNull)
-        .map(column -> column.getName())
-        .filter(Objects::nonNull)
-        .anyMatch(nativeSentinel::equalsIgnoreCase);
   }
 
   private List<List<Object>> getRowsByIndex(DatabricksResultSet resultSet) throws SQLException {
