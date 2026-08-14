@@ -33,6 +33,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.core.StatementStatus;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.http.Request;
@@ -895,8 +896,11 @@ public class DatabricksSdkClientTest {
             DatabricksSQLException.class,
             () -> databricksSdkClient.createSession(warehouse, null, null, null));
 
-    String errorMessage = exception.getMessage();
-    assertEquals("Error while establishing a connection in databricks", errorMessage);
+    assertEquals(
+        "Error while establishing a connection in databricks: Some other error (HTTP 500)",
+        exception.getMessage());
+    assertEquals(DatabricksDriverErrorCode.CONNECTION_ERROR.name(), exception.getSQLState());
+    assertSame(nonSSLError, exception.getCause());
   }
 
   private static ImmutableSqlParameter getSqlParam(

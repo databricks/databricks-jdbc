@@ -46,7 +46,8 @@ public class ProtocolFeatureUtilTest {
         Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V6),
         Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V7),
         Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V8),
-        Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V9));
+        Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V9),
+        Arguments.of(SPARK_CLI_SERVICE_PROTOCOL_V10));
   }
 
   @ParameterizedTest

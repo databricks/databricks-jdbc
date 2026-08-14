@@ -57,7 +57,17 @@ Released 2026-05-26
 
 Breaking Changes
 
- * Metadata JDBC Spec Compliance (SQL warehouses only; All-Purpose Clusters unaffected):
+ * Update (2026-07-23) - No customer action is required: For Thrift connections
+   to SQL warehouses, Databricks has temporarily restored the previous metadata
+   behavior. The update is applied automatically;
+   customers do not need to change driver versions, connection strings, or
+   application code. Consequently, the metadata behavior changes originally
+   announced below do not currently apply to these connections. SQL Exec API
+   behavior is unchanged, and All-Purpose Clusters were not affected by the
+   original metadata change.
+
+ * Original 3.4.1 metadata JDBC spec-compliance release note (SQL warehouses
+   only; All-Purpose Clusters unaffected):
 
    * getTables/getColumns/getSchemas: Catalog parameter is now an exact-match
      identifier per JDBC spec. Passing % or wildcard patterns as catalog no longer
@@ -76,9 +86,9 @@ Breaking Changes
      of 0 (CASCADE) for Thrift and 3 instead of null for SEA, reflecting that
      Unity Catalog foreign keys are informational and non-enforced.
 
-   * PreparedStatement.setDate() now sends parameter type as DATE instead of
-     TIMESTAMP. Server-side behavior is unchanged; applications that inspect
-     parameter types may see the difference.
+ * PreparedStatement.setDate() now sends parameter type as DATE instead of
+   TIMESTAMP. Server-side behavior is unchanged; applications that inspect
+   parameter types may see the difference.
 
  * Native geospatial type support (GEOMETRY, GEOGRAPHY) is now enabled by default.
    getObject() now returns IGeometry/IGeography instances instead of EWKT strings.
@@ -97,9 +107,10 @@ Enhancements & New Features
    (default 60s). Disabled by default due to cost implications (heartbeats keep
    the warehouse running).
 
- * Metadata operations now use SQL SHOW commands for both Thrift and SEA backends,
-   ensuring consistent behavior for SQL warehouses regardless of protocol.
-   To revert to native Thrift metadata RPCs, set UseQueryForMetadata=0.
+ * Metadata operations support SQL SHOW commands for both Thrift and SEA backends.
+   For Thrift connections to SQL warehouses, the previous native metadata path
+   has been restored automatically through a server-side setting; no customer
+   configuration change is required.
 
  * EnableGeoSpatialSupport no longer requires EnableComplexDatatypeSupport=1.
    Geospatial types can now be enabled independently of complex type support.

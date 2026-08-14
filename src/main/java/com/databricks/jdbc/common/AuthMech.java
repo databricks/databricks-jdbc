@@ -10,15 +10,27 @@ public enum AuthMech {
 
   public static AuthMech parseAuthMech(String authMech) {
     int authMechValue = parseAuthMechValue(authMech);
+    AuthMech mech = fromValue(authMechValue);
+    if (mech == null) {
+      throw new DatabricksDriverException(
+          String.format("Does not support authMech value %s", authMech),
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+    }
+    return mech;
+  }
+
+  /**
+   * Returns the {@link AuthMech} for a numeric value, or {@code null} if unsupported. Single source
+   * of truth for supported AuthMech values.
+   */
+  public static AuthMech fromValue(int authMechValue) {
     switch (authMechValue) {
       case 3:
         return AuthMech.PAT;
       case 11:
         return AuthMech.OAUTH;
       default:
-        throw new DatabricksDriverException(
-            String.format("Does not support authMech value %s", authMech),
-            DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+        return null;
     }
   }
 

@@ -336,6 +336,20 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void parse_rejectsUnsupportedAuthMech_withInputValidationError() {
+    // An unsupported AuthMech must fail fast at connect time with a clean INPUT_VALIDATION_ERROR,
+    // instead of crashing deep inside client-configurator setup with a "Recursive update" /
+    // StackOverflowError.
+    String url =
+        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999;ssl=1;AuthMech=99;"
+            + "httpPath=/sql/1.0/warehouses/999999999";
+    DatabricksSQLException ex =
+        assertThrows(
+            DatabricksSQLException.class, () -> DatabricksConnectionContext.parse(url, properties));
+    assertEquals("INPUT_VALIDATION_ERROR", ex.getSQLState());
+  }
+
+  @Test
   public void testFetchSchemaType() throws DatabricksSQLException {
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)

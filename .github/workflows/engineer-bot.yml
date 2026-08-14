@@ -1,0 +1,363 @@
+# Engineer Bot — author.
+#
+# A maintainer labels an ISSUE with `engineer-bot`; the bot addresses it and opens
+# a PR. The author FLOW is chosen from the issue's TYPE (a GitHub org-level Issue
+# Type): `Bug` ⇒ bug-fix (reproduce with a failing test, then fix); any other type
+# / none ⇒ the repo's .bot/config.yaml `flow:` default (also bug-fix). Only bug-fix
+# is selectable because this repo's .bot/prompts/engineer/ prompts are written
+# exclusively for it. Set the Type BEFORE `engineer-bot` — it's read live when the
+# run starts.
+#
+# The engineer BUILDS and TESTS the driver (Java 21 + Maven, via the repo's own
+# setup-maven composite → JFrog Maven mirror). The bug-fix flow requires a LIVE
+# e2e repro against a warehouse (the credential-gated e2e tier in jdbc-core). NOTE
+# on this repo: `mvn` binds spotless:apply to the compile phase, so any build
+# reformats .java in place — a "Revert spotless churn" step below keeps the tree
+# clean for publish, and the agent formats deliberately via `mvn spotless:apply`.
+#
+# SECURITY: the trigger is a label only maintainers can apply — issue BODIES are
+# untrusted input, so the gate is who-can-label, not the content. The issue body
+# is written to a file and inlined into the agent prompt; it never reaches a shell.
+name: Engineer Bot
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to fix'
+        required: true
+        type: string
+
+permissions:
+  contents: write        # push the fix branch
+  pull-requests: write   # open the fix PR
+  issues: write          # comment back on the tracking issue
+  id-token: write        # JFrog OIDC (Maven mirror) + the engine/SDK/CLI install
+
+jobs:
+  author:
+    # Manual dispatch, OR the `engineer-bot` label was just applied. Applying a
+    # label requires triage+ on the repo, so this is the maintainer-only gate.
+    # The `sender.type != 'Bot'` guard is defense-in-depth: a GitHub App with
+    # `issues: write` could apply the label without a human.
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.label.name == 'engineer-bot'
+          && github.event.sender.type != 'Bot')
+    environment: azure-prod   # DATABRICKS_HOST / DATABRICKS_TOKEN / warehouse secrets live here
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+    # Budget = setup + warmup + author + teardown, and the invariant that keeps
+    # the always()-guarded outcome comment alive is:
+    #     max(setup+warmup) + author_cap + teardown  <=  job_cap
+    # The author cap is STEP-relative (it starts only after setup+warmup), so a
+    # long warmup could otherwise push author_start+45 to the 60-min wall and
+    # leave zero room for teardown — re-introducing the bare "job cancelled, no
+    # issue comment" this PR exists to prevent. We size for headroom instead of
+    # hoping warmup stays short:
+    #     author_cap = 40  (see Run author's timeout-minutes)
+    #     teardown   ~= 2   (publish + Comment outcome; observed <15s)
+    #     => allowed setup+warmup = 60 - 40 - 2 = 18 min
+    # Observed setup+warmup is ~4.5 min (checkout, JDK, build, test-compile of
+    # jdbc-core -am, plugin/surefire resolution, one JUnit-Platform test run,
+    # repo-id normalization), so there is ~13 min of slack before the invariant
+    # is even at risk. With the repo warmed offline the real author work
+    # converges in ~15-20 min; the 40-min cap absorbs a hard bug while still
+    # guaranteeing teardown headroom regardless of warmup variance.
+    timeout-minutes: 60
+    concurrency:
+      # One author run per issue; a re-label while a run is in flight queues.
+      group: engineer-bot-issue-${{ github.event.issue.number || inputs.issue_number }}
+      cancel-in-progress: false
+    steps:
+      # Checkout FIRST (remote action) so the local `./` composites resolve.
+      # publish sets its own authenticated push remote for the fix branch, so
+      # persist-credentials:false is fine.
+      - name: Checkout (default branch)
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # --- Java + Maven toolchain (mirrors prCheck.yml) ------------------------
+      - name: Set up JDK 21
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520  # v5.4.0
+        with:
+          java-version: 21
+          distribution: 'adopt'
+
+      # This job is label-gated and always runs same-repo (never a fork), so the
+      # Maven setup takes the non-fork JFrog-OIDC path. Pin is-fork=false rather
+      # than computing it — a fork can't reach this job.
+      - name: Setup Maven (JFrog mirror via OIDC)
+        uses: ./.github/actions/setup-maven
+        with:
+          is-fork: 'false'
+
+      - name: Build driver (skip tests; warms the Maven repo + compiles jdbc-core)
+        # -Dspotless.check.skip / apply: the build binds spotless:apply to compile,
+        # which we WANT (keeps the agent's later edits formattable), but it also
+        # reformats pre-existing files — reverted below so publish sees only the
+        # agent's diff. dependency-check.skip: the OWASP check needs NVD network +
+        # is slow and not needed for the agent's build.
+        run: mvn -pl jdbc-core -am -B clean install -DskipTests -Ddependency-check.skip=true
+
+      # Warm the TEST-scoped repo while creds are still live. The agent's bug-fix
+      # flow runs `mvn test`, but the build above skips the test phase — so the
+      # test-compile classpath and the Surefire JUnit-Platform provider never land
+      # in ~/.m2. Once creds are scrubbed and Maven goes offline, the agent cannot
+      # fetch them and burns its whole budget fighting "surefire-junit-platform
+      # (absent)" / cache-miss errors (observed: ~25 min wasted, job timed out).
+      # Resolve everything the offline `mvn test` will need, HERE. Mirrors the
+      # dependency-warming in .github/workflows/warmMavenCache.yml.
+      - name: Warm test dependencies for the offline agent
+        run: |
+          set -euo pipefail
+          # Compile the test sources so all test-scoped deps are downloaded.
+          mvn -pl jdbc-core -am -B test-compile -Ddependency-check.skip=true
+          # Pull all plugins referenced by the build into ~/.m2.
+          mvn -pl jdbc-core -B dependency:resolve-plugins -Ddependency-check.skip=true || true
+          # The Surefire JUnit-Platform provider is resolved LAZILY by Surefire
+          # only when it actually executes JUnit-Platform tests — test-compile
+          # never triggers it, so fetch it explicitly at the repo's pinned version.
+          # Fall back to 3.1.2 (matching warmMavenCache.yml) if help:evaluate
+          # can't resolve the expression: under `set -euo pipefail` a failed/empty
+          # command substitution does NOT abort the assignment, so without an
+          # explicit default SUREFIRE_VERSION could go empty, producing a
+          # malformed coordinate that the trailing `|| true` would silently
+          # swallow — re-introducing the exact "surefire-junit-platform (absent)"
+          # dead-end this step exists to prevent.
+          SUREFIRE_VERSION=$(mvn -pl jdbc-core -B help:evaluate \
+            -Dexpression=maven-surefire-plugin.version -q -DforceStdout 2>/dev/null \
+            | tail -n1)
+          [ -n "$SUREFIRE_VERSION" ] || SUREFIRE_VERSION="3.1.2"
+          mvn -B dependency:get \
+            -Dartifact="org.apache.maven.surefire:surefire-junit-platform:${SUREFIRE_VERSION}" || true
+          # Finally, actually EXECUTE one fast unit test while creds are live.
+          # test-compile + the explicit get above resolve the test classpath and
+          # the provider jar, but anything Surefire resolves LAZILY at execution
+          # time (JUnit-Platform engine internals, provider transitives) only
+          # lands in ~/.m2 once a JUnit-Platform run really happens. This is what
+          # warmMavenCache.yml relies on — run the same fast test it uses so the
+          # offline `mvn test` inside Run author can't hit an execution-time
+          # resolution miss. `|| true`: warming the repo is the goal, not the
+          # test verdict (the agent runs its own tests later).
+          mvn -pl jdbc-core -B test \
+            -Dtest="DatabricksParameterMetaDataTest#testInitialization" \
+            -Ddependency-check.skip=true || true
+
+      # Normalize the repo-id tracking markers BEFORE going offline. Artifacts
+      # downloaded through the JFrog mirror record their source repo id
+      # (`jfrog-central`) in each `_remote.repositories`. Under the agent's empty
+      # offline settings that id is absent from the resolution context, so Maven
+      # rejects the cached artifact as "present, but unavailable" and the agent
+      # thrashes on the `trackingFilename` workaround. Rewriting the id to
+      # `central` (the implicit default repo) makes the warmed repo resolve
+      # cleanly offline. Same technique warmMavenCache.yml uses before caching.
+      - name: Normalize _remote.repositories for offline resolution
+        run: |
+          set -euo pipefail
+          COUNT=$(find ~/.m2/repository -name '_remote.repositories' -print | wc -l)
+          find ~/.m2/repository -name '_remote.repositories' \
+            -exec sed -i 's/jfrog-central/central/g' {} \;
+          echo "Normalized ${COUNT} _remote.repositories markers (jfrog-central -> central)"
+
+      # `mvn install` above ran spotless:apply (bound to the compile phase), which
+      # may have reformatted tracked .java files that were already in the tree.
+      # Revert that churn so the agent starts from a clean working tree — publish
+      # stages only the agent's touched_files and refuses if any OTHER path is
+      # dirty (same failure mode poetry-lock churn caused on the sql-python
+      # onboarding). The agent re-applies formatting deliberately to its OWN edits
+      # via `mvn spotless:apply` before finishing.
+      - name: Revert spotless churn (keep only the agent's edits)
+        run: git checkout -- .
+
+      # --- shared bot setup ----------------------------------------------------
+      - name: Bot prelude (tokens + Node + engine install)
+        id: prelude
+        uses: ./.github/actions/bot-prelude
+        with:
+          app-id: ${{ secrets.ENGINEER_BOT_APP_ID }}
+          private-key: ${{ secrets.ENGINEER_BOT_APP_PRIVATE_KEY }}
+
+      # Scope the JFrog Maven credential AWAY from the model-driven steps. The build
+      # above consumed it; the agent's `mvn` runs offline from the warmed ~/.m2 repo.
+      # setup-maven wrote ~/.m2/settings.xml with an embedded JFrog token + exported
+      # JFROG_ACCESS_TOKEN to $GITHUB_ENV — remove both before the agent runs (its
+      # bash allowlist includes `mvn`). Replace settings.xml with an empty offline
+      # config so a cache miss fails loudly instead of reaching JFrog with no creds.
+      # (Applies the reviewer-bot cred-scoping finding from the odbc onboarding PR.)
+      - name: Scrub JFrog credentials before the agent runs
+        run: |
+          echo "JFROG_ACCESS_TOKEN=" >> "$GITHUB_ENV"
+          mkdir -p ~/.m2
+          printf '<settings />\n' > ~/.m2/settings.xml
+          # Force Maven offline for the agent so a dep cache-miss fails loudly
+          # instead of reaching JFrog with the now-empty creds. Set via MAVEN_ARGS
+          # (env), NOT .mvn/maven.config — writing that file into the workspace
+          # would leave an untracked path that publish's clean-tree check rejects.
+          # (Maven <3.9 ignores MAVEN_ARGS; still safe — creds are already gone.)
+          echo "MAVEN_ARGS=-o" >> "$GITHUB_ENV"
+
+      - name: Resolve issue + gather context
+        id: ctx
+        # SECURITY: the issue number is validated as digits-only before use; the
+        # issue body + title are UNTRUSTED. The body goes to a file (never a shell
+        # or env interpolation); the title is exported through $GITHUB_ENV with a
+        # random heredoc delimiter (a title can contain newlines / a chosen
+        # delimiter, which would otherwise inject extra env vars).
+        env:
+          GH_TOKEN: ${{ steps.prelude.outputs.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_ISSUE: ${{ inputs.issue_number }}
+          EVENT_ISSUE: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then RAW="$INPUT_ISSUE"; else RAW="$EVENT_ISSUE"; fi
+          [[ "$RAW" =~ ^[0-9]+$ ]] || { echo "::error::Invalid issue number '$RAW'"; exit 1; }
+          # `gh issue view --json` does NOT expose the issue TYPE field, so fetch
+          # via the REST API (which carries `.type.name`). Issue Types are an
+          # ORG-level feature; a repo without them returns `.type == null`
+          # (⇒ no --flow ⇒ the engine uses the .bot/config.yaml `flow:` default).
+          gh api "repos/$REPO/issues/$RAW" > "$RUNNER_TEMP/issue.json"
+          # The REST issues endpoint resolves PR numbers too; reject them cleanly:
+          # real issues have `.pull_request == null`.
+          [ "$(jq -r '.pull_request // "null"' "$RUNNER_TEMP/issue.json")" = "null" ] \
+            || { echo "::error::#$RAW is a pull request, not an issue"; exit 1; }
+          jq -r '.body // ""' "$RUNNER_TEMP/issue.json" > "$RUNNER_TEMP/issue_body.txt"
+          TITLE="$(jq -r '.title // ""' "$RUNNER_TEMP/issue.json")"
+          URL="$(jq -r '.html_url // ""' "$RUNNER_TEMP/issue.json")"
+          {
+            echo "ISSUE_NUMBER=$RAW"
+            echo "ISSUE_URL=$URL"
+          } >> "$GITHUB_ENV"
+          echo "issue_number=$RAW" >> "$GITHUB_OUTPUT"
+          # Derive the author flow from the issue's TYPE (read LIVE here). Only
+          # `bug-fix` is mapped: this repo's engineer prompts are written for it.
+          TYPE="$(jq -r '.type.name // ""' "$RUNNER_TEMP/issue.json")"
+          case "$TYPE" in
+            Bug) echo "flow=bug-fix" >> "$GITHUB_OUTPUT" ;;
+          esac
+          DELIM="GHEOF_$(date +%s%N)${RANDOM}"
+          if printf '%s' "$TITLE" | grep -qF "$DELIM"; then
+            echo "::error::title delimiter collision — refusing to write \$GITHUB_ENV"; exit 1
+          fi
+          { echo "ISSUE_TITLE<<$DELIM"; printf '%s\n' "$TITLE"; echo "$DELIM"; } >> "$GITHUB_ENV"
+
+      - name: Write E2E token file (survives the agent env scrub)
+        id: e2e_config
+        # The bug-fix flow's REQUIRED live e2e repro authenticates via
+        # IntegrationTestUtil.getDatabricksToken(), which reads DATABRICKS_TOKEN.
+        # But the author agent runs `mvn test` in a subprocess whose env is scrubbed
+        # of every credential-shaped var (engine shared/env_scrub.py strips
+        # *TOKEN*/*SECRET*/…), so DATABRICKS_TOKEN never reaches it — the token then
+        # silently defaults to "token" and every live e2e test fails to authenticate.
+        # Workaround (per the engine README): write the token to a file and pass its
+        # PATH in DATABRICKS_TEST_CONFIG_FILE, a var the scrub preserves;
+        # getDatabricksToken() reads it as a fallback. Written here (an ordinary
+        # step, token in scope). The file holds ONLY the token string.
+        env:
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          CONFIG_PATH="$RUNNER_TEMP/e2e-token"
+          printf '%s' "$DATABRICKS_TOKEN" > "$CONFIG_PATH"
+          chmod 600 "$CONFIG_PATH"
+          echo "path=$CONFIG_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Run author
+        id: author
+        # Bound the model-driven step BELOW the job timeout so a stuck agent is
+        # killed here (this step fails) rather than at the job wall (the whole job
+        # is force-cancelled). Failing the step lets the always()-guarded outcome
+        # comment still run and report a real failure on the issue instead of a
+        # bare "job cancelled". Capped at 40 (not 45) so the guarantee holds even
+        # if warmup runs long: 40 + ~2 teardown leaves 18 min for setup+warmup
+        # under the 60-min job wall, ~4x the observed ~4.5 min. See the job-level
+        # timeout-minutes comment for the full budget arithmetic.
+        timeout-minutes: 40
+        # Run from RUNNER_TEMP so the engine-rendered prompt's context file
+        # (issue_body.txt, resolved against cwd) is read from there and the checkout
+        # stays clean — publish's leftover check fails on any untracked path in the
+        # repo. REPO_ROOT points the agent's working tree (and .bot/ lookup) at the
+        # checkout. --flow only when the ctx step derived one.
+        working-directory: ${{ runner.temp }}
+        env:
+          MODEL_ENDPOINT: https://${{ secrets.DATABRICKS_HOST }}/serving-endpoints/databricks-claude-opus-4-8/invocations
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          # Live-warehouse connection env for the agent's REQUIRED e2e repro
+          # (IntegrationTestUtil reads these). host/http-path/user/catalog/schema are
+          # not credential-shaped so they survive the scrub; the TOKEN can't (it's
+          # stripped) — it rides the token file above instead.
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DATABRICKS_USER: ${{ secrets.DATABRICKS_USER }}
+          DATABRICKS_CATALOG: ${{ secrets.DATABRICKS_CATALOG }}
+          DATABRICKS_SCHEMA: ${{ secrets.DATABRICKS_SCHEMA }}
+          DATABRICKS_TEST_CONFIG_FILE: ${{ steps.e2e_config.outputs.path }}
+          REPO_ROOT: ${{ github.workspace }}
+          RUNNER_TEMP: ${{ runner.temp }}
+          FLOW: ${{ steps.ctx.outputs.flow }}
+        run: |
+          args=(
+            --phase author
+            --system-prompt "$GITHUB_WORKSPACE/.bot/prompts/engineer/system.md"
+            --user-prompt "$GITHUB_WORKSPACE/.bot/prompts/engineer/user.md"
+          )
+          [ -n "$FLOW" ] && args+=(--flow "$FLOW")
+          python -m databricks_bot_engine.engineer_bot.run "${args[@]}"
+
+      - name: Open / update fix PR
+        id: publish
+        if: steps.author.outputs.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.prelude.outputs.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          REPO_ROOT: ${{ github.workspace }}
+          RUNNER_TEMP: ${{ runner.temp }}
+          ENGINEER_BOT_APP_ID: ${{ secrets.ENGINEER_BOT_APP_ID }}
+          TOUCHED_FILES: ${{ steps.author.outputs.touched_files }}
+          TOUCHED_COUNT: ${{ steps.author.outputs.touched_count }}
+          SUMMARY: ${{ steps.author.outputs.summary }}
+          RED_GREEN_TESTS: ${{ steps.author.outputs.red_green_tests }}
+          PLAN: ${{ steps.author.outputs.plan }}
+          OUT_OF_SCOPE: ${{ steps.author.outputs.out_of_scope }}
+          # ISSUE_NUMBER / ISSUE_TITLE / ISSUE_URL come from $GITHUB_ENV.
+        run: |
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          python -m databricks_bot_engine.engineer_bot.publish --repo-dir "$GITHUB_WORKSPACE"
+
+      - name: Comment outcome on issue
+        # Always close the loop on the tracking issue, whatever happened. The
+        # agent SUMMARY / reason is LLM-generated — write it to a file and pass
+        # via --body-file so nothing reaches a shell.
+        if: always() && steps.ctx.outputs.issue_number != ''
+        env:
+          GH_TOKEN: ${{ steps.prelude.outputs.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ steps.ctx.outputs.issue_number }}
+          OUTCOME: ${{ steps.author.outputs.outcome }}
+          # `coverage_pr_url` is the engine publish module's PR-URL output key for
+          # ALL flows (bug-fix included) — the name is legacy.
+          PR_URL: ${{ steps.publish.outputs.coverage_pr_url }}
+          REASON: ${{ steps.author.outputs.reason }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          BODY="$RUNNER_TEMP/issue_comment.md"
+          # $OUTCOME is the engine's emitted outcome; it maps the agent's
+          # `no_change_needed` to `no_change`, so `no_change)` is the correct arm.
+          case "$OUTCOME" in
+            success)
+              if [ -n "$PR_URL" ]; then
+                printf '🤖 engineer-bot opened a fix PR: %s\n\nReview before merge.\n' "$PR_URL" > "$BODY"
+              else
+                printf '🤖 engineer-bot produced a fix but could **not** open the PR (push or PR creation failed). See the [workflow run](%s) for details.\n' "$RUN_URL" > "$BODY"
+              fi ;;
+            no_change)
+              { printf '🤖 engineer-bot looked into this but made **no change** — the behaviour appears already correct.\n\n'; printf '> %s\n' "$REASON"; } > "$BODY" ;;
+            *)
+              { printf '🤖 engineer-bot could **not** complete an automated fix. See the [workflow run](%s) for details.\n' "$RUN_URL"; } > "$BODY" ;;
+          esac
+          gh issue comment "$ISSUE" --repo "$REPO" --body-file "$BODY"

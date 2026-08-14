@@ -37,6 +37,17 @@
 
 #### Metadata JDBC Spec Compliance
 
+**Update (2026-07-23): No customer action is required.** For Thrift connections
+to SQL warehouses, Databricks has temporarily restored the previous metadata
+behavior. The update is applied automatically;
+customers do not need to change driver versions, connection strings, or
+application code. Consequently, the metadata behavior changes originally
+announced below do not currently apply to these connections. SQL Exec API
+behavior is unchanged, and All-Purpose Clusters were not affected by the
+original metadata change.
+
+**Original 3.4.1 release note:**
+
 This release unifies metadata behavior across Thrift and SQL Exec API backends
 using SQL SHOW commands for all metadata operations on SQL warehouses. Several
 non-spec-compliant behaviors have been corrected. Review the changes below before
@@ -60,6 +71,8 @@ upgrading. These changes do not affect metadata on All-Purpose Clusters.
 * **`getImportedKeys` `UPDATE_RULE`/`DELETE_RULE`: Now returns `3` (`NO_ACTION`)
   instead of `0` (`CASCADE`) for Thrift, and `3` instead of `null` for SEA.**
   This reflects that Unity Catalog foreign keys are informational and non-enforced.
+
+#### Prepared Statement Date Parameters
 
 * **`PreparedStatement.setDate()` now sends parameter type as `DATE` instead of
   `TIMESTAMP`.** Previously, `setDate()` incorrectly serialized the parameter

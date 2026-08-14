@@ -5,7 +5,7 @@
     "url" : "/sql/1.0/warehouses/6e681b20741e4674",
     "method" : "POST",
     "bodyPatterns" : [ {
-      "binaryEqualTo" : "gAEAAQAAAAtPcGVuU2Vzc2lvbgAAAAEMAAEIAAH////5DQAECwsAAAAACgUCAAAAAAAApQkMBQQLAAIAAAAHZGVmYXVsdAACBQUAAAA="
+      "binaryEqualTo" : "gAEAAQAAAAtPcGVuU2Vzc2lvbgAAAAEMAAEIAAH////5DQAECwsAAAAACgUCAAAAAAAApQoMBQQLAAIAAAAHZGVmYXVsdAACBQUAAAA="
     } ]
   },
   "response" : {

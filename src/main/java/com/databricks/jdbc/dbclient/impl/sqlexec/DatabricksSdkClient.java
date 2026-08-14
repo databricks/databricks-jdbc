@@ -841,7 +841,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
       return buildSSLCertificatePathErrorMessage(e);
     }
 
-    return "Error while establishing a connection in databricks";
+    String detail = e.getMessage();
+    if (detail == null || detail.isEmpty()) {
+      return "Error while establishing a connection in databricks";
+    }
+    String message = "Error while establishing a connection in databricks: " + detail;
+    int status = e.getStatusCode();
+    return status > 0 ? message + " (HTTP " + status + ")" : message;
   }
 
   /** Builds the SSL certificate path error message with actionable steps. */
