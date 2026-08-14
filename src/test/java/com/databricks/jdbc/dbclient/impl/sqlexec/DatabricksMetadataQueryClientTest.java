@@ -1390,7 +1390,6 @@ public class DatabricksMetadataQueryClientTest {
 
   @Test
   void testListCatalogsWithMultipleCatalogSupportDisabled() throws SQLException {
-    when(session.getComputeResource()).thenReturn(mockedComputeResource);
     when(session.getCurrentCatalog()).thenReturn("my_catalog");
     IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
     when(mockContext.getEnableMultipleCatalogSupport()).thenReturn(false);
@@ -1398,30 +1397,15 @@ public class DatabricksMetadataQueryClientTest {
 
     DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
 
-    String expectedSQL = "SELECT 'my_catalog' AS catalog";
-    when(mockClient.executeStatement(
-            eq(expectedSQL),
-            eq(mockedComputeResource),
-            any(),
-            eq(StatementType.METADATA),
-            eq(session),
-            any(),
-            eq(MetadataOperationType.GET_CATALOGS)))
-        .thenReturn(mockedCatalogResultSet);
-
-    when(mockedCatalogResultSet.next()).thenReturn(true, false);
-    when(mockedCatalogResultSet.getObject("catalog")).thenReturn("my_catalog");
-    doReturn(1).when(mockedMetaData).getColumnCount();
-    doReturn("catalog").when(mockedMetaData).getColumnName(1);
-    doReturn(255).when(mockedMetaData).getPrecision(1);
-    doReturn(0).when(mockedMetaData).getScale(1);
-    when(mockedCatalogResultSet.getMetaData()).thenReturn(mockedMetaData);
-
     DatabricksResultSet actualResult = metadataClient.listCatalogs(session);
 
     assertEquals(StatementState.SUCCEEDED, actualResult.getStatementStatus().getState());
     assertEquals(GET_CATALOGS_STATEMENT_ID, actualResult.getStatementId());
     assertEquals(1, ((DatabricksResultSetMetaData) actualResult.getMetaData()).getTotalRows());
+    assertTrue(actualResult.next());
+    assertEquals("my_catalog", actualResult.getString("TABLE_CAT"));
+    verify(mockClient, never())
+        .executeStatement(anyString(), any(), any(), any(), any(), any(), any());
   }
 
   @Test

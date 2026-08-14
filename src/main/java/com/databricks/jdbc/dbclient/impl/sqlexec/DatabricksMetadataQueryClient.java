@@ -69,10 +69,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
             "Current catalog is null or empty when multiple catalog support is disabled. Using default catalog: {}",
             currentCatalog);
       }
-      String SQL = String.format("SELECT '%s' AS catalog", currentCatalog);
-      LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
-      return metadataResultSetBuilder.getCatalogsResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_CATALOGS), currentCatalog);
+      return metadataResultSetBuilder.getCatalogsResult(List.of(List.of(currentCatalog)));
     }
 
     CommandBuilder commandBuilder = new CommandBuilder(session);

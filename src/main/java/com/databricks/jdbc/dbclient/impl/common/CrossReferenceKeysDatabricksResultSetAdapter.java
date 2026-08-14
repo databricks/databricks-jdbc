@@ -35,28 +35,23 @@ public class CrossReferenceKeysDatabricksResultSetAdapter
    */
   @Override
   public boolean includeRow(ResultSet resultSet, List<ResultColumn> columns) throws SQLException {
-    // check if the row's parent catalog, schema, and table name matches the expected values
     final ResultColumn parentCatalogNameColumn = mapColumn(PKTABLE_CAT);
     final ResultColumn parentNamespaceColumn = mapColumn(PKTABLE_SCHEM);
     final ResultColumn parentTableNameColumn = mapColumn(PKTABLE_NAME);
 
-    boolean isParentCatalogMatching =
-        resultSet
-            .getString(parentCatalogNameColumn.getResultSetColumnName())
-            .equalsIgnoreCase(targetParentCatalogName);
-    boolean isParentNamespaceMatching =
-        resultSet
-            .getString(parentNamespaceColumn.getResultSetColumnName())
-            .equalsIgnoreCase(targetParentNamespaceName);
-    boolean isParentTableMatching =
-        resultSet
-            .getString(parentTableNameColumn.getResultSetColumnName())
-            .equalsIgnoreCase(targetParentTableName);
-
-    if (!isParentTableMatching || !isParentCatalogMatching || !isParentNamespaceMatching) {
+    if (!matchesParent(
+        resultSet.getString(parentCatalogNameColumn.getResultSetColumnName()),
+        resultSet.getString(parentNamespaceColumn.getResultSetColumnName()),
+        resultSet.getString(parentTableNameColumn.getResultSetColumnName()))) {
       return false;
     }
 
     return super.includeRow(resultSet, columns);
+  }
+
+  boolean matchesParent(String catalog, String schema, String table) {
+    return targetParentCatalogName.equalsIgnoreCase(catalog)
+        && targetParentNamespaceName.equalsIgnoreCase(schema)
+        && targetParentTableName.equalsIgnoreCase(table);
   }
 }

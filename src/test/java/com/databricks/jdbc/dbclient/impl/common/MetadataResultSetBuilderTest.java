@@ -267,24 +267,6 @@ public class MetadataResultSetBuilderTest {
   }
 
   @Test
-  void testThriftNativeCatalogsStillApplyCurrentCatalogFilter() throws SQLException {
-    DatabricksResultSet nativeResultSet = mock(DatabricksResultSet.class);
-    ResultSetMetaData metadata = mock(ResultSetMetaData.class);
-    when(nativeResultSet.isThriftNativeMetadataResult()).thenReturn(true);
-    when(nativeResultSet.getMetaData()).thenReturn(metadata);
-    when(metadata.getColumnCount()).thenReturn(CATALOG_COLUMNS.size());
-    when(nativeResultSet.next()).thenReturn(true, true, false);
-    when(nativeResultSet.getObject(1)).thenReturn("current-catalog", "other-catalog");
-
-    DatabricksResultSet result =
-        metadataResultSetBuilder.getCatalogsResult(nativeResultSet, "CURRENT-CATALOG");
-
-    assertTrue(result.next());
-    assertEquals("current-catalog", result.getString("TABLE_CAT"));
-    assertFalse(result.next());
-  }
-
-  @Test
   void testThriftNativeCrossReferenceStillFiltersParentTable() throws SQLException {
     List<Object> matchingRow = new ArrayList<>();
     for (int columnIndex = 1; columnIndex <= CROSS_REFERENCE_COLUMNS.size(); columnIndex++) {

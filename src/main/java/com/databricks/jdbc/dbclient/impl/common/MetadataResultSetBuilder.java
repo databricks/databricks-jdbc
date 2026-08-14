@@ -566,21 +566,8 @@ public class MetadataResultSetBuilder {
   }
 
   public DatabricksResultSet getCatalogsResult(DatabricksResultSet resultSet) throws SQLException {
-    return getCatalogsResult(resultSet, null);
-  }
-
-  public DatabricksResultSet getCatalogsResult(DatabricksResultSet resultSet, String catalog)
-      throws SQLException {
     if (resultSet.isThriftNativeMetadataResult()) {
-      List<List<Object>> rows = getRowsByIndex(resultSet);
-      if (catalog != null) {
-        rows.removeIf(
-            row ->
-                row.isEmpty()
-                    || !(row.get(0) instanceof String)
-                    || !catalog.equalsIgnoreCase((String) row.get(0)));
-      }
-      return getCatalogsResult(rows);
+      return getCatalogsResult(getRowsByIndex(resultSet));
     }
     List<List<Object>> rows = getRows(resultSet, CATALOG_COLUMNS, defaultAdapter);
     return buildResultSet(
@@ -682,6 +669,9 @@ public class MetadataResultSetBuilder {
       String targetParentNamespaceName,
       String targetParentTableName)
       throws SQLException {
+    final CrossReferenceKeysDatabricksResultSetAdapter crossReferenceKeysResultSetAdapter =
+        new CrossReferenceKeysDatabricksResultSetAdapter(
+            targetParentCatalogName, targetParentNamespaceName, targetParentTableName);
     if (resultSet.isThriftNativeMetadataResult()) {
       List<List<Object>> rows = getRowsByIndex(resultSet);
       int parentCatalogIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_CAT);
@@ -689,15 +679,12 @@ public class MetadataResultSetBuilder {
       int parentTableIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_NAME);
       rows.removeIf(
           row ->
-              !targetParentCatalogName.equalsIgnoreCase((String) row.get(parentCatalogIndex))
-                  || !targetParentNamespaceName.equalsIgnoreCase(
-                      (String) row.get(parentSchemaIndex))
-                  || !targetParentTableName.equalsIgnoreCase((String) row.get(parentTableIndex)));
+              !crossReferenceKeysResultSetAdapter.matchesParent(
+                  (String) row.get(parentCatalogIndex),
+                  (String) row.get(parentSchemaIndex),
+                  (String) row.get(parentTableIndex)));
       return getCrossRefsResult(rows);
     }
-    final CrossReferenceKeysDatabricksResultSetAdapter crossReferenceKeysResultSetAdapter =
-        new CrossReferenceKeysDatabricksResultSetAdapter(
-            targetParentCatalogName, targetParentNamespaceName, targetParentTableName);
     List<List<Object>> rows =
         getRows(resultSet, CROSS_REFERENCE_COLUMNS, crossReferenceKeysResultSetAdapter);
 
