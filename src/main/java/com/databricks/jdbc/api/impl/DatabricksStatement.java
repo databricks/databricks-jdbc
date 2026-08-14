@@ -44,6 +44,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   protected final DatabricksConnection connection;
   DatabricksResultSet resultSet;
   private volatile StatementId statementId; // volatile: cancel() reads from a different thread
+  private boolean trackSessionVersion;
   private boolean isClosed;
   private boolean closeOnCompletion;
   private SQLWarning warnings = null;
@@ -69,6 +70,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     this.connection = connection;
     this.resultSet = null;
     this.statementId = null;
+    this.trackSessionVersion = true;
     this.isClosed = false;
     this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
     this.databricksBatchExecutor =
@@ -79,6 +81,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       throws DatabricksValidationException {
     this.connection = connection;
     this.statementId = statementId;
+    this.trackSessionVersion = false;
     this.resultSet = null;
     this.isClosed = false;
     this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
@@ -646,6 +649,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   public void setStatementId(StatementId statementId) {
     LOGGER.debug("void setStatementId(Statement statementId = {})", statementId);
     this.statementId = statementId;
+    this.trackSessionVersion = true;
   }
 
   @Override
@@ -656,6 +660,11 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @Override
   public Statement getStatement() {
     return this;
+  }
+
+  @Override
+  public boolean shouldTrackSessionVersion() {
+    return trackSessionVersion;
   }
 
   @Override

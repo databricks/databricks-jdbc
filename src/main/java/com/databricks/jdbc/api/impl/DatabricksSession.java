@@ -21,6 +21,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
@@ -29,6 +30,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
@@ -43,6 +45,7 @@ public class DatabricksSession implements IDatabricksSession {
   private final IDatabricksComputeResource computeResource;
   private boolean isSessionOpen;
   private ImmutableSessionInfo sessionInfo;
+  private final AtomicReference<Long> sessionVersion = new AtomicReference<>();
 
   /** For context based commands */
   private String catalog;
@@ -109,6 +112,37 @@ public class DatabricksSession implements IDatabricksSession {
   public ImmutableSessionInfo getSessionInfo() {
     LOGGER.debug("public String getSessionInfo()");
     return sessionInfo;
+  }
+
+  @Nullable
+  @Override
+  public SessionVersion getSessionVersion() {
+    Long versionId = sessionVersion.get();
+    return versionId == null ? null : new SessionVersion().setVersionId(versionId);
+  }
+
+  @Override
+  public void updateSessionVersion(
+      @Nullable String expectedSessionId, @Nullable SessionVersion newSessionVersion) {
+    if (expectedSessionId == null
+        || newSessionVersion == null
+        || newSessionVersion.getVersionId() == null) {
+      return;
+    }
+    synchronized (this) {
+      if (!isSessionOpen
+          || sessionInfo == null
+          || !expectedSessionId.equals(sessionInfo.sessionId())) {
+        return;
+      }
+      Long newVersionId = newSessionVersion.getVersionId();
+      sessionVersion.accumulateAndGet(
+          newVersionId,
+          (currentVersion, candidateVersion) ->
+              currentVersion == null || candidateVersion > currentVersion
+                  ? candidateVersion
+                  : currentVersion);
+    }
   }
 
   @Override
@@ -217,6 +251,7 @@ public class DatabricksSession implements IDatabricksSession {
             throw e;
           }
         }
+        this.sessionVersion.set(sessionInfo == null ? null : sessionInfo.sessionVersion());
         this.isSessionOpen = true;
       }
     }
@@ -240,6 +275,7 @@ public class DatabricksSession implements IDatabricksSession {
         } finally {
           // Always clean up local state
           this.sessionInfo = null;
+          this.sessionVersion.set(null);
           this.isSessionOpen = false;
         }
       }
@@ -406,6 +442,7 @@ public class DatabricksSession implements IDatabricksSession {
     } catch (SQLException e) {
       LOGGER.error("Error closing session resources, but marking the session as closed.");
     } finally {
+      this.sessionVersion.set(null);
       this.isSessionOpen = false;
     }
   }

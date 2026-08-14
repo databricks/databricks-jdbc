@@ -23,6 +23,10 @@ public interface IDatabricksStatementInternal {
 
   Statement getStatement();
 
+  default boolean shouldTrackSessionVersion() {
+    return true;
+  }
+
   void allowInputStreamForVolumeOperation(boolean allowedInputStream) throws DatabricksSQLException;
 
   boolean isAllowedInputStreamForVolumeOperation() throws DatabricksSQLException;

@@ -429,6 +429,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       // connection is GC'd without close(), heartbeat RPCs will fail and self-stop after
       // maxConsecutiveFailures (10 ticks, ~10 min at 60s interval). Acceptable tradeoff.
       final IDatabricksClient client = conn.getSession().getDatabricksClient();
+      final IDatabricksSession capturedSession =
+          parentStatement.shouldTrackSessionVersion() ? conn.getSession() : null;
       final StatementId capturedStatementId = this.statementId;
       final int maxConsecutiveFailures = 10;
       final java.util.concurrent.atomic.AtomicInteger consecutiveFailures =
@@ -449,7 +451,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               return; // client/session may be closed, skip RPC
             }
             try {
-              boolean alive = client.checkStatementAlive(capturedStatementId);
+              boolean alive = client.checkStatementAlive(capturedStatementId, capturedSession);
               consecutiveFailures.set(0); // reset on success
               if (!alive) {
                 LOGGER.info(

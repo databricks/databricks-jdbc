@@ -12,7 +12,7 @@
   },
   "response" : {
     "status" : 200,
-    "body" : "{\"session_id\":\"01f10c31-8295-10e4-aa24-339a140c858e\"}",
+    "body" : "{\"session_id\":\"01f10c31-8295-10e4-aa24-339a140c858e\",\"session_version\":{\"version_id\":1}}",
     "headers" : {
       "x-request-id" : "6006ed02-e5fb-4f07-a26c-dbec97c0156b",
       "date" : "Tue, 17 Feb 2026 18:50:20 GMT",

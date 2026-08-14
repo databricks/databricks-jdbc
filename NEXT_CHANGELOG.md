@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Added FAST explicit-session mode and session-version exchange for SQL Exec API connections.
 
 ### Updated
 - `DatabaseMetaData.getColumns(...)` with a `null` catalog now issues a single `SHOW COLUMNS IN ALL CATALOGS` statement (consistent with `getSchemas`/`getTables`) instead of enumerating every catalog and issuing a per-catalog `SHOW COLUMNS`. Older DBR versions that do not support the syntax transparently fall back to the previous enumerate-and-fan-out behavior.
