@@ -7,6 +7,14 @@
 # (`ai/learning-pr`), appending a dated section per day until a human merges it.
 # Human-gated by design: it NEVER commits the canonical log directly.
 #
+# That stable branch is DERIVED from .bot/config.yaml `retrospective.branch_prefix`
+# (`ai/learning-pr-`, trailing separator): the engine's `stable_branch()` strips
+# the trailing `-/ ` so the prefix collapses to the single date-less branch
+# `ai/learning-pr`. It is intentionally date-LESS — at most one open learning PR
+# ever exists; there is no per-run suffix and no branch-per-run churn. The config
+# keeps the `-` suffix to match the reference (sql-python); the two are NOT in
+# conflict — prefix in config, derived branch here.
+#
 # Own job (NOT `uses: databricks/databricks-bot-engine/...`): an external repo
 # can't resolve the internal engine's reusable workflows ("not found"). It shares
 # the SAME prelude the other bots use — ./.github/actions/bot-prelude (tokens +
