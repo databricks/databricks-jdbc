@@ -144,8 +144,10 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     if (tableTypes != null && tableTypes.length == 0) {
       return metadataResultSetBuilder.getTablesResult(catalog, tableTypes, new ArrayList<>());
     }
+    // Keep the caller inputs before adapting them for SHOW SQL. The result-set builder cannot
+    // recover them after catalog auto-fill or default type expansion, but native post-processing
+    // needs the original values to preserve Thrift semantics.
     String[] validatedTableTypes = tableTypes != null ? tableTypes : DEFAULT_TABLE_TYPES;
-    // Preserve null so native post-processing does not add an exact catalog filter.
     String requestedCatalog = catalog;
 
     // Only fetch currentCatalog if multiple catalog support is disabled
@@ -241,6 +243,8 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       String schemaNamePattern,
       String functionNamePattern)
       throws SQLException {
+    // catalog may be filled below to build SHOW SQL. Native post-processing needs the original
+    // value for FUNCTION_CAT, which the result-set builder cannot recover afterward.
     String requestedCatalog = catalog;
 
     // Only fetch currentCatalog if multiple catalog support is disabled
