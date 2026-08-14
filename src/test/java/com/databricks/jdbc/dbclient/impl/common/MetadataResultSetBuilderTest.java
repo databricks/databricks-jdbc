@@ -49,10 +49,6 @@ public class MetadataResultSetBuilderTest {
         resultSet -> metadataResultSetBuilder.getFunctionsResult(resultSet, "catalog"),
         FUNCTION_COLUMNS);
     assertThriftNativeMetadataResultIsRebuilt(
-        metadataResultSetBuilder::getProceduresResult, PROCEDURES_COLUMNS);
-    assertThriftNativeMetadataResultIsRebuilt(
-        metadataResultSetBuilder::getProcedureColumnsResult, PROCEDURE_COLUMNS_COLUMNS);
-    assertThriftNativeMetadataResultIsRebuilt(
         metadataResultSetBuilder::getCatalogsResult, CATALOG_COLUMNS);
     assertThriftNativeMetadataResultIsRebuilt(
         resultSet -> metadataResultSetBuilder.getSchemasResult(resultSet, "catalog"),
@@ -63,8 +59,6 @@ public class MetadataResultSetBuilderTest {
         TABLE_COLUMNS);
     assertThriftNativeMetadataResultIsRebuilt(
         metadataResultSetBuilder::getPrimaryKeysResult, PRIMARY_KEYS_COLUMNS);
-    assertThriftNativeMetadataResultIsRebuilt(
-        metadataResultSetBuilder::getImportedKeysResult, IMPORTED_KEYS_COLUMNS);
   }
 
   @Test
@@ -267,40 +261,6 @@ public class MetadataResultSetBuilderTest {
         metadataResultSetBuilder.getTablesResult(
             nativeResultSet, "COMPARATOR-TESTS", new String[] {"TABLE"});
 
-    assertFalse(result.next());
-  }
-
-  @Test
-  void testThriftNativeCrossReferenceStillFiltersParentTable() throws SQLException {
-    List<Object> matchingRow = new ArrayList<>();
-    for (int columnIndex = 1; columnIndex <= CROSS_REFERENCE_COLUMNS.size(); columnIndex++) {
-      matchingRow.add(metadataValue(CROSS_REFERENCE_COLUMNS.get(columnIndex - 1), columnIndex));
-    }
-    matchingRow.set(0, "parent-catalog");
-    matchingRow.set(1, "parent-schema");
-    matchingRow.set(2, "parent-table");
-    List<Object> nonMatchingRow = new ArrayList<>(matchingRow);
-    nonMatchingRow.set(2, "other-parent-table");
-
-    DatabricksResultSet nativeResultSet = mock(DatabricksResultSet.class);
-    ResultSetMetaData metadata = mock(ResultSetMetaData.class);
-    when(nativeResultSet.isThriftNativeMetadataResult()).thenReturn(true);
-    when(nativeResultSet.getMetaData()).thenReturn(metadata);
-    when(metadata.getColumnCount()).thenReturn(CROSS_REFERENCE_COLUMNS.size());
-    when(nativeResultSet.next()).thenReturn(true, true, false);
-    for (int columnIndex = 1; columnIndex <= CROSS_REFERENCE_COLUMNS.size(); columnIndex++) {
-      when(nativeResultSet.getObject(columnIndex))
-          .thenReturn(matchingRow.get(columnIndex - 1), nonMatchingRow.get(columnIndex - 1));
-    }
-
-    DatabricksResultSet result =
-        metadataResultSetBuilder.getCrossReferenceKeysResult(
-            nativeResultSet, "PARENT-CATALOG", "PARENT-SCHEMA", "PARENT-TABLE");
-
-    assertTrue(result.next());
-    assertEquals("parent-catalog", result.getString("PKTABLE_CAT"));
-    assertEquals("parent-schema", result.getString("PKTABLE_SCHEM"));
-    assertEquals("parent-table", result.getString("PKTABLE_NAME"));
     assertFalse(result.next());
   }
 

@@ -71,7 +71,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       }
       String SQL = String.format("SELECT '%s' AS catalog", currentCatalog);
       LOGGER.debug("SQL command to fetch catalogs: {}", SQL);
-      // Native GetCatalogs returns all catalogs, so keep this synthetic query on the SQL path.
+      // Do not request native GetCatalogs: this query intentionally returns only currentCatalog.
       return metadataResultSetBuilder.getCatalogsResult(getResultSet(SQL, session, null));
     }
 
@@ -385,7 +385,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     String SQL = commandBuilder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
     try {
       return metadataResultSetBuilder.getImportedKeysResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_IMPORTED_KEYS));
+          getResultSet(SQL, session, MetadataOperationType.GET_CROSS_REFERENCE));
     } catch (SQLException e) {
       if (PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState()) || isObjectNotFoundException(e)) {
         LOGGER.debug(

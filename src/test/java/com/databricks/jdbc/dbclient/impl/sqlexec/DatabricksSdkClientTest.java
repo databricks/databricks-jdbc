@@ -1350,12 +1350,9 @@ public class DatabricksSdkClientTest {
             eq(ExecuteStatementResponse.class));
   }
 
-  @ParameterizedTest
-  @EnumSource(
-      value = MetadataOperationType.class,
-      names = {"GET_TABLES", "GET_CROSS_REFERENCE"})
-  public void testRequireThriftNativeMetadataHeaderIsAddedForOtherMetadataOperations(
-      MetadataOperationType operationType) throws Exception {
+  @Test
+  public void testRequireThriftNativeMetadataHeaderIsAddedForOtherMetadataOperations()
+      throws Exception {
     setupClientMocks(true, false);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(
@@ -1367,13 +1364,13 @@ public class DatabricksSdkClientTest {
     connection.open();
 
     databricksSdkClient.executeStatement(
-        "metadata query",
+        "SHOW TABLES",
         warehouse,
         new HashMap<>(),
         StatementType.METADATA,
         connection.getSession(),
         new DatabricksStatement(connection),
-        operationType);
+        MetadataOperationType.GET_TABLES);
 
     verify(apiClient, atLeastOnce())
         .execute(
@@ -1381,9 +1378,7 @@ public class DatabricksSdkClientTest {
                 req -> {
                   Map<String, String> headers = req.getHeaders();
                   return headers != null
-                      && operationType
-                          .getHeaderValue()
-                          .equals(headers.get("X-Databricks-Metadata-Operation-Type"))
+                      && "GetTables".equals(headers.get("X-Databricks-Metadata-Operation-Type"))
                       && "true".equals(headers.get("X-Databricks-Require-Thrift-Native-Metadata"));
                 }),
             eq(ExecuteStatementResponse.class));
@@ -1392,7 +1387,7 @@ public class DatabricksSdkClientTest {
   @ParameterizedTest
   @EnumSource(
       value = MetadataOperationType.class,
-      names = {"GET_PROCEDURES", "GET_PROCEDURE_COLUMNS"})
+      names = {"GET_CROSS_REFERENCE", "GET_PROCEDURES", "GET_PROCEDURE_COLUMNS"})
   public void testUnsupportedOperationDoesNotRequestThriftNativeMetadata(
       MetadataOperationType operationType) throws Exception {
     setupClientMocks(true, false);

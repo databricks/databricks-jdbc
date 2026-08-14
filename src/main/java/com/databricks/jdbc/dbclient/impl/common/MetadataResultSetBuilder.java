@@ -40,6 +40,7 @@ public class MetadataResultSetBuilder {
       new DefaultDatabricksResultSetAdapter();
   private static final IDatabricksResultSetAdapter importedKeysAdapter =
       new ImportedKeysDatabricksResultSetAdapter();
+
   // Static data for TYPE_INFO metadata - JDBC type information constants
   private static final Object[][] TYPE_INFO_DATA =
       new Object[][] {
@@ -515,9 +516,6 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getProceduresResult(DatabricksResultSet resultSet)
       throws SQLException {
-    if (resultSet.isThriftNativeMetadataResult()) {
-      return getProceduresResult(getRowsByIndex(resultSet));
-    }
     List<List<Object>> rows = getRowsForProcedures(resultSet);
     return buildResultSet(
         PROCEDURES_COLUMNS,
@@ -537,9 +535,6 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getProcedureColumnsResult(DatabricksResultSet resultSet)
       throws SQLException {
-    if (resultSet.isThriftNativeMetadataResult()) {
-      return getProcedureColumnsResult(getRowsByIndex(resultSet));
-    }
     List<List<Object>> rows = getRowsForProcedureColumns(resultSet);
     return buildResultSet(
         PROCEDURE_COLUMNS_COLUMNS,
@@ -612,10 +607,10 @@ public class MetadataResultSetBuilder {
 
     // Sort in order TABLE_TYPE, TABLE_CAT, TABLE_SCHEM, TABLE_NAME (matching Thrift mode)
     rows.sort(
-        Comparator.comparing((List<Object> r) -> (String) r.get(3))
-            .thenComparing(r -> (String) r.get(0))
-            .thenComparing(r -> (String) r.get(1))
-            .thenComparing(r -> (String) r.get(2)));
+        Comparator.comparing((List<Object> r) -> (String) r.get(3)) // TABLE_TYPE
+            .thenComparing(r -> (String) r.get(0)) // TABLE_CAT
+            .thenComparing(r -> (String) r.get(1)) // TABLE_SCHEM
+            .thenComparing(r -> (String) r.get(2))); // TABLE_NAME
 
     return buildResultSet(
         TABLE_COLUMNS,
@@ -656,9 +651,6 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getImportedKeysResult(DatabricksResultSet resultSet)
       throws SQLException {
-    if (resultSet.isThriftNativeMetadataResult()) {
-      return getImportedKeys(getRowsByIndex(resultSet));
-    }
     List<List<Object>> rows = getRows(resultSet, IMPORTED_KEYS_COLUMNS, importedKeysAdapter);
     return buildResultSet(
         IMPORTED_KEYS_COLUMNS,
@@ -674,19 +666,6 @@ public class MetadataResultSetBuilder {
       String targetParentNamespaceName,
       String targetParentTableName)
       throws SQLException {
-    if (resultSet.isThriftNativeMetadataResult()) {
-      List<List<Object>> rows = getRowsByIndex(resultSet);
-      int parentCatalogIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_CAT);
-      int parentSchemaIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_SCHEM);
-      int parentTableIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_NAME);
-      rows.removeIf(
-          row ->
-              !((String) row.get(parentCatalogIndex)).equalsIgnoreCase(targetParentCatalogName)
-                  || !((String) row.get(parentSchemaIndex))
-                      .equalsIgnoreCase(targetParentNamespaceName)
-                  || !((String) row.get(parentTableIndex)).equalsIgnoreCase(targetParentTableName));
-      return getCrossRefsResult(rows);
-    }
     final CrossReferenceKeysDatabricksResultSetAdapter crossReferenceKeysResultSetAdapter =
         new CrossReferenceKeysDatabricksResultSetAdapter(
             targetParentCatalogName, targetParentNamespaceName, targetParentTableName);
@@ -701,8 +680,11 @@ public class MetadataResultSetBuilder {
         CommandName.GET_CROSS_REFERENCE);
   }
 
+  /**
+   * Copies a SEA result set backed by Thrift-native metadata into rows. Native metadata already
+   * uses JDBC column order, so it does not need SHOW-specific column mappings.
+   */
   private List<List<Object>> getRowsByIndex(DatabricksResultSet resultSet) throws SQLException {
-    // Native metadata already uses JDBC column order; avoid SHOW-specific column mappings.
     List<List<Object>> rows = new ArrayList<>();
     int columnCount = resultSet.getMetaData().getColumnCount();
     while (resultSet.next()) {

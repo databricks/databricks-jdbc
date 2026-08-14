@@ -705,7 +705,7 @@ public class DatabricksMetadataQueryClientTest {
             eq(StatementType.METADATA),
             eq(session),
             any(),
-            eq(MetadataOperationType.GET_IMPORTED_KEYS)))
+            eq(MetadataOperationType.GET_CROSS_REFERENCE)))
         .thenReturn(mockedResultSet);
     when(mockedResultSet.next()).thenReturn(true, false);
     for (ResultColumn resultColumn : IMPORTED_KEYS_COLUMNS) {
@@ -752,7 +752,7 @@ public class DatabricksMetadataQueryClientTest {
             eq(StatementType.METADATA),
             eq(session),
             any(),
-            eq(MetadataOperationType.GET_IMPORTED_KEYS)))
+            eq(MetadataOperationType.GET_CROSS_REFERENCE)))
         .thenThrow(exception);
     try (DatabricksResultSet actualResult =
         metadataClient.listImportedKeys(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE)) {
@@ -1347,7 +1347,7 @@ public class DatabricksMetadataQueryClientTest {
             eq(StatementType.METADATA),
             eq(session),
             any(),
-            eq(MetadataOperationType.GET_IMPORTED_KEYS)))
+            eq(MetadataOperationType.GET_CROSS_REFERENCE)))
         .thenThrow(exception);
 
     // This should throw the original exception, not NPE
