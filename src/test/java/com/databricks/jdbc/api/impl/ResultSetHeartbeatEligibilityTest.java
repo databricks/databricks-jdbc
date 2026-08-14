@@ -3,10 +3,15 @@ package com.databricks.jdbc.api.impl;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.sdk.service.sql.StatementState;
+import java.sql.Statement;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -172,5 +177,55 @@ public class ResultSetHeartbeatEligibilityTest {
             true);
     assertFalse(
         rs.isHeartbeatEligible(), "Async RUNNING — user controls polling via getExecutionResult");
+  }
+
+  @Test
+  void testHeartbeatForwardsStatementOwnership() throws Exception {
+    assertHeartbeatForwardsStatementOwnership("session-id");
+    assertHeartbeatForwardsStatementOwnership(null);
+  }
+
+  private void assertHeartbeatForwardsStatementOwnership(String originatingSessionId)
+      throws Exception {
+    StatementId statementId = new StatementId("test-stmt");
+    IDatabricksStatementInternal parentStatement = mock(IDatabricksStatementInternal.class);
+    Statement jdbcStatement = mock(Statement.class);
+    DatabricksConnection connection = mock(DatabricksConnection.class);
+    ResultHeartbeatManager heartbeatManager = mock(ResultHeartbeatManager.class);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    IDatabricksClient client = mock(IDatabricksClient.class);
+
+    when(parentStatement.getStatement()).thenReturn(jdbcStatement);
+    when(parentStatement.getOriginatingSessionId()).thenReturn(originatingSessionId);
+    when(jdbcStatement.getConnection()).thenReturn(connection);
+    when(connection.getHeartbeatManager()).thenReturn(heartbeatManager);
+    when(connection.getSession()).thenReturn(session);
+    when(session.getDatabricksClient()).thenReturn(client);
+    when(heartbeatManager.getStoppedFlag(statementId)).thenReturn(new AtomicBoolean(false));
+    when(client.checkStatementAlive(statementId, session, originatingSessionId)).thenReturn(true);
+    doAnswer(
+            invocation -> {
+              invocation.<Runnable>getArgument(1).run();
+              return null;
+            })
+        .when(heartbeatManager)
+        .startHeartbeat(eq(statementId), any(Runnable.class));
+
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            statementId,
+            StatementType.QUERY,
+            parentStatement,
+            mock(IExecutionResult.class),
+            null,
+            false);
+    setField(resultSet, "resultSetType", DatabricksResultSet.ResultSetType.THRIFT_INLINE);
+    java.lang.reflect.Method startHeartbeat =
+        DatabricksResultSet.class.getDeclaredMethod("startHeartbeatIfEnabled");
+    startHeartbeat.setAccessible(true);
+    startHeartbeat.invoke(resultSet);
+
+    verify(client).checkStatementAlive(statementId, session, originatingSessionId);
   }
 }

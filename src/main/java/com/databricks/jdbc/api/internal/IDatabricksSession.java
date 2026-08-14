@@ -26,10 +26,12 @@ public interface IDatabricksSession {
   ImmutableSessionInfo getSessionInfo();
 
   @Nullable
-  SessionVersion getSessionVersion();
+  default SessionVersion getSessionVersion() {
+    return null;
+  }
 
-  void updateSessionVersion(
-      @Nullable String expectedSessionId, @Nullable SessionVersion sessionVersion);
+  default void updateSessionVersion(
+      @Nullable String expectedSessionId, @Nullable SessionVersion sessionVersion) {}
 
   /**
    * Get the warehouse associated with the session.

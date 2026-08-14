@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.Statement;
+import javax.annotation.Nullable;
 import org.apache.http.entity.InputStreamEntity;
 
 /** Extended callback handle for java.sql.Statement interface */
@@ -19,12 +20,17 @@ public interface IDatabricksStatementInternal {
 
   void setStatementId(StatementId statementId);
 
+  default void setStatementId(StatementId statementId, @Nullable String originatingSessionId) {
+    setStatementId(statementId);
+  }
+
   StatementId getStatementId();
 
   Statement getStatement();
 
-  default boolean shouldTrackSessionVersion() {
-    return true;
+  @Nullable
+  default String getOriginatingSessionId() {
+    return null;
   }
 
   void allowInputStreamForVolumeOperation(boolean allowedInputStream) throws DatabricksSQLException;

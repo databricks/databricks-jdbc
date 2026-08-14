@@ -16,6 +16,7 @@ import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimed;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.sql.SQLException;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Interface for Databricks client which abstracts the integration with Databricks server. */
 public interface IDatabricksClient {
@@ -120,7 +121,8 @@ public interface IDatabricksClient {
     throw new java.sql.SQLFeatureNotSupportedException("Heartbeat not supported by this client");
   }
 
-  default boolean checkStatementAlive(StatementId statementId, IDatabricksSession session)
+  default boolean checkStatementAlive(
+      StatementId statementId, IDatabricksSession session, @Nullable String originatingSessionId)
       throws SQLException {
     return checkStatementAlive(statementId);
   }

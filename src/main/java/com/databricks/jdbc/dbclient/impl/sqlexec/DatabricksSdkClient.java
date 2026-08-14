@@ -57,6 +57,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLHandshakeException;
 import org.apache.http.HttpStatus;
 
@@ -262,7 +263,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     StatementId typedStatementId = new StatementId(statementId);
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     if (parentStatement != null) {
-      parentStatement.setStatementId(typedStatementId);
+      parentStatement.setStatementId(typedStatementId, requestSessionId);
     }
 
     int timeoutInSeconds;
@@ -284,6 +285,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         TimeoutHandler.forStatement(timeoutInSeconds, typedStatementId, this, timeoutErrorCode);
 
     StatementState responseState = response.getStatus().getState();
+    GetStatementRequest getStatementRequest = new GetStatementRequest().setStatementId(statementId);
     while (responseState == StatementState.PENDING || responseState == StatementState.RUNNING) {
       // Check for timeout
       timeoutHandler.checkTimeout();
@@ -302,7 +304,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
       }
       String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);
       try {
-        Request req = new Request(Request.GET, getStatusPath, apiClient.serialize(request));
+        Request req =
+            new Request(Request.GET, getStatusPath, apiClient.serialize(getStatementRequest));
         req.withHeaders(getHeaders("getStatement"));
         response = wrapGetStatementResponse(apiClient.execute(req, GetStatementResponse.class));
         updateSessionVersion(session, requestSessionId, response.getStatus());
@@ -418,7 +421,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     StatementId typedStatementId = new StatementId(statementId);
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     if (parentStatement != null) {
-      parentStatement.setStatementId(typedStatementId);
+      parentStatement.setStatementId(typedStatementId, requestSessionId);
     }
     LOGGER.debug("Executed sql [{}] with status [{}]", sql, response.getStatus().getState());
 
@@ -437,21 +440,23 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   @Override
   public boolean checkStatementAlive(StatementId typedStatementId) throws SQLException {
-    return checkStatementAlive(typedStatementId, null);
+    return checkStatementAlive(typedStatementId, null, null);
   }
 
   @Override
-  public boolean checkStatementAlive(StatementId typedStatementId, IDatabricksSession session)
+  public boolean checkStatementAlive(
+      StatementId typedStatementId,
+      @Nullable IDatabricksSession session,
+      @Nullable String originatingSessionId)
       throws SQLException {
     String statementId = typedStatementId.toSQLExecStatementId();
-    String requestSessionId = session == null ? null : session.getSessionId();
     // Use lightweight /status endpoint (~100 bytes) instead of full GetStatement (~21KB)
     String statusPath = String.format(STATEMENT_STATUS_PATH_WITH_ID, statementId);
     try {
       Request req = new Request(Request.GET, statusPath, (String) null);
       req.withHeaders(getHeaders("getStatementStatus"));
       StatementStatus status = apiClient.execute(req, StatementStatus.class);
-      updateSessionVersion(session, requestSessionId, status);
+      updateSessionVersion(session, originatingSessionId, status);
       StatementState state = status.getState();
       // Terminal states mean the operation is no longer alive
       return state != StatementState.CANCELED
@@ -483,9 +488,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Request req = new Request(Request.GET, getStatusPath, apiClient.serialize(request));
       req.withHeaders(getHeaders("getStatement"));
       response = apiClient.execute(req, GetStatementResponse.class);
-      if (parentStatement == null || parentStatement.shouldTrackSessionVersion()) {
-        updateSessionVersion(session, requestSessionId, response.getStatus());
-      }
+      String originatingSessionId =
+          parentStatement == null ? null : parentStatement.getOriginatingSessionId();
+      updateSessionVersion(session, originatingSessionId, response.getStatus());
     } catch (IOException e) {
       String errorMessage = "Error while processing the get statement result request";
       LOGGER.error(errorMessage, e);

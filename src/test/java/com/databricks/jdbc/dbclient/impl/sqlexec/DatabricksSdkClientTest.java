@@ -286,6 +286,7 @@ public class DatabricksSdkClientTest {
             statement,
             null);
     assertEquals(STATEMENT_ID, statement.getStatementId());
+    assertEquals(SESSION_ID, statement.getOriginatingSessionId());
     assertNotNull(resultSet.getMetaData());
     assertEquals(
         UPDATED_SESSION_VERSION, connection.getSession().getSessionVersion().getVersionId());
@@ -372,6 +373,7 @@ public class DatabricksSdkClientTest {
         databricksSdkClient.executeStatementAsync(
             STATEMENT, warehouse, sqlParams, connection.getSession(), statement);
     assertEquals(STATEMENT_ID, statement.getStatementId());
+    assertEquals(SESSION_ID, statement.getOriginatingSessionId());
     assertNull(resultSet.getMetaData());
     assertEquals(
         UPDATED_SESSION_VERSION, connection.getSession().getSessionVersion().getVersionId());
@@ -537,7 +539,101 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testGetStatementResultUpdatesSessionVersion() throws Exception {
+  public void testGetStatementResultUpdatesSessionVersionForMatchingSession() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(createSessionResponse());
+    connection.open();
+
+    GetStatementResponse response =
+        new GetStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(
+                new StatementStatus()
+                    .setState(StatementState.SUCCEEDED)
+                    .setSessionVersion(sessionVersion(UPDATED_SESSION_VERSION)));
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(response);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setStatementId(STATEMENT_ID, SESSION_ID);
+
+    databricksSdkClient.getStatementResult(STATEMENT_ID, connection.getSession(), statement);
+
+    assertEquals(
+        UPDATED_SESSION_VERSION, connection.getSession().getSessionVersion().getVersionId());
+  }
+
+  @Test
+  public void testGetStatementResultDoesNotUpdateSessionVersionForDifferentSession()
+      throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(createSessionResponse());
+    connection.open();
+
+    GetStatementResponse response =
+        new GetStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(
+                new StatementStatus()
+                    .setState(StatementState.SUCCEEDED)
+                    .setSessionVersion(sessionVersion(UPDATED_SESSION_VERSION)));
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(response);
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setStatementId(STATEMENT_ID, "different_session_id");
+
+    databricksSdkClient.getStatementResult(STATEMENT_ID, connection.getSession(), statement);
+
+    assertEquals(
+        INITIAL_SESSION_VERSION, connection.getSession().getSessionVersion().getVersionId());
+  }
+
+  @Test
+  public void testGetStatementResultDoesNotUpdateSessionVersionForReattachedStatement()
+      throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(createSessionResponse());
+    connection.open();
+
+    GetStatementResponse response =
+        new GetStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(
+                new StatementStatus()
+                    .setState(StatementState.SUCCEEDED)
+                    .setSessionVersion(sessionVersion(UPDATED_SESSION_VERSION)));
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(response);
+    DatabricksStatement reattachedStatement =
+        (DatabricksStatement) connection.getStatement(STATEMENT_ID.toString());
+
+    databricksSdkClient.getStatementResult(
+        STATEMENT_ID, connection.getSession(), reattachedStatement);
+
+    assertEquals(
+        INITIAL_SESSION_VERSION, connection.getSession().getSessionVersion().getVersionId());
+  }
+
+  @Test
+  public void testGetStatementResultDoesNotUpdateSessionVersionWithoutStatementOwnership()
+      throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
@@ -559,38 +655,6 @@ public class DatabricksSdkClientTest {
         .thenReturn(response);
 
     databricksSdkClient.getStatementResult(STATEMENT_ID, connection.getSession(), null);
-
-    assertEquals(
-        UPDATED_SESSION_VERSION, connection.getSession().getSessionVersion().getVersionId());
-  }
-
-  @Test
-  public void testGetStatementResultDoesNotUpdateSessionVersionForDetachedStatement()
-      throws Exception {
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient databricksSdkClient =
-        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
-    DatabricksConnection connection =
-        new DatabricksConnection(connectionContext, databricksSdkClient);
-    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
-        .thenReturn(createSessionResponse());
-    connection.open();
-
-    GetStatementResponse response =
-        new GetStatementResponse()
-            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
-            .setStatus(
-                new StatementStatus()
-                    .setState(StatementState.SUCCEEDED)
-                    .setSessionVersion(sessionVersion(UPDATED_SESSION_VERSION)));
-    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
-        .thenReturn(response);
-    DatabricksStatement detachedStatement =
-        (DatabricksStatement) connection.getStatement(STATEMENT_ID.toString());
-
-    databricksSdkClient.getStatementResult(
-        STATEMENT_ID, connection.getSession(), detachedStatement);
 
     assertEquals(
         INITIAL_SESSION_VERSION, connection.getSession().getSessionVersion().getVersionId());
@@ -703,6 +767,13 @@ public class DatabricksSdkClientTest {
         .thenReturn(runningStatementResponse)
         .thenReturn(runningStatementResponse)
         .thenReturn(successStatementResponse);
+    String getStatementBody =
+        String.format("{\"statement_id\":\"%s\"}", STATEMENT_ID.toSQLExecStatementId());
+    doAnswer(
+            invocation ->
+                invocation.getArgument(0) instanceof GetStatementRequest ? getStatementBody : null)
+        .when(apiClient)
+        .serialize(any());
 
     assertDoesNotThrow(
         () ->
@@ -716,6 +787,13 @@ public class DatabricksSdkClientTest {
                 null));
     assertEquals(
         UPDATED_SESSION_VERSION, connection.getSession().getSessionVersion().getVersionId());
+
+    ArgumentCaptor<Request> pollRequestCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient, times(3))
+        .execute(pollRequestCaptor.capture(), eq(GetStatementResponse.class));
+    assertTrue(
+        pollRequestCaptor.getAllValues().stream()
+            .allMatch(request -> getStatementBody.equals(request.getBodyString())));
 
     // Verify no cancellation occurred due to timeout
     verify(apiClient, atLeastOnce())
@@ -1542,15 +1620,16 @@ public class DatabricksSdkClientTest {
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     DatabricksSession session = mock(DatabricksSession.class);
-    when(session.getSessionId()).thenReturn(SESSION_ID);
     SessionVersion updatedVersion = sessionVersion(UPDATED_SESSION_VERSION);
     StatementStatus status =
         new StatementStatus().setState(StatementState.SUCCEEDED).setSessionVersion(updatedVersion);
     when(apiClient.execute(any(Request.class), eq(StatementStatus.class))).thenReturn(status);
 
-    assertTrue(databricksSdkClient.checkStatementAlive(STATEMENT_ID, session));
+    String originatingSessionId = "originating_session_id";
+    assertTrue(
+        databricksSdkClient.checkStatementAlive(STATEMENT_ID, session, originatingSessionId));
 
-    verify(session).updateSessionVersion(SESSION_ID, updatedVersion);
+    verify(session).updateSessionVersion(originatingSessionId, updatedVersion);
   }
 
   @Test
