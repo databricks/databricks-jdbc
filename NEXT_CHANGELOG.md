@@ -25,6 +25,7 @@
   instead of leaking a `NullPointerException` when required connection parameters are missing.
 
 - Fixed connections failing when the same parameter is provided in both the JDBC URL and the connection properties, with the JDBC URL taking precedence.
+- Fixed long-running queries on the Thrift client path (`UseThriftClient=1`) intermittently failing with `Query has been timed out due to inactivity` under sustained concurrency. A transient transport-level failure (stale pooled connection, connection reset, load-balancer idle drop) on a `GetOperationStatus` poll previously abandoned the still-running server operation after a single blip, and the same failure class on `CloseOperation`/`CancelOperation` could leak completed operations until the server reaped them. These idempotent RPCs now transparently reconnect and retry on a fresh connection with bounded, jittered exponential backoff before surfacing the error. Statement submission is deliberately excluded from the retry path to avoid double-execution. The SEA client path is unchanged.
 - Fixed `IdleConnectionEvictor` thread leak in long-running applications. Driver-side resources (HTTP client, background threads) are now always released when `Connection.close()` is called, even if statement cleanup or server-side session termination fails.
 
 - Throw `DatabricksSQLException` instead of an unchecked `ClassCastException` when a complex-type getter (`getArray`, `getStruct`, `getMap`) is called on a column of a different complex type.
