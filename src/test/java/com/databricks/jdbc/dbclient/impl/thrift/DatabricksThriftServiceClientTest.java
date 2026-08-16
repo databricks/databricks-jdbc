@@ -13,7 +13,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -594,18 +593,34 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testListTablesWithEmptyTypesReturnsEmptyWithoutServerCall() throws SQLException {
-    // Per JDBC spec: empty types array means "no types selected" → return no rows.
-    // The driver must short-circuit and NOT send the Thrift request to the server.
+  void testListTablesWithEmptyTypesMatchesAll() throws SQLException {
+    // Per the JDBC DatabaseMetaData.getTables contract, an empty types array carries no type
+    // constraint and must match ALL table types, identical to passing null. The driver must
+    // therefore query the server (with no table-type filter set on the request), not short-circuit.
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    client.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V1);
+
+    TFetchResultsResp response =
+        new TFetchResultsResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setResults(resultData)
+            .setResultSetMetadata(resultMetadataData);
+    TColumn tColumn = new TColumn();
+    tColumn.setStringVal(new TStringColumn().setValues(Collections.singletonList("")));
+    when(resultData.getColumns()).thenReturn(List.of(tColumn, tColumn, tColumn, tColumn));
+    when(thriftAccessor.getThriftResponse(any())).thenReturn(response);
 
     DatabricksResultSet resultSet =
         client.listTables(session, TEST_CATALOG, TEST_SCHEMA, TEST_TABLE, new String[0]);
 
     assertEquals(StatementState.SUCCEEDED, resultSet.getStatementStatus().getState());
-    assertFalse(resultSet.next(), "Empty types array must yield zero rows");
-    verify(thriftAccessor, never()).getThriftResponse(any());
+    ArgumentCaptor<TGetTablesReq> captor = ArgumentCaptor.forClass(TGetTablesReq.class);
+    verify(thriftAccessor).getThriftResponse(captor.capture());
+    assertFalse(
+        captor.getValue().isSetTableTypes(),
+        "Empty types array must not set a table-type filter on the request (match-all)");
   }
 
   @Test
