@@ -1,7 +1,3 @@
 # Require review for changes to GitHub Actions workflows and CI configuration
 .github/workflows/ @databricks/eng-oss-sql-driver
 .github/CODEOWNERS @databricks/eng-oss-sql-driver 
-
-# Telemetry error-code changes require driver-owner review because they also need
-# classification in the maintainers' dashboard and automation taxonomy.
-src/main/java/com/databricks/jdbc/model/telemetry/enums/DatabricksDriverErrorCode.java @databricks/eng-oss-sql-driver
