@@ -3,12 +3,18 @@ name: Enforce Release Freeze
 on:
   pull_request:
     branches: [main]
+  merge_group: # Register this required check for the merge queue; the job itself skips in the queue (see job-level if:)
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   freeze-check:
+    # PR-semantic gate (reads github.event.pull_request.*), already enforced at PR time.
+    # Skip in the merge queue, where no pull_request payload exists; a skipped required
+    # check counts as a pass under branch protection, so the queue is not blocked.
+    if: github.event_name != 'merge_group'
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
