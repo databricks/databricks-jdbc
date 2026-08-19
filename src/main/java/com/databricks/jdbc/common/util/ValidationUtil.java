@@ -11,6 +11,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -20,6 +21,8 @@ import org.apache.http.util.EntityUtils;
 public class ValidationUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ValidationUtil.class);
+  private static final List<DatabricksJdbcUrlParams>
+      UNCONDITIONALLY_REQUIRED_CONNECTION_PARAMETERS = List.of(DatabricksJdbcUrlParams.HTTP_PATH);
 
   public static <T extends Number> void checkIfNonNegative(T number, String fieldName)
       throws DatabricksValidationException {
@@ -148,6 +151,10 @@ public class ValidationUtil {
    * @return true if the URL is valid, false otherwise
    */
   public static boolean isValidJdbcUrl(String url) {
+    if (url == null) {
+      return false;
+    }
+
     final List<Pattern> PATH_PATTERNS =
         List.of(
             HTTP_CLUSTER_PATH_PATTERN,
@@ -176,9 +183,38 @@ public class ValidationUtil {
    */
   public static void validateInputProperties(Map<String, String> parameters)
       throws DatabricksValidationException {
+    validateRequiredConnectionParameters(parameters);
     // Fail fast on an unsupported AuthMech before the client-configurator machinery runs.
     validateAuthMech(parameters);
     validateUidParameter(parameters);
+  }
+
+  /**
+   * Validates parameters that must be present in every connection configuration. URL parameters and
+   * {@link java.util.Properties} are merged before this method is called, so required values may be
+   * supplied through either mechanism.
+   *
+   * @param parameters merged JDBC connection parameters
+   * @throws DatabricksValidationException if any required parameter is missing or blank
+   */
+  private static void validateRequiredConnectionParameters(Map<String, String> parameters)
+      throws DatabricksValidationException {
+    List<String> missingParameters = new ArrayList<>();
+    for (DatabricksJdbcUrlParams requiredParameter :
+        UNCONDITIONALLY_REQUIRED_CONNECTION_PARAMETERS) {
+      String parameterName = requiredParameter.getParamName().toLowerCase();
+      String value = parameters.get(parameterName);
+      if (value == null || value.isBlank()) {
+        missingParameters.add(parameterName);
+      }
+    }
+    if (!missingParameters.isEmpty()) {
+      String parameterLabel = missingParameters.size() == 1 ? "parameter" : "parameters";
+      throw new DatabricksValidationException(
+          String.format(
+              "Missing required connection %s: %s",
+              parameterLabel, String.join(", ", missingParameters)));
+    }
   }
 
   /**
