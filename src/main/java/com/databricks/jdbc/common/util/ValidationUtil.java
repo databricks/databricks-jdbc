@@ -11,7 +11,6 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -21,9 +20,6 @@ import org.apache.http.util.EntityUtils;
 public class ValidationUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ValidationUtil.class);
-  private static final List<DatabricksJdbcUrlParams>
-      UNCONDITIONALLY_REQUIRED_CONNECTION_PARAMETERS = List.of(DatabricksJdbcUrlParams.HTTP_PATH);
-
   public static <T extends Number> void checkIfNonNegative(T number, String fieldName)
       throws DatabricksValidationException {
     if (number.longValue() < 0) {
@@ -199,21 +195,11 @@ public class ValidationUtil {
    */
   private static void validateRequiredConnectionParameters(Map<String, String> parameters)
       throws DatabricksValidationException {
-    List<String> missingParameters = new ArrayList<>();
-    for (DatabricksJdbcUrlParams requiredParameter :
-        UNCONDITIONALLY_REQUIRED_CONNECTION_PARAMETERS) {
-      String parameterName = requiredParameter.getParamName().toLowerCase();
-      String value = parameters.get(parameterName);
-      if (value == null || value.isBlank()) {
-        missingParameters.add(parameterName);
-      }
-    }
-    if (!missingParameters.isEmpty()) {
-      String parameterLabel = missingParameters.size() == 1 ? "parameter" : "parameters";
+    String parameterName = DatabricksJdbcUrlParams.HTTP_PATH.getParamName().toLowerCase();
+    String httpPath = parameters.get(parameterName);
+    if (httpPath == null || httpPath.isBlank()) {
       throw new DatabricksValidationException(
-          String.format(
-              "Missing required connection %s: %s",
-              parameterLabel, String.join(", ", missingParameters)));
+          "Missing required connection parameter: " + parameterName);
     }
   }
 
