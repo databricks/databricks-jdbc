@@ -20,6 +20,7 @@ import org.apache.http.util.EntityUtils;
 public class ValidationUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ValidationUtil.class);
+
   public static <T extends Number> void checkIfNonNegative(T number, String fieldName)
       throws DatabricksValidationException {
     if (number.longValue() < 0) {
