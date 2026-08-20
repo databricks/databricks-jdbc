@@ -23,3 +23,7 @@ retrospective flow.
   **Rule:** For a required status check to stay valid under a GitHub merge queue, register the workflow on the `merge_group` event; PR-semantic jobs that read `github.event.pull_request.*` should self-skip in the queue with `if: github.event_name != 'merge_group'` — a skipped required check counts as a pass under branch protection, so the queue is not blocked while the gate stays enforced at PR time.
 - **Context:** In PR #1582 the engineer-bot re-posted the same "NEEDS HUMAN DECISION / blocked" verdict on successive replies of one review thread because the reviewer's finding required editing `.github/workflows/*.yml`, a non-writable path in this environment.
   **Rule:** When a review finding targets a path the environment cannot write (e.g. `.github/workflows/*`), state once that it is agreed-but-not-actionable-here and stop; do not re-analyze or re-post a blocked verdict on each subsequent thread reply.
+
+### 2026-08-20: learnings since 2026-08-19T17:33:03Z
+- **Context:** PR #1629 added telemetry error-classification guardrails to CLAUDE.md and the PR template, covering any error emitted by the JDBC driver.
+  **Rule:** When adding or changing a driver-emitted error, use `DatabricksDriverErrorCode` (reuse a matching code or add a uniquely-numbered enum value), add a test asserting the emitted error name and numeric code, and record its driver/server/user classification in the maintainers' telemetry taxonomy — never infer the classification from the error name alone.
