@@ -114,7 +114,9 @@ public class JulLogger implements JdbcLogger {
 
   /**
    * Initializes the logger with the specified configuration. This method is synchronized to prevent
-   * concurrent modifications to the logger configuration.
+   * concurrent modifications to the logger configuration. A Level.OFF request suppresses JUL output
+   * without installing a handler, allowing a later enabled request to initialize the shared logger.
+   * Once an enabled handler is installed, subsequent requests do not reconfigure it.
    *
    * @param level the log level
    * @param logDir the directory for log files or {@code STDOUT} for console output
@@ -124,35 +126,41 @@ public class JulLogger implements JdbcLogger {
    */
   public static synchronized void initLogger(
       Level level, String logDir, int logFileSizeBytes, int logFileCount) throws IOException {
-    if (!isLoggerInitialized) {
-      isLoggerInitialized = true;
-
-      // java.util.logging uses hierarchical loggers, so we just need to set the log level on the
-      // parent package logger. Using "com.databricks" as the prefix captures all JDBC driver
-      // classes as well as shaded dependencies (SDK, Apache HTTP client, etc.)
-      Logger jdbcJulLogger = Logger.getLogger(PARENT_CLASS_PREFIX);
-      jdbcJulLogger.setLevel(level);
-      jdbcJulLogger.setUseParentHandlers(false);
-
-      String logPattern = getLogPattern(logDir);
-      Handler handler;
-      if (logPattern.equalsIgnoreCase(STDOUT)) {
-        handler =
-            new StreamHandler(System.out, new Slf4jFormatter()) {
-              @Override
-              public void publish(LogRecord record) {
-                super.publish(record);
-                // prompt flushing; full send >>> 🚀
-                flush();
-              }
-            };
-      } else {
-        handler = new FileHandler(logPattern, logFileSizeBytes, logFileCount, true);
-      }
-      handler.setLevel(level);
-      handler.setFormatter(new Slf4jFormatter());
-      jdbcJulLogger.addHandler(handler);
+    if (isLoggerInitialized) {
+      return;
     }
+
+    // java.util.logging uses hierarchical loggers, so we just need to set the log level on the
+    // parent package logger. Using "com.databricks" as the prefix captures all JDBC driver
+    // classes as well as shaded dependencies (SDK, Apache HTTP client, etc.)
+    Logger jdbcJulLogger = Logger.getLogger(PARENT_CLASS_PREFIX);
+    jdbcJulLogger.setUseParentHandlers(false);
+
+    if (level == Level.OFF) {
+      jdbcJulLogger.setLevel(Level.OFF);
+      return;
+    }
+
+    String logPattern = getLogPattern(logDir);
+    Handler handler;
+    if (logPattern.equalsIgnoreCase(STDOUT)) {
+      handler =
+          new StreamHandler(System.out, new Slf4jFormatter()) {
+            @Override
+            public void publish(LogRecord record) {
+              super.publish(record);
+              // prompt flushing; full send >>> 🚀
+              flush();
+            }
+          };
+    } else {
+      handler = new FileHandler(logPattern, logFileSizeBytes, logFileCount, true);
+    }
+    handler.setLevel(level);
+    handler.setFormatter(new Slf4jFormatter());
+    jdbcJulLogger.addHandler(handler);
+    jdbcJulLogger.setLevel(level);
+    isLoggerInitialized = true;
   }
 
   private void log(Level level, String message, Throwable throwable) {
