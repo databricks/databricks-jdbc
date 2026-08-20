@@ -133,12 +133,13 @@ public class ValidationUtil {
 
   public static void checkHTTPError(HttpResponse response)
       throws DatabricksHttpException, IOException {
+    int statusCode = response.getStatusLine().getStatusCode();
     String errorReason = checkHTTPErrorWithoutThrowingError(response);
     if (errorReason.equals(EMPTY_STRING)) {
       return;
     }
     LOGGER.error(errorReason);
-    throw new DatabricksHttpException(errorReason, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
+    throw new DatabricksHttpException(errorReason, statusCode, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
   /**

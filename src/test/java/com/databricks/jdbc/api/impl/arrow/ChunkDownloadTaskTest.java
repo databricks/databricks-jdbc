@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ExternalLink;
@@ -206,6 +207,68 @@ public class ChunkDownloadTaskTest {
 
     // Verify initializeData was called once (on successful download)
     verify(spiedChunk, times(1)).initializeData(any(InputStream.class));
+  }
+
+  @Test
+  void testRetryOnTransient500HttpError() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(false);
+    when(chunk.getChunkIndex()).thenReturn(3L);
+    when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+
+    DatabricksHttpException http500 =
+        new DatabricksHttpException("HTTP request failed by code: 500", 500, "08000");
+
+    // Fail with a 500 on the first attempt, then succeed
+    doThrow(http500).doNothing().when(chunk).downloadData(httpClient, CompressionCodec.NONE, 0.1);
+
+    chunkDownloadTask.call();
+
+    verify(chunk, times(2)).downloadData(httpClient, CompressionCodec.NONE, 0.1);
+    verify(chunk, times(1)).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    assertTrue(downloadFuture.isDone());
+    assertDoesNotThrow(() -> downloadFuture.get());
+  }
+
+  @Test
+  void testFailFastOnPermanent404HttpError() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(false);
+    when(chunk.getChunkIndex()).thenReturn(4L);
+    when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+
+    DatabricksHttpException http404 =
+        new DatabricksHttpException("HTTP request failed by code: 404", 404, "08000");
+
+    doThrow(http404).when(chunk).downloadData(httpClient, CompressionCodec.NONE, 0.1);
+
+    DatabricksSQLException thrown =
+        assertThrows(DatabricksSQLException.class, () -> chunkDownloadTask.call());
+    assertTrue(thrown.getMessage().contains("404"), "Error message should contain HTTP status 404");
+    // Single download attempt — permanent failures are not retried
+    verify(chunk, times(1)).downloadData(httpClient, CompressionCodec.NONE, 0.1);
+    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+  }
+
+  @Test
+  void testRetryOn403LinkExpiredError() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(false);
+    when(chunk.getChunkIndex()).thenReturn(5L);
+    when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+
+    DatabricksHttpException http403 =
+        new DatabricksHttpException("HTTP request failed by code: 403", 403, "08000");
+
+    // 403 is retryable (pre-signed URL may have expired); succeed on second attempt
+    doThrow(http403).doNothing().when(chunk).downloadData(httpClient, CompressionCodec.NONE, 0.1);
+
+    chunkDownloadTask.call();
+
+    verify(chunk, times(2)).downloadData(httpClient, CompressionCodec.NONE, 0.1);
+    verify(chunk, times(1)).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    assertTrue(downloadFuture.isDone());
+    assertDoesNotThrow(() -> downloadFuture.get());
   }
 
   private BaseChunkInfo createMockBaseChunkInfo(long chunkIndex, long rowCount, long rowOffset) {
