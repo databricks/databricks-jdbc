@@ -3,8 +3,6 @@ package com.databricks.jdbc.api.impl.arrow;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
-import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpRetryHandler;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -25,6 +23,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
   private final IDatabricksConnectionContext connectionContext;
   private final String statementId;
   private final ChunkLinkDownloadService<ArrowResultChunk> linkDownloadService;
+  private final ChunkRetryPolicy retryPolicy;
   Throwable uncaughtException = null;
 
   ChunkDownloadTask(
@@ -32,12 +31,22 @@ class ChunkDownloadTask implements DatabricksCallableTask {
       IDatabricksHttpClient httpClient,
       ChunkDownloadManager chunkDownloader,
       ChunkLinkDownloadService<ArrowResultChunk> linkDownloadService) {
+    this(chunk, httpClient, chunkDownloader, linkDownloadService, new ChunkRetryPolicy());
+  }
+
+  ChunkDownloadTask(
+      ArrowResultChunk chunk,
+      IDatabricksHttpClient httpClient,
+      ChunkDownloadManager chunkDownloader,
+      ChunkLinkDownloadService<ArrowResultChunk> linkDownloadService,
+      ChunkRetryPolicy retryPolicy) {
     this.chunk = chunk;
     this.httpClient = httpClient;
     this.chunkDownloader = chunkDownloader;
     this.connectionContext = DatabricksThreadContextHolder.getConnectionContext();
     this.statementId = DatabricksThreadContextHolder.getStatementId();
     this.linkDownloadService = linkDownloadService;
+    this.retryPolicy = retryPolicy;
   }
 
   @Override
@@ -82,50 +91,30 @@ class ChunkDownloadTask implements DatabricksCallableTask {
               taskTotalMs,
               retries);
         } catch (IOException | DatabricksSQLException e) {
-          int httpStatus = extractHttpStatus(e);
           retries++;
           if (retries >= MAX_RETRIES) {
             LOGGER.error(
                 e,
-                "Failed to download chunk after %d attempts. Chunk index: %d, HTTP status: %d, Error: %s",
+                "Failed to download chunk after %d attempts. Chunk index: %d, Error: %s",
                 MAX_RETRIES,
                 chunk.getChunkIndex(),
-                httpStatus,
                 e.getMessage());
             chunk.setStatus(ChunkStatus.DOWNLOAD_FAILED);
             throw new DatabricksSQLException(
-                String.format(
-                    "Failed to download chunk after multiple attempts (HTTP status: %d)",
-                    httpStatus),
-                e,
-                statementId,
-                chunk.getChunkIndex(),
-                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name());
-          } else if (isPermanentHttpFailure(httpStatus)) {
-            LOGGER.error(
-                e,
-                "Permanent HTTP %d error for chunk index: %d, will not retry. Error: %s",
-                httpStatus,
-                chunk.getChunkIndex(),
-                e.getMessage());
-            chunk.setStatus(ChunkStatus.DOWNLOAD_FAILED);
-            throw new DatabricksSQLException(
-                String.format(
-                    "Permanent HTTP %d error downloading chunk %d",
-                    httpStatus, chunk.getChunkIndex()),
+                "Failed to download chunk after multiple attempts",
                 e,
                 statementId,
                 chunk.getChunkIndex(),
                 DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name());
           } else {
-            long delayMs = DatabricksHttpRetryHandler.calculateExponentialBackoff(retries);
+            long retryDelayMs = retryPolicy.getRetryDelayMs();
             LOGGER.warn(
                 String.format(
-                    "Retry attempt %d for chunk index: %d, HTTP status: %d, retryDelayMs: %d, Error: %s",
-                    retries, chunk.getChunkIndex(), httpStatus, delayMs, e.getMessage()));
+                    "Retry attempt %d for chunk index: %d, retryDelayMs: %d, Error: %s",
+                    retries, chunk.getChunkIndex(), retryDelayMs, e.getMessage()));
             chunk.setStatus(ChunkStatus.DOWNLOAD_RETRY);
             try {
-              Thread.sleep(delayMs);
+              retryPolicy.sleep(retryDelayMs);
             } catch (InterruptedException ie) {
               Thread.currentThread().interrupt();
               throw new DatabricksSQLException(
@@ -163,39 +152,5 @@ class ChunkDownloadTask implements DatabricksCallableTask {
     }
 
     return null;
-  }
-
-  /**
-   * Extracts the HTTP status code from the exception or its direct cause when either is a {@link
-   * DatabricksHttpException}. Returns 0 when the failure is a network error with no HTTP response.
-   */
-  private static int extractHttpStatus(Exception e) {
-    if (e instanceof DatabricksHttpException) {
-      return ((DatabricksHttpException) e).getHttpStatusCode();
-    }
-    Throwable cause = e.getCause();
-    if (cause instanceof DatabricksHttpException) {
-      return ((DatabricksHttpException) cause).getHttpStatusCode();
-    }
-    return 0;
-  }
-
-  /**
-   * Returns {@code true} for 4xx HTTP status codes that represent permanent client errors not worth
-   * retrying. Excludes codes that are transient or recoverable:
-   *
-   * <ul>
-   *   <li>403: pre-signed URL may have expired; {@code isChunkLinkInvalid()} will detect and
-   *       refresh the link on the next iteration.
-   *   <li>408: request timeout — transient.
-   *   <li>429: rate limit — transient.
-   * </ul>
-   */
-  private static boolean isPermanentHttpFailure(int httpStatus) {
-    return httpStatus >= 400
-        && httpStatus < 500
-        && httpStatus != 403
-        && httpStatus != 408
-        && httpStatus != 429;
   }
 }

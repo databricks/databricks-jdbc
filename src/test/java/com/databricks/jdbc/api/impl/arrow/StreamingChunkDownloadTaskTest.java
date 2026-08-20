@@ -6,7 +6,6 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ExternalLink;
@@ -40,6 +39,7 @@ public class StreamingChunkDownloadTaskTest {
   @Mock private ArrowResultChunk chunk;
   @Mock private IDatabricksHttpClient httpClient;
   @Mock private LinkRefresher linkRefresher;
+  @Mock private ChunkRetryPolicy retryPolicy;
 
   private StreamingChunkDownloadTask downloadTask;
   private CompletableFuture<Void> downloadFuture;
@@ -49,7 +49,12 @@ public class StreamingChunkDownloadTaskTest {
     downloadFuture = new CompletableFuture<>();
     downloadTask =
         new StreamingChunkDownloadTask(
-            chunk, httpClient, CompressionCodec.NONE, linkRefresher, CLOUD_FETCH_SPEED_THRESHOLD);
+            chunk,
+            httpClient,
+            CompressionCodec.NONE,
+            linkRefresher,
+            CLOUD_FETCH_SPEED_THRESHOLD,
+            retryPolicy);
   }
 
   @Test
@@ -68,6 +73,7 @@ public class StreamingChunkDownloadTaskTest {
     verify(chunk, times(1))
         .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
     verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    verifyNoInteractions(retryPolicy);
     assertTrue(downloadFuture.isDone());
     assertDoesNotThrow(() -> downloadFuture.get());
   }
@@ -77,6 +83,7 @@ public class StreamingChunkDownloadTaskTest {
     when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
     when(chunk.isChunkLinkInvalid()).thenReturn(false);
     when(chunk.getChunkIndex()).thenReturn(7L);
+    when(retryPolicy.getRetryDelayMs()).thenReturn(750L, 1500L);
 
     DatabricksParsingException throwableError =
         new DatabricksParsingException(
@@ -96,6 +103,9 @@ public class StreamingChunkDownloadTaskTest {
     verify(chunk, times(3))
         .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
     verify(chunk, times(2)).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    verify(retryPolicy, times(2)).getRetryDelayMs();
+    verify(retryPolicy).sleep(750);
+    verify(retryPolicy).sleep(1500);
     assertTrue(downloadFuture.isDone());
     assertDoesNotThrow(() -> downloadFuture.get());
   }
@@ -105,6 +115,7 @@ public class StreamingChunkDownloadTaskTest {
     when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
     when(chunk.isChunkLinkInvalid()).thenReturn(false);
     when(chunk.getChunkIndex()).thenReturn(7L);
+    when(retryPolicy.getRetryDelayMs()).thenReturn(750L, 1000L, 1250L, 1500L);
 
     // Simulate SocketException for all attempts
     doThrow(
@@ -121,6 +132,11 @@ public class StreamingChunkDownloadTaskTest {
     verify(chunk, times(5))
         .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
     verify(chunk, times(1)).setStatus(ChunkStatus.DOWNLOAD_FAILED);
+    verify(retryPolicy, times(4)).getRetryDelayMs();
+    verify(retryPolicy).sleep(750);
+    verify(retryPolicy).sleep(1000);
+    verify(retryPolicy).sleep(1250);
+    verify(retryPolicy).sleep(1500);
     assertTrue(downloadFuture.isDone());
 
     ExecutionException executionException =
@@ -174,76 +190,6 @@ public class StreamingChunkDownloadTaskTest {
 
     // Should refresh link twice (once per attempt; setChunkLink done inside getRefreshedLink)
     verify(linkRefresher, times(2)).refreshLink(5L, 100L);
-    verify(chunk, times(2))
-        .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
-    verify(chunk, times(1)).setStatus(ChunkStatus.DOWNLOAD_RETRY);
-    assertTrue(downloadFuture.isDone());
-    assertDoesNotThrow(() -> downloadFuture.get());
-  }
-
-  @Test
-  void testRetryOnTransient500HttpError() throws Exception {
-    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
-    when(chunk.isChunkLinkInvalid()).thenReturn(false);
-    when(chunk.getChunkIndex()).thenReturn(3L);
-
-    DatabricksHttpException http500 =
-        new DatabricksHttpException("HTTP request failed by code: 500", 500, "08000");
-
-    // Fail with a 500 on the first attempt, then succeed
-    doThrow(http500)
-        .doNothing()
-        .when(chunk)
-        .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
-
-    downloadTask.call();
-
-    verify(chunk, times(2))
-        .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
-    verify(chunk, times(1)).setStatus(ChunkStatus.DOWNLOAD_RETRY);
-    assertTrue(downloadFuture.isDone());
-    assertDoesNotThrow(() -> downloadFuture.get());
-  }
-
-  @Test
-  void testFailFastOnPermanent404HttpError() throws Exception {
-    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
-    when(chunk.isChunkLinkInvalid()).thenReturn(false);
-    when(chunk.getChunkIndex()).thenReturn(4L);
-
-    DatabricksHttpException http404 =
-        new DatabricksHttpException("HTTP request failed by code: 404", 404, "08000");
-
-    doThrow(http404)
-        .when(chunk)
-        .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
-
-    DatabricksSQLException thrown =
-        assertThrows(DatabricksSQLException.class, () -> downloadTask.call());
-    assertTrue(thrown.getMessage().contains("404"), "Error message should contain HTTP status 404");
-    // Single download attempt — permanent failures are not retried
-    verify(chunk, times(1))
-        .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
-    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
-  }
-
-  @Test
-  void testRetryOn403LinkExpiredError() throws Exception {
-    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
-    when(chunk.isChunkLinkInvalid()).thenReturn(false);
-    when(chunk.getChunkIndex()).thenReturn(5L);
-
-    DatabricksHttpException http403 =
-        new DatabricksHttpException("HTTP request failed by code: 403", 403, "08000");
-
-    // 403 is retryable (pre-signed URL may have expired); succeed on second attempt
-    doThrow(http403)
-        .doNothing()
-        .when(chunk)
-        .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
-
-    downloadTask.call();
-
     verify(chunk, times(2))
         .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
     verify(chunk, times(1)).setStatus(ChunkStatus.DOWNLOAD_RETRY);

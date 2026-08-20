@@ -10,7 +10,6 @@ import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -72,7 +71,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
   @Override
   protected void downloadData(
       IDatabricksHttpClient httpClient, CompressionCodec compressionCodec, double speedThreshold)
-      throws DatabricksParsingException, DatabricksHttpException, IOException {
+      throws DatabricksParsingException, IOException {
     CloseableHttpResponse response = null;
     long startTime = System.nanoTime();
     try {
@@ -148,35 +147,13 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
    *     ChunkStatus#DOWNLOAD_FAILED} or {@link ChunkStatus#PROCESSING_FAILED})
    * @throws DatabricksParsingException always thrown with the error message and original exception
    */
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Handles failures that occur during chunk download or processing. Sets the error message,
-   * logs the error, updates the chunk status, and throws a DatabricksParsingException.
-   *
-   * <p>When the exception is a {@link DatabricksHttpException} carrying an HTTP status code, the
-   * status code is appended to the error message (e.g. {@code [HTTP 403]}) so it is visible in
-   * retry logs without requiring callers to unwrap the cause chain.
-   *
-   * @param exception the exception that caused the failure
-   * @param failedStatus the status to set for the chunk after failure (e.g. {@link
-   *     ChunkStatus#DOWNLOAD_FAILED} or {@link ChunkStatus#PROCESSING_FAILED})
-   * @throws DatabricksParsingException always thrown with the error message and original exception
-   */
   @Override
   protected void handleFailure(Exception exception, ChunkStatus failedStatus)
       throws DatabricksParsingException {
-    String httpStatusAnnotation = "";
-    if (exception instanceof DatabricksHttpException) {
-      int httpStatus = ((DatabricksHttpException) exception).getHttpStatusCode();
-      if (httpStatus > 0) {
-        httpStatusAnnotation = String.format(" [HTTP %d]", httpStatus);
-      }
-    }
     errorMessage =
         String.format(
-            "Data parsing failed for chunk index [%d] and statement [%s]%s. Exception [%s]",
-            this.chunkIndex, this.statementId, httpStatusAnnotation, exception);
+            "Data parsing failed for chunk index [%d] and statement [%s]. Exception [%s]",
+            this.chunkIndex, this.statementId, exception);
     LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
     throw new DatabricksParsingException(errorMessage, exception, failedStatus.toString());

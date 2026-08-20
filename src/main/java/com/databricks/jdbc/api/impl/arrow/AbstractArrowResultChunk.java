@@ -6,7 +6,6 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -188,27 +187,13 @@ public abstract class AbstractArrowResultChunk {
    * @param compressionCodec the compression codec to use for decompression
    * @param speedThreshold the minimum expected download speed in MB/s for logging warnings
    * @throws DatabricksParsingException if there is an error parsing the data
-   * @throws DatabricksHttpException if the server returns an HTTP error response
    * @throws IOException if there is an error downloading or reading the data
    */
   protected abstract void downloadData(
       IDatabricksHttpClient httpClient, CompressionCodec compressionCodec, double speedThreshold)
-      throws DatabricksParsingException, DatabricksHttpException, IOException;
+      throws DatabricksParsingException, IOException;
 
-  /**
-   * Handles a failure during the download or processing of this chunk.
-   *
-   * <p>Implementations must set the chunk's {@link #errorMessage}, log the error, update the chunk
-   * status, and throw a {@link DatabricksParsingException}. When the root cause is a {@link
-   * com.databricks.jdbc.exception.DatabricksHttpException}, the HTTP status code should be included
-   * in the error message so that callers (retry loops) can log it without unwrapping the cause
-   * chain.
-   *
-   * @param exception the exception that caused the failure
-   * @param failedStatus the status to set for the chunk ({@link ChunkStatus#DOWNLOAD_FAILED} or
-   *     {@link ChunkStatus#PROCESSING_FAILED})
-   * @throws DatabricksParsingException always thrown; wraps the original exception
-   */
+  /** Handles a failure during the download or processing of this chunk. */
   protected abstract void handleFailure(Exception exception, ChunkStatus failedStatus)
       throws DatabricksParsingException;
 

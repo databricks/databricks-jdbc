@@ -242,7 +242,7 @@ public class DatabricksHttpRetryHandler
     }
   }
 
-  public static long calculateExponentialBackoff(int executionCount) {
+  static long calculateExponentialBackoff(int executionCount) {
     return Math.min(
         MIN_BACKOFF_INTERVAL * (long) Math.pow(DEFAULT_BACKOFF_FACTOR, executionCount),
         MAX_RETRY_INTERVAL);
