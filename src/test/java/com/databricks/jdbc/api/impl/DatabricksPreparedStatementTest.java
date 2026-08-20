@@ -21,7 +21,9 @@ import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.io.StringReader;
@@ -686,7 +688,7 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
-  public void testSetCharacterStreamWithoutLength() throws DatabricksSQLException {
+  public void testSetCharacterStreamWithoutLength() throws SQLException {
     setupMocks();
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
@@ -695,6 +697,89 @@ public class DatabricksPreparedStatementTest {
     Reader characterStream = new StringReader(originalString);
 
     assertDoesNotThrow(() -> preparedStatement.setCharacterStream(1, characterStream));
+    assertEquals(originalString, getBoundValue(preparedStatement, 1));
+  }
+
+  @Test
+  public void testSetClob() throws Exception {
+    setupMocks();
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+    DatabricksClob clob = new DatabricksClob();
+    clob.setString(1, "clob value");
+
+    preparedStatement.setClob(1, clob);
+
+    assertEquals("clob value", getBoundValue(preparedStatement, 1));
+  }
+
+  @Test
+  public void testSetClobReaderOverloads() throws Exception {
+    setupMocks();
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+
+    Reader chunkedReader =
+        new StringReader("prefix-trailing") {
+          @Override
+          public int read(char[] buffer, int offset, int length) throws IOException {
+            return super.read(buffer, offset, Math.min(2, length));
+          }
+        };
+    preparedStatement.setClob(1, chunkedReader, 6);
+    assertEquals("prefix", getBoundValue(preparedStatement, 1));
+
+    preparedStatement.setClob(1, new StringReader("without length"));
+    assertEquals("without length", getBoundValue(preparedStatement, 1));
+
+    DatabricksSQLException invalidLength =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> preparedStatement.setClob(1, new StringReader("value"), -1));
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(), invalidLength.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), invalidLength.getErrorCode());
+    assertThrows(
+        DatabricksSQLException.class,
+        () ->
+            preparedStatement.setClob(1, new StringReader("value"), (long) Integer.MAX_VALUE + 1));
+  }
+
+  @Test
+  public void testSetClobReaderFailure() throws Exception {
+    setupMocks();
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+    Reader failingReader =
+        new Reader() {
+          @Override
+          public int read(char[] buffer, int offset, int length) throws IOException {
+            throw new IOException("read failed");
+          }
+
+          @Override
+          public void close() {}
+        };
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class, () -> preparedStatement.setClob(1, failingReader));
+
+    assertEquals(DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(), exception.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), exception.getErrorCode());
+  }
+
+  @Test
+  public void testSetNullClob() throws Exception {
+    setupMocks();
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+
+    preparedStatement.setClob(1, (Clob) null);
+
+    assertNull(getBoundValue(preparedStatement, 1));
   }
 
   @Test
@@ -880,9 +965,6 @@ public class DatabricksPreparedStatementTest {
         DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setBlob(1, (Blob) null));
     assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setClob(1, (Clob) null));
-    assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setRef(1, null));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setURL(1, null));
@@ -897,9 +979,6 @@ public class DatabricksPreparedStatementTest {
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setNClob(1, (NClob) null));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setClob(1, null, 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setBlob(1, null, 1));
@@ -927,9 +1006,6 @@ public class DatabricksPreparedStatementTest {
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setUnicodeStream(1, InputStream.nullInputStream(), 1));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setClob(1, Reader.nullReader()));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setBlob(1, InputStream.nullInputStream()));
@@ -970,6 +1046,13 @@ public class DatabricksPreparedStatementTest {
     assertThrows(
         DatabricksSQLException.class,
         () -> preparedStatement.execute("SELECT * FROM table", new String[] {"column"}));
+  }
+
+  private static Object getBoundValue(
+      DatabricksPreparedStatement preparedStatement, int parameterIndex) throws SQLException {
+    DatabricksParameterMetaData metadata =
+        (DatabricksParameterMetaData) preparedStatement.getParameterMetaData();
+    return metadata.getParameterBindings().get(parameterIndex).value();
   }
 
   @Test

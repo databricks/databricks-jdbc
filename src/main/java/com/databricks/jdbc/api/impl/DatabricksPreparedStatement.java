@@ -419,8 +419,17 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setClob(int parameterIndex, Clob x) throws SQLException {
     LOGGER.debug("public void setClob(int parameterIndex, Clob x)");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksPreparedStatement - setClob(int parameterIndex, Clob x)");
+    checkIfClosed();
+    if (x == null) {
+      setObject(parameterIndex, null, DatabricksTypeUtil.STRING);
+      return;
+    }
+    long length = x.length();
+    if (length > Integer.MAX_VALUE) {
+      throw inputValidationError("CLOB value is too large");
+    }
+    String value = length == 0 ? "" : x.getSubString(1, (int) length);
+    setObject(parameterIndex, value, DatabricksTypeUtil.STRING);
   }
 
   @Override
@@ -540,8 +549,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setClob(int parameterIndex, Reader reader, long length) throws SQLException {
     LOGGER.debug("public void setClob(int parameterIndex, Reader reader, long length)");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksPreparedStatement - setClob(int parameterIndex, Reader reader, long length)");
+    if (length < 0 || length > Integer.MAX_VALUE) {
+      throw inputValidationError("Invalid CLOB length: " + length);
+    }
+    setCharacterStream(parameterIndex, reader, length);
   }
 
   @Override
@@ -662,8 +673,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setClob(int parameterIndex, Reader reader) throws SQLException {
     LOGGER.debug("public void setClob(int parameterIndex, Reader reader)");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "Not implemented in DatabricksPreparedStatement - setClob(int parameterIndex, Reader reader)");
+    setCharacterStream(parameterIndex, reader);
   }
 
   @Override
@@ -839,7 +849,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       char[] chunk = new char[CHUNK_SIZE];
       long charsRead = 0;
       int nRead;
-      while ((length != -1 && charsRead < length) && (nRead = reader.read(chunk)) != -1) {
+      while (length == -1 || charsRead < length) {
+        int readLength =
+            length == -1 ? chunk.length : (int) Math.min(chunk.length, length - charsRead);
+        nRead = reader.read(chunk, 0, readLength);
+        if (nRead == -1) {
+          break;
+        }
         buffer.append(chunk, 0, nRead);
         charsRead += nRead;
       }
@@ -848,7 +864,11 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       }
       return buffer.toString();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw new DatabricksSQLException(
+          "Error reading from the Reader",
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(),
+          e);
     }
   }
 
@@ -860,6 +880,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             .value(x)
             .cardinal(parameterIndex)
             .build());
+  }
+
+  private static DatabricksSQLException inputValidationError(String message) {
+    return new DatabricksSQLException(
+        message,
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
   }
 
   private DatabricksResultSet interpolateIfRequiredAndExecute(StatementType statementType)

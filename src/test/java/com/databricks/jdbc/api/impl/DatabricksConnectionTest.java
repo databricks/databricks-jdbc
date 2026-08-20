@@ -364,6 +364,12 @@ public class DatabricksConnectionTest {
     connection.close();
     assertFalse(connection.isValid(1));
     assertThrows(DatabricksSQLException.class, connection::isReadOnly);
+    DatabricksSQLException createClobException =
+        assertThrows(DatabricksSQLException.class, connection::createClob);
+    assertEquals(
+        DatabricksDriverErrorCode.CONNECTION_CLOSED.name(), createClobException.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.CONNECTION_CLOSED.getCode(), createClobException.getErrorCode());
   }
 
   @Test
@@ -564,7 +570,10 @@ public class DatabricksConnectionTest {
     // With default IgnoreTransactions=1, savepoint methods return null (no-op)
     assertNull(connection.setSavepoint("1"));
     assertNull(connection.setSavepoint());
-    assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createClob);
+    Clob clob = connection.createClob();
+    assertNotNull(clob);
+    assertEquals(4, clob.setString(1, "test"));
+    assertEquals("test", clob.getSubString(1, 4));
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createBlob);
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createNClob);
     assertThrows(DatabricksSQLFeatureNotImplementedException.class, connection::createSQLXML);
