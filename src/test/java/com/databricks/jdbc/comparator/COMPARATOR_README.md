@@ -95,6 +95,26 @@ does not exercise metadata, GetStatementStatus, prepared statements, DDL/DML, la
 performance thresholds. The companion plugin validates parity from the CSV and route artifacts;
 the runner's Maven exit code alone is only an execution-health signal.
 
+An accepted local custom-test manifest can add bounded read-only cases without changing the source
+checkout:
+
+```json
+{
+  "schema_version": 1,
+  "cases": [
+    {"id": "string-shape", "title": "String shape", "sql": "SELECT 'ok' AS value"}
+  ]
+}
+```
+
+Pass its absolute path as `APC_CUSTOM_TEST_MANIFEST` and its accepted SHA-256 as
+`APC_CUSTOM_TEST_MANIFEST_SHA256`. The runner verifies the hash, and the comparator rejects unknown
+fields, duplicate IDs, non-SELECT SQL, multiple statements, comments, and substitutions. Built-in
+`APC_CORE` cases still run first. The manifest can stay private, untracked, and outside the source
+checkout; changing its accepted hash makes the run fail closed. Human acceptance and staging or
+production policy remain the companion plugin's responsibility. Metadata surfaces and
+GetStatementStatus remain excluded.
+
 ## Running
 
 ### Basic usage
@@ -237,6 +257,8 @@ If both are present for a method, **runOnly takes precedence**: argument combina
 | `LOCAL_SOURCE_REF` | `HEAD` | Commit/ref resolved inside `LOCAL_SOURCE_REPO` |
 | `OUTPUT_DIR` | invocation directory | Destination for logs, report, CSV, source/config metadata, process exit, and route markers |
 | `APC_SEA_PROTOTYPE` | `0` | Set to `1` only for the local APC-over-SEA prototype |
+| `APC_CUSTOM_TEST_MANIFEST` | _(none)_ | Absolute path to an accepted version-1 read-only custom-test JSON manifest |
+| `APC_CUSTOM_TEST_MANIFEST_SHA256` | _(none)_ | Accepted SHA-256; required and verified by the companion plugin |
 
 ### Connection Configs
 

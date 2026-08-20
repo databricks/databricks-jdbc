@@ -124,6 +124,8 @@ OUTPUT_DIR="${OUTPUT_DIR:-}"
 MAVEN_BIN="${MAVEN_BIN:-mvn}"
 GIT_BIN="${GIT_BIN:-git}"
 APC_SEA_PROTOTYPE="${APC_SEA_PROTOTYPE:-0}"
+APC_CUSTOM_TEST_MANIFEST="${APC_CUSTOM_TEST_MANIFEST:-}"
+APC_CUSTOM_TEST_MANIFEST_SHA256="${APC_CUSTOM_TEST_MANIFEST_SHA256:-}"
 
 # Run name (used in log/report filenames for easy identification, empty = generic name)
 RUN_NAME="${RUN_NAME:-}"
@@ -244,6 +246,39 @@ if [ -z "${COMPARATOR_WAREHOUSE}" ] && [ -z "${ANY_LEFT_RIGHT}" ]; then
   echo "ERROR: Set COMPARATOR_WAREHOUSE (legacy) or LEFT_*/RIGHT_* (generic axis)." >&2
   exit 1
 fi
+if [ -n "${APC_CUSTOM_TEST_MANIFEST}" ] && [ -z "${APC_CUSTOM_TEST_MANIFEST_SHA256}" ]; then
+  echo "ERROR: APC_CUSTOM_TEST_MANIFEST_SHA256 is required for an accepted manifest." >&2
+  exit 1
+fi
+if [ -z "${APC_CUSTOM_TEST_MANIFEST}" ] && [ -n "${APC_CUSTOM_TEST_MANIFEST_SHA256}" ]; then
+  echo "ERROR: APC_CUSTOM_TEST_MANIFEST is required with its accepted SHA-256." >&2
+  exit 1
+fi
+if [ -n "${APC_CUSTOM_TEST_MANIFEST}" ]; then
+  case "${APC_CUSTOM_TEST_MANIFEST}" in
+    /*) ;;
+    *)
+      echo "ERROR: APC_CUSTOM_TEST_MANIFEST must be an absolute path." >&2
+      exit 1
+      ;;
+  esac
+  if [ ! -f "${APC_CUSTOM_TEST_MANIFEST}" ] || [ -L "${APC_CUSTOM_TEST_MANIFEST}" ]; then
+    echo "ERROR: APC_CUSTOM_TEST_MANIFEST must be a regular, non-symbolic-link file." >&2
+    exit 1
+  fi
+  case "${APC_CUSTOM_TEST_MANIFEST}" in
+    *[[:space:]]*)
+      echo "ERROR: APC_CUSTOM_TEST_MANIFEST path must not contain whitespace." >&2
+      exit 1
+      ;;
+  esac
+  COMPUTED_CUSTOM_TEST_SHA256="$(sha256sum "${APC_CUSTOM_TEST_MANIFEST}" | awk '{print $1}')"
+  if [ "${APC_CUSTOM_TEST_MANIFEST_SHA256}" != "${COMPUTED_CUSTOM_TEST_SHA256}" ]; then
+    echo "ERROR: APC custom test manifest hash does not match the accepted hash." >&2
+    exit 1
+  fi
+  APC_CUSTOM_TEST_MANIFEST_SHA256="${COMPUTED_CUSTOM_TEST_SHA256}"
+fi
 
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 PREFIX="${RUN_NAME:-comparator}"
@@ -338,6 +373,7 @@ fi
   echo "SUITES_RUN_ONLY=${SUITES_RUN_ONLY}"
   echo "WORKSPACE_SETUP=${WORKSPACE_SETUP}"
   echo "APC_SEA_PROTOTYPE=${APC_SEA_PROTOTYPE}"
+  echo "APC_CUSTOM_TEST_MANIFEST_SHA256=${APC_CUSTOM_TEST_MANIFEST_SHA256}"
   echo "ENABLE_HEARTBEAT=0"
 } > "${OUTPUT_DIR}/run-config.env"
 
@@ -401,6 +437,9 @@ if [ -n "${ERROR_COMPARISON_MODE}" ]; then
 fi
 if [ "${APC_SEA_PROTOTYPE}" = "1" ]; then
   MVN_ARGS="${MVN_ARGS} -Ddatabricks.jdbc.apc.sea.prototype.enabled=true"
+fi
+if [ -n "${APC_CUSTOM_TEST_MANIFEST}" ]; then
+  MVN_ARGS="${MVN_ARGS} -DAPC_CUSTOM_TEST_MANIFEST=${APC_CUSTOM_TEST_MANIFEST}"
 fi
 
 MVN_ARGS="${MVN_ARGS} -DMETADATA_FILTER_CONFIG=${FILTER_FILE}"

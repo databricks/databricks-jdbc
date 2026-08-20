@@ -5,23 +5,28 @@ import com.databricks.jdbc.comparator.ResultSetComparator;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 /** Small self-contained SELECT suite for APC direct-Thrift versus SEA/Reyder parity. */
 public class ApcCoreProvider implements SuiteProvider {
 
+  private static final List<TestCase> CORE_CASES =
+      List.of(
+          new TestCase("SELECT 1 AS value", "Single integer row"),
+          new TestCase(
+              "SELECT * FROM VALUES (1, 'alpha'), (2, 'beta') AS t(id, label) ORDER BY id",
+              "Ordered literal rows"),
+          new TestCase(
+              "SELECT CAST(NULL AS STRING) AS null_value, true AS bool_value",
+              "Null and boolean values"),
+          new TestCase("SELECT 1 AS value WHERE false", "Empty result with a declared column"));
+
   @Override
   public List<TestCase> getTestCases() {
-    return Arrays.asList(
-        new TestCase("SELECT 1 AS value", "Single integer row"),
-        new TestCase(
-            "SELECT * FROM VALUES (1, 'alpha'), (2, 'beta') AS t(id, label) ORDER BY id",
-            "Ordered literal rows"),
-        new TestCase(
-            "SELECT CAST(NULL AS STRING) AS null_value, true AS bool_value",
-            "Null and boolean values"),
-        new TestCase("SELECT 1 AS value WHERE false", "Empty result with a declared column"));
+    List<TestCase> testCases = new ArrayList<>(CORE_CASES);
+    testCases.addAll(ApcCustomTestManifest.load());
+    return List.copyOf(testCases);
   }
 
   @Override
