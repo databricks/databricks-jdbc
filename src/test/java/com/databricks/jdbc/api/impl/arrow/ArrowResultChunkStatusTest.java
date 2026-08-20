@@ -9,6 +9,7 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
@@ -64,10 +65,27 @@ public class ArrowResultChunkStatusTest {
 
     // Act + Assert: downloadData should throw parsing exception and status should be
     // DOWNLOAD_FAILED
-    assertThrows(
-        DatabricksParsingException.class,
-        () -> chunk.downloadData(http, CompressionCodec.NONE, 0.0));
+    DatabricksParsingException exception =
+        assertThrows(
+            DatabricksParsingException.class,
+            () -> chunk.downloadData(http, CompressionCodec.NONE, 0.0));
     assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+    assertEquals(DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(), exception.getSQLState());
+  }
+
+  @Test
+  void processingError_isNotReportedAsDownloadError() {
+    byte[] payload = "not an Arrow stream".getBytes();
+    ArrowResultChunk chunk = newChunk();
+    IDatabricksHttpClient http = httpWithEntity(new ByteArrayInputStream(payload), payload.length);
+
+    DatabricksParsingException exception =
+        assertThrows(
+            DatabricksParsingException.class,
+            () -> chunk.downloadData(http, CompressionCodec.NONE, 0.0));
+
+    assertEquals(ChunkStatus.PROCESSING_FAILED, chunk.getStatus());
+    assertEquals(ChunkStatus.PROCESSING_FAILED.name(), exception.getSQLState());
   }
 
   private static ArrowResultChunk newChunk() {

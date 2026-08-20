@@ -16,6 +16,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.IOException;
@@ -127,6 +128,8 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
           readTimeMs - downloadTimeMs,
           decompressTimeMs,
           totalTimeMs);
+    } catch (DatabricksParsingException e) {
+      throw e;
     } catch (Exception e) {
       handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
     } finally {
@@ -156,6 +159,10 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
             this.chunkIndex, this.statementId, exception);
     LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
+    if (failedStatus == ChunkStatus.DOWNLOAD_FAILED) {
+      throw new DatabricksParsingException(
+          errorMessage, exception, DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
+    }
     throw new DatabricksParsingException(errorMessage, exception, failedStatus.toString());
   }
 
