@@ -14,6 +14,19 @@
 - `src/test/java/com/databricks/jdbc/` — unit and integration tests
 - `development/.release-freeze.json` — controls release freeze state
 
+## Telemetry Error Changes
+
+When adding or changing an error emitted by the JDBC driver:
+
+- Use `DatabricksDriverErrorCode` wherever a driver-owned error code applies. Reuse an
+  existing code when its meaning matches; otherwise add a uniquely numbered enum value.
+- Add or update a test that verifies the emitted error name and numeric code.
+- Record whether the error is a driver, server, or user error in the maintainers' OSS JDBC
+  telemetry dashboard and automation taxonomy. Link that update in the PR, or explicitly
+  ask a maintainer to make it if you do not have access. Do not infer the classification
+  from the error name alone.
+- Complete the telemetry-error section of the pull-request template.
+
 ## PR Checks — Common Pitfalls
 
 ### 1. DCO Sign-off (required)
