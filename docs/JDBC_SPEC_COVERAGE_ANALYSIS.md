@@ -36,15 +36,15 @@ This document provides a comprehensive analysis of JDBC specification compliance
 
 **Comprehensive JDBC Inventory:**
 - **Total JDBC Methods Analyzed:** 588+ methods across 8 core interfaces (ALL methods including rare, deprecated, vendor-specific)
-- **Methods Applicable to Databricks:** 328 methods (excludes CallableStatement, updatable ResultSet, LOBs)
+- **Methods Applicable to Databricks:** 332 methods (excludes CallableStatement, updatable ResultSet, and unsupported LOB operations)
 - **Methods with Integration Tests:** 44 methods
-- **Applicable Coverage:** 44/328 = **13.4%**
+- **Applicable Coverage:** 44/332 = **13.3%**
 
 **Implementation Status:**
-- **Fully Implemented:** 367+ methods (62% of total)
+- **Fully Implemented:** 371+ methods (63% of total)
 - **Partially Implemented:** 28 methods
-- **Throws NOT_SUPPORTED:** 174+ methods (intentional - feature not applicable)
-- **Not Implemented:** 124+ methods (CallableStatement, etc.)
+- **Throws NOT_SUPPORTED:** 171+ methods (intentional - feature not applicable)
+- **Not Implemented:** 123+ methods (CallableStatement, etc.)
 
 **Core Methods Analysis (Original 156 high-priority methods):**
 - **Methods with Integration Tests:** 44 methods (28%)
@@ -1570,14 +1570,14 @@ This appendix provides a comprehensive inventory of ALL JDBC methods across all 
 | Interface | Total Methods | Fully Implemented | Partially Implemented | Throws NOT_SUPPORTED | Not Implemented | Implementation % |
 |-----------|--------------|-------------------|----------------------|---------------------|----------------|-----------------|
 | **Statement** | 54 | 37 | 5 | 12 | 0 | **69%** |
-| **PreparedStatement** | 60 | 28 | 1 | 24 | 10 | **47%** |
+| **PreparedStatement** | 60 | 31 | 1 | 21 | 10 | **52%** |
 | **CallableStatement** | 100+ | 0 | 0 | 0 | 100+ | **0%** |
 | **ResultSet** | 200+ | 70 | 2 | 130+ | 0 | **35%** |
 | **ResultSetMetaData** | 23 | 23 | 0 | 0 | 0 | **100%** |
-| **Connection** | 60 | 26 | 12 | 8 | 14 | **43%** |
+| **Connection** | 60 | 27 | 12 | 8 | 13 | **45%** |
 | **DatabaseMetaData** | 180+ | 180+ | 0 | 0 | 0 | **100%** |
 | **ParameterMetaData** | 11 | 3 | 8 | 0 | 0 | **27%** |
-| **TOTAL** | **588+** | **367+** | **28** | **174+** | **124+** | **62%** |
+| **TOTAL** | **588+** | **371+** | **28** | **171+** | **123+** | **63%** |
 
 #### D.2 Key Findings from Complete Inventory
 
@@ -1637,9 +1637,9 @@ This appendix provides a comprehensive inventory of ALL JDBC methods across all 
    - **Impact:** Cannot modify data through ResultSet, must use UPDATE statements
    - **Test Strategy:** Verify exceptions are thrown correctly
 
-3. **LOB Types** (0%)
+3. **LOB Types** (Partial)
    - **BLOB operations:** getBlob(), setBlob(), updateBlob() - Not supported
-   - **CLOB operations:** getClob(), setClob(), updateClob() - Not supported
+   - **CLOB operations:** createClob() and PreparedStatement setClob() are supported by mapping contents to STRING; ResultSet getClob() and updateClob() are not supported
    - **NCLOB operations:** getNClob(), setNClob(), updateNClob() - Not supported
    - **Reason:** Databricks does not support LOB types natively
    - **Workaround:** Use String for CLOB-like data, byte[] for BLOB-like data
@@ -1676,7 +1676,7 @@ This appendix provides a comprehensive inventory of ALL JDBC methods across all 
 **RARE Methods (0-40% implementation):** ~150 methods
 - Advanced scrolling
 - Updatable ResultSets
-- LOB operations
+- Unsupported LOB retrieval/update and BLOB/NCLOB operations
 - Named cursors
 - **Test Priority:** LOW - Verify NOT_SUPPORTED exceptions only
 
@@ -1687,7 +1687,7 @@ This appendix provides a comprehensive inventory of ALL JDBC methods across all 
 
 #### D.4 Testing Recommendations by Implementation Status
 
-**For Fully Implemented Methods (367+ methods):**
+**For Fully Implemented Methods (371+ methods):**
 - ✅ **Add integration tests for COMMON usage (Priority: HIGH)**
 - ✅ **Add integration tests for OCCASIONAL usage (Priority: MEDIUM)**
 - ⚠️ **Optional integration tests for RARE usage (Priority: LOW)**
@@ -1698,13 +1698,13 @@ This appendix provides a comprehensive inventory of ALL JDBC methods across all 
 - ✅ **Verify warnings/exceptions for unsupported features**
 - ✅ **Document limitations clearly**
 
-**For Methods Throwing NOT_SUPPORTED (174+ methods):**
+**For Methods Throwing NOT_SUPPORTED (171+ methods):**
 - ✅ **Verify exception type is correct** (SQLFeatureNotSupportedException)
 - ✅ **Verify exception message is meaningful**
 - ❌ **No need to test functionality** (not implemented)
 - ✅ **Document in driver documentation**
 
-**For Not Implemented Methods (124+ methods):**
+**For Not Implemented Methods (123+ methods):**
 - ❌ **No tests needed** (feature not applicable)
 - ✅ **Document limitation in driver documentation**
 - ✅ **Consider adding to FAQ/Known Limitations section**
@@ -1714,17 +1714,17 @@ This appendix provides a comprehensive inventory of ALL JDBC methods across all 
 **Revised Coverage Analysis:**
 
 When we exclude methods that are intentionally not supported (not applicable to Databricks):
-- **Excluded:** CallableStatement (100+ methods), Updatable ResultSet (130+ methods), LOBs (30+ methods)
-- **Excluded Total:** ~260 methods not applicable to Databricks
+- **Excluded:** CallableStatement (100+ methods), Updatable ResultSet (130+ methods), and unsupported LOB operations (approximately 26 methods)
+- **Excluded Total:** ~256 methods not applicable to Databricks
 
 **Adjusted Coverage:**
-- **Applicable Methods:** 588 - 260 = 328 methods
+- **Applicable Methods:** 588 - 256 = 332 methods
 - **Tested Methods:** 44 integration tests cover ~44 methods
-- **Applicable Coverage:** 44/328 = **13.4%** (vs. 28% when including non-applicable methods)
-- **Implemented & Applicable:** 367 - 130 (updateXXX) - 100 (CallableStatement) = 137 methods
-- **Implementation Coverage:** 367/328 = **112%** (includes partial implementations)
+- **Applicable Coverage:** 44/332 = **13.3%** (vs. 28% when including non-applicable methods)
+- **Implemented & Applicable:** 371 - 130 (updateXXX) - 100 (CallableStatement) = 141 methods
+- **Implementation Coverage:** 371/332 = **112%** (includes partial implementations)
 
-**Key Insight:** We have good *implementation* coverage (62% overall, 100% for applicable features), but poor *integration test* coverage (13.4% of applicable methods).
+**Key Insight:** We have good *implementation* coverage (63% overall, 100% for applicable features), but poor *integration test* coverage (13.3% of applicable methods).
 
 #### D.6 Detailed Method Inventory
 
@@ -1771,7 +1771,7 @@ Based on the complete inventory, integration tests should focus on:
 **Tier 3 - NOT_SUPPORTED Verification (Low Priority):**
 - ⚠️ Verify exceptions for updateable ResultSet methods
 - ⚠️ Verify exceptions for scrollable ResultSet methods
-- ⚠️ Verify exceptions for LOB operations
+- ⚠️ Verify exceptions for unsupported LOB retrieval/update and BLOB/NCLOB operations
 - ⚠️ Verify exceptions for generated keys
 - **Estimated:** 10-15 integration tests needed
 

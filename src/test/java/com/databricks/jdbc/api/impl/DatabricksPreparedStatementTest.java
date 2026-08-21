@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static com.databricks.jdbc.model.core.ColumnInfoTypeName.STRING;
 import static java.sql.JDBCType.DECIMAL;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -711,6 +712,58 @@ public class DatabricksPreparedStatementTest {
     preparedStatement.setClob(1, clob);
 
     assertEquals("clob value", getBoundValue(preparedStatement, 1));
+    assertEquals(STRING, getBoundParameter(preparedStatement, 1).type());
+  }
+
+  @Test
+  public void testSetEmptyAndFreedClob() throws Exception {
+    setupMocks();
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+    DatabricksClob clob = new DatabricksClob();
+
+    preparedStatement.setClob(1, clob);
+    assertEquals("", getBoundValue(preparedStatement, 1));
+    assertEquals(STRING, getBoundParameter(preparedStatement, 1).type());
+
+    clob.free();
+    DatabricksSQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> preparedStatement.setClob(1, clob));
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), exception.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), exception.getErrorCode());
+  }
+
+  @Test
+  public void testSetClobOverloadsRejectClosedStatement() throws Exception {
+    setupMocks();
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+    preparedStatement.close();
+
+    DatabricksSQLException clobException =
+        assertThrows(
+            DatabricksSQLException.class, () -> preparedStatement.setClob(1, new DatabricksClob()));
+    assertEquals(DatabricksDriverErrorCode.STATEMENT_CLOSED.name(), clobException.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.STATEMENT_CLOSED.getCode(), clobException.getErrorCode());
+
+    DatabricksSQLException readerWithLengthException =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> preparedStatement.setClob(1, new StringReader("value"), 5));
+    assertEquals(
+        DatabricksDriverErrorCode.STATEMENT_CLOSED.name(), readerWithLengthException.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.STATEMENT_CLOSED.getCode(),
+        readerWithLengthException.getErrorCode());
+
+    DatabricksSQLException readerException =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> preparedStatement.setClob(1, new StringReader("value")));
+    assertEquals(DatabricksDriverErrorCode.STATEMENT_CLOSED.name(), readerException.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.STATEMENT_CLOSED.getCode(), readerException.getErrorCode());
   }
 
   @Test
@@ -728,9 +781,11 @@ public class DatabricksPreparedStatementTest {
         };
     preparedStatement.setClob(1, chunkedReader, 6);
     assertEquals("prefix", getBoundValue(preparedStatement, 1));
+    assertEquals(STRING, getBoundParameter(preparedStatement, 1).type());
 
     preparedStatement.setClob(1, new StringReader("without length"));
     assertEquals("without length", getBoundValue(preparedStatement, 1));
+    assertEquals(STRING, getBoundParameter(preparedStatement, 1).type());
 
     DatabricksSQLException invalidLength =
         assertThrows(
@@ -772,6 +827,21 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testSetOversizedClob() throws Exception {
+    setupMocks();
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+    Clob clob = mock(Clob.class);
+    when(clob.length()).thenReturn((long) Integer.MAX_VALUE + 1);
+
+    DatabricksSQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> preparedStatement.setClob(1, clob));
+    assertEquals(DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(), exception.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), exception.getErrorCode());
+  }
+
+  @Test
   public void testSetNullClob() throws Exception {
     setupMocks();
     DatabricksPreparedStatement preparedStatement =
@@ -780,6 +850,7 @@ public class DatabricksPreparedStatementTest {
     preparedStatement.setClob(1, (Clob) null);
 
     assertNull(getBoundValue(preparedStatement, 1));
+    assertEquals(STRING, getBoundParameter(preparedStatement, 1).type());
   }
 
   @Test
@@ -1050,9 +1121,14 @@ public class DatabricksPreparedStatementTest {
 
   private static Object getBoundValue(
       DatabricksPreparedStatement preparedStatement, int parameterIndex) throws SQLException {
+    return getBoundParameter(preparedStatement, parameterIndex).value();
+  }
+
+  private static ImmutableSqlParameter getBoundParameter(
+      DatabricksPreparedStatement preparedStatement, int parameterIndex) throws SQLException {
     DatabricksParameterMetaData metadata =
         (DatabricksParameterMetaData) preparedStatement.getParameterMetaData();
-    return metadata.getParameterBindings().get(parameterIndex).value();
+    return metadata.getParameterBindings().get(parameterIndex);
   }
 
   @Test

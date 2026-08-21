@@ -971,7 +971,9 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   void checkIfClosed() throws DatabricksSQLException {
     if (isClosed) {
       throw new DatabricksSQLException(
-          "Statement is closed", DatabricksDriverErrorCode.STATEMENT_CLOSED);
+          "Statement is closed",
+          DatabricksDriverErrorCode.STATEMENT_CLOSED.name(),
+          DatabricksDriverErrorCode.STATEMENT_CLOSED);
     }
   }
 

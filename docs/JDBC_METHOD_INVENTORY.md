@@ -124,7 +124,7 @@
 | `setCharacterStream(int, Reader, int)` | YES | - | No | OCCASIONAL | Reads character stream |
 | `setRef(int, Ref)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | REF type not supported |
 | `setBlob(int, Blob)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | BLOB type not supported |
-| `setClob(int, Clob)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | CLOB type not supported |
+| `setClob(int, Clob)` | YES | - | No | RARE | Binds CLOB contents as STRING |
 | `setArray(int, Array)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Array parameter not supported |
 | `getMetaData()` | YES | - | No | OCCASIONAL | Returns ResultSetMetaData |
 | `setDate(int, Date, Calendar)` | YES | - | No | OCCASIONAL | Sets Date with Calendar |
@@ -137,7 +137,7 @@
 | `setNString(int, String)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | NString not supported |
 | `setNCharacterStream(int, Reader, long)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | NCharacterStream not supported |
 | `setNClob(int, NClob)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | NClob not supported |
-| `setClob(int, Reader, long)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Clob reader not supported |
+| `setClob(int, Reader, long)` | YES | - | No | RARE | Binds reader contents as STRING |
 | `setBlob(int, InputStream, long)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Blob stream not supported |
 | `setNClob(int, Reader, long)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | NClob reader not supported |
 | `setSQLXML(int, SQLXML)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | SQLXML not supported |
@@ -149,7 +149,7 @@
 | `setBinaryStream(int, InputStream)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Binary stream not supported |
 | `setCharacterStream(int, Reader)` | YES | - | No | OCCASIONAL | Character stream no length |
 | `setNCharacterStream(int, Reader)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | NCharacterStream not supported |
-| `setClob(int, Reader)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Clob reader not supported |
+| `setClob(int, Reader)` | YES | - | No | RARE | Binds reader contents as STRING |
 | `setBlob(int, InputStream)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Blob stream not supported |
 | `setNClob(int, Reader)` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | NClob reader not supported |
 | `setObject(int, Object, SQLType, int)` | YES | - | No | OCCASIONAL | JDBC 4.2 - SQLType variant |
@@ -514,7 +514,7 @@ OUT/INOUT parameters, named parameters, and return-value syntax (`{? = call ...}
 | `prepareStatement(String, int)` | PARTIAL | DatabricksSQLFeatureNotSupportedException | No | OCCASIONAL | Only NO_GENERATED_KEYS |
 | `prepareStatement(String, int[])` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Generated keys not supported |
 | `prepareStatement(String, String[])` | THROWS_NOT_SUPPORTED | DatabricksSQLFeatureNotSupportedException | No | RARE | Generated keys not supported |
-| `createClob()` | THROWS_NOT_IMPLEMENTED | DatabricksSQLFeatureNotImplementedException | No | RARE | CLOB not supported |
+| `createClob()` | YES | - | No | RARE | Returns a mutable in-memory CLOB |
 | `createBlob()` | THROWS_NOT_IMPLEMENTED | DatabricksSQLFeatureNotImplementedException | No | RARE | BLOB not supported |
 | `createNClob()` | THROWS_NOT_IMPLEMENTED | DatabricksSQLFeatureNotImplementedException | No | RARE | NCLOB not supported |
 | `createSQLXML()` | THROWS_NOT_IMPLEMENTED | DatabricksSQLFeatureNotImplementedException | No | RARE | SQLXML not supported |
@@ -776,11 +776,11 @@ OUT/INOUT parameters, named parameters, and return-value syntax (`{? = call ...}
 | Interface | Total Methods | Fully Implemented | Partially Implemented | Throws NOT_SUPPORTED | Throws NOT_IMPLEMENTED | Not Implemented |
 |-----------|---------------|-------------------|----------------------|---------------------|------------------------|-----------------|
 | Statement | 54 | 37 (69%) | 5 (9%) | 12 (22%) | 0 | 0 |
-| PreparedStatement | 70 | 28 (40%) | 1 (1%) | 24 (34%) | 17 (24%) | 0 |
+| PreparedStatement | 70 | 31 (44%) | 1 (1%) | 21 (30%) | 17 (24%) | 0 |
 | CallableStatement | 100+ | 0 (0%) | 0 | 0 | 0 | 100+ (100%) |
 | ResultSet | 200+ | 70 (35%) | 2 (1%) | 130+ (65%) | 0 | 0 |
 | ResultSetMetaData | 23 | 23 (100%) | 0 | 0 | 0 | 0 |
-| Connection | 60 | 26 (43%) | 12 (20%) | 8 (13%) | 14 (23%) | 0 |
+| Connection | 60 | 27 (45%) | 12 (20%) | 8 (13%) | 13 (22%) | 0 |
 | DatabaseMetaData | 180+ | 180+ (100%) | 0 | 0 | 0 | 0 |
 | ParameterMetaData | 11 | 3 (27%) | 8 (73%) | 0 | 0 | 0 |
 
@@ -794,8 +794,8 @@ OUT/INOUT parameters, named parameters, and return-value syntax (`{? = call ...}
    - `Statement` - 69% fully implemented, mostly core functionality
 
 3. **Partially Implemented:**
-   - `Connection` - 43% fully implemented, 20% partially (many throw exceptions for advanced features)
-   - `PreparedStatement` - 40% fully implemented, many LOB/stream methods not supported
+   - `Connection` - 45% fully implemented, 20% partially (many throw exceptions for advanced features)
+   - `PreparedStatement` - 44% fully implemented; CLOB binding is supported, while BLOB/NCLOB binding is not
    - `ResultSet` - 35% fully implemented, most update methods throw NOT_SUPPORTED
 
 4. **Not Implemented:**
@@ -819,11 +819,12 @@ OUT/INOUT parameters, named parameters, and return-value syntax (`{? = call ...}
 - Large update counts (supported)
 - Streaming (ASCII/Character streams supported, binary not supported)
 - Calendar-based date/time operations (supported)
+- CLOB creation and PreparedStatement binding (mapped to STRING)
 
 **NOT SUPPORTED:**
 - CallableStatement (stored procedures)
 - Updatable ResultSets (all update methods throw exceptions)
-- LOB types (BLOB, CLOB, NCLOB)
+- BLOB/NCLOB operations and CLOB retrieval/update
 - Advanced types (REF, SQLXML, RowId, URL)
 - Named cursors
 - Bidirectional ResultSet navigation

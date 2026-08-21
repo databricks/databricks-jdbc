@@ -27,11 +27,12 @@ public final class DatabricksClob implements Clob {
   @Override
   public String getSubString(long pos, int length) throws SQLException {
     ensureOpen();
-    int start = readPosition(pos);
-    if (length < 0 || (long) start + length > value.length()) {
+    if (length < 0) {
       throw validationError("Invalid CLOB substring length: " + length);
     }
-    return value.substring(start, start + length);
+    int start = substringPosition(pos, length);
+    int end = (int) Math.min((long) start + length, value.length());
+    return value.substring(start, end);
   }
 
   @Override
@@ -68,9 +69,15 @@ public final class DatabricksClob implements Clob {
     if (searchstr == null) {
       throw validationError("CLOB search value cannot be null");
     }
+    if (start < 1) {
+      throw validationError("CLOB search position must be at least 1");
+    }
     long searchLength = searchstr.length();
-    if (searchLength > Integer.MAX_VALUE) {
-      throw validationError("CLOB search value is too large");
+    if (searchLength > value.length()) {
+      return -1;
+    }
+    if (searchLength == 0) {
+      return position("", start);
     }
     return position(searchstr.getSubString(1, (int) searchLength), start);
   }
@@ -95,7 +102,12 @@ public final class DatabricksClob implements Clob {
     }
     int start = writePosition(pos);
     String replacement = str.substring(offset, offset + len);
-    value.replace(start, Math.min(start + len, value.length()), replacement);
+    int end = (int) Math.min((long) start + len, value.length());
+    long resultingLength = (long) value.length() - (end - start) + replacement.length();
+    if (resultingLength > Integer.MAX_VALUE) {
+      throw validationError("CLOB value is too large");
+    }
+    value.replace(start, end, replacement);
     return len;
   }
 
@@ -105,6 +117,7 @@ public final class DatabricksClob implements Clob {
     writePosition(pos);
     return new OutputStream() {
       private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+      private long nextPosition = pos;
       private boolean closed;
 
       @Override
@@ -122,11 +135,17 @@ public final class DatabricksClob implements Clob {
       @Override
       public void flush() throws IOException {
         ensureNotClosed();
+        if (buffer.size() == 0) {
+          return;
+        }
+        String pending = buffer.toString(StandardCharsets.US_ASCII);
         try {
-          DatabricksClob.this.setString(pos, buffer.toString(StandardCharsets.US_ASCII));
+          DatabricksClob.this.setString(nextPosition, pending);
         } catch (SQLException e) {
           throw new IOException("Unable to write CLOB ASCII stream", e);
         }
+        nextPosition += pending.length();
+        buffer.reset();
       }
 
       @Override
@@ -152,6 +171,7 @@ public final class DatabricksClob implements Clob {
     writePosition(pos);
     return new Writer() {
       private final StringBuilder buffer = new StringBuilder();
+      private long nextPosition = pos;
       private boolean closed;
 
       @Override
@@ -167,11 +187,17 @@ public final class DatabricksClob implements Clob {
         if (closed) {
           throw new IOException("CLOB character stream is closed");
         }
+        if (buffer.length() == 0) {
+          return;
+        }
+        String pending = buffer.toString();
         try {
-          DatabricksClob.this.setString(pos, buffer.toString());
+          DatabricksClob.this.setString(nextPosition, pending);
         } catch (SQLException e) {
           throw new IOException("Unable to write CLOB character stream", e);
         }
+        nextPosition += pending.length();
+        buffer.setLength(0);
       }
 
       @Override
@@ -202,14 +228,23 @@ public final class DatabricksClob implements Clob {
   @Override
   public Reader getCharacterStream(long pos, long length) throws SQLException {
     ensureOpen();
-    if (length > Integer.MAX_VALUE) {
-      throw validationError("CLOB stream length is too large");
+    int start = readPosition(pos);
+    if (length < 0 || length > Integer.MAX_VALUE || (long) start + length > value.length()) {
+      throw validationError("Invalid CLOB stream range");
     }
-    return new StringReader(getSubString(pos, (int) length));
+    return new StringReader(value.substring(start, start + (int) length));
   }
 
   private int readPosition(long pos) throws SQLException {
     if (pos < 1 || pos > value.length() || pos > Integer.MAX_VALUE) {
+      throw validationError("Invalid CLOB position: " + pos);
+    }
+    return (int) pos - 1;
+  }
+
+  private int substringPosition(long pos, int length) throws SQLException {
+    long maximumPosition = (long) value.length() + (length == 0 ? 1 : 0);
+    if (pos < 1 || pos > maximumPosition || pos > Integer.MAX_VALUE) {
       throw validationError("Invalid CLOB position: " + pos);
     }
     return (int) pos - 1;
