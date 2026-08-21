@@ -83,11 +83,11 @@ public class DatabricksThriftServiceClientTest {
             .setInitialNamespace(getNamespace(CATALOG, SCHEMA))
             .setConfiguration(EMPTY_MAP)
             .setCanUseMultipleCatalogs(true)
-            .setClient_protocol_i64(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9.getValue());
+            .setClient_protocol_i64(JDBC_THRIFT_VERSION.getValue());
     TOpenSessionResp openSessionResp =
         new TOpenSessionResp()
             .setSessionHandle(SESSION_HANDLE)
-            .setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9)
+            .setServerProtocolVersion(JDBC_THRIFT_VERSION)
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
     when(thriftAccessor.getThriftResponse(openSessionReq)).thenReturn(openSessionResp);
     ImmutableSessionInfo actualResponse =
@@ -106,7 +106,7 @@ public class DatabricksThriftServiceClientTest {
             .setInitialNamespace(getNamespace(CATALOG, SCHEMA))
             .setConfiguration(EMPTY_MAP)
             .setCanUseMultipleCatalogs(true)
-            .setClient_protocol_i64(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9.getValue());
+            .setClient_protocol_i64(JDBC_THRIFT_VERSION.getValue());
 
     // Case 1: Server returns unsupported protocol version (too old)
     TOpenSessionResp unsupportedVersionResp =
@@ -127,11 +127,12 @@ public class DatabricksThriftServiceClientTest {
         "Attempting to connect to a non Databricks compute using the Databricks driver.",
         exception.getMessage());
 
-    // Case 2: Server returns supported protocol version
+    // Case 2: Server negotiates a supported protocol version below the client's maximum
+    TProtocolVersion negotiatedVersion = TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9;
     TOpenSessionResp supportedVersionResp =
         new TOpenSessionResp()
             .setSessionHandle(SESSION_HANDLE)
-            .setServerProtocolVersion(JDBC_THRIFT_VERSION)
+            .setServerProtocolVersion(negotiatedVersion)
             .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
 
     when(thriftAccessor.getThriftResponse(openSessionReq)).thenReturn(supportedVersionResp);
@@ -139,7 +140,7 @@ public class DatabricksThriftServiceClientTest {
     ImmutableSessionInfo sessionInfo =
         client.createSession(CLUSTER_COMPUTE, CATALOG, SCHEMA, EMPTY_MAP);
 
-    verify(thriftAccessor).setServerProtocolVersion(JDBC_THRIFT_VERSION);
+    verify(thriftAccessor).setServerProtocolVersion(negotiatedVersion);
 
     // Verify returned session info
     assertEquals(SESSION_HANDLE, sessionInfo.sessionHandle());
@@ -167,7 +168,8 @@ public class DatabricksThriftServiceClientTest {
         Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V6),
         Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V7),
         Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V8),
-        Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9));
+        Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9),
+        Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V10));
   }
 
   @ParameterizedTest
