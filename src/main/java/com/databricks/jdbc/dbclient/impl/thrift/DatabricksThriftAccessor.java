@@ -31,6 +31,7 @@ import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpException;
 import org.apache.thrift.TBase;
@@ -53,6 +54,16 @@ final class DatabricksThriftAccessor {
       TExecuteStatementResp._Fields.OPERATION_HANDLE.getThriftFieldId();
   private static final short statusFieldId =
       TExecuteStatementResp._Fields.STATUS.getThriftFieldId();
+  // Bounded, jittered retry for transient transport-level failures (stale pooled connection,
+  // connection reset, load-balancer idle drop) on idempotent status / close / cancel RPCs. A
+  // status poll is read-only, and closing or cancelling an operation is idempotent, so repeating
+  // any of them produces no additional server-side side effects. This is why statement submission
+  // is deliberately NOT routed through the retry path: re-sending an ExecuteStatement could run the
+  // query twice.
+  private static final int MAX_POLL_TRANSPORT_RETRIES = 5;
+  private static final long TRANSPORT_RETRY_MIN_BACKOFF_MILLIS = 1_000L;
+  private static final long TRANSPORT_RETRY_MAX_BACKOFF_MILLIS = 16_000L;
+
   private DatabricksConfig databricksConfig;
   private final boolean enableDirectResults;
   private final int asyncPollIntervalMillis;
@@ -163,7 +174,10 @@ final class DatabricksThriftAccessor {
 
   TCancelOperationResp cancelOperation(TCancelOperationReq req) throws DatabricksHttpException {
     try {
-      return getThriftClient().CancelOperation(req);
+      return withTransportRetry(
+          "CancelOperation",
+          loggableOperationHandle(req.getOperationHandle()),
+          () -> getThriftClient().CancelOperation(req));
     } catch (TException e) {
       String errorMessage =
           String.format(
@@ -176,7 +190,10 @@ final class DatabricksThriftAccessor {
 
   TCloseOperationResp closeOperation(TCloseOperationReq req) throws DatabricksHttpException {
     try {
-      return getThriftClient().CloseOperation(req);
+      return withTransportRetry(
+          "CloseOperation",
+          loggableOperationHandle(req.getOperationHandle()),
+          () -> getThriftClient().CloseOperation(req));
     } catch (TException e) {
       String errorMessage =
           String.format(
@@ -778,7 +795,11 @@ final class DatabricksThriftAccessor {
     while (shouldContinuePolling(statusResp)) {
       metadataTimeoutHandler.checkTimeout();
       try {
-        statusResp = getThriftClient().GetOperationStatus(statusReq);
+        statusResp =
+            withTransportRetry(
+                "GetOperationStatus",
+                statementId,
+                () -> getThriftClient().GetOperationStatus(statusReq));
       } catch (TTransportException e) {
         throw buildTransportFailureException(statementId, e);
       }
@@ -962,6 +983,78 @@ final class DatabricksThriftAccessor {
     return new DatabricksSQLException(errorMsg, e, COMMUNICATION_LINK_FAILURE_SQLSTATE);
   }
 
+  /** A Thrift RPC that is safe to repeat after a transport-level failure. */
+  @FunctionalInterface
+  private interface TransportSafeRpc<T> {
+    T call() throws TException;
+  }
+
+  /** Null-safe operation-handle rendering for log lines (handles may be absent). */
+  private static String loggableOperationHandle(TOperationHandle operationHandle) {
+    return operationHandle != null
+        ? StatementId.loggableStatementId(operationHandle)
+        : "unknown";
+  }
+
+  /**
+   * Executes an idempotent Thrift RPC, transparently retrying transient transport-level failures on
+   * a fresh connection with jittered exponential backoff.
+   *
+   * <p>Every invocation of {@code rpc} builds a new transport, so a retry naturally leases a
+   * different pooled connection while the broken one is discarded. This lets a still-running
+   * server-side operation be re-polled — or a completed one be re-closed / re-cancelled — instead
+   * of being abandoned after a single stale-connection blip and left to expire on the server's
+   * inactivity timeout. Only RPCs that are safe to repeat may use this path (status polling,
+   * operation close, cancel); statement submission must not.
+   *
+   * <p>Retries are bounded by {@link #MAX_POLL_TRANSPORT_RETRIES}. Once exhausted, the original
+   * {@link TTransportException} is rethrown so the existing caller-side failure handling still
+   * applies. Non-transport {@link TException}s are never retried — they propagate on the first
+   * attempt. A thread interrupt during a backoff sleep restores the interrupt flag and aborts the
+   * retry loop.
+   */
+  private <T> T withTransportRetry(String rpcName, String statementId, TransportSafeRpc<T> rpc)
+      throws TException {
+    int attempt = 0;
+    long backoffMillis = TRANSPORT_RETRY_MIN_BACKOFF_MILLIS;
+    while (true) {
+      try {
+        return rpc.call();
+      } catch (TTransportException e) {
+        if (++attempt > MAX_POLL_TRANSPORT_RETRIES) {
+          LOGGER.error(
+              "Transport failure on {} for statement [{}] still failing after {} retries; giving"
+                  + " up. Cause: {}",
+              rpcName,
+              statementId,
+              MAX_POLL_TRANSPORT_RETRIES,
+              e.getMessage());
+          throw e;
+        }
+        // Full-jitter backoff around the current exponential ceiling, spreading concurrent
+        // reconnect attempts so they do not thunder against a recovering endpoint.
+        long sleepMillis =
+            ThreadLocalRandom.current().nextLong(backoffMillis / 2 + 1, backoffMillis + 1);
+        LOGGER.warn(
+            "Transport failure on {} for statement [{}] (attempt {}/{}); reconnecting and retrying"
+                + " in {} ms. Cause: {}",
+            rpcName,
+            statementId,
+            attempt,
+            MAX_POLL_TRANSPORT_RETRIES,
+            sleepMillis,
+            e.getMessage());
+        try {
+          TimeUnit.MILLISECONDS.sleep(sleepMillis);
+        } catch (InterruptedException ie) {
+          Thread.currentThread().interrupt();
+          throw e;
+        }
+        backoffMillis = Math.min(backoffMillis * 2, TRANSPORT_RETRY_MAX_BACKOFF_MILLIS);
+      }
+    }
+  }
+
   private boolean shouldContinuePolling(TGetOperationStatusResp statusResp) {
     return statusResp == null
         || !statusResp.isSetOperationState()
@@ -1042,7 +1135,11 @@ final class DatabricksThriftAccessor {
   TGetOperationStatusResp getOperationStatus(
       TGetOperationStatusReq statusReq, StatementId statementId) throws TException {
     long operationStatusStartTime = System.nanoTime();
-    TGetOperationStatusResp operationStatus = getThriftClient().GetOperationStatus(statusReq);
+    TGetOperationStatusResp operationStatus =
+        withTransportRetry(
+            "GetOperationStatus",
+            statementId.toSQLExecStatementId(),
+            () -> getThriftClient().GetOperationStatus(statusReq));
     long operationStatusEndTime = System.nanoTime();
     long operationStatusLatencyMillis =
         (operationStatusEndTime - operationStatusStartTime) / 1_000_000;
