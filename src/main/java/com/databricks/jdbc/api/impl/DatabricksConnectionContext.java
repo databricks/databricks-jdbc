@@ -105,6 +105,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   /**
    * Builds a map of properties from the given connection parameter string and properties object.
+   * Connection URL parameters take precedence over entries in the properties object.
    *
    * @param connectionParamString the connection parameter string
    * @param properties the properties object
@@ -113,6 +114,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public static ImmutableMap<String, String> buildPropertiesMap(
       String connectionParamString, Properties properties) {
     ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
+    for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+      parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
+    }
     // check if connectionParamString is empty or null
     if (!isNullOrEmpty(connectionParamString)) {
       String[] urlParts = connectionParamString.split(DatabricksJdbcConstants.URL_DELIMITER);
@@ -128,10 +132,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
         }
       }
     }
-    for (Map.Entry<Object, Object> entry : properties.entrySet()) {
-      parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
-    }
-    return parametersBuilder.build();
+    return parametersBuilder.buildKeepingLast();
   }
 
   static IDatabricksConnectionContext parseWithoutError(String url, Properties properties) {

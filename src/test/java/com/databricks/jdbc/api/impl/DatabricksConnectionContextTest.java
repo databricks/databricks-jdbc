@@ -60,6 +60,20 @@ class DatabricksConnectionContextTest {
     assertEquals("value3", propertiesMap.get("param3"));
   }
 
+  @ParameterizedTest
+  @CsvSource({"url-value, url-value", "url-value, properties-value"})
+  public void testBuildPropertiesMapUrlOverridesProperties(
+      String urlValue, String propertiesValue) {
+    Properties properties = new Properties();
+    properties.setProperty("HTTPPATH", propertiesValue);
+
+    ImmutableMap<String, String> propertiesMap =
+        buildPropertiesMap("httpPath=" + urlValue, properties);
+
+    assertEquals(1, propertiesMap.size());
+    assertEquals(urlValue, propertiesMap.get("httppath"));
+  }
+
   @Test
   public void testTelemetrySocketTimeoutDefault() throws DatabricksSQLException {
     DatabricksConnectionContext context =
