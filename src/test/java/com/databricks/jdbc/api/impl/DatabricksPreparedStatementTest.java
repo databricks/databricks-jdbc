@@ -603,31 +603,52 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
-  public void testSetAsciiStream() throws DatabricksSQLException {
+  public void testSetAsciiStream() throws SQLException {
     setupMocks();
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
 
-    byte[] bytes = {0x01, 0x02, 0x03, 0x04};
+    byte[] bytes = "prefix-trailing".getBytes(StandardCharsets.US_ASCII);
     InputStream asciiStream = new ByteArrayInputStream(bytes);
 
-    assertDoesNotThrow(() -> preparedStatement.setAsciiStream(1, asciiStream, bytes.length));
+    preparedStatement.setAsciiStream(1, asciiStream, 6);
+
+    assertEquals("prefix", getBoundValue(preparedStatement, 1));
+    assertEquals(STRING, getBoundParameter(preparedStatement, 1).type());
   }
 
   @Test
-  public void testSetAsciiStreamWithLong() throws DatabricksSQLException {
+  public void testSetAsciiStreamWithLong() throws SQLException {
     setupMocks();
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
 
-    byte[] bytes = {0x01, 0x02, 0x03, 0x04};
+    byte[] bytes = "prefix-trailing".getBytes(StandardCharsets.US_ASCII);
     InputStream asciiStream = new ByteArrayInputStream(bytes);
 
-    assertDoesNotThrow(() -> preparedStatement.setAsciiStream(1, asciiStream, (long) bytes.length));
+    preparedStatement.setAsciiStream(1, asciiStream, 6L);
+
+    assertEquals("prefix", getBoundValue(preparedStatement, 1));
+    assertEquals(STRING, getBoundParameter(preparedStatement, 1).type());
   }
 
   @Test
-  public void testSetCharacterStream() throws DatabricksSQLException {
+  public void testSetCharacterStream() throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+
+    String originalString = "prefix-trailing";
+    Reader characterStream = new StringReader(originalString);
+
+    preparedStatement.setCharacterStream(1, characterStream, 6);
+
+    assertEquals("prefix", getBoundValue(preparedStatement, 1));
+    assertEquals(STRING, getBoundParameter(preparedStatement, 1).type());
+  }
+
+  @Test
+  public void testSetCharacterStreamWithLong() throws SQLException {
     setupMocks();
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
@@ -635,27 +656,23 @@ public class DatabricksPreparedStatementTest {
     String originalString = "Hello, World!";
     Reader characterStream = new StringReader(originalString);
 
-    assertDoesNotThrow(
-        () -> preparedStatement.setCharacterStream(1, characterStream, originalString.length()));
+    preparedStatement.setCharacterStream(1, characterStream, (long) originalString.length());
+
+    assertEquals(originalString, getBoundValue(preparedStatement, 1));
+    assertEquals(STRING, getBoundParameter(preparedStatement, 1).type());
+
+    DatabricksSQLException invalidLength =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> preparedStatement.setCharacterStream(1, new StringReader("value"), -1L));
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(), invalidLength.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), invalidLength.getErrorCode());
   }
 
   @Test
-  public void testSetCharacterStreamWithLong() throws DatabricksSQLException {
-    setupMocks();
-    DatabricksPreparedStatement preparedStatement =
-        new DatabricksPreparedStatement(connection, STATEMENT);
-
-    String originalString = "Hello, World!";
-    Reader characterStream = new StringReader(originalString);
-
-    assertDoesNotThrow(
-        () ->
-            preparedStatement.setCharacterStream(
-                1, characterStream, (long) originalString.length()));
-  }
-
-  @Test
-  public void testSetAsciiStreamWithoutLength() throws DatabricksSQLException {
+  public void testSetAsciiStreamWithoutLength() throws SQLException {
     setupMocks();
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
@@ -663,7 +680,63 @@ public class DatabricksPreparedStatementTest {
     byte[] bytes = "Hello, World!".getBytes(StandardCharsets.US_ASCII);
     InputStream asciiStream = new ByteArrayInputStream(bytes);
 
-    assertDoesNotThrow(() -> preparedStatement.setAsciiStream(1, asciiStream));
+    preparedStatement.setAsciiStream(1, asciiStream);
+
+    assertEquals("Hello, World!", getBoundValue(preparedStatement, 1));
+    assertEquals(STRING, getBoundParameter(preparedStatement, 1).type());
+  }
+
+  @Test
+  public void testSetAsciiStreamValidation() throws SQLException {
+    setupMocks();
+    DatabricksPreparedStatement preparedStatement =
+        new DatabricksPreparedStatement(connection, STATEMENT);
+
+    DatabricksSQLException shortStream =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                preparedStatement.setAsciiStream(
+                    1, new ByteArrayInputStream("short".getBytes(StandardCharsets.US_ASCII)), 6L));
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(), shortStream.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), shortStream.getErrorCode());
+    assertEquals(
+        "Unexpected number of bytes read from the InputStream. Expected: 6, got: 5",
+        shortStream.getMessage());
+
+    DatabricksSQLException nullStream =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> preparedStatement.setAsciiStream(1, (InputStream) null));
+    assertEquals(DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(), nullStream.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), nullStream.getErrorCode());
+
+    DatabricksSQLException invalidLength =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> preparedStatement.setAsciiStream(1, new ByteArrayInputStream(new byte[0]), -1L));
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(), invalidLength.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), invalidLength.getErrorCode());
+
+    InputStream failingStream =
+        new InputStream() {
+          @Override
+          public int read() throws IOException {
+            throw new IOException("read failed");
+          }
+        };
+    DatabricksSQLException readFailure =
+        assertThrows(
+            DatabricksSQLException.class, () -> preparedStatement.setAsciiStream(1, failingStream));
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(), readFailure.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), readFailure.getErrorCode());
   }
 
   @Test
@@ -825,6 +898,13 @@ public class DatabricksPreparedStatementTest {
     assertEquals(
         "Unexpected number of characters read from the Reader. Expected: 6, got: 5",
         shortReader.getMessage());
+
+    DatabricksSQLException nullReader =
+        assertThrows(
+            DatabricksSQLException.class, () -> preparedStatement.setClob(1, (Reader) null));
+    assertEquals(DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(), nullReader.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), nullReader.getErrorCode());
   }
 
   @Test

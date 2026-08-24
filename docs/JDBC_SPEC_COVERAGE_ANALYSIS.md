@@ -44,7 +44,7 @@ This document provides a comprehensive analysis of JDBC specification compliance
 - **Fully Implemented:** 371+ methods (63% of total)
 - **Partially Implemented:** 28 methods
 - **Throws NOT_SUPPORTED:** 171+ methods (intentional - feature not applicable)
-- **Not Implemented:** 123+ methods (CallableStatement, etc.)
+- **Not Implemented:** 130+ methods (CallableStatement, etc.)
 
 **Core Methods Analysis (Original 156 high-priority methods):**
 - **Methods with Integration Tests:** 44 methods (28%)
@@ -1577,7 +1577,7 @@ This appendix provides a comprehensive inventory of ALL JDBC methods across all 
 | **Connection** | 60 | 27 | 12 | 8 | 13 | **45%** |
 | **DatabaseMetaData** | 180+ | 180+ | 0 | 0 | 0 | **100%** |
 | **ParameterMetaData** | 11 | 3 | 8 | 0 | 0 | **27%** |
-| **TOTAL** | **588+** | **371+** | **28** | **171+** | **123+** | **63%** |
+| **TOTAL** | **588+** | **371+** | **28** | **171+** | **130+** | **63%** |
 
 #### D.2 Key Findings from Complete Inventory
 
@@ -1705,7 +1705,7 @@ This appendix provides a comprehensive inventory of ALL JDBC methods across all 
 - ❌ **No need to test functionality** (not implemented)
 - ✅ **Document in driver documentation**
 
-**For Not Implemented Methods (123+ methods):**
+**For Not Implemented Methods (130+ methods):**
 - ❌ **No tests needed** (feature not applicable)
 - ✅ **Document limitation in driver documentation**
 - ✅ **Consider adding to FAQ/Known Limitations section**
