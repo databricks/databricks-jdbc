@@ -2097,11 +2097,30 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testNativeBatchingDisabledByDefault() throws DatabricksSQLException {
+  public void testBatchedInsertsEnabledByDefault() throws DatabricksSQLException {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, new Properties());
 
-    assertFalse(context.isNativeBatchingEnabled());
+    assertTrue(context.isBatchedInsertsEnabled());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0, false", "1, true", "true, false"})
+  public void testBatchedInsertsConnectionProperty(String value, boolean expected)
+      throws DatabricksSQLException {
+    String url = TestConstants.VALID_URL_1 + ";EnableBatchedInserts=" + value;
+
+    IDatabricksConnectionContext context = DatabricksConnectionContext.parse(url, new Properties());
+
+    assertEquals(expected, context.isBatchedInsertsEnabled());
+  }
+
+  @Test
+  public void testNativeBatchingEnabledByDefault() throws DatabricksSQLException {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, new Properties());
+
+    assertTrue(context.isNativeBatchingEnabled());
   }
 
   @ParameterizedTest
