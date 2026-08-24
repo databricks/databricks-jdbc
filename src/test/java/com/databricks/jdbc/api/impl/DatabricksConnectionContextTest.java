@@ -60,6 +60,20 @@ class DatabricksConnectionContextTest {
     assertEquals("value3", propertiesMap.get("param3"));
   }
 
+  @ParameterizedTest
+  @CsvSource({"url-value, url-value", "url-value, properties-value"})
+  public void testBuildPropertiesMapUrlOverridesProperties(
+      String urlValue, String propertiesValue) {
+    Properties properties = new Properties();
+    properties.setProperty("HTTPPATH", propertiesValue);
+
+    ImmutableMap<String, String> propertiesMap =
+        buildPropertiesMap("httpPath=" + urlValue, properties);
+
+    assertEquals(1, propertiesMap.size());
+    assertEquals(urlValue, propertiesMap.get("httppath"));
+  }
+
   @Test
   public void testTelemetrySocketTimeoutDefault() throws DatabricksSQLException {
     DatabricksConnectionContext context =
@@ -2080,5 +2094,24 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
     assertNull(ctx.getClientSecret());
     assertNull(ctx.getNullableClientId());
+  }
+
+  @Test
+  public void testNativeBatchingDisabledByDefault() throws DatabricksSQLException {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, new Properties());
+
+    assertFalse(context.isNativeBatchingEnabled());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0, false", "1, true", "true, false"})
+  public void testNativeBatchingConnectionProperty(String value, boolean expected)
+      throws DatabricksSQLException {
+    String url = TestConstants.VALID_URL_1 + ";EnableNativeBatching=" + value;
+
+    IDatabricksConnectionContext context = DatabricksConnectionContext.parse(url, new Properties());
+
+    assertEquals(expected, context.isNativeBatchingEnabled());
   }
 }
