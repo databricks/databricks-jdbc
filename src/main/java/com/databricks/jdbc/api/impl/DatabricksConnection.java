@@ -728,8 +728,13 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public Clob createClob() throws SQLException {
     LOGGER.debug("public Clob createClob()");
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Not implemented in DatabricksConnection - createClob()");
+    if (isClosed()) {
+      throw new DatabricksSQLException(
+          "Connection is closed",
+          DatabricksDriverErrorCode.CONNECTION_CLOSED.name(),
+          DatabricksDriverErrorCode.CONNECTION_CLOSED);
+    }
+    return new DatabricksClob();
   }
 
   @Override
