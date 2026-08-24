@@ -32,7 +32,7 @@ This document provides a comprehensive analysis of JDBC specification compliance
 
 ### Key Findings
 
-**Overall Integration Test Coverage: 13.4%** (when considering only applicable methods)
+**Overall Integration Test Coverage: 13.3%** (when considering only applicable methods)
 
 **Comprehensive JDBC Inventory:**
 - **Total JDBC Methods Analyzed:** 588+ methods across 8 core interfaces (ALL methods including rare, deprecated, vendor-specific)
@@ -1570,7 +1570,7 @@ This appendix provides a comprehensive inventory of ALL JDBC methods across all 
 | Interface | Total Methods | Fully Implemented | Partially Implemented | Throws NOT_SUPPORTED | Not Implemented | Implementation % |
 |-----------|--------------|-------------------|----------------------|---------------------|----------------|-----------------|
 | **Statement** | 54 | 37 | 5 | 12 | 0 | **69%** |
-| **PreparedStatement** | 60 | 31 | 1 | 21 | 10 | **52%** |
+| **PreparedStatement** | 70 | 31 | 1 | 21 | 17 | **44%** |
 | **CallableStatement** | 100+ | 0 | 0 | 0 | 100+ | **0%** |
 | **ResultSet** | 200+ | 70 | 2 | 130+ | 0 | **35%** |
 | **ResultSetMetaData** | 23 | 23 | 0 | 0 | 0 | **100%** |
@@ -1643,7 +1643,8 @@ This appendix provides a comprehensive inventory of ALL JDBC methods across all 
    - **NCLOB operations:** getNClob(), setNClob(), updateNClob() - Not supported
    - **Reason:** Databricks does not support LOB types natively
    - **Workaround:** Use String for CLOB-like data, byte[] for BLOB-like data
-   - **Test Strategy:** Verify NOT_SUPPORTED exceptions are thrown
+   - **Limitation:** CLOB creation and binding materialize character contents in JVM memory; there is no server-side LOB locator or streaming parameter transport
+   - **Test Strategy:** Verify supported CLOB creation/binding behavior and NOT_SUPPORTED exceptions for the remaining LOB operations
 
 4. **Bidirectional ResultSet Navigation** (0%)
    - **Methods:** previous(), first(), last(), absolute(), relative(), beforeFirst(), afterLast()

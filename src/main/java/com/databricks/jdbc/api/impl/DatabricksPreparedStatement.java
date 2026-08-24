@@ -549,6 +549,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void setClob(int parameterIndex, Reader reader, long length) throws SQLException {
     LOGGER.debug("public void setClob(int parameterIndex, Reader reader, long length)");
+    checkIfClosed();
     if (length < 0 || length > Integer.MAX_VALUE) {
       throw inputValidationError("Invalid CLOB length: " + length);
     }
@@ -859,8 +860,13 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
         buffer.append(chunk, 0, nRead);
         charsRead += nRead;
       }
-      if (length != -1) {
-        checkLength(length, charsRead);
+      if (length != -1 && length != charsRead) {
+        String message =
+            String.format(
+                "Unexpected number of characters read from the Reader. Expected: %d, got: %d",
+                length, charsRead);
+        LOGGER.error(message);
+        throw inputValidationError(message);
       }
       return buffer.toString();
     } catch (IOException e) {

@@ -132,6 +132,9 @@ class DatabricksClobTest {
     assertEquals("value", clob.getSubString(1, 6));
     assertEquals("ue", clob.getSubString(4, 99));
     assertThrows(SQLException.class, () -> clob.getCharacterStream(1, 6));
+    assertThrows(SQLException.class, () -> clob.setString(1, "value", -1, 1));
+    assertThrows(SQLException.class, () -> clob.setString(1, "value", 0, -1));
+    assertThrows(SQLException.class, () -> clob.setString(1, "value", 3, 3));
     assertThrows(SQLException.class, () -> clob.setString(7, "x"));
     assertThrows(SQLException.class, () -> clob.truncate(6));
   }

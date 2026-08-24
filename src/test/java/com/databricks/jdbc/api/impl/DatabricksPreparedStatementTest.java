@@ -757,6 +757,16 @@ public class DatabricksPreparedStatementTest {
         DatabricksDriverErrorCode.STATEMENT_CLOSED.getCode(),
         readerWithLengthException.getErrorCode());
 
+    DatabricksSQLException invalidLengthException =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> preparedStatement.setClob(1, new StringReader("value"), -1));
+    assertEquals(
+        DatabricksDriverErrorCode.STATEMENT_CLOSED.name(), invalidLengthException.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.STATEMENT_CLOSED.getCode(),
+        invalidLengthException.getErrorCode());
+
     DatabricksSQLException readerException =
         assertThrows(
             DatabricksSQLException.class,
@@ -771,6 +781,10 @@ public class DatabricksPreparedStatementTest {
     setupMocks();
     DatabricksPreparedStatement preparedStatement =
         new DatabricksPreparedStatement(connection, STATEMENT);
+
+    preparedStatement.setClob(1, new StringReader("prefix-trailing"), 6);
+    assertEquals("prefix", getBoundValue(preparedStatement, 1));
+    assertEquals(STRING, getBoundParameter(preparedStatement, 1).type());
 
     Reader chunkedReader =
         new StringReader("prefix-trailing") {
@@ -799,6 +813,18 @@ public class DatabricksPreparedStatementTest {
         DatabricksSQLException.class,
         () ->
             preparedStatement.setClob(1, new StringReader("value"), (long) Integer.MAX_VALUE + 1));
+
+    DatabricksSQLException shortReader =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> preparedStatement.setClob(1, new StringReader("short"), 6));
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(), shortReader.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), shortReader.getErrorCode());
+    assertEquals(
+        "Unexpected number of characters read from the Reader. Expected: 6, got: 5",
+        shortReader.getMessage());
   }
 
   @Test
