@@ -125,6 +125,21 @@ class ApcExtendedProviderTest {
   }
 
   @Test
+  void missingHandleMessagesIgnoreRouteSpecificWrappers() {
+    assertEquals(
+        "missing-handle",
+        ApcExtendedProvider.normalizeHandleErrorMessage(
+            "Operation status check failed with status code: [INVALID_HANDLE_STATUS], "
+                + "error: [Invalid OperationHandle]"));
+    assertEquals(
+        "missing-handle",
+        ApcExtendedProvider.normalizeHandleErrorMessage(
+            "Session 00000000-0000-4000-8000-000000000001 not found"));
+    assertEquals(
+        "permission denied", ApcExtendedProvider.normalizeHandleErrorMessage("permission denied"));
+  }
+
+  @Test
   void consumingLazyResultSurfacesFailure() throws Exception {
     java.sql.ResultSet result = mock(java.sql.ResultSet.class);
     when(result.next()).thenThrow(new SQLException("missing statement"));

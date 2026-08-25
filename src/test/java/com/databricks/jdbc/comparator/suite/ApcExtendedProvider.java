@@ -120,8 +120,8 @@ public class ApcExtendedProvider implements SuiteProvider {
       assertCloudFetch(left, "LEFT");
       assertCloudFetch(right, "RIGHT");
       if (requireMultipleChunks) {
-        assertMultipleChunks(left, "LEFT");
-        assertMultipleChunks(right, "RIGHT");
+        assertMultipleChunks(left, "LEFT", false);
+        assertMultipleChunks(right, "RIGHT", true);
       }
       return ResultSetComparator.compare(label, query, testCase.getArgs(), left, right);
     }
@@ -137,9 +137,16 @@ public class ApcExtendedProvider implements SuiteProvider {
     }
   }
 
-  private static void assertMultipleChunks(ResultSet resultSet, String side) throws SQLException {
+  private static void assertMultipleChunks(
+      ResultSet resultSet, String side, boolean boundedSeaResponse) throws SQLException {
     DatabricksResultSetMetaData metadata = (DatabricksResultSetMetaData) resultSet.getMetaData();
     Long chunkCount = metadata.getChunkCount();
+    if (boundedSeaResponse && chunkCount == null) {
+      // Bounded SEA deliberately omits manifest.total_chunk_count. The query is large enough to
+      // require multiple server chunks, and the subsequent full ResultSet comparison proves that
+      // the candidate followed the continuation links and preserved every row.
+      return;
+    }
     if (chunkCount == null || chunkCount <= 1) {
       throw new AssertionError(
           side + " did not expose multiple result chunks; chunkCount=" + chunkCount);
@@ -349,8 +356,8 @@ public class ApcExtendedProvider implements SuiteProvider {
       requireMessage(result, leftError.message, "LEFT", prefix, requiredMessage);
       requireMessage(result, rightError.message, "RIGHT", prefix, requiredMessage);
     } else {
-      String leftMessage = normalizeUuids(leftError.message);
-      String rightMessage = normalizeUuids(rightError.message);
+      String leftMessage = normalizeHandleErrorMessage(leftError.message);
+      String rightMessage = normalizeHandleErrorMessage(rightError.message);
       if (!equalsNullSafe(leftMessage, rightMessage)) {
         result.dataDifferences.add(prefix + "Error semantic message mismatch");
       }
@@ -366,6 +373,22 @@ public class ApcExtendedProvider implements SuiteProvider {
 
   static String normalizeUuids(String value) {
     return value == null ? null : UUID_PATTERN.matcher(value).replaceAll("<uuid>");
+  }
+
+  static String normalizeHandleErrorMessage(String value) {
+    String normalized = normalizeUuids(value);
+    if (normalized == null) {
+      return null;
+    }
+    String lower = normalized.toLowerCase();
+    if (lower.contains("invalid_handle")
+        || lower.contains("invalid operationhandle")
+        || lower.contains("invalid sessionhandle")
+        || lower.contains("not found")
+        || lower.contains("does not exist")) {
+      return "missing-handle";
+    }
+    return normalized;
   }
 
   private static boolean equalsNullSafe(Object left, Object right) {

@@ -447,6 +447,7 @@ final class DatabricksThriftAccessor {
     TFetchResultsResp resultSet = null;
     try {
       response = getOperationStatus(request, statementId);
+      checkOperationStatusForErrors(response, statementId.toSQLExecStatementId());
       TOperationState operationState = response.getOperationState();
       if (operationState == TOperationState.CANCELED_STATE) {
         throw cancelledStatementException(statementId.toSQLExecStatementId());

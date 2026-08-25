@@ -476,6 +476,30 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
+  void testGetStatementResult_invalidHandleThrowsInsteadOfDereferencingMissingState()
+      throws Exception {
+    when(connectionContext.getDirectResultMode()).thenReturn(false);
+    accessor = spy(new DatabricksThriftAccessor(connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
+    TGetOperationStatusResp invalidHandle =
+        new TGetOperationStatusResp()
+            .setStatus(
+                new TStatus()
+                    .setStatusCode(TStatusCode.INVALID_HANDLE_STATUS)
+                    .setErrorMessage("Invalid OperationHandle"));
+    when(thriftClient.GetOperationStatus(any(TGetOperationStatusReq.class)))
+        .thenReturn(invalidHandle);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.getStatementResult(tOperationHandle, null, session));
+
+    assertTrue(exception.getMessage().contains("INVALID_HANDLE_STATUS"));
+    assertTrue(exception.getMessage().contains("Invalid OperationHandle"));
+  }
+
+  @Test
   void testPollingPath_cancelledDuringExecution_throwsWithHY008() throws Exception {
     setup(false);
     TExecuteStatementReq request = new TExecuteStatementReq();
