@@ -9,6 +9,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
+import java.util.Collections;
 import java.util.List;
 
 /** Builds the ordinary one-chunk provider for APC native Arrow record batches. */
@@ -31,7 +32,7 @@ final class ArrowBatchChunkProviderFactory {
       throw parsingError("Paginated or external-link ARROW_BATCH responses are not supported");
     }
 
-    List<ArrowBatch> arrowBatches = resultData.getArrowBatches();
+    List<ArrowBatch> arrowBatches = normalizeArrowBatches(resultData, resultManifest);
     long totalRows = validateAndCountRows(arrowBatches, resultData, resultManifest);
     ByteArrayInputStream stream =
         createArrowBatchByteStream(resultManifest.getArrowSchema(), arrowBatches);
@@ -53,10 +54,6 @@ final class ArrowBatchChunkProviderFactory {
   private static long validateAndCountRows(
       List<ArrowBatch> arrowBatches, ResultData resultData, ResultManifest resultManifest)
       throws DatabricksParsingException {
-    if (arrowBatches == null) {
-      throw parsingError("ARROW_BATCH response is missing arrow_batches");
-    }
-
     long rowCount = 0;
     for (int index = 0; index < arrowBatches.size(); index++) {
       ArrowBatch arrowBatch = arrowBatches.get(index);
@@ -89,6 +86,21 @@ final class ArrowBatchChunkProviderFactory {
               rowCount, resultManifest.getTotalRowCount()));
     }
     return rowCount;
+  }
+
+  private static List<ArrowBatch> normalizeArrowBatches(
+      ResultData resultData, ResultManifest resultManifest) throws DatabricksParsingException {
+    List<ArrowBatch> arrowBatches = resultData.getArrowBatches();
+    if (arrowBatches != null) {
+      return arrowBatches;
+    }
+
+    Long resultRowCount = resultData.getRowCount();
+    if (Long.valueOf(0L).equals(resultManifest.getTotalRowCount())
+        && (resultRowCount == null || Long.valueOf(0L).equals(resultRowCount))) {
+      return Collections.emptyList();
+    }
+    throw parsingError("ARROW_BATCH response is missing arrow_batches");
   }
 
   private static DatabricksParsingException parsingError(String message) {

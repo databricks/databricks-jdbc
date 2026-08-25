@@ -68,6 +68,19 @@ class ArrowBatchChunkProviderFactoryTest {
   }
 
   @Test
+  void acceptsOmittedZeroBatchResult() throws Exception {
+    for (ResultData resultData : Arrays.asList(new ResultData(), resultData(null, 0))) {
+      ChunkProvider provider = ArrowBatchChunkProviderFactory.create(resultData, manifest(0));
+      try {
+        assertEquals(0, provider.getRowCount());
+        assertFalse(provider.hasNextChunk());
+      } finally {
+        provider.close();
+      }
+    }
+  }
+
+  @Test
   void rejectsMissingBatchFields() {
     assertThrows(
         DatabricksParsingException.class,
