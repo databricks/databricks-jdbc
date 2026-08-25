@@ -13,6 +13,7 @@ import com.databricks.jdbc.comparator.error.CapturedOutcome;
 import com.databricks.jdbc.comparator.error.Captures;
 import com.databricks.jdbc.comparator.error.ErrorFacts;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import java.lang.reflect.InvocationTargetException;
@@ -273,24 +274,17 @@ public class ApcExtendedProvider implements SuiteProvider {
     DatabricksConnection databricksConnection = connection.unwrap(DatabricksConnection.class);
     IDatabricksSession realSession = databricksConnection.getSession();
     boolean thrift = realSession.getSessionInfo().sessionHandle() != null;
+    IDatabricksClient client = realSession.getDatabricksClient();
 
-    String statementId =
-        thrift
-            ? MISSING_STATEMENT_GUID + "|" + MISSING_STATEMENT_SECRET
-            : MISSING_STATEMENT_GUID.toString();
+    StatementId statementId = missingStatementId(thrift);
     CapturedOutcome statement =
         Captures.capture(
             () -> {
-              try (ResultSet result =
-                  ((IDatabricksStatement) databricksConnection.getStatement(statementId))
-                      .getExecutionResult()) {
-                consume(result);
-                return "completed";
-              }
+              client.closeStatement(statementId);
+              return "completed";
             });
 
     IDatabricksSession missingSession = missingSession(realSession, thrift);
-    IDatabricksClient client = realSession.getDatabricksClient();
     CapturedOutcome session =
         Captures.capture(
             () ->
@@ -304,6 +298,16 @@ public class ApcExtendedProvider implements SuiteProvider {
                     null));
     Captures.closeIfResultSet(session.value());
     return new HandleObservations(statement, session);
+  }
+
+  static StatementId missingStatementId(boolean thrift) {
+    if (!thrift) {
+      return new StatementId(MISSING_STATEMENT_GUID.toString());
+    }
+    return new StatementId(
+        new THandleIdentifier()
+            .setGuid(uuidBytes(MISSING_STATEMENT_GUID))
+            .setSecret(uuidBytes(MISSING_STATEMENT_SECRET)));
   }
 
   static void consume(ResultSet result) throws SQLException {

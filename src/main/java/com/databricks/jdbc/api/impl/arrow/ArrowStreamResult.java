@@ -66,7 +66,11 @@ public class ArrowStreamResult implements IExecutionResult {
     this.session = session;
 
     Long totalChunkCount = resultManifest.getTotalChunkCount();
-    if (resultManifest.getFormat() == Format.ARROW_BATCH) {
+    boolean hasExternalLinks =
+        resultData != null
+            && resultData.getExternalLinks() != null
+            && !resultData.getExternalLinks().isEmpty();
+    if (resultManifest.getFormat() == Format.ARROW_BATCH && !hasExternalLinks) {
       LOGGER.debug(
           "Creating ArrowStreamResult with native Arrow batches for statementId: {}",
           statementId.toSQLExecStatementId());

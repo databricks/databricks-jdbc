@@ -1,5 +1,6 @@
 package com.databricks.jdbc.comparator.suite;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,13 +10,30 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.comparator.ComparisonResult;
 import com.databricks.jdbc.comparator.config.ConnectionFactory;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
+import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class ApcExtendedProviderTest {
+
+  @Test
+  void createsRouteAppropriateMissingStatementHandles() {
+    StatementId thrift = ApcExtendedProvider.missingStatementId(true);
+    THandleIdentifier thriftIdentifier = thrift.toOperationIdentifier();
+    assertArrayEquals(
+        uuidBytes("00000000-0000-4000-8000-000000000003"), thriftIdentifier.getGuid());
+    assertArrayEquals(
+        uuidBytes("00000000-0000-4000-8000-000000000004"), thriftIdentifier.getSecret());
+
+    StatementId sea = ApcExtendedProvider.missingStatementId(false);
+    assertEquals("00000000-0000-4000-8000-000000000003", sea.toSQLExecStatementId());
+  }
 
   @Test
   void exposesSixStableCases() {
@@ -98,5 +116,13 @@ class ApcExtendedProviderTest {
       return;
     }
     throw new AssertionError("Expected lazy ResultSet failure");
+  }
+
+  private static byte[] uuidBytes(String value) {
+    UUID uuid = UUID.fromString(value);
+    return ByteBuffer.allocate(16)
+        .putLong(uuid.getMostSignificantBits())
+        .putLong(uuid.getLeastSignificantBits())
+        .array();
   }
 }
