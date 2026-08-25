@@ -6,10 +6,13 @@ import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import net.jpountz.lz4.LZ4FrameOutputStream;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -53,7 +56,7 @@ public class InlineArrowResponseProcessorTest {
 
     // Now process a subsequent response (simulating second batch)
     // The schema should be cached from the initial response
-    TFetchResultsResp subsequentResponse = createArrowFetchResponseNoSchema(3, false);
+    TFetchResultsResp subsequentResponse = createArrowFetchResponseWithoutMetadata(3, false, false);
     StreamingBatch<ArrowResultChunk> batch2 = processor.processResponse(subsequentResponse, 1, 100);
 
     assertNotNull(batch2);
@@ -65,6 +68,38 @@ public class InlineArrowResponseProcessorTest {
     // Clean up native memory
     batch1.release();
     batch2.release();
+  }
+
+  @Test
+  void testCompressedSubsequentResponseWithoutMetadataUsesInitialCompression()
+      throws DatabricksSQLException {
+    InlineArrowResponseProcessor processor = new InlineArrowResponseProcessor(STATEMENT_ID);
+
+    StreamingBatch<ArrowResultChunk> initialBatch =
+        processor.processInitialResponse(createArrowFetchResponse(2, true, true));
+    StreamingBatch<ArrowResultChunk> subsequentBatch =
+        processor.processResponse(createArrowFetchResponseWithoutMetadata(3, false, true), 1, 2);
+
+    assertTrue(initialBatch.isReady());
+    assertTrue(subsequentBatch.isReady());
+    assertEquals(3, subsequentBatch.getRowCount());
+
+    initialBatch.release();
+    subsequentBatch.release();
+  }
+
+  @Test
+  void testInitialResponseWithoutMetadataThrowsTypedParsingError() {
+    InlineArrowResponseProcessor processor = new InlineArrowResponseProcessor(STATEMENT_ID);
+    TFetchResultsResp response = createArrowFetchResponseWithoutMetadata(1, false, false);
+
+    DatabricksSQLException thrown =
+        assertThrows(
+            DatabricksSQLException.class, () -> processor.processInitialResponse(response));
+
+    assertEquals(DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), thrown.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.getCode(), thrown.getErrorCode());
   }
 
   @Test
@@ -141,15 +176,24 @@ public class InlineArrowResponseProcessorTest {
 
   /** Creates an Arrow response with full schema (for initial response). */
   private TFetchResultsResp createArrowFetchResponse(int rowCount, boolean hasMoreRows) {
+    return createArrowFetchResponse(rowCount, hasMoreRows, false);
+  }
+
+  private TFetchResultsResp createArrowFetchResponse(
+      int rowCount, boolean hasMoreRows, boolean lz4Compressed) {
     TFetchResultsResp response = new TFetchResultsResp();
     response.hasMoreRows = hasMoreRows;
 
     byte[] arrowData = createArrowBytes(rowCount);
+    if (lz4Compressed) {
+      arrowData = compressLz4(arrowData);
+    }
 
     TGetResultSetMetadataResp metadata = new TGetResultSetMetadataResp();
     metadata.setResultFormat(TSparkRowSetType.ARROW_BASED_SET);
     metadata.setArrowSchema(new byte[0]); // Empty - schema is in the IPC stream
     metadata.setSchema(createTableSchema());
+    metadata.setLz4Compressed(lz4Compressed);
     response.setResultSetMetadata(metadata);
 
     TSparkArrowBatch arrowBatch = new TSparkArrowBatch();
@@ -160,6 +204,26 @@ public class InlineArrowResponseProcessorTest {
     rowSet.setArrowBatches(Collections.singletonList(arrowBatch));
     response.setResults(rowSet);
 
+    return response;
+  }
+
+  private TFetchResultsResp createArrowFetchResponseWithoutMetadata(
+      int rowCount, boolean hasMoreRows, boolean lz4Compressed) {
+    TFetchResultsResp response = new TFetchResultsResp();
+    response.hasMoreRows = hasMoreRows;
+
+    byte[] arrowData = createArrowBytes(rowCount);
+    if (lz4Compressed) {
+      arrowData = compressLz4(arrowData);
+    }
+
+    TSparkArrowBatch arrowBatch = new TSparkArrowBatch();
+    arrowBatch.setRowCount(rowCount);
+    arrowBatch.setBatch(arrowData);
+
+    TRowSet rowSet = new TRowSet();
+    rowSet.setArrowBatches(Collections.singletonList(arrowBatch));
+    response.setResults(rowSet);
     return response;
   }
 
@@ -213,6 +277,16 @@ public class InlineArrowResponseProcessorTest {
     } catch (Exception e) {
       throw new RuntimeException("Failed to create Arrow data", e);
     }
+  }
+
+  private byte[] compressLz4(byte[] data) {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (LZ4FrameOutputStream lz4 = new LZ4FrameOutputStream(out)) {
+      lz4.write(data);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to create compressed Arrow data", e);
+    }
+    return out.toByteArray();
   }
 
   /** Creates a TTableSchema with a single INT column. */

@@ -5,12 +5,14 @@ import static com.databricks.jdbc.common.util.ArrowUtil.getSerializedSchema;
 import static com.databricks.jdbc.common.util.ArrowUtil.getTotalRowsInResponse;
 
 import com.databricks.jdbc.api.impl.arrow.ArrowResultChunk;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
+import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
 import java.util.function.Consumer;
@@ -20,7 +22,8 @@ import java.util.function.Consumer;
  *
  * <p>This processor converts {@link TFetchResultsResp} into {@link ArrowResultChunk} for inline
  * Arrow result handling. It caches the Arrow schema from the first response for use in subsequent
- * batches.
+ * batches. The compression codec is also cached because later Thrift responses may omit result set
+ * metadata.
  */
 public class InlineArrowResponseProcessor implements ThriftResponseProcessor<ArrowResultChunk> {
 
@@ -30,6 +33,7 @@ public class InlineArrowResponseProcessor implements ThriftResponseProcessor<Arr
   private final StatementId statementId;
   private volatile byte[]
       cachedSchema; // Cache schema from first response, volatile for visibility across threads
+  private volatile CompressionCodec cachedCompressionCodec;
 
   /**
    * Creates a new inline Arrow response processor.
@@ -44,9 +48,17 @@ public class InlineArrowResponseProcessor implements ThriftResponseProcessor<Arr
   public StreamingBatch<ArrowResultChunk> processInitialResponse(TFetchResultsResp response)
       throws DatabricksSQLException {
     LOGGER.debug("Processing initial inline Arrow response");
-    // Cache the schema for subsequent batches
+    TGetResultSetMetadataResp metadata = response.getResultSetMetadata();
+    if (metadata == null) {
+      throw new DatabricksSQLException(
+          "Initial inline Arrow response is missing result set metadata",
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(),
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+    }
+
     try {
-      this.cachedSchema = getSerializedSchema(response.getResultSetMetadata());
+      this.cachedSchema = getSerializedSchema(metadata);
+      this.cachedCompressionCodec = CompressionCodec.getCompressionMapping(metadata);
     } catch (DatabricksParsingException e) {
       LOGGER.error("Failed to serialize Arrow schema: {}", e.getMessage(), e);
       throw new DatabricksSQLException(
@@ -65,7 +77,8 @@ public class InlineArrowResponseProcessor implements ThriftResponseProcessor<Arr
         new StreamingBatch<>(batchIndex, rowOffset, getReleaseAction());
 
     try {
-      ByteArrayInputStream byteStream = createArrowByteStream(cachedSchema, response, getClass());
+      ByteArrayInputStream byteStream =
+          createArrowByteStream(cachedSchema, response, cachedCompressionCodec, getClass());
       long rowCount = getTotalRowsInResponse(response);
 
       ArrowResultChunk.Builder builder =
