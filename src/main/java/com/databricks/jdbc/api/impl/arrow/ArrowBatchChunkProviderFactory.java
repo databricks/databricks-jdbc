@@ -1,7 +1,9 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.util.ArrowUtil.createArrowBatchByteStream;
+import static com.databricks.jdbc.common.util.DecompressionUtil.decompress;
 
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ArrowBatch;
@@ -9,6 +11,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -34,6 +37,7 @@ final class ArrowBatchChunkProviderFactory {
 
     List<ArrowBatch> arrowBatches = normalizeArrowBatches(resultData, resultManifest);
     long totalRows = validateAndCountRows(arrowBatches, resultData, resultManifest);
+    arrowBatches = decompressArrowBatches(arrowBatches, resultManifest.getResultCompression());
     ByteArrayInputStream stream =
         createArrowBatchByteStream(resultManifest.getArrowSchema(), arrowBatches);
     try {
@@ -86,6 +90,26 @@ final class ArrowBatchChunkProviderFactory {
               rowCount, resultManifest.getTotalRowCount()));
     }
     return rowCount;
+  }
+
+  private static List<ArrowBatch> decompressArrowBatches(
+      List<ArrowBatch> arrowBatches, CompressionCodec compressionCodec)
+      throws DatabricksSQLException {
+    if (compressionCodec == null || compressionCodec == CompressionCodec.NONE) {
+      return arrowBatches;
+    }
+
+    List<ArrowBatch> decompressedBatches = new ArrayList<>(arrowBatches.size());
+    for (int index = 0; index < arrowBatches.size(); index++) {
+      ArrowBatch arrowBatch = arrowBatches.get(index);
+      decompressedBatches.add(
+          new ArrowBatch()
+              .setBatch(
+                  decompress(
+                      arrowBatch.getBatch(), compressionCodec, "Native Arrow batch " + index))
+              .setRowCount(arrowBatch.getRowCount()));
+    }
+    return decompressedBatches;
   }
 
   private static List<ArrowBatch> normalizeArrowBatches(

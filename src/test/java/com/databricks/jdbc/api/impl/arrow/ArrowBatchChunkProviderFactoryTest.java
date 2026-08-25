@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.core.ArrowBatch;
 import com.databricks.jdbc.model.core.ColumnInfo;
@@ -21,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import net.jpountz.lz4.LZ4FrameOutputStream;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -53,6 +55,17 @@ class ArrowBatchChunkProviderFactoryTest {
         ArrowBatchChunkProviderFactory.create(resultData(batches, 5), manifest(5));
 
     assertEquals(Arrays.asList(1, 2, 3, 4, 5), readValues(provider));
+  }
+
+  @Test
+  void readsCompressedNativeArrowBatch() throws Exception {
+    ArrowBatch batch = arrowBatch(1, 2);
+    ChunkProvider provider =
+        ArrowBatchChunkProviderFactory.create(
+            resultData(Collections.singletonList(compress(batch)), 2),
+            manifest(2).setResultCompression(CompressionCodec.LZ4_FRAME));
+
+    assertEquals(Arrays.asList(1, 2), readValues(provider));
   }
 
   @Test
@@ -218,6 +231,15 @@ class ArrowBatchChunkProviderFactoryTest {
         }
       }
       return new ArrowBatch().setBatch(output.toByteArray()).setRowCount((long) values.length);
+    }
+  }
+
+  private static ArrowBatch compress(ArrowBatch batch) throws IOException {
+    try (ByteArrayOutputStream output = new ByteArrayOutputStream();
+        LZ4FrameOutputStream lz4 = new LZ4FrameOutputStream(output)) {
+      lz4.write(batch.getBatch());
+      lz4.close();
+      return new ArrowBatch().setBatch(output.toByteArray()).setRowCount(batch.getRowCount());
     }
   }
 }
