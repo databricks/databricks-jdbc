@@ -141,6 +141,7 @@ public class StreamingChunkDownloadTaskTest {
     verify(chunk, times(1))
         .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
     verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_FAILED);
     ExecutionException executionException =
         assertThrows(ExecutionException.class, () -> downloadFuture.get());
     assertSame(thrown, executionException.getCause());

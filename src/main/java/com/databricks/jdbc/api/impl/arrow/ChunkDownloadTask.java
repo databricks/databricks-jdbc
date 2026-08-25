@@ -81,6 +81,17 @@ class ChunkDownloadTask implements DatabricksCallableTask {
               chunk.getChunkIndex(),
               taskTotalMs,
               retries);
+        } catch (ExecutionException e) {
+          Throwable cause = e.getCause() != null ? e.getCause() : e;
+          if (cause instanceof DatabricksSQLException) {
+            throw (DatabricksSQLException) cause;
+          }
+          throw new DatabricksSQLException(
+              "Failed to retrieve chunk download link",
+              cause,
+              statementId,
+              chunk.getChunkIndex(),
+              DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name());
         } catch (DatabricksParsingException e) {
           throw e;
         } catch (IOException | DatabricksSQLException e) {
