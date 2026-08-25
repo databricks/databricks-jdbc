@@ -4,6 +4,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -83,6 +84,8 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
               taskTotalMs,
               retries);
 
+        } catch (DatabricksParsingException e) {
+          throw e;
         } catch (IOException | SQLException e) {
           retries++;
           if (retries >= MAX_RETRIES) {
@@ -125,14 +128,11 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
             "Download failed for chunk {}: {}",
             chunk.getChunkIndex(),
             uncaughtException != null ? uncaughtException.getMessage() : "unknown");
-        chunk.setStatus(ChunkStatus.DOWNLOAD_FAILED);
-        chunk
-            .getChunkReadyFuture()
-            .completeExceptionally(
-                new DatabricksSQLException(
-                    "Download failed for chunk " + chunk.getChunkIndex(),
-                    uncaughtException,
-                    DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR));
+        if (chunk.getStatus() != ChunkStatus.DOWNLOAD_FAILED
+            && chunk.getStatus() != ChunkStatus.PROCESSING_FAILED) {
+          chunk.setStatus(ChunkStatus.DOWNLOAD_FAILED);
+        }
+        chunk.getChunkReadyFuture().completeExceptionally(uncaughtException);
       }
 
       DatabricksThreadContextHolder.clearAllContext();

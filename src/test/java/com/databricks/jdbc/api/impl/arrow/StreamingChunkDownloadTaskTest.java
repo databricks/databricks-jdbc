@@ -77,11 +77,7 @@ public class StreamingChunkDownloadTaskTest {
     when(chunk.isChunkLinkInvalid()).thenReturn(false);
     when(chunk.getChunkIndex()).thenReturn(7L);
 
-    DatabricksParsingException throwableError =
-        new DatabricksParsingException(
-            "Connection reset",
-            new SocketException("Connection reset"),
-            DatabricksDriverErrorCode.INVALID_STATE);
+    SocketException throwableError = new SocketException("Connection reset");
 
     // Simulate SocketException for the first two attempts, then succeed
     doThrow(throwableError)
@@ -106,15 +102,13 @@ public class StreamingChunkDownloadTaskTest {
     when(chunk.getChunkIndex()).thenReturn(7L);
 
     // Simulate SocketException for all attempts
-    doThrow(
-            new DatabricksParsingException(
-                "Connection reset",
-                new SocketException("Connection reset"),
-                DatabricksDriverErrorCode.INVALID_STATE))
+    doThrow(new SocketException("Connection reset"))
         .when(chunk)
         .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
 
-    assertThrows(DatabricksSQLException.class, () -> downloadTask.call());
+    DatabricksSQLException thrown =
+        assertThrows(DatabricksSQLException.class, () -> downloadTask.call());
+    assertEquals(DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(), thrown.getSQLState());
 
     // Should attempt MAX_RETRIES (5) times
     verify(chunk, times(5))
@@ -124,7 +118,32 @@ public class StreamingChunkDownloadTaskTest {
 
     ExecutionException executionException =
         assertThrows(ExecutionException.class, () -> downloadFuture.get());
-    assertInstanceOf(DatabricksSQLException.class, executionException.getCause());
+    assertSame(thrown, executionException.getCause());
+  }
+
+  @Test
+  void testProcessingFailureIsNotRetried() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(false);
+    when(chunk.getChunkIndex()).thenReturn(7L);
+    when(chunk.getStatus()).thenReturn(ChunkStatus.PROCESSING_FAILED);
+    DatabricksParsingException processingError =
+        new DatabricksParsingException(
+            "Arrow parsing failed", DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+    doThrow(processingError)
+        .when(chunk)
+        .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
+
+    DatabricksParsingException thrown =
+        assertThrows(DatabricksParsingException.class, () -> downloadTask.call());
+
+    assertSame(processingError, thrown);
+    verify(chunk, times(1))
+        .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
+    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    ExecutionException executionException =
+        assertThrows(ExecutionException.class, () -> downloadFuture.get());
+    assertSame(thrown, executionException.getCause());
   }
 
   @Test
