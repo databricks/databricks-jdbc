@@ -35,10 +35,10 @@ class JDBCDriverComparisonLifecycleTest {
           + "httpPath=/sql/protocolv1/o/123/cluster-id;UseThriftClient=";
 
   @Test
-  void disabledWorkspaceSetupOpensOnlyTheApcCoreRoutePair() throws Exception {
+  void disabledWorkspaceSetupOpensOnlyTheSelectedApcRoutePair() throws Exception {
     Map<String, String> previousProperties = new LinkedHashMap<>();
     setProperty(previousProperties, "CONNECTION_CONFIG", "DEFAULT_PARAMS");
-    setProperty(previousProperties, "SUITES_RUN_ONLY", "APC_CORE");
+    setProperty(previousProperties, "SUITES_RUN_ONLY", "APC_CORE,APC_EXTENDED");
     setProperty(previousProperties, "WORKSPACE_SETUP", "");
     setProperty(previousProperties, ApcSeaPrototype.ENABLED_PROPERTY, "true");
 
@@ -77,7 +77,7 @@ class JDBCDriverComparisonLifecycleTest {
           JDBCDriverComparisonTest.buildTestArguments(manager, BASE_URL + "1", BASE_URL + "0")
               .count();
 
-      assertTrue(testCount > 0);
+      assertEquals(10, testCount);
       assertEquals(2, openedUrls.size());
       assertTrue(openedUrls.get(0).contains("UseThriftClient=1"));
       assertTrue(openedUrls.get(1).contains("UseThriftClient=0"));

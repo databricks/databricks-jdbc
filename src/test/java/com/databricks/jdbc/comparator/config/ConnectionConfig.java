@@ -23,6 +23,7 @@ public enum ConnectionConfig {
       null,
       allExcept(
           TestSuite.APC_CORE,
+          TestSuite.APC_EXTENDED,
           TestSuite.COMPLEX_TYPES,
           TestSuite.GEOSPATIAL,
           TestSuite.VOLUME_OPERATIONS,
@@ -130,9 +131,7 @@ public enum ConnectionConfig {
 
   public EnumSet<TestSuite> getApplicableSuites() {
     EnumSet<TestSuite> suites = EnumSet.copyOf(applicableSuites);
-    if (isExplicitApcCoreSelection()) {
-      suites.add(TestSuite.APC_CORE);
-    }
+    suites.addAll(explicitApcSelections());
     return suites;
   }
 
@@ -164,7 +163,7 @@ public enum ConnectionConfig {
     for (Map.Entry<String, String> entry : params.entrySet()) {
       sb.append(';').append(entry.getKey()).append('=').append(entry.getValue());
     }
-    if (isExplicitApcCoreSelection()) {
+    if (!explicitApcSelections().isEmpty()) {
       sb.append(";EnableHeartbeat=0");
     }
     return sb.toString();
@@ -174,14 +173,23 @@ public enum ConnectionConfig {
     return EnumSet.complementOf(EnumSet.copyOf(Arrays.asList(excluded)));
   }
 
-  private boolean isExplicitApcCoreSelection() {
+  private EnumSet<TestSuite> explicitApcSelections() {
+    EnumSet<TestSuite> selections = EnumSet.noneOf(TestSuite.class);
     if (this != DEFAULT_PARAMS) {
-      return false;
+      return selections;
     }
     String suiteFilter = System.getProperty("SUITES_RUN_ONLY");
-    return suiteFilter != null
-        && Arrays.stream(suiteFilter.split(","))
-            .map(String::trim)
-            .anyMatch(TestSuite.APC_CORE.name()::equals);
+    if (suiteFilter == null) {
+      return selections;
+    }
+    Set<String> selected =
+        Arrays.stream(suiteFilter.split(",")).map(String::trim).collect(Collectors.toSet());
+    if (selected.contains(TestSuite.APC_CORE.name())) {
+      selections.add(TestSuite.APC_CORE);
+    }
+    if (selected.contains(TestSuite.APC_EXTENDED.name())) {
+      selections.add(TestSuite.APC_EXTENDED);
+    }
+    return selections;
   }
 }

@@ -10,6 +10,7 @@ import com.databricks.jdbc.comparator.suite.*;
  */
 public enum TestSuite {
   APC_CORE(new ApcCoreProvider()),
+  APC_EXTENDED(new ApcExtendedProvider()),
   STATEMENT_SELECT(new StatementSelectProvider()),
   STATEMENT_SELECT_TRUNCATED(new StatementSelectTruncatedProvider()),
   STATEMENT_DDL(new StatementDdlProvider()),

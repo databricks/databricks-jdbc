@@ -8,22 +8,30 @@ import org.junit.jupiter.api.Test;
 class ConnectionConfigTest {
 
   @Test
-  void apcCoreDoesNotChangeTheDefaultComparatorRun() {
+  void apcTiersDoNotChangeTheDefaultComparatorRun() {
     String original = System.getProperty("SUITES_RUN_ONLY");
     try {
       System.clearProperty("SUITES_RUN_ONLY");
       assertFalse(
           ConnectionConfig.DEFAULT_PARAMS.getApplicableSuites().contains(TestSuite.APC_CORE));
       assertFalse(
+          ConnectionConfig.DEFAULT_PARAMS.getApplicableSuites().contains(TestSuite.APC_EXTENDED));
+      assertFalse(
           ConnectionConfig.DEFAULT_PARAMS.buildUrl("jdbc:test").contains("EnableHeartbeat"));
 
-      System.setProperty("SUITES_RUN_ONLY", "STATEMENT_SELECT,APC_CORE");
+      System.setProperty("SUITES_RUN_ONLY", "APC_CORE,APC_EXTENDED");
       assertTrue(
           ConnectionConfig.DEFAULT_PARAMS.getApplicableSuites().contains(TestSuite.APC_CORE));
+      assertTrue(
+          ConnectionConfig.DEFAULT_PARAMS.getApplicableSuites().contains(TestSuite.APC_EXTENDED));
       assertTrue(
           ConnectionConfig.DEFAULT_PARAMS.buildUrl("jdbc:test").contains("EnableHeartbeat=0"));
       assertFalse(
           ConnectionConfig.COMPRESSION_DISABLED.getApplicableSuites().contains(TestSuite.APC_CORE));
+      assertFalse(
+          ConnectionConfig.COMPRESSION_DISABLED
+              .getApplicableSuites()
+              .contains(TestSuite.APC_EXTENDED));
     } finally {
       if (original == null) {
         System.clearProperty("SUITES_RUN_ONLY");
