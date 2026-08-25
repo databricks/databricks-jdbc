@@ -33,6 +33,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class DatabricksConnectionContextTest {
 
@@ -99,6 +100,26 @@ class DatabricksConnectionContextTest {
     assertThrows(
         DatabricksParsingException.class,
         () -> DatabricksConnectionContext.parse(TestConstants.INVALID_URL_2, properties));
+    assertThrows(
+        DatabricksParsingException.class,
+        () -> DatabricksConnectionContext.parse(null, properties));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "jdbc:databricks://localhost:8080",
+        "jdbc:databricks://localhost:8080;httpPath=",
+        "jdbc:databricks://localhost:8080;httpPath= "
+      })
+  public void testParseRejectsMissingRequiredConnectionParameters(String url) {
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> DatabricksConnectionContext.parse(url, new Properties()));
+
+    assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
+    assertTrue(exception.getMessage().contains("httppath"));
   }
 
   @Test

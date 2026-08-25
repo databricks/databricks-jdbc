@@ -148,6 +148,10 @@ public class ValidationUtil {
    * @return true if the URL is valid, false otherwise
    */
   public static boolean isValidJdbcUrl(String url) {
+    if (url == null) {
+      return false;
+    }
+
     final List<Pattern> PATH_PATTERNS =
         List.of(
             HTTP_CLUSTER_PATH_PATTERN,
@@ -176,9 +180,28 @@ public class ValidationUtil {
    */
   public static void validateInputProperties(Map<String, String> parameters)
       throws DatabricksValidationException {
+    validateRequiredConnectionParameters(parameters);
     // Fail fast on an unsupported AuthMech before the client-configurator machinery runs.
     validateAuthMech(parameters);
     validateUidParameter(parameters);
+  }
+
+  /**
+   * Validates parameters that must be present in every connection configuration. URL parameters and
+   * {@link java.util.Properties} are merged before this method is called, so required values may be
+   * supplied through either mechanism.
+   *
+   * @param parameters merged JDBC connection parameters
+   * @throws DatabricksValidationException if any required parameter is missing or blank
+   */
+  private static void validateRequiredConnectionParameters(Map<String, String> parameters)
+      throws DatabricksValidationException {
+    String parameterName = DatabricksJdbcUrlParams.HTTP_PATH.getParamName().toLowerCase();
+    String httpPath = parameters.get(parameterName);
+    if (httpPath == null || httpPath.isBlank()) {
+      throw new DatabricksValidationException(
+          "Missing required connection parameter: " + parameterName);
+    }
   }
 
   /**
