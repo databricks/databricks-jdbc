@@ -479,6 +479,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     }
 
+    if (response.getStatus() != null && response.getStatus().getState() == StatementState.FAILED) {
+      handleFailedExecution(wrapGetStatementResponse(response), statementId, "getStatementResult");
+    }
+
     // Detect cancellation before constructing ResultSet (result data is null when cancelled)
     if (response.getStatus() != null
         && response.getStatus().getState() == StatementState.CANCELED) {

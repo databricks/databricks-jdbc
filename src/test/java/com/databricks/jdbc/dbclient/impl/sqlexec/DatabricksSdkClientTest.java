@@ -618,6 +618,39 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testGetStatementResult_FailedState_ThrowsServerError() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    StatementStatus failedStatus =
+        new StatementStatus()
+            .setState(StatementState.FAILED)
+            .setError(
+                new ServiceError()
+                    .setMessage("INVALID_HANDLE: statement does not exist")
+                    .setErrorCode(ServiceErrorCode.NOT_FOUND));
+    GetStatementResponse failedResponse =
+        new GetStatementResponse()
+            .setStatus(failedStatus)
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId());
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(failedResponse);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () ->
+                databricksSdkClient.getStatementResult(
+                    STATEMENT_ID, mock(DatabricksSession.class), null));
+
+    assertNull(exception.getSQLState());
+    assertEquals(1003, exception.getErrorCode());
+    assertTrue(exception.getMessage().contains("INVALID_HANDLE: statement does not exist"));
+  }
+
+  @Test
   public void testDisposition_arrowAndCloudFetchEnabled_usesExternalLinks() throws Exception {
     setupClientMocks(true, false);
     // Default JDBC_URL has arrow enabled and cloud fetch enabled
