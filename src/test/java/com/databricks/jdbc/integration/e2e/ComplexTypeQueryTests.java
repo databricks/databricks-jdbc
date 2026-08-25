@@ -192,6 +192,89 @@ public class ComplexTypeQueryTests {
 
   @ParameterizedTest
   @CsvSource({"0,0", "1,0", "0,1", "1,1"})
+  void testNestedArrayWithNullElement(int thriftVal, int complexSupport) throws SQLException {
+    setupConnection(thriftVal, complexSupport);
+
+    String sql = "SELECT array(null, array('Hello'))::ARRAY<ARRAY<VARCHAR(32)>> AS arr";
+    ResultSet rs = executeQuery(connection, sql);
+    assertNotNull(rs);
+    while (rs.next()) {
+      if (complexSupport == 1) {
+        Array arr = rs.getArray("arr");
+        assertNotNull(arr);
+        Object[] elements = (Object[]) arr.getArray();
+        assertEquals(2, elements.length);
+        assertNull(elements[0]);
+        assertInstanceOf(Array.class, elements[1]);
+        Object[] innerElements = (Object[]) ((Array) elements[1]).getArray();
+        assertEquals(1, innerElements.length);
+        assertEquals("Hello", innerElements[0]);
+      } else {
+        assertThrows(SQLException.class, () -> rs.getArray("arr"));
+        Object obj = rs.getObject("arr");
+        assertInstanceOf(String.class, obj);
+        String text = (String) obj;
+        assertFalse(text.isEmpty());
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
+  void testArrayOfMapsWithNullElement(int thriftVal, int complexSupport) throws SQLException {
+    setupConnection(thriftVal, complexSupport);
+
+    String sql =
+        "SELECT array(null, map('red', 1, 'green', 2))::ARRAY<MAP<VARCHAR(8), INT>> AS arr";
+    ResultSet rs = executeQuery(connection, sql);
+    assertNotNull(rs);
+    while (rs.next()) {
+      if (complexSupport == 1) {
+        Array arr = rs.getArray("arr");
+        assertNotNull(arr);
+        Object[] elements = (Object[]) arr.getArray();
+        assertEquals(2, elements.length);
+        assertNull(elements[0]);
+        assertInstanceOf(Map.class, elements[1]);
+      } else {
+        assertThrows(SQLException.class, () -> rs.getArray("arr"));
+        Object obj = rs.getObject("arr");
+        assertInstanceOf(String.class, obj);
+        String text = (String) obj;
+        assertFalse(text.isEmpty());
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
+  void testArrayOfStructsWithNullElement(int thriftVal, int complexSupport) throws SQLException {
+    setupConnection(thriftVal, complexSupport);
+
+    String sql =
+        "SELECT array(null, struct('Spark', 5))::ARRAY<STRUCT<col1:string,col2:int>> AS arr";
+    ResultSet rs = executeQuery(connection, sql);
+    assertNotNull(rs);
+    while (rs.next()) {
+      if (complexSupport == 1) {
+        Array arr = rs.getArray("arr");
+        assertNotNull(arr);
+        Object[] elements = (Object[]) arr.getArray();
+        assertEquals(2, elements.length);
+        assertNull(elements[0]);
+        assertInstanceOf(Struct.class, elements[1]);
+      } else {
+        assertThrows(SQLException.class, () -> rs.getArray("arr"));
+        Object obj = rs.getObject("arr");
+        assertInstanceOf(String.class, obj);
+        String text = (String) obj;
+        assertFalse(text.isEmpty());
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testNullArray(int thriftVal, int complexSupport) throws SQLException {
     setupConnection(thriftVal, complexSupport);
 

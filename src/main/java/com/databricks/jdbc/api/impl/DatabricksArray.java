@@ -54,6 +54,8 @@ public class DatabricksArray implements Array {
             convertedElements[i] = new DatabricksStruct((Map<String, Object>) element, elementType);
           } else if (element instanceof DatabricksStruct) {
             convertedElements[i] = element;
+          } else if (element == null) {
+            convertedElements[i] = null;
           } else {
             throw new DatabricksDriverException(
                 "Expected a Map for STRUCT but found: " + element.getClass().getSimpleName(),
@@ -64,6 +66,8 @@ public class DatabricksArray implements Array {
             convertedElements[i] = new DatabricksArray((List<Object>) element, elementType);
           } else if (element instanceof DatabricksArray) {
             convertedElements[i] = element;
+          } else if (element == null) {
+            convertedElements[i] = null;
           } else {
             throw new DatabricksDriverException(
                 "Expected a List for ARRAY but found: " + element.getClass().getSimpleName(),
@@ -74,6 +78,8 @@ public class DatabricksArray implements Array {
             convertedElements[i] = new DatabricksMap<>((Map<String, Object>) element, elementType);
           } else if (element instanceof DatabricksMap) {
             convertedElements[i] = element;
+          } else if (element == null) {
+            convertedElements[i] = null;
           } else {
             throw new DatabricksDriverException(
                 "Expected a Map for MAP but found: " + element.getClass().getSimpleName(),
