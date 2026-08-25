@@ -6,10 +6,7 @@
 
 ### Updated
 - `DatabaseMetaData.getColumns(...)` with a `null` catalog now issues a single `SHOW COLUMNS IN ALL CATALOGS` statement (consistent with `getSchemas`/`getTables`) instead of enumerating every catalog and issuing a per-catalog `SHOW COLUMNS`. Older DBR versions that do not support the syntax transparently fall back to the previous enumerate-and-fan-out behavior.
-- Bumped `jackson-databind` (and `jackson-core`/`jackson-annotations`) from 2.18.8 to 2.18.9 to resolve CVE-2026-54515, CVE-2026-59889, and GHSA-mhm7-754m-9p8w (`@JsonView`/`@JsonIgnoreProperties` deserialization bypasses).
-- Bumped `lz4-java` from 1.10.1 to 1.11.1 to resolve CVE-2026-59949 (native XXHash JVM crash on invalid byte-array ranges).
-- Bumped shaded `netty-buffer`/`netty-common` from 4.2.13.Final to 4.2.15.Final (Netty security release). Addresses issue #1584.
-- Bumped Apache `httpcore5` from 5.3.6 to 5.4.3 and pinned the transitive `httpcore5-h2` (HTTP/2 HPACK decoder) to 5.4.3 to resolve CVE-2026-54399 (HTTP/1.1 parser DoS) and CVE-2026-54428 (HPACK header-list-size enforcement). `httpclient5` stays at 5.5.2, which is compatible with the httpcore5 5.4.x branch. Addresses issue #1584.
+- Updated bundled Jackson, lz4-java, Netty, and Apache HttpComponents Client and Core dependencies to patched versions.
 
 ### Fixed
 - Invalid or incomplete Databricks JDBC URLs now fail with a descriptive `DatabricksSQLException`

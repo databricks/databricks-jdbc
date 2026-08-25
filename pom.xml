@@ -71,7 +71,7 @@
     <commons-io.version>2.14.0</commons-io.version>
     <databricks-sdk.version>0.118.0</databricks-sdk.version>
     <httpclient.version>4.5.14</httpclient.version>
-    <async-httpclient.version>5.5.2</async-httpclient.version>
+    <async-httpclient.version>5.6.3</async-httpclient.version>
     <httpcore5.version>5.4.3</httpcore5.version>
     <thrift.version>0.23.0</thrift.version>
     <slf4j.version>2.0.13</slf4j.version>
@@ -120,15 +120,6 @@
         <groupId>com.google.code.gson</groupId>
         <artifactId>gson</artifactId>
         <version>${gson.version}</version>
-      </dependency>
-      <!-- Force safe version of httpcore5-h2 (HTTP/2 HPACK decoder) across all
-           modules, including the uber jar, to resolve CVE-2026-54428. It is a
-           transitive dep of httpclient5 (which otherwise drags in 5.3.6); pin it
-           to the same 5.4.3 as the directly-declared httpcore5. See issue #1584. -->
-      <dependency>
-        <groupId>org.apache.httpcomponents.core5</groupId>
-        <artifactId>httpcore5-h2</artifactId>
-        <version>${httpcore5.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
