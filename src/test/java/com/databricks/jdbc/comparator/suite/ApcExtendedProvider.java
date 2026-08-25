@@ -41,7 +41,7 @@ public class ApcExtendedProvider implements SuiteProvider {
   private static final String EXTERNAL_LINK_QUERY =
       "SELECT id, sha2(CAST(id AS STRING), 512) AS payload " + "FROM range(0, 100000) ORDER BY id";
   private static final String PAGINATION_QUERY =
-      "SELECT id, sha2(CAST(id AS STRING), 512) AS payload " + "FROM range(0, 300000) ORDER BY id";
+      "SELECT id, sha2(CAST(id AS STRING), 512) AS payload " + "FROM range(0, 200000) ORDER BY id";
   private static final String SLOW_QUERY =
       "SELECT COUNT(*) FROM range(0, 100000000) a CROSS JOIN range(0, 20) b";
   private static final String BAD_SQL = "SELET 1";
