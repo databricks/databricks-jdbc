@@ -53,11 +53,16 @@ public final class Endpoint {
    * host URL (which must NOT already contain either of those parameters).
    */
   public String toUrl(String baseHostUrl) {
-    return baseHostUrl
-        + ";httpPath="
-        + httpPath
-        + ";useThriftClient="
-        + (THRIFT.equals(transport) ? "1" : "0");
+    String url =
+        baseHostUrl
+            + ";httpPath="
+            + httpPath
+            + ";useThriftClient="
+            + (THRIFT.equals(transport) ? "1" : "0");
+    if (SEA.equals(transport) && httpPath.startsWith("/sql/protocolv1/o/")) {
+      return url + ";UseBoundedSeaApi=1";
+    }
+    return url;
   }
 
   /**

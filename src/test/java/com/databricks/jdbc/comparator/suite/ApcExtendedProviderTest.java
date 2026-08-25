@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.comparator.ComparisonResult;
 import com.databricks.jdbc.comparator.config.ConnectionFactory;
+import com.databricks.jdbc.comparator.config.Endpoint;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
 import java.nio.ByteBuffer;
@@ -33,6 +34,25 @@ class ApcExtendedProviderTest {
 
     StatementId sea = ApcExtendedProvider.missingStatementId(false);
     assertEquals("00000000-0000-4000-8000-000000000003", sea.toSQLExecStatementId());
+  }
+
+  @Test
+  void enablesBoundedSeaForApcCandidateOnly() {
+    String baseUrl = "jdbc:databricks://host:443/default";
+    String apcPath = "/sql/protocolv1/o/123/cluster";
+
+    assertTrue(
+        new Endpoint(apcPath, Endpoint.SEA, "RIGHT")
+            .toUrl(baseUrl)
+            .endsWith("useThriftClient=0;UseBoundedSeaApi=1"));
+    assertTrue(
+        new Endpoint(apcPath, Endpoint.THRIFT, "LEFT")
+            .toUrl(baseUrl)
+            .endsWith("useThriftClient=1"));
+    assertFalse(
+        new Endpoint("/sql/1.0/warehouses/warehouse", Endpoint.SEA, "RIGHT")
+            .toUrl(baseUrl)
+            .contains("UseBoundedSeaApi"));
   }
 
   @Test

@@ -274,17 +274,20 @@ public class ApcExtendedProvider implements SuiteProvider {
     DatabricksConnection databricksConnection = connection.unwrap(DatabricksConnection.class);
     IDatabricksSession realSession = databricksConnection.getSession();
     boolean thrift = realSession.getSessionInfo().sessionHandle() != null;
-    IDatabricksClient client = realSession.getDatabricksClient();
-
-    StatementId statementId = missingStatementId(thrift);
+    String statementId = missingStatementId(thrift).toString();
     CapturedOutcome statement =
         Captures.capture(
             () -> {
-              client.closeStatement(statementId);
-              return "completed";
+              try (ResultSet result =
+                  ((IDatabricksStatement) databricksConnection.getStatement(statementId))
+                      .getExecutionResult()) {
+                consume(result);
+                return "completed";
+              }
             });
 
     IDatabricksSession missingSession = missingSession(realSession, thrift);
+    IDatabricksClient client = realSession.getDatabricksClient();
     CapturedOutcome session =
         Captures.capture(
             () ->
