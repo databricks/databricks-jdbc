@@ -486,7 +486,8 @@ public class DatabricksThriftAccessorTest {
             .setStatus(
                 new TStatus()
                     .setStatusCode(TStatusCode.INVALID_HANDLE_STATUS)
-                    .setErrorMessage("Invalid OperationHandle"));
+                    .setErrorMessage("Invalid OperationHandle")
+                    .setSqlState("08000"));
     when(thriftClient.GetOperationStatus(any(TGetOperationStatusReq.class)))
         .thenReturn(invalidHandle);
 
@@ -497,6 +498,7 @@ public class DatabricksThriftAccessorTest {
 
     assertTrue(exception.getMessage().contains("INVALID_HANDLE_STATUS"));
     assertTrue(exception.getMessage().contains("Invalid OperationHandle"));
+    assertEquals("08000", exception.getSQLState());
   }
 
   @Test
