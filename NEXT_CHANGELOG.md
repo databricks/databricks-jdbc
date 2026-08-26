@@ -18,6 +18,8 @@
 - Fixed connecting with an unsupported `AuthMech` (e.g. `AuthMech=99`) intermittently failing with an internal `IllegalStateException: Recursive update` or `StackOverflowError` on both the SEA and Thrift paths. The value is now validated at connect time and rejected deterministically with a `SQLException` (`SQLState=INPUT_VALIDATION_ERROR`).
 
 - Improved SEA connection-failure error messages.
+
+- Fixed `NullPointerException` being thrown when materializing an array containing nested object types (other arrays, structs or maps) as `DatabricksArray` when some or all elements are literal `null`. 
 ---
 *Note: When making changes, please add your change under the appropriate section
 with a brief description.*
