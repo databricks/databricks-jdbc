@@ -1471,6 +1471,29 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
+  void testCleanupRetry_boundedForCancelOperation() throws Exception {
+    setup(true);
+    doNothing().when(accessor).backoffSleep(anyLong());
+    TCancelOperationReq req =
+        new TCancelOperationReq()
+            .setOperationHandle(
+                new TOperationHandle()
+                    .setOperationId(handleIdentifier)
+                    .setOperationType(TOperationType.UNKNOWN));
+    // A persistent transient transport failure on cleanup must not run the full poll budget.
+    TTransportException gateway =
+        transportError(
+            new DatabricksHttpException("HTTP request failed by code: 502", "08000", 502));
+    when(thriftClient.CancelOperation(req)).thenThrow(gateway);
+
+    assertThrows(DatabricksHttpException.class, () -> accessor.cancelOperation(req));
+
+    // 1 initial attempt + MAX_CLEANUP_TRANSPORT_RETRIES (2) = 3 total, far below the poll budget.
+    verify(thriftClient, times(3)).CancelOperation(req);
+    verify(accessor, times(2)).backoffSleep(anyLong());
+  }
+
+  @Test
   void testTransportRetry_consultsTimeoutHandlerBeforeSleeping() throws Exception {
     setup(true);
     doNothing().when(accessor).backoffSleep(anyLong());

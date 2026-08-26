@@ -64,6 +64,10 @@ final class DatabricksThriftAccessor {
   // is deliberately NOT routed through the retry path: re-sending an ExecuteStatement could run the
   // query twice.
   private static final int MAX_POLL_TRANSPORT_RETRIES = 5;
+  // Cleanup RPCs (CloseOperation / CancelOperation) run on close / cancel / timeout paths that must
+  // not hang: one transient blip is worth reconnecting past, but a sustained outage should surface
+  // fast rather than stall shutdown. Hence a far smaller budget than the status-poll path.
+  private static final int MAX_CLEANUP_TRANSPORT_RETRIES = 2;
   private static final long TRANSPORT_RETRY_MIN_BACKOFF_MILLIS = 1_000L;
   private static final long TRANSPORT_RETRY_MAX_BACKOFF_MILLIS = 16_000L;
   // Transient HTTP gateway codes that the shared DatabricksHttpRetryHandler does NOT itself retry
@@ -183,7 +187,7 @@ final class DatabricksThriftAccessor {
 
   TCancelOperationResp cancelOperation(TCancelOperationReq req) throws DatabricksHttpException {
     try {
-      return withTransportRetry(
+      return withCleanupTransportRetry(
           "CancelOperation",
           loggableOperationHandle(req.getOperationHandle()),
           () -> getThriftClient().CancelOperation(req));
@@ -199,7 +203,7 @@ final class DatabricksThriftAccessor {
 
   TCloseOperationResp closeOperation(TCloseOperationReq req) throws DatabricksHttpException {
     try {
-      return withTransportRetry(
+      return withCleanupTransportRetry(
           "CloseOperation",
           loggableOperationHandle(req.getOperationHandle()),
           () -> getThriftClient().CloseOperation(req));
@@ -1008,19 +1012,52 @@ final class DatabricksThriftAccessor {
   }
 
   /**
-   * Executes an idempotent Thrift RPC with no query-timeout budget (used by {@code CloseOperation}
-   * / {@code CancelOperation}, which are not bounded by a statement timeout). See {@link
-   * #withTransportRetry(String, String, TimeoutHandler, TransportSafeRpc)} for the full contract.
+   * Executes an idempotent status-poll RPC with no query-timeout budget (used by the Thrift
+   * heartbeat / metadata-less status checks). Retries are bounded by {@link
+   * #MAX_POLL_TRANSPORT_RETRIES}. See {@link #withTransportRetry(String, String, TimeoutHandler,
+   * int, TransportSafeRpc)} for the full contract.
    */
   private <T> T withTransportRetry(String rpcName, String statementId, TransportSafeRpc<T> rpc)
       throws TException {
+    return withoutTimeout(rpcName, statementId, MAX_POLL_TRANSPORT_RETRIES, rpc);
+  }
+
+  /**
+   * Executes a cleanup RPC ({@code CloseOperation} / {@code CancelOperation}) with a deliberately
+   * small retry budget ({@link #MAX_CLEANUP_TRANSPORT_RETRIES}). Cleanup runs on close / cancel /
+   * timeout paths that must not hang: a single transient blip is worth reconnecting past, but during
+   * a sustained outage extra retries only delay shutdown, so the budget is far tighter than the
+   * status-poll path.
+   */
+  private <T> T withCleanupTransportRetry(
+      String rpcName, String statementId, TransportSafeRpc<T> rpc) throws TException {
+    return withoutTimeout(rpcName, statementId, MAX_CLEANUP_TRANSPORT_RETRIES, rpc);
+  }
+
+  /** Shared no-timeout entry point; adapts the deadline-aware core for callers with no deadline. */
+  private <T> T withoutTimeout(
+      String rpcName, String statementId, int maxRetries, TransportSafeRpc<T> rpc)
+      throws TException {
     try {
-      return withTransportRetry(rpcName, statementId, /* timeoutHandler= */ null, rpc);
+      return withTransportRetry(
+          rpcName, statementId, /* timeoutHandler= */ null, maxRetries, rpc);
     } catch (DatabricksTimeoutException e) {
       // Unreachable: a null timeout handler never enforces a deadline. Guard defensively so the
       // checked timeout type cannot silently widen this method's contract.
       throw new IllegalStateException("Unexpected timeout without an active timeout handler", e);
     }
+  }
+
+  /**
+   * Deadline-aware status-poll retry with the default poll budget ({@link
+   * #MAX_POLL_TRANSPORT_RETRIES}). See {@link #withTransportRetry(String, String, TimeoutHandler,
+   * int, TransportSafeRpc)}.
+   */
+  private <T> T withTransportRetry(
+      String rpcName, String statementId, TimeoutHandler timeoutHandler, TransportSafeRpc<T> rpc)
+      throws TException, DatabricksTimeoutException {
+    return withTransportRetry(
+        rpcName, statementId, timeoutHandler, MAX_POLL_TRANSPORT_RETRIES, rpc);
   }
 
   /**
@@ -1045,13 +1082,17 @@ final class DatabricksThriftAccessor {
    *
    * <p>When {@code timeoutHandler} is non-null the operation's deadline is enforced before each
    * backoff sleep and the sleep is capped to the remaining budget, so a failing RPC cannot overshoot
-   * the statement's {@code queryTimeout}. Retries are bounded by {@link #MAX_POLL_TRANSPORT_RETRIES};
-   * once exhausted the original {@link TTransportException} is rethrown so existing caller-side
-   * handling still applies. A thread interrupt during a backoff sleep restores the interrupt flag
-   * and aborts the retry loop.
+   * the statement's {@code queryTimeout}. Retries are bounded by {@code maxRetries}; once exhausted
+   * the original {@link TTransportException} is rethrown so existing caller-side handling still
+   * applies. A thread interrupt during a backoff sleep restores the interrupt flag and aborts the
+   * retry loop.
    */
   private <T> T withTransportRetry(
-      String rpcName, String statementId, TimeoutHandler timeoutHandler, TransportSafeRpc<T> rpc)
+      String rpcName,
+      String statementId,
+      TimeoutHandler timeoutHandler,
+      int maxRetries,
+      TransportSafeRpc<T> rpc)
       throws TException, DatabricksTimeoutException {
     int attempt = 0;
     long backoffMillis = TRANSPORT_RETRY_MIN_BACKOFF_MILLIS;
@@ -1064,13 +1105,13 @@ final class DatabricksThriftAccessor {
           // surface immediately instead of hanging through the backoff schedule.
           throw e;
         }
-        if (++attempt > MAX_POLL_TRANSPORT_RETRIES) {
+        if (++attempt > maxRetries) {
           LOGGER.error(
               "Transport failure on {} for statement [{}] still failing after {} retries; giving"
                   + " up. Cause: {}",
               rpcName,
               statementId,
-              MAX_POLL_TRANSPORT_RETRIES,
+              maxRetries,
               e.getMessage());
           throw e;
         }
@@ -1093,7 +1134,7 @@ final class DatabricksThriftAccessor {
             rpcName,
             statementId,
             attempt,
-            MAX_POLL_TRANSPORT_RETRIES,
+            maxRetries,
             sleepMillis,
             e.getMessage());
         try {
