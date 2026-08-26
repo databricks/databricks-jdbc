@@ -10,11 +10,13 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +42,255 @@ public class MetadataResultSetBuilderTest {
   @AfterEach
   void tearDown() {
     DatabricksThreadContextHolder.clearAllContext();
+  }
+
+  @Test
+  void testThriftNativeFormattingMatchesRawThriftBuilder() throws SQLException {
+    assertNativeFormattingMatchesThrift(
+        resultSet -> metadataResultSetBuilder.getFunctionsResult(resultSet, "catalog"),
+        rows -> metadataResultSetBuilder.getFunctionsResult("catalog", rows),
+        FUNCTION_COLUMNS);
+    assertNativeFormattingMatchesThrift(
+        metadataResultSetBuilder::getCatalogsResult,
+        metadataResultSetBuilder::getCatalogsResult,
+        CATALOG_COLUMNS);
+    assertNativeFormattingMatchesThrift(
+        resultSet -> metadataResultSetBuilder.getSchemasResult(resultSet, "catalog"),
+        metadataResultSetBuilder::getSchemasResult,
+        SCHEMA_COLUMNS);
+    assertNativeFormattingMatchesThrift(
+        resultSet ->
+            metadataResultSetBuilder.getTablesResult(resultSet, null, new String[] {"TABLE"}),
+        rows -> metadataResultSetBuilder.getTablesResult(null, new String[] {"TABLE"}, rows),
+        TABLE_COLUMNS);
+    assertNativeFormattingMatchesThrift(
+        metadataResultSetBuilder::getPrimaryKeysResult,
+        metadataResultSetBuilder::getPrimaryKeysResult,
+        PRIMARY_KEYS_COLUMNS);
+    assertNativeFormattingMatchesThrift(
+        metadataResultSetBuilder::getImportedKeysResult,
+        metadataResultSetBuilder::getImportedKeys,
+        IMPORTED_KEYS_COLUMNS);
+  }
+
+  @Test
+  void testThriftNativeGetColumnsFormattingMatchesRawThriftBuilder() throws SQLException {
+    List<Object> nativeRow =
+        Arrays.asList(
+            "catalog",
+            "schema",
+            "table",
+            "column",
+            Types.INTEGER,
+            "INT",
+            10,
+            null,
+            0,
+            10,
+            1,
+            null,
+            null,
+            Types.INTEGER,
+            null,
+            null,
+            0,
+            "YES",
+            null,
+            null,
+            null,
+            null,
+            "YES");
+    DatabricksResultSet actual =
+        metadataResultSetBuilder.getColumnsResult(
+            nativeMetadataResult(List.of(new ArrayList<>(nativeRow))));
+    DatabricksResultSet expected =
+        metadataResultSetBuilder.getColumnsResult(List.of(new ArrayList<>(nativeRow)));
+
+    assertResultSetsEqual(expected, actual);
+  }
+
+  @Test
+  void testLegacyMetadataResultWithNativeColumnCountIsTransformed() throws SQLException {
+    DatabricksResultSet resultSet =
+        mockMetadataResultSetWithColumnNames(
+            List.of(
+                "functionName",
+                "namespace",
+                "catalogName",
+                "remarks",
+                "functionType",
+                "specificName"));
+    when(resultSet.next()).thenReturn(false);
+
+    assertNotSame(resultSet, metadataResultSetBuilder.getFunctionsResult(resultSet, "catalog"));
+    verify(resultSet).next();
+  }
+
+  private void assertNativeFormattingMatchesThrift(
+      MetadataResultCall nativeCall, RawRowsResultCall thriftCall, List<ResultColumn> columns)
+      throws SQLException {
+    List<Object> row = metadataRow(columns);
+    DatabricksResultSet actual =
+        nativeCall.execute(nativeMetadataResult(List.of(new ArrayList<>(row))));
+    DatabricksResultSet expected = thriftCall.execute(List.of(new ArrayList<>(row)));
+
+    assertResultSetsEqual(expected, actual);
+  }
+
+  private DatabricksResultSet nativeMetadataResult(List<List<Object>> rows) throws SQLException {
+    DatabricksResultSet resultSet = mock(DatabricksResultSet.class);
+    ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+    AtomicInteger rowIndex = new AtomicInteger(-1);
+    when(resultSet.isThriftNativeMetadataResult()).thenReturn(true);
+    when(resultSet.getMetaData()).thenReturn(metadata);
+    when(metadata.getColumnCount()).thenReturn(rows.get(0).size());
+    when(resultSet.next()).thenAnswer(ignored -> rowIndex.incrementAndGet() < rows.size());
+    when(resultSet.getObject(anyInt()))
+        .thenAnswer(
+            invocation ->
+                rows.get(rowIndex.get()).get(invocation.getArgument(0, Integer.class) - 1));
+    return resultSet;
+  }
+
+  private void assertResultSetsEqual(DatabricksResultSet expected, DatabricksResultSet actual)
+      throws SQLException {
+    ResultSetMetaData expectedMetadata = expected.getMetaData();
+    ResultSetMetaData actualMetadata = actual.getMetaData();
+    int columnCount = expectedMetadata.getColumnCount();
+    assertEquals(columnCount, actualMetadata.getColumnCount());
+    for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+      assertEquals(
+          expectedMetadata.getColumnName(columnIndex), actualMetadata.getColumnName(columnIndex));
+      assertEquals(
+          expectedMetadata.getColumnType(columnIndex), actualMetadata.getColumnType(columnIndex));
+      assertEquals(
+          expectedMetadata.getColumnTypeName(columnIndex),
+          actualMetadata.getColumnTypeName(columnIndex));
+      assertEquals(
+          expectedMetadata.getPrecision(columnIndex), actualMetadata.getPrecision(columnIndex));
+      assertEquals(expectedMetadata.getScale(columnIndex), actualMetadata.getScale(columnIndex));
+      assertEquals(
+          expectedMetadata.isNullable(columnIndex), actualMetadata.isNullable(columnIndex));
+    }
+    while (expected.next()) {
+      assertTrue(actual.next());
+      for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+        assertEquals(expected.getObject(columnIndex), actual.getObject(columnIndex));
+      }
+    }
+    assertFalse(actual.next());
+  }
+
+  private List<Object> metadataRow(List<ResultColumn> columns) {
+    List<Object> row = new ArrayList<>(columns.size());
+    for (int columnIndex = 1; columnIndex <= columns.size(); columnIndex++) {
+      row.add(metadataValue(columns.get(columnIndex - 1), columnIndex));
+    }
+    return row;
+  }
+
+  private Object metadataValue(ResultColumn column, int columnIndex) {
+    if (TABLE_TYPE_COLUMN.getColumnName().equals(column.getColumnName())) {
+      return "TABLE";
+    }
+    switch (column.getColumnTypeInt()) {
+      case Types.SMALLINT:
+        return (short) columnIndex;
+      case Types.INTEGER:
+        return columnIndex;
+      case Types.BIT:
+        return true;
+      default:
+        return "value-" + columnIndex;
+    }
+  }
+
+  @Test
+  void testThriftNativeTablesStillApplyTableTypeFilter() throws SQLException {
+    DatabricksResultSet result =
+        metadataResultSetBuilder.getTablesResult(
+            nativeMetadataResult(List.of(metadataRow(TABLE_COLUMNS))),
+            null,
+            new String[] {"NONEXISTENT_TYPE"});
+
+    assertFalse(result.next());
+  }
+
+  @Test
+  void testThriftNativeTablesStillApplyExactCatalogFilter() throws SQLException {
+    List<Object> mismatchedCatalogRow = metadataRow(TABLE_COLUMNS);
+    mismatchedCatalogRow.set(0, "comparator_tests");
+    List<Object> nullCatalogRow = new ArrayList<>(mismatchedCatalogRow);
+    nullCatalogRow.set(0, null);
+
+    DatabricksResultSet result =
+        metadataResultSetBuilder.getTablesResult(
+            nativeMetadataResult(List.of(mismatchedCatalogRow, nullCatalogRow)),
+            "COMPARATOR-TESTS",
+            new String[] {"TABLE"});
+
+    assertFalse(result.next());
+  }
+
+  @Test
+  void testThriftNativeCrossReferenceStillFiltersParentTable() throws SQLException {
+    List<Object> matchingRow = metadataRow(CROSS_REFERENCE_COLUMNS);
+    matchingRow.set(0, "parent-catalog");
+    matchingRow.set(1, "parent-schema");
+    matchingRow.set(2, "parent-table");
+    List<Object> nonMatchingRow = new ArrayList<>(matchingRow);
+    nonMatchingRow.set(2, "other-parent-table");
+
+    DatabricksResultSet result =
+        metadataResultSetBuilder.getCrossReferenceKeysResult(
+            nativeMetadataResult(List.of(matchingRow, nonMatchingRow)),
+            "PARENT-CATALOG",
+            "PARENT-SCHEMA",
+            "PARENT-TABLE");
+
+    assertTrue(result.next());
+    assertEquals("parent-catalog", result.getString("PKTABLE_CAT"));
+    assertEquals("parent-schema", result.getString("PKTABLE_SCHEM"));
+    assertEquals("parent-table", result.getString("PKTABLE_NAME"));
+    assertFalse(result.next());
+  }
+
+  @Test
+  void testThriftNativeFunctionsUseThriftPostProcessing() throws SQLException {
+    List<Object> row =
+        new ArrayList<>(
+            Arrays.asList(
+                "server-catalog", "schema", "function", null, (short) 1, "specific-name"));
+    DatabricksResultSet actual =
+        metadataResultSetBuilder.getFunctionsResult(
+            nativeMetadataResult(List.of(new ArrayList<>(row))), "requested-catalog");
+    DatabricksResultSet expected =
+        metadataResultSetBuilder.getFunctionsResult(
+            "requested-catalog", List.of(new ArrayList<>(row)));
+
+    assertResultSetsEqual(expected, actual);
+  }
+
+  private DatabricksResultSet mockMetadataResultSetWithColumnNames(List<String> columnNames)
+      throws SQLException {
+    DatabricksResultSet resultSet = mock(DatabricksResultSet.class);
+    ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+    when(resultSet.getMetaData()).thenReturn(metadata);
+    when(metadata.getColumnCount()).thenReturn(columnNames.size());
+    for (int i = 0; i < columnNames.size(); i++) {
+      when(metadata.getColumnName(i + 1)).thenReturn(columnNames.get(i));
+    }
+    return resultSet;
+  }
+
+  @FunctionalInterface
+  private interface MetadataResultCall {
+    DatabricksResultSet execute(DatabricksResultSet resultSet) throws SQLException;
+  }
+
+  @FunctionalInterface
+  private interface RawRowsResultCall {
+    DatabricksResultSet execute(List<List<Object>> rows) throws SQLException;
   }
 
   @Test
@@ -529,7 +780,7 @@ public class MetadataResultSetBuilderTest {
 
     // Call SEA mode method with both TABLE and VIEW types
     String[] tableTypes = new String[] {"TABLE", "VIEW"};
-    ResultSet resultSet = metadataResultSetBuilder.getTablesResult(mockResultSet, tableTypes);
+    ResultSet resultSet = metadataResultSetBuilder.getTablesResult(mockResultSet, null, tableTypes);
 
     // Verify sorting: TABLE_TYPE first, then TABLE_CAT, TABLE_SCHEM, TABLE_NAME
     // Expected order after sorting:

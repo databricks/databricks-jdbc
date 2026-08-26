@@ -446,6 +446,9 @@ public interface IDatabricksConnectionContext {
    */
   boolean isSeaSyncMetadataEnabled();
 
+  /** Returns whether SEA metadata requests should require Thrift-native execution. */
+  boolean isThriftNativeMetadataEnabled();
+
   /** Returns whether OAuth refresh tokens should be disabled (omit offline_access by default). */
   boolean getDisableOauthRefreshToken();
 
