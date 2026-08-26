@@ -173,9 +173,6 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       return metadataResultSetBuilder.getTablesResult(
           resultSet, requestedCatalog, resultTableTypes);
     } catch (SQLException e) {
-      if (isThriftNativeMetadataRequested()) {
-        throw e;
-      }
       if ((PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState()) && catalog == null)
           || isObjectNotFoundException(e)
           || isEmptyPatternError(schemaNamePattern, tableNamePattern)) {
@@ -224,9 +221,6 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       return metadataResultSetBuilder.getColumnsResult(
           getResultSet(SQL, session, MetadataOperationType.GET_COLUMNS));
     } catch (SQLException e) {
-      if (isThriftNativeMetadataRequested()) {
-        throw e;
-      }
       if (catalog == null && PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())) {
         // Fallback for older DBR versions that don't support "SHOW COLUMNS IN ALL CATALOGS":
         // enumerate the catalogs and issue a per-catalog SHOW COLUMNS.

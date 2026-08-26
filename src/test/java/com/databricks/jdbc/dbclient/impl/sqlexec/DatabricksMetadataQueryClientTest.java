@@ -280,34 +280,6 @@ public class DatabricksMetadataQueryClientTest {
   }
 
   @Test
-  void nativeListTablesPropagatesServerErrors() throws SQLException {
-    when(session.getComputeResource()).thenReturn(mockedComputeResource);
-    IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
-    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
-    when(connectionContext.isThriftNativeMetadataEnabled()).thenReturn(true);
-    when(mockClient.getConnectionContext()).thenReturn(connectionContext);
-    DatabricksSQLException nativeError =
-        new DatabricksSQLException("native metadata failure", OBJECT_NOT_FOUND_SQL_STATE);
-    when(mockClient.executeStatement(
-            eq("SHOW TABLES IN CATALOG ``"),
-            eq(mockedComputeResource),
-            any(),
-            eq(StatementType.METADATA),
-            eq(session),
-            any(),
-            eq(MetadataOperationType.GET_TABLES)))
-        .thenThrow(nativeError);
-
-    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
-
-    assertSame(
-        nativeError,
-        assertThrows(
-            DatabricksSQLException.class,
-            () -> metadataClient.listTables(session, "", null, null, null)));
-  }
-
-  @Test
   void listSchemasReturnsEmptyWhenCatalogIsEmptyString() throws SQLException {
     IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
     when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(false);
@@ -515,34 +487,6 @@ public class DatabricksMetadataQueryClientTest {
         assertEquals(actualMetaData.isNullable(i + 1), ResultSetMetaData.columnNullable);
       }
     }
-  }
-
-  @Test
-  void nativeListColumnsPropagatesServerErrorsForEmptyPatterns() throws SQLException {
-    when(session.getComputeResource()).thenReturn(mockedComputeResource);
-    IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
-    when(connectionContext.getEnableMultipleCatalogSupport()).thenReturn(true);
-    when(connectionContext.isThriftNativeMetadataEnabled()).thenReturn(true);
-    when(mockClient.getConnectionContext()).thenReturn(connectionContext);
-    DatabricksSQLException nativeError =
-        new DatabricksSQLException("native metadata failure", SYNTAX_OR_ACCESS_VIOLATION_SQLSTATE);
-    when(mockClient.executeStatement(
-            eq("SHOW COLUMNS IN CATALOG `catalog1` SCHEMA LIKE ''"),
-            eq(mockedComputeResource),
-            any(),
-            eq(StatementType.METADATA),
-            eq(session),
-            any(),
-            eq(MetadataOperationType.GET_COLUMNS)))
-        .thenThrow(nativeError);
-
-    DatabricksMetadataQueryClient metadataClient = new DatabricksMetadataQueryClient(mockClient);
-
-    assertSame(
-        nativeError,
-        assertThrows(
-            DatabricksSQLException.class,
-            () -> metadataClient.listColumns(session, TEST_CATALOG, "", null, null)));
   }
 
   private void stubColumnsMetaData() throws SQLException {
