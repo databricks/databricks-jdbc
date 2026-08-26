@@ -14,6 +14,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
+import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -80,8 +81,14 @@ public class StreamingInlineArrowResult implements IExecutionResult {
     this.hasReachedEnd = false;
     this.isClosed = false;
 
-    // Initialize column info from metadata
-    this.columnInfos = getColumnInfoList(initialResponse.getResultSetMetadata());
+    TGetResultSetMetadataResp metadata = initialResponse.getResultSetMetadata();
+    if (metadata == null) {
+      throw new DatabricksSQLException(
+          "Initial inline Arrow response is missing result set metadata",
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(),
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+    }
+    this.columnInfos = getColumnInfoList(metadata);
 
     // Create batch fetcher and type-safe generic provider for Arrow
     ThriftBatchFetcher fetcher = new ThriftBatchFetcherImpl(session, statement);

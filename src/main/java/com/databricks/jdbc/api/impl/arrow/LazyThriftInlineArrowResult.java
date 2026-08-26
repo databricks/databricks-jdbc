@@ -8,11 +8,13 @@ import static com.databricks.jdbc.common.util.ArrowUtil.getTotalRowsInResponse;
 import com.databricks.jdbc.api.impl.IExecutionResult;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
+import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -39,6 +41,7 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
   private long totalRowsFetched;
   private List<ColumnInfo> columnInfos;
   private byte[] cachedSchema; // Cache schema from first response for subsequent batches
+  private final CompressionCodec cachedCompressionCodec;
 
   /**
    * Creates a new LazyThriftInlineArrowResult that lazily fetches arrow data on demand.
@@ -61,12 +64,19 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
     this.isClosed = false;
     this.totalRowsFetched = 0;
 
-    // Initialize column info from metadata
-    this.columnInfos = getColumnInfoList(initialResponse.getResultSetMetadata());
+    TGetResultSetMetadataResp metadata = initialResponse.getResultSetMetadata();
+    if (metadata == null) {
+      throw new DatabricksSQLException(
+          "Initial inline Arrow response is missing result set metadata",
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(),
+          DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+    }
+    this.columnInfos = getColumnInfoList(metadata);
+    this.cachedCompressionCodec = CompressionCodec.getCompressionMapping(metadata);
 
     // Cache the schema from the first response for use in subsequent batches
     try {
-      this.cachedSchema = getSerializedSchema(initialResponse.getResultSetMetadata());
+      this.cachedSchema = getSerializedSchema(metadata);
     } catch (DatabricksParsingException e) {
       LOGGER.error("Failed to cache Arrow schema: {}", e.getMessage(), e);
       throw new DatabricksSQLException(
@@ -258,7 +268,7 @@ public class LazyThriftInlineArrowResult implements IExecutionResult {
   private void loadCurrentChunk() throws DatabricksSQLException {
     try {
       ByteArrayInputStream byteStream =
-          createArrowByteStream(cachedSchema, currentResponse, getClass());
+          createArrowByteStream(cachedSchema, currentResponse, cachedCompressionCodec, getClass());
       long rowCount = getTotalRowsInResponse(currentResponse);
 
       ArrowResultChunk.Builder builder =

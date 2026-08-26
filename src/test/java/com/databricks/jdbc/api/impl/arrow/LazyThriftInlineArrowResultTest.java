@@ -13,11 +13,13 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import net.jpountz.lz4.LZ4FrameOutputStream;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -138,6 +140,39 @@ public class LazyThriftInlineArrowResultTest {
     response.hasMoreRows = hasMoreRows;
 
     return response;
+  }
+
+  private TFetchResultsResp createFetchResultsRespWithoutMetadata(
+      byte[] arrowData, int rowCount, boolean hasMoreRows) {
+    TSparkArrowBatch arrowBatch = new TSparkArrowBatch().setRowCount(rowCount).setBatch(arrowData);
+    TRowSet rowSet = new TRowSet().setArrowBatches(Collections.singletonList(arrowBatch));
+    TFetchResultsResp response = new TFetchResultsResp().setResults(rowSet);
+    response.hasMoreRows = hasMoreRows;
+    return response;
+  }
+
+  private static byte[] compressLz4(byte[] data) {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (LZ4FrameOutputStream lz4 = new LZ4FrameOutputStream(out)) {
+      lz4.write(data);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to create compressed Arrow data", e);
+    }
+    return out.toByteArray();
+  }
+
+  @Test
+  void testMissingInitialMetadataThrowsTypedParsingError() {
+    TFetchResultsResp response = new TFetchResultsResp();
+
+    DatabricksSQLException thrown =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> new LazyThriftInlineArrowResult(response, statement, session));
+
+    assertEquals(DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), thrown.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.getCode(), thrown.getErrorCode());
   }
 
   @Test
@@ -376,6 +411,31 @@ public class LazyThriftInlineArrowResultTest {
 
     // Verify that getMoreResults was called
     verify(databricksClient).getMoreResults(statement);
+  }
+
+  @Test
+  void testCompressedNextChunkWithoutMetadataUsesInitialCompression() throws SQLException {
+    int rowsPerChunk = 2;
+    byte[] firstArrowData = compressLz4(createValidArrowData(1, rowsPerChunk));
+    byte[] secondArrowData = compressLz4(createValidArrowData(1, rowsPerChunk));
+    TFetchResultsResp initialResponse = createFetchResultsResp(firstArrowData, rowsPerChunk, true);
+    initialResponse.getResultSetMetadata().setLz4Compressed(true);
+    TFetchResultsResp secondResponse =
+        createFetchResultsRespWithoutMetadata(secondArrowData, rowsPerChunk, false);
+
+    when(statement.getStatementId()).thenReturn(STATEMENT_ID);
+    when(session.getDatabricksClient()).thenReturn(databricksClient);
+    when(databricksClient.getMoreResults(statement)).thenReturn(secondResponse);
+
+    LazyThriftInlineArrowResult result =
+        new LazyThriftInlineArrowResult(initialResponse, statement, session);
+
+    assertTrue(result.next());
+    assertTrue(result.next());
+    assertTrue(result.next());
+    assertTrue(result.next());
+    assertFalse(result.next());
+    assertEquals(rowsPerChunk * 2, result.getTotalRowsFetched());
   }
 
   @Test
