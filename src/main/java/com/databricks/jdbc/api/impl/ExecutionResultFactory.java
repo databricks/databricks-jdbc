@@ -14,6 +14,7 @@ import com.databricks.jdbc.exception.*;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
+import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataResp;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
@@ -94,7 +95,14 @@ class ExecutionResultFactory {
       IDatabricksStatementInternal parentStatement,
       IDatabricksSession session)
       throws SQLException {
-    TSparkRowSetType resultFormat = resultsResp.getResultSetMetadata().getResultFormat();
+    TGetResultSetMetadataResp metadata = resultsResp.getResultSetMetadata();
+    if (metadata == null) {
+      throw new DatabricksSQLException(
+          "Missing result set metadata",
+          DatabricksDriverErrorCode.INVALID_STATE.name(),
+          DatabricksDriverErrorCode.INVALID_STATE);
+    }
+    TSparkRowSetType resultFormat = metadata.getResultFormat();
     TelemetryHelper.setResultFormat(session.getConnectionContext(), parentStatement, resultFormat);
     LOGGER.info("Processing result of format {} from Thrift server", resultFormat);
     switch (resultFormat) {
