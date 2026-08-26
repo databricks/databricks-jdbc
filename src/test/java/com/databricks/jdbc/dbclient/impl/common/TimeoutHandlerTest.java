@@ -136,6 +136,38 @@ class TimeoutHandlerTest {
   }
 
   @Test
+  void testGetRemainingMillisStaysPositiveUntilEnforcement() throws Exception {
+    TimeoutHandler handler =
+        new TimeoutHandler(
+            5, "Test operation", null, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
+    Field startTimeField = TimeoutHandler.class.getDeclaredField("startTimeMillis");
+    startTimeField.setAccessible(true);
+    long now = System.currentTimeMillis();
+
+    // Elapsed 5.5s: past the nominal 5s but before checkTimeout enforces (it fires only once elapsed
+    // exceeds 5 whole seconds, i.e. at 6s). getRemainingMillis() must stay POSITIVE in this window
+    // so a caller capping a backoff sleep on it does not collapse the sleep to zero and busy-spin.
+    startTimeField.set(handler, now - 5_500L);
+    assertDoesNotThrow(handler::checkTimeout);
+    assertTrue(
+        handler.getRemainingMillis() > 0,
+        "remaining should be > 0 in the sub-second window before enforcement");
+
+    // Well past enforcement: remaining goes negative and checkTimeout throws.
+    startTimeField.set(handler, now - 10_000L);
+    assertTrue(handler.getRemainingMillis() < 0);
+    assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
+  }
+
+  @Test
+  void testGetRemainingMillisUnboundedWhenNoTimeout() {
+    TimeoutHandler handler =
+        new TimeoutHandler(
+            0, "Test operation", null, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
+    assertEquals(Long.MAX_VALUE, handler.getRemainingMillis());
+  }
+
+  @Test
   void testForStatementFactory() throws Exception {
     when(mockStatementId.toString()).thenReturn("test-statement-id");
 
