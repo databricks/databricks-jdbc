@@ -504,11 +504,6 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
         && !queryExecutionClient.getConnectionContext().getEnableMultipleCatalogSupport();
   }
 
-  private boolean isThriftNativeMetadataRequested() {
-    IDatabricksConnectionContext connectionContext = queryExecutionClient.getConnectionContext();
-    return connectionContext != null && connectionContext.isThriftNativeMetadataEnabled();
-  }
-
   /**
    * Returns true if any of the provided patterns is an empty string. Empty string patterns generate
    * invalid LIKE '' clauses that cause server errors. Per JDBC spec, empty string means "without a
