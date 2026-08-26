@@ -1471,6 +1471,25 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
+  void testTransportRetry_serverError500SurfacesImmediately() throws Exception {
+    setup(true);
+    doNothing().when(accessor).backoffSleep(anyLong());
+    // 500 is treated as a (likely-permanent) server error, not a transient gateway hop failure.
+    TTransportException serverError =
+        transportError(
+            new DatabricksHttpException("HTTP request failed by code: 500", "08000", 500));
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenThrow(serverError);
+    StatementId statementId = StatementId.deserialize(TEST_STMT_ID);
+
+    assertThrows(
+        TTransportException.class,
+        () -> accessor.getOperationStatus(operationStatusReq, statementId));
+
+    verify(thriftClient, times(1)).GetOperationStatus(operationStatusReq);
+    verify(accessor, never()).backoffSleep(anyLong());
+  }
+
+  @Test
   void testTransportRetry_nullCauseRetriedThenSucceeds() throws Exception {
     setup(true);
     doNothing().when(accessor).backoffSleep(anyLong());

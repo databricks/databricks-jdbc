@@ -73,9 +73,10 @@ final class DatabricksThriftAccessor {
   // Transient HTTP gateway codes that the shared DatabricksHttpRetryHandler does NOT itself retry
   // (it only retries 429/503 + configured custom codes). A poll that hits one of these received a
   // real HTTP response but from a transiently-unhealthy hop, so re-polling on a fresh connection is
-  // safe and worthwhile. 429/503 are deliberately excluded here: they are owned by the HTTP layer,
-  // and re-retrying them would multiply load on a recovering endpoint.
-  private static final Set<Integer> RETRYABLE_TRANSPORT_HTTP_CODES = Set.of(408, 500, 502, 504);
+  // safe and worthwhile. 429/503 are excluded (owned by the HTTP layer — re-retrying would multiply
+  // load on a recovering endpoint); 500 is excluded too, as it is typically a genuine server-side
+  // error rather than a transient hop failure and should surface rather than burn the retry budget.
+  private static final Set<Integer> RETRYABLE_TRANSPORT_HTTP_CODES = Set.of(408, 502, 504);
 
   private DatabricksConfig databricksConfig;
   private final boolean enableDirectResults;
