@@ -33,6 +33,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class DatabricksConnectionContextTest {
 
@@ -60,6 +61,20 @@ class DatabricksConnectionContextTest {
     assertEquals("value3", propertiesMap.get("param3"));
   }
 
+  @ParameterizedTest
+  @CsvSource({"url-value, url-value", "url-value, properties-value"})
+  public void testBuildPropertiesMapUrlOverridesProperties(
+      String urlValue, String propertiesValue) {
+    Properties properties = new Properties();
+    properties.setProperty("HTTPPATH", propertiesValue);
+
+    ImmutableMap<String, String> propertiesMap =
+        buildPropertiesMap("httpPath=" + urlValue, properties);
+
+    assertEquals(1, propertiesMap.size());
+    assertEquals(urlValue, propertiesMap.get("httppath"));
+  }
+
   @Test
   public void testTelemetrySocketTimeoutDefault() throws DatabricksSQLException {
     DatabricksConnectionContext context =
@@ -85,6 +100,26 @@ class DatabricksConnectionContextTest {
     assertThrows(
         DatabricksParsingException.class,
         () -> DatabricksConnectionContext.parse(TestConstants.INVALID_URL_2, properties));
+    assertThrows(
+        DatabricksParsingException.class,
+        () -> DatabricksConnectionContext.parse(null, properties));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "jdbc:databricks://localhost:8080",
+        "jdbc:databricks://localhost:8080;httpPath=",
+        "jdbc:databricks://localhost:8080;httpPath= "
+      })
+  public void testParseRejectsMissingRequiredConnectionParameters(String url) {
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> DatabricksConnectionContext.parse(url, new Properties()));
+
+    assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
+    assertTrue(exception.getMessage().contains("httppath"));
   }
 
   @Test
@@ -2080,5 +2115,24 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext) DatabricksConnectionContext.parse(url, props);
     assertNull(ctx.getClientSecret());
     assertNull(ctx.getNullableClientId());
+  }
+
+  @Test
+  public void testNativeBatchingDisabledByDefault() throws DatabricksSQLException {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, new Properties());
+
+    assertFalse(context.isNativeBatchingEnabled());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0, false", "1, true", "true, false"})
+  public void testNativeBatchingConnectionProperty(String value, boolean expected)
+      throws DatabricksSQLException {
+    String url = TestConstants.VALID_URL_1 + ";EnableNativeBatching=" + value;
+
+    IDatabricksConnectionContext context = DatabricksConnectionContext.parse(url, new Properties());
+
+    assertEquals(expected, context.isNativeBatchingEnabled());
   }
 }

@@ -426,6 +426,9 @@ public interface IDatabricksConnectionContext {
   /** Returns whether batched INSERT optimization is enabled */
   boolean isBatchedInsertsEnabled();
 
+  /** Returns whether native parameter batch execution is enabled */
+  boolean isNativeBatchingEnabled();
+
   /** Returns whether transaction-related method calls should be ignored */
   boolean getIgnoreTransactions();
 
