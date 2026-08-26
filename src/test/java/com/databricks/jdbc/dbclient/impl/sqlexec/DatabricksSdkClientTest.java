@@ -241,6 +241,45 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testApcExecuteStatementFetchesMissingInitialResult() throws Exception {
+    useRealJsonSerialization();
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+
+    ExecuteStatementResponse response =
+        new ExecuteStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+            .setManifest(emptyJsonManifest());
+    when(apiClient.execute(any(Request.class), eq(ExecuteStatementResponse.class)))
+        .thenReturn(response);
+    when(apiClient.execute(any(Request.class), eq(ResultData.class))).thenReturn(emptyJsonResult());
+
+    DatabricksResultSet resultSet =
+        databricksSdkClient.executeStatement(
+            "SELECT 1",
+            allPurposeCluster,
+            Collections.emptyMap(),
+            StatementType.QUERY,
+            session,
+            null,
+            null);
+
+    assertFalse(resultSet.next());
+    ArgumentCaptor<Request> resultRequest = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(resultRequest.capture(), eq(ResultData.class));
+    assertEquals(
+        String.format(RESULT_CHUNK_PATH, STATEMENT_ID.toSQLExecStatementId(), 0),
+        resultRequest.getValue().getUrl());
+    assertBackendComputeQuery(resultRequest.getValue());
+  }
+
+  @Test
   public void testApcRejectsStatementParameters() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
@@ -363,6 +402,37 @@ public class DatabricksSdkClientTest {
     assertEquals(
         STATEMENT_ID.toSQLExecStatementId(),
         new ObjectMapper().readTree(cancelRequest.getBodyString()).path("statement_id").asText());
+  }
+
+  @Test
+  public void testApcGetStatementResultFetchesMissingInitialResult() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getSessionId()).thenReturn(SESSION_ID);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+
+    GetStatementResponse response =
+        new GetStatementResponse()
+            .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+            .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED))
+            .setManifest(emptyJsonManifest());
+    when(apiClient.execute(any(Request.class), eq(GetStatementResponse.class)))
+        .thenReturn(response);
+    when(apiClient.execute(any(Request.class), eq(ResultData.class))).thenReturn(emptyJsonResult());
+
+    DatabricksResultSet resultSet =
+        databricksSdkClient.getStatementResult(STATEMENT_ID, session, null);
+
+    assertFalse(resultSet.next());
+    ArgumentCaptor<Request> resultRequest = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(resultRequest.capture(), eq(ResultData.class));
+    assertEquals(
+        String.format(RESULT_CHUNK_PATH, STATEMENT_ID.toSQLExecStatementId(), 0),
+        resultRequest.getValue().getUrl());
+    assertBackendComputeQuery(resultRequest.getValue());
   }
 
   @Test
@@ -1764,6 +1834,18 @@ public class DatabricksSdkClientTest {
     assertTrue(body.contains("\"backend_compute\""), "Missing backend_compute: " + body);
     assertTrue(body.contains("\"cluster_id\":\"" + CLUSTER_ID + "\""), body);
     assertFalse(body.contains("\"warehouse_id\""), "APC request must omit warehouse_id: " + body);
+  }
+
+  private static ResultManifest emptyJsonManifest() {
+    return new ResultManifest()
+        .setFormat(Format.JSON_ARRAY)
+        .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L))
+        .setTotalChunkCount(1L)
+        .setTotalRowCount(0L);
+  }
+
+  private static ResultData emptyJsonResult() {
+    return new ResultData().setChunkIndex(0L).setRowCount(0L).setDataArray(Collections.emptyList());
   }
 
   private static void assertBackendComputeQuery(Request request) {

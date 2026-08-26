@@ -346,6 +346,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
       handleFailedExecution(response, statementId, sql);
     }
 
+    if (apcBackendComputeFor(connectionContext.getComputeResource()) != null
+        && responseState == StatementState.SUCCEEDED
+        && response.getManifest() != null
+        && response.getResult() == null) {
+      response.setResult(getResultChunksData(typedStatementId, 0));
+    }
+
     // Defer markDirectResultsReceived until AFTER ResultSet construction.
     // VolumeOperationResult (created during ResultSet construction) accesses
     // statement properties that require the statement to be in a valid state.
@@ -493,6 +500,14 @@ public class DatabricksSdkClient implements IDatabricksClient {
           OPERATION_CANCELLED_SQLSTATE,
           DatabricksDriverErrorCode.EXECUTE_STATEMENT_CANCELLED,
           true);
+    }
+
+    if (backendCompute != null
+        && response.getStatus() != null
+        && response.getStatus().getState() == StatementState.SUCCEEDED
+        && response.getManifest() != null
+        && response.getResult() == null) {
+      response.setResult(getResultChunksData(typedStatementId, 0));
     }
 
     return new DatabricksResultSet(
