@@ -1471,6 +1471,24 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
+  void testTransportRetry_nullCauseRetriedThenSucceeds() throws Exception {
+    setup(true);
+    doNothing().when(accessor).backoffSleep(anyLong());
+    // DatabricksHttpTTransport.read() raises bare TTransportExceptions (null cause) on a
+    // truncated/empty response body — plausibly transient, so they are retried.
+    TTransportException bare = new TTransportException("Response buffer is empty, no response.");
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenThrow(bare)
+        .thenReturn(operationStatusFinishedResp);
+    StatementId statementId = StatementId.deserialize(TEST_STMT_ID);
+
+    TGetOperationStatusResp resp = accessor.getOperationStatus(operationStatusReq, statementId);
+
+    assertSame(operationStatusFinishedResp, resp);
+    verify(thriftClient, times(2)).GetOperationStatus(operationStatusReq);
+  }
+
+  @Test
   void testCleanupRetry_boundedForCancelOperation() throws Exception {
     setup(true);
     doNothing().when(accessor).backoffSleep(anyLong());

@@ -1171,11 +1171,18 @@ final class DatabricksThriftAccessor {
    *       connection-level failure (stale pooled connection, reset, socket timeout) surfaced as an
    *       {@link IOException} cause; retryable.
    *   <li>A direct {@link IOException} cause (e.g. a response-body read error) → retryable.
-   *   <li>Anything else (unknown or absent cause) → not retryable.
+   *   <li>No cause at all → retryable. The transport raises bare {@link TTransportException}s (e.g.
+   *       {@code DatabricksHttpTTransport.read()} on a truncated / empty response body) that are
+   *       plausibly transient; treating them as retryable preserves the pre-existing behavior of
+   *       retrying every {@code TTransportException}.
+   *   <li>A non-transient known cause (e.g. a permanent HTTP status) → not retryable.
    * </ul>
    */
   private static boolean isRetryableTransportFailure(TTransportException e) {
     Throwable cause = e.getCause();
+    if (cause == null) {
+      return true;
+    }
     if (chainContains(cause, DatabricksRetryHandlerException.class)) {
       return false;
     }
