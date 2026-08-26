@@ -1125,8 +1125,12 @@ final class DatabricksThriftAccessor {
         long sleepMillis =
             ThreadLocalRandom.current().nextLong(backoffMillis / 2 + 1, backoffMillis + 1);
         if (timeoutHandler != null) {
-          // Never sleep past the deadline; the next checkTimeout() will then fire promptly.
-          sleepMillis = Math.min(sleepMillis, Math.max(0L, timeoutHandler.getRemainingMillis()));
+          // Cap to the time left before the deadline is actually enforced so we neither overshoot
+          // nor collapse to a zero-length (busy-spin) sleep in the sub-second window before it.
+          long remainingMillis = timeoutHandler.getRemainingMillis();
+          if (remainingMillis < sleepMillis) {
+            sleepMillis = Math.max(0L, remainingMillis);
+          }
         }
         LOGGER.warn(
             "Transport failure on {} for statement [{}] (attempt {}/{}); reconnecting and retrying"
