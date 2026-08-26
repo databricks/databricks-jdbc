@@ -120,8 +120,9 @@ final class ArrowBatchChunkProviderFactory {
     }
 
     Long resultRowCount = resultData.getRowCount();
-    if (Long.valueOf(0L).equals(resultManifest.getTotalRowCount())
-        && (resultRowCount == null || Long.valueOf(0L).equals(resultRowCount))) {
+    if (Long.valueOf(0L).equals(resultRowCount)
+        || (resultRowCount == null
+            && Long.valueOf(0L).equals(resultManifest.getTotalRowCount()))) {
       return Collections.emptyList();
     }
     throw parsingError("ARROW_BATCH response is missing arrow_batches");
