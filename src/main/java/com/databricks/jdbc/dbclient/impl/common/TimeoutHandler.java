@@ -73,6 +73,19 @@ public class TimeoutHandler {
   }
 
   /**
+   * Returns the time remaining before this operation's deadline, in milliseconds. Returns {@link
+   * Long#MAX_VALUE} when no timeout is configured ({@code timeoutSeconds <= 0}), and may return a
+   * negative value once the deadline has already passed.
+   */
+  public long getRemainingMillis() {
+    if (timeoutSeconds <= 0) {
+      return Long.MAX_VALUE;
+    }
+    long elapsedMillis = System.currentTimeMillis() - startTimeMillis;
+    return TimeUnit.SECONDS.toMillis(timeoutSeconds) - elapsedMillis;
+  }
+
+  /**
    * Factory method to create a timeout handler for a databricks client with a statement ID. This
    * works with any client that implements {@link IDatabricksClient}.
    *
