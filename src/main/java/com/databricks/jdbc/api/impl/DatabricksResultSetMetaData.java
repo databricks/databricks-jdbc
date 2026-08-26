@@ -157,7 +157,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     }
     this.columns = columnsBuilder.build();
     this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
-    this.totalRows = resultManifest.getTotalRowCount();
+    this.totalRows = Objects.requireNonNullElse(resultManifest.getTotalRowCount(), -1L);
     this.chunkCount = resultManifest.getTotalChunkCount();
     this.isCloudFetchUsed = usesExternalLinks;
     this.truncated = Objects.requireNonNullElse(resultManifest.getTruncated(), false);
