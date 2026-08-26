@@ -41,7 +41,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
   }
 
   @Override
-  public Void call() throws DatabricksSQLException, ExecutionException, InterruptedException {
+  public Void call() throws DatabricksSQLException {
     int retries = 0;
     boolean downloadSuccessful = false;
 
@@ -81,6 +81,14 @@ class ChunkDownloadTask implements DatabricksCallableTask {
               chunk.getChunkIndex(),
               taskTotalMs,
               retries);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new DatabricksSQLException(
+              "Interrupted while retrieving chunk download link",
+              e,
+              statementId,
+              chunk.getChunkIndex(),
+              DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR.name());
         } catch (ExecutionException e) {
           Throwable cause = e.getCause() != null ? e.getCause() : e;
           if (cause instanceof DatabricksSQLException) {

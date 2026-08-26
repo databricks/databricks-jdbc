@@ -10,6 +10,7 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.SocketException;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -106,19 +108,34 @@ public class StreamingChunkDownloadTaskTest {
         .when(chunk)
         .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
 
-    DatabricksSQLException thrown =
-        assertThrows(DatabricksSQLException.class, () -> downloadTask.call());
-    assertEquals(DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(), thrown.getSQLState());
+    try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+      DatabricksSQLException thrown =
+          assertThrows(DatabricksSQLException.class, () -> downloadTask.call());
+      assertEquals(DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(), thrown.getSQLState());
 
-    // Should attempt MAX_RETRIES (5) times
-    verify(chunk, times(5))
-        .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
-    verify(chunk, times(1)).setStatus(ChunkStatus.DOWNLOAD_FAILED);
-    assertTrue(downloadFuture.isDone());
+      // Should attempt MAX_RETRIES (5) times
+      verify(chunk, times(5))
+          .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
+      verify(chunk, times(1)).setStatus(ChunkStatus.DOWNLOAD_FAILED);
+      assertTrue(downloadFuture.isDone());
 
-    ExecutionException executionException =
-        assertThrows(ExecutionException.class, () -> downloadFuture.get());
-    assertSame(thrown, executionException.getCause());
+      ExecutionException executionException =
+          assertThrows(ExecutionException.class, () -> downloadFuture.get());
+      assertSame(thrown, executionException.getCause());
+      assertSame(
+          thrown,
+          AbstractRemoteChunkProvider.createChunkReadyException(executionException.getCause()));
+      telemetry.verify(
+          () ->
+              TelemetryHelper.exportFailureLog(
+                  null,
+                  DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(),
+                  "Failed to download chunk 7 after 5 attempts",
+                  null,
+                  7L,
+                  com.databricks.jdbc.common.TelemetryLogLevel.ERROR),
+          times(1));
+    }
   }
 
   @Test

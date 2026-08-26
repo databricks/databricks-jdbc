@@ -147,6 +147,34 @@ public class ChunkDownloadTaskTest {
   }
 
   @Test
+  void testInterruptedLinkFetchPreservesTypedFailure() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(true);
+    when(chunk.getChunkIndex()).thenReturn(7L);
+    when(chunkLinkDownloadService.getLinkForChunk(7L)).thenReturn(new CompletableFuture<>());
+
+    try {
+      Thread.currentThread().interrupt();
+      DatabricksSQLException thrown =
+          assertThrows(DatabricksSQLException.class, () -> chunkDownloadTask.call());
+
+      assertEquals(DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR.name(), thrown.getSQLState());
+      assertTrue(Thread.currentThread().isInterrupted());
+      Thread.interrupted();
+
+      ExecutionException executionException =
+          assertThrows(ExecutionException.class, () -> downloadFuture.get());
+      assertSame(thrown, executionException.getCause());
+      assertSame(
+          thrown,
+          AbstractRemoteChunkProvider.createChunkReadyException(executionException.getCause()));
+      verify(chunk, never()).downloadData(any(), any(), anyDouble());
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
+  @Test
   void testProcessingFailureIsNotRetried() throws Exception {
     when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
     when(chunk.isChunkLinkInvalid()).thenReturn(false);

@@ -100,7 +100,9 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
                     "Failed to download chunk %d after %d attempts",
                     chunk.getChunkIndex(), MAX_RETRIES),
                 e,
-                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR);
+                statementId,
+                chunk.getChunkIndex(),
+                DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name());
           } else {
             LOGGER.warn(
                 "Retry {} for chunk {}: {}", retries, chunk.getChunkIndex(), e.getMessage());
