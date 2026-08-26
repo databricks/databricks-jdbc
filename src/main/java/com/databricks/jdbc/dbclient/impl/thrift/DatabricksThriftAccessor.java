@@ -28,9 +28,12 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
+import com.google.common.annotations.VisibleForTesting;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpException;
@@ -63,6 +66,12 @@ final class DatabricksThriftAccessor {
   private static final int MAX_POLL_TRANSPORT_RETRIES = 5;
   private static final long TRANSPORT_RETRY_MIN_BACKOFF_MILLIS = 1_000L;
   private static final long TRANSPORT_RETRY_MAX_BACKOFF_MILLIS = 16_000L;
+  // Transient HTTP gateway codes that the shared DatabricksHttpRetryHandler does NOT itself retry
+  // (it only retries 429/503 + configured custom codes). A poll that hits one of these received a
+  // real HTTP response but from a transiently-unhealthy hop, so re-polling on a fresh connection is
+  // safe and worthwhile. 429/503 are deliberately excluded here: they are owned by the HTTP layer,
+  // and re-retrying them would multiply load on a recovering endpoint.
+  private static final Set<Integer> RETRYABLE_TRANSPORT_HTTP_CODES = Set.of(408, 500, 502, 504);
 
   private DatabricksConfig databricksConfig;
   private final boolean enableDirectResults;
@@ -358,9 +367,10 @@ final class DatabricksThriftAccessor {
       timeoutHandler.checkTimeout();
 
       // TTransportException means a transport-level failure (e.g. HTTP 502 Bad Gateway)
-      // after retries were exhausted. Other TException subtypes propagate unchanged.
+      // after retries were exhausted. Other TException subtypes propagate unchanged. The timeout
+      // handler is threaded in so the retry backoff cannot overshoot the statement's queryTimeout.
       try {
-        statusResp = getOperationStatus(statusReq, statementId);
+        statusResp = getOperationStatus(statusReq, statementId, timeoutHandler);
       } catch (TTransportException e) {
         throw buildTransportFailureException(statementId.toSQLExecStatementId(), e);
       }
@@ -799,6 +809,7 @@ final class DatabricksThriftAccessor {
             withTransportRetry(
                 "GetOperationStatus",
                 statementId,
+                metadataTimeoutHandler,
                 () -> getThriftClient().GetOperationStatus(statusReq));
       } catch (TTransportException e) {
         throw buildTransportFailureException(statementId, e);
@@ -997,8 +1008,24 @@ final class DatabricksThriftAccessor {
   }
 
   /**
-   * Executes an idempotent Thrift RPC, transparently retrying transient transport-level failures on
-   * a fresh connection with jittered exponential backoff.
+   * Executes an idempotent Thrift RPC with no query-timeout budget (used by {@code CloseOperation}
+   * / {@code CancelOperation}, which are not bounded by a statement timeout). See {@link
+   * #withTransportRetry(String, String, TimeoutHandler, TransportSafeRpc)} for the full contract.
+   */
+  private <T> T withTransportRetry(String rpcName, String statementId, TransportSafeRpc<T> rpc)
+      throws TException {
+    try {
+      return withTransportRetry(rpcName, statementId, /* timeoutHandler= */ null, rpc);
+    } catch (DatabricksTimeoutException e) {
+      // Unreachable: a null timeout handler never enforces a deadline. Guard defensively so the
+      // checked timeout type cannot silently widen this method's contract.
+      throw new IllegalStateException("Unexpected timeout without an active timeout handler", e);
+    }
+  }
+
+  /**
+   * Executes an idempotent Thrift RPC, transparently retrying <em>transient</em> transport-level
+   * failures on a fresh connection with jittered exponential backoff.
    *
    * <p>Every invocation of {@code rpc} builds a new transport, so a retry naturally leases a
    * different pooled connection while the broken one is discarded. This lets a still-running
@@ -1007,20 +1034,36 @@ final class DatabricksThriftAccessor {
    * inactivity timeout. Only RPCs that are safe to repeat may use this path (status polling,
    * operation close, cancel); statement submission must not.
    *
-   * <p>Retries are bounded by {@link #MAX_POLL_TRANSPORT_RETRIES}. Once exhausted, the original
-   * {@link TTransportException} is rethrown so the existing caller-side failure handling still
-   * applies. Non-transport {@link TException}s are never retried — they propagate on the first
-   * attempt. A thread interrupt during a backoff sleep restores the interrupt flag and aborts the
-   * retry loop.
+   * <p>Only failures classified as transient by {@link #isRetryableTransportFailure} are retried:
+   * genuine connection-level errors (stale pooled connection, reset, socket timeout) and transient
+   * HTTP gateway codes ({@link #RETRYABLE_TRANSPORT_HTTP_CODES}). Permanent HTTP errors (401/403/404
+   * …) and anything the shared {@link
+   * com.databricks.jdbc.dbclient.impl.http.DatabricksHttpRetryHandler} already retried and
+   * exhausted (429/503/custom, which surface with a {@link DatabricksRetryHandlerException} in their
+   * cause chain) are rethrown on the first attempt — the latter avoids stacking a second retry
+   * storm on top of the HTTP layer's.
+   *
+   * <p>When {@code timeoutHandler} is non-null the operation's deadline is enforced before each
+   * backoff sleep and the sleep is capped to the remaining budget, so a failing RPC cannot overshoot
+   * the statement's {@code queryTimeout}. Retries are bounded by {@link #MAX_POLL_TRANSPORT_RETRIES};
+   * once exhausted the original {@link TTransportException} is rethrown so existing caller-side
+   * handling still applies. A thread interrupt during a backoff sleep restores the interrupt flag
+   * and aborts the retry loop.
    */
-  private <T> T withTransportRetry(String rpcName, String statementId, TransportSafeRpc<T> rpc)
-      throws TException {
+  private <T> T withTransportRetry(
+      String rpcName, String statementId, TimeoutHandler timeoutHandler, TransportSafeRpc<T> rpc)
+      throws TException, DatabricksTimeoutException {
     int attempt = 0;
     long backoffMillis = TRANSPORT_RETRY_MIN_BACKOFF_MILLIS;
     while (true) {
       try {
         return rpc.call();
       } catch (TTransportException e) {
+        if (!isRetryableTransportFailure(e)) {
+          // Permanent error (e.g. 401/403/404) or one the HTTP layer already retried (429/503):
+          // surface immediately instead of hanging through the backoff schedule.
+          throw e;
+        }
         if (++attempt > MAX_POLL_TRANSPORT_RETRIES) {
           LOGGER.error(
               "Transport failure on {} for statement [{}] still failing after {} retries; giving"
@@ -1031,10 +1074,19 @@ final class DatabricksThriftAccessor {
               e.getMessage());
           throw e;
         }
+        // Enforce the query deadline before sleeping so a failing RPC cannot overshoot the
+        // statement's queryTimeout by the backoff schedule (may run the timeout action and throw).
+        if (timeoutHandler != null) {
+          timeoutHandler.checkTimeout();
+        }
         // Full-jitter backoff around the current exponential ceiling, spreading concurrent
         // reconnect attempts so they do not thunder against a recovering endpoint.
         long sleepMillis =
             ThreadLocalRandom.current().nextLong(backoffMillis / 2 + 1, backoffMillis + 1);
+        if (timeoutHandler != null) {
+          // Never sleep past the deadline; the next checkTimeout() will then fire promptly.
+          sleepMillis = Math.min(sleepMillis, Math.max(0L, timeoutHandler.getRemainingMillis()));
+        }
         LOGGER.warn(
             "Transport failure on {} for statement [{}] (attempt {}/{}); reconnecting and retrying"
                 + " in {} ms. Cause: {}",
@@ -1045,7 +1097,7 @@ final class DatabricksThriftAccessor {
             sleepMillis,
             e.getMessage());
         try {
-          TimeUnit.MILLISECONDS.sleep(sleepMillis);
+          backoffSleep(sleepMillis);
         } catch (InterruptedException ie) {
           Thread.currentThread().interrupt();
           throw e;
@@ -1053,6 +1105,61 @@ final class DatabricksThriftAccessor {
         backoffMillis = Math.min(backoffMillis * 2, TRANSPORT_RETRY_MAX_BACKOFF_MILLIS);
       }
     }
+  }
+
+  /**
+   * Classifies a transport failure as transient (safe to retry on a fresh connection) or not.
+   *
+   * <p>Because the Thrift transport routes through {@link
+   * com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClient}, every failure arrives wrapped as a
+   * {@link TTransportException} whose cause is normally a {@link DatabricksHttpException}. The
+   * decision:
+   *
+   * <ul>
+   *   <li>Any {@link DatabricksRetryHandlerException} in the cause chain → <b>not</b> retryable: the
+   *       HTTP layer already retried and exhausted this (429/503/custom); retrying again would
+   *       amplify load.
+   *   <li>{@link DatabricksHttpException} carrying a concrete HTTP status → retryable only if the
+   *       status is a transient gateway code ({@link #RETRYABLE_TRANSPORT_HTTP_CODES}); permanent
+   *       statuses (401/403/404 …) are not.
+   *   <li>{@link DatabricksHttpException} with no status (status {@code 0}) → a genuine
+   *       connection-level failure (stale pooled connection, reset, socket timeout) surfaced as an
+   *       {@link IOException} cause; retryable.
+   *   <li>A direct {@link IOException} cause (e.g. a response-body read error) → retryable.
+   *   <li>Anything else (unknown or absent cause) → not retryable.
+   * </ul>
+   */
+  private static boolean isRetryableTransportFailure(TTransportException e) {
+    Throwable cause = e.getCause();
+    if (chainContains(cause, DatabricksRetryHandlerException.class)) {
+      return false;
+    }
+    if (cause instanceof DatabricksHttpException) {
+      int statusCode = ((DatabricksHttpException) cause).getStatusCode();
+      if (statusCode != 0) {
+        return RETRYABLE_TRANSPORT_HTTP_CODES.contains(statusCode);
+      }
+      // No HTTP response was received: retry only when a real connection-level IOException is the
+      // underlying cause (guards against unrelated status-less DatabricksHttpExceptions).
+      return chainContains(cause.getCause(), IOException.class);
+    }
+    return cause instanceof IOException;
+  }
+
+  /** Sleeps for the transport-retry backoff. Extracted as a test seam to keep retry tests fast. */
+  @VisibleForTesting
+  void backoffSleep(long millis) throws InterruptedException {
+    TimeUnit.MILLISECONDS.sleep(millis);
+  }
+
+  /** Returns true if {@code throwable} or any exception in its cause chain is of {@code type}. */
+  private static boolean chainContains(Throwable throwable, Class<? extends Throwable> type) {
+    for (Throwable current = throwable; current != null; current = current.getCause()) {
+      if (type.isInstance(current)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private boolean shouldContinuePolling(TGetOperationStatusResp statusResp) {
@@ -1140,9 +1247,30 @@ final class DatabricksThriftAccessor {
             "GetOperationStatus",
             statementId.toSQLExecStatementId(),
             () -> getThriftClient().GetOperationStatus(statusReq));
-    long operationStatusEndTime = System.nanoTime();
-    long operationStatusLatencyMillis =
-        (operationStatusEndTime - operationStatusStartTime) / 1_000_000;
+    return recordOperationStatusLatency(statementId, operationStatusStartTime, operationStatus);
+  }
+
+  /**
+   * Timeout-aware variant used by the execution polling loop: the retry backoff is bounded by the
+   * statement's {@code queryTimeout} via {@code timeoutHandler} so a transient transport failure
+   * cannot overshoot the deadline.
+   */
+  TGetOperationStatusResp getOperationStatus(
+      TGetOperationStatusReq statusReq, StatementId statementId, TimeoutHandler timeoutHandler)
+      throws TException, DatabricksTimeoutException {
+    long operationStatusStartTime = System.nanoTime();
+    TGetOperationStatusResp operationStatus =
+        withTransportRetry(
+            "GetOperationStatus",
+            statementId.toSQLExecStatementId(),
+            timeoutHandler,
+            () -> getThriftClient().GetOperationStatus(statusReq));
+    return recordOperationStatusLatency(statementId, operationStatusStartTime, operationStatus);
+  }
+
+  private TGetOperationStatusResp recordOperationStatusLatency(
+      StatementId statementId, long startTimeNanos, TGetOperationStatusResp operationStatus) {
+    long operationStatusLatencyMillis = (System.nanoTime() - startTimeNanos) / 1_000_000;
     LOGGER.debug(
         "Statement [{}] Thrift operation status latency: {}ms",
         statementId,

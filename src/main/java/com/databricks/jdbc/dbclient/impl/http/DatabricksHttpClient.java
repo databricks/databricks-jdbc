@@ -198,7 +198,10 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
             "Caught error while executing http request: [%s]. Error Message: [%s]",
             RequestSanitizer.sanitizeRequest(request), e);
     LOGGER.error(e, errorMsg);
-    throw new DatabricksHttpException(errorMsg, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
+    // Preserve the original cause (typically a connection-level IOException) so callers can
+    // distinguish a genuine transport failure from an HTTP-status error and decide whether the
+    // operation is safe to retry.
+    throw new DatabricksHttpException(errorMsg, e, DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
   @VisibleForTesting

@@ -14,14 +14,18 @@ import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.common.TimeoutHandler;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
+import java.net.SocketException;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -1348,6 +1352,171 @@ public class DatabricksThriftAccessorTest {
         e.getSQLState(),
         "Expected ConcurrentModificationException with 42000 to be remapped to 40001");
     assertEquals(1003, e.getErrorCode()); // EXECUTE_STATEMENT_FAILED stable code
+  }
+
+  // ---------------------------------------------------------------------------
+  // Transport-retry classification and timeout behaviour (withTransportRetry).
+  // ---------------------------------------------------------------------------
+
+  private static TTransportException transportError(Throwable cause) {
+    return new TTransportException(TTransportException.UNKNOWN, "transport failed", cause);
+  }
+
+  @Test
+  void testTransportRetry_permanentHttpErrorSurfacesImmediately() throws Exception {
+    setup(true);
+    doNothing().when(accessor).backoffSleep(anyLong());
+    // A 404 (invalid handle) carries a concrete HTTP status: permanent, must not be retried.
+    TTransportException permanent =
+        transportError(
+            new DatabricksHttpException("HTTP request failed by code: 404", "08000", 404));
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenThrow(permanent);
+    StatementId statementId = StatementId.deserialize(TEST_STMT_ID);
+
+    TTransportException thrown =
+        assertThrows(
+            TTransportException.class,
+            () -> accessor.getOperationStatus(operationStatusReq, statementId));
+
+    assertSame(permanent, thrown);
+    verify(thriftClient, times(1)).GetOperationStatus(operationStatusReq);
+    verify(accessor, never()).backoffSleep(anyLong());
+  }
+
+  @Test
+  void testTransportRetry_httpLayerHandledErrorNotReRetried() throws Exception {
+    setup(true);
+    doNothing().when(accessor).backoffSleep(anyLong());
+    // 429/503 exhausted by the shared HTTP retry handler surface with a
+    // DatabricksRetryHandlerException in the cause chain — the outer loop must not pile on.
+    TTransportException exhausted =
+        transportError(
+            new DatabricksHttpException(
+                "Retry failure. HTTP response code: 429",
+                new DatabricksRetryHandlerException("rate limited", 429),
+                "08000"));
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenThrow(exhausted);
+    StatementId statementId = StatementId.deserialize(TEST_STMT_ID);
+
+    assertThrows(
+        TTransportException.class,
+        () -> accessor.getOperationStatus(operationStatusReq, statementId));
+
+    verify(thriftClient, times(1)).GetOperationStatus(operationStatusReq);
+    verify(accessor, never()).backoffSleep(anyLong());
+  }
+
+  @Test
+  void testTransportRetry_transientGatewayRetriedThenSucceeds() throws Exception {
+    setup(true);
+    doNothing().when(accessor).backoffSleep(anyLong());
+    // 502 is a transient gateway code the HTTP layer does not itself retry.
+    TTransportException gateway =
+        transportError(
+            new DatabricksHttpException("HTTP request failed by code: 502", "08000", 502));
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenThrow(gateway)
+        .thenReturn(operationStatusFinishedResp);
+    StatementId statementId = StatementId.deserialize(TEST_STMT_ID);
+
+    TGetOperationStatusResp resp = accessor.getOperationStatus(operationStatusReq, statementId);
+
+    assertSame(operationStatusFinishedResp, resp);
+    verify(thriftClient, times(2)).GetOperationStatus(operationStatusReq);
+    verify(accessor, times(1)).backoffSleep(anyLong());
+  }
+
+  @Test
+  void testTransportRetry_connectionFailureRetriedThenSucceeds() throws Exception {
+    setup(true);
+    doNothing().when(accessor).backoffSleep(anyLong());
+    // A stale pooled connection / reset surfaces as a status-less DatabricksHttpException whose
+    // cause is a connection-level IOException (SocketException) — the PR's core case.
+    TTransportException connectionFailure =
+        transportError(
+            new DatabricksHttpException(
+                "Caught error while executing http request",
+                new SocketException("Connection reset"),
+                "08000"));
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenThrow(connectionFailure)
+        .thenReturn(operationStatusFinishedResp);
+    StatementId statementId = StatementId.deserialize(TEST_STMT_ID);
+
+    TGetOperationStatusResp resp = accessor.getOperationStatus(operationStatusReq, statementId);
+
+    assertSame(operationStatusFinishedResp, resp);
+    verify(thriftClient, times(2)).GetOperationStatus(operationStatusReq);
+  }
+
+  @Test
+  void testTransportRetry_exhaustsThenRethrowsOriginal() throws Exception {
+    setup(true);
+    doNothing().when(accessor).backoffSleep(anyLong());
+    TTransportException gateway =
+        transportError(
+            new DatabricksHttpException("HTTP request failed by code: 502", "08000", 502));
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenThrow(gateway);
+    StatementId statementId = StatementId.deserialize(TEST_STMT_ID);
+
+    TTransportException thrown =
+        assertThrows(
+            TTransportException.class,
+            () -> accessor.getOperationStatus(operationStatusReq, statementId));
+
+    assertSame(gateway, thrown);
+    // 1 initial attempt + 5 bounded retries = 6 invocations, 5 backoff sleeps.
+    verify(thriftClient, times(6)).GetOperationStatus(operationStatusReq);
+    verify(accessor, times(5)).backoffSleep(anyLong());
+  }
+
+  @Test
+  void testTransportRetry_consultsTimeoutHandlerBeforeSleeping() throws Exception {
+    setup(true);
+    doNothing().when(accessor).backoffSleep(anyLong());
+    TimeoutHandler timeoutHandler = mock(TimeoutHandler.class);
+    when(timeoutHandler.getRemainingMillis()).thenReturn(10_000L);
+    TTransportException gateway =
+        transportError(
+            new DatabricksHttpException("HTTP request failed by code: 502", "08000", 502));
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenThrow(gateway)
+        .thenReturn(operationStatusFinishedResp);
+    StatementId statementId = StatementId.deserialize(TEST_STMT_ID);
+
+    TGetOperationStatusResp resp =
+        accessor.getOperationStatus(operationStatusReq, statementId, timeoutHandler);
+
+    assertSame(operationStatusFinishedResp, resp);
+    verify(timeoutHandler, atLeastOnce()).checkTimeout();
+  }
+
+  @Test
+  void testTransportRetry_timeoutAbortsRetryWithinDeadline() throws Exception {
+    setup(true);
+    doNothing().when(accessor).backoffSleep(anyLong());
+    TimeoutHandler timeoutHandler = mock(TimeoutHandler.class);
+    doThrow(
+            new DatabricksTimeoutException(
+                "Statement execution timed-out",
+                /* cause= */ null,
+                DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT))
+        .when(timeoutHandler)
+        .checkTimeout();
+    TTransportException gateway =
+        transportError(
+            new DatabricksHttpException("HTTP request failed by code: 502", "08000", 502));
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenThrow(gateway);
+    StatementId statementId = StatementId.deserialize(TEST_STMT_ID);
+
+    assertThrows(
+        DatabricksTimeoutException.class,
+        () -> accessor.getOperationStatus(operationStatusReq, statementId, timeoutHandler));
+
+    // The first attempt fails (retryable), the deadline fires before any backoff sleep, so no
+    // further RPC attempts and no sleep — the retry cannot overshoot queryTimeout.
+    verify(thriftClient, times(1)).GetOperationStatus(operationStatusReq);
+    verify(accessor, never()).backoffSleep(anyLong());
   }
 
   private TFetchResultsReq getFetchResultsRequest(boolean includeMetadata)
