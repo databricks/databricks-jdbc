@@ -122,17 +122,12 @@ public class DatabricksSession implements IDatabricksSession {
   }
 
   @Override
-  public void updateSessionVersion(
-      @Nullable String expectedSessionId, @Nullable SessionVersion newSessionVersion) {
-    if (expectedSessionId == null
-        || newSessionVersion == null
-        || newSessionVersion.getVersionId() == null) {
+  public void updateSessionVersion(@Nullable SessionVersion newSessionVersion) {
+    if (newSessionVersion == null || newSessionVersion.getVersionId() == null) {
       return;
     }
     synchronized (this) {
-      if (!isSessionOpen
-          || sessionInfo == null
-          || !expectedSessionId.equals(sessionInfo.sessionId())) {
+      if (!isSessionOpen) {
         return;
       }
       Long newVersionId = newSessionVersion.getVersionId();

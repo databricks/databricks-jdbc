@@ -93,64 +93,51 @@ public class DatabricksSessionTest {
     assertNull(session.getSessionId());
   }
 
-  @Test
-  public void testSessionVersionTracksConcurrentMaximumAndClearsOnClose() throws SQLException {
+  private DatabricksSession openSessionWithVersion(long initialVersion) throws SQLException {
     setupWarehouse(false /* useThrift */);
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
             .sessionId(SESSION_ID)
-            .sessionVersion(10L)
+            .sessionVersion(initialVersion)
             .computeResource(WAREHOUSE_COMPUTE)
             .build();
     when(sdkClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
     DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
     session.open();
+    return session;
+  }
+
+  @Test
+  public void testSessionVersionTracksConcurrentMaximum() throws SQLException {
+    DatabricksSession session = openSessionWithVersion(10L);
 
     LongStream.rangeClosed(1, 1000)
         .parallel()
         .forEach(
-            version ->
-                session.updateSessionVersion(
-                    SESSION_ID, new SessionVersion().setVersionId(version)));
-    session.updateSessionVersion(SESSION_ID, new SessionVersion().setVersionId(500L));
-    session.updateSessionVersion(SESSION_ID, new SessionVersion());
-    session.updateSessionVersion(SESSION_ID, null);
+            version -> session.updateSessionVersion(new SessionVersion().setVersionId(version)));
+    session.updateSessionVersion(new SessionVersion().setVersionId(500L));
 
     assertEquals(1000L, session.getSessionVersion().getVersionId());
-    session.close();
-    assertNull(session.getSessionVersion());
   }
 
   @Test
-  public void testSessionVersionRejectsLateUpdatesAfterCloseAndReopen() throws SQLException {
-    setupWarehouse(false /* useThrift */);
-    String replacementSessionId = "replacement_session_id";
-    when(sdkClient.createSession(any(), any(), any(), any()))
-        .thenReturn(
-            ImmutableSessionInfo.builder()
-                .sessionId(SESSION_ID)
-                .sessionVersion(10L)
-                .computeResource(WAREHOUSE_COMPUTE)
-                .build())
-        .thenReturn(
-            ImmutableSessionInfo.builder()
-                .sessionId(replacementSessionId)
-                .sessionVersion(20L)
-                .computeResource(WAREHOUSE_COMPUTE)
-                .build());
-    DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
-    session.open();
+  public void testSessionVersionIgnoresIncompleteUpdates() throws SQLException {
+    DatabricksSession session = openSessionWithVersion(10L);
+
+    session.updateSessionVersion(new SessionVersion());
+    session.updateSessionVersion(null);
+
+    assertEquals(10L, session.getSessionVersion().getVersionId());
+  }
+
+  @Test
+  public void testSessionVersionClearsOnCloseAndIgnoresLaterUpdates() throws SQLException {
+    DatabricksSession session = openSessionWithVersion(10L);
+
     session.close();
-
-    session.updateSessionVersion(SESSION_ID, new SessionVersion().setVersionId(99L));
     assertNull(session.getSessionVersion());
-
-    session.open();
-    session.updateSessionVersion(SESSION_ID, new SessionVersion().setVersionId(99L));
-    assertEquals(20L, session.getSessionVersion().getVersionId());
-
-    session.updateSessionVersion(replacementSessionId, new SessionVersion().setVersionId(21L));
-    assertEquals(21L, session.getSessionVersion().getVersionId());
+    session.updateSessionVersion(new SessionVersion().setVersionId(1001L));
+    assertNull(session.getSessionVersion());
   }
 
   @Test

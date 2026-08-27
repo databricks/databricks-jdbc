@@ -25,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
-import javax.annotation.Nullable;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksStatement implements IDatabricksStatement, IDatabricksStatementInternal {
@@ -45,7 +44,6 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   protected final DatabricksConnection connection;
   DatabricksResultSet resultSet;
   private volatile StatementId statementId; // volatile: cancel() reads from a different thread
-  private volatile String originatingSessionId;
   private boolean isClosed;
   private boolean closeOnCompletion;
   private SQLWarning warnings = null;
@@ -71,7 +69,6 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     this.connection = connection;
     this.resultSet = null;
     this.statementId = null;
-    this.originatingSessionId = null;
     this.isClosed = false;
     this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
     this.databricksBatchExecutor =
@@ -82,7 +79,6 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       throws DatabricksValidationException {
     this.connection = connection;
     this.statementId = statementId;
-    this.originatingSessionId = null;
     this.resultSet = null;
     this.isClosed = false;
     this.timeoutInSeconds = DEFAULT_STATEMENT_TIMEOUT_SECONDS;
@@ -648,14 +644,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
   @Override
   public void setStatementId(StatementId statementId) {
-    setStatementId(statementId, null);
-  }
-
-  @Override
-  public void setStatementId(StatementId statementId, @Nullable String originatingSessionId) {
     LOGGER.debug("void setStatementId(Statement statementId = {})", statementId);
     this.statementId = statementId;
-    this.originatingSessionId = originatingSessionId;
   }
 
   @Override
@@ -666,12 +656,6 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @Override
   public Statement getStatement() {
     return this;
-  }
-
-  @Override
-  @Nullable
-  public String getOriginatingSessionId() {
-    return originatingSessionId;
   }
 
   @Override
@@ -1113,7 +1097,6 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     // Null out statementId so that if the new execution fails before setStatementId(),
     // close() takes the statementId==null branch instead of sending closeStatement(stale-id)
     statementId = null;
-    originatingSessionId = null;
   }
 
   /**

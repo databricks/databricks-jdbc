@@ -30,8 +30,7 @@ public interface IDatabricksSession {
     return null;
   }
 
-  default void updateSessionVersion(
-      @Nullable String expectedSessionId, @Nullable SessionVersion sessionVersion) {}
+  default void updateSessionVersion(@Nullable SessionVersion sessionVersion) {}
 
   /**
    * Get the warehouse associated with the session.

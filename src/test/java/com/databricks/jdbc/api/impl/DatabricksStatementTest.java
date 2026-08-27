@@ -369,22 +369,6 @@ public class DatabricksStatementTest {
     when(mockConnection.getConnectionContext()).thenReturn(connectionContext);
     DatabricksStatement statement = new DatabricksStatement(mockConnection, STATEMENT_ID);
     assertEquals(STATEMENT_ID, statement.getStatementId());
-    assertNull(statement.getOriginatingSessionId());
-  }
-
-  @Test
-  public void testStatementRecordsOriginatingSessionId() throws DatabricksSQLException {
-    DatabricksConnection mockConnection = mock(DatabricksConnection.class);
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
-    when(mockConnection.getConnectionContext()).thenReturn(connectionContext);
-    DatabricksStatement statement = new DatabricksStatement(mockConnection);
-
-    statement.setStatementId(STATEMENT_ID, SESSION_ID);
-    assertEquals(SESSION_ID, statement.getOriginatingSessionId());
-
-    statement.setStatementId(STATEMENT_ID);
-    assertNull(statement.getOriginatingSessionId());
   }
 
   @Test
