@@ -426,6 +426,9 @@ public interface IDatabricksConnectionContext {
   /** Returns whether batched INSERT optimization is enabled */
   boolean isBatchedInsertsEnabled();
 
+  /** Returns whether native parameter batch execution is enabled */
+  boolean isNativeBatchingEnabled();
+
   /** Returns whether transaction-related method calls should be ignored */
   boolean getIgnoreTransactions();
 
@@ -442,6 +445,9 @@ public interface IDatabricksConnectionContext {
    * synchronous metadata requests in SEA mode
    */
   boolean isSeaSyncMetadataEnabled();
+
+  /** Returns whether SEA metadata requests should require Thrift-native execution. */
+  boolean isThriftNativeMetadataEnabled();
 
   /** Returns whether OAuth refresh tokens should be disabled (omit offline_access by default). */
   boolean getDisableOauthRefreshToken();

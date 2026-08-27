@@ -502,6 +502,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getFunctionsResult(DatabricksResultSet resultSet, String catalog)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getFunctionsResult(catalog, copyThriftNativeMetadataRows(resultSet));
+    }
     List<List<Object>> rows = getRowsForFunctions(resultSet, FUNCTION_COLUMNS, catalog);
     return buildResultSet(
         FUNCTION_COLUMNS,
@@ -550,6 +553,9 @@ public class MetadataResultSetBuilder {
   }
 
   public DatabricksResultSet getColumnsResult(DatabricksResultSet resultSet) throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getColumnsResult(copyThriftNativeMetadataRows(resultSet));
+    }
     List<List<Object>> rows = getRows(resultSet, COLUMN_COLUMNS, defaultAdapter);
     return buildResultSet(
         COLUMN_COLUMNS,
@@ -560,6 +566,9 @@ public class MetadataResultSetBuilder {
   }
 
   public DatabricksResultSet getCatalogsResult(DatabricksResultSet resultSet) throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getCatalogsResult(copyThriftNativeMetadataRows(resultSet));
+    }
     List<List<Object>> rows = getRows(resultSet, CATALOG_COLUMNS, defaultAdapter);
     return buildResultSet(
         CATALOG_COLUMNS,
@@ -571,6 +580,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getSchemasResult(DatabricksResultSet resultSet, String catalog)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getSchemasResult(copyThriftNativeMetadataRows(resultSet));
+    }
     List<List<Object>> rows =
         getRowsForSchemas(
             resultSet, SCHEMA_COLUMNS, catalog, new SchemasDatabricksResultSetAdapter());
@@ -582,8 +594,11 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_SCHEMAS);
   }
 
-  public DatabricksResultSet getTablesResult(DatabricksResultSet resultSet, String[] tableTypes)
-      throws SQLException {
+  public DatabricksResultSet getTablesResult(
+      DatabricksResultSet resultSet, String catalog, String[] tableTypes) throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getTablesResult(catalog, tableTypes, copyThriftNativeMetadataRows(resultSet));
+    }
     List<String> allowedTableTypes = List.of(tableTypes);
     List<List<Object>> rows =
         getRows(resultSet, TABLE_COLUMNS, defaultAdapter).stream()
@@ -622,6 +637,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getPrimaryKeysResult(DatabricksResultSet resultSet)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getPrimaryKeysResult(copyThriftNativeMetadataRows(resultSet));
+    }
     List<List<Object>> rows = getRows(resultSet, PRIMARY_KEYS_COLUMNS, defaultAdapter);
     return buildResultSet(
         PRIMARY_KEYS_COLUMNS,
@@ -633,6 +651,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getImportedKeysResult(DatabricksResultSet resultSet)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getImportedKeys(copyThriftNativeMetadataRows(resultSet));
+    }
     List<List<Object>> rows = getRows(resultSet, IMPORTED_KEYS_COLUMNS, importedKeysAdapter);
     return buildResultSet(
         IMPORTED_KEYS_COLUMNS,
@@ -651,6 +672,20 @@ public class MetadataResultSetBuilder {
     final CrossReferenceKeysDatabricksResultSetAdapter crossReferenceKeysResultSetAdapter =
         new CrossReferenceKeysDatabricksResultSetAdapter(
             targetParentCatalogName, targetParentNamespaceName, targetParentTableName);
+    // Cross-reference SQL narrows only the foreign side, so parent filtering remains necessary.
+    if (resultSet.isThriftNativeMetadataResult()) {
+      List<List<Object>> rows = copyThriftNativeMetadataRows(resultSet);
+      int parentCatalogIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_CAT);
+      int parentSchemaIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_SCHEM);
+      int parentTableIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_NAME);
+      rows.removeIf(
+          row ->
+              !crossReferenceKeysResultSetAdapter.matchesParent(
+                  (String) row.get(parentCatalogIndex),
+                  (String) row.get(parentSchemaIndex),
+                  (String) row.get(parentTableIndex)));
+      return getCrossRefsResult(rows);
+    }
     List<List<Object>> rows =
         getRows(resultSet, CROSS_REFERENCE_COLUMNS, crossReferenceKeysResultSetAdapter);
 
@@ -660,6 +695,21 @@ public class MetadataResultSetBuilder {
         METADATA_STATEMENT_ID,
         resultSet.getMetaData(),
         CommandName.GET_CROSS_REFERENCE);
+  }
+
+  /** Copies native rows for Thrift normalization and JDBC metadata, not just column ordering. */
+  private List<List<Object>> copyThriftNativeMetadataRows(DatabricksResultSet resultSet)
+      throws SQLException {
+    List<List<Object>> rows = new ArrayList<>();
+    int columnCount = resultSet.getMetaData().getColumnCount();
+    while (resultSet.next()) {
+      List<Object> row = new ArrayList<>(columnCount);
+      for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+        row.add(resultSet.getObject(columnIndex));
+      }
+      rows.add(row);
+    }
+    return rows;
   }
 
   private boolean isTextType(String typeVal) {
@@ -1546,7 +1596,7 @@ public class MetadataResultSetBuilder {
     List<List<Object>> updatedRows = new ArrayList<>();
     for (List<Object> row : rows) {
       // If the catalog is not null and the catalog does not match, skip the row
-      if (catalog != null && !row.get(0).toString().equals(catalog)) {
+      if (catalog != null && !catalog.equals(row.get(0))) {
         continue;
       }
 

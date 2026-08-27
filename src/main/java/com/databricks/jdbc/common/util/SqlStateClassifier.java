@@ -2,6 +2,7 @@ package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.COMMUNICATION_LINK_FAILURE_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.SERIALIZATION_FAILURE_SQLSTATE;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.SYNTAX_OR_ACCESS_VIOLATION_SQLSTATE;
 
 /**
  * Reclassifies SQL states for known transient or mis-categorized server errors so callers can
@@ -25,9 +26,6 @@ import static com.databricks.jdbc.common.DatabricksJdbcConstants.SERIALIZATION_F
  * regress the classifier.
  */
 public final class SqlStateClassifier {
-
-  private static final String SYNTAX_OR_ACCESS_VIOLATION_SQLSTATE = "42000";
-
   private SqlStateClassifier() {}
 
   /**

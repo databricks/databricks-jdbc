@@ -194,6 +194,7 @@ public enum DatabricksJdbcUrlParams {
       "Timeout in seconds for metadata polling operations (e.g. GetTables, GetColumns). 0 means no timeout",
       "300"),
   ENABLE_BATCHED_INSERTS("EnableBatchedInserts", "Enable batched INSERT optimization", "0"),
+  ENABLE_NATIVE_BATCHING("EnableNativeBatching", "Enable native parameter batch execution", "0"),
   ENABLE_SQL_VALIDATION_FOR_IS_VALID(
       "EnableSQLValidationForIsValid",
       "Enable SQL query execution for connection validation in isValid() method",
@@ -214,6 +215,10 @@ public enum DatabricksJdbcUrlParams {
   USE_BOUNDED_SEA_API(
       "UseBoundedSeaApi",
       "Use bounded SEA API for CloudFetch: send row_offset on GetResultData, force StreamingChunkProvider, stop relying on total_chunk_count. Requires server support.",
+      "0"),
+  ENABLE_THRIFT_NATIVE_METADATA(
+      "EnableThriftNativeMetadata",
+      "Request Thrift-native SEA results for catalogs, schemas, tables, columns, functions, primary keys, imported keys, and cross references",
       "0"),
   DISABLE_OAUTH_REFRESH_TOKEN(
       "DisableOauthRefreshToken",
