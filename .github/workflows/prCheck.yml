@@ -7,6 +7,8 @@ on:
   pull_request: # Unit tests can be run for all external PRs
     types: [opened, synchronize, reopened]
     branches: [ main ]
+  merge_group: # Re-run against the queued merge commit so this stays a valid required check under a merge queue
+    branches: [ main ]
 
 permissions:
   id-token: write

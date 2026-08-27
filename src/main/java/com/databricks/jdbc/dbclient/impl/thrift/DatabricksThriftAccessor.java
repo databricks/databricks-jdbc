@@ -127,7 +127,9 @@ final class DatabricksThriftAccessor {
               request, e.getMessage());
       LOGGER.error(e, errorMessage);
       if (e instanceof SQLException) {
-        throw new DatabricksSQLException(errorMessage, e, ((SQLException) e).getSQLState());
+        SQLException sqlException = (SQLException) e;
+        throw new DatabricksSQLException(
+            errorMessage, sqlException.getSQLState(), sqlException.getErrorCode(), sqlException);
       } else {
         throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
       }

@@ -41,6 +41,9 @@ public class ResultManifest {
   @JsonProperty("is_volume_operation")
   private Boolean isVolumeOperation;
 
+  @JsonProperty("is_native_metadata_result")
+  private Boolean isNativeMetadataResult;
+
   public ResultManifest() {}
 
   public ResultManifest setChunks(Collection<BaseChunkInfo> chunks) {
@@ -124,6 +127,15 @@ public class ResultManifest {
     return this.isVolumeOperation;
   }
 
+  public ResultManifest setIsNativeMetadataResult(Boolean isNativeMetadataResult) {
+    this.isNativeMetadataResult = isNativeMetadataResult;
+    return this;
+  }
+
+  public Boolean getIsNativeMetadataResult() {
+    return this.isNativeMetadataResult;
+  }
+
   public boolean equals(Object o) {
     if (this == o) {
       return true;
@@ -136,7 +148,8 @@ public class ResultManifest {
           && Objects.equals(this.totalChunkCount, that.totalChunkCount)
           && Objects.equals(this.totalRowCount, that.totalRowCount)
           && Objects.equals(this.truncated, that.truncated)
-          && Objects.equals(this.isVolumeOperation, that.isVolumeOperation);
+          && Objects.equals(this.isVolumeOperation, that.isVolumeOperation)
+          && Objects.equals(this.isNativeMetadataResult, that.isNativeMetadataResult);
     } else {
       return false;
     }
@@ -151,7 +164,8 @@ public class ResultManifest {
         this.totalChunkCount,
         this.totalRowCount,
         this.truncated,
-        this.isVolumeOperation);
+        this.isVolumeOperation,
+        this.isNativeMetadataResult);
   }
 
   public String toString() {
@@ -164,6 +178,7 @@ public class ResultManifest {
         .add("totalRowCount", this.totalRowCount)
         .add("truncated", this.truncated)
         .add("isVolumeOperation", this.isVolumeOperation)
+        .add("isNativeMetadataResult", this.isNativeMetadataResult)
         .toString();
   }
 }

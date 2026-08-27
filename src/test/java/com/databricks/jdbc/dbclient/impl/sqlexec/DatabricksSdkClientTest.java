@@ -28,6 +28,7 @@ import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementResponse;
+import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
@@ -47,6 +48,10 @@ import java.util.*;
 import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -97,12 +102,38 @@ public class DatabricksSdkClientTest {
   }
 
   private void setupClientMocks(boolean includeResults, boolean async) throws IOException {
-    setupClientMocks(includeResults, async, false, false);
+    setupClientMocks(includeResults, async, new ArrayList<>(), null, false, false);
   }
 
   private void setupClientMocks(
       boolean includeResults,
       boolean async,
+      List<ColumnInfo> manifestColumns,
+      Boolean isNativeMetadataResult)
+      throws IOException {
+    setupClientMocks(includeResults, async, manifestColumns, isNativeMetadataResult, false, false);
+  }
+
+  private void setupClientMocks(
+      boolean includeResults,
+      boolean async,
+      boolean includeInitialSessionVersion,
+      boolean includeStatementSessionVersion)
+      throws IOException {
+    setupClientMocks(
+        includeResults,
+        async,
+        new ArrayList<>(),
+        null,
+        includeInitialSessionVersion,
+        includeStatementSessionVersion);
+  }
+
+  private void setupClientMocks(
+      boolean includeResults,
+      boolean async,
+      List<ColumnInfo> manifestColumns,
+      Boolean isNativeMetadataResult,
       boolean includeInitialSessionVersion,
       boolean includeStatementSessionVersion)
       throws IOException {
@@ -146,7 +177,11 @@ public class DatabricksSdkClientTest {
           .setManifest(
               new ResultManifest()
                   .setFormat(Format.JSON_ARRAY)
-                  .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L))
+                  .setSchema(
+                      new ResultSchema()
+                          .setColumns(manifestColumns)
+                          .setColumnCount((long) manifestColumns.size()))
+                  .setIsNativeMetadataResult(isNativeMetadataResult)
                   .setTotalRowCount(0L));
     }
 
@@ -1325,6 +1360,114 @@ public class DatabricksSdkClientTest {
                       && MetadataOperationType.GET_TABLES
                           .getHeaderValue()
                           .equals(headers.get("X-Databricks-Metadata-Operation-Type"));
+                }),
+            eq(ExecuteStatementResponse.class));
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = MetadataOperationType.class,
+      names = {
+        "GET_CATALOGS",
+        "GET_SCHEMAS",
+        "GET_TABLES",
+        "GET_COLUMNS",
+        "GET_FUNCTIONS",
+        "GET_PRIMARY_KEYS",
+        "GET_CROSS_REFERENCE"
+      })
+  public void testSupportedOperationsRequestThriftNativeMetadata(
+      MetadataOperationType operationType) throws Exception {
+    DatabricksResultSet resultSet =
+        executeMetadataOperation(operationType, true, Boolean.TRUE, new ArrayList<>());
+
+    assertTrue(resultSet.isThriftNativeMetadataResult());
+    verifyNativeMetadataHeader(operationType, true);
+  }
+
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(booleans = false)
+  public void testNativeMetadataSchemaDoesNotOverrideManifestFlag(Boolean manifestFlag)
+      throws Exception {
+    DatabricksResultSet resultSet =
+        executeMetadataOperation(
+            MetadataOperationType.GET_COLUMNS,
+            true,
+            manifestFlag,
+            List.of(
+                new ColumnInfo()
+                    .setName("ORDINAL_POSITION")
+                    .setTypeName(STRING)
+                    .setTypeText("STRING")));
+
+    assertFalse(resultSet.isThriftNativeMetadataResult());
+  }
+
+  @Test
+  public void testNativeMetadataManifestFlagDoesNotDependOnRequestHeader() throws Exception {
+    DatabricksResultSet resultSet =
+        executeMetadataOperation(
+            MetadataOperationType.GET_COLUMNS, false, Boolean.TRUE, new ArrayList<>());
+
+    assertTrue(resultSet.isThriftNativeMetadataResult());
+    verifyNativeMetadataHeader(MetadataOperationType.GET_COLUMNS, false);
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = MetadataOperationType.class,
+      names = {"GET_PROCEDURES", "GET_PROCEDURE_COLUMNS"})
+  public void testUnsupportedOperationDoesNotRequestThriftNativeMetadata(
+      MetadataOperationType operationType) throws Exception {
+    DatabricksResultSet resultSet =
+        executeMetadataOperation(operationType, true, null, new ArrayList<>());
+
+    assertFalse(resultSet.isThriftNativeMetadataResult());
+    verifyNativeMetadataHeader(operationType, false);
+  }
+
+  private DatabricksResultSet executeMetadataOperation(
+      MetadataOperationType operationType,
+      boolean enableThriftNativeMetadata,
+      Boolean manifestFlag,
+      List<ColumnInfo> manifestColumns)
+      throws Exception {
+    setupClientMocks(true, false, manifestColumns, manifestFlag);
+    String jdbcUrl =
+        enableThriftNativeMetadata ? JDBC_URL + "EnableThriftNativeMetadata=1;" : JDBC_URL;
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(jdbcUrl, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+
+    return databricksSdkClient.executeStatement(
+        "metadata query",
+        warehouse,
+        new HashMap<>(),
+        StatementType.METADATA,
+        connection.getSession(),
+        new DatabricksStatement(connection),
+        operationType);
+  }
+
+  private void verifyNativeMetadataHeader(MetadataOperationType operationType, boolean expected)
+      throws IOException {
+    verify(apiClient, atLeastOnce())
+        .execute(
+            argThat(
+                req -> {
+                  Map<String, String> headers = req.getHeaders();
+                  return headers != null
+                      && operationType
+                          .getHeaderValue()
+                          .equals(headers.get("X-Databricks-Metadata-Operation-Type"))
+                      && Objects.equals(
+                          expected ? "true" : null,
+                          headers.get("X-Databricks-Require-Thrift-Native-Metadata"));
                 }),
             eq(ExecuteStatementResponse.class));
   }

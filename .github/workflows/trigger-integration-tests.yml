@@ -91,35 +91,13 @@ jobs:
               });
             }
 
-  # Ordinary PR (not a label event): post a green stub so the required "JDBC
-  # Integration Tests" check is satisfied on the PR. The real run happens in the
-  # merge queue; a label previews it on the PR.
-  skip-integration-tests-pr:
-    if: github.event_name == 'pull_request' && github.event.action != 'labeled' && github.event.action != 'closed'
-    runs-on:
-      group: databricks-protected-runner-group
-      labels: linux-ubuntu-latest
-    permissions:
-      checks: write
-    steps:
-      - name: Skip JDBC Integration Tests (stub)
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          github-token: ${{ github.token }}
-          script: |
-            await github.rest.checks.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: 'JDBC Integration Tests',
-              head_sha: context.payload.pull_request.head.sha,
-              status: 'completed',
-              conclusion: 'success',
-              completed_at: new Date().toISOString(),
-              output: {
-                title: 'Skipped on PR - runs in merge queue',
-                summary: 'JDBC integration tests are skipped on ordinary PR events and run as a required gate (thrift + sea replay) in the merge queue. Preview on this PR by adding the `integration-test` label. All runs are replay-only — no live warehouse; driver-test runs both backends.',
-              },
-            });
+  # Ordinary PR (not a label event): the green stub for the required "JDBC
+  # Integration Tests" check is posted by skip-checks-reporter.yml, which runs on
+  # `workflow_run` in the base-repo context (with secret access) so it can post the
+  # check AS THE App — required because branch protection pins the check to the App,
+  # and a fork PR's `pull_request` run has no secrets to mint the App token itself.
+  # See skip-checks-reporter.yml. The real run happens in the merge queue; a label
+  # previews it on the PR.
 
   # Labeled PR: preview on demand. One `integration-test` label → full replay
   # (driver-test runs both thrift + sea). No per-backend label — the receiver

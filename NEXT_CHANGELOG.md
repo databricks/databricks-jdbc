@@ -3,12 +3,18 @@
 ## [Unreleased]
 
 ### Added
+- Added `EnableThriftNativeMetadata` to request and consume supported Thrift-native SEA metadata results.
 - Added session-version exchange for SQL Exec API connections.
 
 ### Updated
 - `DatabaseMetaData.getColumns(...)` with a `null` catalog now issues a single `SHOW COLUMNS IN ALL CATALOGS` statement (consistent with `getSchemas`/`getTables`) instead of enumerating every catalog and issuing a per-catalog `SHOW COLUMNS`. Older DBR versions that do not support the syntax transparently fall back to the previous enumerate-and-fan-out behavior.
+- Updated bundled Jackson, lz4-java, Netty, and Apache HttpComponents Client and Core dependencies to patched versions to address security findings.
 
 ### Fixed
+- Invalid or incomplete Databricks JDBC URLs now fail with a descriptive `DatabricksSQLException`
+  instead of leaking a `NullPointerException` when required connection parameters are missing.
+
+- Fixed connections failing when the same parameter is provided in both the JDBC URL and the connection properties, with the JDBC URL taking precedence.
 - Fixed `IdleConnectionEvictor` thread leak in long-running applications. Driver-side resources (HTTP client, background threads) are now always released when `Connection.close()` is called, even if statement cleanup or server-side session termination fails.
 
 - Throw `DatabricksSQLException` instead of an unchecked `ClassCastException` when a complex-type getter (`getArray`, `getStruct`, `getMap`) is called on a column of a different complex type.
@@ -18,6 +24,8 @@
 - Fixed connecting with an unsupported `AuthMech` (e.g. `AuthMech=99`) intermittently failing with an internal `IllegalStateException: Recursive update` or `StackOverflowError` on both the SEA and Thrift paths. The value is now validated at connect time and rejected deterministically with a `SQLException` (`SQLState=INPUT_VALIDATION_ERROR`).
 
 - Improved SEA connection-failure error messages.
+
+- Fixed `NullPointerException` being thrown when materializing an array containing nested object types (other arrays, structs or maps) as `DatabricksArray` when some or all elements are literal `null`. 
 ---
 *Note: When making changes, please add your change under the appropriate section
 with a brief description.*

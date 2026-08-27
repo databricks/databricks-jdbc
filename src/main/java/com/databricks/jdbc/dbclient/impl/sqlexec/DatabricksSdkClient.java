@@ -68,6 +68,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private static final String ASYNC_TIMEOUT_VALUE = "0s";
   private static final String HEADER_METADATA_OPERATION_TYPE =
       "X-Databricks-Metadata-Operation-Type";
+  private static final String HEADER_REQUIRE_THRIFT_NATIVE_METADATA =
+      "X-Databricks-Require-Thrift-Native-Metadata";
 
   private final IDatabricksConnectionContext connectionContext;
   private final ClientConfigurator clientConfigurator;
@@ -228,6 +230,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
       if (metadataOperationType != null) {
         additionalHeaders.put(
             HEADER_METADATA_OPERATION_TYPE, metadataOperationType.getHeaderValue());
+        if (connectionContext.isThriftNativeMetadataEnabled()
+            && metadataOperationType.isThriftNativeSupported()) {
+          additionalHeaders.put(HEADER_REQUIRE_THRIFT_NATIVE_METADATA, "true");
+        }
       }
       req.withHeaders(getHeaders("executeStatement", statementType, false, additionalHeaders));
       response = apiClient.execute(req, ExecuteStatementResponse.class);
