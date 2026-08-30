@@ -33,7 +33,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
       JdbcLoggerFactory.getLogger(DatabricksPreparedStatement.class);
   private final String sql;
   private DatabricksParameterMetaData databricksParameterMetaData;
-  private List<DatabricksParameterMetaData> databricksBatchParameterMetaData;
+  private List<BatchParameterSet> batchParameterSets;
   private final boolean interpolateParameters;
   private final int CHUNK_SIZE = 8192;
 
@@ -43,7 +43,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     this.sql = sql;
     this.interpolateParameters = connection.getConnectionContext().supportManyParameters();
     this.databricksParameterMetaData = new DatabricksParameterMetaData(sql);
-    this.databricksBatchParameterMetaData = new ArrayList<>();
+    this.batchParameterSets = new ArrayList<>();
     // Cache whether this statement should return a ResultSet (based on SQL and config)
     this.shouldReturnResultSet = shouldReturnResultSetWithConfig(sql);
   }
@@ -58,7 +58,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     this.sql = sql;
     this.interpolateParameters = interpolateParameters;
     this.databricksParameterMetaData = databricksParameterMetaData;
-    this.databricksBatchParameterMetaData = new ArrayList<>();
+    this.batchParameterSets = new ArrayList<>();
     // Cache whether this statement should return a ResultSet (based on SQL and config)
     this.shouldReturnResultSet = shouldReturnResultSetWithConfig(sql);
   }
@@ -94,7 +94,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public int[] executeBatch() throws DatabricksBatchUpdateException {
+  public int[] executeBatch() throws SQLException {
     LOGGER.debug("public int executeBatch()");
     long[] largeUpdateCount = executeLargeBatch();
     int[] updateCount = new int[largeUpdateCount.length];
@@ -107,10 +107,10 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   @Override
-  public long[] executeLargeBatch() throws DatabricksBatchUpdateException {
+  public long[] executeLargeBatch() throws SQLException {
     LOGGER.debug("public long executeLargeBatch()");
 
-    if (databricksBatchParameterMetaData.isEmpty()) {
+    if (batchParameterSets.isEmpty()) {
       return new long[0];
     }
 
@@ -121,18 +121,41 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
             connection,
             interpolateParameters,
             (sqlToExecute, params, statementType, closeStatement) ->
-                executeInternal(sqlToExecute, params, statementType, closeStatement));
+                executeInternal(sqlToExecute, params, statementType, closeStatement),
+            new PreparedStatementBatchExecutor.NativeBatchExecutor() {
+              @Override
+              public boolean isSupported() {
+                return supportsNativeParameterBatching();
+              }
 
-    long[] updateCounts = batchExecutor.executeBatch(databricksBatchParameterMetaData);
+              @Override
+              public long[] execute(String sql, List<BatchParameterSet> parameterSets)
+                  throws SQLException {
+                return executeNativeBatchInternal(sql, parameterSets);
+              }
+            });
+
+    long[] updateCounts;
+    try {
+      updateCounts = batchExecutor.executeBatch(batchParameterSets);
+    } catch (NativeBatchResultException e) {
+      // The backend already completed the batch. Clear it before propagating the count-read error
+      // so a caller retry cannot insert the same rows again.
+      clearBatchAfterExecution();
+      throw e;
+    }
 
     // Clear the batch after successful execution per JDBC spec
+    clearBatchAfterExecution();
+    return updateCounts;
+  }
+
+  private void clearBatchAfterExecution() {
     try {
       clearBatch();
     } catch (SQLException e) {
-      LOGGER.error("Failed to clear batch after successful execution", e);
+      LOGGER.error("Failed to clear batch after execution", e);
     }
-
-    return updateCounts;
   }
 
   @Override
@@ -371,7 +394,8 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   @Override
   public void addBatch() {
     LOGGER.debug("public void addBatch()");
-    this.databricksBatchParameterMetaData.add(databricksParameterMetaData);
+    this.batchParameterSets.add(
+        BatchParameterSet.from(databricksParameterMetaData.getParameterBindings()));
     this.databricksParameterMetaData = new DatabricksParameterMetaData(sql);
   }
 
@@ -380,7 +404,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
     LOGGER.debug("public void clearBatch()");
     checkIfClosed();
     this.databricksParameterMetaData = new DatabricksParameterMetaData(sql);
-    this.databricksBatchParameterMetaData = new ArrayList<>();
+    this.batchParameterSets = new ArrayList<>();
   }
 
   @Override
@@ -755,7 +779,7 @@ public class DatabricksPreparedStatement extends DatabricksStatement implements 
   }
 
   private void checkIfBatchOperation() throws DatabricksSQLException {
-    if (!this.databricksBatchParameterMetaData.isEmpty()) {
+    if (!this.batchParameterSets.isEmpty()) {
       String errorMessage =
           "Batch must either be executed with executeBatch() or cleared with clearBatch()";
       LOGGER.error(errorMessage);
