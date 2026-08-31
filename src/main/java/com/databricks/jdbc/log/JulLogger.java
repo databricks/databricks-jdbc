@@ -136,7 +136,7 @@ public class JulLogger implements JdbcLogger {
     Logger jdbcJulLogger = Logger.getLogger(PARENT_CLASS_PREFIX);
     jdbcJulLogger.setUseParentHandlers(false);
 
-    if (level == Level.OFF) {
+    if (level.intValue() == Level.OFF.intValue()) {
       jdbcJulLogger.setLevel(Level.OFF);
       return;
     }
