@@ -49,9 +49,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private static final String USE_QUERY_FOR_THRIFT_FLAG_NAME =
       "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc";
 
-  private static final String NATIVE_METADATA_VIA_SEA_FLAG_NAME =
-      "databricks.partnerplatform.clientConfigsFeatureFlags.enableNativeMetadataViaSEA";
-
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
@@ -1523,7 +1520,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isThriftNativeMetadataEnabled() {
     return resolveFeatureFlag(
-        DatabricksJdbcUrlParams.ENABLE_THRIFT_NATIVE_METADATA, NATIVE_METADATA_VIA_SEA_FLAG_NAME);
+        DatabricksJdbcUrlParams.ENABLE_THRIFT_NATIVE_METADATA, SQL_EXEC_FLAG_NAME);
   }
 
   @Override
@@ -1553,8 +1550,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isBoundedSeaApiEnabled() {
-    return resolveFeatureFlag(
-        DatabricksJdbcUrlParams.USE_BOUNDED_SEA_API, NATIVE_METADATA_VIA_SEA_FLAG_NAME);
+    return resolveFeatureFlag(DatabricksJdbcUrlParams.USE_BOUNDED_SEA_API, SQL_EXEC_FLAG_NAME);
   }
 
   @Override

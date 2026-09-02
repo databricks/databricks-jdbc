@@ -1685,8 +1685,7 @@ class DatabricksConnectionContextTest {
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
 
     Map<String, String> flags = new HashMap<>();
-    flags.put(
-        "databricks.partnerplatform.clientConfigsFeatureFlags.enableNativeMetadataViaSEA", "true");
+    flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
     DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
 
     assertEquals("1", DatabricksJdbcUrlParams.USE_BOUNDED_SEA_API.getDefaultValue());
@@ -1703,8 +1702,7 @@ class DatabricksConnectionContextTest {
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
 
     Map<String, String> flags = new HashMap<>();
-    flags.put(
-        "databricks.partnerplatform.clientConfigsFeatureFlags.enableNativeMetadataViaSEA", "false");
+    flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "false");
     DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
 
     assertFalse(ctx.isBoundedSeaApiEnabled());
@@ -1719,8 +1717,7 @@ class DatabricksConnectionContextTest {
             DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
 
     Map<String, String> flags = new HashMap<>();
-    flags.put(
-        "databricks.partnerplatform.clientConfigsFeatureFlags.enableNativeMetadataViaSEA", "true");
+    flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
     DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
 
     assertFalse(ctx.isBoundedSeaApiEnabled());
@@ -1743,11 +1740,11 @@ class DatabricksConnectionContextTest {
 
     Map<String, String> disabledFlag = new HashMap<>();
     disabledFlag.put(
-        "databricks.partnerplatform.clientConfigsFeatureFlags.enableNativeMetadataViaSEA", "false");
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "false");
     DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(enabledCtx, disabledFlag);
     Map<String, String> enabledFlag = new HashMap<>();
     enabledFlag.put(
-        "databricks.partnerplatform.clientConfigsFeatureFlags.enableNativeMetadataViaSEA", "true");
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
     DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(disabledCtx, enabledFlag);
 
     assertTrue(enabledCtx.isBoundedSeaApiEnabled());
