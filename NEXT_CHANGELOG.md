@@ -24,6 +24,14 @@
 
 - Improved SEA connection-failure error messages.
 
+- Fixed string parameters silently losing apostrophes when `supportManyParameters=1` interpolates them into SQL.
+  `SQLInterpolator` escaped `'` as the SQL-standard `''`, which Databricks does not implement: `'O''Brien'` is read
+  as the adjacent literals `'O'` and `'Brien'` and concatenated, so `O'Brien` was stored as `OBrien`. Quotes are now
+  escaped as `\'`, consistent with the backslash escaping already applied to `\`, `\n`, `\r` and `\t`.
+  Data written through this path before the upgrade still holds the stripped values, so lookups that now send the
+  apostrophe (`WHERE name = ?` bound to `O'Brien`) no longer match those rows. Only values written with
+  `supportManyParameters=1` are affected; correcting them requires a data fix.
+
 - Fixed `NullPointerException` being thrown when materializing an array containing nested object types (other arrays, structs or maps) as `DatabricksArray` when some or all elements are literal `null`. 
 ---
 *Note: When making changes, please add your change under the appropriate section
