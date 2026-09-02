@@ -1677,6 +1677,85 @@ class DatabricksConnectionContextTest {
     assertFalse(ctx.useQueryForMetadata());
   }
 
+  @Test
+  public void testNativeMetadataViaSea_serverFlagEnabled_warehouseReturnsTrue()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableNativeMetadataViaSEA", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertEquals("1", DatabricksJdbcUrlParams.USE_BOUNDED_SEA_API.getDefaultValue());
+    assertEquals("1", DatabricksJdbcUrlParams.ENABLE_THRIFT_NATIVE_METADATA.getDefaultValue());
+    assertTrue(ctx.isBoundedSeaApiEnabled());
+    assertTrue(ctx.isThriftNativeMetadataEnabled());
+  }
+
+  @Test
+  public void testNativeMetadataViaSea_serverFlagDisabled_warehouseReturnsFalse()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableNativeMetadataViaSEA", "false");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertFalse(ctx.isBoundedSeaApiEnabled());
+    assertFalse(ctx.isThriftNativeMetadataEnabled());
+  }
+
+  @Test
+  public void testNativeMetadataViaSea_serverFlagEnabled_clusterIgnored()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext ctx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
+
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableNativeMetadataViaSEA", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+
+    assertFalse(ctx.isBoundedSeaApiEnabled());
+    assertFalse(ctx.isThriftNativeMetadataEnabled());
+  }
+
+  @Test
+  public void testNativeMetadataViaSea_explicitParamsOverrideServerFlag()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext enabledCtx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_1 + ";UseBoundedSeaApi=1;EnableThriftNativeMetadata=1",
+                properties);
+    DatabricksConnectionContext disabledCtx =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(
+                TestConstants.VALID_URL_1 + ";UseBoundedSeaApi=0;EnableThriftNativeMetadata=0",
+                properties);
+
+    Map<String, String> disabledFlag = new HashMap<>();
+    disabledFlag.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableNativeMetadataViaSEA", "false");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(enabledCtx, disabledFlag);
+    Map<String, String> enabledFlag = new HashMap<>();
+    enabledFlag.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableNativeMetadataViaSEA", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(disabledCtx, enabledFlag);
+
+    assertTrue(enabledCtx.isBoundedSeaApiEnabled());
+    assertTrue(enabledCtx.isThriftNativeMetadataEnabled());
+    assertFalse(disabledCtx.isBoundedSeaApiEnabled());
+    assertFalse(disabledCtx.isThriftNativeMetadataEnabled());
+  }
+
   // ---------------------------------------------------------------------------
   // Geospatial flag independence from complex datatype flag
   // ---------------------------------------------------------------------------
