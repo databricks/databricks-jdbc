@@ -20,6 +20,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksVendorCode;
 import com.databricks.sdk.core.ProxyConfig;
 import com.google.common.collect.ImmutableMap;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Stream;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,11 +41,24 @@ class DatabricksConnectionContextTest {
 
   private static final Properties properties = new Properties();
   private static final Properties properties_with_pwd = new Properties();
+  private final List<IDatabricksConnectionContext> featureFlagContextsToCleanUp = new ArrayList<>();
 
   @BeforeAll
   public static void setUp() {
     properties.setProperty("password", "passwd");
     properties_with_pwd.setProperty("pwd", "passwd2");
+  }
+
+  @AfterEach
+  public void cleanUpFeatureFlagContexts() {
+    featureFlagContextsToCleanUp.forEach(
+        DatabricksDriverFeatureFlagsContextFactory::removeInstance);
+  }
+
+  private void setFeatureFlagsContext(
+      IDatabricksConnectionContext context, Map<String, String> flags) {
+    featureFlagContextsToCleanUp.add(context);
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(context, flags);
   }
 
   @Test
@@ -1686,7 +1701,7 @@ class DatabricksConnectionContextTest {
 
     Map<String, String> flags = new HashMap<>();
     flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+    setFeatureFlagsContext(ctx, flags);
 
     assertEquals("1", DatabricksJdbcUrlParams.USE_BOUNDED_SEA_API.getDefaultValue());
     assertEquals("1", DatabricksJdbcUrlParams.ENABLE_THRIFT_NATIVE_METADATA.getDefaultValue());
@@ -1703,7 +1718,7 @@ class DatabricksConnectionContextTest {
 
     Map<String, String> flags = new HashMap<>();
     flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "false");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+    setFeatureFlagsContext(ctx, flags);
 
     assertFalse(ctx.isBoundedSeaApiEnabled());
     assertFalse(ctx.isThriftNativeMetadataEnabled());
@@ -1718,7 +1733,7 @@ class DatabricksConnectionContextTest {
 
     Map<String, String> flags = new HashMap<>();
     flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
+    setFeatureFlagsContext(ctx, flags);
 
     assertFalse(ctx.isBoundedSeaApiEnabled());
     assertFalse(ctx.isThriftNativeMetadataEnabled());
@@ -1741,11 +1756,11 @@ class DatabricksConnectionContextTest {
     Map<String, String> disabledFlag = new HashMap<>();
     disabledFlag.put(
         "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "false");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(enabledCtx, disabledFlag);
+    setFeatureFlagsContext(enabledCtx, disabledFlag);
     Map<String, String> enabledFlag = new HashMap<>();
     enabledFlag.put(
         "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(disabledCtx, enabledFlag);
+    setFeatureFlagsContext(disabledCtx, enabledFlag);
 
     assertTrue(enabledCtx.isBoundedSeaApiEnabled());
     assertTrue(enabledCtx.isThriftNativeMetadataEnabled());
