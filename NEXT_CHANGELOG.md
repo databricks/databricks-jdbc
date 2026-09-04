@@ -10,6 +10,7 @@
 - Updated bundled Jackson, lz4-java, Netty, and Apache HttpComponents Client and Core dependencies to patched versions to address security findings.
 
 ### Fixed
+- Added SEA statement status-poll telemetry and fixed successful timeout cancellation failing to flush buffered polling details on SEA and Thrift.
 - Invalid or incomplete Databricks JDBC URLs now fail with a descriptive `DatabricksSQLException`
   instead of leaking a `NullPointerException` when required connection parameters are missing.
 

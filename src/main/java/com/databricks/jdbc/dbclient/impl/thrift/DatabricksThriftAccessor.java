@@ -330,7 +330,10 @@ final class DatabricksThriftAccessor {
 
     TimeoutHandler timeoutHandler =
         getTimeoutHandler(
-            response, timeoutInSeconds, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
+            response,
+            statementId,
+            timeoutInSeconds,
+            DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
 
     // Polling until query operation state is finished
     long pollingStartTime = System.nanoTime();
@@ -1019,6 +1022,7 @@ final class DatabricksThriftAccessor {
 
   private TimeoutHandler getTimeoutHandler(
       TExecuteStatementResp response,
+      StatementId statementId,
       int timeoutInSeconds,
       DatabricksDriverErrorCode internalErrorCode) {
     final TOperationHandle operationHandle = response.getOperationHandle();
@@ -1029,7 +1033,15 @@ final class DatabricksThriftAccessor {
         () -> {
           try {
             LOGGER.debug("Canceling operation due to timeout: {}", operationHandle);
+            long cancelStartTime = System.nanoTime();
             cancelOperation(new TCancelOperationReq().setOperationHandle(operationHandle));
+            long cancelLatencyMillis =
+                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - cancelStartTime);
+            TelemetryHelper.recordOperationLatency(
+                connectionContext,
+                statementId.toSQLExecStatementId(),
+                cancelLatencyMillis,
+                "cancelStatement");
           } catch (Exception e) {
             LOGGER.warn("Failed to cancel operation on timeout: {}", e.getMessage());
           }

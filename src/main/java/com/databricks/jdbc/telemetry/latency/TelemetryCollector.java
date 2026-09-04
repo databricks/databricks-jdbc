@@ -73,7 +73,11 @@ public class TelemetryCollector {
   public void recordOperationLatency(long latencyMillis, String methodName) {
     // It is possible that statement ID is not present in case of openSession. In which case, we
     // send telemetry latency log without the statement ID
-    String statementId = DatabricksThreadContextHolder.getStatementId();
+    recordOperationLatency(
+        DatabricksThreadContextHolder.getStatementId(), latencyMillis, methodName);
+  }
+
+  public void recordOperationLatency(String statementId, long latencyMillis, String methodName) {
     OperationType operationType = TelemetryHelper.mapMethodToOperationType(methodName);
     if (isTelemetryCollected(statementId) && isCloseOperation(operationType)) {
       // This is terminal state, we will have to export all data corresponding to the statementID

@@ -35,6 +35,7 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.http.Request;
@@ -52,6 +53,7 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -602,23 +604,37 @@ public class DatabricksSdkClientTest {
 
     // Verify that the timeout exception (1 second) is thrown due to repeated polling, where each
     // poll occurs at an interval of 1 second
-    DatabricksTimeoutException exception =
-        assertThrows(
-            DatabricksTimeoutException.class,
-            () ->
-                databricksSdkClient.executeStatement(
-                    STATEMENT,
-                    warehouse,
-                    sqlParams,
-                    StatementType.QUERY,
-                    connection.getSession(),
-                    statement,
-                    null));
+    try (MockedStatic<TelemetryHelper> telemetryHelper = mockStatic(TelemetryHelper.class)) {
+      DatabricksTimeoutException exception =
+          assertThrows(
+              DatabricksTimeoutException.class,
+              () ->
+                  databricksSdkClient.executeStatement(
+                      STATEMENT,
+                      warehouse,
+                      sqlParams,
+                      StatementType.QUERY,
+                      connection.getSession(),
+                      statement,
+                      null));
 
-    assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
+      assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
 
-    // Verify cancel was called
-    verify(databricksSdkClient).cancelStatement(eq(STATEMENT_ID));
+      // Verify cancel was called and its terminal telemetry was recorded.
+      verify(databricksSdkClient).cancelStatement(eq(STATEMENT_ID));
+      telemetryHelper.verify(
+          () ->
+              TelemetryHelper.recordOperationLatency(
+                  eq(connectionContext),
+                  eq(STATEMENT_ID.toSQLExecStatementId()),
+                  anyLong(),
+                  eq("cancelStatement")));
+      telemetryHelper.verify(
+          () ->
+              TelemetryHelper.recordGetOperationStatus(
+                  eq(connectionContext), eq(STATEMENT_ID.toSQLExecStatementId()), anyLong()),
+          atLeastOnce());
+    }
   }
 
   @Test

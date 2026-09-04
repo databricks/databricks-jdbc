@@ -10,6 +10,8 @@ import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.latency.ChunkDetails;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -88,6 +90,24 @@ public class TelemetryCollectorTest {
                   any(StatementTelemetryDetails.class),
                   any(TelemetryLogLevel.class)));
     }
+  }
+
+  @Test
+  void testCancelExportsAccumulatedPollingDetailsAndClearsTracker() {
+    handler.recordGetOperationStatus(TEST_STATEMENT_ID, 1000L);
+    handler.recordGetOperationStatus(TEST_STATEMENT_ID, 250L);
+    StatementTelemetryDetails pendingDetails =
+        handler.getOrCreateTelemetryDetails(TEST_STATEMENT_ID);
+    DatabricksThreadContextHolder.setStatementId("different-statement-id");
+
+    handler.recordOperationLatency(TEST_STATEMENT_ID, 100L, "cancelStatement");
+
+    JsonNode operationDetail = new ObjectMapper().valueToTree(pendingDetails.getOperationDetail());
+    assertEquals(2L, operationDetail.get("n_operation_status_calls").asLong());
+    assertEquals(1250L, operationDetail.get("operation_status_latency_millis").asLong());
+    assertEquals("CANCEL_STATEMENT", operationDetail.get("operation_type").asText());
+    assertEquals(100L, pendingDetails.getOperationLatencyMillis());
+    assertFalse(handler.isTelemetryCollected(TEST_STATEMENT_ID));
   }
 
   @Test

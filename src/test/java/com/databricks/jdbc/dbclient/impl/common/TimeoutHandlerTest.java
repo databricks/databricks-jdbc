@@ -3,14 +3,17 @@ package com.databricks.jdbc.dbclient.impl.common;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.lang.reflect.Field;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -21,6 +24,8 @@ class TimeoutHandlerTest {
   @Mock private Runnable mockTimeoutAction;
 
   @Mock private StatementId mockStatementId;
+
+  @Mock private IDatabricksConnectionContext mockConnectionContext;
 
   @Test
   void testNoTimeout() {
@@ -138,6 +143,8 @@ class TimeoutHandlerTest {
   @Test
   void testForStatementFactory() throws Exception {
     when(mockStatementId.toString()).thenReturn("test-statement-id");
+    when(mockStatementId.toSQLExecStatementId()).thenReturn("test-statement-id");
+    when(mockClient.getConnectionContext()).thenReturn(mockConnectionContext);
 
     // Create handler with factory method
     TimeoutHandler handler =
@@ -159,11 +166,20 @@ class TimeoutHandlerTest {
     long currentTime = System.currentTimeMillis();
     startTimeField.set(handler, currentTime - TimeUnit.SECONDS.toMillis(6)); // 6 seconds ago
 
-    // This should throw a DatabricksTimeoutException
-    assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
+    try (MockedStatic<TelemetryHelper> telemetryHelper = mockStatic(TelemetryHelper.class)) {
+      // This should throw a DatabricksTimeoutException
+      assertThrows(DatabricksTimeoutException.class, handler::checkTimeout);
 
-    // Verify client.cancelStatement was called
-    verify(mockClient, times(1)).cancelStatement(mockStatementId);
+      // Verify client.cancelStatement was called and its terminal telemetry was recorded.
+      verify(mockClient, times(1)).cancelStatement(mockStatementId);
+      telemetryHelper.verify(
+          () ->
+              TelemetryHelper.recordOperationLatency(
+                  eq(mockConnectionContext),
+                  eq("test-statement-id"),
+                  anyLong(),
+                  eq("cancelStatement")));
+    }
   }
 
   @Test

@@ -505,6 +505,23 @@ public class TelemetryHelper {
     }
   }
 
+  /** Records operation latency for a statement. Silently ignores errors. */
+  public static void recordOperationLatency(
+      IDatabricksConnectionContext connectionContext,
+      String statementId,
+      long latencyMillis,
+      String methodName) {
+    try {
+      if (connectionContext != null) {
+        TelemetryCollectorManager.getInstance()
+            .getOrCreateCollector(connectionContext)
+            .recordOperationLatency(statementId, latencyMillis, methodName);
+      }
+    } catch (Exception e) {
+      LOGGER.trace("Error recording operation latency telemetry: {}", e.getMessage());
+    }
+  }
+
   /**
    * Records chunk download latency. Silently ignores errors.
    *
