@@ -1519,7 +1519,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isThriftNativeMetadataEnabled() {
-    return getParameter(DatabricksJdbcUrlParams.ENABLE_THRIFT_NATIVE_METADATA).equals("1");
+    return resolveFeatureFlag(
+        DatabricksJdbcUrlParams.ENABLE_THRIFT_NATIVE_METADATA, SQL_EXEC_FLAG_NAME);
   }
 
   @Override
@@ -1549,7 +1550,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isBoundedSeaApiEnabled() {
-    return getParameter(DatabricksJdbcUrlParams.USE_BOUNDED_SEA_API).equals("1");
+    return resolveFeatureFlag(DatabricksJdbcUrlParams.USE_BOUNDED_SEA_API, SQL_EXEC_FLAG_NAME);
   }
 
   @Override
