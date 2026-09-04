@@ -91,6 +91,27 @@ public class TelemetryCollectorTest {
   }
 
   @Test
+  void testRecordOperationLatency_WithExplicitStatementIdExportsPendingTracker() {
+    handler.recordGetOperationStatus(TEST_STATEMENT_ID, 1000L);
+    StatementTelemetryDetails pendingDetails =
+        handler.getOrCreateTelemetryDetails(TEST_STATEMENT_ID);
+    DatabricksThreadContextHolder.setStatementId("different-statement-id");
+
+    try (MockedStatic<TelemetryHelper> mockedStatic = mockStatic(TelemetryHelper.class)) {
+      mockedStatic
+          .when(() -> TelemetryHelper.mapMethodToOperationType("cancelStatement"))
+          .thenReturn(OperationType.CANCEL_STATEMENT);
+      handler.recordOperationLatency(TEST_STATEMENT_ID, 100L, "cancelStatement");
+
+      mockedStatic.verify(
+          () ->
+              TelemetryHelper.exportTelemetryLog(
+                  mockContext, pendingDetails, TelemetryLogLevel.INFO));
+      assertEquals(100L, pendingDetails.getOperationLatencyMillis());
+    }
+  }
+
+  @Test
   void testCollectorStoresConnectionContext() {
     assertSame(mockContext, handler.getConnectionContext());
   }

@@ -5,6 +5,7 @@ import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.util.concurrent.TimeUnit;
 
 /** Utility class to handle statement execution timeouts. */
@@ -93,7 +94,15 @@ public class TimeoutHandler {
         "Statement ID: " + statementId,
         () -> {
           try {
+            long cancelStartTime = System.nanoTime();
             client.cancelStatement(statementId);
+            long cancelLatencyMillis =
+                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - cancelStartTime);
+            TelemetryHelper.recordOperationLatency(
+                client.getConnectionContext(),
+                statementId.toSQLExecStatementId(),
+                cancelLatencyMillis,
+                "cancelStatement");
           } catch (Exception e) {
             LOGGER.warn("Cancel statement on timeout failed: " + e.getMessage());
           }

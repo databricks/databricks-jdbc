@@ -21,6 +21,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
@@ -948,15 +949,24 @@ public class DatabricksThriftAccessorTest {
 
     // The execute method should throw a timeout exception since the operation does not complete
     // within 1 second. The polling interval is 1 second, and multiple polling attempts are made
-    DatabricksTimeoutException exception =
-        assertThrows(
-            DatabricksTimeoutException.class,
-            () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+    try (MockedStatic<TelemetryHelper> telemetryHelper = mockStatic(TelemetryHelper.class)) {
+      DatabricksTimeoutException exception =
+          assertThrows(
+              DatabricksTimeoutException.class,
+              () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
 
-    assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
+      assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
 
-    // Verify that cancel was called
-    verify(thriftClient).CancelOperation(any(TCancelOperationReq.class));
+      // Verify that cancel was called and its terminal telemetry was recorded.
+      verify(thriftClient).CancelOperation(any(TCancelOperationReq.class));
+      telemetryHelper.verify(
+          () ->
+              TelemetryHelper.recordOperationLatency(
+                  eq(connectionContext),
+                  eq(StatementId.deserialize(TEST_STMT_ID).toSQLExecStatementId()),
+                  anyLong(),
+                  eq("cancelStatement")));
+    }
   }
 
   @Test

@@ -39,6 +39,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
@@ -53,6 +54,7 @@ import java.net.URL;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
@@ -294,7 +296,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
       try {
         Request req = new Request(Request.GET, getStatusPath, apiClient.serialize(request));
         req.withHeaders(getHeaders("getStatement"));
+        long operationStatusStartTime = System.nanoTime();
         response = wrapGetStatementResponse(apiClient.execute(req, GetStatementResponse.class));
+        long operationStatusLatencyMillis =
+            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - operationStatusStartTime);
+        TelemetryHelper.recordGetOperationStatus(
+            connectionContext, statementId, operationStatusLatencyMillis);
       } catch (IOException e) {
         String errorMessage = "Error while processing the get statement response";
         LOGGER.error(errorMessage, e);
