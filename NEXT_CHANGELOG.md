@@ -11,6 +11,10 @@
 - Updated bundled Jackson, lz4-java, Netty, and Apache HttpComponents Client and Core dependencies to patched versions to address security findings.
 
 ### Fixed
+- Fixed later logging-enabled connections being unable to produce logs when an earlier connection
+  used `LogLevel=OFF`. The first enabled connection now establishes the shared JUL handler, while a
+  later `OFF` connection does not disable it.
+
 - Invalid or incomplete Databricks JDBC URLs now fail with a descriptive `DatabricksSQLException`
   instead of leaking a `NullPointerException` when required connection parameters are missing.
 

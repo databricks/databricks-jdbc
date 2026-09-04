@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,7 @@ public class JulLoggerTest {
 
   @BeforeEach
   void setUp() {
+    resetLogger();
     mockLogger = Mockito.mock(Logger.class);
     // By default treat every level as enabled so the existing verify-based tests
     // exercise the real logging path. Individual tests override this to assert the
@@ -34,13 +36,19 @@ public class JulLoggerTest {
 
   @AfterEach
   void tearDown() {
-    // Reset the logger after each test
+    resetLogger();
+  }
+
+  private void resetLogger() {
     JulLogger.isLoggerInitialized = false;
 
     Logger logger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
     logger.setLevel(null);
     for (Handler handler : logger.getHandlers()) {
       logger.removeHandler(handler);
+      if (handler instanceof FileHandler) {
+        handler.close();
+      }
     }
     logger.setUseParentHandlers(true);
   }
@@ -170,6 +178,80 @@ public class JulLoggerTest {
       handler.close();
       jdbcLogger.removeHandler(handler);
     }
+  }
+
+  @Test
+  void testInitLoggerPromotesFromOffToEnabled(@TempDir Path tempDir) throws IOException {
+    Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
+
+    JulLogger.initLogger(Level.OFF, JulLogger.STDOUT, 0, 0);
+
+    assertEquals(Level.OFF, jdbcLogger.getLevel());
+    assertEquals(0, jdbcLogger.getHandlers().length);
+    assertFalse(JulLogger.isLoggerInitialized);
+
+    JulLogger.initLogger(Level.FINEST, tempDir.toString(), 1024, 1);
+
+    assertEquals(Level.FINEST, jdbcLogger.getLevel());
+    assertEquals(1, jdbcLogger.getHandlers().length);
+    assertInstanceOf(FileHandler.class, jdbcLogger.getHandlers()[0]);
+    assertTrue(Files.exists(tempDir.resolve(JulLogger.DATABRICKS_LOG_FILE)));
+    assertTrue(JulLogger.isLoggerInitialized);
+  }
+
+  @Test
+  void testInitLoggerDoesNotDisableEnabledLogger(@TempDir Path tempDir) throws IOException {
+    Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
+    JulLogger.initLogger(Level.FINEST, tempDir.toString(), 1024, 1);
+    Handler enabledHandler = jdbcLogger.getHandlers()[0];
+
+    JulLogger.initLogger(Level.OFF, JulLogger.STDOUT, 0, 0);
+
+    assertEquals(Level.FINEST, jdbcLogger.getLevel());
+    assertArrayEquals(new Handler[] {enabledHandler}, jdbcLogger.getHandlers());
+    assertTrue(JulLogger.isLoggerInitialized);
+  }
+
+  @Test
+  void testConcurrentOffAndEnabledInitializationCreatesOneHandler(@TempDir Path tempDir) {
+    CompletableFuture<Void> offInitialization =
+        CompletableFuture.runAsync(
+            () ->
+                assertDoesNotThrow(() -> JulLogger.initLogger(Level.OFF, JulLogger.STDOUT, 0, 0)));
+    CompletableFuture<Void> enabledInitialization =
+        CompletableFuture.runAsync(
+            () ->
+                assertDoesNotThrow(
+                    () -> JulLogger.initLogger(Level.INFO, tempDir.toString(), 1024, 1)));
+
+    assertDoesNotThrow(
+        () -> CompletableFuture.allOf(offInitialization, enabledInitialization).join());
+
+    Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
+    assertEquals(Level.INFO, jdbcLogger.getLevel());
+    assertEquals(1, jdbcLogger.getHandlers().length);
+    assertInstanceOf(FileHandler.class, jdbcLogger.getHandlers()[0]);
+    assertTrue(JulLogger.isLoggerInitialized);
+  }
+
+  @Test
+  void testFailedInitializationCanBeRetried(@TempDir Path tempDir) throws IOException {
+    Path fileInsteadOfDirectory = tempDir.resolve("not-a-directory");
+    Files.writeString(fileInsteadOfDirectory, "test");
+
+    assertThrows(
+        IOException.class,
+        () -> JulLogger.initLogger(Level.INFO, fileInsteadOfDirectory.toString(), 1024, 1));
+    assertFalse(JulLogger.isLoggerInitialized);
+
+    Path validLogDirectory = tempDir.resolve("logs");
+    JulLogger.initLogger(Level.INFO, validLogDirectory.toString(), 1024, 1);
+
+    Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
+    assertEquals(Level.INFO, jdbcLogger.getLevel());
+    assertEquals(1, jdbcLogger.getHandlers().length);
+    assertTrue(Files.exists(validLogDirectory.resolve(JulLogger.DATABRICKS_LOG_FILE)));
+    assertTrue(JulLogger.isLoggerInitialized);
   }
 
   @Test
