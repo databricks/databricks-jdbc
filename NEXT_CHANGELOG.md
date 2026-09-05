@@ -4,6 +4,10 @@
 
 ### Added
 - Added `EnableThriftNativeMetadata` to request and consume supported Thrift-native SEA metadata results.
+- Added session-version exchange for SQL Exec API connections. On Lakehouse Real-Time, polling an
+  asynchronous statement to completion does not guarantee that its session changes are visible to
+  subsequent statements. Use synchronous execution when subsequent statements depend on those
+  changes. Other SQL warehouse types are unaffected.
 
 ### Updated
 - `UseBoundedSeaApi` and `EnableThriftNativeMetadata` now default to `1`; when unset, activation is controlled by the server-side `enableSqlExecForJdbc` rollout flag.
