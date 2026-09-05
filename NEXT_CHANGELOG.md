@@ -4,7 +4,10 @@
 
 ### Added
 - Added `EnableThriftNativeMetadata` to request and consume supported Thrift-native SEA metadata results.
-- Added session-version exchange for SQL Exec API connections.
+- Added session-version exchange for SQL Exec API connections. On Lakehouse Real-Time, polling an
+  asynchronous statement to completion does not guarantee that its session changes are visible to
+  subsequent statements. Use synchronous execution when subsequent statements depend on those
+  changes. Other SQL warehouse types are unaffected.
 
 ### Updated
 - `DatabaseMetaData.getColumns(...)` with a `null` catalog now issues a single `SHOW COLUMNS IN ALL CATALOGS` statement (consistent with `getSchemas`/`getTables`) instead of enumerating every catalog and issuing a per-catalog `SHOW COLUMNS`. Older DBR versions that do not support the syntax transparently fall back to the previous enumerate-and-fan-out behavior.
