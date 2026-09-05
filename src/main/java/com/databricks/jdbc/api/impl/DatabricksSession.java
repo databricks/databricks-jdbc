@@ -23,6 +23,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
@@ -45,6 +46,7 @@ public class DatabricksSession implements IDatabricksSession {
   private final IDatabricksComputeResource computeResource;
   private boolean isSessionOpen;
   private ImmutableSessionInfo sessionInfo;
+  private volatile Long sessionVersionId;
 
   /** For context based commands */
   private String catalog;
@@ -111,6 +113,29 @@ public class DatabricksSession implements IDatabricksSession {
   public ImmutableSessionInfo getSessionInfo() {
     LOGGER.debug("public String getSessionInfo()");
     return sessionInfo;
+  }
+
+  @Nullable
+  @Override
+  public SessionVersion getSessionVersion() {
+    Long versionId = sessionVersionId;
+    return versionId == null ? null : new SessionVersion().setVersionId(versionId);
+  }
+
+  @Override
+  public void updateSessionVersion(@Nullable SessionVersion newSessionVersion) {
+    if (newSessionVersion == null || newSessionVersion.getVersionId() == null) {
+      return;
+    }
+    synchronized (this) {
+      if (!isSessionOpen) {
+        return;
+      }
+      Long newVersionId = newSessionVersion.getVersionId();
+      if (sessionVersionId == null || newVersionId > sessionVersionId) {
+        sessionVersionId = newVersionId;
+      }
+    }
   }
 
   @Override
@@ -284,6 +309,7 @@ public class DatabricksSession implements IDatabricksSession {
             throw e;
           }
         }
+        this.sessionVersionId = sessionInfo == null ? null : sessionInfo.sessionVersionId();
         this.isSessionOpen = true;
       }
     }
@@ -307,6 +333,7 @@ public class DatabricksSession implements IDatabricksSession {
         } finally {
           // Always clean up local state
           this.sessionInfo = null;
+          this.sessionVersionId = null;
           this.isSessionOpen = false;
         }
       }

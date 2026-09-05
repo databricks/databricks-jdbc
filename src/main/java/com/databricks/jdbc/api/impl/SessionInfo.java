@@ -13,5 +13,8 @@ public interface SessionInfo {
   IDatabricksComputeResource computeResource();
 
   @Nullable
+  Long sessionVersionId();
+
+  @Nullable
   TSessionHandle sessionHandle(); // This field is set only for all-purpose cluster compute
 }
