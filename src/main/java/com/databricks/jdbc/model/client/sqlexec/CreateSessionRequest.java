@@ -1,5 +1,6 @@
 package com.databricks.jdbc.model.client.sqlexec;
 
+import com.databricks.jdbc.model.core.SessionExecutionMode;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Map;
 
@@ -18,6 +19,9 @@ public class CreateSessionRequest {
 
   @JsonProperty("session_confs")
   private Map<String, String> sessionConfigs;
+
+  @JsonProperty("execution_mode")
+  private SessionExecutionMode executionMode;
 
   public CreateSessionRequest setWarehouseId(String warehouseId) {
     this.warehouseId = warehouseId;
@@ -53,5 +57,14 @@ public class CreateSessionRequest {
 
   public Map<String, String> getSessionConfigs() {
     return sessionConfigs;
+  }
+
+  public CreateSessionRequest setExecutionMode(SessionExecutionMode executionMode) {
+    this.executionMode = executionMode;
+    return this;
+  }
+
+  public SessionExecutionMode getExecutionMode() {
+    return executionMode;
   }
 }
