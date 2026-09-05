@@ -18,6 +18,9 @@ public interface IDatabricksStatement extends Statement {
    * long-running queries. The actual results can be retrieved later using {@link
    * #getExecutionResult()}.
    *
+   * <p>On Lakehouse Real-Time, use synchronous execution when subsequent statements depend on
+   * session changes; asynchronous execution does not guarantee their visibility.
+   *
    * @param sql The SQL command to be executed
    * @return A {@link ResultSet} handle that can be used to track and retrieve the results
    * @throws SQLException if a database access error occurs, this method is called on a closed

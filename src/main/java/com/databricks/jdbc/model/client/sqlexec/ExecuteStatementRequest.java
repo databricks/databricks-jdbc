@@ -2,6 +2,7 @@ package com.databricks.jdbc.model.client.sqlexec;
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.model.core.Disposition;
+import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.sdk.service.sql.ExecuteStatementRequestOnWaitTimeout;
 import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.service.sql.StatementParameterListItem;
@@ -46,6 +47,9 @@ public class ExecuteStatementRequest {
   @JsonProperty("result_compression")
   private CompressionCodec resultCompression;
 
+  @JsonProperty("session_version")
+  private SessionVersion sessionVersion;
+
   public String getStatement() {
     return statement;
   }
@@ -84,6 +88,10 @@ public class ExecuteStatementRequest {
 
   public CompressionCodec getResultCompression() {
     return resultCompression;
+  }
+
+  public SessionVersion getSessionVersion() {
+    return sessionVersion;
   }
 
   // Setters
@@ -138,6 +146,11 @@ public class ExecuteStatementRequest {
     return this;
   }
 
+  public ExecuteStatementRequest setSessionVersion(SessionVersion sessionVersion) {
+    this.sessionVersion = sessionVersion;
+    return this;
+  }
+
   @Override
   public String toString() {
     return new ToStringer(ExecuteStatementRequest.class)
@@ -147,6 +160,7 @@ public class ExecuteStatementRequest {
         .add("parameters", parameters)
         .add("statement", statement)
         .add("sessionId", sessionId)
+        .add("sessionVersion", sessionVersion)
         .add("waitTimeout", waitTimeout)
         .add("warehouseId", warehouseId)
         .add("rowLimit", rowLimit)
@@ -161,6 +175,8 @@ public class ExecuteStatementRequest {
         onWaitTimeout,
         parameters,
         rowLimit,
+        sessionId,
+        sessionVersion,
         statement,
         waitTimeout,
         warehouseId);
@@ -181,6 +197,7 @@ public class ExecuteStatementRequest {
         && Objects.equals(statement, that.statement)
         && Objects.equals(waitTimeout, that.waitTimeout)
         && Objects.equals(sessionId, that.sessionId)
+        && Objects.equals(sessionVersion, that.sessionVersion)
         && Objects.equals(warehouseId, that.warehouseId);
   }
 }
