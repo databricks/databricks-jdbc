@@ -49,3 +49,9 @@ retrospective flow.
 ### 2026-08-27: learnings since 2026-08-26T18:05:01Z
 - **Context:** PR #1659 fixed a `NullPointerException` in `DatabricksArray.convertElements` when materializing arrays of nested complex types (ARRAY/MAP/STRUCT) that contain literal `null` elements; the reviewer noted the initial fix added a per-branch null check but missed the STRUCT branch, which still NPE'd while building its error message.
   **Rule:** Arrays can legally hold `null` for ANY element type, so when converting/materializing nested complex types (ARRAY, MAP, STRUCT), handle `element == null` once at the top of the loop before type-specific dispatch — don't scatter per-branch null checks that are easy to miss for one type.
+
+### 2026-09-05: learnings since 2026-09-04T17:26:14Z
+- **Context:** PR #1672 gated `UseBoundedSeaApi`/`EnableThriftNativeMetadata` defaults on the server-side `enableSqlExecForJdbc` rollout flag via `resolveFeatureFlag`; a reviewer asked whether defaulting the param to `1` makes the server flag redundant.
+  **Rule:** When defaulting a client feature-flag param to `1` behind a server rollout flag, resolve in priority order — explicit connection param wins; otherwise if the default is `1` defer to the server flag's value; otherwise return false — so a `1` default enables server-controlled rollout rather than forcing the feature on.
+- **Context:** In PR #1672's `NEXT_CHANGELOG.md`, reviewers flagged that a public release note referenced the internal server flag `enableSqlExecForJdbc` and lacked opt-out guidance for a newly default-enabled param.
+  **Rule:** Public-facing changelog entries for a newly-introduced or default-enabled connection param must describe what the param does and how to opt out, and must not expose internal server-side flag names.
