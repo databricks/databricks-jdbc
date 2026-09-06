@@ -10,6 +10,7 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -56,11 +58,7 @@ public class ChunkDownloadTaskTest {
     when(chunk.isChunkLinkInvalid()).thenReturn(false);
     when(chunk.getChunkIndex()).thenReturn(7L);
     when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
-    DatabricksParsingException throwableError =
-        new DatabricksParsingException(
-            "Connection reset",
-            new SocketException("Connection reset"),
-            DatabricksDriverErrorCode.INVALID_STATE);
+    SocketException throwableError = new SocketException("Connection reset");
 
     // Simulate SocketException for the first two attempts, then succeed
     doThrow(throwableError)
@@ -84,21 +82,120 @@ public class ChunkDownloadTaskTest {
     when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
 
     // Simulate SocketException for all attempts
-    doThrow(
-            new DatabricksParsingException(
-                "Connection reset",
-                new SocketException("Connection reset"),
-                DatabricksDriverErrorCode.INVALID_STATE))
+    doThrow(new SocketException("Connection reset"))
         .when(chunk)
         .downloadData(httpClient, CompressionCodec.NONE, 0.1);
 
-    assertThrows(DatabricksSQLException.class, () -> chunkDownloadTask.call());
-    verify(chunk, times(ChunkDownloadTask.MAX_RETRIES))
-        .downloadData(httpClient, CompressionCodec.NONE, 0.1);
-    assertTrue(downloadFuture.isDone());
+    try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+      DatabricksSQLException thrown =
+          assertThrows(DatabricksSQLException.class, () -> chunkDownloadTask.call());
+      assertEquals(DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(), thrown.getSQLState());
+      verify(chunk, times(ChunkDownloadTask.MAX_RETRIES))
+          .downloadData(httpClient, CompressionCodec.NONE, 0.1);
+      assertTrue(downloadFuture.isDone());
+      ExecutionException executionException =
+          assertThrows(ExecutionException.class, () -> downloadFuture.get());
+      assertSame(thrown, executionException.getCause());
+      assertSame(
+          thrown,
+          AbstractRemoteChunkProvider.createChunkReadyException(executionException.getCause()));
+      telemetry.verify(
+          () ->
+              TelemetryHelper.exportFailureLog(
+                  null,
+                  DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(),
+                  "Failed to download chunk after multiple attempts",
+                  null,
+                  7L,
+                  com.databricks.jdbc.common.TelemetryLogLevel.ERROR),
+          times(1));
+    }
+  }
+
+  @Test
+  void testLinkFetchFailureIsReportedAsChunkDownloadError() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(true);
+    when(chunk.getChunkIndex()).thenReturn(7L);
+    CompletableFuture<ExternalLink> failedLink = new CompletableFuture<>();
+    failedLink.completeExceptionally(new IllegalStateException("link fetch failed"));
+    when(chunkLinkDownloadService.getLinkForChunk(7L)).thenReturn(failedLink);
+
+    try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+      DatabricksSQLException thrown =
+          assertThrows(DatabricksSQLException.class, () -> chunkDownloadTask.call());
+
+      assertEquals(DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(), thrown.getSQLState());
+      ExecutionException executionException =
+          assertThrows(ExecutionException.class, () -> downloadFuture.get());
+      assertSame(thrown, executionException.getCause());
+      assertSame(
+          thrown,
+          AbstractRemoteChunkProvider.createChunkReadyException(executionException.getCause()));
+      verify(chunk, never()).downloadData(any(), any(), anyDouble());
+      telemetry.verify(
+          () ->
+              TelemetryHelper.exportFailureLog(
+                  null,
+                  DatabricksDriverErrorCode.CHUNK_DOWNLOAD_ERROR.name(),
+                  "Failed to retrieve chunk download link",
+                  null,
+                  7L,
+                  com.databricks.jdbc.common.TelemetryLogLevel.ERROR),
+          times(1));
+    }
+  }
+
+  @Test
+  void testInterruptedLinkFetchPreservesTypedFailure() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(true);
+    when(chunk.getChunkIndex()).thenReturn(7L);
+    when(chunkLinkDownloadService.getLinkForChunk(7L)).thenReturn(new CompletableFuture<>());
+
+    try {
+      Thread.currentThread().interrupt();
+      DatabricksSQLException thrown =
+          assertThrows(DatabricksSQLException.class, () -> chunkDownloadTask.call());
+
+      assertEquals(DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR.name(), thrown.getSQLState());
+      assertTrue(Thread.currentThread().isInterrupted());
+      Thread.interrupted();
+
+      ExecutionException executionException =
+          assertThrows(ExecutionException.class, () -> downloadFuture.get());
+      assertSame(thrown, executionException.getCause());
+      assertSame(
+          thrown,
+          AbstractRemoteChunkProvider.createChunkReadyException(executionException.getCause()));
+      verify(chunk, never()).downloadData(any(), any(), anyDouble());
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
+  @Test
+  void testProcessingFailureIsNotRetried() throws Exception {
+    when(chunk.getChunkReadyFuture()).thenReturn(downloadFuture);
+    when(chunk.isChunkLinkInvalid()).thenReturn(false);
+    when(chunk.getChunkIndex()).thenReturn(7L);
+    when(chunk.getStatus()).thenReturn(ChunkStatus.PROCESSING_FAILED);
+    when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    DatabricksParsingException processingError =
+        new DatabricksParsingException(
+            "Arrow parsing failed", DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+    doThrow(processingError).when(chunk).downloadData(httpClient, CompressionCodec.NONE, 0.1);
+
+    DatabricksParsingException thrown =
+        assertThrows(DatabricksParsingException.class, () -> chunkDownloadTask.call());
+
+    assertSame(processingError, thrown);
+    verify(chunk, times(1)).downloadData(httpClient, CompressionCodec.NONE, 0.1);
+    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_FAILED);
     ExecutionException executionException =
         assertThrows(ExecutionException.class, () -> downloadFuture.get());
-    assertInstanceOf(DatabricksSQLException.class, executionException.getCause());
+    assertSame(thrown, executionException.getCause());
   }
 
   @Test

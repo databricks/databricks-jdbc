@@ -1,7 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
-import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
+import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPErrorWithoutThrowingError;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.getStatementIdString;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -16,6 +16,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.IOException;
@@ -80,7 +81,10 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
       response = httpClient.execute(getRequest, true);
-      checkHTTPError(response);
+      String httpError = checkHTTPErrorWithoutThrowingError(response);
+      if (!httpError.isEmpty()) {
+        throw new IOException(httpError);
+      }
       long downloadTimeMs = (System.nanoTime() - startTime) / 1_000_000;
 
       // Record chunk download latency telemetry
@@ -127,8 +131,10 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
           readTimeMs - downloadTimeMs,
           decompressTimeMs,
           totalTimeMs);
+    } catch (DatabricksParsingException e) {
+      throw e;
     } catch (Exception e) {
-      handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
+      handleDownloadFailure(e);
     } finally {
       if (response != null) {
         response.close();
@@ -139,13 +145,13 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
   /**
    * {@inheritDoc}
    *
-   * <p>Handles failures that occur during chunk download or processing. Sets the error message,
-   * logs the error, updates the chunk status, and throws a DatabricksParsingException.
+   * <p>Handles failures that occur while processing a downloaded chunk. Sets the error message,
+   * logs the error, updates the chunk status, and preserves an existing typed parsing exception or
+   * emits the canonical Arrow parsing error.
    *
    * @param exception the exception that caused the failure
-   * @param failedStatus the status to set for the chunk after failure (e.g. {@link
-   *     ChunkStatus#DOWNLOAD_FAILED} or {@link ChunkStatus#PROCESSING_FAILED})
-   * @throws DatabricksParsingException always thrown with the error message and original exception
+   * @param failedStatus the status to set for the chunk after failure
+   * @throws DatabricksParsingException always thrown; existing typed exceptions are preserved
    */
   @Override
   protected void handleFailure(Exception exception, ChunkStatus failedStatus)
@@ -156,7 +162,24 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
             this.chunkIndex, this.statementId, exception);
     LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
-    throw new DatabricksParsingException(errorMessage, exception, failedStatus.toString());
+    if (exception instanceof DatabricksParsingException) {
+      throw (DatabricksParsingException) exception;
+    }
+    throw new DatabricksParsingException(
+        errorMessage, exception, DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
+  }
+
+  private void handleDownloadFailure(Exception exception) throws IOException {
+    errorMessage =
+        String.format(
+            "Data download failed for chunk index [%d] and statement [%s]. Exception [%s]",
+            this.chunkIndex, this.statementId, exception);
+    LOGGER.warn(this.errorMessage);
+    setStatus(ChunkStatus.DOWNLOAD_FAILED);
+    if (exception instanceof IOException) {
+      throw (IOException) exception;
+    }
+    throw new IOException(errorMessage, exception);
   }
 
   private void addHeaders(HttpGet getRequest, Map<String, String> headers) {

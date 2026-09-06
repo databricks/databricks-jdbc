@@ -1,7 +1,11 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.spy;
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -9,6 +13,7 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
@@ -62,12 +67,54 @@ public class ArrowResultChunkStatusTest {
     InputStream erroring = new ErrorInputStream(new ByteArrayInputStream(payload));
     IDatabricksHttpClient http = httpWithEntity(erroring, payload.length);
 
-    // Act + Assert: downloadData should throw parsing exception and status should be
-    // DOWNLOAD_FAILED
-    assertThrows(
-        DatabricksParsingException.class,
-        () -> chunk.downloadData(http, CompressionCodec.NONE, 0.0));
+    assertThrows(IOException.class, () -> chunk.downloadData(http, CompressionCodec.NONE, 0.0));
     assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+  }
+
+  @Test
+  void httpError_isReportedAsRetryableDownloadFailure() {
+    byte[] payload = "service unavailable".getBytes();
+    ArrowResultChunk chunk = newChunk();
+    IDatabricksHttpClient http =
+        httpWithEntity(new ByteArrayInputStream(payload), payload.length, 503);
+
+    assertThrows(IOException.class, () -> chunk.downloadData(http, CompressionCodec.NONE, 0.0));
+    assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+  }
+
+  @Test
+  void processingError_isNotReportedAsDownloadError() {
+    byte[] payload = "not an Arrow stream".getBytes();
+    ArrowResultChunk chunk = newChunk();
+    IDatabricksHttpClient http = httpWithEntity(new ByteArrayInputStream(payload), payload.length);
+
+    DatabricksParsingException exception =
+        assertThrows(
+            DatabricksParsingException.class,
+            () -> chunk.downloadData(http, CompressionCodec.NONE, 0.0));
+
+    assertEquals(ChunkStatus.PROCESSING_FAILED, chunk.getStatus());
+    assertEquals(
+        DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), exception.getSQLState());
+  }
+
+  @Test
+  void typedProcessingError_isPreserved() throws Exception {
+    byte[] payload = "downloaded data".getBytes();
+    ArrowResultChunk chunk = spy(newChunk());
+    IDatabricksHttpClient http = httpWithEntity(new ByteArrayInputStream(payload), payload.length);
+    DatabricksParsingException processingError =
+        new DatabricksParsingException(
+            "typed processing error", DatabricksDriverErrorCode.DECOMPRESSION_ERROR);
+    doThrow(processingError).when(chunk).initializeData(any(InputStream.class));
+
+    DatabricksParsingException thrown =
+        assertThrows(
+            DatabricksParsingException.class,
+            () -> chunk.downloadData(http, CompressionCodec.NONE, 0.0));
+
+    assertSame(processingError, thrown);
+    assertEquals(ChunkStatus.PROCESSING_FAILED, chunk.getStatus());
   }
 
   private static ArrowResultChunk newChunk() {
@@ -91,18 +138,23 @@ public class ArrowResultChunkStatusTest {
   }
 
   private static IDatabricksHttpClient httpWithEntity(InputStream content, long length) {
+    return httpWithEntity(content, length, 200);
+  }
+
+  private static IDatabricksHttpClient httpWithEntity(
+      InputStream content, long length, int statusCode) {
     return new IDatabricksHttpClient() {
       @Override
       public CloseableHttpResponse execute(org.apache.http.client.methods.HttpUriRequest request)
           throws DatabricksHttpException {
-        return response(content, length);
+        return response(content, length, statusCode);
       }
 
       @Override
       public CloseableHttpResponse execute(
           org.apache.http.client.methods.HttpUriRequest request, boolean supportGzipEncoding)
           throws DatabricksHttpException {
-        return response(content, length);
+        return response(content, length, statusCode);
       }
 
       @Override
@@ -115,7 +167,7 @@ public class ArrowResultChunkStatusTest {
     };
   }
 
-  private static CloseableHttpResponse response(InputStream content, long length) {
+  private static CloseableHttpResponse response(InputStream content, long length, int statusCode) {
     HttpEntity entity = new InputStreamEntity(content, length);
     return new CloseableHttpResponse() {
       @Override
@@ -123,7 +175,7 @@ public class ArrowResultChunkStatusTest {
 
       @Override
       public StatusLine getStatusLine() {
-        return new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK");
+        return new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), statusCode, "status");
       }
 
       @Override

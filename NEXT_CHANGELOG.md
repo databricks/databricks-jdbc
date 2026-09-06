@@ -15,6 +15,9 @@
   instead of leaking a `NullPointerException` when required connection parameters are missing.
 
 - Fixed connections failing when the same parameter is provided in both the JDBC URL and the connection properties, with the JDBC URL taking precedence.
+- Fixed Arrow chunk error handling to avoid exporting internal lifecycle states, preserve parsing
+  failures after download succeeds, and include statement/chunk context on terminal failures.
+
 - Fixed `IdleConnectionEvictor` thread leak in long-running applications. Driver-side resources (HTTP client, background threads) are now always released when `Connection.close()` is called, even if statement cleanup or server-side session termination fails.
 
 - Throw `DatabricksSQLException` instead of an unchecked `ClassCastException` when a complex-type getter (`getArray`, `getStruct`, `getMap`) is called on a column of a different complex type.

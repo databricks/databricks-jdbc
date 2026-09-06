@@ -171,9 +171,10 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
           "Operation interrupted while waiting for chunk ready",
           e,
           DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
-    } catch (ExecutionException | TimeoutException e) {
-      throw new DatabricksSQLException(
-          "Failed to ready chunk", e.getCause(), DatabricksDriverErrorCode.CHUNK_READY_ERROR);
+    } catch (ExecutionException e) {
+      throw createChunkReadyException(e.getCause());
+    } catch (TimeoutException e) {
+      throw createChunkReadyException(e);
     }
     long waitMs = (System.nanoTime() - waitStart) / 1_000_000;
     LOGGER.debug(
@@ -183,6 +184,14 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
         waitMs);
 
     return chunk;
+  }
+
+  static DatabricksSQLException createChunkReadyException(Throwable cause) {
+    if (cause instanceof DatabricksSQLException) {
+      return (DatabricksSQLException) cause;
+    }
+    return new DatabricksSQLException(
+        "Failed to ready chunk", cause, DatabricksDriverErrorCode.CHUNK_READY_ERROR);
   }
 
   /** {@inheritDoc} */
