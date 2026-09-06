@@ -13,7 +13,7 @@
 ### Fixed
 - Invalid or incomplete Databricks JDBC URLs now fail with a descriptive `DatabricksSQLException`
   instead of leaking a `NullPointerException` when required connection parameters are missing.
-
+- Fixed inline Arrow result processing when later Thrift batches omit compression metadata.
 - Fixed connections failing when the same parameter is provided in both the JDBC URL and the connection properties, with the JDBC URL taking precedence.
 - Fixed `IdleConnectionEvictor` thread leak in long-running applications. Driver-side resources (HTTP client, background threads) are now always released when `Connection.close()` is called, even if statement cleanup or server-side session termination fails.
 

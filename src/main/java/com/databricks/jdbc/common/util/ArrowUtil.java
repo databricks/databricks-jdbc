@@ -151,10 +151,31 @@ public final class ArrowUtil {
   public static ByteArrayInputStream createArrowByteStream(
       byte[] cachedSchema, TFetchResultsResp response, Class<?> callerClass)
       throws DatabricksParsingException {
+    return createArrowByteStream(
+        cachedSchema,
+        response,
+        CompressionCodec.getCompressionMapping(response.getResultSetMetadata()),
+        callerClass);
+  }
+
+  /**
+   * Creates an Arrow IPC byte stream using a previously resolved compression codec.
+   *
+   * @param cachedSchema The serialized Arrow schema bytes
+   * @param response The Thrift fetch response containing Arrow batches
+   * @param compressionCodec The compression codec resolved from the initial response
+   * @param callerClass The calling class for logging context
+   * @return ByteArrayInputStream containing the Arrow IPC data
+   * @throws DatabricksParsingException if processing fails
+   */
+  public static ByteArrayInputStream createArrowByteStream(
+      byte[] cachedSchema,
+      TFetchResultsResp response,
+      CompressionCodec compressionCodec,
+      Class<?> callerClass)
+      throws DatabricksParsingException {
     String context = callerClass.getSimpleName();
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    CompressionCodec compressionCodec =
-        CompressionCodec.getCompressionMapping(response.getResultSetMetadata());
 
     try {
       // Write schema if available

@@ -93,17 +93,14 @@ public class ArrowUtilTest {
   }
 
   @Test
-  void testCreateArrowByteStream() throws DatabricksParsingException {
+  void testCreateArrowByteStreamWithoutMetadataDefaultsToUncompressed()
+      throws DatabricksParsingException {
     byte[] schema = new byte[] {1, 2, 3};
 
     TFetchResultsResp response = new TFetchResultsResp();
     TRowSet rowSet = new TRowSet();
     rowSet.setArrowBatches(Collections.emptyList());
     response.setResults(rowSet);
-
-    // Set up metadata with no compression
-    TGetResultSetMetadataResp metadata = new TGetResultSetMetadataResp();
-    response.setResultSetMetadata(metadata);
 
     ByteArrayInputStream result = ArrowUtil.createArrowByteStream(schema, response, getClass());
 

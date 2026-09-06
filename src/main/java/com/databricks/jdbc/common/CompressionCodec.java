@@ -31,6 +31,9 @@ public enum CompressionCodec {
   }
 
   public static CompressionCodec getCompressionMapping(TGetResultSetMetadataResp metadataResp) {
+    if (metadataResp == null) {
+      return CompressionCodec.NONE;
+    }
     if (!metadataResp.isSetLz4Compressed()) {
       return CompressionCodec.NONE;
     }

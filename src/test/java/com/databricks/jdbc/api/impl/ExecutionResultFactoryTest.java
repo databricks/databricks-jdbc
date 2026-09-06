@@ -12,11 +12,13 @@ import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.Format;
 import java.io.ByteArrayOutputStream;
 import java.sql.SQLException;
@@ -125,6 +127,17 @@ public class ExecutionResultFactoryTest {
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> ExecutionResultFactory.getResultSet(fetchResultsResp, session, parentStatement));
+  }
+
+  @Test
+  public void testGetResultSet_thriftMissingMetadata() {
+    DatabricksSQLException thrown =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> ExecutionResultFactory.getResultSet(fetchResultsResp, session, parentStatement));
+
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), thrown.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), thrown.getErrorCode());
   }
 
   @Test

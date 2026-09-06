@@ -60,6 +60,20 @@ public class StreamingInlineArrowResultTest {
   }
 
   @Test
+  void testMissingInitialMetadataThrowsTypedParsingError() {
+    TFetchResultsResp response = new TFetchResultsResp();
+
+    DatabricksSQLException thrown =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> new StreamingInlineArrowResult(response, statement, session));
+
+    assertEquals(DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.name(), thrown.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR.getCode(), thrown.getErrorCode());
+  }
+
+  @Test
   void testBasicIteration() throws SQLException {
     int rowCount = 5;
     byte[] arrowData = createValidArrowData(1, rowCount);
