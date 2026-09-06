@@ -80,7 +80,7 @@ public class SQLInterpolatorTest {
     Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
     params.put(1, getSqlParam(1, "O'Reilly", DatabricksTypeUtil.STRING));
     params.put(2, getSqlParam(2, 200, DatabricksTypeUtil.INT));
-    String expected = "UPDATE products SET price = 'O''Reilly' WHERE id = 200";
+    String expected = "UPDATE products SET price = 'O\\'Reilly' WHERE id = 200";
     assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
   }
 
@@ -108,7 +108,7 @@ public class SQLInterpolatorTest {
     String sql = "SELECT ?";
     Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
     params.put(1, getSqlParam(1, "X'41' OR 1=1 --", DatabricksTypeUtil.BINARY));
-    assertEquals("SELECT 'X''41'' OR 1=1 --'", SQLInterpolator.interpolateSQL(sql, params));
+    assertEquals("SELECT 'X\\'41\\' OR 1=1 --'", SQLInterpolator.interpolateSQL(sql, params));
   }
 
   @Test
@@ -217,8 +217,12 @@ public class SQLInterpolatorTest {
 
   @Test
   public void testEscapeInputs() {
-    // Simple apostrophe doubling
-    assertEquals("'foo''bar'", SQLInterpolator.escapeInputs("foo'bar"));
+    // Apostrophe escaped with a backslash; '' would be read as two adjacent literals
+    assertEquals("'foo\\'bar'", SQLInterpolator.escapeInputs("foo'bar"));
+    // Leading, trailing and consecutive apostrophes
+    assertEquals("'\\'lead'", SQLInterpolator.escapeInputs("'lead"));
+    assertEquals("'trail\\''", SQLInterpolator.escapeInputs("trail'"));
+    assertEquals("'a\\'\\'b'", SQLInterpolator.escapeInputs("a''b"));
     // Escaping newlines
     assertEquals("'line1\\nline2'", SQLInterpolator.escapeInputs("line1\nline2"));
     // Escaping backslashes
