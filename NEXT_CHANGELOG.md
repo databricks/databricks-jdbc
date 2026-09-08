@@ -11,6 +11,8 @@
 - Updated bundled Jackson, lz4-java, Netty, and Apache HttpComponents Client and Core dependencies to patched versions to address security findings.
 
 ### Fixed
+- Fixed `DatabaseMetaData.getTypeInfo()` returning the `INTERVAL` row out of `DATA_TYPE` order.
+
 - Fixed later logging-enabled connections being unable to produce logs when an earlier connection
   used `LogLevel=OFF`. The first enabled connection now establishes the shared JUL handler, while a
   later `OFF` connection does not disable it.
