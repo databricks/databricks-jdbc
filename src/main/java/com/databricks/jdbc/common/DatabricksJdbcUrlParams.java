@@ -215,11 +215,11 @@ public enum DatabricksJdbcUrlParams {
   USE_BOUNDED_SEA_API(
       "UseBoundedSeaApi",
       "Use bounded SEA API for CloudFetch: send row_offset on GetResultData, force StreamingChunkProvider, stop relying on total_chunk_count. Requires server support.",
-      "0"),
+      "1"),
   ENABLE_THRIFT_NATIVE_METADATA(
       "EnableThriftNativeMetadata",
       "Request Thrift-native SEA results for catalogs, schemas, tables, columns, functions, primary keys, imported keys, and cross references",
-      "0"),
+      "1"),
   DISABLE_OAUTH_REFRESH_TOKEN(
       "DisableOauthRefreshToken",
       "Disable requesting OAuth refresh tokens (omit offline_access unless explicitly provided)",
