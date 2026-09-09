@@ -12,6 +12,8 @@
 - Updated bundled Apache Thrift to 0.24.0 to address CVE-2026-43871.
 
 ### Fixed
+- Fixed `DatabaseMetaData.getTypeInfo()` returning the `INTERVAL` row out of `DATA_TYPE` order.
+
 - Fixed later logging-enabled connections being unable to produce logs when an earlier connection
   used `LogLevel=OFF`. The first enabled connection now establishes the shared JUL handler, while a
   later `OFF` connection does not disable it.
