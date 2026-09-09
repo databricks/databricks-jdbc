@@ -41,19 +41,24 @@ class LegacyPreparedStatementBatchExecutor {
     this.statementExecutor = statementExecutor;
   }
 
-  long[] executeBatch(List<DatabricksParameterMetaData> batchParameterMetaData)
+  long[] executeBatch(List<BatchParameterSet> batchParameterSets)
       throws DatabricksBatchUpdateException {
-    if (batchParameterMetaData.isEmpty()) {
+    if (batchParameterSets.isEmpty()) {
       return new long[0];
     }
 
     // Try to optimize INSERT statements with multi-row batching
     if (canUseBatchedInsert()) {
-      return executeBatchedInsert(batchParameterMetaData);
+      return executeBatchedInsert(batchParameterSets);
     } else {
       // Fall back to individual execution for non-INSERT or incompatible statements
-      return executeIndividualStatements(batchParameterMetaData);
+      return executeIndividualStatements(batchParameterSets);
     }
+  }
+
+  long[] executeIndividually(List<BatchParameterSet> batchParameterSets)
+      throws DatabricksBatchUpdateException {
+    return executeIndividualStatements(batchParameterSets);
   }
 
   private boolean canUseBatchedInsert() {
@@ -76,9 +81,9 @@ class LegacyPreparedStatementBatchExecutor {
     }
   }
 
-  private long[] executeBatchedInsert(List<DatabricksParameterMetaData> batchParameterMetaData)
+  private long[] executeBatchedInsert(List<BatchParameterSet> batchParameterSets)
       throws DatabricksBatchUpdateException {
-    LOGGER.debug("Executing batched INSERT with {} rows", batchParameterMetaData.size());
+    LOGGER.debug("Executing batched INSERT with {} rows", batchParameterSets.size());
 
     try {
       InsertStatementParser.InsertInfo insertInfo = InsertStatementParser.parseInsertStrict(sql);
@@ -98,7 +103,7 @@ class LegacyPreparedStatementBatchExecutor {
               "BatchInsertSize must be at least 1, got: " + configuredBatchSize,
               DatabricksDriverErrorCode.INVALID_STATE);
         }
-        maxRowsPerChunk = Math.min(configuredBatchSize, batchParameterMetaData.size());
+        maxRowsPerChunk = Math.min(configuredBatchSize, batchParameterSets.size());
       } else {
         // When using parameterized queries, respect the 256 parameter limit from Databricks
         // backend
@@ -113,13 +118,13 @@ class LegacyPreparedStatementBatchExecutor {
         }
       }
 
-      long[] allUpdateCounts = new long[batchParameterMetaData.size()];
+      long[] allUpdateCounts = new long[batchParameterSets.size()];
 
       // Process batches in chunks
       for (int startIndex = 0;
-          startIndex < batchParameterMetaData.size();
+          startIndex < batchParameterSets.size();
           startIndex += maxRowsPerChunk) {
-        int endIndex = Math.min(startIndex + maxRowsPerChunk, batchParameterMetaData.size());
+        int endIndex = Math.min(startIndex + maxRowsPerChunk, batchParameterSets.size());
         int chunkSize = endIndex - startIndex;
 
         // Build multi-row INSERT for this chunk
@@ -128,7 +133,7 @@ class LegacyPreparedStatementBatchExecutor {
         int paramIndex = 1;
 
         for (int i = startIndex; i < endIndex; i++) {
-          DatabricksParameterMetaData batchParams = batchParameterMetaData.get(i);
+          BatchParameterSet batchParams = batchParameterSets.get(i);
           Map<Integer, ImmutableSqlParameter> rowParams = batchParams.getParameterBindings();
           for (int j = 1; j <= rowParams.size(); j++) {
             if (rowParams.containsKey(j)) {
@@ -161,7 +166,7 @@ class LegacyPreparedStatementBatchExecutor {
     } catch (Exception e) {
       // Unexpected exception - mark all as failed
       LOGGER.error("Unexpected error executing batched INSERT: {}", e.getMessage(), e);
-      long[] failedCounts = new long[batchParameterMetaData.size()];
+      long[] failedCounts = new long[batchParameterSets.size()];
       for (int i = 0; i < failedCounts.length; i++) {
         failedCounts[i] = Statement.EXECUTE_FAILED;
       }
@@ -170,22 +175,17 @@ class LegacyPreparedStatementBatchExecutor {
     }
   }
 
-  private long[] executeIndividualStatements(
-      List<DatabricksParameterMetaData> batchParameterMetaData)
+  private long[] executeIndividualStatements(List<BatchParameterSet> batchParameterSets)
       throws DatabricksBatchUpdateException {
-    LOGGER.debug("Executing batch individually with {} statements", batchParameterMetaData.size());
-    long[] largeUpdateCount = new long[batchParameterMetaData.size()];
+    LOGGER.debug("Executing batch individually with {} statements", batchParameterSets.size());
+    long[] largeUpdateCount = new long[batchParameterSets.size()];
 
-    for (int sqlQueryIndex = 0; sqlQueryIndex < batchParameterMetaData.size(); sqlQueryIndex++) {
-      DatabricksParameterMetaData databricksParameterMetaData =
-          batchParameterMetaData.get(sqlQueryIndex);
+    for (int sqlQueryIndex = 0; sqlQueryIndex < batchParameterSets.size(); sqlQueryIndex++) {
+      BatchParameterSet batchParameterSet = batchParameterSets.get(sqlQueryIndex);
       try {
         DatabricksResultSet resultSet =
             statementExecutor.execute(
-                sql,
-                databricksParameterMetaData.getParameterBindings(),
-                StatementType.UPDATE,
-                false);
+                sql, batchParameterSet.getParameterBindings(), StatementType.UPDATE, false);
         largeUpdateCount[sqlQueryIndex] = resultSet.getUpdateCount();
       } catch (Exception e) {
         LOGGER.error(

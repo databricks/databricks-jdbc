@@ -158,6 +158,85 @@ public class DatabricksThriftServiceClientTest {
     assertDoesNotThrow(() -> client.deleteSession(SESSION_INFO));
   }
 
+  @Test
+  void testNativeBatchCapabilityUsesProtocolOnlyForAllPurposeClusters() {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+
+    client.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9);
+    assertFalse(client.supportsNativeParameterBatching(CLUSTER_COMPUTE));
+    assertTrue(client.supportsNativeParameterBatching(WAREHOUSE_COMPUTE));
+
+    client.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V10);
+    assertTrue(client.supportsNativeParameterBatching(CLUSTER_COMPUTE));
+    assertTrue(client.supportsNativeParameterBatching(WAREHOUSE_COMPUTE));
+  }
+
+  @Test
+  void testExecuteStatementBatchBuildsNativeThriftRequest() throws SQLException {
+    when(connectionContext.shouldEnableArrow()).thenReturn(true);
+    lenient().when(connectionContext.isCloudFetchEnabled()).thenReturn(true);
+    when(session.getSessionInfo()).thenReturn(SESSION_INFO);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(parentStatement.getMaxRows()).thenReturn(10);
+    when(statement.getQueryTimeout()).thenReturn(15);
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    client.setServerProtocolVersion(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V9);
+    List<BatchParameterSet> parameterSets =
+        List.of(
+            BatchParameterSet.from(
+                Map.of(
+                    1,
+                    ImmutableSqlParameter.builder().cardinal(1).type(INT).value(1).build(),
+                    2,
+                    ImmutableSqlParameter.builder()
+                        .cardinal(2)
+                        .type(STRING)
+                        .value("first")
+                        .build())),
+            BatchParameterSet.from(
+                Map.of(
+                    1,
+                    ImmutableSqlParameter.builder().cardinal(1).type(INT).value(2).build(),
+                    2,
+                    ImmutableSqlParameter.builder()
+                        .cardinal(2)
+                        .type(STRING)
+                        .value("second")
+                        .build())));
+    when(thriftAccessor.execute(
+            any(TExecuteStatementReq.class),
+            eq(parentStatement),
+            eq(session),
+            eq(StatementType.UPDATE)))
+        .thenReturn(resultSet);
+
+    DatabricksResultSet actual =
+        client.executeStatementBatch(
+            "INSERT INTO target VALUES (?, ?)",
+            WAREHOUSE_COMPUTE,
+            parameterSets,
+            StatementType.UPDATE,
+            session,
+            parentStatement);
+
+    assertSame(resultSet, actual);
+    ArgumentCaptor<TExecuteStatementReq> requestCaptor =
+        ArgumentCaptor.forClass(TExecuteStatementReq.class);
+    verify(thriftAccessor)
+        .execute(
+            requestCaptor.capture(), eq(parentStatement), eq(session), eq(StatementType.UPDATE));
+    TExecuteStatementReq request = requestCaptor.getValue();
+    assertFalse(request.isSetParameters());
+    assertFalse(request.isSetResultRowLimit());
+    assertEquals(2, request.getBatchParametersSize());
+    assertEquals(0, request.getBatchParameters().get(0).get(0).getOrdinal());
+    assertEquals(1, request.getBatchParameters().get(0).get(1).getOrdinal());
+    assertEquals("first", request.getBatchParameters().get(0).get(1).getValue().getStringValue());
+    assertEquals("second", request.getBatchParameters().get(1).get(1).getValue().getStringValue());
+  }
+
   private static Stream<Arguments> protocolVersionProvider() {
     return Stream.of(
         Arguments.of(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V1),
