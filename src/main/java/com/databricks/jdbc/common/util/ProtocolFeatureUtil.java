@@ -141,6 +141,16 @@ public final class ProtocolFeatureUtil {
   }
 
   /**
+   * Checks if the given protocol version supports native parameter batches.
+   *
+   * @param protocolVersion The protocol version to check
+   * @return true if native parameter batches are supported, false otherwise
+   */
+  public static boolean supportsNativeParameterBatching(TProtocolVersion protocolVersion) {
+    return protocolVersion.compareTo(TProtocolVersion.SPARK_CLI_SERVICE_PROTOCOL_V10) >= 0;
+  }
+
+  /**
    * Checks if the given protocol version indicates a non-Databricks compute.
    *
    * @param protocolVersion The protocol version to check
