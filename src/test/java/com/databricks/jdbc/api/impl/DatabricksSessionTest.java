@@ -21,11 +21,13 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
+import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.LongStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -89,6 +91,53 @@ public class DatabricksSessionTest {
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());
+  }
+
+  private DatabricksSession openSessionWithVersion(long initialVersion) throws SQLException {
+    setupWarehouse(false /* useThrift */);
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .sessionVersion(initialVersion)
+            .computeResource(WAREHOUSE_COMPUTE)
+            .build();
+    when(sdkClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
+    DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
+    session.open();
+    return session;
+  }
+
+  @Test
+  public void testSessionVersionTracksConcurrentMaximum() throws SQLException {
+    DatabricksSession session = openSessionWithVersion(10L);
+
+    LongStream.rangeClosed(1, 1000)
+        .parallel()
+        .forEach(
+            version -> session.updateSessionVersion(new SessionVersion().setVersionId(version)));
+    session.updateSessionVersion(new SessionVersion().setVersionId(500L));
+
+    assertEquals(1000L, session.getSessionVersion().getVersionId());
+  }
+
+  @Test
+  public void testSessionVersionIgnoresIncompleteUpdates() throws SQLException {
+    DatabricksSession session = openSessionWithVersion(10L);
+
+    session.updateSessionVersion(new SessionVersion());
+    session.updateSessionVersion(null);
+
+    assertEquals(10L, session.getSessionVersion().getVersionId());
+  }
+
+  @Test
+  public void testSessionVersionClearsOnCloseAndIgnoresLaterUpdates() throws SQLException {
+    DatabricksSession session = openSessionWithVersion(10L);
+
+    session.close();
+    assertNull(session.getSessionVersion());
+    session.updateSessionVersion(new SessionVersion().setVersionId(1001L));
+    assertNull(session.getSessionVersion());
   }
 
   @Test
