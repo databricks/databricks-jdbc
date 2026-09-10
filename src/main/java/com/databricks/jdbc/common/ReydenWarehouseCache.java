@@ -12,7 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * SEA directly, avoiding the rejection error.
  *
  * <p>Cache entries expire after ~6 hours to allow warehouses to be de-registered or reconfigured.
- * The cache key is (host_lowercased, warehouse_id) for multi-tenant safety.
+ * The cache key is (host, warehouse_id) for multi-tenant safety; the host is normalized
+ * case-insensitively in {@link #buildKey}, so callers need not lowercase it.
  */
 public final class ReydenWarehouseCache {
 
@@ -47,11 +48,11 @@ public final class ReydenWarehouseCache {
    * Returns true if the warehouse (host, warehouse_id) pair is known to be Reyden. Removes expired
    * entries opportunistically.
    */
-  public boolean isReydenWarehouse(String hostLowercased, String warehouseId) {
-    if (hostLowercased == null || warehouseId == null) {
+  public boolean isReydenWarehouse(String host, String warehouseId) {
+    if (host == null || warehouseId == null) {
       return false;
     }
-    String key = buildKey(hostLowercased, warehouseId);
+    String key = buildKey(host, warehouseId);
     CacheEntry entry = cache.get(key);
     if (entry == null) {
       return false;
@@ -64,17 +65,17 @@ public final class ReydenWarehouseCache {
   }
 
   /** Marks the warehouse (host, warehouse_id) pair as Reyden. */
-  public void markReydenWarehouse(String hostLowercased, String warehouseId) {
-    if (hostLowercased == null || warehouseId == null) {
+  public void markReydenWarehouse(String host, String warehouseId) {
+    if (host == null || warehouseId == null) {
       return;
     }
-    String key = buildKey(hostLowercased, warehouseId);
+    String key = buildKey(host, warehouseId);
     cache.put(key, new CacheEntry());
     evictExpiredEntries(); // opportunistic sweep on write, when the map may grow
     LOGGER.debug(
         "Marked warehouse as Reyden (host={}, warehouse_id={}). "
             + "Future connections will use SEA directly.",
-        hostLowercased,
+        host,
         warehouseId);
   }
 
@@ -94,7 +95,8 @@ public final class ReydenWarehouseCache {
         });
   }
 
-  private static String buildKey(String hostLowercased, String warehouseId) {
-    return hostLowercased.toLowerCase() + "|" + warehouseId;
+  private static String buildKey(String host, String warehouseId) {
+    // Normalize the host here so case-insensitivity holds regardless of what the caller passes.
+    return host.toLowerCase() + "|" + warehouseId;
   }
 }

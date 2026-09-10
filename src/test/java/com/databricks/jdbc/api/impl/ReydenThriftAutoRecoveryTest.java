@@ -207,6 +207,53 @@ public class ReydenThriftAutoRecoveryTest {
   }
 
   /**
+   * Test: a Thrift-forcing metadata param (UseQueryForMetadata=0) still counts as the default path
+   * (UseThriftClient unset), so a KP001 recovers to SEA. Exercises the metadata-override warn.
+   */
+  @Test
+  public void testReydenRecovery_WithThriftMetadataParam_StillRecovers() throws SQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            WAREHOUSE_URL_THRIFT + ";UseQueryForMetadata=0", new Properties());
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        connectionContext, new HashMap<>());
+
+    ImmutableSessionInfo successSessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .computeResource(WAREHOUSE_COMPUTE)
+            .build();
+
+    DatabricksSQLException kp001Error =
+        new DatabricksSQLException(
+            "Lakehouse/RT is not supported for Thrift protocol",
+            "KP001",
+            DatabricksDriverErrorCode.CONNECTION_ERROR);
+    when(thriftClient.createSession(any(), any(), any(), any())).thenThrow(kp001Error);
+    when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
+        .thenReturn(successSessionInfo);
+
+    try (MockedStatic<DatabricksMetricsTimedProcessor> proxyMock =
+        Mockito.mockStatic(DatabricksMetricsTimedProcessor.class)) {
+      // Swap only the SEA client for the mock; pass other proxied objects through unchanged.
+      proxyMock
+          .when(() -> DatabricksMetricsTimedProcessor.createProxy(any()))
+          .thenAnswer(
+              invocation -> {
+                Object arg = invocation.getArgument(0);
+                return (arg instanceof DatabricksSdkClient) ? sdkClient : arg;
+              });
+
+      DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
+      assertDoesNotThrow(session::open);
+
+      // Recovery proceeds despite the metadata-forcing param (it is not a protocol choice).
+      assertTrue(session.isOpen());
+      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+    }
+  }
+
+  /**
    * Test: Explicit UseThriftClient=1 is honored — no fallback on KP001.
    *
    * <p>Real method called: DatabricksSession.open() is called. If UseThriftClient=1 is explicit,

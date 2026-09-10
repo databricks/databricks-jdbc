@@ -143,10 +143,11 @@ public class DatabricksSession implements IDatabricksSession {
       String warehouseId = getWarehouseId();
       if (warehouseId != null
           && ReydenWarehouseCache.getInstance()
-              .isReydenWarehouse(connectionContext.getHost().toLowerCase(), warehouseId)) {
+              .isReydenWarehouse(connectionContext.getHost(), warehouseId)) {
         LOGGER.debug(
             "Warehouse {} is known to be Reyden. Switching to SEA to skip Thrift rejection.",
             warehouseId);
+        warnIfOverridingThriftMetadataPreference(warehouseId);
         connectionContext.setClientType(DatabricksClientType.SEA);
       }
     }
@@ -198,7 +199,7 @@ public class DatabricksSession implements IDatabricksSession {
             String warehouseId = getWarehouseId();
             if (warehouseId != null) {
               ReydenWarehouseCache.getInstance()
-                  .markReydenWarehouse(connectionContext.getHost().toLowerCase(), warehouseId);
+                  .markReydenWarehouse(connectionContext.getHost(), warehouseId);
             }
             // Only auto-recover on the default Thrift path; an explicit use_thrift_client=1 is
             // honored. Recovery is a single SEA attempt (no loop).
@@ -207,6 +208,7 @@ public class DatabricksSession implements IDatabricksSession {
                   "Thrift OpenSession rejected with SQLSTATE KP001 (not supported for Thrift protocol). "
                       + "Attempting transparent fallback to SEA. warehouse_id={}",
                   warehouseId);
+              warnIfOverridingThriftMetadataPreference(warehouseId);
               try {
                 this.connectionContext.setClientType(DatabricksClientType.SEA);
                 this.databricksClient =
@@ -508,6 +510,31 @@ public class DatabricksSession implements IDatabricksSession {
     // If the user did NOT explicitly set USE_THRIFT_CLIENT in the URL, then it's the default path.
     // We check this by seeing if the property is present (explicitly set).
     return !connectionContext.isPropertyPresent(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT);
+  }
+
+  /**
+   * Warns when Reyden recovery switches a connection that explicitly requested Thrift-only metadata
+   * behavior over to SEA. Recovering keeps the connection alive (a Reyden warehouse rejects Thrift
+   * entirely), but SEA serves metadata with {@code SHOW} commands rather than the native Thrift
+   * RPCs the user asked for. This makes that otherwise-silent change observable.
+   */
+  private void warnIfOverridingThriftMetadataPreference(String warehouseId) {
+    // These params force the Thrift client for native metadata (see getClientTypeFromContext):
+    // UseQueryForMetadata=0 (native RPCs instead of SHOW) or TreatMetadataCatalogNameAsPattern=1.
+    boolean forcedNativeMetadata =
+        connectionContext.isPropertyPresent(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA)
+            && !connectionContext.useQueryForMetadata();
+    boolean forcedCatalogPattern =
+        connectionContext.isPropertyPresent(
+                DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN)
+            && connectionContext.treatMetadataCatalogNameAsPattern();
+    if (forcedNativeMetadata || forcedCatalogPattern) {
+      LOGGER.warn(
+          "Reyden auto-recovery is switching to SEA, overriding a Thrift-only metadata preference "
+              + "(UseQueryForMetadata=0 / TreatMetadataCatalogNameAsPattern=1). Metadata will use "
+              + "SEA SHOW commands instead of native Thrift RPCs. warehouse_id={}",
+          warehouseId);
+    }
   }
 
   /**
