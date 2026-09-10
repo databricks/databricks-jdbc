@@ -61,3 +61,7 @@ retrospective flow.
   **Rule:** Set a one-time initialization guard (static `isInitialized` flag / singleton) only after a fully-functional configuration is actually installed — never on a disabled/no-op early path or before an operation that can throw — otherwise the first weak or failed caller permanently poisons initialization for every later caller.
 - **Context:** In PR #1670 a reviewer flagged that detecting the "logging off" case should compare `level.intValue() == Level.OFF.intValue()` rather than by object reference/equality, since `java.util.logging.Level` allows distinct instances that share the same integer value.
   **Rule:** Compare `java.util.logging.Level` (and similar level/enum-like value objects) by `intValue()`, not by `==` reference or `.equals()`, because semantically-equal levels can be different object instances.
+
+### 2026-09-10: learnings since 2026-09-09T17:27:44Z
+- **Context:** PR #1680 fixed `DatabaseMetaData.getTypeInfo()` returning the `INTERVAL` row out of `DATA_TYPE` order; the fix reordered the static row array and added a test asserting rows are sorted by `DATA_TYPE`.
+  **Rule:** JDBC `DatabaseMetaData` metadata result sets carry spec-mandated ordering contracts (e.g. `getTypeInfo()` MUST return rows ordered by `DATA_TYPE`) — when adding or editing rows in a hardcoded metadata table, preserve the required sort order and guard it with an ordering assertion, since column values alone won't reveal the violation.
