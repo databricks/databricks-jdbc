@@ -325,12 +325,15 @@ public class ReydenThriftAutoRecoveryTest {
 
       DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
 
-      // Should throw the SEA error but with KP001 in the cause chain
       DatabricksSQLException thrown = assertThrows(DatabricksSQLException.class, session::open);
       assertTrue(thrown.getMessage().contains("SEA fallback also failed"));
 
-      // Original KP001 should be in the suppressed or cause chain
-      assertNotNull(thrown.getCause());
+      // The SEA failure is the cause; the original Thrift KP001 is preserved as a suppressed
+      // exception so neither error chain is lost.
+      assertEquals("08001", ((DatabricksSQLException) thrown.getCause()).getSQLState());
+      Throwable[] suppressed = thrown.getSuppressed();
+      assertEquals(1, suppressed.length, "the original Thrift rejection should be suppressed");
+      assertEquals("KP001", ((DatabricksSQLException) suppressed[0]).getSQLState());
     }
   }
 

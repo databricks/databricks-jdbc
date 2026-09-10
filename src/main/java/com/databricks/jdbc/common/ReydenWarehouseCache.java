@@ -2,6 +2,7 @@ package com.databricks.jdbc.common;
 
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -97,6 +98,7 @@ public final class ReydenWarehouseCache {
 
   private static String buildKey(String host, String warehouseId) {
     // Normalize the host here so case-insensitivity holds regardless of what the caller passes.
-    return host.toLowerCase() + "|" + warehouseId;
+    // Locale.ROOT avoids locale-sensitive folding (e.g. the Turkish dotless-i).
+    return host.toLowerCase(Locale.ROOT) + "|" + warehouseId;
   }
 }
