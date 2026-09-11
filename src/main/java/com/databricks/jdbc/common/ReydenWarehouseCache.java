@@ -4,6 +4,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.LongSupplier;
 
 /**
  * Thread-safe, process-wide cache of warehouses known to be Real-Time SQL (Reyden) warehouses.
@@ -25,21 +26,35 @@ public final class ReydenWarehouseCache {
 
   private static final ReydenWarehouseCache INSTANCE = new ReydenWarehouseCache();
 
-  private static class CacheEntry {
+  // Non-static so it reads the enclosing cache's clock/TTL, which the test
+  // constructor can override to exercise the expiry and eviction paths.
+  private class CacheEntry {
     final long timestamp;
 
     CacheEntry() {
-      this.timestamp = System.currentTimeMillis();
+      this.timestamp = clock.getAsLong();
     }
 
     boolean isExpired() {
-      return System.currentTimeMillis() - timestamp > ENTRY_TTL_MILLIS;
+      return clock.getAsLong() - timestamp > ttlMillis;
     }
   }
 
   private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
 
-  private ReydenWarehouseCache() {}
+  // Time source and TTL are injectable so tests can drive expiry deterministically
+  // without sleeping; production uses the wall clock and the 6h TTL.
+  private final LongSupplier clock;
+  private final long ttlMillis;
+
+  private ReydenWarehouseCache() {
+    this(System::currentTimeMillis, ENTRY_TTL_MILLIS);
+  }
+
+  ReydenWarehouseCache(LongSupplier clock, long ttlMillis) {
+    this.clock = clock;
+    this.ttlMillis = ttlMillis;
+  }
 
   public static ReydenWarehouseCache getInstance() {
     return INSTANCE;
@@ -83,6 +98,11 @@ public final class ReydenWarehouseCache {
   /** Removes all entries. Intended for test isolation of the process-wide singleton. */
   public void clearCache() {
     cache.clear();
+  }
+
+  /** Current number of cached entries. Intended for test observability. */
+  int size() {
+    return cache.size();
   }
 
   /** Opportunistically evicts expired entries. Invoked on writes, when the map may grow. */
