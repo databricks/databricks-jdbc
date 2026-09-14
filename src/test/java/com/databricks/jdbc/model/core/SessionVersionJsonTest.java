@@ -1,6 +1,8 @@
 package com.databricks.jdbc.model.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.model.client.sqlexec.CreateSessionRequest;
 import com.databricks.jdbc.model.client.sqlexec.CreateSessionResponse;
@@ -30,7 +32,8 @@ public class SessionVersionJsonTest {
   public void testSessionVersionsDeserializeFromCreateAndStatusResponses() throws Exception {
     CreateSessionResponse createResponse =
         objectMapper.readValue(
-            "{\"session_id\":\"session\",\"session_version\":{\"version_id\":7}}",
+            "{\"session_id\":\"session\",\"session_version\":{\"version_id\":7},"
+                + "\"direct_routing_enabled\":true}",
             CreateSessionResponse.class);
     StatementStatus status =
         objectMapper.readValue(
@@ -38,6 +41,11 @@ public class SessionVersionJsonTest {
             StatementStatus.class);
 
     assertEquals(7L, createResponse.getSessionVersion().getVersionId());
+    assertTrue(createResponse.isDirectRoutingEnabled());
     assertEquals(9L, status.getSessionVersion().getVersionId());
+
+    CreateSessionResponse responseWithoutRouting =
+        objectMapper.readValue("{\"session_id\":\"session\"}", CreateSessionResponse.class);
+    assertFalse(responseWithoutRouting.isDirectRoutingEnabled());
   }
 }

@@ -21,6 +21,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtilsTest;
+import com.databricks.jdbc.dbclient.impl.common.SessionId;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
@@ -72,6 +73,19 @@ public class DatabricksSdkClientTest {
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String JDBC_URL =
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
+  private static final String M2M_JDBC_URL =
+      "jdbc:databricks://sample-host.cloud.databricks.com:4423/default;transportMode=http;"
+          + "ssl=1;AuthMech=11;Auth_Flow=1;OAuth2ClientId=client;OAuth2Secret=secret;"
+          + "httpPath=/sql/1.0/warehouses/99999999;";
+  private static final String AZURE_SERVICE_PRINCIPAL_JDBC_URL =
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;"
+          + "ssl=1;AuthMech=11;Auth_Flow=1;OAuth2ClientId=client;OAuth2Secret=secret;"
+          + "AzureTenantId=tenant;httpPath=/sql/1.0/warehouses/99999999;";
+  private static final String GCP_SERVICE_ACCOUNT_JDBC_URL =
+      "jdbc:databricks://sample-host.7.gcp.databricks.com:4423/default;transportMode=http;"
+          + "ssl=1;AuthMech=11;Auth_Flow=1;GoogleServiceAccount=service@example.com;"
+          + "httpPath=/sql/1.0/warehouses/99999999;";
+  private static final String DIRECT_ROUTING_HEADER = "x-databricks-direct-routing";
   private static final String DEFAULT_KEYSTORE_PASSWORD = "changeit";
 
   private static final Map<Integer, ImmutableSqlParameter> sqlParams =
@@ -219,6 +233,133 @@ public class DatabricksSdkClientTest {
                 request ->
                     request instanceof CreateSessionRequest
                         && "FAST".equals(((CreateSessionRequest) request).getExecutionMode())));
+  }
+
+  @Test
+  public void testDirectRoutingHeaderCoversCurrentSessionLifecycle() throws Exception {
+    when(apiClient.execute(any(Request.class), any()))
+        .thenAnswer(
+            invocation -> {
+              Request request = invocation.getArgument(0, Request.class);
+              Class<?> responseType = invocation.getArgument(1, Class.class);
+              if (responseType == CreateSessionResponse.class) {
+                return new CreateSessionResponse()
+                    .setSessionId(SESSION_ID)
+                    .setDirectRoutingEnabled(true);
+              }
+              if (responseType == ExecuteStatementResponse.class) {
+                return new ExecuteStatementResponse()
+                    .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+                    .setStatus(new StatementStatus().setState(StatementState.PENDING));
+              }
+              if (responseType == GetStatementResponse.class) {
+                return new GetStatementResponse()
+                    .setStatementId(STATEMENT_ID.toSQLExecStatementId())
+                    .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
+              }
+              if (responseType == StatementStatus.class) {
+                return new StatementStatus().setState(StatementState.SUCCEEDED);
+              }
+              if (responseType == ResultData.class) {
+                return new ResultData().setExternalLinks(Collections.emptyList());
+              }
+              assertEquals(Void.class, responseType, "Unexpected request: " + request.getUrl());
+              return null;
+            });
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(M2M_JDBC_URL, new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    connection.open();
+    assertTrue(connection.getSession().getSessionInfo().directRoutingEnabled());
+
+    DatabricksStatement statement = new DatabricksStatement(connection);
+    client.executeStatementAsync(
+        "SELECT 1", warehouse, Collections.emptyMap(), connection.getSession(), statement);
+    StatementId statementId = statement.getStatementId();
+    assertTrue(statementId.isOwnedByCurrentSession());
+
+    client.checkStatementAlive(statementId);
+    client.getStatementResult(statementId, connection.getSession(), statement);
+    client.getResultChunks(statementId, 0, 0);
+    client.getResultChunksData(statementId, 0);
+    client.cancelStatement(statementId);
+    client.closeStatement(statementId);
+    StatementId detachedStatementId = StatementId.deserialize("detached-statement");
+    client.checkStatementAlive(detachedStatementId);
+    client.getStatementResult(detachedStatementId, connection.getSession(), statement);
+    client.getResultChunks(detachedStatementId, 0, 0);
+    client.getResultChunksData(detachedStatementId, 0);
+    client.cancelStatement(detachedStatementId);
+    client.closeStatement(detachedStatementId);
+    client.deleteSession(connection.getSession().getSessionInfo());
+
+    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient, atLeastOnce()).execute(requests.capture(), any());
+    for (Request request : requests.getAllValues()) {
+      if ((SESSION_PATH.equals(request.getUrl()) && Request.POST.equals(request.getMethod()))
+          || request.getUrl().contains("detached-statement")) {
+        assertNull(directRoutingHeader(request));
+      } else {
+        assertEquals(
+            "true", directRoutingHeader(request), request.getMethod() + " " + request.getUrl());
+      }
+    }
+  }
+
+  @Test
+  public void testDirectRoutingSurvivesOutOfBandSessionClose() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(M2M_JDBC_URL, new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    ImmutableSessionInfo sessionInfo =
+        SessionId.deserialize("s|" + WAREHOUSE_ID + "|" + SESSION_ID + "|d").getSessionInfo();
+
+    client.deleteSession(sessionInfo);
+
+    ArgumentCaptor<Request> request = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(request.capture(), eq(Void.class));
+    assertEquals("true", directRoutingHeader(request.getValue()));
+  }
+
+  @Test
+  public void testDirectRoutingRequiresM2MAndIgnoresCallerHeader() throws Exception {
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenReturn(
+            new CreateSessionResponse().setSessionId(SESSION_ID).setDirectRoutingEnabled(true));
+    String url = JDBC_URL + "http.header.X-Databricks-Direct-Routing=true;";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(url, new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    ImmutableSessionInfo sessionInfo = client.createSession(warehouse, null, null, null);
+    assertFalse(sessionInfo.directRoutingEnabled());
+    client.cancelStatement(StatementId.forCurrentSession("statement"));
+
+    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient, atLeastOnce()).execute(requests.capture(), any());
+    assertTrue(
+        requests.getAllValues().stream().allMatch(request -> directRoutingHeader(request) == null));
+  }
+
+  @Test
+  public void testDirectRoutingEligibilityUsesDatabricksOAuthM2M() throws Exception {
+    assertTrue(
+        DatabricksSdkClient.isDirectRoutingEligible(
+            DatabricksConnectionContext.parse(M2M_JDBC_URL, new Properties())));
+    assertFalse(
+        DatabricksSdkClient.isDirectRoutingEligible(
+            DatabricksConnectionContext.parse(JDBC_URL, new Properties())));
+    assertFalse(
+        DatabricksSdkClient.isDirectRoutingEligible(
+            DatabricksConnectionContext.parse(AZURE_SERVICE_PRINCIPAL_JDBC_URL, new Properties())));
+    assertFalse(
+        DatabricksSdkClient.isDirectRoutingEligible(
+            DatabricksConnectionContext.parse(GCP_SERVICE_ACCOUNT_JDBC_URL, new Properties())));
   }
 
   @Test
@@ -1094,6 +1235,17 @@ public class DatabricksSdkClientTest {
         .value(x)
         .cardinal(parameterIndex)
         .build();
+  }
+
+  private static String directRoutingHeader(Request request) {
+    if (request.getHeaders() == null) {
+      return null;
+    }
+    return request.getHeaders().entrySet().stream()
+        .filter(entry -> DIRECT_ROUTING_HEADER.equalsIgnoreCase(entry.getKey()))
+        .map(Map.Entry::getValue)
+        .findFirst()
+        .orElse(null);
   }
 
   private StatementParameterListItem getParam(String type, String value, int ordinal) {

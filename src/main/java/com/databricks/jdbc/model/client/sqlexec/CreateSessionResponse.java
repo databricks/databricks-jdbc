@@ -17,6 +17,9 @@ public class CreateSessionResponse {
   @JsonProperty("session_version")
   private SessionVersion sessionVersion;
 
+  @JsonProperty("direct_routing_enabled")
+  private boolean directRoutingEnabled;
+
   public CreateSessionResponse setSessionId(String sessionId) {
     this.sessionId = sessionId;
     return this;
@@ -33,5 +36,14 @@ public class CreateSessionResponse {
 
   public SessionVersion getSessionVersion() {
     return sessionVersion;
+  }
+
+  public CreateSessionResponse setDirectRoutingEnabled(boolean directRoutingEnabled) {
+    this.directRoutingEnabled = directRoutingEnabled;
+    return this;
+  }
+
+  public boolean isDirectRoutingEnabled() {
+    return directRoutingEnabled;
   }
 }

@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.M2M_AUTH_TYPE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.OPERATION_CANCELLED_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
@@ -46,6 +47,7 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.http.Request;
+import com.databricks.sdk.core.utils.Cloud;
 import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
@@ -66,6 +68,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private static final String ASYNC_TIMEOUT_VALUE = "0s";
   private static final String FAST_SESSION_EXECUTION_MODE = "FAST";
+  private static final String HEADER_DIRECT_ROUTING = "x-databricks-direct-routing";
   private static final String HEADER_METADATA_OPERATION_TYPE =
       "X-Databricks-Metadata-Operation-Type";
   private static final String HEADER_REQUIRE_THRIFT_NATIVE_METADATA =
@@ -75,6 +78,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private final ClientConfigurator clientConfigurator;
   private volatile WorkspaceClient workspaceClient;
   private volatile ApiClient apiClient;
+  private volatile boolean directRoutingEnabled;
 
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException, DatabricksHttpException {
@@ -135,7 +139,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     CreateSessionResponse createSessionResponse = null;
     try {
       Request req = new Request(Request.POST, SESSION_PATH, apiClient.serialize(request));
-      req.withHeaders(getHeaders("createSession"));
+      req.withHeaders(getHeaders("createSession", false));
       createSessionResponse = apiClient.execute(req, CreateSessionResponse.class);
     } catch (DatabricksError e) {
       if (e.getStatusCode() == TEMPORARY_REDIRECT_STATUS_CODE) {
@@ -163,6 +167,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
     DatabricksThreadContextHolder.setSessionId(sessionId);
     ImmutableSessionInfo.Builder sessionInfo =
         ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(sessionId);
+    directRoutingEnabled =
+        createSessionResponse.isDirectRoutingEnabled()
+            && isDirectRoutingEligible(connectionContext);
+    sessionInfo.directRoutingEnabled(directRoutingEnabled);
     SessionVersion initialVersion = createSessionResponse.getSessionVersion();
     if (initialVersion != null && initialVersion.getVersionId() != null) {
       sessionInfo.sessionVersionId(initialVersion.getVersionId());
@@ -181,7 +189,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String path = String.format(SESSION_PATH_WITH_ID, request.getSessionId());
     try {
       Request req = new Request(Request.DELETE, path);
-      req.withHeaders(getHeaders("deleteSession"));
+      req.withHeaders(
+          getHeaders(
+              "deleteSession",
+              sessionInfo.directRoutingEnabled() && isDirectRoutingEligible(connectionContext)));
       ApiClient.setQuery(req, request);
       apiClient.execute(req, Void.class);
     } catch (IOException e) {
@@ -235,7 +246,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
           additionalHeaders.put(HEADER_REQUIRE_THRIFT_NATIVE_METADATA, "true");
         }
       }
-      req.withHeaders(getHeaders("executeStatement", statementType, false, additionalHeaders));
+      req.withHeaders(
+          getHeaders(
+              "executeStatement", statementType, false, additionalHeaders, directRoutingEnabled));
       response = apiClient.execute(req, ExecuteStatementResponse.class);
       updateSessionVersion(session, response.getStatus());
     } catch (IOException e) {
@@ -258,7 +271,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         statementType,
         computeResource,
         statementId);
-    StatementId typedStatementId = new StatementId(statementId);
+    StatementId typedStatementId = StatementId.forCurrentSession(statementId);
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     if (parentStatement != null) {
       parentStatement.setStatementId(typedStatementId);
@@ -302,7 +315,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String getStatusPath = String.format(STATEMENT_PATH_WITH_ID, statementId);
       try {
         Request req = new Request(Request.GET, getStatusPath, apiClient.serialize(request));
-        req.withHeaders(getHeaders("getStatement"));
+        req.withHeaders(getHeaders("getStatement", useDirectRouting(typedStatementId)));
         response = wrapGetStatementResponse(apiClient.execute(req, GetStatementResponse.class));
         updateSessionVersion(session, response.getStatus());
       } catch (IOException e) {
@@ -399,7 +412,8 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ExecuteStatementResponse response;
     try {
       Request req = new Request(Request.POST, STATEMENT_PATH, apiClient.serialize(request));
-      req.withHeaders(getHeaders("executeStatement", statementType, true));
+      req.withHeaders(
+          getHeaders("executeStatement", statementType, true, null, directRoutingEnabled));
       response = apiClient.execute(req, ExecuteStatementResponse.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement async request";
@@ -411,7 +425,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.error("Empty Statement ID for sql {}, compute {}", sql, computeResource.toString());
       handleFailedExecution(response, "", sql);
     }
-    StatementId typedStatementId = new StatementId(statementId);
+    StatementId typedStatementId = StatementId.forCurrentSession(statementId);
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     if (parentStatement != null) {
       parentStatement.setStatementId(typedStatementId);
@@ -438,7 +452,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String statusPath = String.format(STATEMENT_STATUS_PATH_WITH_ID, statementId);
     try {
       Request req = new Request(Request.GET, statusPath, (String) null);
-      req.withHeaders(getHeaders("getStatementStatus"));
+      req.withHeaders(getHeaders("getStatementStatus", useDirectRouting(typedStatementId)));
       StatementStatus status = apiClient.execute(req, StatementStatus.class);
       StatementState state = status.getState();
       // Terminal states mean the operation is no longer alive
@@ -468,7 +482,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     GetStatementResponse response;
     try {
       Request req = new Request(Request.GET, getStatusPath, apiClient.serialize(request));
-      req.withHeaders(getHeaders("getStatement"));
+      req.withHeaders(getHeaders("getStatement", useDirectRouting(typedStatementId)));
       response = apiClient.execute(req, GetStatementResponse.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the get statement result request";
@@ -507,7 +521,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String path = String.format(STATEMENT_PATH_WITH_ID, request.getStatementId());
     try {
       Request req = new Request(Request.DELETE, path, apiClient.serialize(request));
-      req.withHeaders(getHeaders("closeStatement"));
+      req.withHeaders(getHeaders("closeStatement", useDirectRouting(typedStatementId)));
       apiClient.execute(req, Void.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the close statement request";
@@ -525,7 +539,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String path = String.format(CANCEL_STATEMENT_PATH_WITH_ID, request.getStatementId());
     try {
       Request req = new Request(Request.POST, path, apiClient.serialize(request));
-      req.withHeaders(getHeaders("cancelStatement"));
+      req.withHeaders(getHeaders("cancelStatement", useDirectRouting(typedStatementId)));
       apiClient.execute(req, Void.class);
     } catch (IOException e) {
       String errorMessage = "Error while processing the cancel statement request";
@@ -551,7 +565,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
     try {
       Request req = new Request(Request.GET, path, apiClient.serialize(request));
-      req.withHeaders(getHeaders("getStatementResultN"));
+      req.withHeaders(getHeaders("getStatementResultN", useDirectRouting(typedStatementId)));
       ResultData resultData = apiClient.execute(req, ResultData.class);
       return buildChunkLinkFetchResult(resultData.getExternalLinks());
     } catch (DatabricksException e) {
@@ -612,7 +626,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String path = String.format(RESULT_CHUNK_PATH, statementId, chunkIndex);
     try {
       Request req = new Request(Request.GET, path, apiClient.serialize(request));
-      req.withHeaders(getHeaders("getStatementResultN"));
+      req.withHeaders(getHeaders("getStatementResultN", useDirectRouting(typedStatementId)));
       return apiClient.execute(req, ResultData.class);
     } catch (DatabricksException e) {
       String errorMessage =
@@ -656,20 +670,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
         && this.connectionContext.isCloudFetchEnabled();
   }
 
-  private Map<String, String> getHeaders(String method) {
-    return getHeaders(method, null, false, null);
-  }
-
-  private Map<String, String> getHeaders(
-      String method, StatementType statementType, boolean isAsync) {
-    return getHeaders(method, statementType, isAsync, null);
+  private Map<String, String> getHeaders(String method, boolean useDirectRouting) {
+    return getHeaders(method, null, false, null, useDirectRouting);
   }
 
   private Map<String, String> getHeaders(
       String method,
       StatementType statementType,
       boolean isAsync,
-      Map<String, String> additionalHeaders) {
+      Map<String, String> additionalHeaders,
+      boolean useDirectRouting) {
     Map<String, String> headers = new HashMap<>(JSON_HTTP_HEADERS);
     if (connectionContext.isRequestTracingEnabled()) {
       String traceHeader = TracingUtil.getTraceHeader();
@@ -690,9 +700,37 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.debug("Adding additional headers: {}", additionalHeaders);
     }
 
-    // Overriding with URL defined headers
-    headers.putAll(this.connectionContext.getCustomHeaders());
+    // Caller-supplied headers must not override the route negotiated for this session.
+    this.connectionContext
+        .getCustomHeaders()
+        .forEach(
+            (name, value) -> {
+              if (HEADER_DIRECT_ROUTING.equalsIgnoreCase(name)) {
+                LOGGER.warn("Ignoring caller-supplied {} header", name);
+              } else {
+                headers.put(name, value);
+              }
+            });
+    if (useDirectRouting) {
+      headers.put(HEADER_DIRECT_ROUTING, "true");
+    }
     return headers;
+  }
+
+  @VisibleForTesting
+  static boolean isDirectRoutingEligible(IDatabricksConnectionContext connectionContext)
+      throws DatabricksParsingException {
+    if (connectionContext.getAuthMech() != AuthMech.OAUTH
+        || connectionContext.getAuthFlow() != AuthFlow.CLIENT_CREDENTIALS
+        || connectionContext.getAzureTenantId() != null) {
+      return false;
+    }
+    return connectionContext.getCloud() != Cloud.GCP
+        || M2M_AUTH_TYPE.equals(connectionContext.getGcpAuthType());
+  }
+
+  private boolean useDirectRouting(StatementId statementId) {
+    return directRoutingEnabled && statementId.isOwnedByCurrentSession();
   }
 
   /**

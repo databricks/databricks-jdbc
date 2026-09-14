@@ -15,6 +15,11 @@ public interface SessionInfo {
   @Nullable
   Long sessionVersionId();
 
+  @Value.Default
+  default boolean directRoutingEnabled() {
+    return false;
+  }
+
   @Nullable
   TSessionHandle sessionHandle(); // This field is set only for all-purpose cluster compute
 }
