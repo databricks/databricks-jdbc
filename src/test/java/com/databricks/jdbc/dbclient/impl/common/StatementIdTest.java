@@ -24,6 +24,15 @@ public class StatementIdTest {
     assertEquals(DatabricksClientType.SEA, stmtId.clientType);
     assertEquals(statementId, stmtId.guid);
     assertNull(stmtId.secret);
+    assertFalse(stmtId.isOwnedByCurrentSession());
+  }
+
+  @Test
+  public void testCurrentSessionRoutingIsNotSerializedWithStatementId() {
+    StatementId current = StatementId.forCurrentSession("test-statement-id");
+
+    assertTrue(current.isOwnedByCurrentSession());
+    assertFalse(StatementId.deserialize(current.toString()).isOwnedByCurrentSession());
   }
 
   /** Test the constructor with a THandleIdentifier for Thrift client type. */

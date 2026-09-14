@@ -45,6 +45,27 @@ public class SessionIdTest {
     assertEquals(sessionInfo.sessionId(), deserializedSessionInfo.sessionId());
     assertEquals(sessionInfo.sessionHandle(), deserializedSessionInfo.sessionHandle());
     assertEquals(sessionInfo.computeResource(), deserializedSessionInfo.computeResource());
+    assertFalse(deserializedSessionInfo.directRoutingEnabled());
+  }
+
+  @Test
+  public void testDirectRoutingSurvivesSeaSessionSerialization() throws Exception {
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId("test-session-id")
+            .computeResource(new Warehouse(WAREHOUSE_ID))
+            .sessionHandle(null)
+            .directRoutingEnabled(true)
+            .build();
+
+    SessionId sessionId = SessionId.create(sessionInfo);
+    assertEquals("s|warehouse|test-session-id|d", sessionId.toString());
+
+    ImmutableSessionInfo deserialized =
+        SessionId.deserialize(sessionId.toString()).getSessionInfo();
+    assertEquals("test-session-id", deserialized.sessionId());
+    assertEquals(new Warehouse(WAREHOUSE_ID), deserialized.computeResource());
+    assertTrue(deserialized.directRoutingEnabled());
   }
 
   @Test

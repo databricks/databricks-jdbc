@@ -18,14 +18,21 @@ public class StatementId {
   final DatabricksClientType clientType;
   final String guid;
   final String secret;
+  private final boolean ownedByCurrentSession;
 
   StatementId(DatabricksClientType clientType, String guid, String secret) {
+    this(clientType, guid, secret, false);
+  }
+
+  private StatementId(
+      DatabricksClientType clientType, String guid, String secret, boolean ownedByCurrentSession) {
     this.clientType = clientType;
     this.guid = guid;
     this.secret = secret;
+    this.ownedByCurrentSession = ownedByCurrentSession;
   }
 
-  /** Constructs a StatementId identifier for a given SQl Exec statement-Id */
+  /** Raw statement IDs are detached because serialization does not preserve session ownership. */
   public StatementId(String statementId) {
     this(DatabricksClientType.SEA, statementId, null);
   }
@@ -36,6 +43,10 @@ public class StatementId {
         DatabricksClientType.THRIFT,
         ResourceId.fromBytes(identifier.getGuid()).toString(),
         ResourceId.fromBytes(identifier.getSecret()).toString());
+  }
+
+  public static StatementId forCurrentSession(String statementId) {
+    return new StatementId(DatabricksClientType.SEA, statementId, null, true);
   }
 
   /** Deserializes a StatementId from a serialized string */
@@ -76,6 +87,10 @@ public class StatementId {
   /** Returns a SQL Exec statement handle for the given StatementId */
   public String toSQLExecStatementId() {
     return guid;
+  }
+
+  public boolean isOwnedByCurrentSession() {
+    return ownedByCurrentSession;
   }
 
   /**
