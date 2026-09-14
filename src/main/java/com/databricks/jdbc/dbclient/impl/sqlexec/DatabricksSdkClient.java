@@ -37,6 +37,7 @@ import com.databricks.jdbc.model.core.Disposition;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
@@ -64,6 +65,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksSdkClient.class);
   private static final String SYNC_TIMEOUT_VALUE = "10s";
   private static final String ASYNC_TIMEOUT_VALUE = "0s";
+  private static final String FAST_SESSION_EXECUTION_MODE = "FAST";
   private static final String HEADER_METADATA_OPERATION_TYPE =
       "X-Databricks-Metadata-Operation-Type";
   private static final String HEADER_REQUIRE_THRIFT_NATIVE_METADATA =
@@ -118,7 +120,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
         schema,
         sessionConf);
     CreateSessionRequest request =
-        new CreateSessionRequest().setWarehouseId(((Warehouse) warehouse).getWarehouseId());
+        new CreateSessionRequest()
+            .setWarehouseId(((Warehouse) warehouse).getWarehouseId())
+            .setExecutionMode(FAST_SESSION_EXECUTION_MODE);
     if (catalog != null) {
       request.setCatalog(catalog);
     }
@@ -155,11 +159,15 @@ public class DatabricksSdkClient implements IDatabricksClient {
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
     }
-    DatabricksThreadContextHolder.setSessionId(createSessionResponse.getSessionId());
-    return ImmutableSessionInfo.builder()
-        .computeResource(warehouse)
-        .sessionId(createSessionResponse.getSessionId())
-        .build();
+    String sessionId = createSessionResponse.getSessionId();
+    DatabricksThreadContextHolder.setSessionId(sessionId);
+    ImmutableSessionInfo.Builder sessionInfo =
+        ImmutableSessionInfo.builder().computeResource(warehouse).sessionId(sessionId);
+    SessionVersion initialVersion = createSessionResponse.getSessionVersion();
+    if (initialVersion != null && initialVersion.getVersionId() != null) {
+      sessionInfo.sessionVersionId(initialVersion.getVersionId());
+    }
+    return sessionInfo.build();
   }
 
   @Override
@@ -229,6 +237,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       }
       req.withHeaders(getHeaders("executeStatement", statementType, false, additionalHeaders));
       response = apiClient.execute(req, ExecuteStatementResponse.class);
+      updateSessionVersion(session, response.getStatus());
     } catch (IOException e) {
       String errorMessage = "Error while processing the execute statement request";
       LOGGER.error(errorMessage, e);
@@ -295,6 +304,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         Request req = new Request(Request.GET, getStatusPath, apiClient.serialize(request));
         req.withHeaders(getHeaders("getStatement"));
         response = wrapGetStatementResponse(apiClient.execute(req, GetStatementResponse.class));
+        updateSessionVersion(session, response.getStatus());
       } catch (IOException e) {
         String errorMessage = "Error while processing the get statement response";
         LOGGER.error(errorMessage, e);
@@ -747,6 +757,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
             .setFormat(format)
             .setResultCompression(compressionCodec)
             .setParameters(parameterListItems);
+    SessionVersion sessionVersion = session.getSessionVersion();
+    if (sessionVersion != null) {
+      request.setSessionVersion(sessionVersion);
+    }
     if (executeAsync) {
       request.setWaitTimeout(ASYNC_TIMEOUT_VALUE);
     } else {
@@ -827,6 +841,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
         .setStatus(getStatementResponse.getStatus())
         .setManifest(getStatementResponse.getManifest())
         .setResult(getStatementResponse.getResult());
+  }
+
+  private void updateSessionVersion(IDatabricksSession session, StatementStatus status) {
+    if (session != null && status != null) {
+      session.updateSessionVersion(status.getSessionVersion());
+    }
   }
 
   /**
