@@ -193,6 +193,27 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksStatementInternal parentStatement,
       MetadataOperationType metadataOperationType)
       throws SQLException {
+    return executeStatement(
+        sql,
+        computeResource,
+        parameters,
+        statementType,
+        session,
+        parentStatement,
+        metadataOperationType,
+        null);
+  }
+
+  private DatabricksResultSet executeStatement(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      Map<Integer, ImmutableSqlParameter> parameters,
+      StatementType statementType,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement,
+      MetadataOperationType metadataOperationType,
+      ExecuteStatementRequest suppliedRequest)
+      throws SQLException {
     LOGGER.debug(
         "public DatabricksResultSet executeStatement(String sql = {}, compute resource = {}, Map<Integer, ImmutableSqlParameter> parameters = {}, StatementType statementType = {}, IDatabricksSession session = {}, parentStatement = {}, metadataOperationType = {})",
         sql,
@@ -207,14 +228,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
     long executionStartTime = Instant.now().toEpochMilli();
     DatabricksThreadContextHolder.setStatementType(statementType);
     ExecuteStatementRequest request =
-        getRequest(
-            statementType,
-            sql,
-            ((Warehouse) computeResource).getWarehouseId(),
-            session,
-            parameters,
-            parentStatement,
-            false);
+        suppliedRequest != null
+            ? suppliedRequest
+            : getRequest(
+                statementType,
+                sql,
+                ((Warehouse) computeResource).getWarehouseId(),
+                session,
+                parameters,
+                parentStatement,
+                false);
     ExecuteStatementResponse response;
     try {
       Request req = new Request(Request.POST, STATEMENT_PATH, apiClient.serialize(request));
@@ -359,6 +382,43 @@ public class DatabricksSdkClient implements IDatabricksClient {
     }
 
     return resultSet;
+  }
+
+  @Override
+  public boolean supportsNativeParameterBatching(IDatabricksComputeResource computeResource) {
+    return computeResource instanceof Warehouse;
+  }
+
+  @Override
+  public DatabricksResultSet executeStatementBatch(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      List<BatchParameterSet> parameterSets,
+      StatementType statementType,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    LOGGER.debug(
+        "Executing native parameter batch with {} parameter sets on {}",
+        parameterSets.size(),
+        computeResource);
+    ExecuteStatementRequest request =
+        getBatchRequest(
+            statementType,
+            sql,
+            ((Warehouse) computeResource).getWarehouseId(),
+            session,
+            parameterSets,
+            parentStatement);
+    return executeStatement(
+        sql,
+        computeResource,
+        Collections.emptyMap(),
+        statementType,
+        session,
+        parentStatement,
+        null,
+        request);
   }
 
   @Override
@@ -762,15 +822,52 @@ public class DatabricksSdkClient implements IDatabricksClient {
     return request;
   }
 
+  private ExecuteStatementRequest getBatchRequest(
+      StatementType statementType,
+      String sql,
+      String warehouseId,
+      IDatabricksSession session,
+      List<BatchParameterSet> parameterSets,
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    ExecuteStatementRequest request =
+        getRequest(
+            statementType,
+            sql,
+            warehouseId,
+            session,
+            Collections.emptyMap(),
+            parentStatement,
+            false);
+    List<StatementParameterSet> seaParameterSets =
+        parameterSets.stream()
+            .map(
+                parameterSet ->
+                    new StatementParameterSet()
+                        .setParameters(
+                            parameterSet.getParameters().stream()
+                                .map(
+                                    parameter ->
+                                        mapToParameterListItem(parameter, parameter.cardinal() - 1))
+                                .collect(Collectors.toList())))
+            .collect(Collectors.toList());
+    return request.setParameterSets(seaParameterSets).unsetRowLimit();
+  }
+
   @VisibleForTesting
   StatementParameterListItem mapToParameterListItem(ImmutableSqlParameter parameter) {
+    return mapToParameterListItem(parameter, parameter.cardinal());
+  }
+
+  private StatementParameterListItem mapToParameterListItem(
+      ImmutableSqlParameter parameter, int ordinal) {
     Object value = parameter.value();
     String typeString = parameter.type().name();
     if (typeString.equals(DECIMAL) && value instanceof BigDecimal) {
       typeString = getDecimalTypeString((BigDecimal) value);
     }
     return new PositionalStatementParameterListItem()
-        .setOrdinal(parameter.cardinal())
+        .setOrdinal(ordinal)
         .setType(typeString)
         .setValue(value != null ? value.toString() : null);
   }

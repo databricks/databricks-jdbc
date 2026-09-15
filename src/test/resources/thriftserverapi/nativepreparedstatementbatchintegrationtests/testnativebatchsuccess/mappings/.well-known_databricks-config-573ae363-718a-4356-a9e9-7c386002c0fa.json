@@ -1,0 +1,33 @@
+{
+  "id" : "573ae363-718a-4356-a9e9-7c386002c0fa",
+  "name" : ".well-known_databricks-config",
+  "request" : {
+    "url" : "/.well-known/databricks-config",
+    "method" : "GET"
+  },
+  "response" : {
+    "status" : 200,
+    "body" : "{\"oidc_endpoint\":\"https://e2-dogfood.staging.cloud.databricks.com/oidc\",\"account_id\":\"7a99b43c-b46c-432b-b0a7-814217701909\",\"workspace_id\":\"6051921418418893\",\"cloud_provider\":\"aws\",\"host_type\":\"workspace\",\"token_federation_default_oidc_audiences\":[\"https://e2-dogfood.staging.cloud.databricks.com/oidc/v1/token\"]}",
+    "headers" : {
+      "x-request-id" : "5ca803a7-9228-4809-b556-4d0d0d6536fb",
+      "date" : "Tue, 11 Aug 2026 19:05:24 GMT",
+      "server" : "databricks",
+      "x-databricks-popp-response-code-details" : "via_upstream",
+      "x-databricks-shard-debug" : "oregon-staging",
+      "vary" : "Accept-Encoding",
+      "x-databricks-popp-fast-path-routing-reason" : "not_eligible",
+      "x-databricks-popp-shadow-routing-reason" : "spog-domain-checker-false",
+      "x-databricks-upstream-cluster" : "oregon-staging-h2",
+      "x-databricks-org-id" : "6051921418418893",
+      "strict-transport-security" : "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options" : "nosniff",
+      "x-databricks-popp-routing-reason" : "deployment-name",
+      "content-type" : "application/json",
+      "server-timing" : "request_id;dur=0;desc=\"5ca803a7-9228-4809-b556-4d0d0d6536fb\", client_protocol;dur=0;desc=\"HTTP/1.1\"",
+      "alt-svc" : "h3=\":443\"; ma=86400, h3-29=\":443\"; ma=86400",
+      "x-databricks-apiproxy-response-code-details" : "via_upstream"
+    }
+  },
+  "uuid" : "573ae363-718a-4356-a9e9-7c386002c0fa",
+  "insertionIndex" : 15
+}
