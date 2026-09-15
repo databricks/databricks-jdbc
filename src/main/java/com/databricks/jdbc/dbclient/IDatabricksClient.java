@@ -15,6 +15,8 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimed;
 import com.databricks.sdk.core.DatabricksConfig;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.util.List;
 import java.util.Map;
 
 /** Interface for Databricks client which abstracts the integration with Databricks server. */
@@ -70,6 +72,37 @@ public interface IDatabricksClient {
       IDatabricksStatementInternal parentStatement,
       MetadataOperationType metadataOperationType)
       throws SQLException;
+
+  /**
+   * Returns whether this client can execute a native parameter batch for the given compute.
+   *
+   * @param computeResource underlying SQL warehouse or all-purpose cluster
+   */
+  default boolean supportsNativeParameterBatching(IDatabricksComputeResource computeResource) {
+    return false;
+  }
+
+  /**
+   * Executes one statement with multiple ordered parameter sets in a single backend request.
+   *
+   * @param sql SQL statement that needs to be executed
+   * @param computeResource underlying SQL warehouse or all-purpose cluster
+   * @param parameterSets ordered parameter sets for the statement
+   * @param statementType type of statement
+   * @param session underlying session
+   * @param parentStatement statement instance
+   */
+  @DatabricksMetricsTimed
+  default DatabricksResultSet executeStatementBatch(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      List<BatchParameterSet> parameterSets,
+      StatementType statementType,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    throw new SQLFeatureNotSupportedException("Native parameter batching is not supported");
+  }
 
   /**
    * Executes a statement in Databricks server asynchronously
