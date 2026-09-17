@@ -5,6 +5,8 @@
 ### Added
 - Added `EnableThriftNativeMetadata` to request and consume supported Thrift-native SEA metadata results.
 - Real-Time (Reyden) SQL warehouses now work over the default Thrift connection with no configuration change: when the gateway rejects a Thrift `OpenSession` with SQLSTATE `KP001`, the driver transparently re-opens the session on SEA and remembers the warehouse (per host, ~6h) so later connections skip Thrift. An explicit `UseThriftClient=1` is always honored and never auto-switched.
+- Added session-version tracking from synchronous SQL Exec API responses for Lakehouse Real-Time.
+  With asynchronous execution, subsequent statements may not observe session changes.
 
 ### Updated
 - `UseBoundedSeaApi` and `EnableThriftNativeMetadata` now default to `1`; when unset, activation is controlled by the server-side `enableSqlExecForJdbc` rollout flag.
