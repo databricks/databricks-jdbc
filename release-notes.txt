@@ -6,6 +6,58 @@ The release notes summarize enhancements, new features, known issues, workflow c
 
 Version History ==============================================================
 
+3.4.3 ========================================================================
+Released 2026-09-17
+
+Added
+
+ * Added EnableThriftNativeMetadata to request and consume supported
+   Thrift-native SEA metadata results.
+ * Real-Time (Reyden) SQL warehouses now recover automatically when the gateway
+   rejects a Thrift OpenSession with SQLSTATE KP001. The driver reopens the
+   session on SEA and remembers the warehouse per host for about six hours.
+   Explicit UseThriftClient=1 connections are never auto-switched.
+ * Added session-version tracking from synchronous SQL Exec API responses for
+   Lakehouse Real-Time. With asynchronous execution, subsequent statements may
+   not observe session changes.
+
+Updated
+
+ * UseBoundedSeaApi and EnableThriftNativeMetadata now default to 1; when unset,
+   activation is controlled by the server-side enableSqlExecForJdbc rollout
+   flag.
+ * DatabaseMetaData.getColumns() with a null catalog now uses one SHOW COLUMNS
+   IN ALL CATALOGS statement instead of issuing one statement per catalog.
+   Older DBR versions transparently fall back to the previous behavior.
+ * Updated bundled Jackson, lz4-java, Netty, and Apache HttpComponents Client
+   and Core dependencies to patched versions addressing security findings.
+ * Updated bundled Apache Thrift to 0.24.0 to address CVE-2026-43871.
+
+Fixed
+
+ * Fixed DatabaseMetaData.getTypeInfo() returning the INTERVAL row out of
+   DATA_TYPE order.
+ * Fixed logging-enabled connections being unable to produce logs when an
+   earlier connection used LogLevel=OFF.
+ * Invalid or incomplete JDBC URLs now fail with a descriptive
+   DatabricksSQLException instead of a NullPointerException.
+ * Fixed connections failing when the same parameter is present in both the
+   JDBC URL and connection properties; the URL value takes precedence.
+ * Fixed IdleConnectionEvictor and related driver-resource leaks when
+   Connection.close() encounters cleanup failures.
+ * Complex-type getters called on the wrong complex type now throw
+   DatabricksSQLException instead of ClassCastException.
+ * Fixed NullPointerException and incorrect metadata when reading collated
+   string columns over Arrow.
+ * ResultSet.getObject(int) on the Arrow path now reports an out-of-range column
+   as DatabricksSQLException with SQLState INVALID_STATE.
+ * Unsupported AuthMech values are now rejected deterministically with
+   SQLState INPUT_VALIDATION_ERROR instead of causing recursive-update or stack
+   overflow failures.
+ * Improved SEA connection-failure error messages.
+ * Fixed NullPointerException when materializing arrays containing null nested
+   arrays, structs, or maps.
+
 3.4.2 ========================================================================
 Released 2026-07-14
 
