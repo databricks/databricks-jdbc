@@ -1367,7 +1367,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testTransportRetry_permanentHttpErrorSurfacesImmediately() throws Exception {
     setup(true);
-    doNothing().when(accessor).backoffSleep(anyLong());
     // A 404 (invalid handle) carries a concrete HTTP status: permanent, must not be retried.
     TTransportException permanent =
         transportError(
@@ -1388,7 +1387,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testTransportRetry_httpLayerHandledErrorNotReRetried() throws Exception {
     setup(true);
-    doNothing().when(accessor).backoffSleep(anyLong());
     // 429/503 exhausted by the shared HTTP retry handler surface with a
     // DatabricksRetryHandlerException in the cause chain — the outer loop must not pile on.
     TTransportException exhausted =
@@ -1475,7 +1473,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testTransportRetry_serverError500SurfacesImmediately() throws Exception {
     setup(true);
-    doNothing().when(accessor).backoffSleep(anyLong());
     // 500 is treated as a (likely-permanent) server error, not a transient gateway hop failure.
     TTransportException serverError =
         transportError(
@@ -1556,7 +1553,6 @@ public class DatabricksThriftAccessorTest {
   @Test
   void testTransportRetry_timeoutAbortsRetryWithinDeadline() throws Exception {
     setup(true);
-    doNothing().when(accessor).backoffSleep(anyLong());
     TimeoutHandler timeoutHandler = mock(TimeoutHandler.class);
     doThrow(
             new DatabricksTimeoutException(
