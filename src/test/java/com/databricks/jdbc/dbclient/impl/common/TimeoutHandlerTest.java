@@ -144,7 +144,8 @@ class TimeoutHandlerTest {
     startTimeField.setAccessible(true);
     long now = System.currentTimeMillis();
 
-    // Elapsed 5.5s: past the nominal 5s but before checkTimeout enforces (it fires only once elapsed
+    // Elapsed 5.5s: past the nominal 5s but before checkTimeout enforces (it fires only once
+    // elapsed
     // exceeds 5 whole seconds, i.e. at 6s). getRemainingMillis() must stay POSITIVE in this window
     // so a caller capping a backoff sleep on it does not collapse the sleep to zero and busy-spin.
     startTimeField.set(handler, now - 5_500L);

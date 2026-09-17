@@ -79,9 +79,9 @@ public class TimeoutHandler {
    *
    * <p>{@code checkTimeout()} compares whole (truncated) seconds and throws only once elapsed time
    * <em>exceeds</em> {@code timeoutSeconds}, i.e. at {@code (timeoutSeconds + 1) * 1000} ms. This
-   * method reports the remaining time to that same enforcement point (not the nominal
-   * {@code timeoutSeconds * 1000}), so a caller capping a backoff sleep on it does not collapse the
-   * sleep to zero — and then busy-spin — during the sub-second window before enforcement fires.
+   * method reports the remaining time to that same enforcement point (not the nominal {@code
+   * timeoutSeconds * 1000}), so a caller capping a backoff sleep on it does not collapse the sleep
+   * to zero — and then busy-spin — during the sub-second window before enforcement fires.
    */
   public long getRemainingMillis() {
     if (timeoutSeconds <= 0) {
