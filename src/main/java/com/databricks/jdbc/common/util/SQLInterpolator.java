@@ -22,8 +22,8 @@ public class SQLInterpolator {
       i += Character.charCount(codePoint);
       switch (codePoint) {
         case '\'':
-          out.append("''");
-          break; // SQL-standard quote escape
+          out.append("\\'");
+          break; // Databricks escapes a quote as \', not as the SQL-standard ''
         case '\\':
           out.append("\\\\");
           break; // escape backslash
