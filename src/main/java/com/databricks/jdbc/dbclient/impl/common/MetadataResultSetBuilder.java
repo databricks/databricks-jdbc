@@ -345,6 +345,26 @@ public class MetadataResultSetBuilder {
           null
         },
         {
+          "INTERVAL",
+          Types.VARCHAR,
+          40,
+          "'",
+          "'",
+          "Qualifier",
+          typeNullable,
+          false,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "INTERVAL",
+          0,
+          6,
+          Types.VARCHAR,
+          null,
+          null
+        },
+        {
           "BOOLEAN",
           Types.BOOLEAN,
           1,
@@ -422,26 +442,6 @@ public class MetadataResultSetBuilder {
           0,
           Types.TIMESTAMP,
           3,
-          null
-        },
-        {
-          "INTERVAL",
-          Types.VARCHAR,
-          40,
-          "'",
-          "'",
-          "Qualifier",
-          typeNullable,
-          false,
-          typeSearchable,
-          null,
-          false,
-          null,
-          "INTERVAL",
-          0,
-          6,
-          Types.VARCHAR,
-          null,
           null
         }
       };

@@ -45,6 +45,24 @@ public class MetadataResultSetBuilderTest {
   }
 
   @Test
+  void testTypeInfoRowsAreOrderedByDataType() throws SQLException {
+    List<Integer> actualDataTypes = new ArrayList<>();
+    try (DatabricksResultSet resultSet = metadataResultSetBuilder.getTypeInfoResult()) {
+      while (resultSet.next()) {
+        actualDataTypes.add(resultSet.getInt("DATA_TYPE"));
+      }
+    }
+
+    assertFalse(actualDataTypes.isEmpty(), "TYPE_INFO should contain at least one row");
+    List<Integer> sortedDataTypes = new ArrayList<>(actualDataTypes);
+    sortedDataTypes.sort(Integer::compareTo);
+    assertEquals(
+        sortedDataTypes,
+        actualDataTypes,
+        "TYPE_INFO rows should be ordered by DATA_TYPE as required by DatabaseMetaData");
+  }
+
+  @Test
   void testThriftNativeFormattingMatchesRawThriftBuilder() throws SQLException {
     assertNativeFormattingMatchesThrift(
         resultSet -> metadataResultSetBuilder.getFunctionsResult(resultSet, "catalog"),
