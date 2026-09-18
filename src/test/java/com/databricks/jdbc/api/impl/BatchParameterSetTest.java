@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 class BatchParameterSetTest {
 
   @Test
-  void ordersParametersByJdbcIndexAndUsesZeroBasedOrdinals() {
+  void ordersParametersAndPreservesJdbcIndexes() {
     Map<Integer, ImmutableSqlParameter> bindings = new HashMap<>();
     bindings.put(3, parameter(99, "third", ColumnInfoTypeName.STRING));
     bindings.put(1, parameter(99, "first", ColumnInfoTypeName.STRING));
@@ -26,7 +26,8 @@ class BatchParameterSetTest {
     BatchParameterSet parameterSet = BatchParameterSet.from(bindings);
 
     assertEquals(List.of("first", "second", "third"), values(parameterSet));
-    assertEquals(List.of(0, 1, 2), ordinals(parameterSet));
+    assertEquals(List.of(1, 2, 3), indexes(parameterSet));
+    assertEquals(List.of(1, 2, 3), List.copyOf(parameterSet.getParameterBindings().keySet()));
   }
 
   @Test
@@ -38,7 +39,7 @@ class BatchParameterSetTest {
     BatchParameterSet parameterSet = BatchParameterSet.from(bindings);
 
     assertEquals(List.of("first", "third"), values(parameterSet));
-    assertEquals(List.of(0, 2), ordinals(parameterSet));
+    assertEquals(List.of(1, 3), indexes(parameterSet));
   }
 
   @Test
@@ -70,6 +71,12 @@ class BatchParameterSetTest {
     assertThrows(
         UnsupportedOperationException.class,
         () -> parameterSet.getParameters().add(parameter(3, "extra", ColumnInfoTypeName.STRING)));
+    assertThrows(
+        UnsupportedOperationException.class,
+        () ->
+            parameterSet
+                .getParameterBindings()
+                .put(3, parameter(3, "extra", ColumnInfoTypeName.STRING)));
   }
 
   @Test
@@ -80,7 +87,7 @@ class BatchParameterSetTest {
     ImmutableSqlParameter parameter = parameterSet.getParameters().get(0);
     assertNull(parameter.value());
     assertEquals(ColumnInfoTypeName.DECIMAL, parameter.type());
-    assertEquals(0, parameter.cardinal());
+    assertEquals(1, parameter.cardinal());
   }
 
   private ImmutableSqlParameter parameter(
@@ -98,7 +105,7 @@ class BatchParameterSetTest {
         .collect(java.util.stream.Collectors.toList());
   }
 
-  private List<Integer> ordinals(BatchParameterSet parameterSet) {
+  private List<Integer> indexes(BatchParameterSet parameterSet) {
     return parameterSet.getParameters().stream()
         .map(ImmutableSqlParameter::cardinal)
         .collect(java.util.stream.Collectors.toList());
