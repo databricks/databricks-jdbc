@@ -1,6 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.thrift;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.TIMEOUT_EXPIRED_SQLSTATE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
 import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED;
@@ -954,6 +955,7 @@ public class DatabricksThriftAccessorTest {
             () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
 
     assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
+    assertEquals(TIMEOUT_EXPIRED_SQLSTATE, exception.getSQLState());
 
     // Verify that cancel was called
     verify(thriftClient).CancelOperation(any(TCancelOperationReq.class));

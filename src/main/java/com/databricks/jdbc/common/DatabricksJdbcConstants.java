@@ -114,6 +114,9 @@ public final class DatabricksJdbcConstants {
   public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = OPERATION_ERROR_SQLSTATE;
   public static final String QUERY_EXECUTION_TIMEOUT_SQLSTATE = "57KD0";
 
+  /** SQLSTATE for timeout expiration, matching the Databricks reference JDBC driver. */
+  public static final String TIMEOUT_EXPIRED_SQLSTATE = "HYT00";
+
   /** Standard SQL state for syntax error or access rule violation (SQLSTATE 42000). */
   public static final String SYNTAX_OR_ACCESS_VIOLATION_SQLSTATE = "42000";
 

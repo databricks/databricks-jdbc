@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.TIMEOUT_EXPIRED_SQLSTATE;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,6 +16,7 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
@@ -328,6 +330,31 @@ public class DatabricksStatementTest {
     // Verify that get() is called instead of get(long, TimeUnit) for infinite wait
     verify(mockFuture, times(1)).get();
     verify(mockFuture, never()).get(anyLong(), any(TimeUnit.class));
+  }
+
+  @Test
+  public void testExecuteInternalTimeoutUsesTimeoutExpiredSqlState() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection mockConnection = mock(DatabricksConnection.class);
+    when(mockConnection.getConnectionContext()).thenReturn(connectionContext);
+    DatabricksStatement statement = spy(new DatabricksStatement(mockConnection));
+    statement.setQueryTimeout(1);
+
+    CompletableFuture<DatabricksResultSet> mockFuture = mock(CompletableFuture.class);
+    when(mockFuture.get(1, TimeUnit.SECONDS))
+        .thenThrow(new java.util.concurrent.TimeoutException());
+    doReturn(mockFuture).when(statement).getFutureResult(anyString(), anyMap(), any());
+
+    DatabricksTimeoutException exception =
+        assertThrows(
+            DatabricksTimeoutException.class,
+            () ->
+                statement.executeInternal(
+                    "SELECT * FROM table", new HashMap<>(), StatementType.QUERY, false));
+
+    assertEquals(TIMEOUT_EXPIRED_SQLSTATE, exception.getSQLState());
+    verify(mockFuture).cancel(true);
   }
 
   @Test

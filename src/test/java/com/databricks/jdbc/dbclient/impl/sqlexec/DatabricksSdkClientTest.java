@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.TIMEOUT_EXPIRED_SQLSTATE;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import static com.databricks.jdbc.model.core.ColumnInfoTypeName.DECIMAL;
 import static com.databricks.jdbc.model.core.ColumnInfoTypeName.INT;
@@ -782,6 +783,7 @@ public class DatabricksSdkClientTest {
                     null));
 
     assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
+    assertEquals(TIMEOUT_EXPIRED_SQLSTATE, exception.getSQLState());
 
     // Verify cancel was called
     verify(databricksSdkClient).cancelStatement(eq(STATEMENT_ID));

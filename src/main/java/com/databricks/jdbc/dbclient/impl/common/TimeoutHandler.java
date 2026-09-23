@@ -1,5 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.TIMEOUT_EXPIRED_SQLSTATE;
+
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -68,7 +70,8 @@ public class TimeoutHandler {
               "Statement execution timed-out after %d seconds. Operation: %s",
               timeoutSeconds, operationDescription);
       LOGGER.error(timeoutErrorMessage);
-      throw new DatabricksTimeoutException(timeoutErrorMessage, /*cause*/ null, internalErrorCode);
+      throw new DatabricksTimeoutException(
+          timeoutErrorMessage, TIMEOUT_EXPIRED_SQLSTATE, /*cause*/ null, internalErrorCode);
     }
   }
 

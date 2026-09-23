@@ -890,7 +890,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       LOGGER.error(timeoutErrorMessage);
       futureResultSet.cancel(true); // Cancel execution run
       throw new DatabricksTimeoutException(
-          timeoutErrorMessage, e, DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
+          timeoutErrorMessage,
+          TIMEOUT_EXPIRED_SQLSTATE,
+          e,
+          DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT);
     } catch (InterruptedException | ExecutionException e) {
       Throwable cause = e;
       // Look for underlying SQLException (includes DatabricksSQLException and other SQL exceptions)

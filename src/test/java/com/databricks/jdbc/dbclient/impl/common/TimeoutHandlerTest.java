@@ -1,5 +1,6 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.TIMEOUT_EXPIRED_SQLSTATE;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -82,6 +83,7 @@ class TimeoutHandlerTest {
     // Verify exception message
     assertTrue(exception.getMessage().contains("timed-out after 2 seconds"));
     assertTrue(exception.getMessage().contains("Test operation"));
+    assertEquals(TIMEOUT_EXPIRED_SQLSTATE, exception.getSQLState());
   }
 
   @Test
