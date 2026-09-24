@@ -1,0 +1,187 @@
+name: Create Jira issue
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+concurrency:
+  group: create-jira-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  create-jira-issue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Create ES incident
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        shell: python
+        run: |
+          import base64
+          import json
+          import os
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          JIRA_URL = "https://databricks.atlassian.net"
+          JIRA_EMAIL = "vu.phung@databricks.com"
+          JIRA_PROJECT = "ES"
+
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as event_file:
+              event = json.load(event_file)
+
+          issue = event["issue"]
+          issue_number = issue["number"]
+          jira_label = f"github-databricks-jdbc-{issue_number}"
+          jira_token = os.environ.get("JIRA_API_TOKEN")
+          if not jira_token:
+              raise RuntimeError("The JIRA_API_TOKEN repository secret is not configured")
+
+          jira_auth = base64.b64encode(
+              f"{JIRA_EMAIL}:{jira_token}".encode("utf-8")
+          ).decode("ascii")
+
+
+          def jira_request(path, *, method="GET", payload=None):
+              data = None if payload is None else json.dumps(payload).encode("utf-8")
+              request = urllib.request.Request(
+                  f"{JIRA_URL}{path}",
+                  data=data,
+                  method=method,
+                  headers={
+                      "Accept": "application/json",
+                      "Authorization": f"Basic {jira_auth}",
+                      "Content-Type": "application/json",
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  detail = error.read().decode("utf-8", errors="replace")
+                  raise RuntimeError(
+                      f"Jira API request failed ({error.code}): {detail}"
+                  ) from error
+
+
+          jql = f'project = {JIRA_PROJECT} AND labels = "{jira_label}"'
+          query = urllib.parse.urlencode(
+              {"jql": jql, "fields": "key", "maxResults": 1}
+          )
+          search_result = jira_request(f"/rest/api/3/search/jql?{query}")
+          existing_issues = search_result.get("issues", [])
+
+          if existing_issues:
+              jira_key = existing_issues[0]["key"]
+          else:
+              title = issue["title"].strip()
+              summary = f"[GitHub #{issue_number}] {title}"[:255]
+              body = (issue.get("body") or "No description provided.")[:30000]
+              reporter = issue["user"]["login"]
+              github_url = issue["html_url"]
+              created_at = issue["created_at"]
+
+              description = {
+                  "type": "doc",
+                  "version": 1,
+                  "content": [
+                      {
+                          "type": "heading",
+                          "attrs": {"level": 2},
+                          "content": [{"type": "text", "text": "GitHub issue"}],
+                      },
+                      {
+                          "type": "paragraph",
+                          "content": [
+                              {
+                                  "type": "text",
+                                  "text": f"databricks/databricks-jdbc#{issue_number}",
+                                  "marks": [
+                                      {
+                                          "type": "link",
+                                          "attrs": {"href": github_url},
+                                      }
+                                  ],
+                              }
+                          ],
+                      },
+                      {
+                          "type": "paragraph",
+                          "content": [
+                              {
+                                  "type": "text",
+                                  "text": f"Opened by @{reporter} at {created_at}",
+                              }
+                          ],
+                      },
+                      {
+                          "type": "heading",
+                          "attrs": {"level": 2},
+                          "content": [{"type": "text", "text": "Description"}],
+                      },
+                      {
+                          "type": "codeBlock",
+                          "attrs": {"language": "text"},
+                          "content": [{"type": "text", "text": body}],
+                      },
+                  ],
+              }
+
+              result = jira_request(
+                  "/rest/api/3/issue",
+                  method="POST",
+                  payload={
+                      "fields": {
+                          "project": {"key": JIRA_PROJECT},
+                          "issuetype": {"name": "Incident"},
+                          "summary": summary,
+                          "description": description,
+                          "customfield_18150": {"id": "24323"},
+                          "customfield_14677": {"id": "13344"},
+                          "customfield_11500": {"id": "10602"},
+                          "versions": [{"id": "20000"}],
+                          "labels": ["github", "databricks-jdbc", jira_label],
+                      }
+                  },
+              )
+              jira_key = result["key"]
+
+          jira_issue_url = f"{JIRA_URL}/browse/{jira_key}"
+          comment_marker = "<!-- jira-issue-automation -->"
+          comments_url = f"{issue['comments_url']}?per_page=100"
+          comment_request = urllib.request.Request(
+              comments_url,
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          with urllib.request.urlopen(comment_request, timeout=30) as response:
+              comments = json.load(response)
+
+          if not any(comment_marker in comment.get("body", "") for comment in comments):
+              comment_payload = json.dumps(
+                  {"body": f"{comment_marker}\nTracking Jira issue: {jira_issue_url}"}
+              ).encode("utf-8")
+              comment_request = urllib.request.Request(
+                  issue["comments_url"],
+                  data=comment_payload,
+                  method="POST",
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                      "Content-Type": "application/json",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with urllib.request.urlopen(comment_request, timeout=30):
+                  pass
+
+          print(f"Tracking GitHub issue #{issue_number} in {jira_issue_url}")
