@@ -5,6 +5,7 @@ import com.databricks.jdbc.api.impl.converters.WKTConverter;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -39,6 +40,25 @@ public abstract class AbstractDatabricksGeospatial implements IDatabricksGeospat
     this.wkt = wkt.trim();
     this.srid = srid;
     this.wkb = WKTConverter.toWKB(this.wkt);
+  }
+
+  /**
+   * Constructs a geospatial value from the native Arrow representation returned by Databricks.
+   *
+   * @param wkb the OGC Well-Known Binary representation
+   * @param srid the Spatial Reference System Identifier carried next to the WKB value
+   * @throws DatabricksValidationException if the WKB is null, empty, or malformed
+   */
+  protected AbstractDatabricksGeospatial(byte[] wkb, int srid)
+      throws DatabricksValidationException {
+    if (wkb == null || wkb.length == 0) {
+      LOGGER.error("WKB bytes cannot be null or empty");
+      throw new DatabricksValidationException("WKB bytes cannot be null or empty");
+    }
+
+    this.wkb = Arrays.copyOf(wkb, wkb.length);
+    this.wkt = WKTConverter.toDatabricksWKT(this.wkb);
+    this.srid = srid;
   }
 
   /**

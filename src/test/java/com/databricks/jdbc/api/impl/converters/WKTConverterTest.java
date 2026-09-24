@@ -156,6 +156,20 @@ public class WKTConverterTest {
   }
 
   @Test
+  public void testToDatabricksWKT_NormalizesWireResultFormatting()
+      throws DatabricksValidationException {
+    assertEquals(
+        "LINESTRING(0 0,1 1,2 2)",
+        WKTConverter.toDatabricksWKT(WKTConverter.toWKB("LINESTRING (0 0, 1 1, 2 2)")));
+    assertEquals(
+        "POINT Z (1 2 3)", WKTConverter.toDatabricksWKT(WKTConverter.toWKB("POINT Z (1 2 3)")));
+    assertEquals(
+        "GEOMETRYCOLLECTION(POINT(1 2),LINESTRING EMPTY)",
+        WKTConverter.toDatabricksWKT(
+            WKTConverter.toWKB("GEOMETRYCOLLECTION(POINT(1 2),LINESTRING EMPTY)")));
+  }
+
+  @Test
   public void testToWKT_NullWKB() {
     assertThrows(DatabricksValidationException.class, () -> WKTConverter.toWKT(null));
   }

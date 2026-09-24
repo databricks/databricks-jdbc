@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.api.impl.DatabricksGeography;
 import com.databricks.jdbc.api.impl.DatabricksGeometry;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.arrow.vector.util.Text;
 import org.junit.jupiter.api.Test;
 
@@ -50,6 +52,29 @@ public class GeospatialConverterTest {
   }
 
   @Test
+  public void testToDatabricksGeometry_WithNativeArrowStruct() throws Exception {
+    byte[] wkb = WKTConverter.toWKB("POINT(1 2)");
+    Map<String, Object> nativeValue = new HashMap<>();
+    nativeValue.put("srid", 4326);
+    nativeValue.put("wkb", wkb);
+
+    DatabricksGeometry result = converter.toDatabricksGeometry(nativeValue);
+
+    assertEquals(4326, result.getSRID());
+    assertEquals("POINT(1 2)", result.getWKT());
+    assertArrayEquals(wkb, result.getWKB());
+  }
+
+  @Test
+  public void testToDatabricksGeometry_WithMalformedNativeArrowStruct_ThrowsException() {
+    Map<String, Object> nativeValue = new HashMap<>();
+    nativeValue.put("srid", 4326L);
+    nativeValue.put("wkb", "not binary");
+
+    assertThrows(DatabricksSQLException.class, () -> converter.toDatabricksGeometry(nativeValue));
+  }
+
+  @Test
   public void testToDatabricksGeometry_WithUnsupportedType_ThrowsException() {
     assertThrows(DatabricksSQLException.class, () -> converter.toDatabricksGeometry(123));
   }
@@ -81,6 +106,20 @@ public class GeospatialConverterTest {
     DatabricksGeography input = new DatabricksGeography("POINT(1 2)", 4326);
     DatabricksGeography result = converter.toDatabricksGeography(input);
     assertSame(input, result);
+  }
+
+  @Test
+  public void testToDatabricksGeography_WithNativeArrowStruct() throws Exception {
+    byte[] wkb = WKTConverter.toWKB("POINT(-122.4194 37.7749)");
+    Map<String, Object> nativeValue = new HashMap<>();
+    nativeValue.put("srid", 4267);
+    nativeValue.put("wkb", wkb);
+
+    DatabricksGeography result = converter.toDatabricksGeography(nativeValue);
+
+    assertEquals(4267, result.getSRID());
+    assertEquals("POINT(-122.4194 37.7749)", result.getWKT());
+    assertArrayEquals(wkb, result.getWKB());
   }
 
   // ===================================================================================

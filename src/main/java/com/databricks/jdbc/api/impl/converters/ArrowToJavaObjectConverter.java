@@ -68,7 +68,16 @@ public class ArrowToJavaObjectConverter {
       return null;
     }
     Object object = columnVector.getObject(vectorIndex);
-    if (arrowMetadata != null) {
+    ColumnInfoTypeName logicalGeospatialType = getLogicalGeospatialType(requiredType, columnInfo);
+    boolean geospatialAsString =
+        logicalGeospatialType != null && requiredType == ColumnInfoTypeName.STRING;
+
+    // The structured result manifest is the logical authority for geospatial columns. Reyden's
+    // physical Arrow vector is a struct<srid,wkb>, which must not override GEOMETRY/GEOGRAPHY to
+    // an ordinary STRUCT merely because the Arrow field metadata describes its physical shape.
+    if (logicalGeospatialType != null && !geospatialAsString) {
+      requiredType = logicalGeospatialType;
+    } else if (arrowMetadata != null && logicalGeospatialType == null) {
       if (arrowMetadata.startsWith(ARRAY)) {
         requiredType = ColumnInfoTypeName.ARRAY;
       }
@@ -135,6 +144,9 @@ public class ArrowToJavaObjectConverter {
       case MAP:
         return convertToMap(object, arrowMetadata);
       case STRING:
+        if (logicalGeospatialType != null && object instanceof java.util.Map<?, ?>) {
+          return convertNativeGeospatial(object, logicalGeospatialType).toString();
+        }
         return convertToString(object);
       case DATE:
         return convertToDate(object);
@@ -166,6 +178,30 @@ public class ArrowToJavaObjectConverter {
         LOGGER.error(errorMessage);
         throw new DatabricksValidationException(errorMessage);
     }
+  }
+
+  private static ColumnInfoTypeName getLogicalGeospatialType(
+      ColumnInfoTypeName requiredType, ColumnInfo columnInfo) {
+    ColumnInfoTypeName manifestType = columnInfo == null ? null : columnInfo.getTypeName();
+    if (manifestType == ColumnInfoTypeName.GEOMETRY
+        || manifestType == ColumnInfoTypeName.GEOGRAPHY) {
+      return manifestType;
+    }
+    if (requiredType == ColumnInfoTypeName.GEOMETRY
+        || requiredType == ColumnInfoTypeName.GEOGRAPHY) {
+      return requiredType;
+    }
+    return null;
+  }
+
+  private static Object convertNativeGeospatial(Object object, ColumnInfoTypeName geospatialType)
+      throws DatabricksSQLException {
+    if (geospatialType == ColumnInfoTypeName.GEOMETRY) {
+      return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOMETRY)
+          .toDatabricksGeometry(object);
+    }
+    return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOGRAPHY)
+        .toDatabricksGeography(object);
   }
 
   private static DatabricksMap convertToMap(Object object, String arrowMetadata)

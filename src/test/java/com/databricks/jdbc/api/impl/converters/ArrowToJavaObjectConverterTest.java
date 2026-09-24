@@ -9,7 +9,6 @@ import com.databricks.jdbc.api.impl.DatabricksArray;
 import com.databricks.jdbc.api.impl.DatabricksGeography;
 import com.databricks.jdbc.api.impl.DatabricksGeometry;
 import com.databricks.jdbc.api.impl.DatabricksStruct;
-import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
@@ -23,15 +22,13 @@ import java.util.*;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.*;
+import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.Text;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(MockitoExtension.class)
 public class ArrowToJavaObjectConverterTest {
-  @Mock IDatabricksConnectionContext connectionContext;
   private final BufferAllocator bufferAllocator;
 
   ArrowToJavaObjectConverterTest() {
@@ -273,6 +270,119 @@ public class ArrowToJavaObjectConverterTest {
     assertNotNull(mapObject);
     assertInstanceOf(String.class, mapObject, "Expected result to be a String");
     assertEquals(mapObject.toString(), mapObject, "The map should be converted to a JSON string.");
+  }
+
+  @Test
+  public void testNativeArrowGeometryUsesManifestTypeAndPreservesWkb() throws Exception {
+    byte[] wkb = WKTConverter.toWKB("POINT(1 2)");
+    try (StructVector vector = nativeGeospatialVector(4326, wkb)) {
+      ColumnInfo columnInfo =
+          new ColumnInfo().setTypeName(ColumnInfoTypeName.GEOMETRY).setTypeText("GEOMETRY(4326)");
+
+      Object result =
+          convert(
+              vector, 0, ColumnInfoTypeName.GEOMETRY, "STRUCT<srid:INT,wkb:BINARY>", columnInfo);
+
+      DatabricksGeometry geometry = assertInstanceOf(DatabricksGeometry.class, result);
+      assertEquals(4326, geometry.getSRID());
+      assertEquals("POINT(1 2)", geometry.getWKT());
+      assertArrayEquals(wkb, geometry.getWKB());
+    }
+  }
+
+  @Test
+  public void testNativeArrowGeographyUsesPerRowSridForAnyType() throws Exception {
+    byte[] wkb = WKTConverter.toWKB("POINT(-122.4194 37.7749)");
+    try (StructVector vector = nativeGeospatialVector(4267, wkb)) {
+      ColumnInfo columnInfo =
+          new ColumnInfo().setTypeName(ColumnInfoTypeName.GEOGRAPHY).setTypeText("GEOGRAPHY(ANY)");
+
+      Object result =
+          convert(
+              vector, 0, ColumnInfoTypeName.GEOGRAPHY, "STRUCT<srid:INT,wkb:BINARY>", columnInfo);
+
+      DatabricksGeography geography = assertInstanceOf(DatabricksGeography.class, result);
+      assertEquals(4267, geography.getSRID());
+      assertEquals("POINT(-122.4194 37.7749)", geography.getWKT());
+      assertArrayEquals(wkb, geography.getWKB());
+    }
+  }
+
+  @Test
+  public void testNativeArrowGeometryStringFallbackReturnsEwkt() throws Exception {
+    byte[] wkb = WKTConverter.toWKB("LINESTRING(0 0,1 1)");
+    try (StructVector vector = nativeGeospatialVector(3857, wkb)) {
+      ColumnInfo columnInfo =
+          new ColumnInfo().setTypeName(ColumnInfoTypeName.GEOMETRY).setTypeText("GEOMETRY(3857)");
+
+      Object result = convert(vector, 0, ColumnInfoTypeName.STRING, "STRING", columnInfo);
+
+      assertEquals("SRID=3857;LINESTRING(0 0,1 1)", result);
+    }
+  }
+
+  @Test
+  public void testNativeArrowGeographyStringFallbackReturnsEwkt() throws Exception {
+    byte[] wkb = WKTConverter.toWKB("POINT(-122.4194 37.7749)");
+    try (StructVector vector = nativeGeospatialVector(4326, wkb)) {
+      ColumnInfo columnInfo =
+          new ColumnInfo().setTypeName(ColumnInfoTypeName.GEOGRAPHY).setTypeText("GEOGRAPHY(4326)");
+
+      Object result = convert(vector, 0, ColumnInfoTypeName.STRING, "STRING", columnInfo);
+
+      assertEquals("SRID=4326;POINT(-122.4194 37.7749)", result);
+    }
+  }
+
+  @Test
+  public void testNativeArrowGeometryNullOuterStructReturnsNull() throws Exception {
+    try (StructVector vector = nativeGeospatialVector(4326, WKTConverter.toWKB("POINT(1 2)"))) {
+      vector.setNull(0);
+
+      assertNull(
+          convert(
+              vector,
+              0,
+              ColumnInfoTypeName.GEOMETRY,
+              "STRUCT<srid:INT,wkb:BINARY>",
+              new ColumnInfo().setTypeName(ColumnInfoTypeName.GEOMETRY)));
+    }
+  }
+
+  @Test
+  public void testNativeArrowGeographyNullOuterStructReturnsNull() throws Exception {
+    try (StructVector vector = nativeGeospatialVector(4326, WKTConverter.toWKB("POINT(1 2)"))) {
+      vector.setNull(0);
+
+      assertNull(
+          convert(
+              vector,
+              0,
+              ColumnInfoTypeName.GEOGRAPHY,
+              "STRUCT<srid:INT,wkb:BINARY>",
+              new ColumnInfo().setTypeName(ColumnInfoTypeName.GEOGRAPHY)));
+    }
+  }
+
+  private StructVector nativeGeospatialVector(int srid, byte[] wkb) {
+    StructVector vector = StructVector.empty("geo", bufferAllocator);
+    IntVector sridVector =
+        vector.addOrGet(
+            "srid", FieldType.notNullable(new ArrowType.Int(32, true)), IntVector.class);
+    VarBinaryVector wkbVector =
+        vector.addOrGet(
+            "wkb", FieldType.notNullable(ArrowType.Binary.INSTANCE), VarBinaryVector.class);
+
+    vector.allocateNew();
+    sridVector.allocateNew(1);
+    wkbVector.allocateNew(wkb.length, 1);
+    vector.setIndexDefined(0);
+    sridVector.setSafe(0, srid);
+    wkbVector.setSafe(0, wkb);
+    sridVector.setValueCount(1);
+    wkbVector.setValueCount(1);
+    vector.setValueCount(1);
+    return vector;
   }
 
   @Test
