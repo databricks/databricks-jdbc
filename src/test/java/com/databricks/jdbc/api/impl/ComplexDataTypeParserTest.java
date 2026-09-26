@@ -1,13 +1,24 @@
 package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.TelemetryLogLevel;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.telemetry.ITelemetryClient;
+import com.databricks.jdbc.telemetry.TelemetryClientFactory;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 public class ComplexDataTypeParserTest {
 
@@ -254,6 +265,35 @@ public class ComplexDataTypeParserTest {
       assertEquals(0, ts.getNanos() % 1_000_000); // no sub-millisecond component
     } catch (Exception e) {
       fail("Should not throw: " + e.getMessage());
+    }
+  }
+
+  @Test
+  void testTimestampAsEpochMicrosDoesNotEmitFailureTelemetry() throws Exception {
+    String json = "{\"before_epoch\":-1,\"fractional\":1696519230123456}";
+    IDatabricksConnectionContext connectionContext = mock(IDatabricksConnectionContext.class);
+    when(connectionContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.DEBUG);
+    when(connectionContext.getConnectionUuid()).thenReturn("epoch-micros-test");
+    when(connectionContext.getClientType()).thenReturn(DatabricksClientType.THRIFT);
+    DatabricksThreadContextHolder.setConnectionContext(connectionContext);
+
+    TelemetryClientFactory factory = mock(TelemetryClientFactory.class);
+    ITelemetryClient client = mock(ITelemetryClient.class);
+
+    try (MockedStatic<TelemetryClientFactory> telemetryFactory =
+        Mockito.mockStatic(TelemetryClientFactory.class)) {
+      telemetryFactory.when(TelemetryClientFactory::getInstance).thenReturn(factory);
+      when(factory.getTelemetryClient(connectionContext)).thenReturn(client);
+      DatabricksStruct dbStruct =
+          parser.parseJsonStringToDbStruct(
+              json, "STRUCT<before_epoch:TIMESTAMP_NTZ,fractional:TIMESTAMP>");
+      Object[] attrs = dbStruct.getAttributes();
+
+      assertEquals(Timestamp.valueOf("1969-12-31 23:59:59.999999"), attrs[0]);
+      assertEquals(Timestamp.valueOf("2023-10-05 15:20:30.123456"), attrs[1]);
+      telemetryFactory.verify(TelemetryClientFactory::getInstance, never());
+    } finally {
+      DatabricksThreadContextHolder.clearAllContext();
     }
   }
 

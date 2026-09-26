@@ -233,22 +233,18 @@ public class ComplexDataTypeParser {
       case DatabricksTypeUtil.TIMESTAMP:
       case DatabricksTypeUtil.TIMESTAMP_NTZ:
         try {
-          return parseTimestamp(text);
-        } catch (IllegalArgumentException e) {
+          // Parse Arrow's expected numeric format before TimestampConverter logs a failed attempt.
           // Arrow serializes TIMESTAMP/TIMESTAMP_NTZ inside nested types as epoch microseconds.
           // e.g., {"ts":1696519230000000} for 2023-10-05 15:20:30 UTC
-          try {
-            long micros = Long.parseLong(text);
-            long seconds = Math.floorDiv(micros, 1_000_000L);
-            long microsRemainder = Math.floorMod(micros, 1_000_000L);
-            Instant instant = Instant.ofEpochSecond(seconds, microsRemainder * 1_000);
-            // Build from the UTC wall-clock; Timestamp.from(instant) gets re-rendered in the JVM
-            // default timezone, shifting nested TIMESTAMP fields (ES-1978662).
-            return Timestamp.valueOf(LocalDateTime.ofInstant(instant, ZoneOffset.UTC));
-          } catch (NumberFormatException nfe) {
-            LOGGER.error(e, "Failed to parse TIMESTAMP value '{}' as epoch microseconds", text);
-            throw e;
-          }
+          long micros = Long.parseLong(text);
+          long seconds = Math.floorDiv(micros, 1_000_000L);
+          long microsRemainder = Math.floorMod(micros, 1_000_000L);
+          Instant instant = Instant.ofEpochSecond(seconds, microsRemainder * 1_000);
+          // Build from the UTC wall-clock; Timestamp.from(instant) gets re-rendered in the JVM
+          // default timezone, shifting nested TIMESTAMP fields (ES-1978662).
+          return Timestamp.valueOf(LocalDateTime.ofInstant(instant, ZoneOffset.UTC));
+        } catch (NumberFormatException e) {
+          return parseTimestamp(text);
         }
       case DatabricksTypeUtil.TIME:
         return Time.valueOf(text);
