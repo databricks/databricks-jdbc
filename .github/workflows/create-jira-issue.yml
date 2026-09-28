@@ -13,7 +13,9 @@ concurrency:
 
 jobs:
   create-jira-issue:
-    runs-on: ubuntu-latest
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Create ES incident
