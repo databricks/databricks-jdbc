@@ -13,6 +13,7 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** Class for representation of Array complex object. */
@@ -112,6 +113,9 @@ public class DatabricksArray implements Array {
     LOGGER.trace("Converting simple value of type: {}", type);
     if (value == null) {
       return null;
+    }
+    if (DatabricksTypeUtil.isGeospatialType(type.toUpperCase(Locale.ROOT))) {
+      return value;
     }
 
     try {

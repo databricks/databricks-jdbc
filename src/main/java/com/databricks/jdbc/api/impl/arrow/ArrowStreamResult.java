@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExterna
 
 import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
 import com.databricks.jdbc.api.impl.IExecutionResult;
+import com.databricks.jdbc.api.impl.MetadataParser;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -396,6 +397,12 @@ public class ArrowStreamResult implements IExecutionResult {
 
     if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
       LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
+      if (MetadataParser.containsGeospatialType(arrowMetadata)) {
+        Object result =
+            chunkIterator.getColumnObjectAtCurrentRow(
+                columnIndex, requiredType, arrowMetadata, columnInfo, false);
+        return result == null ? null : result.toString();
+      }
       Object result =
           chunkIterator.getColumnObjectAtCurrentRow(
               columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
@@ -405,6 +412,11 @@ public class ArrowStreamResult implements IExecutionResult {
       ComplexDataTypeParser parser = new ComplexDataTypeParser();
 
       return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
+    }
+
+    if (isComplexType(requiredType)) {
+      return chunkIterator.getColumnObjectAtCurrentRow(
+          columnIndex, requiredType, arrowMetadata, columnInfo, isGeoSpatialSupportEnabled);
     }
 
     return chunkIterator.getColumnObjectAtCurrentRow(

@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.impl.converters.GeospatialConverter;
 import com.databricks.jdbc.api.impl.converters.TimestampConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
@@ -26,12 +27,23 @@ import java.util.Base64;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class ComplexDataTypeParser {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ComplexDataTypeParser.class);
   private static final TimestampConverter TIMESTAMP_CONVERTER = new TimestampConverter();
+  private static final GeospatialConverter GEOSPATIAL_CONVERTER = new GeospatialConverter();
+  private final boolean geoSpatialSupportEnabled;
+
+  public ComplexDataTypeParser() {
+    this(true);
+  }
+
+  public ComplexDataTypeParser(boolean geoSpatialSupportEnabled) {
+    this.geoSpatialSupportEnabled = geoSpatialSupportEnabled;
+  }
 
   public DatabricksArray parseJsonStringToDbArray(String json, String arrayMetadata)
       throws DatabricksParsingException {
@@ -135,6 +147,9 @@ public class ComplexDataTypeParser {
     if (expectedType.startsWith(DatabricksTypeUtil.MAP)) {
       return parseToMap(node, expectedType);
     }
+    if (DatabricksTypeUtil.isGeospatialType(expectedType.toUpperCase(Locale.ROOT))) {
+      return convertGeospatial(node, expectedType);
+    }
     if (expectedType.equalsIgnoreCase(DatabricksTypeUtil.VARIANT)) {
       // For VARIANT, the node contains escaped JSON string, we need to unescape it
       // node.asText() gives us the content: "{\"nestedKey\":\"nestedValue\"}"
@@ -157,6 +172,48 @@ public class ComplexDataTypeParser {
       return convertTimestampNtzArray(node);
     }
     return convertPrimitive(node.asText(), expectedType);
+  }
+
+  private Object convertGeospatial(JsonNode node, String expectedType)
+      throws DatabricksParsingException {
+    String normalizedType = expectedType.toUpperCase(Locale.ROOT);
+    try {
+      Object value;
+      if (node.isObject()) {
+        JsonNode sridNode = node.get("srid");
+        JsonNode wkbNode = node.get("wkb");
+        if (sridNode == null
+            || !sridNode.isIntegralNumber()
+            || !sridNode.canConvertToInt()
+            || wkbNode == null
+            || !wkbNode.isTextual()) {
+          throw new IllegalArgumentException(
+              "expected an object with int32 srid and base64 wkb fields");
+        }
+        Map<String, Object> nativeValue = new LinkedHashMap<>();
+        nativeValue.put("srid", sridNode.intValue());
+        nativeValue.put("wkb", Base64.getDecoder().decode(wkbNode.textValue()));
+        value =
+            normalizedType.startsWith(DatabricksTypeUtil.GEOMETRY)
+                ? GEOSPATIAL_CONVERTER.toDatabricksGeometry(nativeValue)
+                : GEOSPATIAL_CONVERTER.toDatabricksGeography(nativeValue);
+      } else if (node.isTextual()) {
+        value =
+            normalizedType.startsWith(DatabricksTypeUtil.GEOMETRY)
+                ? GEOSPATIAL_CONVERTER.toDatabricksGeometry(node.textValue())
+                : GEOSPATIAL_CONVERTER.toDatabricksGeography(node.textValue());
+      } else {
+        throw new IllegalArgumentException("expected a native Arrow object or an EWKT string");
+      }
+      return geoSpatialSupportEnabled ? value : value.toString();
+    } catch (DatabricksSQLException | IllegalArgumentException e) {
+      String message = String.format("Failed to parse nested %s value", expectedType);
+      throw new DatabricksParsingException(
+          message,
+          e,
+          DatabricksDriverErrorCode.INVALID_STATE.name(),
+          DatabricksDriverErrorCode.INVALID_STATE.getCode());
+    }
   }
 
   private Map<String, Object> convertJsonNodeToJavaMap(

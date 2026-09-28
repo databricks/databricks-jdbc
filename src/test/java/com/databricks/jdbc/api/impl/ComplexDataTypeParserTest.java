@@ -2,10 +2,13 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.impl.converters.WKTConverter;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.Base64;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -368,6 +371,85 @@ public class ComplexDataTypeParserTest {
     } catch (Exception e) {
       fail("Should not throw: " + e.getMessage());
     }
+  }
+
+  @Test
+  void testNativeGeospatialValuesInStruct() throws Exception {
+    String json =
+        "{\"geom\":"
+            + nativeGeoJson(3857, "POINT(1 2)")
+            + ",\"geog\":"
+            + nativeGeoJson(4326, "POINT(3 4)")
+            + "}";
+
+    DatabricksStruct struct =
+        parser.parseJsonStringToDbStruct(json, "STRUCT<geom:GEOMETRY(3857),geog:GEOGRAPHY(4326)>");
+    Object[] attributes = struct.getAttributes();
+
+    DatabricksGeometry geometry = assertInstanceOf(DatabricksGeometry.class, attributes[0]);
+    assertEquals(3857, geometry.getSRID());
+    assertEquals("POINT(1 2)", geometry.getWKT());
+    DatabricksGeography geography = assertInstanceOf(DatabricksGeography.class, attributes[1]);
+    assertEquals(4326, geography.getSRID());
+    assertEquals("POINT(3 4)", geography.getWKT());
+  }
+
+  @Test
+  void testNativeGeospatialValuesInArrayAndMap() throws Exception {
+    DatabricksArray array =
+        parser.parseJsonStringToDbArray(
+            "[" + nativeGeoJson(4326, "POINT(1 2)") + ",null]", "ARRAY<GEOMETRY(ANY)>");
+    Object[] elements = (Object[]) array.getArray();
+    DatabricksGeometry geometry = assertInstanceOf(DatabricksGeometry.class, elements[0]);
+    assertEquals(4326, geometry.getSRID());
+    assertNull(elements[1]);
+
+    DatabricksMap<String, Object> map =
+        parser.parseJsonStringToDbMap(
+            "{\"place\":" + nativeGeoJson(4269, "POINT(3 4)") + "}", "MAP<STRING,GEOGRAPHY(ANY)>");
+    DatabricksGeography geography = assertInstanceOf(DatabricksGeography.class, map.get("place"));
+    assertEquals(4269, geography.getSRID());
+    assertEquals("POINT(3 4)", geography.getWKT());
+  }
+
+  @Test
+  void testNestedGeospatialStringMode() throws Exception {
+    ComplexDataTypeParser stringParser = new ComplexDataTypeParser(false);
+    DatabricksStruct struct =
+        stringParser.parseJsonStringToDbStruct(
+            "{\"geom\":" + nativeGeoJson(3857, "POINT(1 2)") + "}", "STRUCT<geom:GEOMETRY(3857)>");
+
+    assertEquals("SRID=3857;POINT(1 2)", struct.getAttributes()[0]);
+    assertEquals("{\"geom\":\"SRID=3857;POINT(1 2)\"}", struct.toString());
+  }
+
+  @Test
+  void testNestedGeospatialExistingEwktPath() throws Exception {
+    DatabricksArray array =
+        parser.parseJsonStringToDbArray("[\"SRID=4326;POINT(1 2)\"]", "ARRAY<GEOGRAPHY(4326)>");
+
+    DatabricksGeography geography =
+        assertInstanceOf(DatabricksGeography.class, ((Object[]) array.getArray())[0]);
+    assertEquals(4326, geography.getSRID());
+    assertEquals("POINT(1 2)", geography.getWKT());
+  }
+
+  @Test
+  void testMalformedNestedGeospatialValueUsesInvalidState() {
+    DatabricksParsingException exception =
+        assertThrows(
+            DatabricksParsingException.class,
+            () ->
+                parser.parseJsonStringToDbStruct(
+                    "{\"geom\":{\"srid\":4326}}", "STRUCT<geom:GEOMETRY(4326)>"));
+
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), exception.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), exception.getErrorCode());
+  }
+
+  private static String nativeGeoJson(int srid, String wkt) throws Exception {
+    String encodedWkb = Base64.getEncoder().encodeToString(WKTConverter.toWKB(wkt));
+    return String.format("{\"srid\":%d,\"wkb\":\"%s\"}", srid, encodedWkb);
   }
 
   @Test

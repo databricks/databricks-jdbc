@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** Class for representation of Struct complex object. */
@@ -105,6 +106,9 @@ public class DatabricksStruct implements Struct {
   private Object convertSimpleValue(Object value, String type) {
     if (value == null) {
       return null;
+    }
+    if (DatabricksTypeUtil.isGeospatialType(type.toUpperCase(Locale.ROOT))) {
+      return value;
     }
 
     try {

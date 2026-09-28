@@ -364,6 +364,48 @@ public class ArrowToJavaObjectConverterTest {
     }
   }
 
+  @Test
+  public void testNativeArrowNestedGeometryReturnsNativeObject() throws Exception {
+    byte[] wkb = WKTConverter.toWKB("POINT(1 2)");
+    try (StructVector vector = nestedGeospatialStructVector("geom", 3857, wkb)) {
+      String metadata = "STRUCT<geom:GEOMETRY(ANY)>";
+      Object result =
+          convert(
+              vector,
+              0,
+              ColumnInfoTypeName.STRUCT,
+              metadata,
+              new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata),
+              true);
+
+      DatabricksStruct struct = assertInstanceOf(DatabricksStruct.class, result);
+      DatabricksGeometry geometry =
+          assertInstanceOf(DatabricksGeometry.class, struct.getAttributes()[0]);
+      assertEquals(3857, geometry.getSRID());
+      assertEquals("POINT(1 2)", geometry.getWKT());
+      assertArrayEquals(wkb, geometry.getWKB());
+    }
+  }
+
+  @Test
+  public void testNativeArrowNestedGeometryReturnsEwktWhenDisabled() throws Exception {
+    try (StructVector vector =
+        nestedGeospatialStructVector("geom", 3857, WKTConverter.toWKB("POINT(1 2)"))) {
+      String metadata = "STRUCT<geom:GEOMETRY(3857)>";
+      Object result =
+          convert(
+              vector,
+              0,
+              ColumnInfoTypeName.STRUCT,
+              metadata,
+              new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata),
+              false);
+
+      DatabricksStruct struct = assertInstanceOf(DatabricksStruct.class, result);
+      assertEquals("SRID=3857;POINT(1 2)", struct.getAttributes()[0]);
+    }
+  }
+
   private StructVector nativeGeospatialVector(int srid, byte[] wkb) {
     StructVector vector = StructVector.empty("geo", bufferAllocator);
     IntVector sridVector =
@@ -383,6 +425,32 @@ public class ArrowToJavaObjectConverterTest {
     wkbVector.setValueCount(1);
     vector.setValueCount(1);
     return vector;
+  }
+
+  private StructVector nestedGeospatialStructVector(String fieldName, int srid, byte[] wkb) {
+    StructVector outer = StructVector.empty("container", bufferAllocator);
+    StructVector geo =
+        outer.addOrGet(
+            fieldName, FieldType.nullable(ArrowType.Struct.INSTANCE), StructVector.class);
+    IntVector sridVector =
+        geo.addOrGet("srid", FieldType.notNullable(new ArrowType.Int(32, true)), IntVector.class);
+    VarBinaryVector wkbVector =
+        geo.addOrGet(
+            "wkb", FieldType.notNullable(ArrowType.Binary.INSTANCE), VarBinaryVector.class);
+
+    outer.allocateNew();
+    geo.allocateNew();
+    sridVector.allocateNew(1);
+    wkbVector.allocateNew(wkb.length, 1);
+    outer.setIndexDefined(0);
+    geo.setIndexDefined(0);
+    sridVector.setSafe(0, srid);
+    wkbVector.setSafe(0, wkb);
+    sridVector.setValueCount(1);
+    wkbVector.setValueCount(1);
+    geo.setValueCount(1);
+    outer.setValueCount(1);
+    return outer;
   }
 
   @Test

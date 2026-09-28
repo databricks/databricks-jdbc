@@ -63,6 +63,17 @@ public class ArrowToJavaObjectConverter {
       String arrowMetadata,
       ColumnInfo columnInfo)
       throws DatabricksSQLException {
+    return convert(columnVector, vectorIndex, requiredType, arrowMetadata, columnInfo, true);
+  }
+
+  public static Object convert(
+      ValueVector columnVector,
+      int vectorIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata,
+      ColumnInfo columnInfo,
+      boolean geoSpatialSupportEnabled)
+      throws DatabricksSQLException {
     // check isNull before getting the object from the vector
     if (columnVector.isNull(vectorIndex)) {
       return null;
@@ -138,11 +149,11 @@ public class ArrowToJavaObjectConverter {
       case CHAR:
         return convertToChar(object);
       case STRUCT:
-        return convertToStruct(object, arrowMetadata);
+        return convertToStruct(object, arrowMetadata, geoSpatialSupportEnabled);
       case ARRAY:
-        return convertToArray(object, arrowMetadata);
+        return convertToArray(object, arrowMetadata, geoSpatialSupportEnabled);
       case MAP:
-        return convertToMap(object, arrowMetadata);
+        return convertToMap(object, arrowMetadata, geoSpatialSupportEnabled);
       case STRING:
         if (logicalGeospatialType != null && object instanceof java.util.Map<?, ?>) {
           return convertNativeGeospatial(object, logicalGeospatialType).toString();
@@ -204,21 +215,24 @@ public class ArrowToJavaObjectConverter {
         .toDatabricksGeography(object);
   }
 
-  private static DatabricksMap convertToMap(Object object, String arrowMetadata)
+  private static DatabricksMap convertToMap(
+      Object object, String arrowMetadata, boolean geoSpatialSupportEnabled)
       throws DatabricksParsingException {
-    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    ComplexDataTypeParser parser = new ComplexDataTypeParser(geoSpatialSupportEnabled);
     return parser.parseJsonStringToDbMap(object.toString(), arrowMetadata);
   }
 
-  private static DatabricksArray convertToArray(Object object, String arrowMetadata)
+  private static DatabricksArray convertToArray(
+      Object object, String arrowMetadata, boolean geoSpatialSupportEnabled)
       throws DatabricksParsingException {
-    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    ComplexDataTypeParser parser = new ComplexDataTypeParser(geoSpatialSupportEnabled);
     return parser.parseJsonStringToDbArray(object.toString(), arrowMetadata);
   }
 
-  private static Object convertToStruct(Object object, String arrowMetadata)
+  private static Object convertToStruct(
+      Object object, String arrowMetadata, boolean geoSpatialSupportEnabled)
       throws DatabricksParsingException {
-    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    ComplexDataTypeParser parser = new ComplexDataTypeParser(geoSpatialSupportEnabled);
     return parser.parseJsonStringToDbStruct(object.toString(), arrowMetadata);
   }
 
