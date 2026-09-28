@@ -7,7 +7,9 @@ import java.nio.ByteOrder;
 import java.util.EnumSet;
 import java.util.regex.Pattern;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.io.Ordinate;
+import org.locationtech.jts.io.OrdinateFormat;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.WKTReader;
@@ -26,6 +28,21 @@ public class WKTConverter {
   private static final Pattern TYPE_BODY_SPACING = Pattern.compile("\\b([A-Z]+) \\(");
   private static final Pattern DIMENSION_BODY_SPACING = Pattern.compile("\\b(ZM|Z|M)\\(");
   private static final Pattern COMMA_SPACING = Pattern.compile(",\\s+");
+  private static final PrecisionModel FULL_DOUBLE_PRECISION = new FullDoublePrecisionModel();
+
+  /**
+   * WKTWriter defaults to the geometry's floating precision model, which formats at most 16
+   * fractional digits and rounds valid small doubles such as 1e-20 to zero. This precision model is
+   * used only by WKTWriter's formatter and preserves the complete double range supported by JTS.
+   */
+  private static final class FullDoublePrecisionModel extends PrecisionModel {
+    private static final long serialVersionUID = 1L;
+
+    @Override
+    public int getMaximumSignificantDigits() {
+      return OrdinateFormat.MAX_FRACTION_DIGITS;
+    }
+  }
 
   /**
    * Converts WKT (Well-Known Text) to WKB (Well-Known Binary) format.
@@ -77,6 +94,7 @@ public class WKTConverter {
       int outputDimension = ordinates.size();
       WKTWriter writer = new WKTWriter(outputDimension);
       writer.setOutputOrdinates(ordinates);
+      writer.setPrecisionModel(FULL_DOUBLE_PRECISION);
       return writer.write(geometry);
     } catch (Exception e) {
       String errorMessage =

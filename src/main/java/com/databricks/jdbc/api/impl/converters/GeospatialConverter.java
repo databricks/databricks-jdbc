@@ -67,7 +67,11 @@ public class GeospatialConverter implements ObjectConverter {
       } catch (Exception e) {
         String errorMessage = String.format("Failed to convert native Arrow value to %s", typeName);
         LOGGER.warn(errorMessage, e);
-        throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
+        throw new DatabricksSQLException(
+            errorMessage,
+            DatabricksDriverErrorCode.INVALID_STATE.name(),
+            DatabricksDriverErrorCode.INVALID_STATE.getCode(),
+            e);
       }
     }
 
@@ -82,6 +86,7 @@ public class GeospatialConverter implements ObjectConverter {
     return new DatabricksSQLException(
         String.format(
             "Malformed native Arrow %s value: expected struct<srid:int32,wkb:binary>", typeName),
+        DatabricksDriverErrorCode.INVALID_STATE.name(),
         DatabricksDriverErrorCode.INVALID_STATE);
   }
 

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.api.impl.DatabricksGeography;
 import com.databricks.jdbc.api.impl.DatabricksGeometry;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.arrow.vector.util.Text;
@@ -71,7 +72,11 @@ public class GeospatialConverterTest {
     nativeValue.put("srid", 4326L);
     nativeValue.put("wkb", "not binary");
 
-    assertThrows(DatabricksSQLException.class, () -> converter.toDatabricksGeometry(nativeValue));
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class, () -> converter.toDatabricksGeometry(nativeValue));
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), exception.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.getCode(), exception.getErrorCode());
   }
 
   @Test

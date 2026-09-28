@@ -170,6 +170,20 @@ public class WKTConverterTest {
   }
 
   @Test
+  public void testToDatabricksWKT_PreservesFullDoublePrecision()
+      throws DatabricksValidationException {
+    String original =
+        "POINT ZM (0.00000000000000000001 -0.00000000000000000001 "
+            + "1.2345678901234567 -0.00000000000000000003)";
+    byte[] wkb = WKTConverter.toWKB(original);
+
+    String decoded = WKTConverter.toDatabricksWKT(wkb);
+
+    assertEquals(original, decoded);
+    assertArrayEquals(wkb, WKTConverter.toWKB(decoded));
+  }
+
+  @Test
   public void testToWKT_NullWKB() {
     assertThrows(DatabricksValidationException.class, () -> WKTConverter.toWKT(null));
   }
