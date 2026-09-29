@@ -199,6 +199,10 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
       String tableNamePattern,
       String columnNamePattern)
       throws SQLException {
+    // Runtime treats the catalog as a pattern for native metadata. Preserve the original JDBC
+    // catalog for exact native-result filtering before resolving catalog below.
+    String requestedCatalog = catalog;
+
     // Only fetch currentCatalog if multiple catalog support is disabled
     String currentCatalog = isMultipleCatalogSupportDisabled() ? session.getCurrentCatalog() : null;
     if (!metadataResultSetBuilder.shouldAllowCatalogAccess(catalog, currentCatalog, session)) {
@@ -219,7 +223,7 @@ public class DatabricksMetadataQueryClient implements IDatabricksMetadataClient 
     LOGGER.debug("SQL command to fetch columns: {}", SQL);
     try {
       return metadataResultSetBuilder.getColumnsResult(
-          getResultSet(SQL, session, MetadataOperationType.GET_COLUMNS));
+          getResultSet(SQL, session, MetadataOperationType.GET_COLUMNS), requestedCatalog);
     } catch (SQLException e) {
       if (catalog == null && PARSE_SYNTAX_ERROR_SQL_STATE.equals(e.getSQLState())) {
         // Fallback for older DBR versions that don't support "SHOW COLUMNS IN ALL CATALOGS":

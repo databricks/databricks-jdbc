@@ -128,6 +128,42 @@ public class MetadataResultSetBuilderTest {
   }
 
   @Test
+  void testThriftNativeGetColumnsFiltersCatalogAsExactName() throws SQLException {
+    List<Object> nativeRow =
+        Arrays.asList(
+            "samples",
+            "schema",
+            "table",
+            "column",
+            Types.INTEGER,
+            "INT",
+            10,
+            null,
+            0,
+            10,
+            1,
+            null,
+            null,
+            Types.INTEGER,
+            null,
+            null,
+            0,
+            "YES",
+            null,
+            null,
+            null,
+            null,
+            "YES");
+
+    for (String catalog : List.of("%", "*", "%ss%")) {
+      DatabricksResultSet result =
+          metadataResultSetBuilder.getColumnsResult(
+              nativeMetadataResult(List.of(new ArrayList<>(nativeRow))), catalog);
+      assertFalse(result.next(), "Native catalog patterns must be matched as exact names");
+    }
+  }
+
+  @Test
   void testLegacyMetadataResultWithNativeColumnCountIsTransformed() throws SQLException {
     DatabricksResultSet resultSet =
         mockMetadataResultSetWithColumnNames(

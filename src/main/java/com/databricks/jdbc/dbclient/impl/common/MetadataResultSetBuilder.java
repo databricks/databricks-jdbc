@@ -553,8 +553,17 @@ public class MetadataResultSetBuilder {
   }
 
   public DatabricksResultSet getColumnsResult(DatabricksResultSet resultSet) throws SQLException {
+    return getColumnsResult(resultSet, null);
+  }
+
+  public DatabricksResultSet getColumnsResult(DatabricksResultSet resultSet, String catalog)
+      throws SQLException {
     if (resultSet.isThriftNativeMetadataResult()) {
-      return getColumnsResult(copyThriftNativeMetadataRows(resultSet));
+      List<List<Object>> rows = copyThriftNativeMetadataRows(resultSet);
+      if (catalog != null) {
+        rows.removeIf(row -> !catalog.equals(row.get(0)));
+      }
+      return getColumnsResult(rows);
     }
     List<List<Object>> rows = getRows(resultSet, COLUMN_COLUMNS, defaultAdapter);
     return buildResultSet(
