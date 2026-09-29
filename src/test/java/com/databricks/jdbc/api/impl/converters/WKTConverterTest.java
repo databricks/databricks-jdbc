@@ -170,6 +170,25 @@ public class WKTConverterTest {
   }
 
   @Test
+  public void testToDatabricksWKT_NormalizesMultiAndNestedDimensionFormatting()
+      throws DatabricksValidationException {
+    String[] canonicalWkts = {
+      "MULTIPOINT((1 2),(3 4))",
+      "MULTIPOLYGON(((0 0,0 1,1 0,0 0)))",
+      "GEOMETRYCOLLECTION ZM (POINT ZM (1 2 3 4),"
+          + "GEOMETRYCOLLECTION ZM (MULTIPOINT ZM ((5 6 7 8),(9 10 11 12)),"
+          + "MULTIPOLYGON ZM EMPTY))"
+    };
+
+    for (String canonicalWkt : canonicalWkts) {
+      assertEquals(
+          canonicalWkt,
+          WKTConverter.toDatabricksWKT(WKTConverter.toWKB(canonicalWkt)),
+          canonicalWkt);
+    }
+  }
+
+  @Test
   public void testToDatabricksWKT_PreservesFullDoublePrecision()
       throws DatabricksValidationException {
     String original =

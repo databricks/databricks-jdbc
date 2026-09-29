@@ -27,6 +27,7 @@ public class WKTConverter {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(WKTConverter.class);
   private static final Pattern TYPE_BODY_SPACING = Pattern.compile("\\b([A-Z]+) \\(");
   private static final Pattern DIMENSION_BODY_SPACING = Pattern.compile("\\b(ZM|Z|M)\\(");
+  private static final Pattern DIMENSION_EMPTY_SPACING = Pattern.compile("\\b(ZM|Z|M)EMPTY\\b");
   private static final Pattern COMMA_SPACING = Pattern.compile(",\\s+");
   private static final PrecisionModel FULL_DOUBLE_PRECISION = new FullDoublePrecisionModel();
 
@@ -120,6 +121,7 @@ public class WKTConverter {
     String wkt = toWKT(wkb);
     wkt = TYPE_BODY_SPACING.matcher(wkt).replaceAll("$1(");
     wkt = DIMENSION_BODY_SPACING.matcher(wkt).replaceAll("$1 (");
+    wkt = DIMENSION_EMPTY_SPACING.matcher(wkt).replaceAll("$1 EMPTY");
     return COMMA_SPACING.matcher(wkt).replaceAll(",");
   }
 
