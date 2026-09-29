@@ -68,7 +68,7 @@ public abstract class AbstractDatabricksGeospatial implements IDatabricksGeospat
    */
   @Override
   public byte[] getWKB() {
-    return wkb;
+    return Arrays.copyOf(wkb, wkb.length);
   }
 
   /**
