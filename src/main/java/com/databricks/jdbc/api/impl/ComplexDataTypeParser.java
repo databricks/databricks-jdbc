@@ -104,7 +104,7 @@ public class ComplexDataTypeParser {
           DatabricksDriverErrorCode.JSON_PARSING_ERROR);
     }
     LOGGER.debug("Parsing map with metadata: {}", mapMetadata);
-    String[] kv = MetadataParser.parseMapMetadata(mapMetadata).split(",", 2);
+    String[] kv = MetadataParser.parseMapMetadataParts(mapMetadata);
     String keyType = kv[0].trim();
     String valueType = kv[1].trim();
     Map<String, Object> rawMap = convertJsonNodeToJavaMap(node, keyType, valueType);
@@ -399,7 +399,7 @@ public class ComplexDataTypeParser {
       if (node.isArray() && node.size() > 0 && node.get(0).has("key")) {
         String[] kv = new String[] {"STRING", "STRING"};
         if (mapMetadata != null && mapMetadata.startsWith(DatabricksTypeUtil.MAP)) {
-          kv = MetadataParser.parseMapMetadata(mapMetadata).split(",", 2);
+          kv = MetadataParser.parseMapMetadataParts(mapMetadata);
         }
 
         String keyType = kv[0].trim();

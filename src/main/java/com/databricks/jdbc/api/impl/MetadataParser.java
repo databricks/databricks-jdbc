@@ -58,7 +58,7 @@ public class MetadataParser {
    * @throws DatabricksDriverException if the MAP metadata format is invalid
    */
   public static String parseMapMetadata(String metadata) {
-    String[] keyValueTypes = splitMapMetadata(metadata);
+    String[] keyValueTypes = parseMapMetadataParts(metadata);
     return keyValueTypes[0] + ", " + keyValueTypes[1];
   }
 
@@ -76,7 +76,7 @@ public class MetadataParser {
       return containsGeospatialType(parseArrayMetadata(type));
     }
     if (normalizedType.startsWith(DatabricksTypeUtil.MAP + "<")) {
-      String[] keyValueTypes = splitMapMetadata(type);
+      String[] keyValueTypes = parseMapMetadataParts(type);
       return containsGeospatialType(keyValueTypes[0]) || containsGeospatialType(keyValueTypes[1]);
     }
     if (normalizedType.startsWith(DatabricksTypeUtil.STRUCT + "<")) {
@@ -86,7 +86,8 @@ public class MetadataParser {
     return false;
   }
 
-  private static String[] splitMapMetadata(String metadata) {
+  /** Parses MAP metadata into its key and value types without flattening nested type syntax. */
+  static String[] parseMapMetadataParts(String metadata) {
     metadata = metadata.substring("MAP<".length(), metadata.length() - 1).trim();
 
     int angleBracketDepth = 0;

@@ -204,6 +204,9 @@ public class MetadataParserTest {
     assertEquals(
         "DECIMAL(10,2), GEOMETRY(ANY)",
         MetadataParser.parseMapMetadata("MAP<DECIMAL(10,2),GEOMETRY(ANY)>"));
+    assertArrayEquals(
+        new String[] {"DECIMAL(10,2)", "GEOMETRY(ANY)"},
+        MetadataParser.parseMapMetadataParts("MAP<DECIMAL(10,2),GEOMETRY(ANY)>"));
   }
 
   /**

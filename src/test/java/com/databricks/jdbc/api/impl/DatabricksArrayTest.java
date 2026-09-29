@@ -840,7 +840,8 @@ public class DatabricksArrayTest {
 
     when(MetadataParser.parseArrayMetadata("ARRAY<MAP<STRING,INT>>")).thenReturn("MAP<STRING,INT>");
 
-    when(MetadataParser.parseMapMetadata("MAP<STRING,INT>")).thenReturn("STRING,INT");
+    when(MetadataParser.parseMapMetadataParts("MAP<STRING,INT>"))
+        .thenReturn(new String[] {"STRING", "INT"});
 
     Map<String, Object> map1 = new LinkedHashMap<>();
     map1.put("key1", 10);

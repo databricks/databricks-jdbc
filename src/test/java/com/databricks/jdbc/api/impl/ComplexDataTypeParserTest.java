@@ -413,6 +413,18 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
+  void testNativeGeospatialMapValueWithParameterizedDecimalKey() throws Exception {
+    DatabricksMap<String, Object> map =
+        parser.parseJsonStringToDbMap(
+            "{\"1.25\":" + nativeGeoJson(3857, "POINT(1 2)") + "}",
+            "MAP<DECIMAL(10,2),GEOMETRY(ANY)>");
+
+    DatabricksGeometry geometry = assertInstanceOf(DatabricksGeometry.class, map.get("1.25"));
+    assertEquals(3857, geometry.getSRID());
+    assertEquals("POINT(1 2)", geometry.getWKT());
+  }
+
+  @Test
   void testNestedGeospatialStringMode() throws Exception {
     ComplexDataTypeParser stringParser = new ComplexDataTypeParser(false);
     DatabricksStruct struct =
@@ -459,6 +471,14 @@ public class ComplexDataTypeParserTest {
 
     String result = parser.formatComplexTypeString(jsonString, "MAP", "MAP<INT,INT>");
     assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapStringWithParameterizedDecimalKeyAndStringValue() {
+    String result =
+        parser.formatMapString("[{\"key\":1.25,\"value\":\"place\"}]", "MAP<DECIMAL(10,2),STRING>");
+
+    assertEquals("{1.25:\"place\"}", result);
   }
 
   @Test

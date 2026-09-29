@@ -41,7 +41,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
     LOGGER.debug("Converting map with metadata: {}", metadata);
     Map<K, V> convertedMap = new LinkedHashMap<>();
     try {
-      String[] mapMetadata = MetadataParser.parseMapMetadata(metadata).split(",", 2);
+      String[] mapMetadata = MetadataParser.parseMapMetadataParts(metadata);
       String keyType = mapMetadata[0].trim();
       String valueType = mapMetadata[1].trim();
       LOGGER.debug("Parsed metadata - Key Type: {}, Value Type: {}", keyType, valueType);
