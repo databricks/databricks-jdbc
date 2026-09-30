@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.converters;
 
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
+import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -156,7 +157,8 @@ public class ArrowToJavaObjectConverter {
         return convertToMap(object, arrowMetadata, geoSpatialSupportEnabled);
       case STRING:
         if (logicalGeospatialType != null && object instanceof java.util.Map<?, ?>) {
-          return convertNativeGeospatial(object, logicalGeospatialType).toString();
+          IDatabricksGeospatial geospatial = convertNativeGeospatial(object, logicalGeospatialType);
+          return geospatial.getSRID() == 0 ? geospatial.getWKT() : geospatial.toString();
         }
         return convertToString(object);
       case DATE:
@@ -205,8 +207,8 @@ public class ArrowToJavaObjectConverter {
     return null;
   }
 
-  private static Object convertNativeGeospatial(Object object, ColumnInfoTypeName geospatialType)
-      throws DatabricksSQLException {
+  private static IDatabricksGeospatial convertNativeGeospatial(
+      Object object, ColumnInfoTypeName geospatialType) throws DatabricksSQLException {
     if (geospatialType == ColumnInfoTypeName.GEOMETRY) {
       return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOMETRY)
           .toDatabricksGeometry(object);

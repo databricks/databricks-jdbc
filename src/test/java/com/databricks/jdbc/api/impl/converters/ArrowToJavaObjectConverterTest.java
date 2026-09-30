@@ -322,6 +322,19 @@ public class ArrowToJavaObjectConverterTest {
   }
 
   @Test
+  public void testNativeArrowGeometryStringFallbackOmitsZeroSrid() throws Exception {
+    byte[] wkb = WKTConverter.toWKB("POINT(5 5)");
+    try (StructVector vector = nativeGeospatialVector(0, wkb)) {
+      ColumnInfo columnInfo =
+          new ColumnInfo().setTypeName(ColumnInfoTypeName.GEOMETRY).setTypeText("GEOMETRY(ANY)");
+
+      Object result = convert(vector, 0, ColumnInfoTypeName.STRING, "STRING", columnInfo);
+
+      assertEquals("POINT(5 5)", result);
+    }
+  }
+
+  @Test
   public void testNativeArrowGeographyStringFallbackReturnsEwkt() throws Exception {
     byte[] wkb = WKTConverter.toWKB("POINT(-122.4194 37.7749)");
     try (StructVector vector = nativeGeospatialVector(4326, wkb)) {
