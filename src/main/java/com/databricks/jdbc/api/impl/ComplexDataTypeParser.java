@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.impl.converters.GeospatialConverter;
 import com.databricks.jdbc.api.impl.converters.TimestampConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
@@ -178,7 +179,7 @@ public class ComplexDataTypeParser {
       throws DatabricksParsingException {
     String normalizedType = expectedType.toUpperCase(Locale.ROOT);
     try {
-      Object value;
+      IDatabricksGeospatial value;
       if (node.isObject()) {
         JsonNode sridNode = node.get("srid");
         JsonNode wkbNode = node.get("wkb");
@@ -205,7 +206,7 @@ public class ComplexDataTypeParser {
       } else {
         throw new IllegalArgumentException("expected a native Arrow object or an EWKT string");
       }
-      return geoSpatialSupportEnabled ? value : value.toString();
+      return geoSpatialSupportEnabled ? value : GeospatialConverter.formatStringFallback(value);
     } catch (DatabricksSQLException | IllegalArgumentException e) {
       String message = String.format("Failed to parse nested %s value", expectedType);
       throw new DatabricksParsingException(

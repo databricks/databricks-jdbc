@@ -17,6 +17,14 @@ public class GeospatialConverter implements ObjectConverter {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(GeospatialConverter.class);
 
+  /**
+   * Formats a geospatial value for the string fallback used when native geospatial support is
+   * disabled. Databricks omits the SRID prefix for SRID 0 and returns EWKT for nonzero SRIDs.
+   */
+  public static String formatStringFallback(IDatabricksGeospatial geospatial) {
+    return geospatial.getSRID() == 0 ? geospatial.getWKT() : geospatial.toString();
+  }
+
   @Override
   public DatabricksGeometry toDatabricksGeometry(Object object) throws DatabricksSQLException {
     if (object instanceof DatabricksGeometry) {

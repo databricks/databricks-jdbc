@@ -158,7 +158,7 @@ public class ArrowToJavaObjectConverter {
       case STRING:
         if (logicalGeospatialType != null && object instanceof java.util.Map<?, ?>) {
           IDatabricksGeospatial geospatial = convertNativeGeospatial(object, logicalGeospatialType);
-          return geospatial.getSRID() == 0 ? geospatial.getWKT() : geospatial.toString();
+          return GeospatialConverter.formatStringFallback(geospatial);
         }
         return convertToString(object);
       case DATE:

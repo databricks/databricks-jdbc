@@ -436,6 +436,17 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
+  void testNestedZeroSridGeospatialStringModeOmitsSrid() throws Exception {
+    ComplexDataTypeParser stringParser = new ComplexDataTypeParser(false);
+    DatabricksStruct struct =
+        stringParser.parseJsonStringToDbStruct(
+            "{\"geom\":" + nativeGeoJson(0, "POINT(5 5)") + "}", "STRUCT<geom:GEOMETRY(ANY)>");
+
+    assertEquals("POINT(5 5)", struct.getAttributes()[0]);
+    assertEquals("{\"geom\":\"POINT(5 5)\"}", struct.toString());
+  }
+
+  @Test
   void testNestedGeospatialExistingEwktPath() throws Exception {
     DatabricksArray array =
         parser.parseJsonStringToDbArray("[\"SRID=4326;POINT(1 2)\"]", "ARRAY<GEOGRAPHY(4326)>");
