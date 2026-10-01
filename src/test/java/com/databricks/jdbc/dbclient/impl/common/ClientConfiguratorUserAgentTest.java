@@ -2,18 +2,20 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL_WITH_SEA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.mockStatic;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.UserAgent;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
+import com.sun.net.httpserver.HttpServer;
+import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -21,7 +23,6 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 
 class ClientConfiguratorUserAgentTest {
   private static final String SEA_CLIENT = "Java/SQLExecHttpClient";
@@ -48,27 +49,82 @@ class ClientConfiguratorUserAgentTest {
   }
 
   @Test
-  void seaRequestSurvivesCustomerEntrySanitizationFailure() throws Exception {
+  void seaIgnoresInvalidCustomerEntry() throws Exception {
+    String userAgent = sendRequest("Bad~Name/1.0");
+    assertSegmentsAfterOs(userAgent, SEA_CLIENT);
+    assertFalse(userAgent.contains("Bad~Name/1.0"));
+  }
+
+  @Test
+  void seaAddsMarkerAfterClientSwitch() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(
-            WAREHOUSE_JDBC_URL_WITH_SEA + "UserAgentEntry=Bad~Name/1.0", new Properties());
+            WAREHOUSE_JDBC_URL_WITH_SEA + "UserAgentEntry=ThoughtSpot", new Properties());
+    connectionContext.setClientType(DatabricksClientType.THRIFT);
     HttpClient transport = request -> new Response(request, 200, "OK", Collections.emptyMap());
     HttpClient ordered = ClientConfigurator.withSeaUserAgentOrdering(transport, connectionContext);
+    String original =
+        "DatabricksJDBCDriverOSS/1.0 databricks-sdk-java/0.118.0 "
+            + "jvm/17 os/Linux Java/THttpClient ThoughtSpot/version auth/pat";
     Request request =
         new Request(Request.POST, "https://example.com/api/2.0/sql/statements")
-            .withHeader(
-                "User-Agent",
-                "DatabricksJDBCDriverOSS/1.0 databricks-sdk-java/0.118.0 "
-                    + "jvm/17 os/Linux Java/SQLExecHttpClient auth/pat");
+            .withHeader("User-Agent", original);
 
-    try (MockedStatic<UserAgent> userAgent = mockStatic(UserAgent.class, CALLS_REAL_METHODS)) {
-      userAgent
-          .when(() -> UserAgent.sanitize("1.0"))
-          .thenThrow(new IllegalArgumentException("invalid version"));
-      ordered.execute(request);
+    ordered.execute(request);
+    assertEquals(original, request.getHeaders().get("User-Agent"));
+
+    connectionContext.setClientType(DatabricksClientType.SEA);
+    ordered.execute(request);
+    assertEquals(
+        "DatabricksJDBCDriverOSS/1.0 databricks-sdk-java/0.118.0 "
+            + "jvm/17 os/Linux ThoughtSpot/version Java/SQLExecHttpClient "
+            + "Java/THttpClient auth/pat",
+        request.getHeaders().get("User-Agent"));
+  }
+
+  @Test
+  void configuratorInstallsSeaOrdering() throws Exception {
+    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    AtomicReference<String> receivedUserAgent = new AtomicReference<>();
+    server.createContext(
+        "/",
+        exchange -> {
+          boolean isTestRequest = "/".equals(exchange.getRequestURI().getPath());
+          if (isTestRequest) {
+            receivedUserAgent.set(exchange.getRequestHeaders().getFirst("User-Agent"));
+          }
+          exchange.getResponseHeaders().set("Connection", "close");
+          exchange.sendResponseHeaders(isTestRequest ? 200 : 404, -1);
+          exchange.close();
+        });
+    server.start();
+    try {
+      Properties properties = new Properties();
+      properties.setProperty("PWD", "test-token");
+      String serverUrl = "http://127.0.0.1:" + server.getAddress().getPort();
+      IDatabricksConnectionContext connectionContext =
+          DatabricksConnectionContextFactory.create(
+              "jdbc:databricks://127.0.0.1:"
+                  + server.getAddress().getPort()
+                  + "/default;transportMode=http;ssl=0;AuthMech=3;"
+                  + "httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=0;"
+                  + "UserAgentEntry=ThoughtSpot",
+              properties);
+      try (ClientConfigurator configurator = new ClientConfigurator(connectionContext)) {
+        Request request =
+            new Request(Request.GET, serverUrl + "/")
+                .withHeader(
+                    "User-Agent",
+                    "Driver/1 sdk/1 jvm/17 os/linux Java/SQLExecHttpClient ThoughtSpot/version");
+        Response response = configurator.getDatabricksConfig().getHttpClient().execute(request);
+        assertEquals(200, response.getStatusCode());
+      }
+      assertEquals(
+          "Driver/1 sdk/1 jvm/17 os/linux ThoughtSpot/version Java/SQLExecHttpClient",
+          receivedUserAgent.get());
+    } finally {
+      server.stop(0);
     }
-
-    assertSegmentsAfterOs(request.getHeaders().get("User-Agent"), SEA_CLIENT);
   }
 
   private void assertSegmentsAfterOs(String userAgent, String... expected) {

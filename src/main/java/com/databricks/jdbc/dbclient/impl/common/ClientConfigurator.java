@@ -75,7 +75,9 @@ public class ClientConfigurator implements Closeable {
         request.withHeader(
             "User-Agent",
             UserAgentManager.orderSeaUserAgent(
-                userAgent, connectionContext.getCustomerUserAgent()));
+                userAgent,
+                connectionContext.getCustomerUserAgent(),
+                connectionContext.getClientType()));
       }
       return httpClient.execute(request);
     };

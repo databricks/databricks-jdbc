@@ -1,6 +1,7 @@
 package com.databricks.jdbc.common.util;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.UserAgent;
@@ -141,10 +142,11 @@ public class UserAgentManager {
     return mergedString.toString();
   }
 
-  /** Places this connection's custom entry where Query History reads it for SEA requests. */
-  public static String orderSeaUserAgent(String sdkUserAgent, String customerUserAgent) {
-    if (sdkUserAgent == null) {
-      return null;
+  /** Places SEA attribution after os, ahead of the remaining SDK segments. */
+  public static String orderSeaUserAgent(
+      String sdkUserAgent, String customerUserAgent, DatabricksClientType clientType) {
+    if (sdkUserAgent == null || clientType != DatabricksClientType.SEA) {
+      return sdkUserAgent;
     }
 
     List<String> segments = new ArrayList<>(Arrays.asList(sdkUserAgent.split("\\s+")));
@@ -159,27 +161,20 @@ public class UserAgentManager {
       return sdkUserAgent;
     }
     List<String> extraInfo = segments.subList(osIndex + 1, segments.size());
-    if (!extraInfo.contains(SEA_CLIENT_SEGMENT)) {
-      return sdkUserAgent;
-    }
 
     String customerSegment = null;
     if (customerUserAgent != null) {
-      try {
-        String[] parsed = parseCustomerUserAgent(customerUserAgent);
-        if (parsed != null) {
-          String candidate = parsed[0] + "/" + UserAgent.sanitize(parsed[1]);
-          // setUserAgent only registers valid entries with the SDK.
-          if (extraInfo.contains(candidate)) {
-            customerSegment = candidate;
-          }
+      String[] parsed = parseCustomerUserAgent(customerUserAgent);
+      if (parsed != null) {
+        String candidate = parsed[0] + "/" + UserAgent.sanitize(parsed[1]);
+        // setUserAgent only registers valid entries with the SDK.
+        if (!SEA_CLIENT_SEGMENT.equals(candidate) && extraInfo.contains(candidate)) {
+          customerSegment = candidate;
         }
-      } catch (IllegalArgumentException e) {
-        LOGGER.debug("Failed to order customer userAgent entry {}, Error {}", customerUserAgent, e);
       }
     }
 
-    extraInfo.remove(SEA_CLIENT_SEGMENT);
+    extraInfo.removeIf(SEA_CLIENT_SEGMENT::equals);
     if (customerSegment != null) {
       extraInfo.remove(customerSegment);
     }
