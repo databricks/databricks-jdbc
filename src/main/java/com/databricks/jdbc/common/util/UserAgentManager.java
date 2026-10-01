@@ -147,18 +147,19 @@ public class UserAgentManager {
       return null;
     }
 
-    String[] segments = sdkUserAgent.split("\\s+");
+    List<String> segments = new ArrayList<>(Arrays.asList(sdkUserAgent.split("\\s+")));
     int osIndex = -1;
-    int clientIndex = -1;
-    for (int i = 0; i < segments.length; i++) {
-      if (segments[i].startsWith("os/") && osIndex < 0) {
+    for (int i = 0; i < segments.size(); i++) {
+      if (segments.get(i).startsWith("os/")) {
         osIndex = i;
-      }
-      if (SEA_CLIENT_SEGMENT.equals(segments[i])) {
-        clientIndex = i;
+        break;
       }
     }
-    if (osIndex < 0 || clientIndex <= osIndex) {
+    if (osIndex < 0) {
+      return sdkUserAgent;
+    }
+    List<String> extraInfo = segments.subList(osIndex + 1, segments.size());
+    if (!extraInfo.contains(SEA_CLIENT_SEGMENT)) {
       return sdkUserAgent;
     }
 
@@ -166,27 +167,22 @@ public class UserAgentManager {
     if (customerUserAgent != null) {
       String[] parsed = parseCustomerUserAgent(customerUserAgent);
       if (parsed != null) {
-        try {
-          String version = UserAgent.sanitize(parsed[1]);
-          UserAgent.matchAlphanum(parsed[0]);
-          UserAgent.matchAlphanumOrSemVer(version);
-          customerSegment = parsed[0] + "/" + version;
-        } catch (IllegalArgumentException e) {
-          LOGGER.debug("Failed to order customer userAgent entry {}", customerUserAgent, e);
+        String candidate = parsed[0] + "/" + UserAgent.sanitize(parsed[1]);
+        // setUserAgent only registers valid entries with the SDK.
+        if (extraInfo.contains(candidate)) {
+          customerSegment = candidate;
         }
       }
     }
 
-    List<String> ordered = new ArrayList<>(Arrays.asList(segments).subList(0, osIndex + 1));
+    extraInfo.remove(SEA_CLIENT_SEGMENT);
     if (customerSegment != null) {
-      ordered.add(customerSegment);
+      extraInfo.remove(customerSegment);
     }
-    ordered.add(SEA_CLIENT_SEGMENT);
-    for (int i = osIndex + 1; i < segments.length; i++) {
-      if (!SEA_CLIENT_SEGMENT.equals(segments[i]) && !segments[i].equals(customerSegment)) {
-        ordered.add(segments[i]);
-      }
+    extraInfo.add(0, SEA_CLIENT_SEGMENT);
+    if (customerSegment != null) {
+      extraInfo.add(0, customerSegment);
     }
-    return String.join(" ", ordered);
+    return String.join(" ", segments);
   }
 }
