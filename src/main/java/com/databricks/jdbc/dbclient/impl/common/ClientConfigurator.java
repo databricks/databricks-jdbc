@@ -9,6 +9,7 @@ import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DatabricksAuthUtil;
 import com.databricks.jdbc.common.util.DriverUtil;
+import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSSLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
@@ -18,6 +19,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.*;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.oauth.AzureServicePrincipalCredentialsProvider;
 import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.oauth.OAuthM2MServicePrincipalCredentialsProvider;
@@ -57,10 +59,26 @@ public class ClientConfigurator implements Closeable {
     httpClientBuilder.withTimeoutSeconds(connectionContext.getSocketTimeout());
     setupProxyConfig(httpClientBuilder);
     setupConnectionManager(httpClientBuilder);
-    this.databricksConfig.setHttpClient(httpClientBuilder.build());
+    this.databricksConfig.setHttpClient(
+        withSeaUserAgentOrdering(httpClientBuilder.build(), connectionContext));
     setupDiscoveryEndpoint();
     setupAuthConfig();
     this.databricksConfig.resolve();
+  }
+
+  static HttpClient withSeaUserAgentOrdering(
+      HttpClient httpClient, IDatabricksConnectionContext connectionContext) {
+    // ApiClient sets User-Agent just before calling the transport.
+    return request -> {
+      String userAgent = request.getHeaders().get("User-Agent");
+      if (userAgent != null) {
+        request.withHeader(
+            "User-Agent",
+            UserAgentManager.orderSeaUserAgent(
+                userAgent, connectionContext.getCustomerUserAgent()));
+      }
+      return httpClient.execute(request);
+    };
   }
 
   /**

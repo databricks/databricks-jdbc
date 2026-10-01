@@ -6,6 +6,9 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.UserAgent;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class UserAgentManager {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(UserAgentManager.class);
@@ -15,6 +18,8 @@ public class UserAgentManager {
   private static final String CLIENT_USER_AGENT_PREFIX = "Java";
   public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient";
   public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient";
+  private static final String SEA_CLIENT_SEGMENT =
+      CLIENT_USER_AGENT_PREFIX + "/" + USER_AGENT_SEA_CLIENT;
   private static final String VERSION_FILLER = "version";
   private static final String AGENT_KEY = "agent";
 
@@ -134,5 +139,54 @@ public class UserAgentManager {
       }
     }
     return mergedString.toString();
+  }
+
+  /** Places this connection's custom entry where Query History reads it for SEA requests. */
+  public static String orderSeaUserAgent(String sdkUserAgent, String customerUserAgent) {
+    if (sdkUserAgent == null) {
+      return null;
+    }
+
+    String[] segments = sdkUserAgent.split("\\s+");
+    int osIndex = -1;
+    int clientIndex = -1;
+    for (int i = 0; i < segments.length; i++) {
+      if (segments[i].startsWith("os/") && osIndex < 0) {
+        osIndex = i;
+      }
+      if (SEA_CLIENT_SEGMENT.equals(segments[i])) {
+        clientIndex = i;
+      }
+    }
+    if (osIndex < 0 || clientIndex <= osIndex) {
+      return sdkUserAgent;
+    }
+
+    String customerSegment = null;
+    if (customerUserAgent != null) {
+      String[] parsed = parseCustomerUserAgent(customerUserAgent);
+      if (parsed != null) {
+        try {
+          String version = UserAgent.sanitize(parsed[1]);
+          UserAgent.matchAlphanum(parsed[0]);
+          UserAgent.matchAlphanumOrSemVer(version);
+          customerSegment = parsed[0] + "/" + version;
+        } catch (IllegalArgumentException e) {
+          LOGGER.debug("Failed to order customer userAgent entry {}", customerUserAgent, e);
+        }
+      }
+    }
+
+    List<String> ordered = new ArrayList<>(Arrays.asList(segments).subList(0, osIndex + 1));
+    if (customerSegment != null) {
+      ordered.add(customerSegment);
+    }
+    ordered.add(SEA_CLIENT_SEGMENT);
+    for (int i = osIndex + 1; i < segments.length; i++) {
+      if (!SEA_CLIENT_SEGMENT.equals(segments[i]) && !segments[i].equals(customerSegment)) {
+        ordered.add(segments[i]);
+      }
+    }
+    return String.join(" ", ordered);
   }
 }

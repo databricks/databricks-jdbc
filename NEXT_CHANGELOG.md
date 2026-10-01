@@ -10,6 +10,8 @@
 
 ### Fixed
 
+- Fixed `UserAgentEntry` attribution in Query History for SQL Execution API connections.
+
 ---
 *Note: When making changes, please add your change under the appropriate section
 with a brief description.*
