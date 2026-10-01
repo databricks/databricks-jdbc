@@ -3,6 +3,8 @@ package com.databricks.jdbc.dbclient.impl.common;
 import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL_WITH_SEA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.mockStatic;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -19,6 +21,7 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 class ClientConfiguratorUserAgentTest {
   private static final String SEA_CLIENT = "Java/SQLExecHttpClient";
@@ -42,6 +45,30 @@ class ClientConfiguratorUserAgentTest {
   @Test
   void seaDecodesEncodedEntry() throws Exception {
     assertSegmentsAfterOs(sendRequest("DBeaver%2F25.1"), "DBeaver/25.1", SEA_CLIENT);
+  }
+
+  @Test
+  void seaRequestSurvivesCustomerEntrySanitizationFailure() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(
+            WAREHOUSE_JDBC_URL_WITH_SEA + "UserAgentEntry=Bad~Name/1.0", new Properties());
+    HttpClient transport = request -> new Response(request, 200, "OK", Collections.emptyMap());
+    HttpClient ordered = ClientConfigurator.withSeaUserAgentOrdering(transport, connectionContext);
+    Request request =
+        new Request(Request.POST, "https://example.com/api/2.0/sql/statements")
+            .withHeader(
+                "User-Agent",
+                "DatabricksJDBCDriverOSS/1.0 databricks-sdk-java/0.118.0 "
+                    + "jvm/17 os/Linux Java/SQLExecHttpClient auth/pat");
+
+    try (MockedStatic<UserAgent> userAgent = mockStatic(UserAgent.class, CALLS_REAL_METHODS)) {
+      userAgent
+          .when(() -> UserAgent.sanitize("1.0"))
+          .thenThrow(new IllegalArgumentException("invalid version"));
+      ordered.execute(request);
+    }
+
+    assertSegmentsAfterOs(request.getHeaders().get("User-Agent"), SEA_CLIENT);
   }
 
   private void assertSegmentsAfterOs(String userAgent, String... expected) {

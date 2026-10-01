@@ -165,13 +165,17 @@ public class UserAgentManager {
 
     String customerSegment = null;
     if (customerUserAgent != null) {
-      String[] parsed = parseCustomerUserAgent(customerUserAgent);
-      if (parsed != null) {
-        String candidate = parsed[0] + "/" + UserAgent.sanitize(parsed[1]);
-        // setUserAgent only registers valid entries with the SDK.
-        if (extraInfo.contains(candidate)) {
-          customerSegment = candidate;
+      try {
+        String[] parsed = parseCustomerUserAgent(customerUserAgent);
+        if (parsed != null) {
+          String candidate = parsed[0] + "/" + UserAgent.sanitize(parsed[1]);
+          // setUserAgent only registers valid entries with the SDK.
+          if (extraInfo.contains(candidate)) {
+            customerSegment = candidate;
+          }
         }
+      } catch (IllegalArgumentException e) {
+        LOGGER.debug("Failed to order customer userAgent entry {}, Error {}", customerUserAgent, e);
       }
     }
 
