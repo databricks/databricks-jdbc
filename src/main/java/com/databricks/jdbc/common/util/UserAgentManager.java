@@ -1,7 +1,6 @@
 package com.databricks.jdbc.common.util;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.UserAgent;
@@ -143,9 +142,8 @@ public class UserAgentManager {
   }
 
   /** Places SEA attribution after os, ahead of the remaining SDK segments. */
-  public static String orderSeaUserAgent(
-      String sdkUserAgent, String customerUserAgent, DatabricksClientType clientType) {
-    if (sdkUserAgent == null || clientType != DatabricksClientType.SEA) {
+  public static String orderSeaUserAgent(String sdkUserAgent, String customerUserAgent) {
+    if (sdkUserAgent == null) {
       return sdkUserAgent;
     }
 

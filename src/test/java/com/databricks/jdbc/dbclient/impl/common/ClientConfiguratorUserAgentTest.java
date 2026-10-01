@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
-import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.UserAgent;
@@ -56,30 +55,32 @@ class ClientConfiguratorUserAgentTest {
   }
 
   @Test
-  void seaAddsMarkerAfterClientSwitch() throws Exception {
+  void sqlApiAddsMarkerWhenSdkStillHasThriftMarker() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(
             WAREHOUSE_JDBC_URL_WITH_SEA + "UserAgentEntry=ThoughtSpot", new Properties());
-    connectionContext.setClientType(DatabricksClientType.THRIFT);
     HttpClient transport = request -> new Response(request, 200, "OK", Collections.emptyMap());
     HttpClient ordered = ClientConfigurator.withSeaUserAgentOrdering(transport, connectionContext);
     String original =
         "DatabricksJDBCDriverOSS/1.0 databricks-sdk-java/0.118.0 "
             + "jvm/17 os/Linux Java/THttpClient ThoughtSpot/version auth/pat";
-    Request request =
+    String thriftUserAgent = original.replace("Java/THttpClient", SEA_CLIENT);
+    Request thriftRequest =
+        new Request(Request.POST, "https://example.com/sql/protocolv1/o/123")
+            .withHeader("User-Agent", thriftUserAgent);
+
+    ordered.execute(thriftRequest);
+    assertEquals(thriftUserAgent, thriftRequest.getHeaders().get("User-Agent"));
+
+    Request seaRequest =
         new Request(Request.POST, "https://example.com/api/2.0/sql/statements")
             .withHeader("User-Agent", original);
-
-    ordered.execute(request);
-    assertEquals(original, request.getHeaders().get("User-Agent"));
-
-    connectionContext.setClientType(DatabricksClientType.SEA);
-    ordered.execute(request);
+    ordered.execute(seaRequest);
     assertEquals(
         "DatabricksJDBCDriverOSS/1.0 databricks-sdk-java/0.118.0 "
             + "jvm/17 os/Linux ThoughtSpot/version Java/SQLExecHttpClient "
             + "Java/THttpClient auth/pat",
-        request.getHeaders().get("User-Agent"));
+        seaRequest.getHeaders().get("User-Agent"));
   }
 
   @Test
