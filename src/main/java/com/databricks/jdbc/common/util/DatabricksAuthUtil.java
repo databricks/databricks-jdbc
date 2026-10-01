@@ -11,9 +11,19 @@ import com.databricks.sdk.core.http.HttpClient;
 import com.nimbusds.jwt.SignedJWT;
 import java.io.IOException;
 import java.text.ParseException;
+import java.util.Arrays;
+import java.util.List;
 
 public class DatabricksAuthUtil {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksAuthUtil.class);
+
+  /** Parses the space-separated Auth_Scope value; blank values use the flow's default scopes. */
+  public static List<String> parseOAuthScopes(String authScope) {
+    if (authScope == null || authScope.isBlank()) {
+      return List.of();
+    }
+    return Arrays.asList(authScope.strip().split("\\s+"));
+  }
 
   public static String getTokenEndpoint(
       DatabricksConfig databricksConfig, IDatabricksConnectionContext connectionContext) {
