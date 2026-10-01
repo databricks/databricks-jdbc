@@ -83,13 +83,29 @@ class ClientConfiguratorUserAgentTest {
   }
 
   @Test
+  void oauthDiscoveryDoesNotResolveClientType() throws Exception {
+    HttpClient transport = request -> new Response(request, 200, "OK", Collections.emptyMap());
+    // Client type resolution can itself make this OAuth discovery request.
+    HttpClient ordered = ClientConfigurator.withSeaUserAgentOrdering(transport, null);
+    String userAgent = "Driver/1 sdk/1 jvm/17 os/linux Java/SQLExecHttpClient ThoughtSpot/version";
+    Request request =
+        new Request(Request.GET, "https://example.com/oidc/.well-known/oauth-authorization-server")
+            .withHeader("User-Agent", userAgent);
+
+    ordered.execute(request);
+
+    assertEquals(userAgent, request.getHeaders().get("User-Agent"));
+  }
+
+  @Test
   void configuratorInstallsSeaOrdering() throws Exception {
     HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     AtomicReference<String> receivedUserAgent = new AtomicReference<>();
     server.createContext(
         "/",
         exchange -> {
-          boolean isTestRequest = "/".equals(exchange.getRequestURI().getPath());
+          boolean isTestRequest =
+              "/api/2.0/sql/statements/".equals(exchange.getRequestURI().getPath());
           if (isTestRequest) {
             receivedUserAgent.set(exchange.getRequestHeaders().getFirst("User-Agent"));
           }
@@ -112,7 +128,7 @@ class ClientConfiguratorUserAgentTest {
               properties);
       try (ClientConfigurator configurator = new ClientConfigurator(connectionContext)) {
         Request request =
-            new Request(Request.GET, serverUrl + "/")
+            new Request(Request.GET, serverUrl + "/api/2.0/sql/statements/")
                 .withHeader(
                     "User-Agent",
                     "Driver/1 sdk/1 jvm/17 os/linux Java/SQLExecHttpClient ThoughtSpot/version");

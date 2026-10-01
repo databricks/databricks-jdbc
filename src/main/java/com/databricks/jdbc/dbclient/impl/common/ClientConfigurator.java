@@ -71,7 +71,7 @@ public class ClientConfigurator implements Closeable {
     // ApiClient sets User-Agent just before calling the transport.
     return request -> {
       String userAgent = request.getHeaders().get("User-Agent");
-      if (userAgent != null) {
+      if (userAgent != null && request.getUri().getPath().startsWith("/api/2.0/sql/")) {
         request.withHeader(
             "User-Agent",
             UserAgentManager.orderSeaUserAgent(
