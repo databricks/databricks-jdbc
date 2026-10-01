@@ -72,9 +72,8 @@ AuthMech=3;UID=token;PWD=<your_token>
 
 Use `AuthMech=11` for OAuth2-based authentication. Several OAuth flows are supported:
 
-For the standard client-secret and browser flows, set `Auth_Scope` as one value containing
-space-separated scopes (for example, `Auth_Scope=sql jobs`). Omitting it or leaving it blank
-uses the default for the selected flow.
+For standard client-secret M2M, JWT-assertion M2M, and browser OAuth, set `Auth_Scope` as one
+value containing space-separated scopes (for example, `Auth_Scope=sql jobs`).
 
 ##### Token Passthrough
 
@@ -93,7 +92,8 @@ AuthMech=11;Auth_Flow=1;OAuth2ClientId=<client_id>;OAuth2Secret=<client_secret>
 ```
 
 Optional parameters:
-- `Auth_Scope`: Defaults to `all-apis` in the standard client-secret flow.
+- `Auth_Scope`: Defaults to `all-apis` in the standard client-secret flow. JWT-assertion M2M
+  omits the scope parameter when this value is omitted or blank.
 - `AzureTenantId`: Azure tenant ID for Azure Databricks (default: null). If enabled, the driver will include refreshed
 Azure Active Directory (AAD) Service Principal OAuth tokens with every request.
 
