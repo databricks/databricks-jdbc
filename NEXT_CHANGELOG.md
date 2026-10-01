@@ -11,7 +11,7 @@
 ### Fixed
 
 - Fixed `UserAgentEntry` attribution in Query History for SQL Execution API connections.
-- Honor `Auth_Scope` for OAuth M2M client-secret authentication to support scoped service-principal secrets. (#1706)
+- Honor `Auth_Scope` for OAuth M2M client secrets and parse space-separated scopes consistently with U2M. (#1706)
 
 ---
 *Note: When making changes, please add your change under the appropriate section
