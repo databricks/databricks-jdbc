@@ -17,7 +17,7 @@ import java.util.List;
 public class DatabricksAuthUtil {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksAuthUtil.class);
 
-  /** Parses the space-separated Auth_Scope value; blank values use the flow's default scopes. */
+  /** Parses the space-separated Auth_Scope value, returning an empty list for blank values. */
   public static List<String> parseOAuthScopes(String authScope) {
     if (authScope == null || authScope.isBlank()) {
       return List.of();
