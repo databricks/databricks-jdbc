@@ -1,0 +1,99 @@
+name: Add Dependabot Maven Changelog Entry
+
+# Runs after the unprivileged PR check; this workflow never checks out PR code.
+on:
+  workflow_run:
+    workflows: ["Check for NEXT_CHANGELOG.md Changes"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  update-changelog:
+    if: >-
+      github.event.workflow_run.event == 'pull_request'
+      && github.event.workflow_run.conclusion == 'failure'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+      && startsWith(github.event.workflow_run.head_branch, 'dependabot/maven/')
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+    concurrency:
+      group: dependabot-changelog-${{ github.event.workflow_run.head_branch }}
+      cancel-in-progress: false
+    steps:
+      - name: Mint GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547
+        with:
+          app-id: ${{ secrets.ENGINEER_BOT_APP_ID }}
+          private-key: ${{ secrets.ENGINEER_BOT_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: read
+
+      # The App commit triggers the PR checks again on the new head.
+      - name: Add changelog entry to Dependabot PR
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const run = context.payload.workflow_run;
+            const linked = run.pull_requests.find(pr =>
+              pr.head?.ref === run.head_branch && pr.base?.ref === 'main');
+            if (!linked) {
+              core.info('No matching pull request on this workflow run');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const { data: pr } = await github.rest.pulls.get({
+              owner, repo, pull_number: linked.number,
+            });
+            if (pr.state !== 'open'
+                || pr.user?.login !== 'dependabot[bot]'
+                || pr.head.repo?.full_name !== context.repo.owner + '/' + context.repo.repo
+                || pr.head.ref !== run.head_branch
+                || pr.base.ref !== 'main') {
+              core.info('Pull request is no longer an open Dependabot Maven update');
+              return;
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: pr.number, per_page: 100,
+            });
+            if (files.some(file => file.filename === 'NEXT_CHANGELOG.md')) {
+              core.info('Pull request already updates NEXT_CHANGELOG.md');
+              return;
+            }
+
+            const match = /^Bump ([A-Za-z0-9_.:-]+) from ([A-Za-z0-9_.+~-]+) to ([A-Za-z0-9_.+~-]+)$/.exec(pr.title);
+            if (!match) throw new Error(`Unexpected Dependabot Maven PR title: ${pr.title}`);
+
+            const { data: file } = await github.rest.repos.getContent({
+              owner, repo, path: 'NEXT_CHANGELOG.md', ref: pr.head.ref,
+            });
+            if (file.type !== 'file' || file.encoding !== 'base64') {
+              throw new Error('NEXT_CHANGELOG.md is not a regular file');
+            }
+            const current = Buffer.from(file.content, 'base64').toString('utf8');
+            const heading = '### Updated\n\n';
+            if (current.split(heading).length !== 2) {
+              throw new Error('Expected one Updated section in NEXT_CHANGELOG.md');
+            }
+            const entry = `- Updated \`${match[1]}\` from \`${match[2]}\` to \`${match[3]}\` (#${pr.number}).\n`;
+            const updated = current.replace(heading, heading + entry);
+            const identity = {
+              name: 'github-actions[bot]',
+              email: '41898282+github-actions[bot]@users.noreply.github.com',
+            };
+            await github.rest.repos.createOrUpdateFileContents({
+              owner, repo, path: 'NEXT_CHANGELOG.md', branch: pr.head.ref,
+              sha: file.sha,
+              content: Buffer.from(updated, 'utf8').toString('base64'),
+              message: `docs: add changelog entry for Dependabot PR #${pr.number}\n\nSigned-off-by: ${identity.name} <${identity.email}>`,
+              author: identity,
+              committer: identity,
+            });
+            core.info(`Added NEXT_CHANGELOG.md entry to PR #${pr.number}`);
