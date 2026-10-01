@@ -392,7 +392,8 @@ public class ClientConfigurator implements Closeable {
       } else {
         String authScope = connectionContext.getAuthScope();
         if (authScope != null && !authScope.isBlank()) {
-          databricksConfig.setScopes(new ArrayList<>(List.of(authScope.strip())));
+          databricksConfig.setScopes(
+              new ArrayList<>(Arrays.asList(authScope.strip().split("\\s+"))));
         }
         CredentialsProvider m2mProvider = new OAuthM2MServicePrincipalCredentialsProvider();
         databricksConfig

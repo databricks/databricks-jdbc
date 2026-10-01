@@ -137,6 +137,21 @@ public class ClientConfiguratorTest {
   }
 
   @Test
+  void getWorkspaceClient_OAuthWithClientCredentials_UsesMultipleScopes()
+      throws DatabricksSQLException {
+    String jdbcUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
+            + "Auth_Flow=1;httpPath=/sql/1.0/warehouses/99999999;"
+            + "OAuth2ClientId=client-id;OAuth2Secret=client-secret;Auth_Scope= sql   jobs ";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
+    assertEquals(" sql   jobs ", connectionContext.getAuthScope());
+    configurator = new ClientConfigurator(connectionContext);
+
+    assertEquals(List.of("jobs", "sql"), configurator.getDatabricksConfig().getScopes());
+  }
+
+  @Test
   void getWorkspaceClient_OAuthWithClientCredentials_AuthenticatesCorrectlyGCP()
       throws DatabricksParsingException, DatabricksSSLException, DatabricksValidationException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
