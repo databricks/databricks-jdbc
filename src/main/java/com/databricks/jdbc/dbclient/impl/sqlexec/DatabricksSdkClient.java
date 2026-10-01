@@ -19,6 +19,7 @@ import com.databricks.jdbc.common.*;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -40,11 +41,11 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksError;
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.service.sql.*;
 import com.google.common.annotations.VisibleForTesting;
@@ -73,7 +74,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   private final IDatabricksConnectionContext connectionContext;
   private final ClientConfigurator clientConfigurator;
-  private volatile WorkspaceClient workspaceClient;
+  private final String customerUserAgentSegment;
   private volatile ApiClient apiClient;
 
   public DatabricksSdkClient(IDatabricksConnectionContext connectionContext)
@@ -81,8 +82,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
     this.connectionContext = connectionContext;
     this.clientConfigurator =
         DatabricksClientConfiguratorManager.getInstance().getConfigurator(connectionContext);
-    this.workspaceClient = clientConfigurator.getWorkspaceClient();
-    this.apiClient = workspaceClient.apiClient();
+    this.customerUserAgentSegment =
+        UserAgentManager.customerUserAgentSegment(connectionContext.getCustomerUserAgent());
+    this.apiClient = newApiClient();
   }
 
   @VisibleForTesting
@@ -94,10 +96,32 @@ public class DatabricksSdkClient implements IDatabricksClient {
     this.connectionContext = connectionContext;
     this.clientConfigurator =
         DatabricksClientConfiguratorManager.getInstance().getConfigurator(connectionContext);
-    this.workspaceClient =
-        new WorkspaceClient(true /* mock */, apiClient)
-            .withStatementExecutionImpl(statementExecutionService);
+    this.customerUserAgentSegment =
+        UserAgentManager.customerUserAgentSegment(connectionContext.getCustomerUserAgent());
     this.apiClient = apiClient;
+  }
+
+  private ApiClient newApiClient() {
+    return buildApiClient(clientConfigurator.getDatabricksConfig(), customerUserAgentSegment);
+  }
+
+  @VisibleForTesting
+  static ApiClient buildApiClient(DatabricksConfig config, String customerUserAgentSegment) {
+    HttpClient transport = config.getHttpClient();
+    if (customerUserAgentSegment != null) {
+      HttpClient delegate = transport;
+      transport =
+          request -> {
+            String userAgent = request.getHeaders().get("User-Agent");
+            if (userAgent != null) {
+              request.withHeader(
+                  "User-Agent",
+                  UserAgentManager.orderSeaUserAgent(userAgent, customerUserAgentSegment));
+            }
+            return delegate.execute(request);
+          };
+    }
+    return new ApiClient.Builder().withDatabricksConfig(config).withHttpClient(transport).build();
   }
 
   @Override
@@ -631,8 +655,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
   @Override
   public synchronized void resetAccessToken(String newAccessToken) {
     this.clientConfigurator.resetAccessTokenInConfig(newAccessToken);
-    this.workspaceClient = clientConfigurator.getWorkspaceClient();
-    this.apiClient = workspaceClient.apiClient();
+    this.apiClient = newApiClient();
   }
 
   @Override
