@@ -77,6 +77,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private ResultSetType resultSetType = ResultSetType.UNASSIGNED;
 
   private boolean complexDatatypeSupport = false;
+  private boolean geoSpatialSupport = false;
   private boolean boundedSeaApiEnabled = false;
   // Set to true when next() returns false for the bounded-SEA path, so that isAfterLast()
   // returns true only after the cursor has moved PAST the last row (not while ON it).
@@ -135,6 +136,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       resultSetMetaData = null;
     }
     this.complexDatatypeSupport = session.getConnectionContext().isComplexDatatypeSupportEnabled();
+    this.geoSpatialSupport = session.getConnectionContext().isGeoSpatialSupportEnabled();
     this.boundedSeaApiEnabled = session.getConnectionContext().isBoundedSeaApiEnabled();
     this.statementType = statementType;
     this.updateCount = null;
@@ -207,6 +209,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       this.resultSetMetaData = null;
     }
     this.complexDatatypeSupport = session.getConnectionContext().isComplexDatatypeSupportEnabled();
+    this.geoSpatialSupport = session.getConnectionContext().isGeoSpatialSupportEnabled();
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -877,7 +880,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private Object convertToComplexDataTypesForSEAInline(Object obj, String columnName)
       throws DatabricksSQLException {
-    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    ComplexDataTypeParser parser =
+        new ComplexDataTypeParser(complexDatatypeSupport && geoSpatialSupport);
     if (columnName.startsWith(ARRAY)) {
       return parser.parseJsonStringToDbArray(obj.toString(), columnName);
     } else if (columnName.startsWith(MAP)) {

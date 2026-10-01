@@ -156,6 +156,53 @@ public class WKTConverterTest {
   }
 
   @Test
+  public void testToDatabricksWKT_NormalizesWireResultFormatting()
+      throws DatabricksValidationException {
+    assertEquals(
+        "LINESTRING(0 0,1 1,2 2)",
+        WKTConverter.toDatabricksWKT(WKTConverter.toWKB("LINESTRING (0 0, 1 1, 2 2)")));
+    assertEquals(
+        "POINT Z (1 2 3)", WKTConverter.toDatabricksWKT(WKTConverter.toWKB("POINT Z (1 2 3)")));
+    assertEquals(
+        "GEOMETRYCOLLECTION(POINT(1 2),LINESTRING EMPTY)",
+        WKTConverter.toDatabricksWKT(
+            WKTConverter.toWKB("GEOMETRYCOLLECTION(POINT(1 2),LINESTRING EMPTY)")));
+  }
+
+  @Test
+  public void testToDatabricksWKT_NormalizesMultiAndNestedDimensionFormatting()
+      throws DatabricksValidationException {
+    String[] canonicalWkts = {
+      "MULTIPOINT((1 2),(3 4))",
+      "MULTIPOLYGON(((0 0,0 1,1 0,0 0)))",
+      "GEOMETRYCOLLECTION ZM (POINT ZM (1 2 3 4),"
+          + "GEOMETRYCOLLECTION ZM (MULTIPOINT ZM ((5 6 7 8),(9 10 11 12)),"
+          + "MULTIPOLYGON ZM EMPTY))"
+    };
+
+    for (String canonicalWkt : canonicalWkts) {
+      assertEquals(
+          canonicalWkt,
+          WKTConverter.toDatabricksWKT(WKTConverter.toWKB(canonicalWkt)),
+          canonicalWkt);
+    }
+  }
+
+  @Test
+  public void testToDatabricksWKT_PreservesFullDoublePrecision()
+      throws DatabricksValidationException {
+    String original =
+        "POINT ZM (0.00000000000000000001 -0.00000000000000000001 "
+            + "1.2345678901234567 -0.00000000000000000003)";
+    byte[] wkb = WKTConverter.toWKB(original);
+
+    String decoded = WKTConverter.toDatabricksWKT(wkb);
+
+    assertEquals(original, decoded);
+    assertArrayEquals(wkb, WKTConverter.toWKB(decoded));
+  }
+
+  @Test
   public void testToWKT_NullWKB() {
     assertThrows(DatabricksValidationException.class, () -> WKTConverter.toWKT(null));
   }

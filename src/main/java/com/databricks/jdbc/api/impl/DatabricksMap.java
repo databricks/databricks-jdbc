@@ -11,6 +11,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** Class for representation of Map complex object. */
@@ -40,7 +41,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
     LOGGER.debug("Converting map with metadata: {}", metadata);
     Map<K, V> convertedMap = new LinkedHashMap<>();
     try {
-      String[] mapMetadata = MetadataParser.parseMapMetadata(metadata).split(",", 2);
+      String[] mapMetadata = MetadataParser.parseMapMetadataParts(metadata);
       String keyType = mapMetadata[0].trim();
       String valueType = mapMetadata[1].trim();
       LOGGER.debug("Parsed metadata - Key Type: {}, Value Type: {}", keyType, valueType);
@@ -127,6 +128,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
   private <T> T convertSimpleValue(Object value, String valueType) {
     if (value == null) {
       return null;
+    }
+    if (DatabricksTypeUtil.isGeospatialType(valueType.toUpperCase(Locale.ROOT))) {
+      return (T) value;
     }
 
     try {

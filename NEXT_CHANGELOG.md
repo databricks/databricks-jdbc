@@ -10,6 +10,9 @@
 
 ### Fixed
 
+- Decode Reyden's native Arrow `struct<srid,wkb>` results for GEOMETRY and GEOGRAPHY, including
+  nested values in arrays, map values, and structs in both native-object and EWKT string modes.
+
 ---
 *Note: When making changes, please add your change under the appropriate section
 with a brief description.*

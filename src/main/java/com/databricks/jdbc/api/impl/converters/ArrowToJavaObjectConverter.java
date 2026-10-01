@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.converters;
 
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
+import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -63,12 +64,32 @@ public class ArrowToJavaObjectConverter {
       String arrowMetadata,
       ColumnInfo columnInfo)
       throws DatabricksSQLException {
+    return convert(columnVector, vectorIndex, requiredType, arrowMetadata, columnInfo, true);
+  }
+
+  public static Object convert(
+      ValueVector columnVector,
+      int vectorIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata,
+      ColumnInfo columnInfo,
+      boolean geoSpatialSupportEnabled)
+      throws DatabricksSQLException {
     // check isNull before getting the object from the vector
     if (columnVector.isNull(vectorIndex)) {
       return null;
     }
     Object object = columnVector.getObject(vectorIndex);
-    if (arrowMetadata != null) {
+    ColumnInfoTypeName logicalGeospatialType = getLogicalGeospatialType(requiredType, columnInfo);
+    boolean geospatialAsString =
+        logicalGeospatialType != null && requiredType == ColumnInfoTypeName.STRING;
+
+    // The structured result manifest is the logical authority for geospatial columns. Reyden's
+    // physical Arrow vector is a struct<srid,wkb>, which must not override GEOMETRY/GEOGRAPHY to
+    // an ordinary STRUCT merely because the Arrow field metadata describes its physical shape.
+    if (logicalGeospatialType != null && !geospatialAsString) {
+      requiredType = logicalGeospatialType;
+    } else if (arrowMetadata != null && logicalGeospatialType == null) {
       if (arrowMetadata.startsWith(ARRAY)) {
         requiredType = ColumnInfoTypeName.ARRAY;
       }
@@ -129,12 +150,16 @@ public class ArrowToJavaObjectConverter {
       case CHAR:
         return convertToChar(object);
       case STRUCT:
-        return convertToStruct(object, arrowMetadata);
+        return convertToStruct(object, arrowMetadata, geoSpatialSupportEnabled);
       case ARRAY:
-        return convertToArray(object, arrowMetadata);
+        return convertToArray(object, arrowMetadata, geoSpatialSupportEnabled);
       case MAP:
-        return convertToMap(object, arrowMetadata);
+        return convertToMap(object, arrowMetadata, geoSpatialSupportEnabled);
       case STRING:
+        if (logicalGeospatialType != null && object instanceof java.util.Map<?, ?>) {
+          IDatabricksGeospatial geospatial = convertNativeGeospatial(object, logicalGeospatialType);
+          return GeospatialConverter.formatStringFallback(geospatial);
+        }
         return convertToString(object);
       case DATE:
         return convertToDate(object);
@@ -168,21 +193,48 @@ public class ArrowToJavaObjectConverter {
     }
   }
 
-  private static DatabricksMap convertToMap(Object object, String arrowMetadata)
+  private static ColumnInfoTypeName getLogicalGeospatialType(
+      ColumnInfoTypeName requiredType, ColumnInfo columnInfo) {
+    ColumnInfoTypeName manifestType = columnInfo == null ? null : columnInfo.getTypeName();
+    if (manifestType == ColumnInfoTypeName.GEOMETRY
+        || manifestType == ColumnInfoTypeName.GEOGRAPHY) {
+      return manifestType;
+    }
+    if (requiredType == ColumnInfoTypeName.GEOMETRY
+        || requiredType == ColumnInfoTypeName.GEOGRAPHY) {
+      return requiredType;
+    }
+    return null;
+  }
+
+  private static IDatabricksGeospatial convertNativeGeospatial(
+      Object object, ColumnInfoTypeName geospatialType) throws DatabricksSQLException {
+    if (geospatialType == ColumnInfoTypeName.GEOMETRY) {
+      return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOMETRY)
+          .toDatabricksGeometry(object);
+    }
+    return ConverterHelper.getConverterForColumnType(Types.OTHER, GEOGRAPHY)
+        .toDatabricksGeography(object);
+  }
+
+  private static DatabricksMap convertToMap(
+      Object object, String arrowMetadata, boolean geoSpatialSupportEnabled)
       throws DatabricksParsingException {
-    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    ComplexDataTypeParser parser = new ComplexDataTypeParser(geoSpatialSupportEnabled);
     return parser.parseJsonStringToDbMap(object.toString(), arrowMetadata);
   }
 
-  private static DatabricksArray convertToArray(Object object, String arrowMetadata)
+  private static DatabricksArray convertToArray(
+      Object object, String arrowMetadata, boolean geoSpatialSupportEnabled)
       throws DatabricksParsingException {
-    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    ComplexDataTypeParser parser = new ComplexDataTypeParser(geoSpatialSupportEnabled);
     return parser.parseJsonStringToDbArray(object.toString(), arrowMetadata);
   }
 
-  private static Object convertToStruct(Object object, String arrowMetadata)
+  private static Object convertToStruct(
+      Object object, String arrowMetadata, boolean geoSpatialSupportEnabled)
       throws DatabricksParsingException {
-    ComplexDataTypeParser parser = new ComplexDataTypeParser();
+    ComplexDataTypeParser parser = new ComplexDataTypeParser(geoSpatialSupportEnabled);
     return parser.parseJsonStringToDbStruct(object.toString(), arrowMetadata);
   }
 

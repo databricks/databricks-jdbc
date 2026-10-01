@@ -33,17 +33,16 @@ public class DatabricksMapTest {
   }
 
   /**
-   * Helper method to mock MetadataParser.parseMapMetadata based on the map metadata string.
+   * Helper method to mock MetadataParser.parseMapMetadataParts based on the map metadata string.
    *
    * @param mapMetadata the metadata string describing the map
    * @param keyType the expected key type
    * @param valueType the expected value type
    */
   private void mockParseMapMetadata(String mapMetadata, String keyType, String valueType) {
-    String combined = keyType + "," + valueType;
     metadataParserMock
-        .when(() -> MetadataParser.parseMapMetadata(mapMetadata))
-        .thenReturn(combined);
+        .when(() -> MetadataParser.parseMapMetadataParts(mapMetadata))
+        .thenReturn(new String[] {keyType, valueType});
   }
 
   /** Test the constructor with valid simple types. */
@@ -54,7 +53,7 @@ public class DatabricksMapTest {
     originalMap.put("key1", "value1");
     originalMap.put("key2", "value2");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -65,8 +64,8 @@ public class DatabricksMapTest {
     assertEquals("value1", databricksMap.get("key1"), "Value for 'key1' should be 'value1'");
     assertEquals("value2", databricksMap.get("key2"), "Value for 'key2' should be 'value2'");
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the constructor with different key and value types. */
@@ -77,7 +76,7 @@ public class DatabricksMapTest {
     originalMap.put(1, true);
     originalMap.put(2, false);
 
-    // Mock MetadataParser.parseMapMetadata to return "INT,BOOLEAN"
+    // Mock MetadataParser.parseMapMetadataParts to return "INT,BOOLEAN"
     mockParseMapMetadata(metadata, "INT", "BOOLEAN");
 
     DatabricksMap<Integer, Boolean> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -88,8 +87,8 @@ public class DatabricksMapTest {
     assertEquals(true, databricksMap.get(1), "Value for key 1 should be true");
     assertEquals(false, databricksMap.get(2), "Value for key 2 should be false");
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the constructor with nested Struct values. */
@@ -120,7 +119,7 @@ public class DatabricksMapTest {
     originalMap.put("user1", struct1);
     originalMap.put("user2", struct2);
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRUCT<id:INT,name:STRING>"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRUCT<id:INT,name:STRING>"
     mockParseMapMetadata(metadata, "STRING", "STRUCT<id:INT,name:STRING>");
 
     DatabricksMap<String, DatabricksStruct> databricksMap =
@@ -144,8 +143,8 @@ public class DatabricksMapTest {
     assertEquals(20, user2Attributes[0], "User2 id should be 20");
     assertEquals("Bob", user2Attributes[1], "User2 name should be Bob");
 
-    // Verify that parseMapMetadata and parseStructMetadata were called appropriately
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts and parseStructMetadata were called appropriately
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
     metadataParserMock.verify(
         () -> MetadataParser.parseStructMetadata("STRUCT<id:INT,name:STRING>"), times(2));
   }
@@ -171,7 +170,7 @@ public class DatabricksMapTest {
     originalMap.put("fruits1", array1);
     originalMap.put("fruits2", array2);
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,ARRAY<STRING>"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,ARRAY<STRING>"
     mockParseMapMetadata(metadata, "STRING", "ARRAY<STRING>");
 
     DatabricksMap<String, DatabricksArray> databricksMap =
@@ -195,8 +194,8 @@ public class DatabricksMapTest {
     assertEquals("cherry", fruits2Elements[0], "First element should be 'cherry'");
     assertEquals("date", fruits2Elements[1], "Second element should be 'date'");
 
-    // Verify that parseMapMetadata and parseArrayMetadata were called appropriately
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts and parseArrayMetadata were called appropriately
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
     metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(2));
   }
 
@@ -211,7 +210,7 @@ public class DatabricksMapTest {
     invalidMap.put("one", "value1"); // String key instead of Integer
     invalidMap.put("two", "value2"); // String key instead of Integer
 
-    // Mock MetadataParser.parseMapMetadata to return "INT,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "INT,STRING"
     mockParseMapMetadata(metadata, "INT", "STRING");
 
     // Expecting DatabricksDriverException due to key conversion failure
@@ -231,8 +230,8 @@ public class DatabricksMapTest {
         exception.getMessage().contains("Invalid metadata or map structure"),
         "Exception message should indicate conversion failure for key");
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the constructor with empty original map. */
@@ -241,7 +240,7 @@ public class DatabricksMapTest {
     String metadata = "MAP<STRING, STRING>";
     Map<String, String> originalMap = new HashMap<>();
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -250,8 +249,8 @@ public class DatabricksMapTest {
     assertNotNull(databricksMap, "DatabricksMap instance should not be null");
     assertTrue(databricksMap.isEmpty(), "DatabricksMap should be empty");
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the constructor with null values in the original map. */
@@ -263,7 +262,7 @@ public class DatabricksMapTest {
     originalMap.put("key1", null);
     originalMap.put("key2", "value2");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -274,8 +273,8 @@ public class DatabricksMapTest {
     assertNull(databricksMap.get("key1"), "Value for 'key1' should be null");
     assertEquals("value2", databricksMap.get("key2"), "Value for 'key2' should be 'value2'");
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the size() method. */
@@ -287,7 +286,7 @@ public class DatabricksMapTest {
     originalMap.put("key2", "value2");
     originalMap.put("key3", "value3");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -295,8 +294,8 @@ public class DatabricksMapTest {
     // Assertion
     assertEquals(3, databricksMap.size(), "Map size should be 3");
 
-    // Verify that parseMapMetadata was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the isEmpty() method. */
@@ -305,7 +304,7 @@ public class DatabricksMapTest {
     String metadata = "MAP<STRING, STRING>";
     Map<String, String> originalMap = new HashMap<>();
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -317,8 +316,8 @@ public class DatabricksMapTest {
     databricksMap.put("key1", "value1");
     assertFalse(databricksMap.isEmpty(), "Map should not be empty after adding an entry");
 
-    // Verify that parseMapMetadata was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the containsKey() method. */
@@ -328,7 +327,7 @@ public class DatabricksMapTest {
     Map<String, String> originalMap = new HashMap<>();
     originalMap.put("key1", "value1");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -337,8 +336,8 @@ public class DatabricksMapTest {
     assertTrue(databricksMap.containsKey("key1"), "Map should contain key 'key1'");
     assertFalse(databricksMap.containsKey("key2"), "Map should not contain key 'key2'");
 
-    // Verify that parseMapMetadata was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the containsValue() method. */
@@ -349,7 +348,7 @@ public class DatabricksMapTest {
     Map<String, String> originalMap = new HashMap<>();
     originalMap.put("key1", "value1");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -358,8 +357,8 @@ public class DatabricksMapTest {
     assertTrue(databricksMap.containsValue("value1"), "Map should contain value 'value1'");
     assertFalse(databricksMap.containsValue("value2"), "Map should not contain value 'value2'");
 
-    // Verify that parseMapMetadata was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the get() method. */
@@ -370,7 +369,7 @@ public class DatabricksMapTest {
     originalMap.put("key1", "value1");
     originalMap.put("key2", "value2");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -379,8 +378,8 @@ public class DatabricksMapTest {
     assertEquals("value1", databricksMap.get("key1"), "Value for 'key1' should be 'value1'");
     assertNull(databricksMap.get("key3"), "Value for non-existent key 'key3' should be null");
 
-    // Verify that parseMapMetadata was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the put() method. */
@@ -389,7 +388,7 @@ public class DatabricksMapTest {
     String metadata = "MAP<STRING, STRING>";
     Map<String, String> originalMap = new HashMap<>();
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -415,8 +414,8 @@ public class DatabricksMapTest {
     assertEquals("newValue1", databricksMap.get("key1"), "Value for 'key1' should be 'newValue1'");
     assertEquals(2, databricksMap.size(), "Map size should remain 2 after updating an entry");
 
-    // Verify that parseMapMetadata was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the remove() method. */
@@ -427,7 +426,7 @@ public class DatabricksMapTest {
     originalMap.put("key1", "value1");
     originalMap.put("key2", "value2");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -448,8 +447,8 @@ public class DatabricksMapTest {
         databricksMap.size(),
         "Map size should remain 1 after attempting to remove non-existent key");
 
-    // Verify that parseMapMetadata was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the putAll() method. */
@@ -463,7 +462,7 @@ public class DatabricksMapTest {
     newEntries.put("key2", "value2");
     newEntries.put("key3", "value3");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -480,8 +479,8 @@ public class DatabricksMapTest {
     assertEquals("value2", databricksMap.get("key2"), "Value for 'key2' should be 'value2'");
     assertEquals("value3", databricksMap.get("key3"), "Value for 'key3' should be 'value3'");
 
-    // Verify that parseMapMetadata was called once
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the clear() method. */
@@ -492,7 +491,7 @@ public class DatabricksMapTest {
     originalMap.put("key1", "value1");
     originalMap.put("key2", "value2");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -508,8 +507,8 @@ public class DatabricksMapTest {
     assertTrue(databricksMap.isEmpty(), "Map should be empty after clear");
     assertEquals(0, databricksMap.size(), "Map size should be 0 after clear");
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the keySet() method. */
@@ -520,7 +519,7 @@ public class DatabricksMapTest {
     originalMap.put("key1", "value1");
     originalMap.put("key2", "value2");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -531,8 +530,8 @@ public class DatabricksMapTest {
     assertTrue(keys.contains("key1"), "Key set should contain 'key1'");
     assertTrue(keys.contains("key2"), "Key set should contain 'key2'");
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the values() method. */
@@ -543,7 +542,7 @@ public class DatabricksMapTest {
     originalMap.put("key1", "value1");
     originalMap.put("key2", "value2");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -554,8 +553,8 @@ public class DatabricksMapTest {
     assertTrue(values.contains("value1"), "Values collection should contain 'value1'");
     assertTrue(values.contains("value2"), "Values collection should contain 'value2'");
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the entrySet() method. */
@@ -566,7 +565,7 @@ public class DatabricksMapTest {
     originalMap.put("key1", "value1");
     originalMap.put("key2", "value2");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -585,8 +584,8 @@ public class DatabricksMapTest {
           "Value should match for key: " + entry.getKey());
     }
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the constructor with binary type values. */
@@ -597,7 +596,7 @@ public class DatabricksMapTest {
     originalMap.put("data1", "binaryData1".getBytes());
     originalMap.put("data2", "binaryData2".getBytes());
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,BINARY"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,BINARY"
     mockParseMapMetadata(metadata, "STRING", "BINARY");
 
     DatabricksMap<String, byte[]> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -614,8 +613,8 @@ public class DatabricksMapTest {
         databricksMap.get("data2"),
         "Value for 'data2' should match the binary data");
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the constructor with DATE type values. */
@@ -626,7 +625,7 @@ public class DatabricksMapTest {
     originalMap.put("birthday1", Date.valueOf("1990-01-01"));
     originalMap.put("birthday2", Date.valueOf("1985-12-31"));
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,DATE"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,DATE"
     mockParseMapMetadata(metadata, "STRING", "DATE");
 
     DatabricksMap<String, Date> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -643,8 +642,8 @@ public class DatabricksMapTest {
         databricksMap.get("birthday2"),
         "Value for 'birthday2' should be Date '1985-12-31'");
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the constructor with TIMESTAMP type values. */
@@ -655,7 +654,7 @@ public class DatabricksMapTest {
     originalMap.put("event1", Timestamp.valueOf("2024-01-01 12:00:00"));
     originalMap.put("event2", Timestamp.valueOf("2024-06-15 18:30:45"));
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,TIMESTAMP"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,TIMESTAMP"
     mockParseMapMetadata(metadata, "STRING", "TIMESTAMP");
 
     DatabricksMap<String, Timestamp> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -672,8 +671,8 @@ public class DatabricksMapTest {
         databricksMap.get("event2"),
         "Value for 'event2' should be Timestamp '2024-06-15 18:30:45'");
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the constructor with TIME type values. */
@@ -684,7 +683,7 @@ public class DatabricksMapTest {
     originalMap.put("login1", Time.valueOf("08:30:00"));
     originalMap.put("login2", Time.valueOf("17:45:30"));
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,TIME"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,TIME"
     mockParseMapMetadata(metadata, "STRING", "TIME");
 
     DatabricksMap<String, Time> databricksMap = new DatabricksMap<>(originalMap, metadata);
@@ -701,8 +700,8 @@ public class DatabricksMapTest {
         databricksMap.get("login2"),
         "Value for 'login2' should be Time '17:45:30'");
 
-    // Verify that parseMapMetadata was called once with the correct metadata
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called once with the correct metadata
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
   /** Test the constructor with nested Map values. */
@@ -711,13 +710,13 @@ public class DatabricksMapTest {
     String metadata = "MAP<STRING, MAP<STRING, STRING>>";
     Map<String, DatabricksMap<String, String>> originalMap = new HashMap<>();
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,MAP<STRING,STRING>"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,MAP<STRING,STRING>"
     mockParseMapMetadata(metadata, "STRING", "MAP<STRING,STRING>");
 
-    // Mock MetadataParser.parseMapMetadata for the nested maps
+    // Mock MetadataParser.parseMapMetadataParts for the nested maps
     metadataParserMock
-        .when(() -> MetadataParser.parseMapMetadata("MAP<STRING,STRING>"))
-        .thenReturn("STRING,STRING");
+        .when(() -> MetadataParser.parseMapMetadataParts("MAP<STRING,STRING>"))
+        .thenReturn(new String[] {"STRING", "STRING"});
 
     // Create nested DatabricksMap instances with correct constructor parameters
     Map<String, String> innerMap1Data = new HashMap<>();
@@ -754,10 +753,10 @@ public class DatabricksMapTest {
     assertEquals("high", device2.get("volume"), "Device2 volume should be 'high'");
     assertEquals("medium", device2.get("brightness"), "Device2 brightness should be 'medium'");
 
-    // Verify that parseMapMetadata was called appropriately
-    metadataParserMock.verify(() -> MetadataParser.parseMapMetadata(metadata), times(1));
+    // Verify that parseMapMetadataParts was called appropriately
+    metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
     metadataParserMock.verify(
-        () -> MetadataParser.parseMapMetadata("MAP<STRING,STRING>"),
+        () -> MetadataParser.parseMapMetadataParts("MAP<STRING,STRING>"),
         times(4)); // Called for each nested map
   }
 
@@ -773,7 +772,7 @@ public class DatabricksMapTest {
     Map<String, String> originalMap = new HashMap<>();
     originalMap.put("key1", "value1");
 
-    // Mock MetadataParser.parseMapMetadata to return "STRING,STRING"
+    // Mock MetadataParser.parseMapMetadataParts to return "STRING,STRING"
     mockParseMapMetadata(metadata, "STRING", "STRING");
 
     DatabricksMap<String, String> databricksMap = new DatabricksMap<>(originalMap, metadata);

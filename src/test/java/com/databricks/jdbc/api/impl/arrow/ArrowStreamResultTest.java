@@ -4,10 +4,15 @@ import static com.databricks.jdbc.TestConstants.*;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.api.impl.DatabricksGeography;
+import com.databricks.jdbc.api.impl.DatabricksGeometry;
 import com.databricks.jdbc.api.impl.DatabricksSession;
+import com.databricks.jdbc.api.impl.DatabricksStruct;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -470,9 +475,7 @@ public class ArrowStreamResultTest {
   }
 
   @Test
-  public void testGeospatialTypeWithGeoSpatialSupportDisabled() throws Exception {
-    // Setup connection context with geospatial support disabled (EnableGeoSpatialSupport=0)
-    // Complex datatype flag is independent and has no effect on geospatial behavior
+  public void testGeospatialSupportDisabledRequestsStringForBothTypes() throws Exception {
     Properties props = new Properties();
     props.setProperty("EnableComplexDatatypeSupport", "1");
     props.setProperty("EnableGeoSpatialSupport", "0");
@@ -480,52 +483,143 @@ public class ArrowStreamResultTest {
         DatabricksConnectionContextFactory.create(JDBC_URL, props);
     when(session.getConnectionContext()).thenReturn(connectionContext);
 
-    // Verify the flags are set correctly
-    assertTrue(connectionContext.isComplexDatatypeSupportEnabled());
-    assertFalse(connectionContext.isGeoSpatialSupportEnabled());
-
-    // Test with GEOMETRY column
-    List<ColumnInfo> geometryColumnInfos = new ArrayList<>();
-    geometryColumnInfos.add(
+    ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
+    ColumnInfo geometryInfo =
         new ColumnInfo()
             .setName("geometry_col")
-            .setTypeText("GEOMETRY")
-            .setTypeName(ColumnInfoTypeName.GEOMETRY));
-
-    ResultManifest geometryManifest =
-        new ResultManifest()
-            .setTotalChunkCount(0L)
-            .setTotalRowCount(1L)
-            .setSchema(new ResultSchema().setColumns(geometryColumnInfos).setColumnCount(1L));
-    ResultData geometryData = new ResultData().setExternalLinks(new ArrayList<>());
-
-    ArrowStreamResult geometryResult =
-        new ArrowStreamResult(geometryManifest, geometryData, STATEMENT_ID, session);
-
-    // Verify that GEOMETRY type is converted to STRING when geospatial support is disabled
-    // The actual conversion happens in getObject(), but we're testing the flag behavior here
-    assertFalse(geometryResult.hasNext());
-
-    // Test with GEOGRAPHY column
-    List<ColumnInfo> geographyColumnInfos = new ArrayList<>();
-    geographyColumnInfos.add(
+            .setTypeText("GEOMETRY(3857)")
+            .setTypeName(ColumnInfoTypeName.GEOMETRY);
+    ColumnInfo geographyInfo =
         new ColumnInfo()
             .setName("geography_col")
-            .setTypeText("GEOGRAPHY")
-            .setTypeName(ColumnInfoTypeName.GEOGRAPHY));
+            .setTypeText("GEOGRAPHY(4326)")
+            .setTypeName(ColumnInfoTypeName.GEOGRAPHY);
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            0, ColumnInfoTypeName.STRING, "STRING", geometryInfo))
+        .thenReturn("SRID=3857;POINT(1 2)");
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            1, ColumnInfoTypeName.STRING, "STRING", geographyInfo))
+        .thenReturn("SRID=4326;POINT(3 4)");
 
-    ResultManifest geographyManifest =
-        new ResultManifest()
-            .setTotalChunkCount(0L)
-            .setTotalRowCount(1L)
-            .setSchema(new ResultSchema().setColumns(geographyColumnInfos).setColumnCount(1L));
-    ResultData geographyData = new ResultData().setExternalLinks(new ArrayList<>());
+    assertEquals(
+        "SRID=3857;POINT(1 2)",
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session,
+            chunkIterator,
+            0,
+            ColumnInfoTypeName.GEOMETRY,
+            "STRUCT<srid:INT,wkb:BINARY>",
+            geometryInfo));
+    assertEquals(
+        "SRID=4326;POINT(3 4)",
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session,
+            chunkIterator,
+            1,
+            ColumnInfoTypeName.GEOGRAPHY,
+            "STRUCT<srid:INT,wkb:BINARY>",
+            geographyInfo));
+    verify(chunkIterator)
+        .getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.STRING, "STRING", geometryInfo);
+    verify(chunkIterator)
+        .getColumnObjectAtCurrentRow(1, ColumnInfoTypeName.STRING, "STRING", geographyInfo);
+  }
 
-    ArrowStreamResult geographyResult =
-        new ArrowStreamResult(geographyManifest, geographyData, STATEMENT_ID, session);
+  @Test
+  public void testGeospatialSupportEnabledRequestsNativeTypes() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("EnableGeoSpatialSupport", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
 
-    // Verify that GEOGRAPHY type is handled when geospatial support is disabled
-    assertFalse(geographyResult.hasNext());
+    ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
+    ColumnInfo geometryInfo =
+        new ColumnInfo().setTypeName(ColumnInfoTypeName.GEOMETRY).setTypeText("GEOMETRY(3857)");
+    ColumnInfo geographyInfo =
+        new ColumnInfo().setTypeName(ColumnInfoTypeName.GEOGRAPHY).setTypeText("GEOGRAPHY(4326)");
+    DatabricksGeometry geometry = new DatabricksGeometry("POINT(1 2)", 3857);
+    DatabricksGeography geography = new DatabricksGeography("POINT(3 4)", 4326);
+    String arrowMetadata = "STRUCT<srid:INT,wkb:BINARY>";
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            0, ColumnInfoTypeName.GEOMETRY, arrowMetadata, geometryInfo))
+        .thenReturn(geometry);
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            1, ColumnInfoTypeName.GEOGRAPHY, arrowMetadata, geographyInfo))
+        .thenReturn(geography);
+
+    assertSame(
+        geometry,
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session, chunkIterator, 0, ColumnInfoTypeName.GEOMETRY, arrowMetadata, geometryInfo));
+    assertSame(
+        geography,
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session, chunkIterator, 1, ColumnInfoTypeName.GEOGRAPHY, arrowMetadata, geographyInfo));
+  }
+
+  @Test
+  public void testNestedGeospatialUsesConfiguredRepresentation() throws Exception {
+    String metadata = "STRUCT<geom:GEOMETRY(ANY)>";
+    ColumnInfo columnInfo =
+        new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
+    ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
+
+    Properties nativeProps = new Properties();
+    nativeProps.setProperty("EnableComplexDatatypeSupport", "1");
+    nativeProps.setProperty("EnableGeoSpatialSupport", "1");
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContextFactory.create(JDBC_URL, nativeProps));
+    DatabricksGeometry geometry = new DatabricksGeometry("POINT(1 2)", 3857);
+    DatabricksStruct nativeStruct = new DatabricksStruct(Map.of("geom", geometry), metadata);
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            0, ColumnInfoTypeName.STRUCT, metadata, columnInfo, true))
+        .thenReturn(nativeStruct);
+
+    assertSame(
+        nativeStruct,
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
+
+    Properties stringProps = new Properties();
+    stringProps.setProperty("EnableComplexDatatypeSupport", "1");
+    stringProps.setProperty("EnableGeoSpatialSupport", "0");
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContextFactory.create(JDBC_URL, stringProps));
+    DatabricksStruct stringStruct =
+        new DatabricksStruct(Map.of("geom", geometry.toString()), metadata);
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            0, ColumnInfoTypeName.STRUCT, metadata, columnInfo, false))
+        .thenReturn(stringStruct);
+
+    assertSame(
+        stringStruct,
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
+  }
+
+  @Test
+  public void testNestedGeospatialReturnsOuterStringWhenComplexSupportDisabled() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("EnableComplexDatatypeSupport", "0");
+    props.setProperty("EnableGeoSpatialSupport", "1");
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContextFactory.create(JDBC_URL, props));
+
+    String metadata = "STRUCT<geom:GEOMETRY(3857)>";
+    ColumnInfo columnInfo =
+        new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
+    DatabricksStruct stringStruct =
+        new DatabricksStruct(Map.of("geom", "SRID=3857;POINT(1 2)"), metadata);
+    ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            0, ColumnInfoTypeName.STRUCT, metadata, columnInfo, false))
+        .thenReturn(stringStruct);
+
+    assertEquals(
+        "{\"geom\":\"SRID=3857;POINT(1 2)\"}",
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
   }
 
   @Test
