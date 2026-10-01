@@ -112,12 +112,28 @@ public class ClientConfiguratorTest {
     String jdbcUrl =
         "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
             + "Auth_Flow=1;httpPath=/sql/1.0/warehouses/99999999;"
-            + "OAuth2ClientId=client-id;OAuth2Secret=client-secret;Auth_Scope=sql";
+            + "OAuth2ClientId=client-id;OAuth2Secret=client-secret;Auth_Scope= sql ";
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
+    assertEquals(" sql ", connectionContext.getAuthScope());
     configurator = new ClientConfigurator(connectionContext);
 
     assertEquals(List.of("sql"), configurator.getDatabricksConfig().getScopes());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithClientCredentials_BlankScopeUsesDefault()
+      throws DatabricksSQLException {
+    String jdbcUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
+            + "Auth_Flow=1;httpPath=/sql/1.0/warehouses/99999999;"
+            + "OAuth2ClientId=client-id;OAuth2Secret=client-secret;Auth_Scope=";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
+    assertEquals("", connectionContext.getAuthScope());
+    configurator = new ClientConfigurator(connectionContext);
+
+    assertEquals(List.of("all-apis"), configurator.getDatabricksConfig().getScopes());
   }
 
   @Test

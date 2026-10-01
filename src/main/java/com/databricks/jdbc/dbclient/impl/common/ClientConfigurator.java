@@ -391,8 +391,8 @@ public class ClientConfigurator implements Closeable {
             .setCredentialsProvider(wrapWithTokenFederationIfEnabled(jwtProvider));
       } else {
         String authScope = connectionContext.getAuthScope();
-        if (authScope != null) {
-          databricksConfig.setScopes(new ArrayList<>(List.of(authScope)));
+        if (authScope != null && !authScope.isBlank()) {
+          databricksConfig.setScopes(new ArrayList<>(List.of(authScope.strip())));
         }
         CredentialsProvider m2mProvider = new OAuthM2MServicePrincipalCredentialsProvider();
         databricksConfig
