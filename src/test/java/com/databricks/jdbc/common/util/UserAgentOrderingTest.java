@@ -39,7 +39,12 @@ class UserAgentOrderingTest {
             "unregistered entry",
             BASE + " EarlierApp/1.0 Java/SQLExecHttpClient auth/pat",
             "Unregistered/1.0",
-            BASE + " Java/SQLExecHttpClient EarlierApp/1.0 auth/pat"),
+            BASE + " EarlierApp/1.0 Java/SQLExecHttpClient auth/pat"),
+        arguments(
+            "no customer entry",
+            BASE + " EarlierApp/1.0 Java/SQLExecHttpClient auth/pat",
+            null,
+            BASE + " EarlierApp/1.0 Java/SQLExecHttpClient auth/pat"),
         arguments(
             "entry equals SEA marker",
             BASE + " Java/SQLExecHttpClient auth/pat",

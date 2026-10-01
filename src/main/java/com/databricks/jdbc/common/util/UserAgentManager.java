@@ -141,11 +141,16 @@ public class UserAgentManager {
     return mergedString.toString();
   }
 
-  /** Places SEA attribution after os, ahead of the remaining SDK segments. */
+  /** Places a registered customer entry before the SEA marker, immediately after os. */
   public static String orderSeaUserAgent(String sdkUserAgent, String customerUserAgent) {
-    if (sdkUserAgent == null) {
+    if (sdkUserAgent == null || customerUserAgent == null) {
       return sdkUserAgent;
     }
+    String[] parsed = parseCustomerUserAgent(customerUserAgent);
+    if (parsed == null) {
+      return sdkUserAgent;
+    }
+    String customerSegment = parsed[0] + "/" + UserAgent.sanitize(parsed[1]);
 
     List<String> segments = new ArrayList<>(Arrays.asList(sdkUserAgent.split("\\s+")));
     int osIndex = -1;
@@ -159,27 +164,15 @@ public class UserAgentManager {
       return sdkUserAgent;
     }
     List<String> extraInfo = segments.subList(osIndex + 1, segments.size());
-
-    String customerSegment = null;
-    if (customerUserAgent != null) {
-      String[] parsed = parseCustomerUserAgent(customerUserAgent);
-      if (parsed != null) {
-        String candidate = parsed[0] + "/" + UserAgent.sanitize(parsed[1]);
-        // setUserAgent only registers valid entries with the SDK.
-        if (!SEA_CLIENT_SEGMENT.equals(candidate) && extraInfo.contains(candidate)) {
-          customerSegment = candidate;
-        }
-      }
+    // setUserAgent only registers valid entries with the SDK.
+    if (SEA_CLIENT_SEGMENT.equals(customerSegment) || !extraInfo.contains(customerSegment)) {
+      return sdkUserAgent;
     }
 
     extraInfo.removeIf(SEA_CLIENT_SEGMENT::equals);
-    if (customerSegment != null) {
-      extraInfo.remove(customerSegment);
-    }
+    extraInfo.remove(customerSegment);
     extraInfo.add(0, SEA_CLIENT_SEGMENT);
-    if (customerSegment != null) {
-      extraInfo.add(0, customerSegment);
-    }
+    extraInfo.add(0, customerSegment);
     return String.join(" ", segments);
   }
 }
