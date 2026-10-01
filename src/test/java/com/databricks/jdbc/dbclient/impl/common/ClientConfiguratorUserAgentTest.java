@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.UserAgentManager;
 import com.databricks.sdk.core.ApiClient;
 import com.databricks.sdk.core.UserAgent;
 import com.databricks.sdk.core.http.HttpClient;
@@ -23,12 +24,8 @@ class ClientConfiguratorUserAgentTest {
   private static final String SEA_CLIENT = "Java/SQLExecHttpClient";
 
   @BeforeAll
-  static void setUpSdkUserAgent() {
-    UserAgent.withProduct("DatabricksJDBCDriverOSS", "3.4.3");
-    UserAgent.withOtherInfo("Java", "SQLExecHttpClient");
-    UserAgent.withOtherInfo("ThoughtSpot", "version");
-    UserAgent.withOtherInfo("Omni", "1.0");
-    UserAgent.withOtherInfo("DBeaver", "25.1");
+  static void setUpEarlierEntry() {
+    UserAgent.withOtherInfo("EarlierApp", "1.0");
   }
 
   @Test
@@ -68,6 +65,7 @@ class ClientConfiguratorUserAgentTest {
             + (customerUserAgent == null ? "" : "UserAgentEntry=" + customerUserAgent);
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(url, new Properties());
+    UserAgentManager.setUserAgent(connectionContext);
     AtomicReference<String> sentUserAgent = new AtomicReference<>();
     HttpClient transport =
         request -> {
