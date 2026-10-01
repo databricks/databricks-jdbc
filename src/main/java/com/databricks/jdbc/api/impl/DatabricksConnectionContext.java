@@ -1,9 +1,9 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
-import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_SCOPE;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.parseOAuthScopes;
 import static com.databricks.jdbc.common.util.StringUtil.parseIntegerSet;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
-import java.util.Collections;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -384,8 +383,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public List<String> getOAuthScopesForU2M() throws DatabricksParsingException {
-    if (getParameter(AUTH_SCOPE) != null) {
-      return Collections.singletonList(getAuthScope());
+    List<String> scopes = parseOAuthScopes(getAuthScope());
+    if (!scopes.isEmpty()) {
+      return scopes;
     }
     // Use uniform default scopes for all clouds: sql and offline_access
     return Arrays.asList(

@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.parseOAuthScopes;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.*;
@@ -390,6 +391,10 @@ public class ClientConfigurator implements Closeable {
             .setAuthType(jwtProvider.authType())
             .setCredentialsProvider(wrapWithTokenFederationIfEnabled(jwtProvider));
       } else {
+        List<String> scopes = parseOAuthScopes(connectionContext.getAuthScope());
+        if (!scopes.isEmpty()) {
+          databricksConfig.setScopes(new ArrayList<>(scopes));
+        }
         CredentialsProvider m2mProvider = new OAuthM2MServicePrincipalCredentialsProvider();
         databricksConfig
             .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)
