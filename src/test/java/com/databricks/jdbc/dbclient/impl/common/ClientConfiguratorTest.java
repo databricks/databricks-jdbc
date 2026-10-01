@@ -103,6 +103,21 @@ public class ClientConfiguratorTest {
     assertEquals("client-id", config.getClientId());
     assertEquals("client-secret", config.getClientSecret());
     assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
+    assertEquals(List.of("all-apis"), config.getScopes());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithClientCredentials_UsesConfiguredScope()
+      throws DatabricksSQLException {
+    String jdbcUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
+            + "Auth_Flow=1;httpPath=/sql/1.0/warehouses/99999999;"
+            + "OAuth2ClientId=client-id;OAuth2Secret=client-secret;Auth_Scope=sql";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
+    configurator = new ClientConfigurator(connectionContext);
+
+    assertEquals(List.of("sql"), configurator.getDatabricksConfig().getScopes());
   }
 
   @Test

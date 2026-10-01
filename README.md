@@ -89,6 +89,7 @@ AuthMech=11;Auth_Flow=1;OAuth2ClientId=<client_id>;OAuth2Secret=<client_secret>
 ```
 
 Optional parameters:
+- `Auth_Scope`: Databricks OAuth scope to request (for example, `sql` for a scoped service-principal secret). Defaults to `all-apis` for the standard client-secret flow.
 - `AzureTenantId`: Azure tenant ID for Azure Databricks (default: null). If enabled, the driver will include refreshed
 Azure Active Directory (AAD) Service Principal OAuth tokens with every request.
 
