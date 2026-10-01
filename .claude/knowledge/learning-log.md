@@ -83,3 +83,9 @@ retrospective flow.
   **Rule:** Don't mix concurrency mechanisms on one field — if every mutation is already guarded by the monitor, a CAS/AtomicReference is redundant; use a monitor-guarded plain field plus `volatile` for lock-free reads, or go fully lock-free, but not both.
 - **Context:** In PR #1678 the reviewer caught `execution_mode=FAST` being set unconditionally on every SEA `CreateSessionRequest`, even though the changelog and PR scoped the feature to Lakehouse Real-Time warehouses, with no feature flag or warehouse-type gate.
   **Rule:** A request/protocol change motivated by one feature but applied to all sessions/connections can silently alter behavior for users who never opted in — gate feature-scoped request fields behind a flag or type detection, and document the wire-level change in the changelog.
+
+### 2026-10-01: learnings since 2026-09-30T17:30:42Z
+- **Context:** PR #1656 bumped `httpclient5` 5.6.3→5.6.4; the review bot flagged that a bare dependency bump needs either a `NEXT_CHANGELOG.md` entry under `### Updated` or a `NO_CHANGELOG=true` marker in the PR description.
+  **Rule:** Dependency bumps are user-visible: always add a `NEXT_CHANGELOG.md` entry (or set `NO_CHANGELOG=true`), or the `check-next-changelog` CI gate fails.
+- **Context:** PR #1703 fixed a failing M2M replay test whose WireMock mapping used an exact `equalTo` body pattern for the `/api/2.0/sql/sessions/` POST; the client now sends an added `execution_mode":"FAST"` field, so the stored session-request JSON had to be regenerated to match.
+  **Rule:** WireMock `equalTo` body matchers are exact — any new field in a client request payload (e.g. session-creation params) breaks replay tests until every stored mapping JSON is updated in lockstep.
