@@ -15,11 +15,15 @@ import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.common.TelemetryLogLevel;
+import com.databricks.jdbc.common.util.JsonUtil;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSSLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
@@ -28,6 +32,7 @@ import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.utils.Cloud;
+import com.databricks.sdk.core.utils.Environment;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -38,13 +43,20 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -70,6 +82,128 @@ public class ClientConfiguratorTest {
     assertEquals("pat-token", config.getToken());
     assertEquals(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, config.getAuthType());
     assertInstanceOf(PatCredentialsProvider.class, config.getCredentialsProvider());
+  }
+
+  @ParameterizedTest
+  @MethodSource("missingAccessTokens")
+  void missingAccessTokenHasValidationErrorNameAndCode(AuthMech authMech, String token)
+      throws Exception {
+    setupAccessTokenContext(authMech, token);
+    try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+      DatabricksValidationException error =
+          assertThrows(
+              DatabricksValidationException.class,
+              () -> new ClientConfigurator(mockContext, environment(Map.of())));
+      assertEquals("INPUT_VALIDATION_ERROR", error.getSQLState());
+      assertEquals(1015, error.getErrorCode());
+      assertTrue(
+          error
+              .getMessage()
+              .contains(authMech == AuthMech.PAT ? "PWD or PASSWORD" : "Auth_AccessToken"));
+      telemetry.verify(
+          () ->
+              TelemetryHelper.exportFailureLog(
+                  any(),
+                  eq("INPUT_VALIDATION_ERROR"),
+                  eq(error.getMessage()),
+                  eq(TelemetryLogLevel.ERROR)));
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = AuthMech.class,
+      names = {"PAT", "OAUTH"})
+  void blankAccessTokenIsRejected(AuthMech authMech) throws Exception {
+    setupAccessTokenContext(authMech, " ");
+    DatabricksValidationException error =
+        assertThrows(
+            DatabricksValidationException.class,
+            () -> new ClientConfigurator(mockContext, environment(Map.of())));
+    assertEquals("INPUT_VALIDATION_ERROR", error.getSQLState());
+    assertEquals(1015, error.getErrorCode());
+  }
+
+  @ParameterizedTest
+  @MethodSource("missingAccessTokens")
+  void missingAccessTokenUsesSdkEnvironmentFallback(AuthMech authMech, String token)
+      throws Exception {
+    setupAccessTokenContext(authMech, token);
+    configurator =
+        new ClientConfigurator(mockContext, environment(Map.of("DATABRICKS_TOKEN", "env-token")));
+    try {
+      DatabricksConfig config = configurator.getDatabricksConfig();
+      assertEquals("env-token", config.getToken());
+      assertEquals("Bearer env-token", config.authenticate().get("Authorization"));
+    } finally {
+      configurator.close();
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = AuthMech.class,
+      names = {"PAT", "OAUTH"})
+  void explicitAccessTokenTakesPrecedenceOverEnvironment(AuthMech authMech) throws Exception {
+    setupAccessTokenContext(authMech, "explicit-token");
+    configurator =
+        new ClientConfigurator(mockContext, environment(Map.of("DATABRICKS_TOKEN", "env-token")));
+    try {
+      assertEquals("explicit-token", configurator.getDatabricksConfig().getToken());
+      assertEquals(
+          "Bearer explicit-token",
+          configurator.getDatabricksConfig().authenticate().get("Authorization"));
+    } finally {
+      configurator.close();
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = AuthMech.class,
+      names = {"PAT", "OAUTH"})
+  void accessTokenConfigPreservesSdkEnvironmentSettings(AuthMech authMech) throws Exception {
+    setupAccessTokenContext(authMech, "explicit-token");
+    Environment environment =
+        environment(
+            Map.of(
+                "DATABRICKS_DISABLE_RETRIES", "true",
+                "DATABRICKS_DEBUG_HEADERS", "true",
+                "DATABRICKS_DEBUG_TRUNCATE_BYTES", "512"));
+    configurator = new ClientConfigurator(mockContext, environment);
+    try {
+      DatabricksConfig config = configurator.getDatabricksConfig();
+      assertSame(environment, config.getEnv());
+      assertTrue(config.getDisableRetries());
+      assertTrue(config.isDebugHeaders());
+      assertEquals(512, config.getDebugTruncateBytes());
+    } finally {
+      configurator.close();
+    }
+  }
+
+  @ParameterizedTest
+  @EnumSource(
+      value = AuthMech.class,
+      names = {"PAT", "OAUTH"})
+  void accessTokenAuthErrorsRetainSdkDebugSuffix(AuthMech authMech) throws Exception {
+    setupAccessTokenContext(authMech, "explicit-token");
+    configurator =
+        new ClientConfigurator(
+            mockContext, environment(Map.of("DATABRICKS_DEBUG_HEADERS", "true")));
+    try {
+      DatabricksConfig config = configurator.getDatabricksConfig();
+      PatCredentialsProvider failingProvider = mock(PatCredentialsProvider.class);
+      when(failingProvider.authType()).thenReturn("pat");
+      when(failingProvider.configure(config)).thenThrow(new DatabricksException("auth failed"));
+      config.setCredentialsProvider(failingProvider);
+      DatabricksException error = assertThrows(DatabricksException.class, config::authenticate);
+      assertTrue(error.getMessage().contains("Config:"));
+      assertTrue(error.getMessage().contains("Env: DATABRICKS_DEBUG_HEADERS"));
+      assertFalse(error.getMessage().contains("explicit-token"));
+    } finally {
+      configurator.close();
+    }
   }
 
   @Test
@@ -104,7 +238,7 @@ public class ClientConfiguratorTest {
   }
 
   @Test
-  void oauthAccessTokenWithFederationDoesNotFetchHostMetadata() throws Exception {
+  void oauthAccessTokenWithSameHostFederationDoesNotFetchHostMetadata() throws Exception {
     AtomicInteger discoveryRequests = new AtomicInteger();
     HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     server.createContext(
@@ -117,18 +251,7 @@ public class ClientConfiguratorTest {
     server.start();
     try {
       String host = "http://127.0.0.1:" + server.getAddress().getPort();
-      Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
-      String header =
-          encoder.encodeToString("{\"alg\":\"RS256\"}".getBytes(StandardCharsets.UTF_8));
-      String payload =
-          encoder.encodeToString(
-              ("{\"iss\":\""
-                      + host
-                      + "\",\"exp\":"
-                      + Instant.now().plusSeconds(3600).getEpochSecond()
-                      + "}")
-                  .getBytes(StandardCharsets.UTF_8));
-      String jwt = header + "." + payload + ".c2ln";
+      String jwt = jwt(host);
       when(mockContext.getConnectionUuid()).thenReturn("oauth-no-discovery-test");
       when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
       when(mockContext.getAuthFlow()).thenReturn(AuthFlow.TOKEN_PASSTHROUGH);
@@ -144,8 +267,95 @@ public class ClientConfiguratorTest {
       assertEquals(0, discoveryRequests.get());
     } finally {
       DatabricksClientConfiguratorManager.getInstance().removeInstance(mockContext);
+      DatabricksHttpClientFactory.getInstance().removeClient(mockContext);
       server.stop(0);
     }
+  }
+
+  @Test
+  void oauthAccessTokenExchangeDoesNotFetchHostMetadata() throws Exception {
+    AtomicInteger discoveryRequests = new AtomicInteger();
+    AtomicInteger tokenExchanges = new AtomicInteger();
+    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    String host = "http://127.0.0.1:" + server.getAddress().getPort();
+    String exchangedToken = jwt(host);
+    server.createContext(
+        "/.well-known/databricks-config",
+        exchange -> {
+          discoveryRequests.incrementAndGet();
+          exchange.sendResponseHeaders(404, -1);
+          exchange.close();
+        });
+    server.createContext(
+        "/oidc/v1/token",
+        exchange -> {
+          tokenExchanges.incrementAndGet();
+          byte[] response =
+              JsonUtil.getMapper()
+                  .writeValueAsBytes(
+                      Map.of("access_token", exchangedToken, "token_type", "Bearer"));
+          exchange.getResponseHeaders().set("Content-Type", "application/json");
+          exchange.sendResponseHeaders(200, response.length);
+          try (java.io.OutputStream body = exchange.getResponseBody()) {
+            body.write(response);
+          }
+          exchange.close();
+        });
+    server.start();
+    try {
+      when(mockContext.getConnectionUuid()).thenReturn("oauth-token-exchange-no-discovery-test");
+      setupAccessTokenContext(AuthMech.OAUTH, jwt("https://external.example"));
+      when(mockContext.getHostUrl()).thenReturn(host);
+      when(mockContext.isTokenFederationEnabled()).thenReturn(true);
+
+      DatabricksSdkClient client = new DatabricksSdkClient(mockContext);
+      assertEquals(
+          "Bearer " + exchangedToken,
+          client.getDatabricksConfig().authenticate().get("Authorization"));
+      assertEquals(1, tokenExchanges.get());
+      assertEquals(0, discoveryRequests.get());
+    } finally {
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(mockContext);
+      DatabricksHttpClientFactory.getInstance().removeClient(mockContext);
+      server.stop(0);
+    }
+  }
+
+  private void setupAccessTokenContext(AuthMech authMech, String token) throws Exception {
+    when(mockContext.getAuthMech()).thenReturn(authMech);
+    when(mockContext.getHostUrl()).thenReturn("https://token.databricks.com");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    if (authMech == AuthMech.PAT) {
+      when(mockContext.getToken()).thenReturn(token);
+    } else {
+      when(mockContext.getAuthFlow()).thenReturn(AuthFlow.TOKEN_PASSTHROUGH);
+      when(mockContext.getPassThroughAccessToken()).thenReturn(token);
+    }
+  }
+
+  private static Environment environment(Map<String, String> values) {
+    return new Environment(values, new String[0], "Linux");
+  }
+
+  private static Stream<Arguments> missingAccessTokens() {
+    return Stream.of(
+        Arguments.of(AuthMech.PAT, null),
+        Arguments.of(AuthMech.PAT, ""),
+        Arguments.of(AuthMech.OAUTH, null),
+        Arguments.of(AuthMech.OAUTH, ""));
+  }
+
+  private static String jwt(String issuer) throws IOException {
+    Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+    String header = encoder.encodeToString("{\"alg\":\"RS256\"}".getBytes(StandardCharsets.UTF_8));
+    String payload =
+        encoder.encodeToString(
+            JsonUtil.getMapper()
+                .writeValueAsBytes(
+                    Map.of(
+                        "iss", issuer, "exp", Instant.now().plusSeconds(3600).getEpochSecond())));
+    return header + "." + payload + ".c2ln";
   }
 
   @Test
@@ -353,6 +563,7 @@ public class ClientConfiguratorTest {
   @Test
   void testNonOauth() throws DatabricksSSLException, DatabricksValidationException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.OTHER);
+    when(mockContext.getToken()).thenReturn("test-token");
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     configurator = new ClientConfigurator(mockContext);
@@ -384,6 +595,7 @@ public class ClientConfiguratorTest {
   @Test
   void testSetupProxyConfig() throws DatabricksSSLException, DatabricksValidationException {
     when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
+    when(mockContext.getToken()).thenReturn("test-token");
     when(mockContext.getUseProxy()).thenReturn(true);
     when(mockContext.getProxyHost()).thenReturn("proxy.host.com");
     when(mockContext.getProxyPort()).thenReturn(3128);

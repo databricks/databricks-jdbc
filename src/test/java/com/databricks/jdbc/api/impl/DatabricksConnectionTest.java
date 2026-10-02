@@ -385,7 +385,8 @@ public class DatabricksConnectionTest {
   @Test
   public void testGetUCVolumeClient() throws SQLException {
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(SESSION_CONF_JDBC_URL, new Properties());
+        DatabricksConnectionContext.parse(
+            SESSION_CONF_JDBC_URL + ";PWD=test-token", new Properties());
     DatabricksConnection connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
     DatabricksVolumeClientFactory volumeClientFactory =

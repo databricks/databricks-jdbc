@@ -51,7 +51,8 @@ public class DatabricksSessionTest {
 
   static void setupWarehouse(boolean useThrift) throws SQLException {
     String url = useThrift ? WAREHOUSE_JDBC_URL : WAREHOUSE_JDBC_URL_WITH_SEA;
-    connectionContext = DatabricksConnectionContext.parse(url, new Properties());
+    connectionContext =
+        DatabricksConnectionContext.parse(url + ";PWD=test-token", new Properties());
     // Override feature flags with empty map to prevent test contamination from
     // other test classes (e.g. DatabricksConnectionContextTest) that set flags
     // on the shared static DatabricksDriverFeatureFlagsContextFactory.
@@ -455,7 +456,7 @@ public class DatabricksSessionTest {
     // SEA connection with UseQueryForMetadata=1
     String url =
         "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;"
-            + "AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=0;UseQueryForMetadata=1";
+            + "AuthMech=3;PWD=test-token;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=0;UseQueryForMetadata=1";
     connectionContext = DatabricksConnectionContext.parse(url, new Properties());
 
     ImmutableSessionInfo sessionInfo =

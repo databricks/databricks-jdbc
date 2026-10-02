@@ -44,7 +44,7 @@ public class ReydenThriftAutoRecoveryTest {
       "jdbc:databricks://"
           + HOST
           + ":9999/default;transportMode=http;ssl=1;"
-          + "AuthMech=3;httpPath=/sql/1.0/warehouses/"
+          + "AuthMech=3;PWD=test-token;httpPath=/sql/1.0/warehouses/"
           + WAREHOUSE_ID;
 
   private static final String WAREHOUSE_URL_THRIFT_FORCED =

@@ -5,7 +5,6 @@ import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfi
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.*;
-import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DatabricksAuthUtil;
@@ -24,8 +23,10 @@ import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.oauth.OAuthM2MServicePrincipalCredentialsProvider;
 import com.databricks.sdk.core.oauth.TokenCache;
 import com.databricks.sdk.core.utils.Cloud;
+import com.databricks.sdk.core.utils.Environment;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -48,11 +49,33 @@ public class ClientConfigurator implements Closeable {
   private final IDatabricksConnectionContext connectionContext;
   private DatabricksConfig databricksConfig;
   private PoolingHttpClientConnectionManager sdkConnectionManager;
+  private boolean accessTokenAuth;
 
   public ClientConfigurator(IDatabricksConnectionContext connectionContext)
       throws DatabricksSSLException, DatabricksValidationException {
+    this(
+        connectionContext,
+        new Environment(
+            System.getenv(),
+            System.getenv().getOrDefault("PATH", "").split(File.pathSeparator),
+            System.getProperty("os.name")));
+  }
+
+  @VisibleForTesting
+  ClientConfigurator(IDatabricksConnectionContext connectionContext, Environment environment)
+      throws DatabricksSSLException, DatabricksValidationException {
     this.connectionContext = connectionContext;
-    this.databricksConfig = new DatabricksConfig();
+    // SDK resolve() initializes the environment but also fetches host metadata.
+    this.databricksConfig =
+        new DatabricksConfig() {
+          @Override
+          public Environment getEnv() {
+            Environment resolvedEnvironment = super.getEnv();
+            return resolvedEnvironment == null && accessTokenAuth
+                ? environment
+                : resolvedEnvironment;
+          }
+        };
     databricksConfig.setDisableOauthRefreshToken(connectionContext.getDisableOauthRefreshToken());
     CommonsHttpClient.Builder httpClientBuilder = new CommonsHttpClient.Builder();
     httpClientBuilder.withTimeoutSeconds(connectionContext.getSocketTimeout());
@@ -61,12 +84,30 @@ public class ClientConfigurator implements Closeable {
     this.databricksConfig.setHttpClient(httpClientBuilder.build());
     setupDiscoveryEndpoint();
     setupAuthConfig();
-    // Direct access tokens already have the host and token needed to authenticate.
-    if (connectionContext.getAuthMech() != AuthMech.PAT
-        && !(connectionContext.getAuthMech() == AuthMech.OAUTH
-            && connectionContext.getAuthFlow() == AuthFlow.TOKEN_PASSTHROUGH
-            && connectionContext.getOAuthRefreshToken() == null)) {
+    if (accessTokenAuth) {
+      resolveAccessTokenConfig();
+    } else {
       this.databricksConfig.resolve();
+    }
+  }
+
+  private void resolveAccessTokenConfig() throws DatabricksValidationException {
+    try {
+      ConfigLoader.resolve(databricksConfig);
+      ConfigLoader.fixHostIfNeeded(databricksConfig);
+    } catch (DatabricksException e) {
+      throw ConfigLoader.makeNicerError(e.getMessage(), e, databricksConfig);
+    }
+    String token = databricksConfig.getToken();
+    if (token == null || token.isBlank()) {
+      close();
+      String parameter =
+          connectionContext.getAuthMech() == AuthMech.OAUTH
+              ? "Auth_AccessToken"
+              : "PWD or PASSWORD";
+      throw new DatabricksValidationException(
+          "Missing access token: provide " + parameter + " or DATABRICKS_TOKEN",
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
   }
 
@@ -312,6 +353,7 @@ public class ClientConfigurator implements Closeable {
         .setHost(connectionContext.getHostUrl())
         .setToken(connectionContext.getToken())
         .setCredentialsProvider(new PatCredentialsProvider());
+    accessTokenAuth = true;
   }
 
   public void setupOAuthAccessTokenConfig() throws DatabricksParsingException {
@@ -326,6 +368,7 @@ public class ClientConfigurator implements Closeable {
         .setHost(connectionContext.getHostUrl())
         .setToken(connectionContext.getPassThroughAccessToken())
         .setCredentialsProvider(credentialsProvider);
+    accessTokenAuth = true;
   }
 
   public void resetAccessTokenInConfig(String newAccessToken) {

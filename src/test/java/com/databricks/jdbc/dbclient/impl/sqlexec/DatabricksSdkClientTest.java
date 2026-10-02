@@ -71,7 +71,7 @@ public class DatabricksSdkClientTest {
   private static final String STATEMENT =
       "SELECT * FROM orders WHERE user_id = ? AND shard = ? AND region_code = ? AND namespace = ?";
   private static final String JDBC_URL =
-      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;";
+      "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;PWD=test-token;httpPath=/sql/1.0/warehouses/99999999;";
   private static final String DEFAULT_KEYSTORE_PASSWORD = "changeit";
 
   private static final Map<Integer, ImmutableSqlParameter> sqlParams =
@@ -1206,8 +1206,7 @@ public class DatabricksSdkClientTest {
   public void testSeaSyncMetadataHeaderNotAddedWhenDisabled() throws Exception {
     // Test that header is NOT added when the URL parameter is disabled
     setupClientMocks(true, false);
-    String urlWithDisabledFlag =
-        "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;EnableSeaSyncMetadata=0;";
+    String urlWithDisabledFlag = JDBC_URL + "EnableSeaSyncMetadata=0;";
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(urlWithDisabledFlag, new Properties());
     DatabricksSdkClient databricksSdkClient =
