@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfi
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.*;
+import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.util.DatabricksAuthUtil;
@@ -57,10 +58,19 @@ public class ClientConfigurator implements Closeable {
     httpClientBuilder.withTimeoutSeconds(connectionContext.getSocketTimeout());
     setupProxyConfig(httpClientBuilder);
     setupConnectionManager(httpClientBuilder);
-    this.databricksConfig.setHttpClient(httpClientBuilder.build());
+    this.databricksConfig.setHttpClient(
+        canCacheDiscoveryMetadata()
+            ? new DiscoveryMetadataCachingHttpClient(httpClientBuilder.build())
+            : httpClientBuilder.build());
     setupDiscoveryEndpoint();
     setupAuthConfig();
-    this.databricksConfig.resolve();
+    // Direct access tokens already have the host and token needed to authenticate.
+    if (connectionContext.getAuthMech() != AuthMech.PAT
+        && !(connectionContext.getAuthMech() == AuthMech.OAUTH
+            && connectionContext.getAuthFlow() == AuthFlow.TOKEN_PASSTHROUGH
+            && connectionContext.getOAuthRefreshToken() == null)) {
+      this.databricksConfig.resolve();
+    }
   }
 
   /**
@@ -303,21 +313,22 @@ public class ClientConfigurator implements Closeable {
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
         .setHost(connectionContext.getHostUrl())
-        .setToken(connectionContext.getToken());
+        .setToken(connectionContext.getToken())
+        .setCredentialsProvider(new PatCredentialsProvider());
   }
 
   public void setupOAuthAccessTokenConfig() throws DatabricksParsingException {
     // Token Federation is only supported for JWT tokens
+    CredentialsProvider credentialsProvider = new PatCredentialsProvider();
     if (DatabricksAuthUtil.isTokenJWT(connectionContext.getPassThroughAccessToken())) {
-      CredentialsProvider credentialsProvider =
-          wrapWithTokenFederationIfEnabled(new PatCredentialsProvider());
-      databricksConfig.setCredentialsProvider(credentialsProvider);
+      credentialsProvider = wrapWithTokenFederationIfEnabled(credentialsProvider);
     }
 
     databricksConfig
         .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
         .setHost(connectionContext.getHostUrl())
-        .setToken(connectionContext.getPassThroughAccessToken());
+        .setToken(connectionContext.getPassThroughAccessToken())
+        .setCredentialsProvider(credentialsProvider);
   }
 
   public void resetAccessTokenInConfig(String newAccessToken) {
@@ -463,6 +474,17 @@ public class ClientConfigurator implements Closeable {
     if (connectionContext.isOAuthDiscoveryModeEnabled()) {
       databricksConfig.setDiscoveryUrl(connectionContext.getOAuthDiscoveryURL());
     }
+  }
+
+  private boolean canCacheDiscoveryMetadata() {
+    return !Boolean.TRUE.equals(connectionContext.getUseProxy())
+        && !Boolean.TRUE.equals(connectionContext.getUseSystemProxy())
+        && connectionContext.getSSLTrustStore() == null
+        && connectionContext.getSSLKeyStore() == null
+        && !connectionContext.allowSelfSignedCerts()
+        && !connectionContext.useSystemTrustStore()
+        && connectionContext.checkCertificateRevocation()
+        && !connectionContext.acceptUndeterminedCertificateRevocation();
   }
 
   /**

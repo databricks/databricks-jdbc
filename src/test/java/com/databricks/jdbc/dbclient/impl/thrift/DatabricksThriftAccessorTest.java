@@ -11,6 +11,7 @@ import com.databricks.jdbc.api.impl.DatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
@@ -107,6 +108,19 @@ public class DatabricksThriftAccessorTest {
     if (configuratorManagerStatic != null) {
       configuratorManagerStatic.close();
     }
+  }
+
+  @Test
+  void patAuthenticationDoesNotBuildSdkConfigurator() throws Exception {
+    when(connectionContext.getAuthMech()).thenReturn(AuthMech.PAT);
+    when(connectionContext.getHostUrl()).thenReturn("https://example.databricks.com");
+    when(connectionContext.getToken()).thenReturn("pat-token");
+
+    DatabricksThriftAccessor patAccessor = new DatabricksThriftAccessor(connectionContext);
+
+    assertEquals(
+        "Bearer pat-token", patAccessor.getDatabricksConfig().authenticate().get("Authorization"));
+    verify(configuratorManager, never()).getConfigurator(any());
   }
 
   void setup(Boolean directResultsEnabled)

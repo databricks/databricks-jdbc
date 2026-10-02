@@ -9,6 +9,8 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class DatabricksClientConfiguratorManager {
@@ -16,33 +18,54 @@ public class DatabricksClientConfiguratorManager {
       JdbcLoggerFactory.getLogger(DatabricksClientConfiguratorManager.class);
   private static final DatabricksClientConfiguratorManager INSTANCE =
       new DatabricksClientConfiguratorManager();
-  private final ConcurrentHashMap<String, ClientConfigurator> instances = new ConcurrentHashMap<>();
+  private final ConfiguratorFactory configuratorFactory;
+  private final ConcurrentHashMap<String, CompletableFuture<ClientConfigurator>> instances =
+      new ConcurrentHashMap<>();
 
   private DatabricksClientConfiguratorManager() {
-    // Private constructor to prevent instantiation
+    this(ClientConfigurator::new);
+  }
+
+  @VisibleForTesting
+  DatabricksClientConfiguratorManager(ConfiguratorFactory configuratorFactory) {
+    this.configuratorFactory = configuratorFactory;
+  }
+
+  @FunctionalInterface
+  interface ConfiguratorFactory {
+    ClientConfigurator create(IDatabricksConnectionContext context)
+        throws DatabricksSSLException, DatabricksValidationException;
   }
 
   public ClientConfigurator getConfigurator(IDatabricksConnectionContext context) {
     try {
-      return instances.computeIfAbsent(
-          context.getConnectionUuid(),
-          k -> {
-            try {
-              return new ClientConfigurator(context);
-            } catch (DatabricksSSLException e) {
-              String message =
-                  String.format("client configurator failed due to SSL error: %s", e.getMessage());
-              LOGGER.error(e, message);
-              throw new DatabricksDriverException(message, DatabricksDriverErrorCode.AUTH_ERROR);
-            } catch (DatabricksValidationException e) {
-              String message =
-                  String.format(
-                      "client configurator failed due to validation error: %s", e.getMessage());
-              LOGGER.error(e, message);
-              throw new DatabricksDriverException(
-                  message, DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
-            }
-          });
+      String uuid = context.getConnectionUuid();
+      CompletableFuture<ClientConfigurator> future = instances.get(uuid);
+      if (future == null) {
+        CompletableFuture<ClientConfigurator> initializer = new CompletableFuture<>();
+        future = instances.putIfAbsent(uuid, initializer);
+        if (future == null) {
+          future = initializer;
+          try {
+            initializer.complete(createConfigurator(context));
+          } catch (Throwable t) {
+            initializer.completeExceptionally(t);
+            instances.remove(uuid, initializer);
+          }
+        }
+      }
+      try {
+        return future.join();
+      } catch (CompletionException e) {
+        Throwable cause = e.getCause();
+        if (cause instanceof Error) {
+          throw (Error) cause;
+        }
+        if (cause instanceof RuntimeException) {
+          throw (RuntimeException) cause;
+        }
+        throw e;
+      }
     } catch (Exception ex) {
       String message =
           String.format(
@@ -50,6 +73,23 @@ public class DatabricksClientConfiguratorManager {
               ex.getMessage(), context);
       LOGGER.error(ex, message);
       throw new DatabricksDriverException(message, DatabricksDriverErrorCode.AUTH_ERROR);
+    }
+  }
+
+  private ClientConfigurator createConfigurator(IDatabricksConnectionContext context) {
+    try {
+      return configuratorFactory.create(context);
+    } catch (DatabricksSSLException e) {
+      String message =
+          String.format("client configurator failed due to SSL error: %s", e.getMessage());
+      LOGGER.error(e, message);
+      throw new DatabricksDriverException(message, DatabricksDriverErrorCode.AUTH_ERROR);
+    } catch (DatabricksValidationException e) {
+      String message =
+          String.format("client configurator failed due to validation error: %s", e.getMessage());
+      LOGGER.error(e, message);
+      throw new DatabricksDriverException(
+          message, DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
   }
 
@@ -61,13 +101,22 @@ public class DatabricksClientConfiguratorManager {
    * @return the client configurator if it exists, otherwise null
    */
   public ClientConfigurator getConfiguratorOnlyIfExists(IDatabricksConnectionContext context) {
-    return instances.get(context.getConnectionUuid());
+    CompletableFuture<ClientConfigurator> future = instances.get(context.getConnectionUuid());
+    if (future == null) {
+      return null;
+    }
+    try {
+      return future.getNow(null);
+    } catch (CompletionException e) {
+      return null;
+    }
   }
 
   @VisibleForTesting
   void setConfigurator(
       IDatabricksConnectionContext context, ClientConfigurator clientConfigurator) {
-    instances.put(context.getConnectionUuid(), clientConfigurator);
+    instances.put(
+        context.getConnectionUuid(), CompletableFuture.completedFuture(clientConfigurator));
   }
 
   public static DatabricksClientConfiguratorManager getInstance() {
@@ -75,9 +124,9 @@ public class DatabricksClientConfiguratorManager {
   }
 
   public void removeInstance(IDatabricksConnectionContext context) {
-    ClientConfigurator removed = instances.remove(context.getConnectionUuid());
+    CompletableFuture<ClientConfigurator> removed = instances.remove(context.getConnectionUuid());
     if (removed != null) {
-      removed.close();
+      removed.thenAccept(ClientConfigurator::close);
     }
   }
 }

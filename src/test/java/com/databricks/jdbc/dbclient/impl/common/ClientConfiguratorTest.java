@@ -13,7 +13,9 @@ import com.databricks.jdbc.auth.DatabricksTokenFederationProvider;
 import com.databricks.jdbc.auth.PrivateKeyClientCredentialProvider;
 import com.databricks.jdbc.common.AuthFlow;
 import com.databricks.jdbc.common.AuthMech;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.DatabricksJdbcConstants;
+import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSSLException;
@@ -21,17 +23,23 @@ import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
+import com.databricks.sdk.core.PatCredentialsProvider;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
 import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.utils.Cloud;
+import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -61,6 +69,83 @@ public class ClientConfiguratorTest {
     assertEquals("https://pat.databricks.com", config.getHost());
     assertEquals("pat-token", config.getToken());
     assertEquals(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, config.getAuthType());
+    assertInstanceOf(PatCredentialsProvider.class, config.getCredentialsProvider());
+  }
+
+  @Test
+  void patSeaClientDoesNotFetchHostMetadata() throws Exception {
+    AtomicInteger discoveryRequests = new AtomicInteger();
+    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/.well-known/databricks-config",
+        exchange -> {
+          discoveryRequests.incrementAndGet();
+          exchange.sendResponseHeaders(404, -1);
+          exchange.close();
+        });
+    server.start();
+    try {
+      when(mockContext.getConnectionUuid()).thenReturn("pat-no-discovery-test");
+      when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
+      when(mockContext.getHostUrl())
+          .thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
+      when(mockContext.getToken()).thenReturn("pat-token");
+      when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+      when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+
+      DatabricksSdkClient client = new DatabricksSdkClient(mockContext);
+      assertEquals(
+          "Bearer pat-token", client.getDatabricksConfig().authenticate().get("Authorization"));
+      assertEquals(0, discoveryRequests.get());
+    } finally {
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(mockContext);
+      server.stop(0);
+    }
+  }
+
+  @Test
+  void oauthAccessTokenWithFederationDoesNotFetchHostMetadata() throws Exception {
+    AtomicInteger discoveryRequests = new AtomicInteger();
+    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/.well-known/databricks-config",
+        exchange -> {
+          discoveryRequests.incrementAndGet();
+          exchange.sendResponseHeaders(404, -1);
+          exchange.close();
+        });
+    server.start();
+    try {
+      String host = "http://127.0.0.1:" + server.getAddress().getPort();
+      Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+      String header =
+          encoder.encodeToString("{\"alg\":\"RS256\"}".getBytes(StandardCharsets.UTF_8));
+      String payload =
+          encoder.encodeToString(
+              ("{\"iss\":\""
+                      + host
+                      + "\",\"exp\":"
+                      + Instant.now().plusSeconds(3600).getEpochSecond()
+                      + "}")
+                  .getBytes(StandardCharsets.UTF_8));
+      String jwt = header + "." + payload + ".c2ln";
+      when(mockContext.getConnectionUuid()).thenReturn("oauth-no-discovery-test");
+      when(mockContext.getAuthMech()).thenReturn(AuthMech.OAUTH);
+      when(mockContext.getAuthFlow()).thenReturn(AuthFlow.TOKEN_PASSTHROUGH);
+      when(mockContext.getHostUrl()).thenReturn(host);
+      when(mockContext.getPassThroughAccessToken()).thenReturn(jwt);
+      when(mockContext.isTokenFederationEnabled()).thenReturn(true);
+      when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+      when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+
+      DatabricksSdkClient client = new DatabricksSdkClient(mockContext);
+      assertEquals(
+          "Bearer " + jwt, client.getDatabricksConfig().authenticate().get("Authorization"));
+      assertEquals(0, discoveryRequests.get());
+    } finally {
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(mockContext);
+      server.stop(0);
+    }
   }
 
   @Test
@@ -81,6 +166,7 @@ public class ClientConfiguratorTest {
     assertEquals("https://oauth-token.databricks.com", config.getHost());
     assertEquals("oauth-token", config.getToken());
     assertEquals(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, config.getAuthType());
+    assertInstanceOf(PatCredentialsProvider.class, config.getCredentialsProvider());
   }
 
   @Test
@@ -676,7 +762,6 @@ public class ClientConfiguratorTest {
     assertEquals("https://pat.databricks.com", config.getHost());
     assertEquals("pat-token", config.getToken());
     assertEquals(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE, config.getAuthType());
-    // PAT auth doesn't use Token federation provider, so it should be SDK default provider
     assertFalse(config.getCredentialsProvider() instanceof DatabricksTokenFederationProvider);
   }
 
