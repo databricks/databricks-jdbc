@@ -58,10 +58,7 @@ public class ClientConfigurator implements Closeable {
     httpClientBuilder.withTimeoutSeconds(connectionContext.getSocketTimeout());
     setupProxyConfig(httpClientBuilder);
     setupConnectionManager(httpClientBuilder);
-    this.databricksConfig.setHttpClient(
-        canCacheDiscoveryMetadata()
-            ? new DiscoveryMetadataCachingHttpClient(httpClientBuilder.build())
-            : httpClientBuilder.build());
+    this.databricksConfig.setHttpClient(httpClientBuilder.build());
     setupDiscoveryEndpoint();
     setupAuthConfig();
     // Direct access tokens already have the host and token needed to authenticate.
@@ -474,17 +471,6 @@ public class ClientConfigurator implements Closeable {
     if (connectionContext.isOAuthDiscoveryModeEnabled()) {
       databricksConfig.setDiscoveryUrl(connectionContext.getOAuthDiscoveryURL());
     }
-  }
-
-  private boolean canCacheDiscoveryMetadata() {
-    return !Boolean.TRUE.equals(connectionContext.getUseProxy())
-        && !Boolean.TRUE.equals(connectionContext.getUseSystemProxy())
-        && connectionContext.getSSLTrustStore() == null
-        && connectionContext.getSSLKeyStore() == null
-        && !connectionContext.allowSelfSignedCerts()
-        && !connectionContext.useSystemTrustStore()
-        && connectionContext.checkCertificateRevocation()
-        && !connectionContext.acceptUndeterminedCertificateRevocation();
   }
 
   /**

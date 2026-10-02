@@ -11,9 +11,7 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
-import com.databricks.jdbc.common.AuthMech;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
-import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
@@ -29,7 +27,6 @@ import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.DatabricksConfig;
-import com.databricks.sdk.core.PatCredentialsProvider;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -69,19 +66,10 @@ final class DatabricksThriftAccessor {
   DatabricksThriftAccessor(IDatabricksConnectionContext connectionContext)
       throws DatabricksParsingException, DatabricksValidationException {
     this.enableDirectResults = connectionContext.getDirectResultMode();
-    if (connectionContext.getAuthMech() == AuthMech.PAT) {
-      this.databricksConfig =
-          new DatabricksConfig()
-              .setAuthType(DatabricksJdbcConstants.ACCESS_TOKEN_AUTH_TYPE)
-              .setHost(connectionContext.getHostUrl())
-              .setToken(connectionContext.getToken())
-              .setCredentialsProvider(new PatCredentialsProvider());
-    } else {
-      this.databricksConfig =
-          DatabricksClientConfiguratorManager.getInstance()
-              .getConfigurator(connectionContext)
-              .getDatabricksConfig();
-    }
+    this.databricksConfig =
+        DatabricksClientConfiguratorManager.getInstance()
+            .getConfigurator(connectionContext)
+            .getDatabricksConfig();
     this.endpointUrl = connectionContext.getEndpointURL();
     this.asyncPollIntervalMillis = connectionContext.getAsyncExecPollInterval();
     this.maxRowsPerBlock = connectionContext.getRowsFetchedPerBlock();
