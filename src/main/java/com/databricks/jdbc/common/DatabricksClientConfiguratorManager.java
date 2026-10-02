@@ -9,10 +9,6 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class DatabricksClientConfiguratorManager {
@@ -21,9 +17,7 @@ public class DatabricksClientConfiguratorManager {
   private static final DatabricksClientConfiguratorManager INSTANCE =
       new DatabricksClientConfiguratorManager();
   private final ConfiguratorFactory configuratorFactory;
-  private final ConcurrentHashMap<String, CompletableFuture<ClientConfigurator>> instances =
-      new ConcurrentHashMap<>();
-  private final ThreadLocal<Set<String>> initializingUuids = ThreadLocal.withInitial(HashSet::new);
+  private final ConcurrentHashMap<String, ClientConfigurator> instances = new ConcurrentHashMap<>();
 
   private DatabricksClientConfiguratorManager() {
     this(ClientConfigurator::new);
@@ -41,51 +35,13 @@ public class DatabricksClientConfiguratorManager {
   }
 
   public ClientConfigurator getConfigurator(IDatabricksConnectionContext context) {
-    String uuid = context.getConnectionUuid();
-    Set<String> initializing = initializingUuids.get();
-    // Re-entry must not wait on itself or construct another telemetry-exporting exception.
-    if (initializing.contains(uuid)) {
-      throw new IllegalStateException(
-          "Recursive configurator initialization for connection " + uuid);
-    }
     try {
-      CompletableFuture<ClientConfigurator> future = instances.get(uuid);
-      if (future == null) {
-        CompletableFuture<ClientConfigurator> initializer = new CompletableFuture<>();
-        future = instances.putIfAbsent(uuid, initializer);
-        if (future == null) {
-          future = initializer;
-          initializing.add(uuid);
-          try {
-            initializer.complete(createConfigurator(context));
-          } catch (Throwable t) {
-            initializer.completeExceptionally(t);
-            instances.remove(uuid, initializer);
-          } finally {
-            initializing.remove(uuid);
-          }
-        }
-      }
-      try {
-        return future.join();
-      } catch (CompletionException e) {
-        Throwable cause = e.getCause();
-        if (cause instanceof Error) {
-          throw (Error) cause;
-        }
-        if (cause instanceof DatabricksDriverException) {
-          throw (DatabricksDriverException) cause;
-        }
-        throw authConfigurationException(context, cause);
-      }
+      return instances.computeIfAbsent(
+          context.getConnectionUuid(), ignored -> createConfigurator(context));
     } catch (DatabricksDriverException ex) {
       throw ex;
     } catch (Exception ex) {
       throw authConfigurationException(context, ex);
-    } finally {
-      if (initializing.isEmpty()) {
-        initializingUuids.remove();
-      }
     }
   }
 
@@ -128,22 +84,13 @@ public class DatabricksClientConfiguratorManager {
    * @return the client configurator if it exists, otherwise null
    */
   public ClientConfigurator getConfiguratorOnlyIfExists(IDatabricksConnectionContext context) {
-    CompletableFuture<ClientConfigurator> future = instances.get(context.getConnectionUuid());
-    if (future == null) {
-      return null;
-    }
-    try {
-      return future.getNow(null);
-    } catch (CompletionException e) {
-      return null;
-    }
+    return instances.get(context.getConnectionUuid());
   }
 
   @VisibleForTesting
   void setConfigurator(
       IDatabricksConnectionContext context, ClientConfigurator clientConfigurator) {
-    instances.put(
-        context.getConnectionUuid(), CompletableFuture.completedFuture(clientConfigurator));
+    instances.put(context.getConnectionUuid(), clientConfigurator);
   }
 
   public static DatabricksClientConfiguratorManager getInstance() {
@@ -151,9 +98,9 @@ public class DatabricksClientConfiguratorManager {
   }
 
   public void removeInstance(IDatabricksConnectionContext context) {
-    CompletableFuture<ClientConfigurator> removed = instances.remove(context.getConnectionUuid());
+    ClientConfigurator removed = instances.remove(context.getConnectionUuid());
     if (removed != null) {
-      removed.thenAccept(ClientConfigurator::close);
+      removed.close();
     }
   }
 }
