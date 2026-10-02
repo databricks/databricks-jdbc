@@ -2,7 +2,9 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
@@ -50,6 +52,22 @@ public class StatementIdTest {
     assertEquals(DatabricksClientType.SEA, stmtId.clientType);
     assertEquals(serializedStatementId, stmtId.guid);
     assertNull(stmtId.secret);
+  }
+
+  @Test
+  public void testRealtimeStatementRouteIsLocalToOwnedId() {
+    ImmutableSessionInfo session =
+        ImmutableSessionInfo.builder()
+            .sessionId("session-id")
+            .computeResource(new Warehouse("warehouse-id"))
+            .realtimeSession(true)
+            .build();
+    StatementId owned = StatementId.forCurrentSession("statement-id", session);
+
+    assertEquals("session-id", owned.realtimeSessionId());
+    assertEquals("warehouse-id", owned.realtimeWarehouseId());
+    assertNull(StatementId.deserialize(owned.toString()).realtimeSessionId());
+    assertNull(new StatementId("statement-id").realtimeSessionId());
   }
 
   /** Test the deserialize method with a valid Thrift statement ID. */

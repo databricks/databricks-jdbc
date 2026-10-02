@@ -48,6 +48,22 @@ public class SessionIdTest {
   }
 
   @Test
+  public void testRealtimeSessionRetainsRouteForConnectionClose() throws Exception {
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId("test-session-id")
+            .computeResource(new Warehouse(WAREHOUSE_ID))
+            .realtimeSession(true)
+            .build();
+
+    SessionId sessionId = SessionId.create(sessionInfo);
+    assertEquals("s|warehouse|test-session-id|r", sessionId.toString());
+    assertTrue(SessionId.deserialize(sessionId.toString()).getSessionInfo().realtimeSession());
+    assertFalse(
+        SessionId.deserialize("s|warehouse|test-session-id").getSessionInfo().realtimeSession());
+  }
+
+  @Test
   public void testConstructorThrift() throws Exception {
     THandleIdentifier tHandleIdentifier =
         new THandleIdentifier().setGuid(testGuidBytes).setSecret(testSecretBytes);

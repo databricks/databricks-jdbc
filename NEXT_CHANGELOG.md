@@ -6,6 +6,8 @@
 
 ### Updated
 
+- SQL Execution API sessions open with warehouse URLs and use warehouse statement URLs when enabled by the session response.
+
 ### Fixed
 
 ---

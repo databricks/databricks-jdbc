@@ -2,7 +2,9 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR;
 
+import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.common.DatabricksClientType;
+import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -18,16 +20,50 @@ public class StatementId {
   final DatabricksClientType clientType;
   final String guid;
   final String secret;
+  private final String realtimeSessionId;
+  private final String realtimeWarehouseId;
 
   StatementId(DatabricksClientType clientType, String guid, String secret) {
+    this(clientType, guid, secret, null, null);
+  }
+
+  private StatementId(
+      DatabricksClientType clientType,
+      String guid,
+      String secret,
+      String realtimeSessionId,
+      String realtimeWarehouseId) {
     this.clientType = clientType;
     this.guid = guid;
     this.secret = secret;
+    this.realtimeSessionId = realtimeSessionId;
+    this.realtimeWarehouseId = realtimeWarehouseId;
   }
 
   /** Constructs a StatementId identifier for a given SQl Exec statement-Id */
   public StatementId(String statementId) {
     this(DatabricksClientType.SEA, statementId, null);
+  }
+
+  public static StatementId forCurrentSession(
+      String statementId, ImmutableSessionInfo sessionInfo) {
+    if (!sessionInfo.realtimeSession()) {
+      return new StatementId(statementId);
+    }
+    return new StatementId(
+        DatabricksClientType.SEA,
+        statementId,
+        null,
+        sessionInfo.sessionId(),
+        ((Warehouse) sessionInfo.computeResource()).getWarehouseId());
+  }
+
+  public String realtimeSessionId() {
+    return realtimeSessionId;
+  }
+
+  public String realtimeWarehouseId() {
+    return realtimeWarehouseId;
   }
 
   /** Constructs a StatementId identifier for a given Thrift Server operation handle */
