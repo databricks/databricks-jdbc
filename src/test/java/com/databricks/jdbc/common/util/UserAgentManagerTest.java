@@ -6,6 +6,11 @@ import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CL
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.getUserAgentString;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
@@ -13,8 +18,6 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.UserAgent;
-import java.lang.reflect.Field;
-import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,11 +40,13 @@ public class UserAgentManagerTest {
     telemetryHelperMock = Mockito.mockStatic(TelemetryHelper.class);
     // Allow keyOf() to call the real method to avoid NPE
     telemetryHelperMock.when(() -> TelemetryHelper.keyOf(Mockito.any())).thenCallRealMethod();
+    UserAgentManager.resetRegisteredOtherInfo();
   }
 
   @AfterEach
   public void tearDown() {
     telemetryHelperMock.close();
+    UserAgentManager.resetRegisteredOtherInfo();
   }
 
   @Test
@@ -177,55 +182,44 @@ public class UserAgentManagerTest {
   }
 
   @Test
-  void testRepeatedSetUserAgentDoesNotGrowSdkUserAgent() throws Exception {
+  void testRepeatedSetUserAgentRegistersEachEntryOnce() {
     when(connectionContext.getCustomerUserAgent()).thenReturn("RepeatApp/1.0");
     when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_THRIFT_CLIENT);
-    UserAgentManager.setUserAgent(connectionContext);
-    int size = sdkOtherInfo().size();
-    String userAgent = getUserAgentString();
-
-    for (int i = 0; i < 1000; i++) {
-      UserAgentManager.setUserAgent(connectionContext);
+    try (MockedStatic<UserAgent> userAgent =
+        Mockito.mockStatic(UserAgent.class, Mockito.CALLS_REAL_METHODS)) {
+      for (int i = 0; i < 1000; i++) {
+        UserAgentManager.setUserAgent(connectionContext);
+      }
+      userAgent.verify(() -> UserAgent.withOtherInfo("Java", USER_AGENT_THRIFT_CLIENT), times(1));
+      userAgent.verify(() -> UserAgent.withOtherInfo("RepeatApp", "1.0"), times(1));
     }
-
-    assertEquals(size, sdkOtherInfo().size());
-    assertEquals(userAgent, getUserAgentString());
+    assertTrue(getUserAgentString().contains("RepeatApp/1.0"));
   }
 
   @Test
-  void testDistinctCustomerUserAgentEntriesAreCapped() throws Exception {
-    List<Object> otherInfo = sdkOtherInfo();
-    int initialSize = otherInfo.size();
-    UserAgentManager.resetRegisteredOtherInfo();
-    try {
-      when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_THRIFT_CLIENT);
-      for (int i = 0; i < MAX_CUSTOMER_USER_AGENT_ENTRIES; i++) {
+  void testDistinctCustomerUserAgentEntriesAreCapped() {
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_THRIFT_CLIENT);
+    try (MockedStatic<UserAgent> userAgent =
+        Mockito.mockStatic(UserAgent.class, Mockito.CALLS_REAL_METHODS)) {
+      // Stubbed so the JVM-wide SDK user agent is not filled with test entries.
+      userAgent
+          .when(() -> UserAgent.withOtherInfo(anyString(), anyString()))
+          .thenAnswer(invocation -> null);
+      for (int i = 0; i <= MAX_CUSTOMER_USER_AGENT_ENTRIES; i++) {
         when(connectionContext.getCustomerUserAgent()).thenReturn("CapApp" + i + "/1.0");
         UserAgentManager.setUserAgent(connectionContext);
       }
-      int size = otherInfo.size();
-
-      when(connectionContext.getCustomerUserAgent()).thenReturn("CapAppOverLimit/1.0");
-      UserAgentManager.setUserAgent(connectionContext);
-      assertEquals(size, otherInfo.size());
-      assertFalse(getUserAgentString().contains("CapAppOverLimit"));
-
       // Client-type entries are not subject to the cap.
       when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
       UserAgentManager.setUserAgent(connectionContext);
-      assertEquals(size + 1, otherInfo.size());
-    } finally {
-      synchronized (otherInfo) {
-        otherInfo.subList(initialSize, otherInfo.size()).clear();
-      }
-      UserAgentManager.resetRegisteredOtherInfo();
-    }
-  }
 
-  @SuppressWarnings("unchecked")
-  private static List<Object> sdkOtherInfo() throws ReflectiveOperationException {
-    Field field = UserAgent.class.getDeclaredField("otherInfo");
-    field.setAccessible(true);
-    return (List<Object>) field.get(null);
+      userAgent.verify(
+          () -> UserAgent.withOtherInfo(startsWith("CapApp"), eq("1.0")),
+          times(MAX_CUSTOMER_USER_AGENT_ENTRIES));
+      userAgent.verify(
+          () -> UserAgent.withOtherInfo("CapApp" + MAX_CUSTOMER_USER_AGENT_ENTRIES, "1.0"),
+          never());
+      userAgent.verify(() -> UserAgent.withOtherInfo("Java", USER_AGENT_SEA_CLIENT), times(1));
+    }
   }
 }
