@@ -13,6 +13,7 @@
 
 - Fixed `UserAgentEntry` attribution in Query History for SQL Execution API connections.
 - Prevented recursive auth initialization from hanging connection setup and preserved original initialization errors and causes.
+- Logged auth configurator close failures without interrupting connection cleanup.
 
 ---
 *Note: When making changes, please add your change under the appropriate section

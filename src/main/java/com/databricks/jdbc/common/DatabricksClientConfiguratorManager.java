@@ -1,6 +1,7 @@
 package com.databricks.jdbc.common;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSSLException;
@@ -8,6 +9,7 @@ import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.HashSet;
 import java.util.Set;
@@ -21,6 +23,7 @@ public class DatabricksClientConfiguratorManager {
   private static final DatabricksClientConfiguratorManager INSTANCE =
       new DatabricksClientConfiguratorManager();
   private final ConfiguratorFactory configuratorFactory;
+  private final JdbcLogger logger;
   private final ConcurrentHashMap<String, CompletableFuture<ClientConfigurator>> instances =
       new ConcurrentHashMap<>();
   private final ThreadLocal<Set<String>> initializingUuids = ThreadLocal.withInitial(HashSet::new);
@@ -31,7 +34,13 @@ public class DatabricksClientConfiguratorManager {
 
   @VisibleForTesting
   DatabricksClientConfiguratorManager(ConfiguratorFactory configuratorFactory) {
+    this(configuratorFactory, LOGGER);
+  }
+
+  @VisibleForTesting
+  DatabricksClientConfiguratorManager(ConfiguratorFactory configuratorFactory, JdbcLogger logger) {
     this.configuratorFactory = configuratorFactory;
+    this.logger = logger;
   }
 
   @FunctionalInterface
@@ -55,14 +64,25 @@ public class DatabricksClientConfiguratorManager {
         future = instances.putIfAbsent(uuid, initializer);
         if (future == null) {
           future = initializer;
-          initializing.add(uuid);
+          ClientConfigurator configurator = null;
+          Throwable failure = null;
           try {
-            initializer.complete(createConfigurator(context));
+            initializing.add(uuid);
+            configurator = configuratorFactory.create(context);
           } catch (Throwable t) {
-            initializer.completeExceptionally(t);
-            instances.remove(uuid, initializer);
+            failure = t;
+            failure = initializationFailure(context, t);
           } finally {
-            initializing.remove(uuid);
+            try {
+              if (failure == null) {
+                initializer.complete(configurator);
+              } else {
+                instances.remove(uuid, initializer);
+                initializer.completeExceptionally(failure);
+              }
+            } finally {
+              initializing.remove(uuid);
+            }
           }
         }
       }
@@ -73,15 +93,11 @@ public class DatabricksClientConfiguratorManager {
         if (cause instanceof Error) {
           throw (Error) cause;
         }
-        if (cause instanceof DatabricksDriverException) {
-          throw (DatabricksDriverException) cause;
+        if (cause instanceof RuntimeException) {
+          throw (RuntimeException) cause;
         }
-        throw authConfigurationException(context, cause);
+        throw e;
       }
-    } catch (DatabricksDriverException ex) {
-      throw ex;
-    } catch (Exception ex) {
-      throw authConfigurationException(context, ex);
     } finally {
       if (initializing.isEmpty()) {
         initializingUuids.remove();
@@ -89,35 +105,40 @@ public class DatabricksClientConfiguratorManager {
     }
   }
 
-  private ClientConfigurator createConfigurator(IDatabricksConnectionContext context) {
-    try {
-      return configuratorFactory.create(context);
-    } catch (DatabricksDriverException e) {
-      throw e;
-    } catch (DatabricksSSLException e) {
-      String message =
-          String.format("client configurator failed due to SSL error: %s", e.getMessage());
-      LOGGER.error(e, message);
-      throw new DatabricksDriverException(message, e, DatabricksDriverErrorCode.AUTH_ERROR);
-    } catch (DatabricksValidationException e) {
-      String message =
-          String.format("client configurator failed due to validation error: %s", e.getMessage());
-      LOGGER.error(e, message);
-      throw new DatabricksDriverException(
-          message, e, DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
-    } catch (Exception e) {
-      throw authConfigurationException(context, e);
+  private Throwable initializationFailure(IDatabricksConnectionContext context, Throwable failure) {
+    if (failure instanceof DatabricksDriverException || failure instanceof Error) {
+      return failure;
     }
-  }
-
-  private DatabricksDriverException authConfigurationException(
-      IDatabricksConnectionContext context, Throwable ex) {
-    String message =
-        String.format(
-            "Unexpected error while configuring databricks auth client: %s, with connection context %s",
-            ex.getMessage(), context);
-    LOGGER.error(ex, message);
-    return new DatabricksDriverException(message, ex, DatabricksDriverErrorCode.AUTH_ERROR);
+    DatabricksDriverErrorCode errorCode = DatabricksDriverErrorCode.AUTH_ERROR;
+    String message;
+    if (failure instanceof DatabricksSSLException) {
+      message =
+          String.format("client configurator failed due to SSL error: %s", failure.getMessage());
+    } else if (failure instanceof DatabricksValidationException) {
+      message =
+          String.format(
+              "client configurator failed due to validation error: %s", failure.getMessage());
+      errorCode = DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR;
+    } else {
+      message =
+          String.format(
+              "Unexpected error while configuring databricks auth client: %s, with connection context %s",
+              failure.getMessage(), context);
+    }
+    logger.error(failure, message);
+    DatabricksDriverException error =
+        new DatabricksDriverException(message, failure, errorCode, /* silentExceptions= */ true);
+    // Cold-host feature-flag initialization can make telemetry itself re-enter a map update.
+    try {
+      TelemetryHelper.exportFailureLog(
+          DatabricksThreadContextHolder.getConnectionContext(),
+          errorCode.name(),
+          message,
+          TelemetryLogLevel.ERROR);
+    } catch (Exception telemetryFailure) {
+      logger.warn("Failed to export auth configuration error telemetry: {}", telemetryFailure);
+    }
+    return error;
   }
 
   /**
@@ -151,9 +172,19 @@ public class DatabricksClientConfiguratorManager {
   }
 
   public void removeInstance(IDatabricksConnectionContext context) {
-    CompletableFuture<ClientConfigurator> removed = instances.remove(context.getConnectionUuid());
+    String uuid = context.getConnectionUuid();
+    CompletableFuture<ClientConfigurator> removed = instances.remove(uuid);
     if (removed != null) {
-      removed.thenAccept(ClientConfigurator::close);
+      removed.whenComplete(
+          (configurator, failure) -> {
+            if (configurator != null) {
+              try {
+                configurator.close();
+              } catch (Exception e) {
+                logger.warn("Failed to close client configurator for connection {}: {}", uuid, e);
+              }
+            }
+          });
     }
   }
 }

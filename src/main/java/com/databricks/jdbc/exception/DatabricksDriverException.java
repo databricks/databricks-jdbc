@@ -18,12 +18,27 @@ public class DatabricksDriverException extends RuntimeException {
   }
 
   public DatabricksDriverException(String reason, Throwable cause, String sqlState) {
+    this(reason, cause, sqlState, false);
+  }
+
+  public DatabricksDriverException(
+      String reason,
+      Throwable cause,
+      DatabricksDriverErrorCode internalError,
+      boolean silentExceptions) {
+    this(reason, cause, internalError.toString(), silentExceptions);
+  }
+
+  private DatabricksDriverException(
+      String reason, Throwable cause, String sqlState, boolean silentExceptions) {
     super(reason, cause);
-    exportFailureLog(
-        DatabricksThreadContextHolder.getConnectionContext(),
-        sqlState,
-        reason,
-        TelemetryLogLevel.ERROR);
+    if (!silentExceptions) {
+      exportFailureLog(
+          DatabricksThreadContextHolder.getConnectionContext(),
+          sqlState,
+          reason,
+          TelemetryLogLevel.ERROR);
+    }
   }
 
   public DatabricksDriverException(String reason, String sqlState) {
