@@ -1,8 +1,14 @@
 package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL_WITH_SEA;
+import static com.databricks.jdbc.common.util.UserAgentManager.MAX_CUSTOMER_USER_AGENT_ENTRIES;
+import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -20,6 +26,8 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 class DatabricksSdkClientUserAgentTest {
   private static final String SEA_CLIENT = "Java/SQLExecHttpClient";
@@ -33,6 +41,33 @@ class DatabricksSdkClientUserAgentTest {
   void seaApiClientOrdersCustomerEntry() throws Exception {
     assertSegmentsAfterOs(sendRequest("ThoughtSpot"), "ThoughtSpot/version", SEA_CLIENT);
     assertSegmentsAfterOs(sendRequest("DBeaver%2F25.1"), "DBeaver/25.1", SEA_CLIENT);
+  }
+
+  @Test
+  void seaApiClientKeepsCustomerEntryPastSharedUserAgentLimit() throws Exception {
+    UserAgentManager.resetRegisteredOtherInfo();
+    try {
+      try (MockedStatic<UserAgent> userAgent =
+          Mockito.mockStatic(UserAgent.class, Mockito.CALLS_REAL_METHODS)) {
+        // Stubbed so the JVM-wide SDK user agent is not filled with test entries.
+        userAgent
+            .when(() -> UserAgent.withOtherInfo(anyString(), anyString()))
+            .thenAnswer(invocation -> null);
+        IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+        when(context.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
+        for (int i = 0; i < MAX_CUSTOMER_USER_AGENT_ENTRIES; i++) {
+          when(context.getCustomerUserAgent()).thenReturn("LimitApp" + i + "/1.0");
+          UserAgentManager.setUserAgent(context);
+        }
+      }
+
+      String userAgent = sendRequest("OverLimitApp");
+
+      assertFalse(UserAgentManager.getUserAgentString().contains("OverLimitApp"));
+      assertSegmentsAfterOs(userAgent, "OverLimitApp/version", SEA_CLIENT);
+    } finally {
+      UserAgentManager.resetRegisteredOtherInfo();
+    }
   }
 
   private String sendRequest(String customerUserAgent) throws Exception {
