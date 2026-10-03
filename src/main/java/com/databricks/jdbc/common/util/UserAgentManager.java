@@ -30,12 +30,13 @@ public class UserAgentManager {
    * Bounds SDK user-agent growth when an application passes a distinct {@code UserAgentEntry} per
    * connection. Client-type entries are not counted.
    */
-  @VisibleForTesting static final int MAX_CUSTOMER_USER_AGENT_ENTRIES = 64;
+  @VisibleForTesting public static final int MAX_CUSTOMER_USER_AGENT_ENTRIES = 64;
 
   // UserAgent.withOtherInfo appends on every call and UserAgent.asString formats the whole list on
   // every request, so each entry is registered with the SDK once per JVM.
   private static final Set<String> registeredOtherInfo = new HashSet<>();
   private static int registeredCustomerEntries = 0;
+  private static boolean customerEntryLimitLogged = false;
 
   /**
    * Parse custom user agent string into name and version components.
@@ -85,7 +86,8 @@ public class UserAgentManager {
     // Set the base product
     UserAgent.withProduct(DEFAULT_USER_AGENT, DriverUtil.getDriverVersion());
 
-    // Set client info (this may trigger getClientType which fetches feature flags)
+    // Set client info (this may trigger getClientType which fetches feature flags). Not capped:
+    // getClientUserAgent only returns USER_AGENT_THRIFT_CLIENT or USER_AGENT_SEA_CLIENT.
     registerOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent(), false);
 
     String customerSegment = customerUserAgentSegment(connectionContext.getCustomerUserAgent());
@@ -103,10 +105,17 @@ public class UserAgentManager {
       return;
     }
     if (isCustomerEntry && registeredCustomerEntries >= MAX_CUSTOMER_USER_AGENT_ENTRIES) {
-      LOGGER.debug(
-          "Not adding userAgent entry {}: limit of {} distinct entries reached",
-          entry,
-          MAX_CUSTOMER_USER_AGENT_ENTRIES);
+      if (!customerEntryLimitLogged) {
+        customerEntryLimitLogged = true;
+        LOGGER.warn(
+            "Reached the limit of {} distinct UserAgentEntry values in this JVM; {} and later new"
+                + " values are left out of the shared User-Agent. SQL Execution API requests still"
+                + " send their own entry.",
+            MAX_CUSTOMER_USER_AGENT_ENTRIES,
+            entry);
+      } else {
+        LOGGER.debug("Not adding userAgent entry {}: UserAgentEntry limit reached", entry);
+      }
       return;
     }
     UserAgent.withOtherInfo(key, value);
@@ -118,9 +127,10 @@ public class UserAgentManager {
 
   /** Forgets registered entries; the SDK keeps them, so re-registration only adds duplicates. */
   @VisibleForTesting
-  static synchronized void resetRegisteredOtherInfo() {
+  public static synchronized void resetRegisteredOtherInfo() {
     registeredOtherInfo.clear();
     registeredCustomerEntries = 0;
+    customerEntryLimitLogged = false;
   }
 
   /**
