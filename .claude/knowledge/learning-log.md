@@ -89,3 +89,9 @@ retrospective flow.
   **Rule:** Dependency bumps are user-visible: always add a `NEXT_CHANGELOG.md` entry (or set `NO_CHANGELOG=true`), or the `check-next-changelog` CI gate fails.
 - **Context:** PR #1703 fixed a failing M2M replay test whose WireMock mapping used an exact `equalTo` body pattern for the `/api/2.0/sql/sessions/` POST; the client now sends an added `execution_mode":"FAST"` field, so the stored session-request JSON had to be regenerated to match.
   **Rule:** WireMock `equalTo` body matchers are exact — any new field in a client request payload (e.g. session-creation params) breaks replay tests until every stored mapping JSON is updated in lockstep.
+
+### 2026-10-03: learnings since 2026-10-02T17:30:45Z
+- **Context:** PR #1709 review flagged `UserAgentManager`/`ClientConfigurator` tests that call `UserAgent.withOtherInfo`/`withProduct` in `@BeforeAll` with no teardown.
+  **Rule:** The SDK's `UserAgent` is a process-wide static accumulator — mutating it in tests without snapshot/restore leaks segments into sibling tests and causes order-dependent flakiness; always restore it (or avoid global mutation) in UserAgent-related tests.
+- **Context:** PR #1709 reviewer repeatedly (3x) flagged an "unguarded `UserAgent.sanitize()` throws on the SEA request-path lambda" bug in `orderSeaUserAgent`; the author showed it was a false alarm.
+  **Rule:** `UserAgent.sanitize()` only applies a fixed regex replacement and cannot throw `IllegalArgumentException` — the exception the sibling call sites catch comes from `withOtherInfo`'s key validation, so a bare `sanitize` call (e.g. inside the request-path transport wrapper) needs no try/catch.
