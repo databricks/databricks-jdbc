@@ -42,9 +42,12 @@ class DatabricksDriverFeatureFlagsContextTest {
   private DatabricksDriverFeatureFlagsContext context;
 
   @BeforeEach
-  void setUp() {
+  void setUp() throws Exception {
     // Mock the host for OAuth to return a test host
     when(connectionContextMock.getHostForOAuth()).thenReturn("test-host");
+    lenient()
+        .when(objectMapperMock.readTree(anyString()))
+        .thenAnswer(invocation -> new ObjectMapper().readTree(invocation.<String>getArgument(0)));
     context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, new HashMap<>());
   }
 
@@ -203,6 +206,31 @@ class DatabricksDriverFeatureFlagsContextTest {
 
     // Test with non-existent flag
     assertFalse(context.isFeatureEnabled("nonexistent"));
+  }
+
+  @Test
+  void testTypedGetters() {
+    context =
+        new DatabricksDriverFeatureFlagsContext(
+            connectionContextMock,
+            Map.of(
+                "boolean", "true",
+                "int32", Integer.toString(Integer.MIN_VALUE),
+                "int64", Long.toString(Long.MAX_VALUE),
+                "double", "3.5",
+                "string", "\"hello\"",
+                "string-list", "[\"a\",\"b\"]",
+                "wrong-type", "\"true\"",
+                "malformed", "not-json"));
+
+    assertTrue(context.getBoolean("boolean").orElseThrow());
+    assertEquals(Integer.MIN_VALUE, context.getInt32("int32").orElseThrow());
+    assertEquals(Long.MAX_VALUE, context.getInt64("int64").orElseThrow());
+    assertEquals(3.5, context.getDouble("double").orElseThrow());
+    assertEquals("hello", context.getString("string").orElseThrow());
+    assertEquals(List.of("a", "b"), context.getStringList("string-list").orElseThrow());
+    assertTrue(context.getBoolean("wrong-type").isEmpty());
+    assertTrue(context.getString("malformed").isEmpty());
   }
 
   // ===== Additional Integration Tests =====
