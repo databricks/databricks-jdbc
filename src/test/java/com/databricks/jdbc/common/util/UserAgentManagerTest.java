@@ -1,7 +1,9 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static com.databricks.jdbc.common.util.UserAgentManager.MAX_CUSTOMER_USER_AGENT_ENTRIES;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
+import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.getUserAgentString;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -10,6 +12,9 @@ import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
+import com.databricks.sdk.core.UserAgent;
+import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Properties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -169,5 +174,58 @@ public class UserAgentManagerTest {
     UserAgentManager.setUserAgent(connectionContext);
     String userAgent = getUserAgentString();
     assertTrue(userAgent.contains("TEST/24.2.0.2712019"));
+  }
+
+  @Test
+  void testRepeatedSetUserAgentDoesNotGrowSdkUserAgent() throws Exception {
+    when(connectionContext.getCustomerUserAgent()).thenReturn("RepeatApp/1.0");
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_THRIFT_CLIENT);
+    UserAgentManager.setUserAgent(connectionContext);
+    int size = sdkOtherInfo().size();
+    String userAgent = getUserAgentString();
+
+    for (int i = 0; i < 1000; i++) {
+      UserAgentManager.setUserAgent(connectionContext);
+    }
+
+    assertEquals(size, sdkOtherInfo().size());
+    assertEquals(userAgent, getUserAgentString());
+  }
+
+  @Test
+  void testDistinctCustomerUserAgentEntriesAreCapped() throws Exception {
+    List<Object> otherInfo = sdkOtherInfo();
+    int initialSize = otherInfo.size();
+    UserAgentManager.resetRegisteredOtherInfo();
+    try {
+      when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_THRIFT_CLIENT);
+      for (int i = 0; i < MAX_CUSTOMER_USER_AGENT_ENTRIES; i++) {
+        when(connectionContext.getCustomerUserAgent()).thenReturn("CapApp" + i + "/1.0");
+        UserAgentManager.setUserAgent(connectionContext);
+      }
+      int size = otherInfo.size();
+
+      when(connectionContext.getCustomerUserAgent()).thenReturn("CapAppOverLimit/1.0");
+      UserAgentManager.setUserAgent(connectionContext);
+      assertEquals(size, otherInfo.size());
+      assertFalse(getUserAgentString().contains("CapAppOverLimit"));
+
+      // Client-type entries are not subject to the cap.
+      when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
+      UserAgentManager.setUserAgent(connectionContext);
+      assertEquals(size + 1, otherInfo.size());
+    } finally {
+      synchronized (otherInfo) {
+        otherInfo.subList(initialSize, otherInfo.size()).clear();
+      }
+      UserAgentManager.resetRegisteredOtherInfo();
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<Object> sdkOtherInfo() throws ReflectiveOperationException {
+    Field field = UserAgent.class.getDeclaredField("otherInfo");
+    field.setAccessible(true);
+    return (List<Object>) field.get(null);
   }
 }
