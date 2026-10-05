@@ -249,7 +249,7 @@ public class DatabricksPreparedStatementTest {
     }
     // Our implementation converts single INSERT to multi-row INSERT for batching
     String expectedMultiRowSQL =
-        "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
     when(client.executeStatement(
             eq(expectedMultiRowSQL),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -291,6 +291,38 @@ public class DatabricksPreparedStatementTest {
   }
 
   @Test
+  public void testGetMetaData_NoResultSet_CteQuery_UsesDescribeQuery() throws Exception {
+    // Regression test for issue #1562: getMetaData() must return metadata for CTE (WITH ...)
+    // queries before execution, matching the behavior of plain SELECT queries. Previously this
+    // returned null because the guard only recognized queries literally starting with SELECT.
+    String cteQuery = "WITH cte AS (SELECT * FROM sales) SELECT * FROM cte";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, cteQuery);
+
+    // DESCRIBE QUERY returns one row per column: (col_name, data_type, ...)
+    when(resultSet.next()).thenReturn(true, true, false);
+    when(resultSet.getString(1)).thenReturn("a", "b");
+    when(resultSet.getString(2)).thenReturn("int", "string");
+    when(client.executeStatement(
+            eq("DESCRIBE QUERY " + cteQuery),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            any(),
+            any()))
+        .thenReturn(resultSet);
+
+    ResultSetMetaData metaData = statement.getMetaData();
+    assertNotNull(metaData);
+    assertEquals(2, metaData.getColumnCount());
+    assertEquals("a", metaData.getColumnName(1));
+    assertEquals("b", metaData.getColumnName(2));
+  }
+
+  @Test
   public void testExecuteBatchStatementThrowsError() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL_WITH_BATCHED_INSERTS, new Properties());
@@ -308,7 +340,7 @@ public class DatabricksPreparedStatementTest {
 
     // Our implementation batches all into one multi-row INSERT, so if it fails, all fail
     String expectedMultiRowSQL =
-        "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
     when(client.executeStatement(
             eq(expectedMultiRowSQL),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -346,7 +378,7 @@ public class DatabricksPreparedStatementTest {
     }
     // Our implementation converts single INSERT to multi-row INSERT for batching
     String expectedMultiRowSQL =
-        "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
     when(client.executeStatement(
             eq(expectedMultiRowSQL),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -386,7 +418,7 @@ public class DatabricksPreparedStatementTest {
 
     // Our implementation batches all into one multi-row INSERT, so if it fails, all fail
     String expectedMultiRowSQL =
-        "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)";
     when(client.executeStatement(
             eq(expectedMultiRowSQL),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -882,10 +914,10 @@ public class DatabricksPreparedStatementTest {
         () -> preparedStatement.setBinaryStream(1, null, 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setBinaryStream(1, new java.io.ByteArrayInputStream(new byte[0]), 1));
+        () -> preparedStatement.setBinaryStream(1, new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setBinaryStream(1, new java.io.ByteArrayInputStream(new byte[0]), 1L));
+        () -> preparedStatement.setBinaryStream(1, new ByteArrayInputStream(new byte[0]), 1L));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> preparedStatement.setBinaryStream(1, null));
@@ -894,16 +926,16 @@ public class DatabricksPreparedStatementTest {
         () -> preparedStatement.setNCharacterStream(1, null));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setUnicodeStream(1, new java.io.ByteArrayInputStream(new byte[0]), 1));
+        () -> preparedStatement.setUnicodeStream(1, new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setClob(1, new java.io.StringReader("")));
+        () -> preparedStatement.setClob(1, new StringReader("")));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setBlob(1, new java.io.ByteArrayInputStream(new byte[0])));
+        () -> preparedStatement.setBlob(1, new ByteArrayInputStream(new byte[0])));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> preparedStatement.setNClob(1, new java.io.StringReader("")));
+        () -> preparedStatement.setNClob(1, new StringReader("")));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> preparedStatement.setTime(1, null));
     assertThrows(
@@ -962,7 +994,8 @@ public class DatabricksPreparedStatementTest {
 
     // With supportManyParameters=1, all 200 rows should be batched in a single INSERT
     // with interpolated values (not parameterized)
-    String expectedSqlPrefix = "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES";
+    String expectedSqlPrefix =
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES";
     when(client.executeStatement(
             org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -1004,7 +1037,8 @@ public class DatabricksPreparedStatementTest {
     }
 
     // With supportManyParameters=1, all 10,000 rows execute in a single INSERT
-    String expectedSqlPrefix = "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES";
+    String expectedSqlPrefix =
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES";
     when(client.executeStatement(
             org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -1048,7 +1082,8 @@ public class DatabricksPreparedStatementTest {
     assertEquals(50, connectionContext.getBatchInsertSize());
 
     // Mock will be called 4 times (200 rows / 50 batch size = 4 chunks)
-    String expectedSqlPrefix = "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES";
+    String expectedSqlPrefix =
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES";
     when(client.executeStatement(
             org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -1108,7 +1143,8 @@ public class DatabricksPreparedStatementTest {
 
     // Without supportManyParameters, should chunk at 256/4 = 64 rows
     // even though BatchInsertSize=5000
-    String expectedSqlPrefix = "INSERT INTO orders (user_id, shard, region_code, namespace) VALUES";
+    String expectedSqlPrefix =
+        "INSERT INTO orders (`user_id`, `shard`, `region_code`, `namespace`) VALUES";
     when(client.executeStatement(
             org.mockito.ArgumentMatchers.startsWith(expectedSqlPrefix),
             eq(new Warehouse(WAREHOUSE_ID)),
@@ -1169,7 +1205,7 @@ public class DatabricksPreparedStatementTest {
     String executedSql = sqlCaptor.getValue();
 
     String expectedSql =
-        "INSERT INTO events (id, name, created_at) VALUES "
+        "INSERT INTO events (`id`, `name`, `created_at`) VALUES "
             + "(1, 'Event One', '2024-01-01 12:30:45.123'), "
             + "(2, 'Event Two', '2024-02-15 08:15:30.456')";
 
@@ -1386,5 +1422,186 @@ public class DatabricksPreparedStatementTest {
 
     assertEquals(
         185645000, expectedTs.getNanos(), "Nanosecond precision must be preserved for " + testName);
+  }
+
+  // =========================================================================
+  // Tests for direct results behavior (previously broken: statement was closed
+  // after inline results, preventing getMetaData, getResultSet, re-execution)
+  // =========================================================================
+
+  @Test
+  public void testGetMetaDataWorksAfterDirectResults() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
+
+    ResultSetMetaData mockMetaData = mock(ResultSetMetaData.class);
+    when(resultSet.getMetaData()).thenReturn(mockMetaData);
+
+    statement.setLong(1, 100);
+    statement.setShort(2, (short) 10);
+    statement.setByte(3, (byte) 15);
+    statement.setString(4, "value");
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.QUERY),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    ResultSet rs = statement.executeQuery();
+    assertNotNull(rs);
+
+    // Simulate server returning direct results (inline, operation closed)
+    statement.markDirectResultsReceived();
+
+    // Previously this would throw "Statement is closed" — now it works
+    assertFalse(statement.isClosed());
+    ResultSet afterDirect = statement.getResultSet();
+    assertNotNull(afterDirect);
+    assertEquals(resultSet, afterDirect);
+
+    // getMetaData via the result set should also work
+    assertNotNull(afterDirect.getMetaData());
+  }
+
+  @Test
+  public void testBindAndExecuteMultipleTimesWithSamePreparedStatement() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, UPDATE_STATEMENT);
+
+    DatabricksResultSet firstResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet secondResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet thirdResult = mock(DatabricksResultSet.class);
+
+    when(client.executeStatement(
+            eq(UPDATE_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(firstResult)
+        .thenReturn(secondResult)
+        .thenReturn(thirdResult);
+
+    // First execution
+    statement.setString(1, "shipped");
+    statement.setLong(2, 100);
+    statement.executeUpdate();
+
+    // Mark direct results (server closed the operation)
+    statement.markDirectResultsReceived();
+
+    // Second execution with different params — previously threw "Statement is closed"
+    statement.setString(1, "delivered");
+    statement.setLong(2, 200);
+    assertDoesNotThrow(() -> statement.executeUpdate());
+
+    // Third execution — verify sticky params work across re-executions
+    statement.setString(1, "returned");
+    statement.setLong(2, 300);
+    assertDoesNotThrow(() -> statement.executeUpdate());
+
+    // Verify all three executions happened
+    verify(client, times(3))
+        .executeStatement(
+            eq(UPDATE_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any());
+
+    // Statement should still be open
+    assertFalse(statement.isClosed());
+  }
+
+  @Test
+  public void testGetResultSetWorksAfterDirectResults() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, STATEMENT);
+
+    statement.setLong(1, 100);
+    statement.setShort(2, (short) 10);
+    statement.setByte(3, (byte) 15);
+    statement.setString(4, "value");
+
+    when(client.executeStatement(
+            eq(STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.SQL),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(resultSet);
+
+    // execute() followed by getResultSet() — a common pattern
+    boolean hasResults = statement.execute();
+    statement.markDirectResultsReceived();
+
+    // Previously getResultSet() would throw "Statement is closed"
+    ResultSet rs = statement.getResultSet();
+    assertNotNull(rs);
+    assertEquals(resultSet, rs);
+  }
+
+  @Test
+  public void testParametersClearedOnReExecution() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement =
+        new DatabricksPreparedStatement(connection, UPDATE_STATEMENT);
+
+    DatabricksResultSet firstResult = mock(DatabricksResultSet.class);
+    DatabricksResultSet secondResult = mock(DatabricksResultSet.class);
+
+    when(client.executeStatement(
+            eq(UPDATE_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any()))
+        .thenReturn(firstResult)
+        .thenReturn(secondResult);
+
+    // First execution with params
+    statement.setString(1, "shipped");
+    statement.setLong(2, 100);
+    statement.executeUpdate();
+    statement.markDirectResultsReceived();
+
+    // Clear parameters, set new ones, re-execute
+    statement.clearParameters();
+    statement.setString(1, "cancelled");
+    statement.setLong(2, 999);
+    assertDoesNotThrow(() -> statement.executeUpdate());
+
+    // Verify both executions happened
+    verify(client, times(2))
+        .executeStatement(
+            eq(UPDATE_STATEMENT),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            any(HashMap.class),
+            eq(StatementType.UPDATE),
+            any(IDatabricksSession.class),
+            eq(statement),
+            any());
   }
 }

@@ -18,7 +18,6 @@ import java.math.BigInteger;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.security.interfaces.RSAPrivateKey;
-import java.util.Collections;
 import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -87,15 +86,15 @@ public class JwtPrivateKeyClientCredentialsTest {
 
   @Test
   public void testRetrieveTokenExceptionHandling() throws DatabricksHttpException {
-    when(httpClient.execute(any()))
-        .thenThrow(
-            new DatabricksHttpException("Network error", DatabricksDriverErrorCode.INVALID_STATE));
+    DatabricksHttpException httpException =
+        new DatabricksHttpException("Network error", DatabricksDriverErrorCode.INVALID_STATE);
+    when(httpClient.execute(any())).thenThrow(httpException);
     Exception exception =
         assertThrows(
             DatabricksException.class,
             () ->
                 JwtPrivateKeyClientCredentials.retrieveToken(
-                    httpClient, TEST_TOKEN_URL, Collections.emptyMap(), Collections.emptyMap()));
+                    httpClient, TEST_TOKEN_URL, com.google.common.collect.ImmutableMap.of(), com.google.common.collect.ImmutableMap.of()));
     assertTrue(exception.getMessage().contains("Failed to retrieve custom M2M token"));
   }
 
@@ -107,7 +106,7 @@ public class JwtPrivateKeyClientCredentialsTest {
         .thenReturn(new ByteArrayInputStream(TEST_OAUTH_RESPONSE.getBytes()));
     Token token =
         JwtPrivateKeyClientCredentials.retrieveToken(
-            httpClient, TEST_TOKEN_URL, Collections.emptyMap(), Collections.emptyMap());
+            httpClient, TEST_TOKEN_URL, com.google.common.collect.ImmutableMap.of(), com.google.common.collect.ImmutableMap.of());
     assertEquals(token.getAccessToken(), TEST_ACCESS_TOKEN);
     assertEquals(token.getTokenType(), "Bearer");
   }
@@ -136,7 +135,7 @@ public class JwtPrivateKeyClientCredentialsTest {
             .withJwtKeyFile(tempKeyFile.toString())
             .withJwtAlgorithm("RS256")
             .withTokenUrl(TEST_TOKEN_URL)
-            .withScopes(java.util.Arrays.asList("scope1", "scope2"))
+            .withScopes(com.google.common.collect.ImmutableList.of("scope1", "scope2"))
             .build();
     assertNotNull(credentials);
   }

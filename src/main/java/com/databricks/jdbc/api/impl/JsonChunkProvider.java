@@ -11,6 +11,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Chunk provider for JSON_ARRAY format results that handles multiple chunks of data.
@@ -68,7 +69,7 @@ public class JsonChunkProvider {
 
     // Check if there are more chunks to fetch
     Long totalChunkCount =
-        (resultManifest.getTotalChunkCount() != null ? resultManifest.getTotalChunkCount() : 0L);
+        resultManifest.getTotalChunkCount() != null ? resultManifest.getTotalChunkCount() : 0L;
     if (totalChunkCount > 1) {
       LOGGER.debug("Total chunks to fetch: {}", totalChunkCount);
 
@@ -140,7 +141,7 @@ public class JsonChunkProvider {
    */
   public long getChunkCount() {
     LOGGER.debug("Getting total chunk count");
-    return (resultManifest.getTotalChunkCount() != null ? resultManifest.getTotalChunkCount() : 0L);
+    return resultManifest.getTotalChunkCount() != null ? resultManifest.getTotalChunkCount() : 0L;
   }
 
   /** Closes the provider and releases resources. */

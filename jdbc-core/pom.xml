@@ -6,7 +6,7 @@
   <parent>
     <groupId>com.databricks</groupId>
     <artifactId>databricks-jdbc-parent</artifactId>
-    <version>3.2.2-SNAPSHOT</version>
+    <version>3.4.3</version>
   </parent>
 
   <artifactId>databricks-jdbc-core</artifactId>
@@ -43,22 +43,6 @@
       <url>file://${project.build.directory}/local-repo</url>
     </repository>
   </distributionManagement>
-  <dependencyManagement>
-    <!-- Force safe version of commons-lang3 https://nvd.nist.gov/vuln/detail/CVE-2025-48924 -->
-    <dependencies>
-      <dependency>
-        <groupId>org.apache.commons</groupId>
-        <artifactId>commons-lang3</artifactId>
-        <version>${commons-lang3.version}</version>
-      </dependency>
-      <!-- Force safe version of Gson to fix CVE-2025-53864 -->
-      <dependency>
-        <groupId>com.google.code.gson</groupId>
-        <artifactId>gson</artifactId>
-        <version>${gson.version}</version>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>com.databricks</groupId>
@@ -187,7 +171,7 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.lz4</groupId>
+      <groupId>at.yawk.lz4</groupId>
       <artifactId>lz4-java</artifactId>
       <version>${lz4-compression.version}</version>
     </dependency>
@@ -222,7 +206,7 @@
     <dependency>
       <groupId>org.apache.httpcomponents.core5</groupId>
       <artifactId>httpcore5</artifactId>
-      <version>${async-httpclient.version}</version>
+      <version>${httpcore5.version}</version>
     </dependency>
     <dependency>
       <groupId>io.github.resilience4j</groupId>
@@ -237,7 +221,7 @@
     <dependency>
       <groupId>org.locationtech.jts</groupId>
       <artifactId>jts-core</artifactId>
-      <version>1.20.0</version>
+      <version>${jts-core.version}</version>
     </dependency>
     <!-- https://mvnrepository.com/artifact/org.openjdk.jmh/jmh-core -->
     <dependency>
@@ -289,17 +273,21 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
+          <excludedGroups>e2e</excludedGroups>
           <excludes>
             <exclude>**/DatabricksDriverExamples.java</exclude>
             <exclude>**/integration/**/*.java</exclude>
+            <exclude>**/integration/fakeservice/**/*.java</exclude>
+            <exclude>**/integration/e2e/**/*.java</exclude>
             <exclude>**/ErrorTypes.java</exclude>
             <exclude>**/ErrorCodes.java</exclude>
             <exclude>**/ProxyTest.java</exclude>
             <exclude>**/LoggingTest.java</exclude>
             <exclude>**/SSLTest.java</exclude>
-            <exclude>**/integration/fakeservice/**/*.java</exclude>
-            <exclude>**/integration/e2e/**/*.java</exclude>
-            <exclude>**/pooling/DatabricksPooledConnectionTest.java</exclude>
+            <!-- Allocation manager tests need separate JVMs -->
+            <exclude>**/ArrowBufferAllocatorNettyManagerTest.java</exclude>
+            <exclude>**/ArrowBufferAllocatorUnsafeManagerTest.java</exclude>
+            <exclude>**/ArrowBufferAllocatorUnknownManagerTest.java</exclude>
           </excludes>
           <argLine>@{argLine} -Xmx5g -Dnet.bytebuddy.experimental=true</argLine>
         </configuration>
@@ -367,7 +355,6 @@
             <exclude>**/EnvironmentVariables*</exclude>
             <exclude>**/model/**</exclude>
             <exclude>**/thrift/generated/**</exclude>
-
           </excludes>
         </configuration>
       </plugin>
@@ -377,9 +364,6 @@
   <profiles>
     <profile>
       <id>local</id>
-      <properties>
-        <dependency-check.skip>true</dependency-check.skip>
-      </properties>
       <build>
         <plugins>
           <plugin>

@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.INVALID_SESSION_STATE_MSG;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.REDACTED_TOKEN;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -9,20 +8,22 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
+import com.databricks.jdbc.common.ReydenWarehouseCache;
 import com.databricks.jdbc.common.SeaCircuitBreakerManager;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksEmptyMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataQueryClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
-import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
@@ -45,6 +46,7 @@ public class DatabricksSession implements IDatabricksSession {
   private final IDatabricksComputeResource computeResource;
   private boolean isSessionOpen;
   private ImmutableSessionInfo sessionInfo;
+  private volatile Long sessionVersionId;
 
   /** For context based commands */
   private String catalog;
@@ -113,6 +115,29 @@ public class DatabricksSession implements IDatabricksSession {
     return sessionInfo;
   }
 
+  @Nullable
+  @Override
+  public SessionVersion getSessionVersion() {
+    Long versionId = sessionVersionId;
+    return versionId == null ? null : new SessionVersion().setVersionId(versionId);
+  }
+
+  @Override
+  public void updateSessionVersion(@Nullable SessionVersion newSessionVersion) {
+    if (newSessionVersion == null || newSessionVersion.getVersionId() == null) {
+      return;
+    }
+    synchronized (this) {
+      if (!isSessionOpen) {
+        return;
+      }
+      Long newVersionId = newSessionVersion.getVersionId();
+      if (sessionVersionId == null || newVersionId > sessionVersionId) {
+        sessionVersionId = newVersionId;
+      }
+    }
+  }
+
   @Override
   public IDatabricksComputeResource getComputeResource() {
     LOGGER.debug("public String getComputeResource()");
@@ -135,6 +160,22 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public void open() throws SQLException {
     LOGGER.debug("public void open()");
+
+    // Reyden pre-check: if warehouse is known to be Reyden and we're about to use Thrift,
+    // switch to SEA to avoid the rejection error. Only for the default Thrift path -- an
+    // explicit use_thrift_client=1 is honored and never auto-switched.
+    if (connectionContext.getClientType() == DatabricksClientType.THRIFT && isDefaultThriftPath()) {
+      String warehouseId = getWarehouseId();
+      if (warehouseId != null
+          && ReydenWarehouseCache.getInstance()
+              .isReydenWarehouse(connectionContext.getHost(), warehouseId)) {
+        LOGGER.debug(
+            "Warehouse {} is known to be Reyden. Switching to SEA to skip Thrift rejection.",
+            warehouseId);
+        warnIfOverridingThriftMetadataPreference(warehouseId);
+        connectionContext.setClientType(DatabricksClientType.SEA);
+      }
+    }
 
     // Skip for tests, it would be already set
     if (databricksClient == null) {
@@ -177,48 +218,98 @@ public class DatabricksSession implements IDatabricksSession {
           this.sessionInfo =
               this.databricksClient.createSession(
                   this.computeResource, this.catalog, this.schema, this.sessionConfigs);
-        } catch (DatabricksRateLimitException e) {
-          // Handle 429 rate limit error during SEA session creation
-          // Only handle if using SEA client (not applicable to Thrift)
-          if (connectionContext.getClientType() == DatabricksClientType.SEA) {
-            LOGGER.warn(
-                "SEA session creation failed with HTTP {} (rate limit exceeded) after retries. "
-                    + "Recording failure and falling back to Thrift client for this connection. "
-                    + "Future connections will use Thrift for the next 24 hours.",
-                SeaCircuitBreakerManager.HTTP_TOO_MANY_REQUESTS);
-            // Record the failure to open circuit breaker for future connections
-            SeaCircuitBreakerManager.record429Failure();
-            // Fall back to Thrift for this connection
-            this.connectionContext.setClientType(DatabricksClientType.THRIFT);
-            this.databricksClient =
-                DatabricksMetricsTimedProcessor.createProxy(
-                    new DatabricksThriftServiceClient(connectionContext));
-            if (connectionContext.useQueryForMetadata()) {
-              this.databricksMetadataClient =
-                  DatabricksMetricsTimedProcessor.createProxy(
-                      new DatabricksMetadataQueryClient(databricksClient));
-            } else {
-              this.databricksMetadataClient = null;
+        } catch (DatabricksSQLException e) {
+          // Reyden Thrift auto-recovery: detect KP001 SQLSTATE on Thrift OpenSession rejection
+          if (isReydenThriftRejection(e)) {
+            String warehouseId = getWarehouseId();
+            if (warehouseId != null) {
+              ReydenWarehouseCache.getInstance()
+                  .markReydenWarehouse(connectionContext.getHost(), warehouseId);
             }
-            try {
-              this.sessionInfo =
-                  this.databricksClient.createSession(
-                      this.computeResource, this.catalog, this.schema, this.sessionConfigs);
-            } catch (DatabricksSQLException fallbackException) {
-              throw new DatabricksSQLException(
-                  String.format(
-                      "SEA session creation failed with HTTP %d rate limit, "
-                          + "and Thrift fallback also failed: %s",
-                      SeaCircuitBreakerManager.HTTP_TOO_MANY_REQUESTS,
-                      fallbackException.getMessage()),
-                  fallbackException,
-                  DatabricksDriverErrorCode.CONNECTION_ERROR);
+            // Only auto-recover on the default Thrift path; an explicit use_thrift_client=1 is
+            // honored. Recovery is a single SEA attempt (no loop).
+            if (isDefaultThriftPath()) {
+              LOGGER.info(
+                  "Thrift OpenSession rejected with SQLSTATE KP001 (not supported for Thrift protocol). "
+                      + "Attempting transparent fallback to SEA. warehouse_id={}",
+                  warehouseId);
+              warnIfOverridingThriftMetadataPreference(warehouseId);
+              try {
+                this.connectionContext.setClientType(DatabricksClientType.SEA);
+                this.databricksClient =
+                    DatabricksMetricsTimedProcessor.createProxy(
+                        new DatabricksSdkClient(connectionContext));
+                this.databricksMetadataClient =
+                    DatabricksMetricsTimedProcessor.createProxy(
+                        new DatabricksMetadataQueryClient(databricksClient));
+                this.sessionInfo =
+                    this.databricksClient.createSession(
+                        this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+              } catch (DatabricksSQLException seaException) {
+                // Double-failure: surface the SEA failure as the cause and keep the original
+                // Thrift KP001 as a suppressed exception so neither error chain is lost.
+                DatabricksSQLException combined =
+                    new DatabricksSQLException(
+                        String.format(
+                            "Thrift OpenSession rejected with SQLSTATE KP001, "
+                                + "and SEA fallback also failed: %s",
+                            seaException.getMessage()),
+                        seaException,
+                        DatabricksDriverErrorCode.CONNECTION_ERROR);
+                combined.addSuppressed(e);
+                throw combined;
+              }
+            } else {
+              // User explicitly set use_thrift_client=1, honor it even on KP001
+              throw e;
+            }
+          } else if (e instanceof DatabricksRateLimitException) {
+            // Handle 429 rate limit error during SEA session creation
+            // Only handle if using SEA client (not applicable to Thrift)
+            if (connectionContext.getClientType() == DatabricksClientType.SEA) {
+              LOGGER.warn(
+                  "SEA session creation failed with HTTP {} (rate limit exceeded) after retries. "
+                      + "Recording failure and falling back to Thrift client for this connection. "
+                      + "Future connections will use Thrift for the next 24 hours.",
+                  SeaCircuitBreakerManager.HTTP_TOO_MANY_REQUESTS);
+              // Record the failure to open circuit breaker for future connections
+              SeaCircuitBreakerManager.record429Failure();
+              // Fall back to Thrift for this connection
+              this.connectionContext.setClientType(DatabricksClientType.THRIFT);
+              this.databricksClient =
+                  DatabricksMetricsTimedProcessor.createProxy(
+                      new DatabricksThriftServiceClient(connectionContext));
+              if (connectionContext.useQueryForMetadata()) {
+                this.databricksMetadataClient =
+                    DatabricksMetricsTimedProcessor.createProxy(
+                        new DatabricksMetadataQueryClient(databricksClient));
+              } else {
+                this.databricksMetadataClient = null;
+              }
+              try {
+                this.sessionInfo =
+                    this.databricksClient.createSession(
+                        this.computeResource, this.catalog, this.schema, this.sessionConfigs);
+              } catch (DatabricksSQLException fallbackException) {
+                throw new DatabricksSQLException(
+                    String.format(
+                        "SEA session creation failed with HTTP %d rate limit, "
+                            + "and Thrift fallback also failed: %s",
+                        SeaCircuitBreakerManager.HTTP_TOO_MANY_REQUESTS,
+                        fallbackException.getMessage()),
+                    fallbackException,
+                    DatabricksDriverErrorCode.CONNECTION_ERROR);
+              }
+            } else {
+              // Re-throw if not from SEA client (shouldn't happen, but defensive)
+              throw e;
             }
           } else {
-            // Re-throw if not from SEA client (shouldn't happen, but defensive)
+            // Re-throw other DatabricksSQLException variants
             throw e;
           }
         }
+        this.sessionVersionId = sessionInfo == null ? null : sessionInfo.sessionVersionId();
         this.isSessionOpen = true;
       }
     }
@@ -231,18 +322,18 @@ public class DatabricksSession implements IDatabricksSession {
       if (isSessionOpen) {
         try {
           databricksClient.deleteSession(sessionInfo);
-        } catch (DatabricksHttpException e) {
-          if (e.getMessage() != null
-              && e.getMessage().toLowerCase().contains(INVALID_SESSION_STATE_MSG)) {
-            LOGGER.warn(
-                "Session [{}] already expired/invalid on server – ignoring during close()",
-                sessionInfo.sessionId());
-          } else {
-            throw e;
-          }
+        } catch (Exception e) {
+          // Best-effort: the session may already be gone (expired token, server restart,
+          // "invalid session" state). Log and continue — local state is cleaned up in
+          // the finally block regardless.
+          LOGGER.warn(
+              "Session [{}] could not be deleted on server during close() – ignoring: {}",
+              sessionInfo.sessionId(),
+              e.getMessage());
         } finally {
           // Always clean up local state
           this.sessionInfo = null;
+          this.sessionVersionId = null;
           this.isSessionOpen = false;
         }
       }
@@ -326,15 +417,15 @@ public class DatabricksSession implements IDatabricksSession {
 
   @Override
   public void setClientInfoProperty(String name, String value) {
+    if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName())) {
+      // refresh the access token if provided a new value in client info
+      this.databricksClient.resetAccessToken(value);
+      value = REDACTED_TOKEN; // mask access token before it is logged
+    }
     LOGGER.debug(
         String.format(
             "public void setClientInfoProperty(String name = {%s}, String value = {%s})",
             name, value));
-    if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName())) {
-      // refresh the access token if provided a new value in client info
-      this.databricksClient.resetAccessToken(value);
-      value = REDACTED_TOKEN; // mask access token
-    }
 
     // If application name is being set, update both telemetry and user agent
     if (name.equalsIgnoreCase(DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName())) {
@@ -363,8 +454,7 @@ public class DatabricksSession implements IDatabricksSession {
               null /* metadataOperationType */);
 
       if (resultSet.next()) {
-        String currentCatalog = resultSet.getString(1);
-        return currentCatalog;
+        return resultSet.getString(1);
       }
     } catch (Exception e) {
       LOGGER.warn(
@@ -372,6 +462,30 @@ public class DatabricksSession implements IDatabricksSession {
           e.getMessage());
     }
     return this.catalog;
+  }
+
+  @Override
+  public String[] getCurrentCatalogAndSchema() throws DatabricksSQLException {
+    try {
+      DatabricksResultSet resultSet =
+          databricksClient.executeStatement(
+              "SELECT CURRENT_CATALOG(), CURRENT_SCHEMA()",
+              this.computeResource,
+              new HashMap<>(),
+              StatementType.METADATA,
+              this,
+              null,
+              null /* metadataOperationType */);
+
+      if (resultSet.next()) {
+        return new String[] {resultSet.getString(1), resultSet.getString(2)};
+      }
+    } catch (Exception e) {
+      LOGGER.warn(
+          "Failed to get current catalog and schema from database, falling back to session values: {}",
+          e.getMessage());
+    }
+    return new String[] {this.catalog, this.schema};
   }
 
   @Override
@@ -400,5 +514,65 @@ public class DatabricksSession implements IDatabricksSession {
   public boolean getAutoCommit() {
     LOGGER.debug("public boolean getAutoCommit()");
     return this.autoCommit;
+  }
+
+  /**
+   * Returns true if the exception is a Reyden Thrift rejection (SQLSTATE "KP001").
+   *
+   * @param e the exception to check
+   * @return true if the exception is specifically a KP001 error
+   */
+  private static boolean isReydenThriftRejection(DatabricksSQLException e) {
+    String sqlState = e.getSQLState();
+    return "KP001".equals(sqlState);
+  }
+
+  /**
+   * Returns true if the user did NOT explicitly set use_thrift_client to force Thrift.
+   *
+   * <p>This allows recovery to proceed for the DEFAULT path, while honoring explicit user
+   * configuration.
+   */
+  private boolean isDefaultThriftPath() {
+    // If the user did NOT explicitly set USE_THRIFT_CLIENT in the URL, then it's the default path.
+    // We check this by seeing if the property is present (explicitly set).
+    return !connectionContext.isPropertyPresent(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT);
+  }
+
+  /**
+   * Warns when Reyden recovery switches a connection that explicitly requested Thrift-only metadata
+   * behavior over to SEA. Recovering keeps the connection alive (a Reyden warehouse rejects Thrift
+   * entirely), but SEA serves metadata with {@code SHOW} commands rather than the native Thrift
+   * RPCs the user asked for. This makes that otherwise-silent change observable.
+   */
+  private void warnIfOverridingThriftMetadataPreference(String warehouseId) {
+    // These params force the Thrift client for native metadata (see getClientTypeFromContext):
+    // UseQueryForMetadata=0 (native RPCs instead of SHOW) or TreatMetadataCatalogNameAsPattern=1.
+    boolean forcedNativeMetadata =
+        connectionContext.isPropertyPresent(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA)
+            && !connectionContext.useQueryForMetadata();
+    boolean forcedCatalogPattern =
+        connectionContext.isPropertyPresent(
+                DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN)
+            && connectionContext.treatMetadataCatalogNameAsPattern();
+    if (forcedNativeMetadata || forcedCatalogPattern) {
+      LOGGER.warn(
+          "Reyden auto-recovery is switching to SEA, overriding a Thrift-only metadata preference "
+              + "(UseQueryForMetadata=0 / TreatMetadataCatalogNameAsPattern=1). Metadata will use "
+              + "SEA SHOW commands instead of native Thrift RPCs. warehouse_id={}",
+          warehouseId);
+    }
+  }
+
+  /**
+   * Extracts the warehouse ID from the compute resource, if available.
+   *
+   * @return the warehouse ID, or null if the resource is not a warehouse
+   */
+  private String getWarehouseId() {
+    if (computeResource instanceof Warehouse) {
+      return ((Warehouse) computeResource).getWarehouseId();
+    }
+    return null;
   }
 }

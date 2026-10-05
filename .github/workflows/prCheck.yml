@@ -7,6 +7,12 @@ on:
   pull_request: # Unit tests can be run for all external PRs
     types: [opened, synchronize, reopened]
     branches: [ main ]
+  merge_group: # Re-run against the queued merge commit so this stays a valid required check under a merge queue
+    branches: [ main ]
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   formatting-check:
@@ -20,23 +26,34 @@ jobs:
       labels: linux-ubuntu-latest
     steps:
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
         with:
           java-version: ${{ matrix.java-version }}
           distribution: 'adopt'
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
           repository: ${{ github.event.pull_request.head.repo.full_name ||  github.repository }}
 
-      - name: Cache Maven packages
-        uses: actions/cache@v4
+      - name: Check if fork
+        id: fork-check
+        shell: bash
+        run: |
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "" ] && \
+             [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "is_fork=true" >> $GITHUB_OUTPUT
+            echo "This is a forked PR — will use cached dependencies"
+          else
+            echo "is_fork=false" >> $GITHUB_OUTPUT
+            echo "This is a same-repo PR or push — will use JFrog OIDC"
+          fi
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
         with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
+          is-fork: ${{ steps.fork-check.outputs.is_fork }}
 
       - name: Check formatting
         run: mvn --errors spotless:check
@@ -54,7 +71,7 @@ jobs:
 
     steps:
       - name: Set up JDK ${{ matrix.java-version }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
         with:
           java-version: ${{ matrix.java-version }}
           distribution: 'adopt'
@@ -64,17 +81,28 @@ jobs:
         run: git config --system core.longpaths true
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
           repository: ${{ github.event.pull_request.head.repo.full_name ||  github.repository }}
 
-      - name: Cache Maven packages
-        uses: actions/cache@v4
+      - name: Check if fork
+        id: fork-check
+        shell: bash
+        run: |
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "" ] && \
+             [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "is_fork=true" >> $GITHUB_OUTPUT
+            echo "This is a forked PR — will use cached dependencies"
+          else
+            echo "is_fork=false" >> $GITHUB_OUTPUT
+            echo "This is a same-repo PR or push — will use JFrog OIDC"
+          fi
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
         with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
+          is-fork: ${{ steps.fork-check.outputs.is_fork }}
 
       - name: Set up Maven Toolchains
         shell: bash
@@ -124,10 +152,10 @@ jobs:
           COVERED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@covered)" "$COVERAGE_FILE")
           MISSED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@missed)" "$COVERAGE_FILE")
           TOTAL=$((COVERED + MISSED))
-          
+
           # Use Python for floating-point math
           PERCENTAGE=$(python -c "covered=${COVERED}; total=${TOTAL}; print(round((covered/total)*100, 2))")
-          
+
           echo "$PERCENTAGE" > coverage.txt
           echo "::set-output name=coverage::$PERCENTAGE"
 
@@ -136,7 +164,7 @@ jobs:
         run: |
           BRANCH_COVERAGE=$(cat coverage.txt)
           echo "Branch Coverage: $BRANCH_COVERAGE%"
-          
+
           # Use Python to compare the coverage with 85
           python -c "import sys; sys.exit(0 if float('$BRANCH_COVERAGE') >= 85 else 1)"
           if [ $? -eq 1 ]; then
@@ -159,7 +187,7 @@ jobs:
 
     steps:
       - name: Set up JDK ${{ matrix.java-version }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
         with:
           java-version: ${{ matrix.java-version }}
           distribution: 'adopt'
@@ -169,17 +197,28 @@ jobs:
         run: git config --system core.longpaths true
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
           repository: ${{ github.event.pull_request.head.repo.full_name ||  github.repository }}
 
-      - name: Cache Maven packages
-        uses: actions/cache@v4
+      - name: Check if fork
+        id: fork-check
+        shell: bash
+        run: |
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "" ] && \
+             [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "is_fork=true" >> $GITHUB_OUTPUT
+            echo "This is a forked PR — will use cached dependencies"
+          else
+            echo "is_fork=false" >> $GITHUB_OUTPUT
+            echo "This is a same-repo PR or push — will use JFrog OIDC"
+          fi
+
+      - name: Setup Maven
+        uses: ./.github/actions/setup-maven
         with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
+          is-fork: ${{ steps.fork-check.outputs.is_fork }}
 
       - name: Set up Maven Toolchains
         shell: bash

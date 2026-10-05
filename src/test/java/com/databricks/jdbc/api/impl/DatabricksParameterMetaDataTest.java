@@ -5,6 +5,7 @@ import static java.sql.ParameterMetaData.parameterModeIn;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,6 +49,29 @@ public class DatabricksParameterMetaDataTest {
   @Test
   public void testGetParameterMode() throws SQLException {
     assertEquals(parameterModeIn, metaData.getParameterMode(1));
+  }
+
+  @Test
+  public void testIsNullable() throws SQLException {
+    assertEquals(ParameterMetaData.parameterNullableUnknown, metaData.isNullable(1));
+  }
+
+  @Test
+  public void testIsSigned() throws SQLException {
+    assertFalse(metaData.isSigned(1)); // STRING is not signed
+    assertTrue(metaData.isSigned(2)); // INT is signed
+  }
+
+  @Test
+  public void testGetPrecision() throws SQLException {
+    metaData.getPrecision(1);
+    metaData.getPrecision(2);
+  }
+
+  @Test
+  public void testGetScale() throws SQLException {
+    metaData.getScale(1);
+    metaData.getScale(2);
   }
 
   @Test

@@ -170,7 +170,7 @@ public class StringConverterTest {
 
   @Test
   public void testConvertToStringWithComplexTypes() throws DatabricksSQLException {
-    DatabricksArray stringArray = new DatabricksArray(Arrays.asList("one", "two"), "ARRAY<STRING>");
+    DatabricksArray stringArray = new DatabricksArray(com.google.common.collect.ImmutableList.of("one", "two"), "ARRAY<STRING>");
     assertEquals("[\"one\",\"two\"]", new StringConverter().toString(stringArray));
 
     Map<String, Object> mapValues = new LinkedHashMap<>();

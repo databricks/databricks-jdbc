@@ -6,6 +6,7 @@ import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.core.SessionVersion;
 import java.sql.SQLException;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -23,6 +24,13 @@ public interface IDatabricksSession {
 
   @Nullable
   ImmutableSessionInfo getSessionInfo();
+
+  @Nullable
+  default SessionVersion getSessionVersion() {
+    return null;
+  }
+
+  default void updateSessionVersion(@Nullable SessionVersion sessionVersion) {}
 
   /**
    * Get the warehouse associated with the session.
@@ -124,6 +132,13 @@ public interface IDatabricksSession {
 
   /** Gets the current catalog from the database */
   String getCurrentCatalog() throws DatabricksSQLException;
+
+  /**
+   * Gets the current catalog and schema from the database in a single query.
+   *
+   * @return String array of length 2: [currentCatalog, currentSchema]
+   */
+  String[] getCurrentCatalogAndSchema() throws DatabricksSQLException;
 
   void setEmptyMetadataClient();
 

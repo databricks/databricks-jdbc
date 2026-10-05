@@ -9,7 +9,6 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -30,7 +29,7 @@ public class DatabricksHttpTTransport extends TTransport {
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksHttpTTransport.class);
   private static final Map<String, String> DEFAULT_HEADERS =
-      ImmutableMap.of(
+      com.google.common.collect.ImmutableMap.of(
           "Content-Type", "application/x-thrift",
           "Accept", "application/x-thrift");
   private final IDatabricksHttpClient httpClient;
@@ -154,7 +153,11 @@ public class DatabricksHttpTTransport extends TTransport {
 
   @Override
   public TConfiguration getConfiguration() {
-    return null;
+    // libthrift >= 0.21 dereferences the return of getConfiguration() when
+    // reading messages (e.g. TProtocolUtil reading the recursion limit);
+    // returning null causes a NullPointerException in transport code paths
+    // that worked under 0.19. Return the framework default instead.
+    return TConfiguration.DEFAULT;
   }
 
   @Override

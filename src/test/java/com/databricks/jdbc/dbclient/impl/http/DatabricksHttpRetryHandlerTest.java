@@ -6,7 +6,6 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
-import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -268,7 +267,7 @@ public class DatabricksHttpRetryHandlerTest {
   @Test
   void testApiRetriableCodesWithoutRetryAfterHeader() throws IOException {
     when(mockConnectionContext.getApiRetriableHttpCodes())
-        .thenReturn(ImmutableSet.of(HttpStatus.SC_INTERNAL_SERVER_ERROR));
+        .thenReturn(com.google.common.collect.ImmutableSet.of(HttpStatus.SC_INTERNAL_SERVER_ERROR));
     when(mockConnectionContext.getApiRetryTimeout()).thenReturn(120);
 
     HttpRequest request = createRequest("GET", "/api/data");

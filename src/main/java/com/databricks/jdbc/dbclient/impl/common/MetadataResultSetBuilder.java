@@ -11,6 +11,7 @@ import static com.databricks.jdbc.dbclient.impl.common.TypeValConstants.*;
 import static java.sql.DatabaseMetaData.*;
 
 import com.databricks.jdbc.api.impl.DatabricksResultSet;
+import com.databricks.jdbc.api.impl.DatabricksResultSetMetaData;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CommandName;
@@ -344,6 +345,26 @@ public class MetadataResultSetBuilder {
           null
         },
         {
+          "INTERVAL",
+          Types.VARCHAR,
+          40,
+          "'",
+          "'",
+          "Qualifier",
+          typeNullable,
+          false,
+          typeSearchable,
+          null,
+          false,
+          null,
+          "INTERVAL",
+          0,
+          6,
+          Types.VARCHAR,
+          null,
+          null
+        },
+        {
           "BOOLEAN",
           Types.BOOLEAN,
           1,
@@ -422,26 +443,6 @@ public class MetadataResultSetBuilder {
           Types.TIMESTAMP,
           3,
           null
-        },
-        {
-          "INTERVAL",
-          Types.VARCHAR,
-          40,
-          "'",
-          "'",
-          "Qualifier",
-          typeNullable,
-          false,
-          typeSearchable,
-          null,
-          false,
-          null,
-          "INTERVAL",
-          0,
-          6,
-          Types.VARCHAR,
-          null,
-          null
         }
       };
 
@@ -501,6 +502,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getFunctionsResult(DatabricksResultSet resultSet, String catalog)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getFunctionsResult(catalog, copyThriftNativeMetadataRows(resultSet));
+    }
     List<List<Object>> rows = getRowsForFunctions(resultSet, FUNCTION_COLUMNS, catalog);
     return buildResultSet(
         FUNCTION_COLUMNS,
@@ -510,7 +514,48 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_FUNCTIONS);
   }
 
+  public DatabricksResultSet getProceduresResult(DatabricksResultSet resultSet)
+      throws SQLException {
+    List<List<Object>> rows = getRowsForProcedures(resultSet);
+    return buildResultSet(
+        PROCEDURES_COLUMNS,
+        rows,
+        GET_PROCEDURES_STATEMENT_ID,
+        resultSet.getMetaData(),
+        CommandName.LIST_PROCEDURES);
+  }
+
+  public DatabricksResultSet getProceduresResult(List<List<Object>> rows) {
+    return buildResultSet(
+        PROCEDURES_COLUMNS,
+        rows != null ? rows : new ArrayList<>(),
+        GET_PROCEDURES_STATEMENT_ID,
+        CommandName.LIST_PROCEDURES);
+  }
+
+  public DatabricksResultSet getProcedureColumnsResult(DatabricksResultSet resultSet)
+      throws SQLException {
+    List<List<Object>> rows = getRowsForProcedureColumns(resultSet);
+    return buildResultSet(
+        PROCEDURE_COLUMNS_COLUMNS,
+        rows,
+        GET_PROCEDURE_COLUMNS_STATEMENT_ID,
+        resultSet.getMetaData(),
+        CommandName.LIST_PROCEDURE_COLUMNS);
+  }
+
+  public DatabricksResultSet getProcedureColumnsResult(List<List<Object>> rows) {
+    return buildResultSet(
+        PROCEDURE_COLUMNS_COLUMNS,
+        rows != null ? rows : new ArrayList<>(),
+        GET_PROCEDURE_COLUMNS_STATEMENT_ID,
+        CommandName.LIST_PROCEDURE_COLUMNS);
+  }
+
   public DatabricksResultSet getColumnsResult(DatabricksResultSet resultSet) throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getColumnsResult(copyThriftNativeMetadataRows(resultSet));
+    }
     List<List<Object>> rows = getRows(resultSet, COLUMN_COLUMNS, defaultAdapter);
     return buildResultSet(
         COLUMN_COLUMNS,
@@ -521,6 +566,9 @@ public class MetadataResultSetBuilder {
   }
 
   public DatabricksResultSet getCatalogsResult(DatabricksResultSet resultSet) throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getCatalogsResult(copyThriftNativeMetadataRows(resultSet));
+    }
     List<List<Object>> rows = getRows(resultSet, CATALOG_COLUMNS, defaultAdapter);
     return buildResultSet(
         CATALOG_COLUMNS,
@@ -532,6 +580,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getSchemasResult(DatabricksResultSet resultSet, String catalog)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getSchemasResult(copyThriftNativeMetadataRows(resultSet));
+    }
     List<List<Object>> rows =
         getRowsForSchemas(
             resultSet, SCHEMA_COLUMNS, catalog, new SchemasDatabricksResultSetAdapter());
@@ -543,8 +594,11 @@ public class MetadataResultSetBuilder {
         CommandName.LIST_SCHEMAS);
   }
 
-  public DatabricksResultSet getTablesResult(DatabricksResultSet resultSet, String[] tableTypes)
-      throws SQLException {
+  public DatabricksResultSet getTablesResult(
+      DatabricksResultSet resultSet, String catalog, String[] tableTypes) throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getTablesResult(catalog, tableTypes, copyThriftNativeMetadataRows(resultSet));
+    }
     List<String> allowedTableTypes = Arrays.asList(tableTypes);
     List<List<Object>> rows =
         getRows(resultSet, TABLE_COLUMNS, defaultAdapter).stream()
@@ -583,6 +637,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getPrimaryKeysResult(DatabricksResultSet resultSet)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getPrimaryKeysResult(copyThriftNativeMetadataRows(resultSet));
+    }
     List<List<Object>> rows = getRows(resultSet, PRIMARY_KEYS_COLUMNS, defaultAdapter);
     return buildResultSet(
         PRIMARY_KEYS_COLUMNS,
@@ -594,6 +651,9 @@ public class MetadataResultSetBuilder {
 
   public DatabricksResultSet getImportedKeysResult(DatabricksResultSet resultSet)
       throws SQLException {
+    if (resultSet.isThriftNativeMetadataResult()) {
+      return getImportedKeys(copyThriftNativeMetadataRows(resultSet));
+    }
     List<List<Object>> rows = getRows(resultSet, IMPORTED_KEYS_COLUMNS, importedKeysAdapter);
     return buildResultSet(
         IMPORTED_KEYS_COLUMNS,
@@ -612,6 +672,20 @@ public class MetadataResultSetBuilder {
     final CrossReferenceKeysDatabricksResultSetAdapter crossReferenceKeysResultSetAdapter =
         new CrossReferenceKeysDatabricksResultSetAdapter(
             targetParentCatalogName, targetParentNamespaceName, targetParentTableName);
+    // Cross-reference SQL narrows only the foreign side, so parent filtering remains necessary.
+    if (resultSet.isThriftNativeMetadataResult()) {
+      List<List<Object>> rows = copyThriftNativeMetadataRows(resultSet);
+      int parentCatalogIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_CAT);
+      int parentSchemaIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_SCHEM);
+      int parentTableIndex = CROSS_REFERENCE_COLUMNS.indexOf(PKTABLE_NAME);
+      rows.removeIf(
+          row ->
+              !crossReferenceKeysResultSetAdapter.matchesParent(
+                  (String) row.get(parentCatalogIndex),
+                  (String) row.get(parentSchemaIndex),
+                  (String) row.get(parentTableIndex)));
+      return getCrossRefsResult(rows);
+    }
     List<List<Object>> rows =
         getRows(resultSet, CROSS_REFERENCE_COLUMNS, crossReferenceKeysResultSetAdapter);
 
@@ -621,6 +695,21 @@ public class MetadataResultSetBuilder {
         METADATA_STATEMENT_ID,
         resultSet.getMetaData(),
         CommandName.GET_CROSS_REFERENCE);
+  }
+
+  /** Copies native rows for Thrift normalization and JDBC metadata, not just column ordering. */
+  private List<List<Object>> copyThriftNativeMetadataRows(DatabricksResultSet resultSet)
+      throws SQLException {
+    List<List<Object>> rows = new ArrayList<>();
+    int columnCount = resultSet.getMetaData().getColumnCount();
+    while (resultSet.next()) {
+      List<Object> row = new ArrayList<>(columnCount);
+      for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+        row.add(resultSet.getObject(columnIndex));
+      }
+      rows.add(row);
+    }
+    return rows;
   }
 
   private boolean isTextType(String typeVal) {
@@ -689,54 +778,41 @@ public class MetadataResultSetBuilder {
             object = null;
             break;
           default:
-            // If column does not match any of the special cases, try to get it from the ResultSet
-            try {
-              object = resultSet.getObject(mappedColumn.getResultSetColumnName());
-              if (mappedColumn.getColumnName().equals(IS_NULLABLE_COLUMN.getColumnName())) {
-                if (object == null || object.equals("true")) {
-                  object = "YES";
-                } else {
-                  object = "NO";
+            // If column does not match any of the special cases, try to get it from the ResultSet.
+            // When the column is known to be absent from the underlying result, compute the default
+            // directly instead of calling getObject() and catching "Invalid column index" — that
+            // throw is caught-and-recovered control flow, but its stack trace floods the
+            // DriverManager log writer (GitHub #1490).
+            if (isColumnAbsent(resultSet, mappedColumn.getResultSetColumnName())) {
+              object = getDefaultValueForMissingColumn(mappedColumn, typeVal);
+            } else {
+              try {
+                object = resultSet.getObject(mappedColumn.getResultSetColumnName());
+                if (mappedColumn.getColumnName().equals(IS_NULLABLE_COLUMN.getColumnName())) {
+                  if (object == null || object.equals("true")) {
+                    object = "YES";
+                  } else {
+                    object = "NO";
+                  }
+                } else if (mappedColumn
+                    .getColumnName()
+                    .equals(DECIMAL_DIGITS_COLUMN.getColumnName())) {
+                  object = getUpdatedDecimalDigits(stripBaseTypeName(typeVal), object);
+                } else if (mappedColumn
+                    .getColumnName()
+                    .equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
+                  if (object == null) {
+                    object = 0;
+                  }
+                } else if (mappedColumn.getColumnName().equals(REMARKS_COLUMN.getColumnName())) {
+                  if (object == null) {
+                    object = "";
+                  }
                 }
-              } else if (mappedColumn
-                  .getColumnName()
-                  .equals(DECIMAL_DIGITS_COLUMN.getColumnName())) {
-                object = getUpdatedDecimalDigits(stripBaseTypeName(typeVal), object);
-              } else if (mappedColumn
-                  .getColumnName()
-                  .equals(NUM_PREC_RADIX_COLUMN.getColumnName())) {
-                if (object == null) {
-                  object = 0;
-                }
-              } else if (mappedColumn.getColumnName().equals(REMARKS_COLUMN.getColumnName())) {
-                if (object == null) {
-                  object = "";
-                }
-              }
-            } catch (SQLException e) {
-              if (mappedColumn.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
-                // Check if geospatial support is disabled and this is a geospatial type
-                if (!ctx.isGeoSpatialSupportEnabled() && isGeospatialType(typeVal)) {
-                  object = Types.VARCHAR;
-                } else if (!ctx.isComplexDatatypeSupportEnabled() && isComplexType(typeVal)) {
-                  object = Types.VARCHAR;
-                } else {
-                  object = getCode(stripBaseTypeName(typeVal));
-                }
-              } else if (mappedColumn
-                  .getColumnName()
-                  .equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
-                object = getCharOctetLength(typeVal);
-                if (object.equals(0)) {
-                  object = null;
-                }
-              } else if (mappedColumn
-                  .getColumnName()
-                  .equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
-                object = getBufferLength(typeVal);
-              } else {
-                // Handle other cases where the result set does not contain the expected column
-                object = null;
+              } catch (SQLException e) {
+                // Safety net: column resolved but value could not be read; fall back to the
+                // default.
+                object = getDefaultValueForMissingColumn(mappedColumn, typeVal);
               }
             }
             if (mappedColumn.getColumnName().equals(NULLABLE_COLUMN.getColumnName())) {
@@ -783,6 +859,53 @@ public class MetadataResultSetBuilder {
     }
     resultSet.unsetSilenceNonTerminalExceptions();
     return rows;
+  }
+
+  /**
+   * Returns {@code true} when {@code columnName} is known to be absent from the underlying result
+   * set, resolved the same way {@link DatabricksResultSet#getObject(String)} resolves names. Used
+   * to avoid the "Invalid column index" throw for columns the server did not return (GitHub #1490).
+   *
+   * <p>Returns {@code false} when the column is present or when metadata is unavailable (e.g. test
+   * mocks), so callers fall back to the original {@code getObject()} path and behavior is
+   * unchanged.
+   */
+  private boolean isColumnAbsent(DatabricksResultSet resultSet, String columnName) {
+    try {
+      ResultSetMetaData metaData = resultSet.getMetaData();
+      if (metaData instanceof DatabricksResultSetMetaData) {
+        // getColumnNameIndex returns a 1-based index, or -1 when the column is not present.
+        return ((DatabricksResultSetMetaData) metaData).getColumnNameIndex(columnName) <= 0;
+      }
+    } catch (SQLException e) {
+      // Metadata unavailable; preserve the legacy getObject() path.
+    }
+    return false;
+  }
+
+  /**
+   * Computes the default value for a column that is absent from the underlying result set. Mirrors
+   * the fallback that previously lived in the {@code catch} block of {@link #getRows}, so output is
+   * identical — only the triggering throw is avoided.
+   */
+  private Object getDefaultValueForMissingColumn(ResultColumn mappedColumn, String typeVal) {
+    if (mappedColumn.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
+      // Check if geospatial support is disabled and this is a geospatial type
+      if (!ctx.isGeoSpatialSupportEnabled() && isGeospatialType(typeVal)) {
+        return Types.VARCHAR;
+      } else if (!ctx.isComplexDatatypeSupportEnabled() && isComplexType(typeVal)) {
+        return Types.VARCHAR;
+      } else {
+        return getCode(stripBaseTypeName(typeVal));
+      }
+    } else if (mappedColumn.getColumnName().equals(CHAR_OCTET_LENGTH_COLUMN.getColumnName())) {
+      Object value = getCharOctetLength(typeVal);
+      return value.equals(0) ? null : value;
+    } else if (mappedColumn.getColumnName().equals(BUFFER_LENGTH_COLUMN.getColumnName())) {
+      return getBufferLength(typeVal);
+    }
+    // Result set does not contain the expected column and no special default applies.
+    return null;
   }
 
   /**
@@ -1093,6 +1216,8 @@ public class MetadataResultSetBuilder {
       case "CHARACTER":
         return 1;
       case "VARIANT":
+      case "GEOMETRY":
+      case "GEOGRAPHY":
         return 1111;
     }
     if (s.startsWith(INTERVAL)) {
@@ -1127,6 +1252,150 @@ public class MetadataResultSetBuilder {
       rows.add(row);
     }
     return rows;
+  }
+
+  private List<List<Object>> getRowsForProcedures(DatabricksResultSet resultSet)
+      throws SQLException {
+    LOGGER.debug("Building rows for getProcedures result set");
+    List<List<Object>> rows = new ArrayList<>();
+    while (resultSet.next()) {
+      List<Object> row = new ArrayList<>();
+      row.add(getStringOrNull(resultSet, COL_ROUTINE_CATALOG)); // PROCEDURE_CAT
+      row.add(getStringOrNull(resultSet, COL_ROUTINE_SCHEMA)); // PROCEDURE_SCHEM
+      row.add(getStringOrNull(resultSet, COL_ROUTINE_NAME)); // PROCEDURE_NAME
+      row.add(null); // NUM_INPUT_PARAMS (reserved)
+      row.add(null); // NUM_OUTPUT_PARAMS (reserved)
+      row.add(null); // NUM_RESULT_SETS (reserved)
+      row.add(getStringOrNull(resultSet, COL_COMMENT)); // REMARKS
+      row.add((short) procedureNoResult); // PROCEDURE_TYPE
+      row.add(getStringOrNull(resultSet, COL_SPECIFIC_NAME)); // SPECIFIC_NAME
+      rows.add(row);
+    }
+    return rows;
+  }
+
+  private List<List<Object>> getRowsForProcedureColumns(DatabricksResultSet resultSet)
+      throws SQLException {
+    LOGGER.debug("Building rows for getProcedureColumns result set");
+    List<List<Object>> rows = new ArrayList<>();
+    while (resultSet.next()) {
+      String dataType = getStringOrNull(resultSet, COL_DATA_TYPE);
+      String parameterMode = getStringOrNull(resultSet, COL_PARAMETER_MODE);
+      String isResult = getStringOrNull(resultSet, COL_IS_RESULT);
+
+      List<Object> row = new ArrayList<>();
+      row.add(getStringOrNull(resultSet, COL_SPECIFIC_CATALOG)); // PROCEDURE_CAT (nullable)
+      row.add(getStringOrNull(resultSet, COL_SPECIFIC_SCHEMA)); // PROCEDURE_SCHEM (nullable)
+      row.add(getStringOrNull(resultSet, COL_SPECIFIC_NAME)); // PROCEDURE_NAME
+      row.add(getStringOrNull(resultSet, COL_PARAMETER_NAME)); // COLUMN_NAME
+      row.add(mapParameterModeToColumnType(parameterMode, isResult)); // COLUMN_TYPE
+      row.add(
+          dataType != null
+              ? getCode(stripBaseTypeName(dataType.toUpperCase()))
+              : null); // DATA_TYPE
+      row.add(dataType != null ? dataType.toUpperCase() : null); // TYPE_NAME
+      Integer numericPrecision = getIntOrNull(resultSet, COL_NUMERIC_PRECISION);
+      Integer charMaxLength = getIntOrNull(resultSet, COL_CHARACTER_MAX_LENGTH);
+      Integer charOctetLength = getIntOrNull(resultSet, COL_CHARACTER_OCTET_LENGTH);
+      row.add(numericPrecision != null ? numericPrecision : charMaxLength); // COLUMN_SIZE
+      row.add(charOctetLength); // BUFFER_LENGTH
+      row.add(getShortOrNull(resultSet, COL_NUMERIC_SCALE)); // SCALE
+      row.add(getShortOrNull(resultSet, COL_NUMERIC_PRECISION_RADIX)); // RADIX
+      row.add((short) procedureNullableUnknown); // NULLABLE
+      row.add(getStringOrNull(resultSet, COL_COMMENT)); // REMARKS (nullable)
+      row.add(getStringOrNull(resultSet, COL_PARAMETER_DEFAULT)); // COLUMN_DEF (nullable)
+      row.add(null); // SQL_DATA_TYPE (reserved)
+      row.add(null); // SQL_DATETIME_SUB (reserved)
+      row.add(charOctetLength); // CHAR_OCTET_LENGTH (reuse variable)
+      row.add(getIntOrNull(resultSet, COL_ORDINAL_POSITION)); // ORDINAL_POSITION
+      row.add(""); // IS_NULLABLE (empty string per JDBC spec when unknown)
+      row.add(getStringOrNull(resultSet, COL_SPECIFIC_NAME)); // SPECIFIC_NAME
+      rows.add(row);
+    }
+    return rows;
+  }
+
+  // Column name constants for information_schema.routines
+  private static final String COL_ROUTINE_CATALOG = "routine_catalog";
+  private static final String COL_ROUTINE_SCHEMA = "routine_schema";
+  private static final String COL_ROUTINE_NAME = "routine_name";
+  private static final String COL_SPECIFIC_CATALOG = "specific_catalog";
+  private static final String COL_SPECIFIC_SCHEMA = "specific_schema";
+  private static final String COL_SPECIFIC_NAME = "specific_name";
+  private static final String COL_COMMENT = "comment";
+
+  // Column name constants for information_schema.parameters
+  private static final String COL_PARAMETER_NAME = "parameter_name";
+  private static final String COL_PARAMETER_MODE = "parameter_mode";
+  private static final String COL_IS_RESULT = "is_result";
+  private static final String COL_DATA_TYPE = "data_type";
+  private static final String COL_NUMERIC_PRECISION = "numeric_precision";
+  private static final String COL_NUMERIC_PRECISION_RADIX = "numeric_precision_radix";
+  private static final String COL_NUMERIC_SCALE = "numeric_scale";
+  private static final String COL_CHARACTER_MAX_LENGTH = "character_maximum_length";
+  private static final String COL_CHARACTER_OCTET_LENGTH = "character_octet_length";
+  private static final String COL_ORDINAL_POSITION = "ordinal_position";
+  private static final String COL_PARAMETER_DEFAULT = "parameter_default";
+
+  // Parameter mode constants
+  private static final String PARAM_MODE_IN = "IN";
+  private static final String PARAM_MODE_INOUT = "INOUT";
+  private static final String PARAM_MODE_OUT = "OUT";
+  private static final String IS_RESULT_YES = "YES";
+
+  private static short mapParameterModeToColumnType(String parameterMode, String isResult) {
+    if (IS_RESULT_YES.equalsIgnoreCase(isResult)) {
+      return (short) procedureColumnReturn;
+    }
+    if (parameterMode == null) {
+      LOGGER.debug("Parameter mode is null, returning procedureColumnUnknown");
+      return (short) procedureColumnUnknown;
+    }
+    switch (parameterMode.toUpperCase()) {
+      case PARAM_MODE_IN:
+        return (short) procedureColumnIn;
+      case PARAM_MODE_INOUT:
+        return (short) procedureColumnInOut;
+      case PARAM_MODE_OUT:
+        return (short) procedureColumnOut;
+      default:
+        LOGGER.debug("Unknown parameter mode: {}, returning procedureColumnUnknown", parameterMode);
+        return (short) procedureColumnUnknown;
+    }
+  }
+
+  private static String getStringOrNull(DatabricksResultSet resultSet, String columnName)
+      throws SQLException {
+    try {
+      Object val = resultSet.getObject(columnName);
+      return val != null ? val.toString() : null;
+    } catch (SQLException e) {
+      return null;
+    }
+  }
+
+  private static Integer getIntOrNull(DatabricksResultSet resultSet, String columnName)
+      throws SQLException {
+    try {
+      Object val = resultSet.getObject(columnName);
+      if (val == null) return null;
+      if (val instanceof Number) return ((Number) val).intValue();
+      return Integer.parseInt(val.toString());
+    } catch (SQLException | NumberFormatException e) {
+      return null;
+    }
+  }
+
+  private static Short getShortOrNull(DatabricksResultSet resultSet, String columnName)
+      throws SQLException {
+    try {
+      Object val = resultSet.getObject(columnName);
+      if (val == null) return null;
+      if (val instanceof Number) return ((Number) val).shortValue();
+      return Short.parseShort(val.toString());
+    } catch (SQLException | NumberFormatException e) {
+      return null;
+    }
   }
 
   private List<List<Object>> getRowsForSchemas(
@@ -1327,7 +1596,7 @@ public class MetadataResultSetBuilder {
     List<List<Object>> updatedRows = new ArrayList<>();
     for (List<Object> row : rows) {
       // If the catalog is not null and the catalog does not match, skip the row
-      if (catalog != null && !row.get(0).toString().equals(catalog)) {
+      if (catalog != null && !catalog.equals(row.get(0))) {
         continue;
       }
 
@@ -1444,8 +1713,10 @@ public class MetadataResultSetBuilder {
                 }
               }
               if (column.getColumnName().equals(DATA_TYPE_COLUMN.getColumnName())) {
-                // Check if complex datatype support is disabled and this is a complex type
-                if (!ctx.isComplexDatatypeSupportEnabled() && isComplexType(typeVal)) {
+                // Check if geospatial support is disabled and this is a geospatial type
+                if (!ctx.isGeoSpatialSupportEnabled() && isGeospatialType(typeVal)) {
+                  object = Types.VARCHAR;
+                } else if (!ctx.isComplexDatatypeSupportEnabled() && isComplexType(typeVal)) {
                   object = Types.VARCHAR;
                 } else {
                   object = getCode(stripBaseTypeName(typeVal));

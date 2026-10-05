@@ -62,7 +62,7 @@ class RemoteChunkProviderV2Test {
 
       // Create a simple schema with one string column
       Field field = new Field("test_column", FieldType.nullable(new ArrowType.Utf8()), null);
-      Schema schema = new Schema(Collections.singletonList(field));
+      Schema schema = new Schema(com.google.common.collect.ImmutableList.of(field));
 
       try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
           ArrowStreamWriter writer = new ArrowStreamWriter(root, null, out)) {

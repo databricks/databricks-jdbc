@@ -44,6 +44,8 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
     when(connectionContext2.getHost()).thenReturn("host2.databricks.com");
     when(connectionContext1.getHostForOAuth()).thenReturn("host1.databricks.com");
     when(connectionContext2.getHostForOAuth()).thenReturn("host2.databricks.com");
+    when(connectionContext1.getConnectionUuid()).thenReturn("uuid-1");
+    when(connectionContext2.getConnectionUuid()).thenReturn("uuid-2");
   }
 
   @AfterEach
@@ -74,30 +76,90 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
   }
 
   @Test
-  void testReferenceCountingWorks() {
-    // Get instance three times for same workspace
+  void testMultipleCallsWithSameConnectionAreIdempotent() {
+    // Multiple getInstance calls with the same connection UUID are idempotent
     DatabricksDriverFeatureFlagsContext context1 =
         DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1);
-    DatabricksDriverFeatureFlagsContext context2 =
+    DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1);
+    DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1);
+
+    assertSame(
+        context1, DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1));
+
+    // A single removeInstance is sufficient to clean up one connection
+    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext1);
+
+    // Context is gone; a new one would be created on next getInstance
+    DatabricksDriverFeatureFlagsContext newContext =
         DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1);
-    DatabricksDriverFeatureFlagsContext context3 =
-        DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1);
-
-    assertSame(context1, context2);
-    assertSame(context2, context3);
-
-    // Remove twice - context should still exist
+    // New context was created because the old one was shut down
+    // (context1 was already shut down by the single removeInstance above)
+    assertNotNull(newContext);
     DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext1);
-    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext1);
+  }
 
-    // Get again - should still return the same instance
-    DatabricksDriverFeatureFlagsContext context4 =
-        DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1);
-    assertSame(context1, context4);
+  @Test
+  void testMultipleConnectionsRequireAllToClose() {
+    IDatabricksConnectionContext connA =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
+    IDatabricksConnectionContext connB =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
 
-    // Remove remaining references
-    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext1);
-    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext1);
+    lenient().when(connA.getHost()).thenReturn("shared.databricks.com");
+    lenient().when(connB.getHost()).thenReturn("shared.databricks.com");
+    lenient().when(connA.getHostForOAuth()).thenReturn("shared.databricks.com");
+    lenient().when(connB.getHostForOAuth()).thenReturn("shared.databricks.com");
+    lenient().when(connA.getConnectionUuid()).thenReturn("uuid-connA");
+    lenient().when(connB.getConnectionUuid()).thenReturn("uuid-connB");
+
+    // Both connections share the same context
+    DatabricksDriverFeatureFlagsContext ctxA =
+        DatabricksDriverFeatureFlagsContextFactory.getInstance(connA);
+    DatabricksDriverFeatureFlagsContext ctxB =
+        DatabricksDriverFeatureFlagsContextFactory.getInstance(connB);
+    assertSame(ctxA, ctxB);
+
+    // Closing one connection keeps the context alive
+    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connA);
+    DatabricksDriverFeatureFlagsContext ctxStillAlive =
+        DatabricksDriverFeatureFlagsContextFactory.getInstance(connB);
+    assertSame(ctxA, ctxStillAlive);
+
+    // Closing the last connection removes the context
+    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connB);
+    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connB); // second remove is no-op
+  }
+
+  @Test
+  void testConnectionContextUpdatedWhenOwnerConnectionCloses() {
+    // This tests the fix for the HTTP client leak:
+    // when the connection whose context is stored in the feature flags context closes,
+    // the stored context should be updated to another active connection.
+    IDatabricksConnectionContext connA =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
+    IDatabricksConnectionContext connB =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
+
+    lenient().when(connA.getHost()).thenReturn("shared2.databricks.com");
+    lenient().when(connB.getHost()).thenReturn("shared2.databricks.com");
+    lenient().when(connA.getHostForOAuth()).thenReturn("shared2.databricks.com");
+    lenient().when(connB.getHostForOAuth()).thenReturn("shared2.databricks.com");
+    lenient().when(connA.getConnectionUuid()).thenReturn("uuid-ownerA");
+    lenient().when(connB.getConnectionUuid()).thenReturn("uuid-secondB");
+
+    // connA creates the context (becomes the "owner")
+    DatabricksDriverFeatureFlagsContext ctx =
+        DatabricksDriverFeatureFlagsContextFactory.getInstance(connA);
+    DatabricksDriverFeatureFlagsContextFactory.getInstance(connB);
+
+    assertEquals("uuid-ownerA", ctx.getConnectionContext().getConnectionUuid());
+
+    // When connA closes, the stored context should be updated to connB
+    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connA);
+    assertEquals("uuid-secondB", ctx.getConnectionContext().getConnectionUuid());
+
+    // Clean up
+    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connB);
   }
 
   @Test
@@ -108,33 +170,40 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
 
   @Test
   void testContextPersistsUntilLastRemoval() {
-    // Create multiple references
-    DatabricksDriverFeatureFlagsContext context1 =
-        DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1);
-    DatabricksDriverFeatureFlagsContext context2 =
-        DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1);
+    // Create two distinct connections to the same host
+    IDatabricksConnectionContext connX =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
+    IDatabricksConnectionContext connY =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
+    lenient().when(connX.getHost()).thenReturn("host1.databricks.com");
+    lenient().when(connY.getHost()).thenReturn("host1.databricks.com");
+    lenient().when(connX.getHostForOAuth()).thenReturn("host1.databricks.com");
+    lenient().when(connY.getHostForOAuth()).thenReturn("host1.databricks.com");
+    lenient().when(connX.getConnectionUuid()).thenReturn("uuid-X");
+    lenient().when(connY.getConnectionUuid()).thenReturn("uuid-Y");
 
     // Set a feature flag
     Map<String, String> flags = new HashMap<>();
     flags.put("test.flag", "true");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext1, flags);
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connX, flags);
 
-    // Get the context again - should have the flag
-    DatabricksDriverFeatureFlagsContext context3 =
-        DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1);
-    assertTrue(context3.isFeatureEnabled("test.flag"));
+    DatabricksDriverFeatureFlagsContextFactory.getInstance(connX);
+    DatabricksDriverFeatureFlagsContextFactory.getInstance(connY);
 
-    // Remove one reference - context should still exist
-    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext1);
+    DatabricksDriverFeatureFlagsContext context =
+        DatabricksDriverFeatureFlagsContextFactory.getInstance(connX);
+    assertTrue(context.isFeatureEnabled("test.flag"));
 
-    // Get again - should still have the flag
-    DatabricksDriverFeatureFlagsContext context4 =
-        DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1);
-    assertTrue(context4.isFeatureEnabled("test.flag"));
+    // Remove connX — context should still exist because connY is still open
+    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connX);
 
-    // Clean up remaining references
-    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext1);
-    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext1);
+    DatabricksDriverFeatureFlagsContext contextAfterX =
+        DatabricksDriverFeatureFlagsContextFactory.getInstance(connY);
+    assertTrue(contextAfterX.isFeatureEnabled("test.flag"));
+
+    // Clean up
+    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connY);
+    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connY);
   }
 
   @Test
@@ -167,6 +236,8 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
     lenient().when(conn2.getHost()).thenReturn("host.databricks.com");
     lenient().when(conn1.getHostForOAuth()).thenReturn("host.databricks.com");
     lenient().when(conn2.getHostForOAuth()).thenReturn("host.databricks.com");
+    lenient().when(conn1.getConnectionUuid()).thenReturn("uuid-conn1");
+    lenient().when(conn2.getConnectionUuid()).thenReturn("uuid-conn2");
 
     // Set flags for first connection
     Map<String, String> flags = new HashMap<>();

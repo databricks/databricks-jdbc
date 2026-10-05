@@ -7,12 +7,13 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.model.client.thrift.generated.TTypeId;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
-import com.google.common.collect.ImmutableMap;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.util.AbstractMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.arrow.vector.types.DateUnit;
@@ -25,6 +26,19 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class DatabricksTypeUtilTest {
+  private static <K, V> Map.Entry<K, V> entry(K key, V value) {
+    return new AbstractMap.SimpleEntry<>(key, value);
+  }
+
+  @SafeVarargs
+  private static <K, V> Map<K, V> mapOfEntries(Map.Entry<K, V>... entries) {
+    Map<K, V> map = new HashMap<>();
+    for (Map.Entry<K, V> entry : entries) {
+      map.put(entry.getKey(), entry.getValue());
+    }
+    return map;
+  }
+
   static Stream<Object[]> dataProvider() {
     return Stream.of(
         new Object[] {TTypeId.BOOLEAN_TYPE, ArrowType.Bool.INSTANCE},
@@ -67,33 +81,33 @@ class DatabricksTypeUtilTest {
   @Test
   void testGetColumnType() {
     Map<ColumnInfoTypeName, Integer> expectedMappings =
-        ImmutableMap.<ColumnInfoTypeName, Integer>builder()
-            .put(ColumnInfoTypeName.BYTE, Types.TINYINT)
-            .put(ColumnInfoTypeName.SHORT, Types.SMALLINT)
-            .put(ColumnInfoTypeName.SMALLINT, Types.SMALLINT)
-            .put(ColumnInfoTypeName.INT, Types.INTEGER)
-            .put(ColumnInfoTypeName.LONG, Types.BIGINT)
-            .put(ColumnInfoTypeName.BIGINT, Types.BIGINT)
-            .put(ColumnInfoTypeName.TINYINT, Types.TINYINT)
-            .put(ColumnInfoTypeName.VOID, Types.OTHER)
-            .put(ColumnInfoTypeName.FLOAT, Types.FLOAT)
-            .put(ColumnInfoTypeName.DOUBLE, Types.DOUBLE)
-            .put(ColumnInfoTypeName.DECIMAL, Types.DECIMAL)
-            .put(ColumnInfoTypeName.BINARY, Types.BINARY)
-            .put(ColumnInfoTypeName.BOOLEAN, Types.BOOLEAN)
-            .put(ColumnInfoTypeName.CHAR, Types.CHAR)
-            .put(ColumnInfoTypeName.STRING, Types.VARCHAR)
-            .put(ColumnInfoTypeName.MAP, Types.VARCHAR)
-            .put(ColumnInfoTypeName.INTERVAL, Types.VARCHAR)
-            .put(ColumnInfoTypeName.NULL, Types.VARCHAR)
-            .put(ColumnInfoTypeName.TIMESTAMP, Types.TIMESTAMP)
-            .put(ColumnInfoTypeName.DATE, Types.DATE)
-            .put(ColumnInfoTypeName.STRUCT, Types.STRUCT)
-            .put(ColumnInfoTypeName.ARRAY, Types.ARRAY)
-            .put(ColumnInfoTypeName.GEOMETRY, Types.OTHER)
-            .put(ColumnInfoTypeName.GEOGRAPHY, Types.OTHER)
-            .put(ColumnInfoTypeName.USER_DEFINED_TYPE, Types.OTHER)
-            .build();
+        mapOfEntries(
+            entry(ColumnInfoTypeName.BYTE, Types.TINYINT),
+            entry(ColumnInfoTypeName.SHORT, Types.SMALLINT),
+            entry(ColumnInfoTypeName.SMALLINT, Types.SMALLINT),
+            entry(ColumnInfoTypeName.INT, Types.INTEGER),
+            entry(ColumnInfoTypeName.LONG, Types.BIGINT),
+            entry(ColumnInfoTypeName.BIGINT, Types.BIGINT),
+            entry(ColumnInfoTypeName.TINYINT, Types.TINYINT),
+            entry(ColumnInfoTypeName.VOID, Types.OTHER),
+            entry(ColumnInfoTypeName.FLOAT, Types.FLOAT),
+            entry(ColumnInfoTypeName.DOUBLE, Types.DOUBLE),
+            entry(ColumnInfoTypeName.DECIMAL, Types.DECIMAL),
+            entry(ColumnInfoTypeName.BINARY, Types.BINARY),
+            entry(ColumnInfoTypeName.BOOLEAN, Types.BOOLEAN),
+            entry(ColumnInfoTypeName.CHAR, Types.CHAR),
+            entry(ColumnInfoTypeName.STRING, Types.VARCHAR),
+            entry(ColumnInfoTypeName.MAP, Types.VARCHAR),
+            entry(ColumnInfoTypeName.INTERVAL, Types.VARCHAR),
+            entry(ColumnInfoTypeName.NULL, Types.VARCHAR),
+            entry(ColumnInfoTypeName.TIMESTAMP, Types.TIMESTAMP),
+            entry(ColumnInfoTypeName.DATE, Types.DATE),
+            entry(ColumnInfoTypeName.STRUCT, Types.STRUCT),
+            entry(ColumnInfoTypeName.ARRAY, Types.ARRAY),
+            entry(ColumnInfoTypeName.GEOMETRY, Types.OTHER),
+            entry(ColumnInfoTypeName.GEOGRAPHY, Types.OTHER),
+            entry(ColumnInfoTypeName.USER_DEFINED_TYPE, Types.OTHER),
+            entry(ColumnInfoTypeName.VARIANT, Types.OTHER));
 
     expectedMappings.forEach(
         (typeName, expectedSqlType) ->
@@ -109,33 +123,33 @@ class DatabricksTypeUtilTest {
     final String GEOMETRY_CLASS_NAME = "com.databricks.jdbc.api.IGeometry";
     final String GEOGRAPHY_CLASS_NAME = "com.databricks.jdbc.api.IGeography";
     Map<ColumnInfoTypeName, String> expectedMappings =
-        ImmutableMap.<ColumnInfoTypeName, String>builder()
-            .put(ColumnInfoTypeName.BYTE, "java.lang.Short")
-            .put(ColumnInfoTypeName.SHORT, "java.lang.Short")
-            .put(ColumnInfoTypeName.SMALLINT, "java.lang.Short")
-            .put(ColumnInfoTypeName.INT, "java.lang.Integer")
-            .put(ColumnInfoTypeName.TINYINT, "java.lang.Byte")
-            .put(ColumnInfoTypeName.LONG, "java.lang.Long")
-            .put(ColumnInfoTypeName.BIGINT, "java.lang.Long")
-            .put(ColumnInfoTypeName.FLOAT, "java.lang.Float")
-            .put(ColumnInfoTypeName.DOUBLE, "java.lang.Double")
-            .put(ColumnInfoTypeName.DECIMAL, "java.math.BigDecimal")
-            .put(ColumnInfoTypeName.BINARY, "[B")
-            .put(ColumnInfoTypeName.BOOLEAN, "java.lang.Boolean")
-            .put(ColumnInfoTypeName.CHAR, "java.lang.String")
-            .put(ColumnInfoTypeName.STRING, "java.lang.String")
-            .put(ColumnInfoTypeName.INTERVAL, "java.lang.String")
-            .put(ColumnInfoTypeName.USER_DEFINED_TYPE, "java.lang.String")
-            .put(ColumnInfoTypeName.TIMESTAMP, "java.sql.Timestamp")
-            .put(ColumnInfoTypeName.DATE, "java.sql.Date")
-            .put(ColumnInfoTypeName.STRUCT, "java.sql.Struct")
-            .put(ColumnInfoTypeName.ARRAY, "java.sql.Array")
-            .put(ColumnInfoTypeName.GEOMETRY, GEOMETRY_CLASS_NAME)
-            .put(ColumnInfoTypeName.GEOGRAPHY, GEOGRAPHY_CLASS_NAME)
-            .put(ColumnInfoTypeName.MAP, "java.util.Map")
-            .put(ColumnInfoTypeName.NULL, "null")
-            .put(ColumnInfoTypeName.VOID, "null")
-            .build();
+        mapOfEntries(
+            entry(ColumnInfoTypeName.BYTE, "java.lang.Short"),
+            entry(ColumnInfoTypeName.SHORT, "java.lang.Short"),
+            entry(ColumnInfoTypeName.SMALLINT, "java.lang.Short"),
+            entry(ColumnInfoTypeName.INT, "java.lang.Integer"),
+            entry(ColumnInfoTypeName.TINYINT, "java.lang.Byte"),
+            entry(ColumnInfoTypeName.LONG, "java.lang.Long"),
+            entry(ColumnInfoTypeName.BIGINT, "java.lang.Long"),
+            entry(ColumnInfoTypeName.FLOAT, "java.lang.Float"),
+            entry(ColumnInfoTypeName.DOUBLE, "java.lang.Double"),
+            entry(ColumnInfoTypeName.DECIMAL, "java.math.BigDecimal"),
+            entry(ColumnInfoTypeName.BINARY, "[B"),
+            entry(ColumnInfoTypeName.BOOLEAN, "java.lang.Boolean"),
+            entry(ColumnInfoTypeName.CHAR, "java.lang.String"),
+            entry(ColumnInfoTypeName.STRING, "java.lang.String"),
+            entry(ColumnInfoTypeName.INTERVAL, "java.lang.String"),
+            entry(ColumnInfoTypeName.USER_DEFINED_TYPE, "java.lang.String"),
+            entry(ColumnInfoTypeName.TIMESTAMP, "java.sql.Timestamp"),
+            entry(ColumnInfoTypeName.DATE, "java.sql.Date"),
+            entry(ColumnInfoTypeName.STRUCT, "java.sql.Struct"),
+            entry(ColumnInfoTypeName.ARRAY, "java.sql.Array"),
+            entry(ColumnInfoTypeName.GEOMETRY, GEOMETRY_CLASS_NAME),
+            entry(ColumnInfoTypeName.GEOGRAPHY, GEOGRAPHY_CLASS_NAME),
+            entry(ColumnInfoTypeName.MAP, "java.util.Map"),
+            entry(ColumnInfoTypeName.NULL, "null"),
+            entry(ColumnInfoTypeName.VOID, "null"),
+            entry(ColumnInfoTypeName.VARIANT, "java.lang.String"));
 
     expectedMappings.forEach(
         (columnType, expectedClassName) ->
@@ -194,6 +208,7 @@ class DatabricksTypeUtilTest {
   void testIsSigned() {
     assertTrue(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.INT));
     assertFalse(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.BOOLEAN));
+    assertFalse(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.VARIANT));
   }
 
   @Test
@@ -201,32 +216,31 @@ class DatabricksTypeUtilTest {
     final int UNKNOWN_TYPE = 1000;
     final String NULL = "NULL";
     Map<Integer, String> expectedMappings =
-        ImmutableMap.<Integer, String>builder()
-            .put(Types.INTEGER, DatabricksTypeUtil.INT)
-            .put(Types.VARCHAR, DatabricksTypeUtil.STRING)
-            .put(Types.CHAR, DatabricksTypeUtil.CHAR)
-            .put(Types.LONGVARCHAR, DatabricksTypeUtil.STRING)
-            .put(Types.NVARCHAR, DatabricksTypeUtil.STRING)
-            .put(Types.LONGNVARCHAR, DatabricksTypeUtil.STRING)
-            .put(Types.ARRAY, DatabricksTypeUtil.ARRAY)
-            .put(Types.BIGINT, DatabricksTypeUtil.LONG)
-            .put(Types.BINARY, DatabricksTypeUtil.BINARY)
-            .put(Types.VARBINARY, DatabricksTypeUtil.BINARY)
-            .put(Types.LONGVARBINARY, DatabricksTypeUtil.BINARY)
-            .put(Types.NUMERIC, DatabricksTypeUtil.DECIMAL)
-            .put(Types.DATE, DatabricksTypeUtil.DATE)
-            .put(Types.DECIMAL, DatabricksTypeUtil.DECIMAL)
-            .put(Types.BOOLEAN, DatabricksTypeUtil.BOOLEAN)
-            .put(Types.DOUBLE, DatabricksTypeUtil.DOUBLE)
-            .put(Types.FLOAT, DatabricksTypeUtil.FLOAT)
-            .put(Types.REAL, DatabricksTypeUtil.FLOAT)
-            .put(Types.TIMESTAMP, DatabricksTypeUtil.TIMESTAMP_NTZ)
-            .put(Types.TIMESTAMP_WITH_TIMEZONE, DatabricksTypeUtil.TIMESTAMP)
-            .put(Types.STRUCT, DatabricksTypeUtil.STRUCT)
-            .put(Types.SMALLINT, DatabricksTypeUtil.SMALLINT)
-            .put(Types.TINYINT, DatabricksTypeUtil.TINYINT)
-            .put(Types.BIT, DatabricksTypeUtil.BOOLEAN)
-            .build();
+        mapOfEntries(
+            entry(Types.INTEGER, DatabricksTypeUtil.INT),
+            entry(Types.VARCHAR, DatabricksTypeUtil.STRING),
+            entry(Types.CHAR, DatabricksTypeUtil.CHAR),
+            entry(Types.LONGVARCHAR, DatabricksTypeUtil.STRING),
+            entry(Types.NVARCHAR, DatabricksTypeUtil.STRING),
+            entry(Types.LONGNVARCHAR, DatabricksTypeUtil.STRING),
+            entry(Types.ARRAY, DatabricksTypeUtil.ARRAY),
+            entry(Types.BIGINT, DatabricksTypeUtil.LONG),
+            entry(Types.BINARY, DatabricksTypeUtil.BINARY),
+            entry(Types.VARBINARY, DatabricksTypeUtil.BINARY),
+            entry(Types.LONGVARBINARY, DatabricksTypeUtil.BINARY),
+            entry(Types.NUMERIC, DatabricksTypeUtil.DECIMAL),
+            entry(Types.DATE, DatabricksTypeUtil.DATE),
+            entry(Types.DECIMAL, DatabricksTypeUtil.DECIMAL),
+            entry(Types.BOOLEAN, DatabricksTypeUtil.BOOLEAN),
+            entry(Types.DOUBLE, DatabricksTypeUtil.DOUBLE),
+            entry(Types.FLOAT, DatabricksTypeUtil.FLOAT),
+            entry(Types.REAL, DatabricksTypeUtil.FLOAT),
+            entry(Types.TIMESTAMP, DatabricksTypeUtil.TIMESTAMP_NTZ),
+            entry(Types.TIMESTAMP_WITH_TIMEZONE, DatabricksTypeUtil.TIMESTAMP),
+            entry(Types.STRUCT, DatabricksTypeUtil.STRUCT),
+            entry(Types.SMALLINT, DatabricksTypeUtil.SMALLINT),
+            entry(Types.TINYINT, DatabricksTypeUtil.TINYINT),
+            entry(Types.BIT, DatabricksTypeUtil.BOOLEAN));
 
     expectedMappings.forEach(
         (sqlType, expectedType) ->
@@ -267,7 +281,7 @@ class DatabricksTypeUtilTest {
   @ParameterizedTest
   @CsvSource({
     "STRING, STRING",
-    "DATE, TIMESTAMP",
+    "DATE, DATE",
     "TIMESTAMP, TIMESTAMP",
     "TIMESTAMP_NTZ, TIMESTAMP",
     "SHORT, SHORT",
@@ -275,21 +289,35 @@ class DatabricksTypeUtilTest {
     "TINYINT, TINYINT",
     "BYTE, BYTE",
     "INT, INT",
+    "INTEGER, INT",
     "BIGINT, LONG",
     "LONG, LONG",
     "FLOAT, FLOAT",
+    "REAL, FLOAT",
     "DOUBLE, DOUBLE",
     "BINARY, BINARY",
     "BOOLEAN, BOOLEAN",
     "DECIMAL, DECIMAL",
+    "NUMERIC, DECIMAL",
+    "DEC, DECIMAL",
     "STRUCT, STRUCT",
     "ARRAY, ARRAY",
     "VOID, NULL",
     "NULL, NULL",
     "MAP, MAP",
     "CHAR, STRING",
+    "VARCHAR, STRING",
+    "NVARCHAR, STRING",
+    "NCHAR, STRING",
     "INTERVAL, INTERVAL",
-    "UNKNOWN, USER_DEFINED_TYPE"
+    "VARIANT, VARIANT",
+    "GEOMETRY, GEOMETRY",
+    "GEOGRAPHY, GEOGRAPHY",
+    "UNKNOWN, USER_DEFINED_TYPE",
+    // Lowercase inputs fall through to USER_DEFINED_TYPE (getColumnInfoType expects uppercase)
+    "string, USER_DEFINED_TYPE",
+    "int, USER_DEFINED_TYPE",
+    "varchar, USER_DEFINED_TYPE"
   })
   public void testGetColumnInfoType(String inputTypeName, String expectedTypeName) {
     assertEquals(
@@ -298,6 +326,46 @@ class DatabricksTypeUtilTest {
         String.format(
             "inputType : %s, output should have been %s.  But was %s",
             inputTypeName, expectedTypeName, DatabricksTypeUtil.getColumnInfoType(inputTypeName)));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "INTERVAL DAY TO SECOND, INTERVAL",
+    "INTERVAL YEAR TO MONTH, INTERVAL",
+    "INTERVAL DAY TO HOUR, INTERVAL",
+    "INTERVAL DAY TO MINUTE, INTERVAL",
+    "INTERVAL HOUR TO MINUTE, INTERVAL",
+    "INTERVAL HOUR TO SECOND, INTERVAL",
+    "INTERVAL MINUTE TO SECOND, INTERVAL"
+  })
+  public void testGetColumnInfoTypeIntervalSubTypes(String inputTypeName, String expectedTypeName) {
+    assertEquals(
+        ColumnInfoTypeName.valueOf(expectedTypeName),
+        DatabricksTypeUtil.getColumnInfoType(inputTypeName),
+        String.format(
+            "inputType : %s, output should have been %s.  But was %s",
+            inputTypeName, expectedTypeName, DatabricksTypeUtil.getColumnInfoType(inputTypeName)));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "VARIANT, VARIANT, " + Types.OTHER,
+    "TIMESTAMP, TIMESTAMP, " + Types.TIMESTAMP,
+    "TIMESTAMP_NTZ, TIMESTAMP, " + Types.TIMESTAMP,
+    "GEOGRAPHY, GEOGRAPHY, " + Types.OTHER,
+    "GEOMETRY, GEOMETRY, " + Types.OTHER,
+  })
+  public void testGetColumnInfoTypeToJdbcType(
+      String inputTypeName, String expectedEnumName, int expectedJdbcType) {
+    ColumnInfoTypeName typeName = DatabricksTypeUtil.getColumnInfoType(inputTypeName);
+    assertEquals(
+        ColumnInfoTypeName.valueOf(expectedEnumName),
+        typeName,
+        "Enum mapping mismatch for " + inputTypeName);
+    assertEquals(
+        expectedJdbcType,
+        DatabricksTypeUtil.getColumnType(typeName),
+        "JDBC type code mismatch for " + inputTypeName);
   }
 
   @Test
@@ -386,5 +454,26 @@ class DatabricksTypeUtilTest {
     // Very small value with trailing zeros (ensures scale is preserved)
     assertEquals(
         "DECIMAL(8,8)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("0.00000123")));
+  }
+
+  @Test
+  public void testRecoverStringType() {
+    // Plain and collated string, any case -> STRING
+    assertEquals(ColumnInfoTypeName.STRING, DatabricksTypeUtil.recoverStringType("STRING"));
+    assertEquals(
+        ColumnInfoTypeName.STRING,
+        DatabricksTypeUtil.recoverStringType("STRING COLLATE UTF8_LCASE"));
+    assertEquals(
+        ColumnInfoTypeName.STRING,
+        DatabricksTypeUtil.recoverStringType("string collate utf8_lcase"));
+    assertEquals(ColumnInfoTypeName.STRING, DatabricksTypeUtil.recoverStringType("STRING(10)"));
+
+    // Word-boundary: a longer type merely starting with STRING is not coerced
+    assertNull(DatabricksTypeUtil.recoverStringType("STRINGVIEW"));
+    assertNull(DatabricksTypeUtil.recoverStringType("STRINGSET"));
+
+    // Non-string / null
+    assertNull(DatabricksTypeUtil.recoverStringType("INT"));
+    assertNull(DatabricksTypeUtil.recoverStringType(null));
   }
 }

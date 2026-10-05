@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.Nullable.NULLABLE;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP;
+import static com.databricks.jdbc.common.util.DatabricksTypeUtil.TIMESTAMP_NTZ;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -43,6 +44,8 @@ public class DatabricksResultSetMetaDataTest {
   void setUp() {
     connectionContext = Mockito.mock(IDatabricksConnectionContext.class);
     when(connectionContext.getDefaultStringColumnLength()).thenReturn(255);
+    // Production default: report TIMESTAMP_NTZ type names (EnableTimestampNtzTypeName=1).
+    when(connectionContext.isTimestampNtzTypeNameEnabled()).thenReturn(true);
     DatabricksThreadContextHolder.setConnectionContext(connectionContext);
   }
 
@@ -76,7 +79,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo col2 = getColumn("col2", ColumnInfoTypeName.STRING, "string");
     ColumnInfo col2dup = getColumn("col2", ColumnInfoTypeName.DOUBLE, "double");
     ColumnInfo col3 = getColumn("col5", null, "double");
-    schema.setColumns(Arrays.asList(col1, col2, col2dup, col3));
+    schema.setColumns(com.google.common.collect.ImmutableList.of(col1, col2, col2dup, col3));
     manifest.setSchema(schema);
     return manifest;
   }
@@ -106,11 +109,11 @@ public class DatabricksResultSetMetaDataTest {
     metaData =
         new DatabricksResultSetMetaData(
             STATEMENT_ID,
-            Arrays.asList("col1", "col2", "col2"),
-            Arrays.asList("int", "string", "double"),
-            Arrays.asList(4, 12, 8),
-            Arrays.asList(0, 0, 0),
-            Arrays.asList(NULLABLE, NULLABLE, NULLABLE),
+            com.google.common.collect.ImmutableList.of("col1", "col2", "col2"),
+            com.google.common.collect.ImmutableList.of("int", "string", "double"),
+            com.google.common.collect.ImmutableList.of(4, 12, 8),
+            com.google.common.collect.ImmutableList.of(0, 0, 0),
+            com.google.common.collect.ImmutableList.of(NULLABLE, NULLABLE, NULLABLE),
             10);
     assertEquals(3, metaData.getColumnCount());
     assertEquals("col1", metaData.getColumnName(1));
@@ -128,16 +131,82 @@ public class DatabricksResultSetMetaDataTest {
     schema.setColumnCount(1L);
 
     ColumnInfo timestampColumnInfo = getColumn("timestamp_ntz", null, "TIMESTAMP_NTZ");
-    schema.setColumns(Arrays.asList(timestampColumnInfo));
+    schema.setColumns(com.google.common.collect.ImmutableList.of(timestampColumnInfo));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
     assertEquals(1, metaData.getColumnCount());
     assertEquals("timestamp_ntz", metaData.getColumnName(1));
-    assertEquals(TIMESTAMP, metaData.getColumnTypeName(1));
+    // The TIMESTAMP_NTZ type text must be preserved (see GitHub issue #1495);
+    // it previously was normalized to TIMESTAMP. The java.sql type is still
+    // Types.TIMESTAMP because TIMESTAMP_NTZ is a timestamp without timezone.
+    assertEquals(TIMESTAMP_NTZ, metaData.getColumnTypeName(1));
     assertEquals(Types.TIMESTAMP, metaData.getColumnType(1));
     assertEquals(10, metaData.getTotalRows());
+  }
+
+  @Test
+  public void testColumnsWithCollatedString() throws SQLException {
+    ResultManifest resultManifest = new ResultManifest();
+    resultManifest.setTotalRowCount(1L);
+    ResultSchema schema = new ResultSchema();
+    schema.setColumnCount(1L);
+
+    // A collated string column arrives with a null typeName (the collated type name does not map
+    // to a ColumnInfoTypeName) and a typeText carrying the collation.
+    ColumnInfo collatedColumnInfo = getColumn("name", null, "STRING COLLATE UTF8_LCASE");
+    schema.setColumns(com.google.common.collect.ImmutableList.of(collatedColumnInfo));
+    resultManifest.setSchema(schema);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+    assertEquals(1, metaData.getColumnCount());
+    assertEquals("name", metaData.getColumnName(1));
+    // The collated type text is preserved for getColumnTypeName(), but the java.sql type resolves
+    // to VARCHAR (instead of OTHER) so the column is usable as a string.
+    assertEquals("STRING COLLATE UTF8_LCASE", metaData.getColumnTypeName(1));
+    assertEquals(Types.VARCHAR, metaData.getColumnType(1));
+  }
+
+  @Test
+  public void testColumnsWithCollatedStringLowerCase() throws SQLException {
+    // Recovery must be case-insensitive so a lower/mixed-case collated type text resolves the same
+    // way (VARCHAR) as the upper-case form, matching the value path.
+    ResultManifest resultManifest = new ResultManifest();
+    resultManifest.setTotalRowCount(1L);
+    ResultSchema schema = new ResultSchema();
+    schema.setColumnCount(1L);
+
+    ColumnInfo collatedColumnInfo = getColumn("name", null, "string collate utf8_lcase");
+    schema.setColumns(com.google.common.collect.ImmutableList.of(collatedColumnInfo));
+    resultManifest.setSchema(schema);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+    assertEquals(Types.VARCHAR, metaData.getColumnType(1));
+  }
+
+  @Test
+  public void testColumnsWithTimestampNTZ_legacyTypeNameDisabled() throws SQLException {
+    // With EnableTimestampNtzTypeName=0 the type name is normalized to TIMESTAMP to
+    // match the legacy (v2.x.x) driver behavior. The java.sql type is unchanged.
+    IDatabricksConnectionContext legacyContext = Mockito.mock(IDatabricksConnectionContext.class);
+    when(legacyContext.getDefaultStringColumnLength()).thenReturn(255);
+    when(legacyContext.isTimestampNtzTypeNameEnabled()).thenReturn(false);
+
+    ResultManifest resultManifest = new ResultManifest();
+    resultManifest.setTotalRowCount(10L);
+    ResultSchema schema = new ResultSchema();
+    schema.setColumnCount(1L);
+    schema.setColumns(com.google.common.collect.ImmutableList.of(getColumn("timestamp_ntz", null, "TIMESTAMP_NTZ")));
+    resultManifest.setSchema(schema);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, legacyContext);
+    assertEquals("timestamp_ntz", metaData.getColumnName(1));
+    assertEquals(TIMESTAMP, metaData.getColumnTypeName(1));
+    assertEquals(Types.TIMESTAMP, metaData.getColumnType(1));
   }
 
   @Test
@@ -146,8 +215,8 @@ public class DatabricksResultSetMetaDataTest {
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
             STATEMENT_ID,
-            Arrays.asList("col1", "col2", "col3"),
-            Arrays.asList("INTEGER", "VARCHAR", "DOUBLE"),
+            com.google.common.collect.ImmutableList.of("col1", "col2", "col3"),
+            com.google.common.collect.ImmutableList.of("INTEGER", "VARCHAR", "DOUBLE"),
             new int[] {4, 12, 8},
             new int[] {10, 255, 15},
             new int[] {
@@ -193,13 +262,20 @@ public class DatabricksResultSetMetaDataTest {
       {"col_decimal", "decimal(10,2)", "DECIMAL", Types.DECIMAL, 10, 2},
       {"col_date", "date", "DATE", Types.DATE, 10, 0},
       {"col_timestamp", "timestamp", "TIMESTAMP", Types.TIMESTAMP, 29, 9},
-      {"col_timestamp_ntz", "timestamp_ntz", "TIMESTAMP", Types.TIMESTAMP, 29, 9},
+      {"col_timestamp_ntz", "timestamp_ntz", "TIMESTAMP_NTZ", Types.TIMESTAMP, 29, 9},
       {"col_bool", "boolean", "BOOLEAN", Types.BOOLEAN, 1, 0},
       {"col_binary", "binary", "BINARY", Types.BINARY, 1, 0},
       {"col_struct", "struct<col_int:int,col_string:string>", "STRUCT", Types.STRUCT, 255, 0},
       {"col_array", "array<int>", "ARRAY", Types.ARRAY, 255, 0},
       {"col_map", "map<string,string>", "MAP", Types.VARCHAR, 255, 0},
-      {"col_variant", "variant", "VARIANT", Types.VARCHAR, 255, 0},
+      {"col_variant", "variant", "VARIANT", Types.OTHER, 255, 0},
+      {"col_geography", "geography", "GEOGRAPHY", Types.OTHER, 255, 0},
+      {"col_geometry", "geometry", "GEOMETRY", Types.OTHER, 255, 0},
+      {"col_bigint", "bigint", "BIGINT", Types.BIGINT, 19, 0},
+      {"col_smallint", "smallint", "SMALLINT", Types.SMALLINT, 5, 0},
+      {"col_tinyint", "tinyint", "TINYINT", Types.TINYINT, 3, 0},
+      {"col_varchar", "varchar", "VARCHAR", Types.VARCHAR, 255, 0},
+      {"col_integer", "integer", "INTEGER", Types.INTEGER, 10, 0},
       {"col_interval", "interval", "INTERVAL", Types.VARCHAR, 255, 0},
       {"col_interval_second", "interval second", "INTERVAL SECOND", Types.VARCHAR, 255, 0},
       {"col_interval_minute", "interval minute", "INTERVAL MINUTE", Types.VARCHAR, 255, 0},
@@ -332,7 +408,7 @@ public class DatabricksResultSetMetaDataTest {
     resultManifest.setSchema(schema);
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
-            THRIFT_STATEMENT_ID, resultManifest, 1, 1, Arrays.asList(VARIANT), connectionContext);
+            THRIFT_STATEMENT_ID, resultManifest, 1, 1, com.google.common.collect.ImmutableList.of(VARIANT), connectionContext);
     assertEquals(1, metaData.getColumnCount());
     assertEquals("testCol", metaData.getColumnName(1));
     assertEquals(1, metaData.getTotalRows());
@@ -407,11 +483,11 @@ public class DatabricksResultSetMetaDataTest {
     metaData =
         new DatabricksResultSetMetaData(
             STATEMENT_ID,
-            Arrays.asList("col1", "col2", "col2"),
-            Arrays.asList("int", "string", "double"),
-            Arrays.asList(4, 12, 8),
-            Arrays.asList(0, 0, 0),
-            Arrays.asList(NULLABLE, NULLABLE, NULLABLE),
+            com.google.common.collect.ImmutableList.of("col1", "col2", "col2"),
+            com.google.common.collect.ImmutableList.of("int", "string", "double"),
+            com.google.common.collect.ImmutableList.of(4, 12, 8),
+            com.google.common.collect.ImmutableList.of(0, 0, 0),
+            com.google.common.collect.ImmutableList.of(NULLABLE, NULLABLE, NULLABLE),
             10);
     assertEquals(3, metaData.getColumnCount());
     verifyDefaultMetadataProperties(metaData, StatementType.METADATA);
@@ -461,6 +537,7 @@ public class DatabricksResultSetMetaDataTest {
     } else {
       assertFalse(metaData.getIsCloudFetchUsed());
     }
+    assertFalse(metaData.getIsTruncated());
   }
 
   @Test
@@ -477,6 +554,26 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
+  public void testSdkTruncated() {
+    ResultManifest resultManifest = getResultManifest();
+    resultManifest.setTruncated(null);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, true, connectionContext);
+    assertFalse(metaData.getIsTruncated());
+
+    resultManifest.setTruncated(true);
+    metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+    assertTrue(metaData.getIsTruncated());
+
+    resultManifest.setTruncated(false);
+    metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+    assertFalse(metaData.getIsTruncated());
+  }
+
+  @Test
   public void testSEAInlineComplexType() throws SQLException {
     ResultManifest resultManifest = new ResultManifest();
     resultManifest.setTotalRowCount(1L);
@@ -488,7 +585,7 @@ public class DatabricksResultSetMetaDataTest {
         getColumn("struct_col", ColumnInfoTypeName.STRUCT, "STRUCT<field1:INT,field2:STRING>");
     ColumnInfo mapColumn = getColumn("map_col", ColumnInfoTypeName.MAP, "MAP<STRING,INT>");
 
-    schema.setColumns(Arrays.asList(arrayColumn, structColumn, mapColumn));
+    schema.setColumns(com.google.common.collect.ImmutableList.of(arrayColumn, structColumn, mapColumn));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -540,12 +637,12 @@ public class DatabricksResultSetMetaDataTest {
     structColumn.setTypeDesc(structTypeDesc);
 
     TTableSchema schema =
-        new TTableSchema().setColumns(Arrays.asList(arrayColumn, mapColumn, structColumn));
+        new TTableSchema().setColumns(com.google.common.collect.ImmutableList.of(arrayColumn, mapColumn, structColumn));
     resultManifest.setSchema(schema);
 
     // Arrow metadata contains full type information
     List<String> arrowMetadata =
-        Arrays.asList("ARRAY<INT>", "MAP<STRING,INT>", "STRUCT<field1:INT,field2:STRING>");
+        com.google.common.collect.ImmutableList.of("ARRAY<INT>", "MAP<STRING,INT>", "STRUCT<field1:INT,field2:STRING>");
 
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
@@ -621,7 +718,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo geometryColumn = getColumn("geom_col", ColumnInfoTypeName.GEOMETRY, "GEOMETRY");
     ColumnInfo geographyColumn = getColumn("geog_col", ColumnInfoTypeName.GEOGRAPHY, "GEOGRAPHY");
 
-    schema.setColumns(Arrays.asList(geometryColumn, geographyColumn));
+    schema.setColumns(com.google.common.collect.ImmutableList.of(geometryColumn, geographyColumn));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -653,7 +750,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo geometryColumn = getColumn("geom_col", ColumnInfoTypeName.GEOMETRY, "GEOMETRY");
     ColumnInfo geographyColumn = getColumn("geog_col", ColumnInfoTypeName.GEOGRAPHY, "GEOGRAPHY");
 
-    schema.setColumns(Arrays.asList(geometryColumn, geographyColumn));
+    schema.setColumns(com.google.common.collect.ImmutableList.of(geometryColumn, geographyColumn));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -691,7 +788,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo geometryColumn = getColumn("location", ColumnInfoTypeName.GEOMETRY, "GEOMETRY");
     ColumnInfo geographyColumn = getColumn("region", ColumnInfoTypeName.GEOGRAPHY, "GEOGRAPHY");
 
-    schema.setColumns(Arrays.asList(intColumn, stringColumn, geometryColumn, geographyColumn));
+    schema.setColumns(com.google.common.collect.ImmutableList.of(intColumn, stringColumn, geometryColumn, geographyColumn));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -738,7 +835,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo geographyColumn =
         getColumn("delivery_region", ColumnInfoTypeName.GEOGRAPHY, "GEOGRAPHY");
 
-    schema.setColumns(Arrays.asList(idColumn, geometryColumn, geographyColumn));
+    schema.setColumns(com.google.common.collect.ImmutableList.of(idColumn, geometryColumn, geographyColumn));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -765,9 +862,9 @@ public class DatabricksResultSetMetaDataTest {
 
   @Test
   public void testJsonArrayWithComplexTypesEnabledButGeospatialDisabled() throws SQLException {
-    // This test validates the important scenario where EnableComplexDatatypeSupport=1
-    // but EnableGeoSpatialSupport=0 (disabled). This simulates real-world usage where
-    // users want complex types (ARRAY, MAP, STRUCT) but want geospatial data as strings.
+    // This test validates that with EnableGeoSpatialSupport=0, geospatial columns
+    // report as STRING in metadata regardless of the EnableComplexDatatypeSupport setting.
+    // The two flags are independent.
     //
     // Expected behavior:
     // - GEOMETRY/GEOGRAPHY column types should report as STRING in metadata
@@ -792,7 +889,7 @@ public class DatabricksResultSetMetaDataTest {
     ColumnInfo arrayColumn = getColumn("tags", ColumnInfoTypeName.ARRAY, "ARRAY<STRING>");
     ColumnInfo mapColumn = getColumn("metadata", ColumnInfoTypeName.MAP, "MAP<STRING,STRING>");
 
-    schema.setColumns(Arrays.asList(idColumn, geometryColumn, geographyColumn, arrayColumn, mapColumn));
+    schema.setColumns(com.google.common.collect.ImmutableList.of(idColumn, geometryColumn, geographyColumn, arrayColumn, mapColumn));
     resultManifest.setSchema(schema);
 
     DatabricksResultSetMetaData metaData =
@@ -848,7 +945,7 @@ public class DatabricksResultSetMetaDataTest {
     resultManifest.setSchema(schema);
 
     // Arrow metadata indicates this is a GEOMETRY column
-    List<String> arrowMetadata = Arrays.asList("GEOMETRY");
+    List<String> arrowMetadata = com.google.common.collect.ImmutableList.of("GEOMETRY");
 
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
@@ -878,7 +975,7 @@ public class DatabricksResultSetMetaDataTest {
     resultManifest.setSchema(schema);
 
     // Arrow metadata indicates this is a GEOGRAPHY column
-    List<String> arrowMetadata = Arrays.asList("GEOGRAPHY");
+    List<String> arrowMetadata = com.google.common.collect.ImmutableList.of("GEOGRAPHY");
 
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
@@ -915,11 +1012,11 @@ public class DatabricksResultSetMetaDataTest {
     geographyTypeDesc.setTypes(Collections.singletonList(geographyTypeEntry));
     geographyColumn.setTypeDesc(geographyTypeDesc);
 
-    TTableSchema schema = new TTableSchema().setColumns(Arrays.asList(geometryColumn, geographyColumn));
+    TTableSchema schema = new TTableSchema().setColumns(com.google.common.collect.ImmutableList.of(geometryColumn, geographyColumn));
     resultManifest.setSchema(schema);
 
     // Arrow metadata indicates geospatial types
-    List<String> arrowMetadata = Arrays.asList("GEOMETRY", "GEOGRAPHY");
+    List<String> arrowMetadata = com.google.common.collect.ImmutableList.of("GEOMETRY", "GEOGRAPHY");
 
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(

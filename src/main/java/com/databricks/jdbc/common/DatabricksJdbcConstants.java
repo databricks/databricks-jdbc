@@ -1,8 +1,6 @@
 package com.databricks.jdbc.common;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -19,8 +17,10 @@ public final class DatabricksJdbcConstants {
               "(?:/([^;]*))?"
               + // Optional Schema (captured without /)
               "(?:;(.*))?"); // Optional Property=Value pairs (captured without leading ;)
-  public static final Pattern HTTP_WAREHOUSE_PATH_PATTERN = Pattern.compile(".*/warehouses/(.+)");
-  public static final Pattern HTTP_ENDPOINT_PATH_PATTERN = Pattern.compile(".*/endpoints/(.+)");
+  public static final Pattern HTTP_WAREHOUSE_PATH_PATTERN =
+      Pattern.compile(".*/warehouses/([^?&]+).*");
+  public static final Pattern HTTP_ENDPOINT_PATH_PATTERN =
+      Pattern.compile(".*/endpoints/([^?&]+).*");
   public static final Pattern HTTP_CLI_PATTERN = Pattern.compile(".*cliservice(.+)");
   public static final Pattern HTTP_PATH_CLI_PATTERN = Pattern.compile("cliservice");
   public static final Pattern TEST_PATH_PATTERN = Pattern.compile("jdbc:databricks://test");
@@ -78,7 +78,7 @@ public final class DatabricksJdbcConstants {
   public static final Map<String, String> ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP =
       // This map comes from
       // https://docs.databricks.com/en/sql/language-manual/sql-ref-parameters.html
-      ImmutableMap.<String, String>builder()
+      com.google.common.collect.ImmutableMap.<String, String>builder()
           .put("ANSI_MODE", "true")
           .put("ENABLE_PHOTON", "true")
           .put("LEGACY_TIME_PARSER_POLICY", "Exception")
@@ -90,14 +90,14 @@ public final class DatabricksJdbcConstants {
           .put("QUERY_TAGS", "")
           .build();
   public static final Set<String> ALLOWED_CLIENT_INFO_PROPERTIES =
-      ImmutableSet.of(
+      com.google.common.collect.ImmutableSet.of(
           ALLOWED_VOLUME_INGESTION_PATHS,
           ENABLE_VOLUME_OPERATIONS,
           ALLOWED_STAGING_INGESTION_PATHS,
           DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN.getParamName(),
           DatabricksJdbcUrlParams.APPLICATION_NAME.getParamName());
   public static final Map<String, String> JSON_HTTP_HEADERS =
-      ImmutableMap.of(
+      com.google.common.collect.ImmutableMap.of(
           "Accept", "application/json",
           "Content-Type", "application/json");
   @VisibleForTesting public static final String IS_FAKE_SERVICE_TEST_PROP = "isFakeServiceTest";
@@ -108,8 +108,31 @@ public final class DatabricksJdbcConstants {
   public static final String AAD_CLIENT_ID = "databricks-sql-jdbc";
   public static final String GCP_GOOGLE_CREDENTIALS_AUTH_TYPE = "google-credentials";
   public static final String GCP_GOOGLE_ID_AUTH_TYPE = "google-id";
-  public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = "08000";
+
+  /** SQL state used by Thrift for generic operation errors (SQLSTATE 08000). */
+  public static final String OPERATION_ERROR_SQLSTATE = "08000";
+
+  public static final String DEFAULT_HTTP_EXCEPTION_SQLSTATE = OPERATION_ERROR_SQLSTATE;
   public static final String QUERY_EXECUTION_TIMEOUT_SQLSTATE = "57KD0";
+
+  /** Standard SQL state for syntax error or access rule violation (SQLSTATE 42000). */
+  public static final String SYNTAX_OR_ACCESS_VIOLATION_SQLSTATE = "42000";
+
+  /** Standard SQL state for operation cancelled (SQLSTATE HY008). */
+  public static final String OPERATION_CANCELLED_SQLSTATE = "HY008";
+
+  /** Standard SQL state for communication link failure (SQLSTATE 08S01). */
+  public static final String COMMUNICATION_LINK_FAILURE_SQLSTATE = "08S01";
+
+  /**
+   * Standard SQL state for transaction rollback - serialization failure (SQLSTATE 40001). Used for
+   * concurrent-modification errors where the operation is potentially retryable.
+   */
+  public static final String SERIALIZATION_FAILURE_SQLSTATE = "40001";
+
+  /** Standard SQL state for data exception (SQLSTATE 22000). */
+  public static final String DATA_EXCEPTION_SQLSTATE = "22000";
+
   public static final int TEMPORARY_REDIRECT_STATUS_CODE = 307;
   public static final String REDACTED_TOKEN = "****";
   public static final String QUERY_TAGS = "query_tags";
@@ -157,12 +180,15 @@ public final class DatabricksJdbcConstants {
       Pattern.compile("^(\\s*\\()*\\s*FROM\\s*\\(", Pattern.CASE_INSENSITIVE);
   public static final Pattern VALUES_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*VALUES", Pattern.CASE_INSENSITIVE);
-  public static final Pattern UNION_PATTERN =
-      Pattern.compile("\\s+UNION\\s+", Pattern.CASE_INSENSITIVE);
-  public static final Pattern INTERSECT_PATTERN =
-      Pattern.compile("\\s+INTERSECT\\s+", Pattern.CASE_INSENSITIVE);
-  public static final Pattern EXCEPT_PATTERN =
-      Pattern.compile("\\s+EXCEPT\\s+", Pattern.CASE_INSENSITIVE);
+
+  /**
+   * Matches the {@code TABLE table_name} queryPrimary form (Spark SQL grammar), which is a
+   * shorthand for {@code SELECT * FROM table_name} and can participate in top-level set operations
+   * such as {@code TABLE foo UNION TABLE bar} or {@code (TABLE foo) UNION (TABLE bar)}.
+   */
+  public static final Pattern TABLE_PATTERN =
+      Pattern.compile("^(\\s*\\()*\\s*TABLE\\s+", Pattern.CASE_INSENSITIVE);
+
   public static final Pattern DECLARE_PATTERN =
       Pattern.compile("^(\\s*\\()*\\s*DECLARE", Pattern.CASE_INSENSITIVE);
   public static final Pattern PUT_PATTERN =

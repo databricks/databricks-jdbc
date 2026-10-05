@@ -1,0 +1,3 @@
+# Require review for changes to GitHub Actions workflows and CI configuration
+.github/workflows/ @databricks/eng-oss-sql-driver
+.github/CODEOWNERS @databricks/eng-oss-sql-driver 

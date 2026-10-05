@@ -2,7 +2,6 @@
 // (net/hydromatic/sqllogictest/Main.java)
 package com.databricks.jdbc.sqllogictest;
 
-import com.google.common.collect.ImmutableSet;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -34,7 +33,7 @@ public class SLTMain {
     }
     // TODO: Add these files once getTables allows fetching VIEW(s)
     Set<String> testFilesToSkip =
-        ImmutableSet.of(
+        com.google.common.collect.ImmutableSet.of(
             "sqllogictest/evidence/slt_lang_createview.test",
             "sqllogictest/evidence/slt_lang_dropview.test",
             "sqllogictest/index/view/100/slt_good_2.test");

@@ -10,11 +10,13 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.core.ResultColumn;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +42,273 @@ public class MetadataResultSetBuilderTest {
   @AfterEach
   void tearDown() {
     DatabricksThreadContextHolder.clearAllContext();
+  }
+
+  @Test
+  void testTypeInfoRowsAreOrderedByDataType() throws SQLException {
+    List<Integer> actualDataTypes = new ArrayList<>();
+    try (DatabricksResultSet resultSet = metadataResultSetBuilder.getTypeInfoResult()) {
+      while (resultSet.next()) {
+        actualDataTypes.add(resultSet.getInt("DATA_TYPE"));
+      }
+    }
+
+    assertFalse(actualDataTypes.isEmpty(), "TYPE_INFO should contain at least one row");
+    List<Integer> sortedDataTypes = new ArrayList<>(actualDataTypes);
+    sortedDataTypes.sort(Integer::compareTo);
+    assertEquals(
+        sortedDataTypes,
+        actualDataTypes,
+        "TYPE_INFO rows should be ordered by DATA_TYPE as required by DatabaseMetaData");
+  }
+
+  @Test
+  void testThriftNativeFormattingMatchesRawThriftBuilder() throws SQLException {
+    assertNativeFormattingMatchesThrift(
+        resultSet -> metadataResultSetBuilder.getFunctionsResult(resultSet, "catalog"),
+        rows -> metadataResultSetBuilder.getFunctionsResult("catalog", rows),
+        FUNCTION_COLUMNS);
+    assertNativeFormattingMatchesThrift(
+        metadataResultSetBuilder::getCatalogsResult,
+        metadataResultSetBuilder::getCatalogsResult,
+        CATALOG_COLUMNS);
+    assertNativeFormattingMatchesThrift(
+        resultSet -> metadataResultSetBuilder.getSchemasResult(resultSet, "catalog"),
+        metadataResultSetBuilder::getSchemasResult,
+        SCHEMA_COLUMNS);
+    assertNativeFormattingMatchesThrift(
+        resultSet ->
+            metadataResultSetBuilder.getTablesResult(resultSet, null, new String[] {"TABLE"}),
+        rows -> metadataResultSetBuilder.getTablesResult(null, new String[] {"TABLE"}, rows),
+        TABLE_COLUMNS);
+    assertNativeFormattingMatchesThrift(
+        metadataResultSetBuilder::getPrimaryKeysResult,
+        metadataResultSetBuilder::getPrimaryKeysResult,
+        PRIMARY_KEYS_COLUMNS);
+    assertNativeFormattingMatchesThrift(
+        metadataResultSetBuilder::getImportedKeysResult,
+        metadataResultSetBuilder::getImportedKeys,
+        IMPORTED_KEYS_COLUMNS);
+  }
+
+  @Test
+  void testThriftNativeGetColumnsFormattingMatchesRawThriftBuilder() throws SQLException {
+    List<Object> nativeRow =
+        Arrays.asList(
+            "catalog",
+            "schema",
+            "table",
+            "column",
+            Types.INTEGER,
+            "INT",
+            10,
+            null,
+            0,
+            10,
+            1,
+            null,
+            null,
+            Types.INTEGER,
+            null,
+            null,
+            0,
+            "YES",
+            null,
+            null,
+            null,
+            null,
+            "YES");
+    DatabricksResultSet actual =
+        metadataResultSetBuilder.getColumnsResult(
+            nativeMetadataResult(com.google.common.collect.ImmutableList.of(new ArrayList<>(nativeRow))));
+    DatabricksResultSet expected =
+        metadataResultSetBuilder.getColumnsResult(com.google.common.collect.ImmutableList.of(new ArrayList<>(nativeRow)));
+
+    assertResultSetsEqual(expected, actual);
+  }
+
+  @Test
+  void testLegacyMetadataResultWithNativeColumnCountIsTransformed() throws SQLException {
+    DatabricksResultSet resultSet =
+        mockMetadataResultSetWithColumnNames(
+            com.google.common.collect.ImmutableList.of(
+                "functionName",
+                "namespace",
+                "catalogName",
+                "remarks",
+                "functionType",
+                "specificName"));
+    when(resultSet.next()).thenReturn(false);
+
+    assertNotSame(resultSet, metadataResultSetBuilder.getFunctionsResult(resultSet, "catalog"));
+    verify(resultSet).next();
+  }
+
+  private void assertNativeFormattingMatchesThrift(
+      MetadataResultCall nativeCall, RawRowsResultCall thriftCall, List<ResultColumn> columns)
+      throws SQLException {
+    List<Object> row = metadataRow(columns);
+    DatabricksResultSet actual =
+        nativeCall.execute(nativeMetadataResult(com.google.common.collect.ImmutableList.of(new ArrayList<>(row))));
+    DatabricksResultSet expected = thriftCall.execute(com.google.common.collect.ImmutableList.of(new ArrayList<>(row)));
+
+    assertResultSetsEqual(expected, actual);
+  }
+
+  private DatabricksResultSet nativeMetadataResult(List<List<Object>> rows) throws SQLException {
+    DatabricksResultSet resultSet = mock(DatabricksResultSet.class);
+    ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+    AtomicInteger rowIndex = new AtomicInteger(-1);
+    when(resultSet.isThriftNativeMetadataResult()).thenReturn(true);
+    when(resultSet.getMetaData()).thenReturn(metadata);
+    when(metadata.getColumnCount()).thenReturn(rows.get(0).size());
+    when(resultSet.next()).thenAnswer(ignored -> rowIndex.incrementAndGet() < rows.size());
+    when(resultSet.getObject(anyInt()))
+        .thenAnswer(
+            invocation ->
+                rows.get(rowIndex.get()).get(invocation.getArgument(0, Integer.class) - 1));
+    return resultSet;
+  }
+
+  private void assertResultSetsEqual(DatabricksResultSet expected, DatabricksResultSet actual)
+      throws SQLException {
+    ResultSetMetaData expectedMetadata = expected.getMetaData();
+    ResultSetMetaData actualMetadata = actual.getMetaData();
+    int columnCount = expectedMetadata.getColumnCount();
+    assertEquals(columnCount, actualMetadata.getColumnCount());
+    for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+      assertEquals(
+          expectedMetadata.getColumnName(columnIndex), actualMetadata.getColumnName(columnIndex));
+      assertEquals(
+          expectedMetadata.getColumnType(columnIndex), actualMetadata.getColumnType(columnIndex));
+      assertEquals(
+          expectedMetadata.getColumnTypeName(columnIndex),
+          actualMetadata.getColumnTypeName(columnIndex));
+      assertEquals(
+          expectedMetadata.getPrecision(columnIndex), actualMetadata.getPrecision(columnIndex));
+      assertEquals(expectedMetadata.getScale(columnIndex), actualMetadata.getScale(columnIndex));
+      assertEquals(
+          expectedMetadata.isNullable(columnIndex), actualMetadata.isNullable(columnIndex));
+    }
+    while (expected.next()) {
+      assertTrue(actual.next());
+      for (int columnIndex = 1; columnIndex <= columnCount; columnIndex++) {
+        assertEquals(expected.getObject(columnIndex), actual.getObject(columnIndex));
+      }
+    }
+    assertFalse(actual.next());
+  }
+
+  private List<Object> metadataRow(List<ResultColumn> columns) {
+    List<Object> row = new ArrayList<>(columns.size());
+    for (int columnIndex = 1; columnIndex <= columns.size(); columnIndex++) {
+      row.add(metadataValue(columns.get(columnIndex - 1), columnIndex));
+    }
+    return row;
+  }
+
+  private Object metadataValue(ResultColumn column, int columnIndex) {
+    if (TABLE_TYPE_COLUMN.getColumnName().equals(column.getColumnName())) {
+      return "TABLE";
+    }
+    switch (column.getColumnTypeInt()) {
+      case Types.SMALLINT:
+        return (short) columnIndex;
+      case Types.INTEGER:
+        return columnIndex;
+      case Types.BIT:
+        return true;
+      default:
+        return "value-" + columnIndex;
+    }
+  }
+
+  @Test
+  void testThriftNativeTablesStillApplyTableTypeFilter() throws SQLException {
+    DatabricksResultSet result =
+        metadataResultSetBuilder.getTablesResult(
+            nativeMetadataResult(com.google.common.collect.ImmutableList.of(metadataRow(TABLE_COLUMNS))),
+            null,
+            new String[] {"NONEXISTENT_TYPE"});
+
+    assertFalse(result.next());
+  }
+
+  @Test
+  void testThriftNativeTablesStillApplyExactCatalogFilter() throws SQLException {
+    List<Object> mismatchedCatalogRow = metadataRow(TABLE_COLUMNS);
+    mismatchedCatalogRow.set(0, "comparator_tests");
+    List<Object> nullCatalogRow = new ArrayList<>(mismatchedCatalogRow);
+    nullCatalogRow.set(0, null);
+
+    DatabricksResultSet result =
+        metadataResultSetBuilder.getTablesResult(
+            nativeMetadataResult(com.google.common.collect.ImmutableList.of(mismatchedCatalogRow, nullCatalogRow)),
+            "COMPARATOR-TESTS",
+            new String[] {"TABLE"});
+
+    assertFalse(result.next());
+  }
+
+  @Test
+  void testThriftNativeCrossReferenceStillFiltersParentTable() throws SQLException {
+    List<Object> matchingRow = metadataRow(CROSS_REFERENCE_COLUMNS);
+    matchingRow.set(0, "parent-catalog");
+    matchingRow.set(1, "parent-schema");
+    matchingRow.set(2, "parent-table");
+    List<Object> nonMatchingRow = new ArrayList<>(matchingRow);
+    nonMatchingRow.set(2, "other-parent-table");
+
+    DatabricksResultSet result =
+        metadataResultSetBuilder.getCrossReferenceKeysResult(
+            nativeMetadataResult(com.google.common.collect.ImmutableList.of(matchingRow, nonMatchingRow)),
+            "PARENT-CATALOG",
+            "PARENT-SCHEMA",
+            "PARENT-TABLE");
+
+    assertTrue(result.next());
+    assertEquals("parent-catalog", result.getString("PKTABLE_CAT"));
+    assertEquals("parent-schema", result.getString("PKTABLE_SCHEM"));
+    assertEquals("parent-table", result.getString("PKTABLE_NAME"));
+    assertFalse(result.next());
+  }
+
+  @Test
+  void testThriftNativeFunctionsUseThriftPostProcessing() throws SQLException {
+    List<Object> row =
+        new ArrayList<>(
+            Arrays.asList(
+                "server-catalog", "schema", "function", null, (short) 1, "specific-name"));
+    DatabricksResultSet actual =
+        metadataResultSetBuilder.getFunctionsResult(
+            nativeMetadataResult(com.google.common.collect.ImmutableList.of(new ArrayList<>(row))), "requested-catalog");
+    DatabricksResultSet expected =
+        metadataResultSetBuilder.getFunctionsResult(
+            "requested-catalog", com.google.common.collect.ImmutableList.of(new ArrayList<>(row)));
+
+    assertResultSetsEqual(expected, actual);
+  }
+
+  private DatabricksResultSet mockMetadataResultSetWithColumnNames(List<String> columnNames)
+      throws SQLException {
+    DatabricksResultSet resultSet = mock(DatabricksResultSet.class);
+    ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+    when(resultSet.getMetaData()).thenReturn(metadata);
+    when(metadata.getColumnCount()).thenReturn(columnNames.size());
+    for (int i = 0; i < columnNames.size(); i++) {
+      when(metadata.getColumnName(i + 1)).thenReturn(columnNames.get(i));
+    }
+    return resultSet;
+  }
+
+  @FunctionalInterface
+  private interface MetadataResultCall {
+    DatabricksResultSet execute(DatabricksResultSet resultSet) throws SQLException;
+  }
+
+  @FunctionalInterface
+  private interface RawRowsResultCall {
+    DatabricksResultSet execute(List<List<Object>> rows) throws SQLException;
   }
 
   @Test
@@ -71,6 +340,8 @@ public class MetadataResultSetBuilderTest {
     assert metadataResultSetBuilder.getCode("SMALLINT") == 5;
     assert metadataResultSetBuilder.getCode("INTEGER") == 4;
     assert metadataResultSetBuilder.getCode("VARIANT") == 1111;
+    assert metadataResultSetBuilder.getCode("GEOMETRY") == 1111;
+    assert metadataResultSetBuilder.getCode("GEOGRAPHY") == 1111;
     assert metadataResultSetBuilder.getCode("INTERVAL") == 12;
     assert metadataResultSetBuilder.getCode("INTERVAL YEAR") == 12;
   }
@@ -206,18 +477,18 @@ public class MetadataResultSetBuilderTest {
 
   private static Stream<Arguments> provideSpecialColumnsArguments() {
     return Stream.of(
-        Arguments.of(Arrays.asList("INTEGER", "", "", 0, ""), Arrays.asList("INTEGER", 4, null, 1, null)),
-        Arguments.of(Arrays.asList("DATE", "", "", 1, ""), Arrays.asList("DATE", 91, 91, 2, null)));
+        Arguments.of(com.google.common.collect.ImmutableList.of("INTEGER", "", "", 0, ""), Arrays.asList("INTEGER", 4, null, 1, null)),
+        Arguments.of(com.google.common.collect.ImmutableList.of("DATE", "", "", 1, ""), Arrays.asList("DATE", 91, 91, 2, null)));
   }
 
   private static Stream<Arguments> provideColumnSizeArguments() {
     return Stream.of(
-        Arguments.of(Arrays.asList("VARCHAR(50)", 0, 0), Arrays.asList("VARCHAR", 50, 0)),
-        Arguments.of(Arrays.asList("INT", 4, 10), Arrays.asList("INT", 10, 10)));
+        Arguments.of(com.google.common.collect.ImmutableList.of("VARCHAR(50)", 0, 0), com.google.common.collect.ImmutableList.of("VARCHAR", 50, 0)),
+        Arguments.of(com.google.common.collect.ImmutableList.of("INT", 4, 10), com.google.common.collect.ImmutableList.of("INT", 10, 10)));
   }
 
   private static Stream<Arguments> provideColumnSizeArgumentsVarchar() {
-    return Stream.of(Arguments.of(Arrays.asList("VARCHAR", 0, 0), Arrays.asList("VARCHAR", 255, 0)));
+    return Stream.of(Arguments.of(com.google.common.collect.ImmutableList.of("VARCHAR", 0, 0), com.google.common.collect.ImmutableList.of("VARCHAR", 255, 0)));
   }
 
   @ParameterizedTest
@@ -302,9 +573,9 @@ public class MetadataResultSetBuilderTest {
 
   @Test
   void testGetThriftRowsWithRowIndexOutOfBounds() {
-    List<ResultColumn> columns = Arrays.asList(COLUMN_TYPE_COLUMN, COL_NAME_COLUMN);
-    List<Object> row = Arrays.asList("VARCHAR(50)");
-    List<List<Object>> rows = Arrays.asList(row);
+    List<ResultColumn> columns = com.google.common.collect.ImmutableList.of(COLUMN_TYPE_COLUMN, COL_NAME_COLUMN);
+    List<Object> row = com.google.common.collect.ImmutableList.of("VARCHAR(50)");
+    List<List<Object>> rows = com.google.common.collect.ImmutableList.of(row);
 
     List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(rows, columns);
     List<Object> updatedRow = updatedRows.get(0);
@@ -314,9 +585,9 @@ public class MetadataResultSetBuilderTest {
 
   @Test
   void testGetThriftRowsMeasureColumn() {
-    List<ResultColumn> columns = Arrays.asList(COLUMN_TYPE_COLUMN);
-    List<Object> row = Arrays.asList("DECIMAL(6,2) measure");
-    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(Arrays.asList(row), columns);
+    List<ResultColumn> columns = com.google.common.collect.ImmutableList.of(COLUMN_TYPE_COLUMN);
+    List<Object> row = com.google.common.collect.ImmutableList.of("DECIMAL(6,2) measure");
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(com.google.common.collect.ImmutableList.of(row), columns);
     List<Object> updatedRow = updatedRows.get(0);
     // verify that type name for measure column is not stripped
     assertEquals("DECIMAL(6,2) measure", updatedRow.get(0));
@@ -326,14 +597,14 @@ public class MetadataResultSetBuilderTest {
   @MethodSource("provideSpecialColumnsArguments")
   void testGetThriftRowsSpecialColumns(List<Object> row, List<Object> expectedRow) {
     List<ResultColumn> columns =
-        Arrays.asList(
+        com.google.common.collect.ImmutableList.of(
             COLUMN_TYPE_COLUMN,
             SQL_DATA_TYPE_COLUMN,
             SQL_DATETIME_SUB_COLUMN,
             ORDINAL_POSITION_COLUMN,
             SCOPE_CATALOG_COLUMN);
 
-    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(Arrays.asList(row), columns);
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(com.google.common.collect.ImmutableList.of(row), columns);
     List<Object> updatedRow = updatedRows.get(0);
     // verify following
     // 1. ordinal position is 1, 2
@@ -350,9 +621,9 @@ public class MetadataResultSetBuilderTest {
   @MethodSource("provideColumnSizeArguments")
   void testGetThriftRowsColumnSize(List<Object> row, List<Object> expectedRow) {
     List<ResultColumn> columns =
-        Arrays.asList(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
+        com.google.common.collect.ImmutableList.of(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
 
-    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(Arrays.asList(row), columns);
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(com.google.common.collect.ImmutableList.of(row), columns);
     List<Object> updatedRow = updatedRows.get(0);
 
     assertEquals(expectedRow.get(0), updatedRow.get(0));
@@ -366,9 +637,9 @@ public class MetadataResultSetBuilderTest {
     when(context.getDefaultStringColumnLength()).thenReturn(255);
     MetadataResultSetBuilder metadataResultSetBuilder = new MetadataResultSetBuilder(context);
     List<ResultColumn> columns =
-        Arrays.asList(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
+        com.google.common.collect.ImmutableList.of(COLUMN_TYPE_COLUMN, COLUMN_SIZE_COLUMN, NUM_PREC_RADIX_COLUMN);
 
-    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(Arrays.asList(row), columns);
+    List<List<Object>> updatedRows = metadataResultSetBuilder.getThriftRows(com.google.common.collect.ImmutableList.of(row), columns);
     List<Object> updatedRow = updatedRows.get(0);
 
     assertEquals(expectedRow.get(0), updatedRow.get(0));
@@ -527,7 +798,7 @@ public class MetadataResultSetBuilderTest {
 
     // Call SEA mode method with both TABLE and VIEW types
     String[] tableTypes = new String[] {"TABLE", "VIEW"};
-    ResultSet resultSet = metadataResultSetBuilder.getTablesResult(mockResultSet, tableTypes);
+    ResultSet resultSet = metadataResultSetBuilder.getTablesResult(mockResultSet, null, tableTypes);
 
     // Verify sorting: TABLE_TYPE first, then TABLE_CAT, TABLE_SCHEM, TABLE_NAME
     // Expected order after sorting:
@@ -799,7 +1070,7 @@ public class MetadataResultSetBuilderTest {
             "cat", "schema", "tbl", "col", 4, typeName, 10, null, 0, 10, 1, "", null, null, null,
             null, 0, "YES", null, null, null, null, "NO", "NO");
     List<List<Object>> updatedRows =
-        metadataResultSetBuilder.getThriftRows(Arrays.asList(row), COLUMN_COLUMNS);
+        metadataResultSetBuilder.getThriftRows(com.google.common.collect.ImmutableList.of(row), COLUMN_COLUMNS);
 
     assertNull(updatedRows.get(0).get(12), "COLUMN_DEF should be null when no default is defined");
   }
@@ -812,10 +1083,52 @@ public class MetadataResultSetBuilderTest {
             "cat", "schema", "tbl", "col", 4, "INT", 10, null, 0, 10, 1, "", "'42'", null, null,
             null, 0, "YES", null, null, null, null, "NO", "NO");
     List<List<Object>> updatedRows =
-        metadataResultSetBuilder.getThriftRows(Arrays.asList(row), COLUMN_COLUMNS);
+        metadataResultSetBuilder.getThriftRows(com.google.common.collect.ImmutableList.of(row), COLUMN_COLUMNS);
 
     assertEquals(
         "'42'", updatedRows.get(0).get(12), "COLUMN_DEF should return the actual default value");
+  }
+
+  @Test
+  void testGetThriftRowsGeospatialDataTypeWhenDisabled() {
+    // When geospatial support is disabled, GEOMETRY/GEOGRAPHY DATA_TYPE should be VARCHAR (12)
+    when(connectionContext.isGeoSpatialSupportEnabled()).thenReturn(false);
+    lenient().when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(true);
+
+    for (String typeName : com.google.common.collect.ImmutableList.of("GEOMETRY", "GEOGRAPHY")) {
+      List<Object> row =
+          Arrays.asList(
+              "cat", "schema", "tbl", "col", 0, typeName, 10, null, 0, 10, 1, "", null, null, null,
+              null, 0, "YES", null, null, null, null, "NO", "NO");
+      List<List<Object>> updatedRows =
+          metadataResultSetBuilder.getThriftRows(com.google.common.collect.ImmutableList.of(row), COLUMN_COLUMNS);
+
+      assertEquals(
+          Types.VARCHAR,
+          updatedRows.get(0).get(4),
+          typeName + " DATA_TYPE should be VARCHAR (12) when geospatial is disabled");
+    }
+  }
+
+  @Test
+  void testGetThriftRowsGeospatialDataTypeWhenEnabled() {
+    // When geospatial support is enabled, GEOMETRY/GEOGRAPHY DATA_TYPE should be OTHER (1111)
+    when(connectionContext.isGeoSpatialSupportEnabled()).thenReturn(true);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(true);
+
+    for (String typeName : com.google.common.collect.ImmutableList.of("GEOMETRY", "GEOGRAPHY")) {
+      List<Object> row =
+          Arrays.asList(
+              "cat", "schema", "tbl", "col", 0, typeName, 10, null, 0, 10, 1, "", null, null, null,
+              null, 0, "YES", null, null, null, null, "NO", "NO");
+      List<List<Object>> updatedRows =
+          metadataResultSetBuilder.getThriftRows(com.google.common.collect.ImmutableList.of(row), COLUMN_COLUMNS);
+
+      assertEquals(
+          Types.OTHER,
+          updatedRows.get(0).get(4),
+          typeName + " DATA_TYPE should be OTHER (1111) when geospatial is enabled");
+    }
   }
 
   private static Stream<Arguments> provideColumnDefTypeNames() {

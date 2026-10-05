@@ -10,22 +10,29 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.impl.volume.DatabricksVolumeClientFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionInternal;
+import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.dbclient.impl.http.ClosedConnectionHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotImplementedException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTransactionException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.google.common.collect.ImmutableMap;
+import java.lang.reflect.Field;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,7 +52,7 @@ public class DatabricksConnectionTest {
   static final String DEFAULT_CATALOG = "hive_metastore";
   private static final String SESSION_ID = "session_id";
   private static final Map<String, String> SESSION_CONFIGS =
-      ImmutableMap.of("ANSI_MODE", "TRUE", "TIMEZONE", "UTC", "MAX_FILE_PARTITION_BYTES", "64m");
+      com.google.common.collect.ImmutableMap.of("ANSI_MODE", "TRUE", "TIMEZONE", "UTC", "MAX_FILE_PARTITION_BYTES", "64m");
   private static final String JDBC_URL =
       "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;UserAgentEntry=MyApp";
 
@@ -83,6 +90,11 @@ public class DatabricksConnectionTest {
         DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
     transactionsEnabledContext =
         DatabricksConnectionContext.parse(TRANSACTIONS_ENABLED_JDBC_URL, new Properties());
+  }
+
+  @AfterEach
+  void clearThreadContext() {
+    DatabricksThreadContextHolder.clearAllContext();
   }
 
   @Test
@@ -133,6 +145,60 @@ public class DatabricksConnectionTest {
     assertEquals(connection.getSchema(), SCHEMA);
     connection.setSchema(DEFAULT_SCHEMA);
     assertEquals(connection.getSchema(), DEFAULT_SCHEMA);
+  }
+
+  @Test
+  public void testSetCatalogAndSchemaWithPreWrappedBackticks() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+
+    String backtickWrappedCatalog = "`catalog-with-hyphen`";
+    when(databricksClient.executeStatement(
+            eq("SET CATALOG `catalog-with-hyphen`"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any(),
+            any()))
+        .thenReturn(resultSet);
+    connection.setCatalog(backtickWrappedCatalog);
+    assertEquals(connection.getCatalog(), "catalog-with-hyphen");
+
+    String backtickWrappedSchema = "`schema-with-hyphen`";
+    when(databricksClient.executeStatement(
+            eq("USE SCHEMA `schema-with-hyphen`"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any(),
+            any()))
+        .thenReturn(resultSet);
+    connection.setSchema(backtickWrappedSchema);
+    assertEquals(connection.getSchema(), "schema-with-hyphen");
+
+    verify(databricksClient)
+        .executeStatement(
+            eq("SET CATALOG `catalog-with-hyphen`"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any(),
+            any());
+    verify(databricksClient)
+        .executeStatement(
+            eq("USE SCHEMA `schema-with-hyphen`"),
+            eq(new Warehouse(WAREHOUSE_ID)),
+            eq(new HashMap<>()),
+            eq(StatementType.SQL),
+            any(),
+            any(),
+            any());
   }
 
   @Test
@@ -427,15 +493,49 @@ public class DatabricksConnectionTest {
         .thenReturn(IMMUTABLE_SESSION_INFO);
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
+    // prepareCall with basic SQL should succeed
+    CallableStatement callableStmt = connection.prepareCall(SQL);
+    assertNotNull(callableStmt);
+    assertInstanceOf(DatabricksCallableStatement.class, callableStmt);
+    callableStmt.close();
+
+    // prepareCall with valid resultSetType/concurrency should succeed
+    CallableStatement callableStmt2 =
+        connection.prepareCall(SQL, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+    assertNotNull(callableStmt2);
+    callableStmt2.close();
+
+    // prepareCall with unsupported resultSetType/concurrency should throw
     assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class, () -> connection.prepareCall(SQL));
+        DatabricksSQLFeatureNotSupportedException.class,
+        () ->
+            connection.prepareCall(
+                SQL, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE));
+
+    // prepareCall with valid holdability should succeed
+    CallableStatement callableStmt3 =
+        connection.prepareCall(
+            SQL,
+            ResultSet.TYPE_FORWARD_ONLY,
+            ResultSet.CONCUR_READ_ONLY,
+            ResultSet.CLOSE_CURSORS_AT_COMMIT);
+    assertNotNull(callableStmt3);
+    callableStmt3.close();
+
+    // prepareCall with unsupported holdability should throw
+    assertThrows(
+        DatabricksSQLFeatureNotSupportedException.class,
+        () ->
+            connection.prepareCall(
+                SQL,
+                ResultSet.TYPE_FORWARD_ONLY,
+                ResultSet.CONCUR_READ_ONLY,
+                ResultSet.HOLD_CURSORS_OVER_COMMIT));
+
+    // getMetaData
+    assertNotNull(connection.getMetaData());
+
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> connection.nativeSQL(SQL));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> connection.prepareCall(SQL, 10, 10));
-    assertThrows(
-        DatabricksSQLFeatureNotImplementedException.class,
-        () -> connection.prepareCall(SQL, 1, 1, 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> connection.prepareStatement(SQL, 1, 1, 1));
@@ -490,7 +590,6 @@ public class DatabricksConnectionTest {
     assertThrows(
         DatabricksSQLFeatureNotImplementedException.class,
         () -> connection.createStruct(null, null));
-    // Note: setShardingKey* are JDBC 4.3 (Java 9+) methods, not tested on jdk-8 branch
   }
 
   @Test
@@ -526,9 +625,11 @@ public class DatabricksConnectionTest {
   void testReadOnlyAndAbort() throws SQLException {
     connection = new DatabricksConnection(connectionContext, databricksClient);
     connection.open();
+    // setReadOnly is a JDBC hint; the driver does not enforce read-only mode, so both values are
+    // accepted as no-ops (see JDBC spec). isReadOnly() continues to report false.
     assertDoesNotThrow(() -> connection.setReadOnly(false));
-    assertThrows(
-        DatabricksSQLFeatureNotSupportedException.class, () -> connection.setReadOnly(true));
+    assertDoesNotThrow(() -> connection.setReadOnly(true));
+    assertFalse(connection.isReadOnly());
     ExecutorService executorService = Executors.newFixedThreadPool(1);
     assertDoesNotThrow(() -> connection.abort(executorService));
     connection.close();
@@ -1186,5 +1287,133 @@ public class DatabricksConnectionTest {
     verify(mockStatement).execute("SET AUTOCOMMIT = TRUE");
 
     spyConnection.close();
+  }
+
+  @Test
+  public void testCloseRunsCleanupEvenWhenSessionCloseThrows() throws SQLException {
+    // Reproduce GitHub #1221: if deleteSession() fails (e.g. expired token → 401),
+    // DatabricksConnection.close() must still close the HTTP client factory so the
+    // IdleConnectionEvictor thread is not leaked.
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    connection = new DatabricksConnection(connectionContext, databricksClient);
+    connection.open();
+
+    // Simulate a 401 from deleteSession (expired token)
+    DatabricksSQLException expiredTokenEx =
+        new DatabricksSQLException(
+            "HTTP request failed by code: 401, status line: HTTP/1.1 401 Unauthorized.", "08000");
+    doThrow(expiredTokenEx).when(databricksClient).deleteSession(any());
+
+    // close() must not throw — exception from session.close() is caught in the finally
+    assertDoesNotThrow(connection::close);
+
+    // Connection must be marked closed (isClosed checks session.isOpen())
+    assertTrue(connection.isClosed());
+
+    // Verify deleteSession was attempted
+    verify(databricksClient).deleteSession(any());
+  }
+
+  @Test
+  public void testExpiredTokenCloseStopsActualIdleConnectionEvictor() throws Exception {
+    IDatabricksConnectionContext localContext =
+        DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
+    DatabricksHttpClientFactory httpClientFactory = DatabricksHttpClientFactory.getInstance();
+    int baselineEvictors = countEvictorThreads();
+
+    try {
+      assertNotNull(httpClientFactory.getClient(localContext, HttpClientType.COMMON));
+      assertTrue(
+          waitUntil(() -> countEvictorThreads() > baselineEvictors, 2, TimeUnit.SECONDS),
+          "Creating a real HTTP client must start an IdleConnectionEvictor");
+
+      when(databricksClient.createSession(
+              new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+          .thenReturn(IMMUTABLE_SESSION_INFO);
+      DatabricksConnection localConnection =
+          new DatabricksConnection(localContext, databricksClient);
+      localConnection.open();
+      doThrow(new DatabricksSQLException("401 Unauthorized", "08000"))
+          .when(databricksClient)
+          .deleteSession(any());
+
+      assertDoesNotThrow(localConnection::close);
+
+      assertInstanceOf(
+          ClosedConnectionHttpClient.class,
+          httpClientFactory.getClient(localContext, HttpClientType.COMMON));
+      assertTrue(
+          waitUntil(() -> countEvictorThreads() == baselineEvictors, 2, TimeUnit.SECONDS),
+          "Connection evictor must terminate after close despite the expired token");
+    } finally {
+      httpClientFactory.reset();
+    }
+  }
+
+  @Test
+  public void testStatementCloseFailureStillStopsActualIdleConnectionEvictor() throws Exception {
+    IDatabricksConnectionContext localContext =
+        DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
+    DatabricksHttpClientFactory httpClientFactory = DatabricksHttpClientFactory.getInstance();
+    int baselineEvictors = countEvictorThreads();
+
+    try {
+      httpClientFactory.getClient(localContext, HttpClientType.COMMON);
+      assertTrue(waitUntil(() -> countEvictorThreads() > baselineEvictors, 2, TimeUnit.SECONDS));
+
+      when(databricksClient.createSession(
+              new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+          .thenReturn(IMMUTABLE_SESSION_INFO);
+      DatabricksConnection localConnection =
+          new DatabricksConnection(localContext, databricksClient);
+      localConnection.open();
+
+      IDatabricksStatementInternal failingStatement = mock(IDatabricksStatementInternal.class);
+      doThrow(new DatabricksSQLException("statement close failed", "08000"))
+          .when(failingStatement)
+          .close(false);
+      getStatementSet(localConnection).add(failingStatement);
+
+      assertThrows(DatabricksSQLException.class, localConnection::close);
+
+      verify(databricksClient).deleteSession(any());
+      assertInstanceOf(
+          ClosedConnectionHttpClient.class,
+          httpClientFactory.getClient(localContext, HttpClientType.COMMON));
+      assertTrue(
+          waitUntil(() -> countEvictorThreads() == baselineEvictors, 2, TimeUnit.SECONDS),
+          "Connection evictor must terminate even when statement.close() fails");
+    } finally {
+      httpClientFactory.reset();
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Set<IDatabricksStatementInternal> getStatementSet(
+      DatabricksConnection databricksConnection) throws ReflectiveOperationException {
+    Field field = DatabricksConnection.class.getDeclaredField("statementSet");
+    field.setAccessible(true);
+    return (Set<IDatabricksStatementInternal>) field.get(databricksConnection);
+  }
+
+  private static int countEvictorThreads() {
+    return (int)
+        Thread.getAllStackTraces().keySet().stream()
+            .filter(thread -> thread.isAlive() && thread.getName().contains("Connection evictor"))
+            .count();
+  }
+
+  private static boolean waitUntil(BooleanSupplier condition, long timeout, TimeUnit unit)
+      throws InterruptedException {
+    long deadlineNanos = System.nanoTime() + unit.toNanos(timeout);
+    while (System.nanoTime() < deadlineNanos) {
+      if (condition.getAsBoolean()) {
+        return true;
+      }
+      Thread.sleep(10);
+    }
+    return condition.getAsBoolean();
   }
 }

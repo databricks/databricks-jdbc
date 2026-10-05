@@ -3,6 +3,7 @@ package com.databricks.jdbc.telemetry;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_TAGS;
 import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
+import com.databricks.jdbc.api.impl.arrow.ArrowBufferAllocator;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
@@ -77,13 +78,10 @@ public class TelemetryHelper {
   }
 
   public static void exportTelemetryLog(
-      StatementTelemetryDetails telemetryDetails, TelemetryLogLevel logLevel) {
-    exportTelemetryEvent(
-        DatabricksThreadContextHolder.getConnectionContext(),
-        telemetryDetails,
-        null,
-        null,
-        logLevel);
+      IDatabricksConnectionContext connectionContext,
+      StatementTelemetryDetails telemetryDetails,
+      TelemetryLogLevel logLevel) {
+    exportTelemetryEvent(connectionContext, telemetryDetails, null, null, logLevel);
   }
 
   private static void exportTelemetryEvent(
@@ -106,6 +104,9 @@ public class TelemetryHelper {
         new TelemetryEvent()
             .setDriverSystemConfiguration(DRIVER_SYSTEM_CONFIGURATION)
             .setDriverConnectionParameters(getDriverConnectionParameter(connectionContext))
+            // TODO(ES-1961329 follow-up): sessionId is still read from the shared thread-local and
+            // can be misattributed across connections on the same thread (unlike connectionContext,
+            // which is now passed explicitly). Thread sessionId through per-connection state too.
             .setSessionId(DatabricksThreadContextHolder.getSessionId())
             .setDriverErrorInfo(errorInfo) // This is only set for failure logs
             .setSqlStatementId(telemetryDetails.getStatementId())

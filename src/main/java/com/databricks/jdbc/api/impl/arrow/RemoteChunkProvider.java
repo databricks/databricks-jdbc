@@ -7,6 +7,8 @@ import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TFetchResultsResp;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowResultLink;
 import com.databricks.jdbc.model.core.ResultData;
@@ -16,9 +18,11 @@ import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResultChunk> {
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(RemoteChunkProvider.class);
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
       "databricks-jdbc-chunks-downloader-";
   private ExecutorService chunkDownloaderExecutorService;
@@ -125,8 +129,26 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
   /** {@inheritDoc} */
   @Override
   protected void doClose() {
+    LOGGER.debug(
+        "doClose() called — shutting down executor and releasing all {} chunks (thread: {})",
+        chunkIndexToChunksMap.size(),
+        Thread.currentThread().getName());
     isClosed = true;
-    chunkDownloaderExecutorService.shutdownNow();
+    if (chunkDownloaderExecutorService != null) {
+      chunkDownloaderExecutorService.shutdownNow();
+      // Wait for download threads to finish error handling before releasing chunks.
+      // After shutdownNow() interrupts threads, they exit their retry sleep and process
+      // the error path (catch → finally → setStatus) in milliseconds. 3 seconds is a
+      // conservative upper bound to avoid racing with that error handling path.
+      try {
+        if (!chunkDownloaderExecutorService.awaitTermination(3, TimeUnit.SECONDS)) {
+          LOGGER.warn("Download threads did not terminate within timeout");
+        }
+      } catch (InterruptedException e) {
+        LOGGER.error(e, "Interrupted while waiting for download threads to terminate");
+        Thread.currentThread().interrupt();
+      }
+    }
     chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
     DatabricksThreadContextHolder.clearStatementInfo();
   }

@@ -3,6 +3,7 @@ package com.databricks.jdbc.telemetry.latency;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
@@ -18,12 +19,14 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.MockedStatic;
 
 public class TelemetryCollectorTest {
-  private final TelemetryCollector handler = new TelemetryCollector();
   private static final String TEST_STATEMENT_ID = "test-statement-id";
+  private final IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
+  private final TelemetryCollector handler = new TelemetryCollector(mockContext);
 
   @BeforeEach
   void setUp() {
     DatabricksThreadContextHolder.setStatementId(TEST_STATEMENT_ID);
+    when(mockContext.getTelemetryLogLevel()).thenReturn(TelemetryLogLevel.OFF);
   }
 
   @AfterEach
@@ -81,8 +84,15 @@ public class TelemetryCollectorTest {
       mockedStatic.verify(
           () ->
               TelemetryHelper.exportTelemetryLog(
-                  any(StatementTelemetryDetails.class), any(TelemetryLogLevel.class)));
+                  eq(mockContext),
+                  any(StatementTelemetryDetails.class),
+                  any(TelemetryLogLevel.class)));
     }
+  }
+
+  @Test
+  void testCollectorStoresConnectionContext() {
+    assertSame(mockContext, handler.getConnectionContext());
   }
 
   @ParameterizedTest

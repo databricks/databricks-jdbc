@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.ExecutionState;
@@ -24,7 +26,6 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.google.common.collect.ImmutableMap;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.service.sql.ServiceError;
@@ -35,7 +36,6 @@ import java.sql.*;
 import java.sql.Date;
 import java.time.*;
 import java.util.*;
-import java.time.OffsetDateTime;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -454,7 +454,11 @@ public class DatabricksResultSetTest {
     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"));
     Time actualTime = resultSet.getTime(columnIndex, calendar);
     assertEquals(
-        new Time(OffsetDateTime.of(LocalDate.of(1970, 1, 1), OffsetTime.parse("12:30:00+09:00").toLocalTime(), OffsetTime.parse("12:30:00+09:00").getOffset()).toEpochSecond() * 1000),
+        new Time(
+            OffsetTime.parse("12:30:00+09:00")
+                    .atDate(LocalDate.of(1970, 1, 1))
+                    .toEpochSecond()
+                * 1000),
         actualTime);
 
     // Test with null Calendar argument
@@ -521,7 +525,7 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.getObject(2))
         .thenReturn(
             new DatabricksStruct(
-                ImmutableMap.of("id", 1, "name", "Alice"), "STRUCT<id: INT, name: STRING>"));
+                com.google.common.collect.ImmutableMap.of("id", 1, "name", "Alice"), "STRUCT<id: INT, name: STRING>"));
     when(mockedResultSetMetadata.getColumnNameIndex("user_struct")).thenReturn(3);
 
     // Instantiate result set
@@ -586,14 +590,12 @@ public class DatabricksResultSetTest {
 
   @Test
   void testGetMap() throws SQLException {
-    // Define expected map entries
-    Object[] mapEntries = {"key1", 100, "key2", 200};
-
     // Mock DatabricksMap
-    DatabricksMap<String, Integer> mockMap = mock(DatabricksMap.class);
+    DatabricksMap<String, Integer> mockMap =
+        new DatabricksMap<>(com.google.common.collect.ImmutableMap.of("key1", 100, "key2", 200), "MAP<STRING, INT>");
 
     // Mock execution result
-    when(mockedExecutionResult.getObject(4)).thenReturn(ImmutableMap.of("key1", 100, "key2", 200));
+    when(mockedExecutionResult.getObject(4)).thenReturn(mockMap);
     when(mockedResultSetMetadata.getColumnNameIndex("int_map")).thenReturn(5);
 
     // Instantiate result set
@@ -614,6 +616,57 @@ public class DatabricksResultSetTest {
     // Retrieve map by label
     Map<String, Integer> retrievedMapByLabel = resultSet.getMap("int_map");
     assertNotNull(retrievedMapByLabel, "Retrieved map by label should not be null");
+  }
+
+  @Test
+  void testComplexGetterWrongTypeThrowsDatabricksSQLException() throws SQLException {
+    DatabricksArray array = new DatabricksArray(com.google.common.collect.ImmutableList.of("a"), "ARRAY<STRING>");
+    DatabricksMap<String, Integer> map = new DatabricksMap<>(com.google.common.collect.ImmutableMap.of("k", 1), "MAP<STRING, INT>");
+    DatabricksStruct struct = new DatabricksStruct(com.google.common.collect.ImmutableMap.of("id", 1), "STRUCT<id: INT>");
+
+    when(mockedExecutionResult.getObject(0)).thenReturn(array);
+    when(mockedExecutionResult.getObject(1)).thenReturn(map);
+    when(mockedExecutionResult.getObject(2)).thenReturn(struct);
+    when(mockedExecutionResult.getObject(3)).thenReturn(null);
+
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.METADATA,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            true);
+
+    assertNotNull(resultSet.getArray(1));
+    assertNotNull(resultSet.getMap(2));
+    assertNotNull(resultSet.getStruct(3));
+    assertNull(resultSet.getArray(4));
+
+    DatabricksSQLException getMapOnArray =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getMap(1));
+    assertEquals(
+        DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR.name(),
+        getMapOnArray.getSQLState());
+
+    DatabricksSQLException getArrayOnMap =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getArray(2));
+    assertEquals(
+        DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR.name(),
+        getArrayOnMap.getSQLState());
+
+    DatabricksSQLException getStructOnArray =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getStruct(1));
+    assertEquals(
+        DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR.name(),
+        getStructOnArray.getSQLState());
+
+    DatabricksSQLException getArrayOnStruct =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getArray(3));
+    assertEquals(
+        DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR.name(),
+        getArrayOnStruct.getSQLState());
   }
 
   @Test
@@ -794,13 +847,13 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateCharacterStream(1, null));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateBlob(1, new java.io.ByteArrayInputStream(new byte[0])));
+        () -> resultSet.updateBlob(1, new ByteArrayInputStream(new byte[0])));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateClob(1, new java.io.StringReader("")));
+        () -> resultSet.updateClob(1, new StringReader("")));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateNClob(1, new java.io.StringReader("")));
+        () -> resultSet.updateNClob(1, new StringReader("")));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
         () -> resultSet.updateNCharacterStream("column", null));
@@ -815,13 +868,13 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateCharacterStream("column", null));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateBlob("column", new java.io.ByteArrayInputStream(new byte[0])));
+        () -> resultSet.updateBlob("column", new ByteArrayInputStream(new byte[0])));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateClob("column", new java.io.StringReader("")));
+        () -> resultSet.updateClob("column", new StringReader("")));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateNClob("column", new java.io.StringReader("")));
+        () -> resultSet.updateNClob("column", new StringReader("")));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateInt(1, 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateInt("column", 1));
@@ -876,16 +929,18 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateTimestamp("column", new Timestamp(0)));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateAsciiStream(1, new java.io.ByteArrayInputStream(new byte[0]), 1));
+        () -> resultSet.updateAsciiStream(1, new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateAsciiStream("column", new java.io.ByteArrayInputStream(new byte[0]), 1));
+        () ->
+            resultSet.updateAsciiStream("column", new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateBinaryStream(1, new java.io.ByteArrayInputStream(new byte[0]), 1));
+        () -> resultSet.updateBinaryStream(1, new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateBinaryStream("column", new java.io.ByteArrayInputStream(new byte[0]), 1));
+        () ->
+            resultSet.updateBinaryStream("column", new ByteArrayInputStream(new byte[0]), 1));
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::rowUpdated);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::rowInserted);
     assertThrows(DatabricksSQLFeatureNotSupportedException.class, resultSet::rowDeleted);
@@ -904,10 +959,10 @@ public class DatabricksResultSetTest {
         () -> resultSet.updateByte("column", (byte) 100));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateCharacterStream(1, new java.io.StringReader(""), 1));
+        () -> resultSet.updateCharacterStream(1, new StringReader(""), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class,
-        () -> resultSet.updateCharacterStream("column", new java.io.StringReader(""), 1));
+        () -> resultSet.updateCharacterStream("column", new StringReader(""), 1));
     assertThrows(
         DatabricksSQLFeatureNotSupportedException.class, () -> resultSet.updateSQLXML(1, null));
     assertThrows(
@@ -1408,5 +1463,181 @@ public class DatabricksResultSetTest {
     TelemetryCollector collector =
         TelemetryCollectorManager.getInstance().getOrCreateCollector(verifyContext);
     assertNotNull(collector);
+  }
+
+  // --- maxRows truncation tests ---
+
+  private DatabricksResultSet getResultSetWithMaxRows(int maxRows, IExecutionResult executionResult)
+      throws Exception {
+    IDatabricksStatementInternal stmt = mock(IDatabricksStatementInternal.class);
+    when(stmt.getLargeMaxRows()).thenReturn((long) maxRows);
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        STATEMENT_ID,
+        StatementType.QUERY,
+        stmt,
+        executionResult,
+        mockedResultSetMetadata,
+        false);
+  }
+
+  @Test
+  void testNextRespectsMaxRows() throws Exception {
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(3, mockedExecutionResult);
+
+    assertTrue(resultSet.next()); // row 1
+    assertTrue(resultSet.next()); // row 2
+    assertTrue(resultSet.next()); // row 3
+    assertFalse(resultSet.next()); // limit reached
+    assertFalse(resultSet.next()); // still false
+  }
+
+  @Test
+  void testNextMaxRowsZeroNoLimit() throws Exception {
+    // maxRows=0 means no limit; all 100 next() calls should succeed
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(0, mockedExecutionResult);
+
+    for (int i = 0; i < 100; i++) {
+      assertTrue(resultSet.next(), "next() should return true at iteration " + i);
+    }
+  }
+
+  @Test
+  void testNextMaxRowsNullParentNoLimit() throws Exception {
+    // parentStatement=null means maxRowsLimit=0 (no limit)
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.QUERY,
+            null, // null parentStatement
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            false);
+
+    for (int i = 0; i < 100; i++) {
+      assertTrue(resultSet.next(), "next() should return true at iteration " + i);
+    }
+  }
+
+  @Test
+  void testNextMaxRowsOneEdge() throws Exception {
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(1, mockedExecutionResult);
+
+    assertTrue(resultSet.next()); // row 1
+    assertFalse(resultSet.next()); // limit reached
+  }
+
+  @Test
+  void testNextMaxRowsDoesNotCallExecutionResultAfterLimit() throws Exception {
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(3, mockedExecutionResult);
+
+    resultSet.next(); // row 1
+    resultSet.next(); // row 2
+    resultSet.next(); // row 3
+    // These should NOT delegate to executionResult
+    resultSet.next();
+    resultSet.next();
+
+    // executionResult.next() should have been called exactly 3 times
+    verify(mockedExecutionResult, times(3)).next();
+  }
+
+  @Test
+  void testNextMaxRowsWithEmptyResultSet() throws Exception {
+    // maxRows > 0 but the underlying result set is empty; next() should return false immediately
+    when(mockedExecutionResult.next()).thenReturn(false);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(5, mockedExecutionResult);
+
+    assertFalse(resultSet.next(), "next() should return false on an empty result set");
+    assertFalse(
+        resultSet.next(),
+        "next() should still return false on subsequent calls to an empty result set");
+    // executionResult.next() should have been called because rowsReturned (0) < maxRows (5)
+    verify(mockedExecutionResult, times(2)).next();
+  }
+
+  @Test
+  void testNextMaxRowsGreaterThanActualRows() throws Exception {
+    // maxRows=10 but only 3 rows exist; result set should be naturally exhausted before the limit
+    when(mockedExecutionResult.next()).thenReturn(true, true, true, false);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(10, mockedExecutionResult);
+
+    assertTrue(resultSet.next()); // row 1
+    assertTrue(resultSet.next()); // row 2
+    assertTrue(resultSet.next()); // row 3
+    assertFalse(resultSet.next(), "next() should return false when data is exhausted before limit");
+  }
+
+  @Test
+  void testNextMaxRowsIdempotenceAfterLimit() throws Exception {
+    // Calling next() many times after the limit is reached should always return false
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(2, mockedExecutionResult);
+
+    assertTrue(resultSet.next()); // row 1
+    assertTrue(resultSet.next()); // row 2 (limit reached)
+    // All subsequent calls must consistently return false (idempotent behavior)
+    for (int i = 0; i < 10; i++) {
+      assertFalse(resultSet.next(), "next() must return false on repeated call #" + (i + 1));
+    }
+    // executionResult.next() should have been called exactly 2 times (the limit)
+    verify(mockedExecutionResult, times(2)).next();
+  }
+
+  @Test
+  void testCursorMethodsAfterMaxRowsTruncation() throws Exception {
+    when(mockedExecutionResult.next()).thenReturn(true);
+    DatabricksResultSet resultSet = getResultSetWithMaxRows(3, mockedExecutionResult);
+
+    // Consume all 3 allowed rows
+    assertTrue(resultSet.next());
+    assertTrue(resultSet.next());
+    assertTrue(resultSet.next());
+
+    // On the last allowed row, isLast() should be true
+    assertTrue(resultSet.isLast(), "isLast() should be true on the last allowed row");
+
+    // next() returns false — truncated
+    assertFalse(resultSet.next());
+
+    // After truncation: cursor is logically after last row
+    assertTrue(resultSet.isAfterLast(), "isAfterLast() should be true after truncation");
+    assertEquals(0, resultSet.getRow(), "getRow() should return 0 when cursor is after last row");
+  }
+
+  @Test
+  void testGetUpdateCountBypassesMaxRows() throws Exception {
+    // Mock an UPDATE result set with maxRows=2 but 5 affected rows across 5 result rows.
+    // getUpdateCount() should sum all 5 rows (returning 5), proving the
+    // countingUpdateRows flag bypasses the maxRows limit during internal iteration.
+    InlineJsonResult mockExec = mock(InlineJsonResult.class);
+    when(mockExec.next()).thenReturn(true, true, true, true, true, false);
+    when(mockExec.getObject(0)).thenReturn(1L, 1L, 1L, 1L, 1L);
+
+    DatabricksResultSetMetaData mockMeta = mock(DatabricksResultSetMetaData.class);
+    when(mockMeta.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockMeta.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
+
+    IDatabricksStatementInternal stmt = mock(IDatabricksStatementInternal.class);
+    when(stmt.getLargeMaxRows()).thenReturn(2L);
+
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.UPDATE,
+            stmt,
+            mockExec,
+            mockMeta,
+            false);
+
+    // getUpdateCount() must iterate all 5 rows despite maxRows=2
+    assertEquals(5L, resultSet.getUpdateCount());
   }
 }

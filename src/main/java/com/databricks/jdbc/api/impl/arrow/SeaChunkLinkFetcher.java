@@ -32,7 +32,7 @@ public class SeaChunkLinkFetcher implements ChunkLinkFetcher {
   @Override
   public ChunkLinkFetchResult fetchLinks(long startChunkIndex, long startRowOffset)
       throws SQLException {
-    // SEA uses startChunkIndex; startRowOffset is ignored
+    // SEA uses startChunkIndex; startRowOffset is passed through for bounded SEA API
     LOGGER.debug(
         "Fetching links starting from chunk index {} for statement {}",
         startChunkIndex,
@@ -45,7 +45,7 @@ public class SeaChunkLinkFetcher implements ChunkLinkFetcher {
 
   @Override
   public ExternalLink refetchLink(long chunkIndex, long rowOffset) throws SQLException {
-    // SEA uses chunkIndex; rowOffset is ignored
+    // SEA uses chunkIndex; rowOffset is passed through for bounded SEA API
     LOGGER.info("Refetching expired link for chunk {} of statement {}", chunkIndex, statementId);
 
     ChunkLinkFetchResult result =

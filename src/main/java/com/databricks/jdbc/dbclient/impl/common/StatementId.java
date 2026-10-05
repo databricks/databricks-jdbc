@@ -95,4 +95,9 @@ public class StatementId {
     return Objects.equals(this.guid, ((StatementId) otherStatement).guid)
         && Objects.equals(this.secret, ((StatementId) otherStatement).secret);
   }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(clientType, guid, secret);
+  }
 }

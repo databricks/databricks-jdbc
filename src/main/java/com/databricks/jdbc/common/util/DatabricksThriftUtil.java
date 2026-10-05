@@ -1,6 +1,7 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.ARROW_METADATA_KEY;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.DATA_EXCEPTION_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
@@ -23,8 +24,6 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
@@ -38,7 +37,7 @@ import org.apache.arrow.vector.util.SchemaUtility;
 public class DatabricksThriftUtil {
 
   private static final Map<TTypeId, ColumnInfoTypeName> T_TYPE_ID_COLUMN_INFO_TYPE_NAME_MAP =
-      ImmutableMap.<TTypeId, ColumnInfoTypeName>builder()
+      com.google.common.collect.ImmutableMap.<TTypeId, ColumnInfoTypeName>builder()
           .put(BOOLEAN_TYPE, ColumnInfoTypeName.BOOLEAN)
           .put(TINYINT_TYPE, ColumnInfoTypeName.BYTE)
           .put(SMALLINT_TYPE, ColumnInfoTypeName.SHORT)
@@ -63,7 +62,7 @@ public class DatabricksThriftUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksThriftUtil.class);
   private static final List<TStatusCode> SUCCESS_STATUS_LIST =
-      ImmutableList.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
+      com.google.common.collect.ImmutableList.of(TStatusCode.SUCCESS_STATUS, TStatusCode.SUCCESS_WITH_INFO_STATUS);
 
   public static TNamespace getNamespace(String catalog, String schema) {
     return new TNamespace().setCatalogName(catalog).setSchemaName(schema);
@@ -112,7 +111,16 @@ public class DatabricksThriftUtil {
             errorMessage, sqlState, null, DatabricksDriverErrorCode.OPERATION_TIMEOUT_ERROR);
       }
 
-      throw new DatabricksHttpException(errorMessage, sqlState);
+      String remappedSqlState =
+          SqlStateClassifier.classifyTransientSqlState(status.getErrorMessage(), sqlState);
+      if (!Objects.equals(remappedSqlState, sqlState)) {
+        LOGGER.info(
+            "Remapped SQL state [{}] -> [{}] for transient error pattern in thrift status (context: {})",
+            sqlState,
+            remappedSqlState,
+            errorContext);
+      }
+      throw new DatabricksHttpException(errorMessage, remappedSqlState);
     }
   }
 
@@ -236,7 +244,8 @@ public class DatabricksThriftUtil {
 
     String typeText = getTypeTextFromTypeDesc(columnDesc.getTypeDesc());
 
-    if (arrowMetadata != null && isComplexType(arrowMetadata)) {
+    if (arrowMetadata != null
+        && (isComplexType(arrowMetadata) || isGeospatialType(arrowMetadata))) {
       typeText = arrowMetadata;
       if (arrowMetadata.startsWith(GEOMETRY)) {
         columnInfoTypeName = ColumnInfoTypeName.GEOMETRY;
@@ -426,7 +435,11 @@ public class DatabricksThriftUtil {
     } catch (IOException e) {
       String errorMessage = "Failed to deserialize Arrow schema: " + e.getMessage();
       LOGGER.error(errorMessage, e);
-      throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.RESULT_SET_ERROR);
+      throw new DatabricksSQLException(
+          errorMessage,
+          DATA_EXCEPTION_SQLSTATE,
+          DatabricksDriverErrorCode.ARROW_SCHEMA_PARSING_ERROR.getCode(),
+          e);
     }
   }
 }

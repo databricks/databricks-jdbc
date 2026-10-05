@@ -8,12 +8,10 @@ import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableMap;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +37,7 @@ class DatabricksDriverFeatureFlagsContextTest {
   @Mock private ObjectMapper objectMapperMock;
   private static final String FEATURE_FLAG_NAME = "featureFlagName";
   private static final String FEATURE_FLAGS_ENDPOINT =
-      "https://test-host/api/2.0/connector-service/feature-flags/OSS_JDBC/3.2.1";
+      "https://test-host/api/2.0/connector-service/feature-flags/OSS_JDBC/3.4.3";
 
   private DatabricksDriverFeatureFlagsContext context;
 
@@ -53,8 +51,8 @@ class DatabricksDriverFeatureFlagsContextTest {
   private String createFeatureFlagsJson(String flagName, String flagValue, int ttlSeconds)
       throws Exception {
     ObjectMapper mapper = new ObjectMapper();
-    Map<String, Object> flag = ImmutableMap.<String, Object>of("name", flagName, "value", flagValue);
-    Map<String, Object> response = ImmutableMap.<String, Object>of("flags", Collections.singletonList(flag), "ttlSeconds", ttlSeconds);
+    Map<String, Object> flag = com.google.common.collect.ImmutableMap.of("name", flagName, "value", flagValue);
+    Map<String, Object> response = com.google.common.collect.ImmutableMap.of("flags", com.google.common.collect.ImmutableList.of(flag), "ttlSeconds", ttlSeconds);
     return mapper.writeValueAsString(response);
   }
 
@@ -80,8 +78,8 @@ class DatabricksDriverFeatureFlagsContextTest {
   private FeatureFlagsResponse createFeatureFlagsResponse(
       String flagName, String flagValue, int ttlSeconds) throws Exception {
     ObjectMapper mapper = new ObjectMapper();
-    Map<String, Object> flag = ImmutableMap.<String, Object>of("name", flagName, "value", flagValue);
-    Map<String, Object> response = ImmutableMap.<String, Object>of("flags", Collections.singletonList(flag), "ttlSeconds", ttlSeconds);
+    Map<String, Object> flag = com.google.common.collect.ImmutableMap.of("name", flagName, "value", flagValue);
+    Map<String, Object> response = com.google.common.collect.ImmutableMap.of("flags", com.google.common.collect.ImmutableList.of(flag), "ttlSeconds", ttlSeconds);
     return mapper.readValue(mapper.writeValueAsString(response), FeatureFlagsResponse.class);
   }
 

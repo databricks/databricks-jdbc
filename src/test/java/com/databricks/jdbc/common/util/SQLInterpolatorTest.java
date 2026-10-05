@@ -94,6 +94,23 @@ public class SQLInterpolatorTest {
     assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
   }
 
+  // SEC-20590: a non-hex String typed as BINARY must be escaped, not executed as SQL.
+  @Test
+  public void testBinaryTypeRejectsNonHexString() throws DatabricksValidationException {
+    String sql = "SELECT ?";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, "current_user()", DatabricksTypeUtil.BINARY));
+    assertEquals("SELECT 'current_user()'", SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testBinaryTypeEscapesMaliciousHexLookalike() throws DatabricksValidationException {
+    String sql = "SELECT ?";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, "X'41' OR 1=1 --", DatabricksTypeUtil.BINARY));
+    assertEquals("SELECT 'X''41'' OR 1=1 --'", SQLInterpolator.interpolateSQL(sql, params));
+  }
+
   @Test
   public void testTimestampType() throws DatabricksValidationException {
     String sql = "INSERT INTO events (id, created_at) VALUES (?, ?)";
@@ -124,6 +141,78 @@ public class SQLInterpolatorTest {
     params.put(2, getSqlParam(2, "foo\nbar\tbazz", DatabricksTypeUtil.STRING));
     String expected = "INSERT INTO events (id, text) VALUES (101, 'foo\\nbar\\tbazz')";
     assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testQuestionMarkInLineCommentNotTreatedAsPlaceholder()
+      throws DatabricksValidationException {
+    String sql = "-- does this work?\nselect * from mytable where id = ?";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 42, DatabricksTypeUtil.INT));
+    String expected = "-- does this work?\nselect * from mytable where id = 42";
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testQuestionMarkInBlockCommentNotTreatedAsPlaceholder()
+      throws DatabricksValidationException {
+    String sql = "select /* maybe? or ? */ * from t where id = ?";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 1, DatabricksTypeUtil.INT));
+    String expected = "select /* maybe? or ? */ * from t where id = 1";
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testQuestionMarkInStringLiteralNotTreatedAsPlaceholder()
+      throws DatabricksValidationException {
+    String sql = "select 'hello?', * from mytable where id = ?";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 5, DatabricksTypeUtil.INT));
+    String expected = "select 'hello?', * from mytable where id = 5";
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testQuestionMarkInQuotedIdentifierNotTreatedAsPlaceholder()
+      throws DatabricksValidationException {
+    String sql = "select `col?` from t where id = ? and name = \"who?\"";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 7, DatabricksTypeUtil.INT));
+    String expected = "select `col?` from t where id = 7 and name = \"who?\"";
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testCombinedCommentsAndLiteralsWithQuestionMarks()
+      throws DatabricksValidationException {
+    String sql =
+        "-- ?\n/* ? */ select 'a?' as x, ? as y, \"b?\" as z, `c?` as w from t where id = ?";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, "alice", DatabricksTypeUtil.STRING));
+    params.put(2, getSqlParam(2, 99, DatabricksTypeUtil.INT));
+    String expected =
+        "-- ?\n/* ? */ select 'a?' as x, 'alice' as y, \"b?\" as z, `c?` as w from t where id = 99";
+    assertEquals(expected, SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testInterpolateAdjacentPlaceholders() throws DatabricksValidationException {
+    String sql = "select ?,?,? from t";
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 1, DatabricksTypeUtil.INT));
+    params.put(2, getSqlParam(2, 2, DatabricksTypeUtil.INT));
+    params.put(3, getSqlParam(3, 3, DatabricksTypeUtil.INT));
+    assertEquals("select 1,2,3 from t", SQLInterpolator.interpolateSQL(sql, params));
+  }
+
+  @Test
+  public void testInterpolatePlaceholderAtStartAndEnd() throws DatabricksValidationException {
+    Map<Integer, ImmutableSqlParameter> params = new HashMap<>();
+    params.put(1, getSqlParam(1, 7, DatabricksTypeUtil.INT));
+    assertEquals("7 ", SQLInterpolator.interpolateSQL("? ", params));
+    assertEquals(" 7", SQLInterpolator.interpolateSQL(" ?", params));
+    assertEquals("7", SQLInterpolator.interpolateSQL("?", params));
   }
 
   @Test
@@ -177,7 +266,37 @@ public class SQLInterpolatorTest {
         Arguments.of(
             "SELECT * FROM table WHERE id = ? AND (name = ? OR age = ?) AND status = ?",
             "SELECT * FROM table WHERE id = '?' AND (name = '?' OR age = '?') AND status = '?'",
-            "Complex query with multiple conditions"));
+            "Complex query with multiple conditions"),
+
+        // ? inside line comment must not be quoted
+        Arguments.of(
+            "-- is this a ?\nSELECT ? FROM t",
+            "-- is this a ?\nSELECT '?' FROM t",
+            "Question mark inside line comment is preserved"),
+
+        // ? inside block comment must not be quoted
+        Arguments.of(
+            "SELECT /* ? */ ? FROM t",
+            "SELECT /* ? */ '?' FROM t",
+            "Question mark inside block comment is preserved"),
+
+        // ? inside double-quoted identifier must not be quoted
+        Arguments.of(
+            "SELECT \"col?\" FROM t WHERE id = ?",
+            "SELECT \"col?\" FROM t WHERE id = '?'",
+            "Question mark inside double-quoted identifier is preserved"),
+
+        // ? inside backtick identifier must not be quoted
+        Arguments.of(
+            "SELECT `col?` FROM t WHERE id = ?",
+            "SELECT `col?` FROM t WHERE id = '?'",
+            "Question mark inside backtick identifier is preserved"),
+
+        // Adjacent placeholders — both must be quoted independently
+        Arguments.of(
+            "SELECT ?,?,? FROM t",
+            "SELECT '?','?','?' FROM t",
+            "Adjacent placeholders are each quoted"));
   }
 
   @ParameterizedTest(name = "{2}")

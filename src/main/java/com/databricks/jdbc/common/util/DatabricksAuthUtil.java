@@ -11,9 +11,19 @@ import com.databricks.sdk.core.http.HttpClient;
 import com.nimbusds.jwt.SignedJWT;
 import java.io.IOException;
 import java.text.ParseException;
+import java.util.Arrays;
+import java.util.List;
 
 public class DatabricksAuthUtil {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksAuthUtil.class);
+
+  /** Parses the space-separated Auth_Scope value, returning an empty list for blank values. */
+  public static List<String> parseOAuthScopes(String authScope) {
+    if (authScope == null || authScope.trim().isEmpty()) {
+      return com.google.common.collect.ImmutableList.of();
+    }
+    return Arrays.asList(authScope.trim().split("\\s+"));
+  }
 
   public static String getTokenEndpoint(
       DatabricksConfig databricksConfig, IDatabricksConnectionContext connectionContext) {

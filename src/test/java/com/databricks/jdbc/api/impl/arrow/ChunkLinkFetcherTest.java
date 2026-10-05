@@ -10,7 +10,6 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,7 +67,7 @@ public class ChunkLinkFetcherTest {
     @DisplayName("fetchLinks should delegate to client with chunkIndex")
     void testFetchLinksDelegatesToClient() throws SQLException {
       ExternalLink link = createLink(5, 500, 100);
-      ChunkLinkFetchResult expectedResult = ChunkLinkFetchResult.of(Arrays.asList(link), true, 6, 600);
+      ChunkLinkFetchResult expectedResult = ChunkLinkFetchResult.of(com.google.common.collect.ImmutableList.of(link), true, 6, 600);
 
       when(mockClient.getResultChunks(STATEMENT_ID, 5L, 500L)).thenReturn(expectedResult);
 
@@ -83,7 +82,7 @@ public class ChunkLinkFetcherTest {
     void testRefetchLinkReturnsMatchingLink() throws SQLException {
       ExternalLink link5 = createLink(5, 500, 100);
       ExternalLink link6 = createLink(6, 600, 100);
-      ChunkLinkFetchResult result = ChunkLinkFetchResult.of(Arrays.asList(link5, link6), true, 7, 700);
+      ChunkLinkFetchResult result = ChunkLinkFetchResult.of(com.google.common.collect.ImmutableList.of(link5, link6), true, 7, 700);
 
       when(mockClient.getResultChunks(STATEMENT_ID, 5L, 500L)).thenReturn(result);
 
@@ -110,7 +109,7 @@ public class ChunkLinkFetcherTest {
       // Return links for chunk 6 and 7, but we're looking for chunk 5
       ExternalLink link6 = createLink(6, 600, 100);
       ExternalLink link7 = createLink(7, 700, 100);
-      ChunkLinkFetchResult result = ChunkLinkFetchResult.of(Arrays.asList(link6, link7), true, 8, 800);
+      ChunkLinkFetchResult result = ChunkLinkFetchResult.of(com.google.common.collect.ImmutableList.of(link6, link7), true, 8, 800);
 
       when(mockClient.getResultChunks(STATEMENT_ID, 5L, 500L)).thenReturn(result);
 
@@ -144,7 +143,7 @@ public class ChunkLinkFetcherTest {
     @DisplayName("fetchLinks should delegate to client with rowOffset")
     void testFetchLinksDelegatesToClient() throws SQLException {
       ExternalLink link = createLink(5, 500, 100);
-      ChunkLinkFetchResult expectedResult = ChunkLinkFetchResult.of(Arrays.asList(link), true, 6, 600);
+      ChunkLinkFetchResult expectedResult = ChunkLinkFetchResult.of(com.google.common.collect.ImmutableList.of(link), true, 6, 600);
 
       when(mockClient.getResultChunks(STATEMENT_ID, 5L, 500L)).thenReturn(expectedResult);
 
@@ -159,7 +158,7 @@ public class ChunkLinkFetcherTest {
     void testRefetchLinkReturnsMatchingLink() throws SQLException {
       ExternalLink link5 = createLink(5, 500, 100);
       ExternalLink link6 = createLink(6, 600, 100);
-      ChunkLinkFetchResult result = ChunkLinkFetchResult.of(Arrays.asList(link5, link6), true, 7, 700);
+      ChunkLinkFetchResult result = ChunkLinkFetchResult.of(com.google.common.collect.ImmutableList.of(link5, link6), true, 7, 700);
 
       when(mockClient.getResultChunks(STATEMENT_ID, 5L, 500L)).thenReturn(result);
 
@@ -175,7 +174,7 @@ public class ChunkLinkFetcherTest {
       ChunkLinkFetchResult emptyWithMore =
           ChunkLinkFetchResult.of(Collections.emptyList(), true, 5, 500);
       ExternalLink link5 = createLink(5, 500, 100);
-      ChunkLinkFetchResult successResult = ChunkLinkFetchResult.of(Arrays.asList(link5), false, -1, 600);
+      ChunkLinkFetchResult successResult = ChunkLinkFetchResult.of(com.google.common.collect.ImmutableList.of(link5), false, -1, 600);
 
       when(mockClient.getResultChunks(STATEMENT_ID, 5L, 500L))
           .thenReturn(emptyWithMore)
@@ -210,7 +209,7 @@ public class ChunkLinkFetcherTest {
       // Return links for chunk 6 and 7, but we're looking for chunk 5
       ExternalLink link6 = createLink(6, 600, 100);
       ExternalLink link7 = createLink(7, 700, 100);
-      ChunkLinkFetchResult result = ChunkLinkFetchResult.of(Arrays.asList(link6, link7), true, 8, 800);
+      ChunkLinkFetchResult result = ChunkLinkFetchResult.of(com.google.common.collect.ImmutableList.of(link6, link7), true, 8, 800);
 
       when(mockClient.getResultChunks(STATEMENT_ID, 5L, 500L)).thenReturn(result);
 

@@ -1,6 +1,5 @@
 package com.databricks.jdbc.log;
 
-import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,8 +34,7 @@ public class JulLogger implements JdbcLogger {
 
   public static final String JAVA_UTIL_LOGGING_CONFIG_FILE = "java.util.logging.config.file";
 
-  private static final Set<String> logMethods =
-      ImmutableSet.of("debug", "error", "info", "trace", "warn");
+  private static final Set<String> logMethods = com.google.common.collect.ImmutableSet.of("debug", "error", "info", "trace", "warn");
 
   protected Logger logger;
 
@@ -110,12 +108,14 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void error(Throwable throwable, String format, Object... arguments) {
-    error(String.format(slf4jToJavaFormat(format), arguments), throwable);
+    error(throwable, String.format(slf4jToJavaFormat(format), arguments));
   }
 
   /**
    * Initializes the logger with the specified configuration. This method is synchronized to prevent
-   * concurrent modifications to the logger configuration.
+   * concurrent modifications to the logger configuration. A Level.OFF request suppresses JUL output
+   * without installing a handler, allowing a later enabled request to initialize the shared logger.
+   * Once an enabled handler is installed, subsequent requests do not reconfigure it.
    *
    * @param level the log level
    * @param logDir the directory for log files or {@code STDOUT} for console output
@@ -125,38 +125,51 @@ public class JulLogger implements JdbcLogger {
    */
   public static synchronized void initLogger(
       Level level, String logDir, int logFileSizeBytes, int logFileCount) throws IOException {
-    if (!isLoggerInitialized) {
-      isLoggerInitialized = true;
-
-      // java.util.logging uses hierarchical loggers, so we just need to set the log level on the
-      // parent package logger. Using "com.databricks" as the prefix captures all JDBC driver
-      // classes as well as shaded dependencies (SDK, Apache HTTP client, etc.)
-      Logger jdbcJulLogger = Logger.getLogger(PARENT_CLASS_PREFIX);
-      jdbcJulLogger.setLevel(level);
-      jdbcJulLogger.setUseParentHandlers(false);
-
-      String logPattern = getLogPattern(logDir);
-      Handler handler;
-      if (logPattern.equalsIgnoreCase(STDOUT)) {
-        handler =
-            new StreamHandler(System.out, new Slf4jFormatter()) {
-              @Override
-              public void publish(LogRecord record) {
-                super.publish(record);
-                // prompt flushing; full send >>> 🚀
-                flush();
-              }
-            };
-      } else {
-        handler = new FileHandler(logPattern, logFileSizeBytes, logFileCount, true);
-      }
-      handler.setLevel(level);
-      handler.setFormatter(new Slf4jFormatter());
-      jdbcJulLogger.addHandler(handler);
+    if (isLoggerInitialized) {
+      return;
     }
+
+    // java.util.logging uses hierarchical loggers, so we just need to set the log level on the
+    // parent package logger. Using "com.databricks" as the prefix captures all JDBC driver
+    // classes as well as shaded dependencies (SDK, Apache HTTP client, etc.)
+    Logger jdbcJulLogger = Logger.getLogger(PARENT_CLASS_PREFIX);
+    jdbcJulLogger.setUseParentHandlers(false);
+
+    if (level.intValue() == Level.OFF.intValue()) {
+      jdbcJulLogger.setLevel(Level.OFF);
+      return;
+    }
+
+    String logPattern = getLogPattern(logDir);
+    Handler handler;
+    if (logPattern.equalsIgnoreCase(STDOUT)) {
+      handler =
+          new StreamHandler(System.out, new Slf4jFormatter()) {
+            @Override
+            public void publish(LogRecord record) {
+              super.publish(record);
+              // prompt flushing; full send >>> 🚀
+              flush();
+            }
+          };
+    } else {
+      handler = new FileHandler(logPattern, logFileSizeBytes, logFileCount, true);
+    }
+    handler.setLevel(level);
+    handler.setFormatter(new Slf4jFormatter());
+    jdbcJulLogger.addHandler(handler);
+    jdbcJulLogger.setLevel(level);
+    isLoggerInitialized = true;
   }
 
   private void log(Level level, String message, Throwable throwable) {
+    // Skip the work (notably the expensive getCaller() stack-trace walk) when the
+    // configured level would discard this record anyway. See GitHub issue #1511:
+    // reading array/complex-type columns logs once per element, and an unconditional
+    // stack walk per element dominates CPU even when logging is effectively disabled.
+    if (!logger.isLoggable(level)) {
+      return;
+    }
     String[] callerClassMethod = getCaller();
     if (throwable == null) {
       logger.logp(level, callerClassMethod[0], callerClassMethod[1], message);
@@ -189,13 +202,11 @@ public class JulLogger implements JdbcLogger {
         if (logMethods.contains(methodName)) {
           foundLogMethod = true;
         }
-      } else {
-        if (!logMethods.contains(methodName)) {
-          return new String[] {stackTrace.getClassName(), methodName};
-        }
+      } else if (!logMethods.contains(methodName)) {
+        return new String[] {stackTrace.getClassName(), methodName};
       }
     }
-    return new String[] {"unknownClass", "unknownMethod"}; // lost in the stack trace wonderland :)
+    return new String[] {"unknownClass", "unknownMethod"};
   }
 
   /**

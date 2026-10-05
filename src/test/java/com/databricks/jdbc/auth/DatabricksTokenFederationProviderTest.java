@@ -21,7 +21,6 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -107,10 +106,9 @@ public class DatabricksTokenFederationProviderTest {
   @Test
   public void testRetrieveTokensFailure() throws Exception {
 
-    when(mockHttpClient.execute(any(HttpPost.class)))
-        .thenThrow(
-            new DatabricksHttpException(
-                "Connection error", DatabricksDriverErrorCode.CONNECTION_ERROR));
+    DatabricksHttpException httpException =
+        new DatabricksHttpException("Connection error", DatabricksDriverErrorCode.CONNECTION_ERROR);
+    when(mockHttpClient.execute(any(HttpPost.class))).thenThrow(httpException);
 
     assertThrows(
         DatabricksDriverException.class,
@@ -127,14 +125,14 @@ public class DatabricksTokenFederationProviderTest {
 
     Optional<Token> returnedToken =
         databricksTokenFederationProvider.tryTokenExchange("accessToken", "tokenType");
-    assertTrue(!returnedToken.isPresent());
+    assertFalse(returnedToken.isPresent());
   }
 
   @Test
   public void testSameHostNoTokenExchange() throws Exception {
 
     Map<String, String> testExternalHeaders =
-        Collections.singletonMap("Authorization", "Bearer " + testJwtTokenString());
+        com.google.common.collect.ImmutableMap.of("Authorization", "Bearer " + testJwtTokenString());
 
     when(mockConfig.getHost()).thenReturn("https://host.com");
     when(mockCredentialsProvider.configure(any())).thenReturn(() -> testExternalHeaders);
@@ -193,7 +191,7 @@ public class DatabricksTokenFederationProviderTest {
     signedJWT.sign(signer);
     String jwtToken = signedJWT.serialize();
 
-    Map<String, String> testExternalHeaders = Collections.singletonMap("Authorization", "Bearer " + jwtToken);
+    Map<String, String> testExternalHeaders = com.google.common.collect.ImmutableMap.of("Authorization", "Bearer " + jwtToken);
 
     when(mockConfig.getHost()).thenReturn("https://host.com");
     when(mockCredentialsProvider.configure(any())).thenReturn(() -> testExternalHeaders);

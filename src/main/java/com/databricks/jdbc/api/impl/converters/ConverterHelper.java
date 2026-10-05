@@ -6,7 +6,6 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.GEOMETRY;
 import com.databricks.jdbc.api.impl.DatabricksGeography;
 import com.databricks.jdbc.api.impl.DatabricksGeometry;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.google.common.collect.ImmutableList;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.*;
@@ -24,7 +23,7 @@ public class ConverterHelper {
     // Numeric Types
     SUPPORTED_CONVERSIONS.put(
         Types.TINYINT,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.TINYINT,
             Types.SMALLINT,
             Types.INTEGER,
@@ -43,7 +42,7 @@ public class ConverterHelper {
             Types.LONGVARCHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.SMALLINT,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.SMALLINT,
             Types.INTEGER,
             Types.BIGINT,
@@ -65,7 +64,7 @@ public class ConverterHelper {
             Types.LONGVARCHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.INTEGER,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.INTEGER,
             Types.BIGINT,
             Types.DECIMAL,
@@ -84,7 +83,7 @@ public class ConverterHelper {
             Types.NUMERIC));
     SUPPORTED_CONVERSIONS.put(
         Types.BIGINT,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.BIGINT,
             Types.DECIMAL,
             Types.DOUBLE,
@@ -103,7 +102,7 @@ public class ConverterHelper {
             Types.BIT));
     SUPPORTED_CONVERSIONS.put(
         Types.FLOAT,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.DOUBLE,
             Types.DECIMAL,
             Types.REAL,
@@ -122,7 +121,7 @@ public class ConverterHelper {
             Types.BIGINT));
     SUPPORTED_CONVERSIONS.put(
         Types.REAL,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.REAL,
             Types.DOUBLE,
             Types.DECIMAL,
@@ -141,7 +140,7 @@ public class ConverterHelper {
             Types.FLOAT));
     SUPPORTED_CONVERSIONS.put(
         Types.DOUBLE,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.DOUBLE,
             Types.DECIMAL,
             Types.REAL,
@@ -160,7 +159,7 @@ public class ConverterHelper {
             Types.BIGINT));
     SUPPORTED_CONVERSIONS.put(
         Types.DECIMAL,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.DECIMAL,
             Types.NUMERIC,
             Types.DOUBLE,
@@ -175,7 +174,7 @@ public class ConverterHelper {
             Types.FLOAT));
     SUPPORTED_CONVERSIONS.put(
         Types.NUMERIC,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.NUMERIC,
             Types.DECIMAL,
             Types.DOUBLE,
@@ -192,7 +191,7 @@ public class ConverterHelper {
     // Boolean/Bit Types
     SUPPORTED_CONVERSIONS.put(
         Types.BOOLEAN,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.BOOLEAN,
             Types.BIT,
             Types.INTEGER,
@@ -214,7 +213,7 @@ public class ConverterHelper {
             Types.LONGVARBINARY));
     SUPPORTED_CONVERSIONS.put(
         Types.BIT,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.BIT,
             Types.INTEGER,
             Types.VARCHAR,
@@ -236,7 +235,7 @@ public class ConverterHelper {
     // Date/Time TypesT
     SUPPORTED_CONVERSIONS.put(
         Types.DATE,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.DATE,
             Types.TIMESTAMP,
             Types.VARCHAR,
@@ -247,7 +246,7 @@ public class ConverterHelper {
             Types.CHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.TIME,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.TIME,
             Types.TIMESTAMP,
             Types.VARCHAR,
@@ -258,7 +257,7 @@ public class ConverterHelper {
             Types.BINARY));
     SUPPORTED_CONVERSIONS.put(
         Types.TIMESTAMP,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.TIMESTAMP,
             Types.DATE,
             Types.TIME,
@@ -272,7 +271,7 @@ public class ConverterHelper {
     // Binary Types
     SUPPORTED_CONVERSIONS.put(
         Types.BINARY,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.BINARY,
             Types.VARBINARY,
             Types.LONGVARBINARY,
@@ -282,7 +281,7 @@ public class ConverterHelper {
             Types.CHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.VARBINARY,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.VARBINARY,
             Types.LONGVARBINARY,
             Types.CHAR,
@@ -292,7 +291,7 @@ public class ConverterHelper {
             Types.VARCHAR));
     SUPPORTED_CONVERSIONS.put(
         Types.LONGVARBINARY,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.LONGVARBINARY,
             Types.BINARY,
             Types.VARBINARY,
@@ -304,7 +303,7 @@ public class ConverterHelper {
     // Character Types
     SUPPORTED_CONVERSIONS.put(
         Types.CHAR,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.CHAR,
             Types.VARCHAR,
             Types.LONGVARCHAR,
@@ -327,7 +326,7 @@ public class ConverterHelper {
             Types.TIME));
     SUPPORTED_CONVERSIONS.put(
         Types.VARCHAR,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.VARCHAR,
             Types.CHAR,
             Types.LONGVARCHAR,
@@ -350,7 +349,7 @@ public class ConverterHelper {
             Types.DOUBLE));
     SUPPORTED_CONVERSIONS.put(
         Types.LONGVARCHAR,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.LONGVARCHAR,
             Types.VARCHAR,
             Types.NVARCHAR,
@@ -370,7 +369,7 @@ public class ConverterHelper {
             Types.TIMESTAMP));
     SUPPORTED_CONVERSIONS.put(
         Types.NVARCHAR,
-        ImmutableList.of(
+        com.google.common.collect.ImmutableList.of(
             Types.NVARCHAR,
             Types.VARCHAR,
             Types.TIMESTAMP,
@@ -393,9 +392,9 @@ public class ConverterHelper {
             Types.LONGVARBINARY));
 
     // Complex types
-    SUPPORTED_CONVERSIONS.put(Types.OTHER, ImmutableList.of(Types.OTHER));
-    SUPPORTED_CONVERSIONS.put(Types.STRUCT, ImmutableList.of(Types.STRUCT, Types.VARCHAR));
-    SUPPORTED_CONVERSIONS.put(Types.ARRAY, ImmutableList.of(Types.ARRAY, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.OTHER, com.google.common.collect.ImmutableList.of(Types.OTHER));
+    SUPPORTED_CONVERSIONS.put(Types.STRUCT, com.google.common.collect.ImmutableList.of(Types.STRUCT, Types.VARCHAR));
+    SUPPORTED_CONVERSIONS.put(Types.ARRAY, com.google.common.collect.ImmutableList.of(Types.ARRAY, Types.VARCHAR));
   }
 
   static {

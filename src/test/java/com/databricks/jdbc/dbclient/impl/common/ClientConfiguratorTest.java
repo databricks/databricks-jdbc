@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -104,6 +103,52 @@ public class ClientConfiguratorTest {
     assertEquals("client-id", config.getClientId());
     assertEquals("client-secret", config.getClientSecret());
     assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
+    assertEquals(com.google.common.collect.ImmutableList.of("all-apis"), config.getScopes());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithClientCredentials_UsesConfiguredScope()
+      throws DatabricksSQLException {
+    String jdbcUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
+            + "Auth_Flow=1;httpPath=/sql/1.0/warehouses/99999999;"
+            + "OAuth2ClientId=client-id;OAuth2Secret=client-secret;Auth_Scope= sql ";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
+    assertEquals(" sql ", connectionContext.getAuthScope());
+    configurator = new ClientConfigurator(connectionContext);
+
+    assertEquals(com.google.common.collect.ImmutableList.of("sql"), configurator.getDatabricksConfig().getScopes());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithClientCredentials_BlankScopeUsesDefault()
+      throws DatabricksSQLException {
+    String jdbcUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
+            + "Auth_Flow=1;httpPath=/sql/1.0/warehouses/99999999;"
+            + "OAuth2ClientId=client-id;OAuth2Secret=client-secret;Auth_Scope=";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
+    assertEquals("", connectionContext.getAuthScope());
+    configurator = new ClientConfigurator(connectionContext);
+
+    assertEquals(com.google.common.collect.ImmutableList.of("all-apis"), configurator.getDatabricksConfig().getScopes());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithClientCredentials_UsesMultipleScopes()
+      throws DatabricksSQLException {
+    String jdbcUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
+            + "Auth_Flow=1;httpPath=/sql/1.0/warehouses/99999999;"
+            + "OAuth2ClientId=client-id;OAuth2Secret=client-secret;Auth_Scope= sql   jobs ";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
+    assertEquals(" sql   jobs ", connectionContext.getAuthScope());
+    configurator = new ClientConfigurator(connectionContext);
+
+    assertEquals(com.google.common.collect.ImmutableList.of("jobs", "sql"), configurator.getDatabricksConfig().getScopes());
   }
 
   @Test
@@ -188,9 +233,9 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(Arrays.asList("scope1", "scope2"));
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(com.google.common.collect.ImmutableList.of("scope1", "scope2"));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
-    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(Arrays.asList(8020));
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(com.google.common.collect.ImmutableList.of(8020));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
     when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
@@ -202,7 +247,7 @@ public class ClientConfiguratorTest {
     assertEquals("https://oauth-browser.databricks.com", config.getHost());
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
-    assertEquals(Arrays.asList("scope1", "scope2"), config.getScopes());
+    assertEquals(com.google.common.collect.ImmutableList.of("scope1", "scope2"), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
   }
@@ -215,9 +260,9 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(Arrays.asList("scope.read", "scope.write"));
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(com.google.common.collect.ImmutableList.of("scope.read", "scope.write"));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
-    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(Arrays.asList(8030));
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(com.google.common.collect.ImmutableList.of(8030));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
     when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
@@ -247,7 +292,7 @@ public class ClientConfiguratorTest {
     when(mockContext.getOAuthScopesForU2M())
         .thenReturn(Collections.singletonList(TEST_SCOPE_STRING));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
-    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(Arrays.asList(8020));
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(com.google.common.collect.ImmutableList.of(8020));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
     when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
@@ -260,7 +305,7 @@ public class ClientConfiguratorTest {
     assertEquals("https://oauth-browser.databricks.com", config.getHost());
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
-    assertEquals(Arrays.asList(TEST_SCOPE_STRING), config.getScopes());
+    assertEquals(com.google.common.collect.ImmutableList.of(TEST_SCOPE_STRING), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
   }
@@ -389,7 +434,7 @@ public class ClientConfiguratorTest {
 
     // Test with a single available port
     int availablePort = findFreePort();
-    List<Integer> ports = Arrays.asList(availablePort);
+    List<Integer> ports = com.google.common.collect.ImmutableList.of(availablePort);
     int result = configurator.findAvailablePort(ports);
     assertEquals(availablePort, result);
 
@@ -398,7 +443,7 @@ public class ClientConfiguratorTest {
     try (ServerSocket serverSocket = new ServerSocket()) {
       serverSocket.setReuseAddress(true);
       serverSocket.bind(new InetSocketAddress(availablePort));
-      ports = Arrays.asList(availablePort, secondAvailablePort);
+      ports = com.google.common.collect.ImmutableList.of(availablePort, secondAvailablePort);
       result = configurator.findAvailablePort(ports);
       assertEquals(secondAvailablePort, result);
     }
@@ -407,7 +452,7 @@ public class ClientConfiguratorTest {
     try (ServerSocket serverSocket2 = new ServerSocket()) {
       serverSocket2.setReuseAddress(true);
       serverSocket2.bind(new InetSocketAddress(availablePort));
-      ports = Arrays.asList(availablePort);
+      ports = com.google.common.collect.ImmutableList.of(availablePort);
       result = configurator.findAvailablePort(ports);
       assertTrue(
           result > availablePort,
@@ -447,7 +492,7 @@ public class ClientConfiguratorTest {
       socket2.bind(new InetSocketAddress(port2));
 
       // First test with multiple specified ports
-      List<Integer> unavailablePorts = Arrays.asList(port1, port2);
+      List<Integer> unavailablePorts = com.google.common.collect.ImmutableList.of(port1, port2);
       DatabricksException exception =
           assertThrows(
               DatabricksException.class, () -> configurator.findAvailablePort(unavailablePorts));
@@ -465,7 +510,7 @@ public class ClientConfiguratorTest {
 
       exception =
           assertThrows(
-              DatabricksException.class, () -> testConfigurator.findAvailablePort(Arrays.asList(port1)));
+              DatabricksException.class, () -> testConfigurator.findAvailablePort(com.google.common.collect.ImmutableList.of(port1)));
       assertTrue(exception.getMessage().contains("No available port found"));
     }
   }
@@ -491,8 +536,8 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(Arrays.asList("scope1", "scope2"));
-    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(Arrays.asList(testPort));
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(com.google.common.collect.ImmutableList.of("scope1", "scope2"));
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(com.google.common.collect.ImmutableList.of(testPort));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
@@ -506,7 +551,7 @@ public class ClientConfiguratorTest {
     assertEquals("https://oauth-browser.databricks.com", config.getHost());
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
-    assertEquals(Arrays.asList("scope1", "scope2"), config.getScopes());
+    assertEquals(com.google.common.collect.ImmutableList.of("scope1", "scope2"), config.getScopes());
     assertEquals(Duration.ofSeconds(120), config.getOAuthBrowserAuthTimeout());
     assertEquals("http://localhost:" + testPort, config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
@@ -520,9 +565,9 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(Arrays.asList("scope1", "scope2"));
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(com.google.common.collect.ImmutableList.of("scope1", "scope2"));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
-    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(Arrays.asList(8020));
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(com.google.common.collect.ImmutableList.of(8020));
     when(mockContext.isTokenCacheEnabled()).thenReturn(true);
     when(mockContext.getTokenCachePassPhrase()).thenReturn("testPassphrase");
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
@@ -538,7 +583,7 @@ public class ClientConfiguratorTest {
     assertEquals("https://oauth-browser.databricks.com", config.getHost());
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
-    assertEquals(Arrays.asList("scope1", "scope2"), config.getScopes());
+    assertEquals(com.google.common.collect.ImmutableList.of("scope1", "scope2"), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
     DatabricksTokenFederationProvider databricksTokenFederationProvider =
@@ -556,9 +601,9 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(Arrays.asList("scope1", "scope2"));
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(com.google.common.collect.ImmutableList.of("scope1", "scope2"));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
-    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(Arrays.asList(8020));
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(com.google.common.collect.ImmutableList.of(8020));
     when(mockContext.isTokenCacheEnabled()).thenReturn(true);
     when(mockContext.getTokenCachePassPhrase()).thenReturn(null);
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
@@ -576,9 +621,9 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://oauth-browser.databricks.com");
     when(mockContext.getClientId()).thenReturn("browser-client-id");
     when(mockContext.getClientSecret()).thenReturn("browser-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(Arrays.asList("scope1", "scope2"));
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(com.google.common.collect.ImmutableList.of("scope1", "scope2"));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
-    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(Arrays.asList(8020));
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(com.google.common.collect.ImmutableList.of(8020));
     when(mockContext.isTokenCacheEnabled()).thenReturn(false);
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
@@ -593,7 +638,7 @@ public class ClientConfiguratorTest {
     assertEquals("https://oauth-browser.databricks.com", config.getHost());
     assertEquals("browser-client-id", config.getClientId());
     assertEquals("browser-client-secret", config.getClientSecret());
-    assertEquals(Arrays.asList("scope1", "scope2"), config.getScopes());
+    assertEquals(com.google.common.collect.ImmutableList.of("scope1", "scope2"), config.getScopes());
     assertEquals("http://localhost:8020", config.getOAuthRedirectUrl());
     assertEquals(DatabricksJdbcConstants.U2M_AUTH_TYPE, config.getAuthType());
     DatabricksTokenFederationProvider databricksTokenFederationProvider =
@@ -690,9 +735,9 @@ public class ClientConfiguratorTest {
     when(mockContext.getHostForOAuth()).thenReturn("https://test.databricks.com");
     when(mockContext.getClientId()).thenReturn("test-client-id");
     when(mockContext.getClientSecret()).thenReturn("test-client-secret");
-    when(mockContext.getOAuthScopesForU2M()).thenReturn(Arrays.asList("custom_scope"));
+    when(mockContext.getOAuthScopesForU2M()).thenReturn(com.google.common.collect.ImmutableList.of("custom_scope"));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
-    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(Arrays.asList(8020));
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(com.google.common.collect.ImmutableList.of(8020));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(true);
     when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
@@ -700,7 +745,7 @@ public class ClientConfiguratorTest {
     configurator = new ClientConfigurator(mockContext);
     DatabricksConfig config = configurator.getDatabricksConfig();
 
-    assertEquals(Arrays.asList("custom_scope"), config.getScopes());
+    assertEquals(com.google.common.collect.ImmutableList.of("custom_scope"), config.getScopes());
   }
 
   @Test
@@ -714,10 +759,10 @@ public class ClientConfiguratorTest {
     when(mockContext.getClientSecret()).thenReturn("test-client-secret");
     when(mockContext.getOAuthScopesForU2M())
         .thenReturn(
-            Arrays.asList(
+            com.google.common.collect.ImmutableList.of(
                 DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE));
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
-    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(Arrays.asList(8020));
+    when(mockContext.getOAuth2RedirectUrlPorts()).thenReturn(com.google.common.collect.ImmutableList.of(8020));
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(mockContext.getDisableOauthRefreshToken()).thenReturn(false);
     when(mockContext.getOAuthWebServerTimeout()).thenReturn(120);
@@ -725,8 +770,10 @@ public class ClientConfiguratorTest {
     configurator = new ClientConfigurator(mockContext);
     DatabricksConfig config = configurator.getDatabricksConfig();
 
+    // SDK 0.106+ sorts scopes alphabetically during DatabricksConfig.innerResolve() for
+    // refresh-token cache de-duplication, so offline_access comes before sql in the result.
     assertEquals(
-        Arrays.asList(DatabricksJdbcConstants.SQL_SCOPE, DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE),
+        com.google.common.collect.ImmutableList.of(DatabricksJdbcConstants.OFFLINE_ACCESS_SCOPE, DatabricksJdbcConstants.SQL_SCOPE),
         config.getScopes());
   }
 
