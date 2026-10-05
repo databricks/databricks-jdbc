@@ -36,7 +36,7 @@ public class DatabricksTransactionException extends SQLException {
   public DatabricksTransactionException(
       String reason, String sqlState, int vendorCode, Throwable cause) {
     super(reason, sqlState, vendorCode, cause);
-    logTelemetryEvent(sqlState, reason);
+    logTelemetryEvent(sqlState);
   }
 
   /**
@@ -98,11 +98,11 @@ public class DatabricksTransactionException extends SQLException {
     return DatabricksVendorCode.getVendorCode(cause);
   }
 
-  private void logTelemetryEvent(String sqlState, String reason) {
+  private void logTelemetryEvent(String sqlState) {
     exportFailureLog(
         DatabricksThreadContextHolder.getConnectionContext(),
         sqlState,
-        reason,
+        this,
         TelemetryLogLevel.ERROR);
   }
 }

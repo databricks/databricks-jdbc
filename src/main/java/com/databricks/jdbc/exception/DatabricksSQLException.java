@@ -35,7 +35,7 @@ public class DatabricksSQLException extends SQLException {
     exportFailureLog(
         DatabricksThreadContextHolder.getConnectionContext(),
         sqlState,
-        reason,
+        this,
         statementId,
         chunkIndex,
         TelemetryLogLevel.ERROR);
@@ -60,7 +60,7 @@ public class DatabricksSQLException extends SQLException {
       DatabricksDriverErrorCode internalError,
       boolean silentExceptions) {
     super(reason, sqlState, internalError.getCode());
-    logTelemetryEvent(sqlState, reason, silentExceptions);
+    logTelemetryEvent(sqlState, silentExceptions);
   }
 
   public DatabricksSQLException(String reason, String sqlState, int vendorCode) {
@@ -70,20 +70,20 @@ public class DatabricksSQLException extends SQLException {
   public DatabricksSQLException(
       String reason, String sqlState, int vendorCode, boolean silentExceptions) {
     super(reason, sqlState, vendorCode);
-    logTelemetryEvent(sqlState, reason, silentExceptions);
+    logTelemetryEvent(sqlState, silentExceptions);
   }
 
   public DatabricksSQLException(String reason, String sqlState, int vendorCode, Throwable cause) {
     super(reason, sqlState, vendorCode, cause);
-    logTelemetryEvent(sqlState, reason, false);
+    logTelemetryEvent(sqlState, false);
   }
 
-  private void logTelemetryEvent(String sqlState, String reason, boolean silentExceptions) {
+  private void logTelemetryEvent(String sqlState, boolean silentExceptions) {
     if (!silentExceptions) {
       exportFailureLog(
           DatabricksThreadContextHolder.getConnectionContext(),
           sqlState,
-          reason,
+          this,
           TelemetryLogLevel.ERROR);
     } else {
       // These are errors that are thrown to call a fallback method (e.g. metadata column not
@@ -92,7 +92,7 @@ public class DatabricksSQLException extends SQLException {
       exportFailureLog(
           DatabricksThreadContextHolder.getConnectionContext(),
           sqlState,
-          reason,
+          this,
           TelemetryLogLevel.TRACE);
     }
   }

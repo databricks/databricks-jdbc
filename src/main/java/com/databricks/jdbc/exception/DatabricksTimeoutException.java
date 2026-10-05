@@ -15,7 +15,7 @@ public class DatabricksTimeoutException extends SQLTimeoutException {
     TelemetryHelper.exportFailureLog(
         DatabricksThreadContextHolder.getConnectionContext(),
         internalError.name(),
-        reason,
+        this,
         TelemetryLogLevel.ERROR);
   }
 
@@ -25,7 +25,7 @@ public class DatabricksTimeoutException extends SQLTimeoutException {
     TelemetryHelper.exportFailureLog(
         DatabricksThreadContextHolder.getConnectionContext(),
         internalError.name(),
-        reason,
+        this,
         TelemetryLogLevel.ERROR);
   }
 }

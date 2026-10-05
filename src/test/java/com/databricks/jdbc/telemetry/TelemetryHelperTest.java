@@ -82,13 +82,46 @@ public class TelemetryHelperTest {
       assertDoesNotThrow(
           () ->
               TelemetryHelper.exportFailureLog(
-                  connectionContext, TEST_STRING, TEST_STRING, TelemetryLogLevel.ERROR));
+                  connectionContext,
+                  TEST_STRING,
+                  new RuntimeException(TEST_STRING),
+                  TelemetryLogLevel.ERROR));
     }
   }
 
   @Test
   void testGetDriverSystemConfigurationDoesNotThrowError() {
     assertDoesNotThrow(TelemetryHelper::getDriverSystemConfiguration);
+  }
+
+  @Test
+  void testFormatStackTraceIncludesFramesButNotMessage() {
+    // Exception messages in the driver can embed user data (SQL text, literal values); the
+    // telemetry stack_trace field must carry code locations only, never the message.
+    String sensitiveMessage = "Failed query: SELECT ssn FROM patients WHERE ssn = '123-45-6789'";
+    Throwable throwable = new RuntimeException(sensitiveMessage);
+
+    String formatted = TelemetryHelper.formatStackTrace(throwable);
+
+    assertNotNull(formatted);
+    // Frames are present: this test method's frame is at the top of the captured trace.
+    assertTrue(
+        formatted.contains("TelemetryHelperTest"),
+        "stack_trace should contain code-location frames");
+    assertTrue(
+        formatted.contains("testFormatStackTraceIncludesFramesButNotMessage"),
+        "stack_trace should include the frame where the throwable was created");
+    // The message (and any PII in it) must never appear.
+    assertFalse(
+        formatted.contains(sensitiveMessage),
+        "stack_trace must not contain the exception message");
+    assertFalse(
+        formatted.contains("123-45-6789"), "stack_trace must not contain PII from the message");
+  }
+
+  @Test
+  void testFormatStackTraceWithNullReturnsNull() {
+    assertNull(TelemetryHelper.formatStackTrace(null));
   }
 
   @ParameterizedTest
@@ -199,7 +232,9 @@ public class TelemetryHelperTest {
     DatabricksThreadContextHolder.clearConnectionContext();
     DatabricksThreadContextHolder.clearStatementInfo();
     assertDoesNotThrow(
-        () -> TelemetryHelper.exportFailureLog(null, "err", "msg", TelemetryLogLevel.ERROR));
+        () ->
+            TelemetryHelper.exportFailureLog(
+                null, "err", new RuntimeException("msg"), TelemetryLogLevel.ERROR));
   }
 
   @Test

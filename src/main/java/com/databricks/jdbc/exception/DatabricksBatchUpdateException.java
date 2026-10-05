@@ -24,7 +24,7 @@ public class DatabricksBatchUpdateException extends BatchUpdateException {
     exportFailureLog(
         DatabricksThreadContextHolder.getConnectionContext(),
         internalErrorCode.toString(),
-        reason,
+        this,
         TelemetryLogLevel.ERROR);
   }
 
@@ -39,7 +39,7 @@ public class DatabricksBatchUpdateException extends BatchUpdateException {
     exportFailureLog(
         DatabricksThreadContextHolder.getConnectionContext(),
         SQLState,
-        reason,
+        this,
         TelemetryLogLevel.ERROR);
   }
 

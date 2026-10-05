@@ -30,8 +30,10 @@ import com.databricks.sdk.service.sql.Format;
 import com.google.common.annotations.VisibleForTesting;
 import java.nio.charset.Charset;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class TelemetryHelper {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TelemetryHelper.class);
@@ -40,6 +42,9 @@ public class TelemetryHelper {
   private static final ConcurrentHashMap<String, DriverConnectionParameters>
       connectionParameterCache = new ConcurrentHashMap<>();
   private static final String APP_NAME_SYSTEM_PROPERTY = "app.name";
+  // Upper bound on the number of stack frames serialized into the telemetry stack_trace field,
+  // to keep payloads bounded for deep stacks.
+  private static final int MAX_STACK_TRACE_FRAMES = 100;
 
   @VisibleForTesting
   static final String TELEMETRY_FEATURE_FLAG_NAME =
@@ -134,22 +139,22 @@ public class TelemetryHelper {
   public static void exportFailureLog(
       IDatabricksConnectionContext connectionContext,
       String errorName,
-      String errorMessage,
+      Throwable throwable,
       TelemetryLogLevel logLevel) {
     String statementId = DatabricksThreadContextHolder.getStatementId();
     exportFailureLog(
-        connectionContext, errorName, errorMessage, statementId, /* chunkIndex */ null, logLevel);
+        connectionContext, errorName, throwable, statementId, /* chunkIndex */ null, logLevel);
   }
 
   public static void exportFailureLog(
       IDatabricksConnectionContext connectionContext,
       String errorName,
-      String errorMessage,
+      Throwable throwable,
       String statementId,
       Long chunkIndex,
       TelemetryLogLevel logLevel) {
     DriverErrorInfo errorInfo =
-        new DriverErrorInfo().setErrorName(errorName).setStackTrace(errorMessage);
+        new DriverErrorInfo().setErrorName(errorName).setStackTrace(formatStackTrace(throwable));
     StatementTelemetryDetails telemetryDetails;
     if (statementId == null) {
       telemetryDetails = new StatementTelemetryDetails(null);
@@ -159,6 +164,29 @@ public class TelemetryHelper {
       telemetryDetails = collector.getOrCreateTelemetryDetails(statementId);
     }
     exportTelemetryEvent(connectionContext, telemetryDetails, errorInfo, chunkIndex, logLevel);
+  }
+
+  /**
+   * Formats a throwable's stack frames (class, method, file, line) into a newline-separated string
+   * for the telemetry {@code stack_trace} field.
+   *
+   * <p>Only code locations are serialized — never the throwable's message. Exception messages in
+   * the driver routinely embed user data (SQL text, hostnames, literal filter values), so excluding
+   * the message keeps that PII out of telemetry by construction.
+   *
+   * @param throwable the throwable whose frames to format; may be {@code null}
+   * @return the newline-separated frames (capped at {@link #MAX_STACK_TRACE_FRAMES}), or {@code
+   *     null} if {@code throwable} is {@code null}
+   */
+  @VisibleForTesting
+  static String formatStackTrace(Throwable throwable) {
+    if (throwable == null) {
+      return null;
+    }
+    return Arrays.stream(throwable.getStackTrace())
+        .limit(MAX_STACK_TRACE_FRAMES)
+        .map(StackTraceElement::toString)
+        .collect(Collectors.joining("\n"));
   }
 
   public static String getStatementIdString(StatementId statementId) {
