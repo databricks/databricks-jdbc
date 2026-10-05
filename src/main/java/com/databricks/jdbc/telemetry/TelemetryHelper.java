@@ -74,7 +74,8 @@ public class TelemetryHelper {
     }
     return context.isTelemetryEnabled()
         && DatabricksDriverFeatureFlagsContextFactory.getInstance(context)
-            .isFeatureEnabled(TELEMETRY_FEATURE_FLAG_NAME);
+            .getBoolean(TELEMETRY_FEATURE_FLAG_NAME)
+            .orElse(false);
   }
 
   public static void exportTelemetryLog(

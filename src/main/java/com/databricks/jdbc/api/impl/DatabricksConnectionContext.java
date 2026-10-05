@@ -569,7 +569,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     }
     // Check feature flag to determine if SEA client should be enabled
     if (DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
-        .isFeatureEnabled(SQL_EXEC_FLAG_NAME)) {
+        .getBoolean(SQL_EXEC_FLAG_NAME)
+        .orElse(false)) {
       return DatabricksClientType.SEA;
     }
     // Default to THRIFT if feature flag is not enabled or cannot be determined
@@ -1394,7 +1395,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     try {
       serverEnabled =
           DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
-              .isFeatureEnabled(serverFlagName);
+              .getBoolean(serverFlagName)
+              .orElse(false);
     } catch (Exception e) {
       LOGGER.debug("Failed to check server-side flag {}: {}", serverFlagName, e.getMessage());
     }

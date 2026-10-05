@@ -159,10 +159,6 @@ public class DatabricksDriverFeatureFlagsContext {
     this.connectionContext = newContext;
   }
 
-  public boolean isFeatureEnabled(String name) {
-    return getBoolean(name).orElse(false);
-  }
-
   public Optional<Boolean> getBoolean(String name) {
     JsonNode value = parse(name);
     return value != null && value.isBoolean()

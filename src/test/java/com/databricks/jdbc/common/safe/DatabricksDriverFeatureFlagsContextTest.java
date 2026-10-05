@@ -107,7 +107,7 @@ class DatabricksDriverFeatureFlagsContextTest {
           .thenReturn(response);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
-      assertTrue(context.isFeatureEnabled(FEATURE_FLAG_NAME));
+      assertTrue(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
       verify(httpClientMock).execute(request);
     }
   }
@@ -129,7 +129,7 @@ class DatabricksDriverFeatureFlagsContextTest {
           .thenReturn(response);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
-      assertTrue(context.isFeatureEnabled(FEATURE_FLAG_NAME));
+      assertTrue(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
       verify(httpClientMock).execute(request);
     }
   }
@@ -141,7 +141,7 @@ class DatabricksDriverFeatureFlagsContextTest {
     when(httpClientMock.execute(any(HttpGet.class))).thenReturn(httpResponseMock);
     HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
     context.fetchAndSetFlagsFromServer(httpClientMock, request);
-    assertFalse(context.isFeatureEnabled(FEATURE_FLAG_NAME));
+    assertFalse(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
     verify(httpClientMock).execute(request);
   }
 
@@ -161,7 +161,7 @@ class DatabricksDriverFeatureFlagsContextTest {
           .thenReturn(response);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
-      assertFalse(context.isFeatureEnabled(FEATURE_FLAG_NAME));
+      assertFalse(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
       verify(httpClientMock).execute(request);
     }
   }
@@ -182,30 +182,30 @@ class DatabricksDriverFeatureFlagsContextTest {
           .thenReturn(response);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
-      assertFalse(context.isFeatureEnabled(FEATURE_FLAG_NAME));
+      assertFalse(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
       verify(httpClientMock).execute(request);
     }
   }
 
   @Test
-  void testIsFeatureEnabled() {
+  void testGetBoolean() {
     // Test with valid boolean values
     Map<String, String> flags = new HashMap<>();
     flags.put("flag1", "true");
     flags.put("flag2", "false");
     context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, flags);
-    assertTrue(context.isFeatureEnabled("flag1"));
-    assertFalse(context.isFeatureEnabled("flag2"));
+    assertTrue(context.getBoolean("flag1").orElse(false));
+    assertFalse(context.getBoolean("flag2").orElse(false));
 
     // Test with invalid values
     flags.put("flag3", "invalid");
     flags.put("flag4", "yes");
     context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, flags);
-    assertFalse(context.isFeatureEnabled("flag3"));
-    assertFalse(context.isFeatureEnabled("flag4"));
+    assertFalse(context.getBoolean("flag3").orElse(false));
+    assertFalse(context.getBoolean("flag4").orElse(false));
 
     // Test with non-existent flag
-    assertFalse(context.isFeatureEnabled("nonexistent"));
+    assertFalse(context.getBoolean("nonexistent").orElse(false));
   }
 
   @Test
@@ -236,14 +236,15 @@ class DatabricksDriverFeatureFlagsContextTest {
   // ===== Additional Integration Tests =====
 
   @Test
-  void testIsFeatureEnabledForSqlExecFlag() {
+  void testGetBooleanForSqlExecFlag() {
     Map<String, String> flags = new HashMap<>();
     flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
     context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, flags);
 
     assertTrue(
-        context.isFeatureEnabled(
-            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc"));
+        context
+            .getBoolean("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc")
+            .orElse(false));
   }
 
   @Test
@@ -272,11 +273,13 @@ class DatabricksDriverFeatureFlagsContextTest {
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
 
-      assertTrue(context.isFeatureEnabled("flag1"));
+      assertTrue(context.getBoolean("flag1").orElse(false));
       assertTrue(
-          context.isFeatureEnabled(
-              "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc"));
-      assertFalse(context.isFeatureEnabled("flag3"));
+          context
+              .getBoolean(
+                  "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc")
+              .orElse(false));
+      assertFalse(context.getBoolean("flag3").orElse(false));
     }
   }
 
@@ -290,7 +293,7 @@ class DatabricksDriverFeatureFlagsContextTest {
     context.fetchAndSetFlagsFromServer(httpClientMock, request);
 
     // Should not throw, and feature should be disabled by default
-    assertFalse(context.isFeatureEnabled(FEATURE_FLAG_NAME));
+    assertFalse(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
   }
 
   @Test
@@ -302,7 +305,7 @@ class DatabricksDriverFeatureFlagsContextTest {
     HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
     context.fetchAndSetFlagsFromServer(httpClientMock, request);
 
-    assertFalse(context.isFeatureEnabled(FEATURE_FLAG_NAME));
+    assertFalse(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
   }
 
   @Test
@@ -314,17 +317,17 @@ class DatabricksDriverFeatureFlagsContextTest {
     HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
     context.fetchAndSetFlagsFromServer(httpClientMock, request);
 
-    assertFalse(context.isFeatureEnabled(FEATURE_FLAG_NAME));
+    assertFalse(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
   }
 
   @Test
-  void testIsFeatureEnabledCaseSensitive() {
+  void testGetBooleanCaseSensitive() {
     Map<String, String> flags = new HashMap<>();
     flags.put("TestFlag", "true");
     context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, flags);
 
-    assertTrue(context.isFeatureEnabled("TestFlag"));
-    assertFalse(context.isFeatureEnabled("testflag"));
-    assertFalse(context.isFeatureEnabled("TESTFLAG"));
+    assertTrue(context.getBoolean("TestFlag").orElse(false));
+    assertFalse(context.getBoolean("testflag").orElse(false));
+    assertFalse(context.getBoolean("TESTFLAG").orElse(false));
   }
 }
