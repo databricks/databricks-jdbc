@@ -16,6 +16,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -205,7 +206,7 @@ public class DatabricksDriverFeatureFlagsContext {
       }
       result.add(item.textValue());
     }
-    return Optional.of(List.copyOf(result));
+    return Optional.of(Collections.unmodifiableList(result));
   }
 
   private JsonNode parse(String name) {
