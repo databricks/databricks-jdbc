@@ -42,12 +42,9 @@ class DatabricksDriverFeatureFlagsContextTest {
   private DatabricksDriverFeatureFlagsContext context;
 
   @BeforeEach
-  void setUp() throws Exception {
+  void setUp() {
     // Mock the host for OAuth to return a test host
     when(connectionContextMock.getHostForOAuth()).thenReturn("test-host");
-    lenient()
-        .when(objectMapperMock.readTree(anyString()))
-        .thenAnswer(invocation -> new ObjectMapper().readTree(invocation.<String>getArgument(0)));
     context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, new HashMap<>());
   }
 
@@ -107,7 +104,7 @@ class DatabricksDriverFeatureFlagsContextTest {
           .thenReturn(response);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
-      assertTrue(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
+      assertTrue(context.getBoolean(FEATURE_FLAG_NAME));
       verify(httpClientMock).execute(request);
     }
   }
@@ -129,7 +126,7 @@ class DatabricksDriverFeatureFlagsContextTest {
           .thenReturn(response);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
-      assertTrue(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
+      assertTrue(context.getBoolean(FEATURE_FLAG_NAME));
       verify(httpClientMock).execute(request);
     }
   }
@@ -141,7 +138,7 @@ class DatabricksDriverFeatureFlagsContextTest {
     when(httpClientMock.execute(any(HttpGet.class))).thenReturn(httpResponseMock);
     HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
     context.fetchAndSetFlagsFromServer(httpClientMock, request);
-    assertFalse(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
+    assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
     verify(httpClientMock).execute(request);
   }
 
@@ -161,7 +158,7 @@ class DatabricksDriverFeatureFlagsContextTest {
           .thenReturn(response);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
-      assertFalse(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
+      assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
       verify(httpClientMock).execute(request);
     }
   }
@@ -182,7 +179,7 @@ class DatabricksDriverFeatureFlagsContextTest {
           .thenReturn(response);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
-      assertFalse(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
+      assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
       verify(httpClientMock).execute(request);
     }
   }
@@ -193,19 +190,25 @@ class DatabricksDriverFeatureFlagsContextTest {
     Map<String, String> flags = new HashMap<>();
     flags.put("flag1", "true");
     flags.put("flag2", "false");
+    flags.put("mixedCase", "TrUe");
     context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, flags);
-    assertTrue(context.getBoolean("flag1").orElse(false));
-    assertFalse(context.getBoolean("flag2").orElse(false));
+    assertTrue(context.getBoolean("flag1"));
+    assertFalse(context.getBoolean("flag2"));
+    assertTrue(context.getBoolean("mixedCase"));
 
     // Test with invalid values
     flags.put("flag3", "invalid");
     flags.put("flag4", "yes");
+    flags.put("flag5", "null");
+    flags.put("flag6", "\"true\"");
+    flags.put("flag7", "");
+    flags.put("flag8", " true ");
     context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, flags);
-    assertFalse(context.getBoolean("flag3").orElse(false));
-    assertFalse(context.getBoolean("flag4").orElse(false));
-
-    // Test with non-existent flag
-    assertFalse(context.getBoolean("nonexistent").orElse(false));
+    for (String name :
+        new String[] {"flag3", "flag4", "flag5", "flag6", "flag7", "flag8", "nonexistent", ""}) {
+      assertFalse(context.getBoolean(name));
+    }
+    assertThrows(NullPointerException.class, () -> context.getBoolean(null));
   }
 
   @Test
@@ -223,13 +226,13 @@ class DatabricksDriverFeatureFlagsContextTest {
                 "wrong-type", "\"true\"",
                 "malformed", "not-json"));
 
-    assertTrue(context.getBoolean("boolean").orElseThrow());
+    assertTrue(context.getBoolean("boolean"));
     assertEquals(Integer.MIN_VALUE, context.getInt32("int32").orElseThrow());
     assertEquals(Long.MAX_VALUE, context.getInt64("int64").orElseThrow());
     assertEquals(3.5, context.getDouble("double").orElseThrow());
     assertEquals("hello", context.getString("string").orElseThrow());
     assertEquals(List.of("a", "b"), context.getStringList("string-list").orElseThrow());
-    assertTrue(context.getBoolean("wrong-type").isEmpty());
+    assertFalse(context.getBoolean("wrong-type"));
     assertTrue(context.getString("malformed").isEmpty());
   }
 
@@ -242,9 +245,8 @@ class DatabricksDriverFeatureFlagsContextTest {
     context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, flags);
 
     assertTrue(
-        context
-            .getBoolean("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc")
-            .orElse(false));
+        context.getBoolean(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc"));
   }
 
   @Test
@@ -273,13 +275,11 @@ class DatabricksDriverFeatureFlagsContextTest {
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
       context.fetchAndSetFlagsFromServer(httpClientMock, request);
 
-      assertTrue(context.getBoolean("flag1").orElse(false));
+      assertTrue(context.getBoolean("flag1"));
       assertTrue(
-          context
-              .getBoolean(
-                  "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc")
-              .orElse(false));
-      assertFalse(context.getBoolean("flag3").orElse(false));
+          context.getBoolean(
+              "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc"));
+      assertFalse(context.getBoolean("flag3"));
     }
   }
 
@@ -293,7 +293,7 @@ class DatabricksDriverFeatureFlagsContextTest {
     context.fetchAndSetFlagsFromServer(httpClientMock, request);
 
     // Should not throw, and feature should be disabled by default
-    assertFalse(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
+    assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
   }
 
   @Test
@@ -305,7 +305,7 @@ class DatabricksDriverFeatureFlagsContextTest {
     HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
     context.fetchAndSetFlagsFromServer(httpClientMock, request);
 
-    assertFalse(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
+    assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
   }
 
   @Test
@@ -317,7 +317,7 @@ class DatabricksDriverFeatureFlagsContextTest {
     HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
     context.fetchAndSetFlagsFromServer(httpClientMock, request);
 
-    assertFalse(context.getBoolean(FEATURE_FLAG_NAME).orElse(false));
+    assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
   }
 
   @Test
@@ -326,8 +326,8 @@ class DatabricksDriverFeatureFlagsContextTest {
     flags.put("TestFlag", "true");
     context = new DatabricksDriverFeatureFlagsContext(connectionContextMock, flags);
 
-    assertTrue(context.getBoolean("TestFlag").orElse(false));
-    assertFalse(context.getBoolean("testflag").orElse(false));
-    assertFalse(context.getBoolean("TESTFLAG").orElse(false));
+    assertTrue(context.getBoolean("TestFlag"));
+    assertFalse(context.getBoolean("testflag"));
+    assertFalse(context.getBoolean("TESTFLAG"));
   }
 }

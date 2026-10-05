@@ -159,11 +159,10 @@ public class DatabricksDriverFeatureFlagsContext {
     this.connectionContext = newContext;
   }
 
-  public Optional<Boolean> getBoolean(String name) {
-    JsonNode value = parse(name);
-    return value != null && value.isBoolean()
-        ? Optional.of(value.booleanValue())
-        : Optional.empty();
+  /** Returns true only for a case-insensitive "true" value; missing values default to false. */
+  public boolean getBoolean(String name) {
+    String value = featureFlags.getIfPresent(name);
+    return Boolean.parseBoolean(value);
   }
 
   public OptionalInt getInt32(String name) {

@@ -192,14 +192,14 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
 
     DatabricksDriverFeatureFlagsContext context =
         DatabricksDriverFeatureFlagsContextFactory.getInstance(connX);
-    assertTrue(context.getBoolean("test.flag").orElse(false));
+    assertTrue(context.getBoolean("test.flag"));
 
     // Remove connX — context should still exist because connY is still open
     DatabricksDriverFeatureFlagsContextFactory.removeInstance(connX);
 
     DatabricksDriverFeatureFlagsContext contextAfterX =
         DatabricksDriverFeatureFlagsContextFactory.getInstance(connY);
-    assertTrue(contextAfterX.getBoolean("test.flag").orElse(false));
+    assertTrue(contextAfterX.getBoolean("test.flag"));
 
     // Clean up
     DatabricksDriverFeatureFlagsContextFactory.removeInstance(connY);
@@ -217,8 +217,8 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
     DatabricksDriverFeatureFlagsContext context =
         DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1);
 
-    assertTrue(context.getBoolean("feature1").orElse(false));
-    assertFalse(context.getBoolean("feature2").orElse(false));
+    assertTrue(context.getBoolean("feature1"));
+    assertFalse(context.getBoolean("feature2"));
   }
 
   @Test
@@ -251,7 +251,7 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
         DatabricksDriverFeatureFlagsContextFactory.getInstance(conn2);
 
     assertSame(context1, context2);
-    assertTrue(context2.getBoolean("shared.flag").orElse(false));
+    assertTrue(context2.getBoolean("shared.flag"));
 
     // Clean up
     DatabricksDriverFeatureFlagsContextFactory.removeInstance(conn1);
@@ -276,10 +276,10 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
         DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext2);
 
     // Verify flags are isolated
-    assertTrue(context1.getBoolean("workspace1.flag").orElse(false));
-    assertFalse(context1.getBoolean("workspace2.flag").orElse(false));
+    assertTrue(context1.getBoolean("workspace1.flag"));
+    assertFalse(context1.getBoolean("workspace2.flag"));
 
-    assertFalse(context2.getBoolean("workspace1.flag").orElse(false));
-    assertTrue(context2.getBoolean("workspace2.flag").orElse(false));
+    assertFalse(context2.getBoolean("workspace1.flag"));
+    assertTrue(context2.getBoolean("workspace2.flag"));
   }
 }
