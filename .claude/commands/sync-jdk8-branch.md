@@ -137,7 +137,7 @@ grep -r "List\.of\|Set\.of\|Map\.of\|Map\.entry\|Optional\.isEmpty\|\.repeat(\|n
 #### Test code
 
 - Delete `src/test/java/com/databricks/jdbc/integration/fakeservice/` and `src/test/java/com/databricks/jdbc/integration/e2e/`
-- Delete WireMock test resources: `src/test/resources/sqlexecapi/`, `src/test/resources/thriftserverapi/`, `src/test/resources/cloudfetchapi/`
+- Delete all WireMock/fakeservice test resources, including `src/test/resources/sqlexecapi/`, `src/test/resources/thriftserverapi/`, `src/test/resources/cloudfetchapi/`, other paths referenced only by the removed fakeservice code, and `src/test/resources/*fakeservicetest.properties`
 - Delete Arrow patch tests (all introduced in PR #1243):
   - `src/test/java/com/databricks/jdbc/api/impl/arrow/ArrowBufferAllocator*Test.java` (Netty, Unsafe, Unknown, base)
   - `src/test/java/org/apache/arrow/memory/Databricks*Test.java` and `AbstractDatabricksArrowPatchTypesTest.java`, `ArrowParsingBenchmark.java`
@@ -146,14 +146,14 @@ grep -r "List\.of\|Set\.of\|Map\.of\|Map\.entry\|Optional\.isEmpty\|\.repeat(\|n
 
 - **Remove `IntervalConverter` overflow test**: Delete the test case for `Duration.ofNanos(Long.MIN_VALUE)` in `IntervalConverterTest` (or wherever it lives). On JDK 8, `Duration.toNanos()` uses `Math.multiplyExact()` internally and throws `ArithmeticException` when seconds × 1,000,000,000 overflows `long`. JDK 17+ doesn't have this problem. The edge case doesn't occur in practice — remove the test rather than working around it.
 
-- **Fix `DatabricksDriverFeatureFlagsContext` hanging test**: Any test that constructs `DatabricksDriverFeatureFlagsContext` with a fake hostname (e.g. `sample-host.cloud.databricks.com`) will hang indefinitely on JDK 8. JDK 8's HTTP client has no default connection timeout, so the TCP attempt blocks for the full OS socket timeout (minutes+). JDK 17+ fails fast because of tighter defaults.
+- **Fix fake-host network tests**: Any unit test that passes a fake hostname (e.g. `sample-host.cloud.databricks.com`) to a connection, session, SDK client, or Thrift client may trigger feature-flag, metadata, or OIDC discovery and hang indefinitely because JDK 8's HTTP client has no default connection timeout.
 
   Fix in order of preference:
   1. Mock the HTTP client / feature-flags fetcher so no real network call is made.
   2. Pass a pre-populated flag map to the constructor instead of fetching from the server.
   3. Set an explicit connection timeout before the test runs.
 
-  Never leave a test that makes a real outbound HTTP/TCP connection to a non-existent host on the jdk-8 branch — it will cause the CI job to time out.
+  Never leave a unit test that makes a real outbound HTTP/TCP connection, even when the request is expected to fail.
 
 #### Full dependency audit
 
