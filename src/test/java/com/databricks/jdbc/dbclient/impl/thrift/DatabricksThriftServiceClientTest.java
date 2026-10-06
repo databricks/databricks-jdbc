@@ -30,6 +30,9 @@ import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultColumn;
 import com.databricks.sdk.core.DatabricksConfig;
+import com.databricks.sdk.core.http.HttpClient;
+import com.databricks.sdk.core.http.Request;
+import com.databricks.sdk.core.http.Response;
 import com.databricks.sdk.service.sql.StatementState;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -63,6 +66,7 @@ public class DatabricksThriftServiceClientTest {
   @Mock IDatabricksStatementInternal parentStatement;
   @Mock DatabricksStatement statement;
   @Mock DatabricksConfig databricksConfig;
+  @Mock HttpClient sdkHttpClient;
   @Mock ResultSetMetaData mockedMetaData;
 
   @BeforeEach
@@ -1022,11 +1026,17 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
-  void testResetAccessToken() throws DatabricksParsingException {
+  void testResetAccessToken() throws Exception {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
     when(thriftAccessor.getDatabricksConfig()).thenReturn(databricksConfig);
     when(databricksConfig.getHost()).thenReturn("test-host");
+    when(databricksConfig.getHttpClient()).thenReturn(sdkHttpClient);
+    when(sdkHttpClient.execute(any(Request.class)))
+        .thenAnswer(
+            invocation ->
+                new Response(
+                    invocation.getArgument(0), 200, "OK", Collections.emptyMap(), "{}"));
     client.resetAccessToken(NEW_ACCESS_TOKEN);
     verify(thriftAccessor).updateConfig(any(DatabricksConfig.class));
   }

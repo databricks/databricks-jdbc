@@ -23,6 +23,8 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.http.Request;
+import com.databricks.sdk.core.http.Response;
 import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.utils.Cloud;
 import java.io.IOException;
@@ -33,16 +35,43 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 public class ClientConfiguratorTest {
   @Mock private IDatabricksConnectionContext mockContext;
+  @Mock private CommonsHttpClient sdkHttpClient;
   private ClientConfigurator configurator;
+  private MockedConstruction<CommonsHttpClient.Builder> httpClientBuilderConstruction;
+
+  @BeforeEach
+  void mockSdkHttpClient() throws IOException {
+    lenient()
+        .when(sdkHttpClient.execute(any(Request.class)))
+        .thenAnswer(
+            invocation ->
+                new Response(
+                    invocation.getArgument(0), 200, "OK", Collections.emptyMap(), "{}"));
+    httpClientBuilderConstruction =
+        mockConstruction(
+            CommonsHttpClient.Builder.class,
+            (builder, context) -> when(builder.build()).thenReturn(sdkHttpClient));
+  }
+
+  @AfterEach
+  void closeTestResources() {
+    if (configurator != null) {
+      configurator.close();
+    }
+    httpClientBuilderConstruction.close();
+  }
 
   @Test
   void getWorkspaceClient_PAT_AuthenticatesWithAccessToken()

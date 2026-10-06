@@ -22,6 +22,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.TelemetryAuthHelper;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtilsTest;
@@ -88,6 +89,7 @@ public class DatabricksSdkClientTest {
 
   @BeforeEach
   void setUpFeatureFlagsContext() throws DatabricksSQLException {
+    DatabricksThreadContextHolder.clearAllContext();
     lenient().when(clientConfigurator.getDatabricksConfig()).thenReturn(new DatabricksConfig());
     featureFlagsContext = DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
@@ -104,6 +106,7 @@ public class DatabricksSdkClientTest {
     DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
         featureFlagsContext, Collections.emptyMap());
     DatabricksDriverFeatureFlagsContextFactory.removeInstance(featureFlagsContext);
+    DatabricksThreadContextHolder.clearAllContext();
   }
 
   private DatabricksSdkClient newDatabricksSdkClient(

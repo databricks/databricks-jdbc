@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.sql.SQLException;
@@ -28,6 +29,7 @@ class CommandBuilderTest {
 
   @BeforeEach
   void setUp() {
+    DatabricksThreadContextHolder.clearAllContext();
     when(mockSession.toString()).thenReturn(TEST_SESSION_CONTEXT);
   }
 
