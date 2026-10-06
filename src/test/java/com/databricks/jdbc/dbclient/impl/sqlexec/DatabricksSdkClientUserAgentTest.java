@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL_WITH_SEA;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
@@ -55,9 +56,40 @@ class DatabricksSdkClientUserAgentTest {
     ApiClient apiClient =
         DatabricksSdkClient.buildApiClient(
             config,
-            UserAgentManager.customerUserAgentSegment(connectionContext.getCustomerUserAgent()));
+            UserAgentManager.customerUserAgentSegment(connectionContext.getCustomerUserAgent()),
+            true);
     apiClient.execute(new Request(Request.POST, "/api/2.0/sql/statements"), Void.class);
     return sentUserAgent.get();
+  }
+
+  @Test
+  void seaApiClientRequestsIdentityEncodingWhenCompressionIsDisabled() throws Exception {
+    assertEquals("identity", sendRequestAndCaptureEncoding(false));
+  }
+
+  @Test
+  void seaApiClientLeavesEncodingUnsetWhenCompressionIsEnabled() throws Exception {
+    assertNull(sendRequestAndCaptureEncoding(true));
+  }
+
+  private String sendRequestAndCaptureEncoding(boolean responseCompressionEnabled)
+      throws Exception {
+    AtomicReference<String> sentAcceptEncoding = new AtomicReference<>();
+    HttpClient transport =
+        request -> {
+          sentAcceptEncoding.set(request.getHeaders().get("Accept-Encoding"));
+          return new Response(request, 200, "OK", Collections.emptyMap());
+        };
+    DatabricksConfig config =
+        new DatabricksConfig()
+            .setHost("https://example.com")
+            .setAuthType("pat")
+            .setToken("test-token")
+            .setHttpClient(transport);
+    ApiClient apiClient =
+        DatabricksSdkClient.buildApiClient(config, null, responseCompressionEnabled);
+    apiClient.execute(new Request(Request.POST, "/api/2.0/sql/statements"), Void.class);
+    return sentAcceptEncoding.get();
   }
 
   private void assertSegmentsAfterOs(String userAgent, String... expected) {

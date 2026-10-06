@@ -1524,6 +1524,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean isSeaResponseCompressionEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SEA_RESPONSE_COMPRESSION).equals("1");
+  }
+
+  @Override
   public boolean getDisableOauthRefreshToken() {
     return getParameter(DatabricksJdbcUrlParams.DISABLE_OAUTH_REFRESH_TOKEN, "1").equals("1");
   }
