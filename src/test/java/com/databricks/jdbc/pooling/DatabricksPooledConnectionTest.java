@@ -15,14 +15,17 @@ import com.databricks.jdbc.api.impl.ImmutableSessionInfo;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
 import javax.sql.PooledConnection;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,6 +49,13 @@ public class DatabricksPooledConnectionTest {
     DatabricksConnectionContextFactory connectionContextFactory =
         new DatabricksConnectionContextFactory();
     connectionContext = connectionContextFactory.create(JDBC_URL, TEST_USER, TEST_PASSWORD);
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        connectionContext, Collections.emptyMap());
+  }
+
+  @AfterAll
+  public static void tearDown() {
+    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
   }
 
   @Test
