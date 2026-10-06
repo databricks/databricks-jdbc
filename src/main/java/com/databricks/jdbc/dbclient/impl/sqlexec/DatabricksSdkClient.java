@@ -102,21 +102,32 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   private ApiClient newApiClient() {
-    return buildApiClient(clientConfigurator.getDatabricksConfig(), customerUserAgentSegment);
+    return buildApiClient(
+        clientConfigurator.getDatabricksConfig(),
+        customerUserAgentSegment,
+        connectionContext.isSeaResponseCompressionEnabled());
   }
 
   @VisibleForTesting
-  static ApiClient buildApiClient(DatabricksConfig config, String customerUserAgentSegment) {
+  static ApiClient buildApiClient(
+      DatabricksConfig config,
+      String customerUserAgentSegment,
+      boolean responseCompressionEnabled) {
     HttpClient transport = config.getHttpClient();
-    if (customerUserAgentSegment != null) {
+    if (customerUserAgentSegment != null || !responseCompressionEnabled) {
       HttpClient delegate = transport;
       transport =
           request -> {
-            String userAgent = request.getHeaders().get("User-Agent");
-            if (userAgent != null) {
-              request.withHeader(
-                  "User-Agent",
-                  UserAgentManager.orderSeaUserAgent(userAgent, customerUserAgentSegment));
+            if (customerUserAgentSegment != null) {
+              String userAgent = request.getHeaders().get("User-Agent");
+              if (userAgent != null) {
+                request.withHeader(
+                    "User-Agent",
+                    UserAgentManager.orderSeaUserAgent(userAgent, customerUserAgentSegment));
+              }
+            }
+            if (!responseCompressionEnabled) {
+              request.withHeader("Accept-Encoding", "identity");
             }
             return delegate.execute(request);
           };

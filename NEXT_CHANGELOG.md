@@ -7,6 +7,7 @@
 ### Updated
 
 - Bumped Apache HttpClient 5 (`httpclient5`) from 5.6.3 to 5.6.4.
+- SQL Execution API requests now skip HTTP response compression by default to avoid gzipping inline LZ4-compressed Arrow results. Set `EnableSeaResponseCompression=1` to restore compression on bandwidth-constrained connections.
 
 ### Fixed
 

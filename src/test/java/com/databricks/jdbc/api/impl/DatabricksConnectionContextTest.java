@@ -1327,6 +1327,21 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void testSeaResponseCompressionDefaultsToDisabledAndCanBeEnabled()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext defaultContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertFalse(defaultContext.isSeaResponseCompressionEnabled());
+
+    String compressionEnabledUrl = TestConstants.VALID_URL_1 + ";EnableSeaResponseCompression=1";
+    DatabricksConnectionContext enabledContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(compressionEnabledUrl, properties);
+    assertTrue(enabledContext.isSeaResponseCompressionEnabled());
+  }
+
+  @Test
   public void testEnableTokenFederation() throws DatabricksSQLException {
     // Test default value (should be enabled by default)
     DatabricksConnectionContext ctx =
