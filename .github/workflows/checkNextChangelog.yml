@@ -3,34 +3,42 @@ name: Check for NEXT_CHANGELOG.md Changes
 on:
   pull_request:
      branches: [ main ]
+  merge_group: # Register this required check for the merge queue; the job itself skips in the queue (see job-level if:)
+     branches: [ main ]
 
 permissions:
   contents: read
 
 jobs:
   check-next-changelog:
+    # PR-semantic gate (reads github.event.pull_request.* and the PR diff), already enforced at PR time.
+    # Skip in the merge queue, where no pull_request payload exists; a skipped required
+    # check counts as a pass under branch protection, so the queue is not blocked.
+    if: github.event_name != 'merge_group'
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
 
     steps:
       - name: Checkout base branch (main)
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           fetch-depth: 0
 
+      - name: Fetch PR head
+        run: |
+          git fetch origin "${{ github.event.pull_request.head.sha }}" --depth=1
+
       - name: Fetch list of changed files
         id: changed-files
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Use the GitHub API to fetch changed files
-          files=$(gh pr view ${{ github.event.pull_request.number }} --json files -q '.files[].path')
-          
+          # Use git diff to get changed files (no API call needed)
+          files=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")
+
           # Sanitize to avoid code injection
           sanitized_files=$(echo "$files" | sed 's/[^a-zA-Z0-9._/-]/_/g')
-          
+
           # Store the sanitized list of files in a temporary file to avoid env variable issues
           echo "$sanitized_files" > modified_files.txt
           echo "$sanitized_files"
@@ -38,14 +46,14 @@ jobs:
       - name: Fetch PR message
         id: pr-message
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          # Use the GitHub API to fetch the PR message
-          pr_message=$(gh pr view ${{ github.event.pull_request.number }} --json body -q '.body')
-          
+          # Use PR body from event payload directly (no API call needed)
+          pr_message="$PR_BODY"
+
           # Sanitize the PR message to avoid code injection, keeping the equal sign
           sanitized_pr_message=$(echo "$pr_message" | sed 's/[^a-zA-Z0-9._/-=]/_/g')
-          
+
           # Store the sanitized PR message
           echo "$sanitized_pr_message" > pr_message.txt
           echo "$sanitized_pr_message"

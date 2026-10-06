@@ -44,6 +44,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   private final long totalRows;
   private Long chunkCount;
   private final boolean isCloudFetchUsed;
+  private final boolean truncated;
 
   /**
    * Constructs a {@code DatabricksResultSetMetaData} object for a SEA result set.
@@ -88,12 +89,26 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       if (resultManifest.getSchema().getColumnCount() > 0) {
         for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
           ColumnInfoTypeName columnTypeName = columnInfo.getTypeName();
-          // For TIMESTAMP_NTZ columns, getTypeName() returns null.
-          // use typeText (initially "TIMESTAMP_NTZ") to identify the type,
-          // overwrite it to "TIMESTAMP" to maintain parity with thrift output.
+          // For TIMESTAMP_NTZ columns, getTypeName() returns null because the SDK
+          // ColumnInfoTypeName enum has no TIMESTAMP_NTZ value. Use typeText to
+          // identify the type and map it to the TIMESTAMP enum so the java.sql type
+          // resolves to Types.TIMESTAMP. By default the "TIMESTAMP_NTZ" typeText is
+          // preserved so getColumnTypeName() reports the actual server type
+          // (see GitHub issue #1495); when EnableTimestampNtzTypeName=0 it is
+          // normalized to "TIMESTAMP" to match the legacy (v2.x.x) driver.
           if (columnInfo.getTypeText().equalsIgnoreCase(TIMESTAMP_NTZ)) {
             columnTypeName = ColumnInfoTypeName.TIMESTAMP;
-            columnInfo.setTypeText(TIMESTAMP);
+            if (!ctx.isTimestampNtzTypeNameEnabled()) {
+              columnInfo.setTypeText(TIMESTAMP);
+            }
+          }
+
+          // For collated string columns (e.g. "STRING COLLATE UTF8_LCASE") getTypeName() returns
+          // null because the collated type name does not map to a ColumnInfoTypeName. Recover
+          // STRING from the typeText so the java.sql type resolves to VARCHAR instead of OTHER; the
+          // original typeText is preserved so getColumnTypeName() still reports the collated type.
+          if (columnTypeName == null) {
+            columnTypeName = DatabricksTypeUtil.recoverStringType(columnInfo.getTypeText());
           }
 
           // Check if we need to convert geospatial types to string when geospatial support is
@@ -107,9 +122,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
             typeText = "STRING";
           }
 
-          // store base type eg. DECIMAL instead of DECIMAL(7,2) except for geospatial datatypes
+          // Strip parameterized type suffixes (e.g., ARRAY<INT> -> ARRAY) except for:
+          // - DECIMAL: preserve precision/scale (e.g., DECIMAL(10,2)) to match Thrift behavior
+          // - Geospatial types: preserve SRID (e.g., GEOMETRY(4326))
           String finalTypeText =
-              isGeospatialType(columnTypeName)
+              (isGeospatialType(columnTypeName) || columnTypeName == ColumnInfoTypeName.DECIMAL)
                   ? typeText
                   : metadataResultSetBuilder.stripTypeName(typeText);
 
@@ -142,6 +159,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.totalRows = resultManifest.getTotalRowCount();
     this.chunkCount = resultManifest.getTotalChunkCount();
     this.isCloudFetchUsed = usesExternalLinks;
+    this.truncated = resultManifest.getTruncated() != null ? resultManifest.getTruncated() : false;
   }
 
   /**
@@ -210,8 +228,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                   ? arrowMetadata.get(columnIndex)
                   : getTypeTextFromTypeDesc(columnDesc.getTypeDesc());
 
-          // Normalize TIMESTAMP_NTZ to TIMESTAMP for consistency with SEA path
-          if (columnTypeText != null && columnTypeText.equalsIgnoreCase(TIMESTAMP_NTZ)) {
+          // Normalize TIMESTAMP_NTZ to TIMESTAMP only when the type-name feature is
+          // disabled (legacy/v2.x.x parity); by default the NTZ type name is preserved
+          // (see GitHub issue #1495).
+          if (columnTypeText != null
+              && columnTypeText.equalsIgnoreCase(TIMESTAMP_NTZ)
+              && !ctx.isTimestampNtzTypeNameEnabled()) {
             columnTypeText = TIMESTAMP;
           }
 
@@ -258,6 +280,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.totalRows = rows;
     this.chunkCount = chunkCount;
     this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
+    this.truncated = false;
   }
 
   /**
@@ -307,6 +330,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
+    this.truncated = false;
   }
 
   /**
@@ -359,6 +383,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
+    this.truncated = false;
   }
 
   /**
@@ -417,6 +442,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
+    this.truncated = false;
   }
 
   /**
@@ -449,18 +475,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       String columnName = columnNames.get(i);
       String columnTypeText = columnDataTypes.get(i);
 
-      ColumnInfoTypeName columnTypeName;
-      if (columnTypeText.equalsIgnoreCase(TIMESTAMP_NTZ)) {
-        columnTypeName = ColumnInfoTypeName.TIMESTAMP;
+      String baseTypeName = metadataResultSetBuilder.stripBaseTypeName(columnTypeText);
+      ColumnInfoTypeName columnTypeName = DatabricksTypeUtil.getColumnInfoType(baseTypeName);
+
+      // By default the TIMESTAMP_NTZ type name is preserved (see GitHub issue #1495);
+      // normalize it to TIMESTAMP only when EnableTimestampNtzTypeName=0 (legacy/v2.x.x parity).
+      if (baseTypeName.equals(TIMESTAMP_NTZ) && !ctx.isTimestampNtzTypeNameEnabled()) {
         columnTypeText = TIMESTAMP;
-      } else if (columnTypeText.equalsIgnoreCase(VARIANT)) {
-        columnTypeName = ColumnInfoTypeName.STRING;
-        columnTypeText = VARIANT;
-      } else if (columnTypeText.toUpperCase().startsWith(INTERVAL)) {
-        columnTypeName = ColumnInfoTypeName.INTERVAL;
-      } else {
-        columnTypeName =
-            ColumnInfoTypeName.valueOf(metadataResultSetBuilder.stripBaseTypeName(columnTypeText));
       }
 
       int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
@@ -491,6 +512,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     }
     this.statementId = statementId;
     this.isCloudFetchUsed = false;
+    this.truncated = false;
     this.totalRows = -1;
     this.columns = columnsBuilder.build();
     this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
@@ -641,6 +663,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   private boolean getIsCloudFetchFromManifest(TGetResultSetMetadataResp resultManifest) {
     return resultManifest.getResultFormat() == TSparkRowSetType.URL_BASED_SET;
+  }
+
+  public boolean getIsTruncated() {
+    return truncated;
   }
 
   public Long getChunkCount() {

@@ -47,6 +47,11 @@ public class TelemetryPushClient implements ITelemetryPushClient {
     IDatabricksHttpClient httpClient =
         DatabricksHttpClientFactory.getInstance()
             .getClient(connectionContext, HttpClientType.TELEMETRY);
+    if (httpClient instanceof com.databricks.jdbc.dbclient.impl.http.ClosedConnectionHttpClient) {
+      // Connection was closed — sentinel returned to prevent socket leaks (issue #1325).
+      LOGGER.debug("Skipping telemetry push: connection has been closed");
+      return;
+    }
     String path =
         isAuthenticated
             ? PathConstants.TELEMETRY_PATH
@@ -59,6 +64,7 @@ public class TelemetryPushClient implements ITelemetryPushClient {
     Map<String, String> authHeaders =
         isAuthenticated ? databricksConfig.authenticate() : Collections.emptyMap();
     authHeaders.forEach(post::addHeader);
+    connectionContext.getCustomHeaders().forEach(post::addHeader);
     try (CloseableHttpResponse response = httpClient.execute(post)) {
       // TODO: check response and add retry for partial failures
       if (!HttpUtil.isSuccessfulHttpResponse(response)) {

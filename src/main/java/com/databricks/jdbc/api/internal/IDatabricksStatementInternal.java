@@ -15,6 +15,8 @@ public interface IDatabricksStatementInternal {
 
   int getMaxRows() throws DatabricksSQLException;
 
+  long getLargeMaxRows() throws DatabricksSQLException;
+
   void setStatementId(StatementId statementId);
 
   StatementId getStatementId();
@@ -28,4 +30,22 @@ public interface IDatabricksStatementInternal {
   void setInputStreamForUCVolume(InputStreamEntity inputStream) throws DatabricksSQLException;
 
   InputStreamEntity getInputStreamForUCVolume() throws DatabricksSQLException;
+
+  /**
+   * Marks that the server returned direct (inline) results and closed the operation. The JDBC
+   * Statement remains open for re-execution. Default no-op for implementations that don't support
+   * direct results.
+   */
+  default void markDirectResultsReceived() {
+    // no-op by default
+  }
+
+  /**
+   * Proactively closes the server-side operation to release server resources while keeping the
+   * client-side Statement open for reuse. Default no-op for implementations that don't support
+   * proactive close.
+   */
+  default void closeServerOperation() {
+    // no-op by default
+  }
 }

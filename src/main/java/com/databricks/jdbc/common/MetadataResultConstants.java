@@ -2,6 +2,7 @@ package com.databricks.jdbc.common;
 
 import com.databricks.jdbc.model.core.ResultColumn;
 import com.google.common.collect.ImmutableList;
+import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -11,6 +12,27 @@ import java.util.Map;
 public class MetadataResultConstants {
   public static String NULL_STRING = "NULL";
   public static final String PARSE_SYNTAX_ERROR_SQL_STATE = "42601";
+
+  /** SQL state for object-not-found errors (catalog, schema, table). */
+  public static final String OBJECT_NOT_FOUND_SQL_STATE = "42704";
+
+  /**
+   * Returns true if the exception indicates a catalog, schema, or table was not found. Per JDBC
+   * spec, metadata methods should return empty result sets for non-existent objects rather than
+   * throwing. Checks both SQL state (42704) and error message content for not-found indicators.
+   */
+  public static boolean isObjectNotFoundException(SQLException e) {
+    if (OBJECT_NOT_FOUND_SQL_STATE.equals(e.getSQLState())) {
+      return true;
+    }
+    String msg = e.getMessage();
+    return msg != null
+        && (msg.contains("NO_SUCH_CATALOG_EXCEPTION")
+            || msg.contains("TABLE_OR_VIEW_NOT_FOUND")
+            || msg.contains("SCHEMA_NOT_FOUND")
+            || msg.contains("INVALID_PARAMETER_VALUE"));
+  }
+
   public static final String[] DEFAULT_TABLE_TYPES = {
     "TABLE", "VIEW", "SYSTEM TABLE", "METRIC_VIEW"
   };
@@ -196,6 +218,14 @@ public class MetadataResultConstants {
   private static final ResultColumn RADIX = new ResultColumn("RADIX", "radix", Types.SMALLINT);
   private static final ResultColumn NULLABLE_SHORT =
       new ResultColumn("NULLABLE", "nullable", Types.SMALLINT);
+  private static final ResultColumn NUM_INPUT_PARAMS =
+      new ResultColumn("NUM_INPUT_PARAMS", "numInputParams", Types.INTEGER);
+  private static final ResultColumn NUM_OUTPUT_PARAMS =
+      new ResultColumn("NUM_OUTPUT_PARAMS", "numOutputParams", Types.INTEGER);
+  private static final ResultColumn NUM_RESULT_SETS =
+      new ResultColumn("NUM_RESULT_SETS", "numResultSets", Types.INTEGER);
+  private static final ResultColumn PROCEDURE_TYPE =
+      new ResultColumn("PROCEDURE_TYPE", "procedureType", Types.SMALLINT);
   private static final ResultColumn NON_UNIQUE =
       new ResultColumn("NON_UNIQUE", "nonUnique", Types.BOOLEAN);
   private static final ResultColumn INDEX_QUALIFIER =
@@ -224,6 +254,18 @@ public class MetadataResultConstants {
           FUNCTION_NAME_COLUMN,
           REMARKS_COLUMN,
           FUNCTION_TYPE_COLUMN,
+          SPECIFIC_NAME_COLUMN);
+
+  public static final List<ResultColumn> PROCEDURES_COLUMNS =
+      ImmutableList.of(
+          PROCEDURE_CAT,
+          PROCEDURE_SCHEM,
+          PROCEDURE_NAME,
+          NUM_INPUT_PARAMS,
+          NUM_OUTPUT_PARAMS,
+          NUM_RESULT_SETS,
+          REMARKS_COLUMN,
+          PROCEDURE_TYPE,
           SPECIFIC_NAME_COLUMN);
 
   public static List<ResultColumn> COLUMN_COLUMNS =
@@ -627,8 +669,9 @@ public class MetadataResultConstants {
               ImmutableList.of(
                   SCOPE, COL_NAME_COLUMN, DATA_TYPE_COLUMN, TYPE_NAME_COLUMN, PSEUDO_COLUMN));
           put(CommandName.GET_SUPER_TYPES, ImmutableList.of(TYPE_NAME_COLUMN, SUPERTYPE_NAME));
+          put(CommandName.LIST_PROCEDURES, ImmutableList.of(PROCEDURE_NAME, SPECIFIC_NAME_COLUMN));
           put(
-              CommandName.GET_PROCEDURES_COLUMNS,
+              CommandName.LIST_PROCEDURE_COLUMNS,
               ImmutableList.of(
                   PROCEDURE_NAME,
                   COLUMN_NAME_COLUMN,

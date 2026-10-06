@@ -35,7 +35,12 @@ public class TelemetryCollectorManager {
         (context != null && context.getConnectionUuid() != null)
             ? context.getConnectionUuid()
             : DEFAULT_CONNECTION;
-    return collectors.computeIfAbsent(key, k -> new TelemetryCollector());
+    // The collector stores the context it is first created with. Real connections always have a
+    // unique connectionUuid, so each gets its own collector holding its own context. Only
+    // context-less calls (null context/uuid) share the DEFAULT_CONNECTION collector; those events
+    // carry a null context and are skipped at export time, so the shared instance cannot
+    // misattribute telemetry across connections.
+    return collectors.computeIfAbsent(key, k -> new TelemetryCollector(context));
   }
 
   /**

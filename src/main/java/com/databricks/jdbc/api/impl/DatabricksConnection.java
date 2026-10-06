@@ -39,6 +39,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   private final Set<IDatabricksStatementInternal> statementSet = ConcurrentHashMap.newKeySet();
   private SQLWarning warnings = null;
   private final IDatabricksConnectionContext connectionContext;
+  private final ResultHeartbeatManager heartbeatManager;
 
   /**
    * Creates an instance of Databricks connection for given connection context.
@@ -50,6 +51,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     this.connectionContext = connectionContext;
     DatabricksThreadContextHolder.setConnectionContext(connectionContext);
     this.session = new DatabricksSession(connectionContext);
+    this.heartbeatManager = createHeartbeatManager(connectionContext);
   }
 
   @VisibleForTesting
@@ -59,8 +61,25 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     this.connectionContext = connectionContext;
     DatabricksThreadContextHolder.setConnectionContext(connectionContext);
     this.session = new DatabricksSession(connectionContext, testDatabricksClient);
+    this.heartbeatManager = createHeartbeatManager(connectionContext);
     UserAgentManager.setUserAgent(connectionContext);
     TelemetryHelper.updateTelemetryAppName(connectionContext, null);
+  }
+
+  private static ResultHeartbeatManager createHeartbeatManager(
+      IDatabricksConnectionContext connectionContext) {
+    // Use interface methods instead of instanceof check so mocks and
+    // alternate implementations can also enable heartbeat
+    if (connectionContext.isHeartbeatEnabled()) {
+      return new ResultHeartbeatManager(
+          connectionContext.getHeartbeatIntervalSeconds(), connectionContext.getConnectionUuid());
+    }
+    return null;
+  }
+
+  /** Returns the heartbeat manager, or null if heartbeat is disabled. */
+  ResultHeartbeatManager getHeartbeatManager() {
+    return heartbeatManager;
   }
 
   @Override
@@ -106,9 +125,11 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public CallableStatement prepareCall(String sql) throws SQLException {
-    LOGGER.debug(String.format("public CallableStatement prepareCall= {%s})", sql));
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Callable statements are not implemented in OSS JDBC");
+    LOGGER.debug(String.format("public CallableStatement prepareCall(String sql = {%s})", sql));
+    throwExceptionIfConnectionIsClosed();
+    DatabricksCallableStatement statement = new DatabricksCallableStatement(this, sql);
+    statementSet.add(statement);
+    return statement;
   }
 
   @Override
@@ -415,16 +436,43 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void close() throws SQLException {
     LOGGER.debug("public void close()");
-    for (IDatabricksStatementInternal statement : statementSet) {
-      statement.close(false);
-      statementSet.remove(statement);
+    try {
+      try {
+        // Shutdown heartbeat first to prevent RPCs on a closing connection.
+        if (heartbeatManager != null) {
+          heartbeatManager.shutdown();
+        }
+      } finally {
+        try {
+          for (IDatabricksStatementInternal statement : statementSet) {
+            statement.close(false);
+            statementSet.remove(statement);
+          }
+        } finally {
+          this.session.close();
+        }
+      }
+    } finally {
+      // Each cleanup step must run even if an earlier one fails. In particular,
+      // closeConnection() stops the IdleConnectionEvictor owned by this connection.
+      try {
+        TelemetryClientFactory.getInstance().closeTelemetryClient(connectionContext);
+      } finally {
+        try {
+          DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext);
+        } finally {
+          try {
+            DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
+          } finally {
+            try {
+              DatabricksHttpClientFactory.getInstance().closeConnection(connectionContext);
+            } finally {
+              DatabricksThreadContextHolder.clearAllContext();
+            }
+          }
+        }
+      }
     }
-    this.session.close();
-    TelemetryClientFactory.getInstance().closeTelemetryClient(connectionContext);
-    DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext);
-    DatabricksDriverFeatureFlagsContextFactory.removeInstance(connectionContext);
-    DatabricksHttpClientFactory.getInstance().removeClient(connectionContext);
-    DatabricksThreadContextHolder.clearAllContext();
   }
 
   @Override
@@ -441,12 +489,14 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public void setReadOnly(boolean readOnly) throws SQLException {
-    LOGGER.debug("public void setReadOnly(boolean readOnly)");
+    LOGGER.debug("public void setReadOnly(boolean readOnly = {})", readOnly);
     throwExceptionIfConnectionIsClosed();
-    if (readOnly) {
-      throw new DatabricksSQLFeatureNotSupportedException(
-          "Databricks OSS JDBC does not support readOnly mode.");
-    }
+    // Per the JDBC spec, setReadOnly is a hint used to enable database optimizations. The
+    // Databricks
+    // backend does not enforce a connection-level read-only mode, so this is treated as a no-op
+    // rather than throwing. isReadOnly() continues to report false since the hint is not enforced.
+    // Throwing here breaks common clients (e.g. HikariCP, DBCP, Trino/Starburst) that call
+    // setReadOnly(true) during connection initialization.
   }
 
   @Override
@@ -464,8 +514,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
       return;
     }
     Statement statement = this.createStatement();
-    statement.execute("SET CATALOG `" + catalog + "`");
-    this.session.setCatalog(catalog);
+    String cleanCatalog = stripBackticks(catalog);
+    statement.execute("SET CATALOG `" + cleanCatalog + "`");
+    this.session.setCatalog(cleanCatalog);
   }
 
   @Override
@@ -535,8 +586,12 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency)
       throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Callable statements are not implemented in OSS JDBC");
+    if (resultSetType != ResultSet.TYPE_FORWARD_ONLY
+        || resultSetConcurrency != ResultSet.CONCUR_READ_ONLY) {
+      throw new DatabricksSQLFeatureNotSupportedException(
+          "Only ResultSet.TYPE_FORWARD_ONLY and ResultSet.CONCUR_READ_ONLY are supported");
+    }
+    return prepareCall(sql);
   }
 
   @Override
@@ -635,8 +690,15 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   public CallableStatement prepareCall(
       String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
       throws SQLException {
-    throw new DatabricksSQLFeatureNotImplementedException(
-        "Callable statements are not implemented in OSS JDBC");
+    if (isClosed()) {
+      throw new DatabricksSQLException(
+          "Connection is closed", DatabricksDriverErrorCode.CONNECTION_CLOSED);
+    }
+    if (resultSetHoldability == getHoldability()) {
+      return prepareCall(sql, resultSetType, resultSetConcurrency);
+    }
+    throw new DatabricksSQLFeatureNotSupportedException(
+        "Databricks OSS JDBC only supports holdability of CLOSE_CURSORS_AT_COMMIT");
   }
 
   @Override
@@ -829,8 +891,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public void setSchema(String schema) throws SQLException {
     Statement statement = this.createStatement();
-    statement.execute("USE SCHEMA `" + schema + "`");
-    session.setSchema(schema);
+    String cleanSchema = stripBackticks(schema);
+    statement.execute("USE SCHEMA `" + cleanSchema + "`");
+    session.setSchema(cleanSchema);
   }
 
   @Override
@@ -998,5 +1061,15 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
         LOGGER.error(e, "Error closing statement: {}", e.getMessage());
       }
     }
+  }
+
+  private static String stripBackticks(String identifier) {
+    if (identifier != null
+        && identifier.startsWith("`")
+        && identifier.endsWith("`")
+        && identifier.length() >= 2) {
+      return identifier.substring(1, identifier.length() - 1);
+    }
+    return identifier;
   }
 }

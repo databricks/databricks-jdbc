@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl.arrow;
 
-import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_STREAMING_BATCH_TIMEOUT_SECONDS;
 import static com.databricks.jdbc.common.util.ArrowUtil.getColumnInfoList;
 
@@ -54,7 +53,6 @@ public class StreamingInlineArrowResult implements IExecutionResult {
 
   // Metadata
   private List<ColumnInfo> columnInfos;
-  private final int maxRows;
 
   // State
   private boolean hasReachedEnd;
@@ -78,8 +76,6 @@ public class StreamingInlineArrowResult implements IExecutionResult {
       throws DatabricksSQLException {
 
     this.session = session;
-    this.maxRows = statement != null ? statement.getMaxRows() : DEFAULT_RESULT_ROW_LIMIT;
-
     this.globalRowIndex = -1;
     this.hasReachedEnd = false;
     this.isClosed = false;
@@ -105,9 +101,8 @@ public class StreamingInlineArrowResult implements IExecutionResult {
     }
 
     LOGGER.debug(
-        "StreamingInlineArrowResult initialized - firstBatchRows={}, maxRows={}, maxBatchesInMemory={}",
+        "StreamingInlineArrowResult initialized - firstBatchRows={}, maxBatchesInMemory={}",
         currentBatch != null ? currentBatch.getRowCount() : 0,
-        maxRows,
         session.getConnectionContext().getThriftMaxBatchesInMemory());
   }
 
@@ -184,13 +179,6 @@ public class StreamingInlineArrowResult implements IExecutionResult {
       return false;
     }
 
-    // Check maxRows limit
-    boolean hasRowLimit = maxRows > 0;
-    if (hasRowLimit && globalRowIndex + 1 >= maxRows) {
-      hasReachedEnd = true;
-      return false;
-    }
-
     globalRowIndex++;
 
     // Try to move to next row in current chunk
@@ -240,12 +228,6 @@ public class StreamingInlineArrowResult implements IExecutionResult {
   @Override
   public boolean hasNext() {
     if (isClosed || hasReachedEnd) {
-      return false;
-    }
-
-    // Check maxRows limit
-    boolean hasRowLimit = maxRows > 0;
-    if (hasRowLimit && globalRowIndex + 1 >= maxRows) {
       return false;
     }
 

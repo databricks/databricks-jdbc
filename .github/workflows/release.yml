@@ -1,3 +1,7 @@
+# TODO(security): When re-enabling this workflow:
+#   1. Remove the 'if: false' condition on the publish job
+#   2. Consider adding SLSA provenance via slsa-framework/slsa-github-generator
+#   3. Verify release secrets are rotated: GPG_PRIVATE_KEY, MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD
 name: Release
 on:
   push:
@@ -5,17 +9,103 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: write
+
 jobs:
-  publish:
+  # Gate: Vulnerability scan must pass before publishing.
+  # Runs OWASP Dependency Check against NVD and fails on CVSS >= 7.
+  vulnerability-scan:
+    if: false
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up JDK
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
+        with:
+          java-version: 21
+          distribution: 'adopt'
+
+      - name: Get JFrog OIDC token
+        run: |
+          set -euo pipefail
+
+          ID_TOKEN=$(curl -sLS \
+            -H "User-Agent: actions/oidc-client" \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=jfrog-github" | jq .value | tr -d '"')
+          echo "::add-mask::${ID_TOKEN}"
+
+          ACCESS_TOKEN=$(curl -sLS -XPOST -H "Content-Type: application/json" \
+            "https://databricks.jfrog.io/access/api/v1/oidc/token" \
+            -d "{\"grant_type\": \"urn:ietf:params:oauth:grant-type:token-exchange\", \"subject_token_type\":\"urn:ietf:params:oauth:token-type:id_token\", \"subject_token\": \"${ID_TOKEN}\", \"provider_name\": \"github-actions\"}" | jq .access_token | tr -d '"')
+          echo "::add-mask::${ACCESS_TOKEN}"
+
+          if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+            echo "FAIL: Could not extract JFrog access token"
+            exit 1
+          fi
+
+          echo "JFROG_ACCESS_TOKEN=${ACCESS_TOKEN}" >> "$GITHUB_ENV"
+
+      - name: Configure maven
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << EOF
+          <settings>
+            <mirrors>
+              <mirror>
+                <id>jfrog-central</id>
+                <mirrorOf>*</mirrorOf>
+                <url>https://databricks.jfrog.io/artifactory/db-maven/</url>
+              </mirror>
+            </mirrors>
+            <servers>
+              <server>
+                <id>jfrog-central</id>
+                <username>gha-service-account</username>
+                <password>${JFROG_ACCESS_TOKEN}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      - name: Run OWASP Dependency Check
+        run: |
+          mvn -pl jdbc-core org.owasp:dependency-check-maven:check \
+            -Dnvd.api.key=${{ secrets.NVD_API_KEY }} \
+            -DfailBuildOnCVSS=7
+
+      - name: Upload scan reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6db9b8a1f7b0951caef032b8f2f72 # v4
+        with:
+          name: release-vulnerability-scan
+          path: |
+            jdbc-core/target/dependency-check-report.html
+            jdbc-core/target/dependency-check-report.json
+
+  publish:
+    # DISABLED: Third-party package publishing frozen per company-wide policy.
+    # Remove this line to re-enable publishing.
+    if: false
+    needs: vulnerability-scan
+    runs-on:
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Set up Java for publishing to Maven Central Repository
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
         env:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         with:
@@ -27,6 +117,56 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
 
+      - name: Get JFrog OIDC token
+        run: |
+          set -euo pipefail
+
+          ID_TOKEN=$(curl -sLS \
+            -H "User-Agent: actions/oidc-client" \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=jfrog-github" | jq .value | tr -d '"')
+          echo "::add-mask::${ID_TOKEN}"
+
+          ACCESS_TOKEN=$(curl -sLS -XPOST -H "Content-Type: application/json" \
+            "https://databricks.jfrog.io/access/api/v1/oidc/token" \
+            -d "{\"grant_type\": \"urn:ietf:params:oauth:grant-type:token-exchange\", \"subject_token_type\":\"urn:ietf:params:oauth:token-type:id_token\", \"subject_token\": \"${ID_TOKEN}\", \"provider_name\": \"github-actions\"}" | jq .access_token | tr -d '"')
+          echo "::add-mask::${ACCESS_TOKEN}"
+
+          if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+            echo "FAIL: Could not extract JFrog access token"
+            exit 1
+          fi
+
+          echo "JFROG_ACCESS_TOKEN=${ACCESS_TOKEN}" >> "$GITHUB_ENV"
+
+          echo "JFrog OIDC token obtained successfully"
+
+      - name: Configure maven
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << EOF
+          <settings>
+            <mirrors>
+              <mirror>
+                <id>jfrog-central</id>
+                <mirrorOf>*</mirrorOf>
+                <url>https://databricks.jfrog.io/artifactory/db-maven/</url>
+              </mirror>
+            </mirrors>
+            <servers>
+              <server>
+                <id>jfrog-central</id>
+                <username>gha-service-account</username>
+                <password>${JFROG_ACCESS_TOKEN}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+          echo "Maven configured to use JFrog registry"
+
       # Step 1: Build and install dependencies to local Maven repository
       # This builds jdbc-core (and parent) without publishing them.
       # The -am flag builds all dependencies needed by assembly-uber.
@@ -35,7 +175,10 @@ jobs:
       # GPG signing is skipped since we're only installing locally, not publishing.
       - name: Build dependencies
         run: |
-          mvn -Prelease clean install --batch-mode -pl jdbc-core -am -Dgpg.skip=true
+          mvn -Prelease clean install --batch-mode -pl jdbc-core -am -Dgpg.skip=true \
+            -Dnvd.api.key=${{ secrets.NVD_API_KEY }} \
+            -Dossindex.username=${{ secrets.OSSINDEX_USERNAME }} \
+            -Dossindex.password=${{ secrets.OSSINDEX_PASSWORD }}
 
       # Step 2: Deploy only the uber JAR module to Maven Central
       # We don't use -am here to avoid the central-publishing-maven-plugin
@@ -53,8 +196,7 @@ jobs:
           MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
           files: |
             assembly-uber/target/databricks-jdbc-*.jar
-

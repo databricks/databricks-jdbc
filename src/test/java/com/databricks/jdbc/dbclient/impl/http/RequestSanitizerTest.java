@@ -26,6 +26,41 @@ public class RequestSanitizerTest {
   }
 
   @Test
+  public void testSanitizeRequest_withAzureSasSignature() {
+    String originalUri =
+        "https://acct.blob.core.windows.net/c/chunk.arrow?sv=2021-08-06&se=2026-06-18T00:00Z&sr=b&sp=r&sig=secretSasSignature";
+    String sanitizedUri = RequestSanitizer.sanitizeRequest(new HttpGet(originalUri));
+
+    // sig (the SAS credential) is redacted; non-secret metadata is preserved.
+    String expectedUri =
+        "https://acct.blob.core.windows.net/c/chunk.arrow?sv=2021-08-06&se=2026-06-18T00:00Z&sr=b&sp=r&sig=REDACTED";
+    assertEquals(expectedUri, sanitizedUri);
+  }
+
+  @Test
+  public void testSanitizeRequest_withGcsV4Signature() {
+    String originalUri =
+        "https://storage.googleapis.com/bucket/chunk.arrow?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=svc&X-Goog-Signature=secretSig";
+    String sanitizedUri = RequestSanitizer.sanitizeRequest(new HttpGet(originalUri));
+
+    String expectedUri =
+        "https://storage.googleapis.com/bucket/chunk.arrow?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=REDACTED&X-Goog-Signature=REDACTED";
+    assertEquals(expectedUri, sanitizedUri);
+  }
+
+  @Test
+  public void testSanitizeRequest_withLowercaseGcsSignature() {
+    // GCS tooling may emit lowercase param names; matching must be case-insensitive.
+    String originalUri =
+        "https://storage.googleapis.com/bucket/chunk.arrow?x-goog-credential=svc&x-goog-signature=secretSig";
+    String sanitizedUri = RequestSanitizer.sanitizeRequest(new HttpGet(originalUri));
+
+    String expectedUri =
+        "https://storage.googleapis.com/bucket/chunk.arrow?x-goog-credential=REDACTED&x-goog-signature=REDACTED";
+    assertEquals(expectedUri, sanitizedUri);
+  }
+
+  @Test
   public void testSanitizeRequest_withNoSensitiveParams() {
     String originalUri = "https://example.com/api?param1=value1&param2=value2";
     HttpUriRequest request = new HttpGet(originalUri);

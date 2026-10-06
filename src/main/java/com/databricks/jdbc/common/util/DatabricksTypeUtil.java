@@ -15,6 +15,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Optional;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
@@ -56,6 +57,13 @@ public class DatabricksTypeUtil {
   public static final String GEOMETRY = "GEOMETRY";
   public static final String GEOGRAPHY = "GEOGRAPHY";
   public static final String INTERVAL = "INTERVAL";
+  public static final String VARCHAR = "VARCHAR";
+  public static final String NVARCHAR = "NVARCHAR";
+  public static final String NCHAR = "NCHAR";
+  public static final String INTEGER = "INTEGER";
+  public static final String NUMERIC = "NUMERIC";
+  public static final String DEC = "DEC";
+  public static final String REAL = "REAL";
   public static final String GEOMETRY_CLASS_NAME = "com.databricks.jdbc.api.IGeometry";
   public static final String GEOGRAPHY_CLASS_NAME = "com.databricks.jdbc.api.IGeography";
   public static final String MEASURE = "measure";
@@ -73,13 +81,48 @@ public class DatabricksTypeUtil {
               ColumnInfoTypeName.BYTE,
               ColumnInfoTypeName.BIGINT));
 
-  // only used for PreparedStatement
+  /**
+   * Recovers {@link ColumnInfoTypeName#STRING} from a server type name/text when the enum type
+   * could not be resolved (i.e. {@code getTypeName()} is null). A collated string column is
+   * reported as {@code "STRING COLLATE UTF8_LCASE"}, which does not map to any {@link
+   * ColumnInfoTypeName}; without this the value read NPEs and the metadata reports {@code OTHER}.
+   *
+   * <p>Matches on a word boundary so {@code "STRING"} and {@code "STRING COLLATE ..."} are
+   * recovered but hypothetical future types such as {@code "STRINGVIEW"} are not. Case-insensitive
+   * via {@link Locale#ROOT} so both sites (value and metadata paths) agree regardless of the case
+   * the server emits.
+   *
+   * @param typeText the server type text (e.g. arrow metadata or {@code ColumnInfo.getTypeText()})
+   * @return {@link ColumnInfoTypeName#STRING} if the text denotes a (possibly collated) string,
+   *     otherwise {@code null}
+   */
+  public static ColumnInfoTypeName recoverStringType(String typeText) {
+    if (typeText == null) {
+      return null;
+    }
+    String upper = typeText.toUpperCase(Locale.ROOT);
+    if (upper.equals(STRING) || upper.startsWith(STRING + " ") || upper.startsWith(STRING + "(")) {
+      return ColumnInfoTypeName.STRING;
+    }
+    return null;
+  }
+
+  /**
+   * Maps a SQL type name (as returned by DESCRIBE QUERY or schema metadata) to the corresponding
+   * {@link ColumnInfoTypeName}. Handles canonical names, Databricks aliases, and standard SQL
+   * aliases (VARCHAR, INTEGER, NUMERIC, DEC, REAL, NVARCHAR, NCHAR). Returns {@link
+   * ColumnInfoTypeName#USER_DEFINED_TYPE} for unrecognized types.
+   */
   public static ColumnInfoTypeName getColumnInfoType(String typeName) {
     switch (typeName) {
       case DatabricksTypeUtil.CHAR:
+      case DatabricksTypeUtil.NCHAR:
       case DatabricksTypeUtil.STRING:
-        return ColumnInfoTypeName.STRING; // both char, string passed as STRING param
+      case DatabricksTypeUtil.VARCHAR:
+      case DatabricksTypeUtil.NVARCHAR:
+        return ColumnInfoTypeName.STRING;
       case DatabricksTypeUtil.DATE:
+        return ColumnInfoTypeName.DATE;
       case DatabricksTypeUtil.TIMESTAMP:
       case DatabricksTypeUtil.TIMESTAMP_NTZ:
         return ColumnInfoTypeName.TIMESTAMP;
@@ -91,11 +134,13 @@ public class DatabricksTypeUtil {
       case DatabricksTypeUtil.BYTE:
         return ColumnInfoTypeName.BYTE;
       case DatabricksTypeUtil.INT:
+      case DatabricksTypeUtil.INTEGER:
         return ColumnInfoTypeName.INT;
       case DatabricksTypeUtil.BIGINT:
       case DatabricksTypeUtil.LONG:
         return ColumnInfoTypeName.LONG;
       case DatabricksTypeUtil.FLOAT:
+      case DatabricksTypeUtil.REAL:
         return ColumnInfoTypeName.FLOAT;
       case DatabricksTypeUtil.DOUBLE:
         return ColumnInfoTypeName.DOUBLE;
@@ -104,6 +149,8 @@ public class DatabricksTypeUtil {
       case DatabricksTypeUtil.BOOLEAN:
         return ColumnInfoTypeName.BOOLEAN;
       case DatabricksTypeUtil.DECIMAL:
+      case DatabricksTypeUtil.NUMERIC:
+      case DatabricksTypeUtil.DEC:
         return ColumnInfoTypeName.DECIMAL;
       case DatabricksTypeUtil.STRUCT:
         return ColumnInfoTypeName.STRUCT;
@@ -116,6 +163,16 @@ public class DatabricksTypeUtil {
         return ColumnInfoTypeName.MAP;
       case DatabricksTypeUtil.INTERVAL:
         return ColumnInfoTypeName.INTERVAL;
+      case DatabricksTypeUtil.VARIANT:
+        return ColumnInfoTypeName.VARIANT;
+      case DatabricksTypeUtil.GEOMETRY:
+        return ColumnInfoTypeName.GEOMETRY;
+      case DatabricksTypeUtil.GEOGRAPHY:
+        return ColumnInfoTypeName.GEOGRAPHY;
+    }
+    // Handle INTERVAL sub-types like "INTERVAL DAY TO SECOND"
+    if (typeName.startsWith(DatabricksTypeUtil.INTERVAL)) {
+      return ColumnInfoTypeName.INTERVAL;
     }
     return ColumnInfoTypeName.USER_DEFINED_TYPE;
   }
@@ -163,6 +220,7 @@ public class DatabricksTypeUtil {
         return Types.STRUCT;
       case ARRAY:
         return Types.ARRAY;
+      case VARIANT:
       case GEOMETRY:
       case GEOGRAPHY:
       case USER_DEFINED_TYPE:
@@ -203,6 +261,7 @@ public class DatabricksTypeUtil {
       case CHAR:
       case STRING:
       case INTERVAL:
+      case VARIANT:
       case USER_DEFINED_TYPE:
         return "java.lang.String";
       case TIMESTAMP:
@@ -557,18 +616,22 @@ public class DatabricksTypeUtil {
   }
 
   /**
-   * Checks if the given type name represents a complex type (ARRAY, MAP, STRUCT, GEOMETRY, or
-   * GEOGRAPHY).
+   * Checks if the given type name represents a complex type (ARRAY, MAP, STRUCT).
    *
    * @param typeName The type name to check
-   * @return true if the type name starts with ARRAY, MAP, STRUCT, GEOMETRY, or GEOGRAPHY, false
-   *     otherwise
+   * @return true if the type name starts with ARRAY, MAP, or STRUCT
    */
   public static boolean isComplexType(String typeName) {
-    return typeName.startsWith(ARRAY)
-        || typeName.startsWith(MAP)
-        || typeName.startsWith(STRUCT)
-        || typeName.startsWith(GEOMETRY)
-        || typeName.startsWith(GEOGRAPHY);
+    return typeName.startsWith(ARRAY) || typeName.startsWith(MAP) || typeName.startsWith(STRUCT);
+  }
+
+  /**
+   * Checks if the given type name represents a geospatial type (GEOMETRY, GEOGRAPHY).
+   *
+   * @param typeName The type name to check
+   * @return true if the type name starts with GEOMETRY or GEOGRAPHY
+   */
+  public static boolean isGeospatialType(String typeName) {
+    return typeName.startsWith(GEOMETRY) || typeName.startsWith(GEOGRAPHY);
   }
 }

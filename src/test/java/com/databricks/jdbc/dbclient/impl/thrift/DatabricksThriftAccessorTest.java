@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.thrift;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_BYTE_LIMIT;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
+import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -26,6 +27,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import org.apache.thrift.TException;
+import org.apache.thrift.transport.TTransportException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -320,6 +322,7 @@ public class DatabricksThriftAccessorTest {
 
     assertEquals("Error executing statement", exception.getMessage());
     assertEquals("42000", exception.getSQLState());
+    assertEquals(EXECUTE_STATEMENT_FAILED.getCode(), exception.getErrorCode());
   }
 
   @Test
@@ -447,6 +450,100 @@ public class DatabricksThriftAccessorTest {
     DatabricksResultSet resultSet = accessor.getStatementResult(tOperationHandle, null, session);
     assertEquals(StatementState.RUNNING, resultSet.getStatementStatus().getState());
     assertNull(resultSet.getMetaData());
+  }
+
+  @Test
+  void testGetStatementResult_cancelled_throwsWithHY008() throws Exception {
+    when(connectionContext.getDirectResultMode()).thenReturn(false);
+    accessor = spy(new DatabricksThriftAccessor(connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
+
+    // Server returns CANCELED_STATE with OK_STATUS and null errorMessage
+    TGetOperationStatusResp cancelledResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setOperationState(TOperationState.CANCELED_STATE);
+    when(thriftClient.GetOperationStatus(any(TGetOperationStatusReq.class)))
+        .thenReturn(cancelledResp);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.getStatementResult(tOperationHandle, null, session));
+
+    assertEquals("HY008", exception.getSQLState());
+    assertTrue(exception.getMessage().contains("was cancelled"));
+    assertEquals(1008, exception.getErrorCode()); // EXECUTE_STATEMENT_CANCELLED stable code
+  }
+
+  @Test
+  void testPollingPath_cancelledDuringExecution_throwsWithHY008() throws Exception {
+    setup(false);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp executeResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.ExecuteStatement(request)).thenReturn(executeResp);
+
+    // First poll returns RUNNING, second returns CANCELED (simulates cancel during execution)
+    TGetOperationStatusResp runningResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.STILL_EXECUTING_STATUS))
+            .setOperationState(TOperationState.RUNNING_STATE);
+    TGetOperationStatusResp cancelledResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setOperationState(TOperationState.CANCELED_STATE);
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(runningResp)
+        .thenReturn(cancelledResp);
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+
+    assertEquals("HY008", exception.getSQLState());
+    assertTrue(exception.getMessage().contains("was cancelled"));
+    assertEquals(1008, exception.getErrorCode()); // EXECUTE_STATEMENT_CANCELLED stable code
+  }
+
+  @Test
+  void testPollingPath_errorStatusWithNullMessage_includesErrorCode() throws Exception {
+    setup(false);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp executeResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.ExecuteStatement(request)).thenReturn(executeResp);
+
+    // Server returns ERROR_STATUS with null errorMessage but populated errorCode
+    TStatus errorStatus = new TStatus().setStatusCode(TStatusCode.ERROR_STATUS).setErrorCode(502);
+    TGetOperationStatusResp errorResp =
+        new TGetOperationStatusResp()
+            .setStatus(errorStatus)
+            .setOperationState(TOperationState.RUNNING_STATE);
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(errorResp);
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+
+    // Verify the enriched message includes errorCode instead of "error: [null]"
+    assertTrue(exception.getMessage().contains("errorCode=502"));
+    assertFalse(exception.getMessage().contains("error: [null]"));
+    assertEquals(EXECUTE_STATEMENT_FAILED.getCode(), exception.getErrorCode());
   }
 
   @Test
@@ -755,7 +852,7 @@ public class DatabricksThriftAccessorTest {
     // Make execute statement succeed but get operation status fail
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
     when(thriftClient.GetOperationStatus(any(TGetOperationStatusReq.class)))
-        .thenThrow(new TException("Failed to get status"));
+        .thenThrow(new TTransportException("Retry failure. HTTP response code: 502"));
     Statement statement = mock(Statement.class);
     when(parentStatement.getStatement()).thenReturn(statement);
     when(statement.getQueryTimeout()).thenReturn(0);
@@ -766,12 +863,15 @@ public class DatabricksThriftAccessorTest {
     try {
       accessor.execute(request, parentStatement, session, StatementType.SQL);
       fail("Expected exception due to GetOperationStatus failure");
-    } catch (DatabricksHttpException e) {
+    } catch (DatabricksSQLException e) {
       // Verify that statement ID was set on parent statement despite the failure
       verify(parentStatement).setStatementId(eq(expectedStatementId));
 
-      // Verify the error was from GetOperationStatus
-      assertTrue(e.getMessage().contains("Failed to get status"));
+      // Verify the error indicates a transient communication failure
+      assertTrue(e.getMessage().contains("Lost connection to server while polling"));
+      assertTrue(e.getMessage().contains("TTransportException"));
+      assertTrue(e.getMessage().contains("502"));
+      assertEquals("08S01", e.getSQLState());
     }
   }
 
@@ -894,6 +994,70 @@ public class DatabricksThriftAccessorTest {
   }
 
   @Test
+  void testTimedOutStateInDirectResultsThrowsTimeoutException()
+      throws TException, SQLException, DatabricksValidationException {
+    // Reproduces the interactive cluster scenario: server enforces queryTimeout and returns
+    // TIMEDOUT_STATE directly in directResults before the client polling loop starts (e.g. query
+    // is queued under load and times out while waiting). Previously isErrorOperationState excluded
+    // TIMEDOUT_STATE, causing the driver to fall through to executeFetchRequest and throw
+    // DatabricksHttpException instead.
+    setup(true);
+
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TSparkDirectResults timedOutDirectResults =
+        new TSparkDirectResults()
+            .setOperationStatus(
+                new TGetOperationStatusResp()
+                    .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+                    .setOperationState(TOperationState.TIMEDOUT_STATE)
+                    .setErrorMessage("Query timed out after 1 seconds"));
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setDirectResults(timedOutDirectResults);
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(300); // Long client timeout — server fires first
+
+    assertThrows(
+        DatabricksTimeoutException.class,
+        () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+  }
+
+  @Test
+  void testTimedOutStateDuringPollingThrowsTimeoutException()
+      throws TException, SQLException, DatabricksValidationException {
+    // Server returns RUNNING_STATE initially, then TIMEDOUT_STATE during polling —
+    // e.g. cluster enforces its own max query duration while client timeout is longer.
+    setup(true);
+
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+
+    TGetOperationStatusResp timedOutStatusResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS))
+            .setOperationState(TOperationState.TIMEDOUT_STATE)
+            .setErrorMessage("Query timed out after 1 seconds");
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(timedOutStatusResp);
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(300); // Long client timeout — server fires first
+
+    assertThrows(
+        DatabricksTimeoutException.class,
+        () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+  }
+
+  @Test
   void testFetchResultsWithCustomMaxRowsPerBlock()
       throws TException, SQLException, DatabricksValidationException {
     int customMaxRows = 500000;
@@ -938,6 +1102,254 @@ public class DatabricksThriftAccessorTest {
 
     // Verify that FetchResults was called with the correct maxRows value
     verify(thriftClient).FetchResults(expectedFetchRequest);
+  }
+
+  @Test
+  void testPollingThrowsOnInvalidHandleStatus()
+      throws TException, SQLException, DatabricksValidationException {
+    setup(false);
+
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+
+    // Simulate server restart: GetOperationStatus returns INVALID_HANDLE_STATUS
+    // without setting operationState
+    TGetOperationStatusResp invalidHandleResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.INVALID_HANDLE_STATUS));
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(invalidHandleResp);
+
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+    assertTrue(exception.getMessage().contains("INVALID_HANDLE_STATUS"));
+  }
+
+  @Test
+  void testMetadataPollingThrowsOnInvalidHandleStatus()
+      throws TException, SQLException, DatabricksValidationException {
+    setup(false);
+    lenient().when(connectionContext.getMetadataOperationTimeout()).thenReturn(300);
+
+    TGetSchemasReq request = new TGetSchemasReq();
+    TGetSchemasResp tGetSchemasResp =
+        new TGetSchemasResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.GetSchemas(request)).thenReturn(tGetSchemasResp);
+
+    // Simulate server restart: GetOperationStatus returns INVALID_HANDLE_STATUS
+    TGetOperationStatusResp invalidHandleResp =
+        new TGetOperationStatusResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.INVALID_HANDLE_STATUS));
+    when(thriftClient.GetOperationStatus(operationStatusReq)).thenReturn(invalidHandleResp);
+
+    DatabricksSQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> accessor.getThriftResponse(request));
+    assertTrue(exception.getMessage().contains("INVALID_HANDLE_STATUS"));
+    assertEquals(EXECUTE_STATEMENT_FAILED.getCode(), exception.getErrorCode());
+  }
+
+  @Test
+  void testMetadataPollingTimesOut()
+      throws TException, SQLException, DatabricksValidationException {
+    // Set the async poll interval to 200ms for faster test
+    when(connectionContext.getAsyncExecPollInterval()).thenReturn(200);
+    // Set metadata timeout to 1 second
+    when(connectionContext.getMetadataOperationTimeout()).thenReturn(1);
+
+    accessor = spy(new DatabricksThriftAccessor(connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
+
+    TGetTablesReq request = new TGetTablesReq();
+    TGetTablesResp tGetTablesResp =
+        new TGetTablesResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.GetTables(request)).thenReturn(tGetTablesResp);
+
+    // Simulate operation that stays running forever
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(operationStatusRunningResp);
+
+    // Create cancel mock
+    TCancelOperationResp cancelResp =
+        new TCancelOperationResp()
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.CancelOperation(any(TCancelOperationReq.class))).thenReturn(cancelResp);
+
+    // getThriftResponse wraps SQLException into DatabricksSQLException, so the timeout
+    // exception is wrapped. Verify that the root cause message contains the timeout info.
+    DatabricksSQLException exception =
+        assertThrows(DatabricksSQLException.class, () -> accessor.getThriftResponse(request));
+    assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
+
+    // Verify cancel was called
+    verify(thriftClient).CancelOperation(any(TCancelOperationReq.class));
+  }
+
+  @Test
+  void testMetadataPollingWithSleepBetweenPolls()
+      throws TException, SQLException, DatabricksValidationException {
+    // Set poll interval to 200ms
+    when(connectionContext.getAsyncExecPollInterval()).thenReturn(200);
+    when(connectionContext.getMetadataOperationTimeout()).thenReturn(300);
+
+    accessor = spy(new DatabricksThriftAccessor(connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
+
+    TGetColumnsReq request = new TGetColumnsReq();
+    TGetColumnsResp tGetColumnsResp =
+        new TGetColumnsResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+    when(thriftClient.GetColumns(request)).thenReturn(tGetColumnsResp);
+
+    // Simulate: first poll returns running, second returns finished
+    when(thriftClient.GetOperationStatus(operationStatusReq))
+        .thenReturn(operationStatusRunningResp)
+        .thenReturn(operationStatusFinishedResp);
+    when(thriftClient.FetchResults(getFetchResultsRequest(false))).thenReturn(fetchResultsResponse);
+
+    long startTime = System.currentTimeMillis();
+    TFetchResultsResp actualResponse = (TFetchResultsResp) accessor.getThriftResponse(request);
+    long elapsed = System.currentTimeMillis() - startTime;
+
+    assertEquals(actualResponse, fetchResultsResponse);
+    // Verify sleep happened — elapsed time should be at least ~200ms
+    assertTrue(elapsed >= 150, "Expected at least 150ms elapsed due to poll sleep, got " + elapsed);
+  }
+
+  @Test
+  void testExecute_remapsUcErrorOnStatusCodeBranchToCommunicationLinkFailure()
+      throws TException, SQLException, DatabricksValidationException {
+    setup(true);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+
+    String ucErrorMessage =
+        "Error running query: [UC_CLIENT_EXCEPTION] Failed to contact the Unity Catalog server. "
+            + "HTTP/1.1 504 Gateway Timeout, DEADLINE_EXCEEDED";
+    // ERROR_STATUS triggers the status-code branch in checkOperationStatusForErrors first.
+    TGetOperationStatusResp ucErrorResp =
+        new TGetOperationStatusResp()
+            .setStatus(
+                new TStatus()
+                    .setStatusCode(TStatusCode.ERROR_STATUS)
+                    .setErrorMessage(ucErrorMessage)
+                    .setSqlState("XXUCC"))
+            .setSqlState("XXUCC")
+            .setOperationState(TOperationState.ERROR_STATE);
+
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    when(thriftClient.GetOperationStatus(any(TGetOperationStatusReq.class)))
+        .thenReturn(ucErrorResp);
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+
+    DatabricksSQLException e =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+    assertEquals("08S01", e.getSQLState(), "Expected UC error to be remapped to 08S01");
+    assertNotEquals("XXUCC", e.getSQLState(), "Expected XXUCC to have been remapped");
+    assertTrue(e.getMessage().contains("UC_CLIENT_EXCEPTION"));
+  }
+
+  @Test
+  void testExecute_remapsUcErrorOnOperationStateBranchToCommunicationLinkFailure()
+      throws TException, SQLException, DatabricksValidationException {
+    setup(true);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+
+    String ucErrorMessage =
+        "Error running query: [UC_CLIENT_EXCEPTION] Failed to contact the Unity Catalog server. "
+            + "HTTP/1.1 504 Gateway Timeout, DEADLINE_EXCEEDED";
+    // SUCCESS_STATUS on TStatus skips the status-code branch and falls through to the
+    // operation-state branch (the second classifier call site in checkOperationStatusForErrors).
+    TGetOperationStatusResp ucErrorResp =
+        new TGetOperationStatusResp()
+            .setStatus(
+                new TStatus()
+                    .setStatusCode(TStatusCode.SUCCESS_STATUS)
+                    .setErrorMessage(ucErrorMessage)
+                    .setSqlState("XXUCC"))
+            .setSqlState("XXUCC")
+            .setOperationState(TOperationState.ERROR_STATE);
+
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    when(thriftClient.GetOperationStatus(any(TGetOperationStatusReq.class)))
+        .thenReturn(ucErrorResp);
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+
+    DatabricksSQLException e =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+    assertEquals(
+        "08S01",
+        e.getSQLState(),
+        "Expected UC error on operation-state branch to be remapped to 08S01");
+  }
+
+  @Test
+  void testExecute_remapsConcurrentModificationOnOperationStateBranchToSerializationFailure()
+      throws TException, SQLException, DatabricksValidationException {
+    setup(true);
+    TExecuteStatementReq request = new TExecuteStatementReq();
+    TExecuteStatementResp tExecuteStatementResp =
+        new TExecuteStatementResp()
+            .setOperationHandle(tOperationHandle)
+            .setStatus(new TStatus().setStatusCode(TStatusCode.SUCCESS_STATUS));
+
+    String cmeErrorMessage =
+        "Error running query: java.util.ConcurrentModificationException: "
+            + "mutation occurred during iteration";
+    TGetOperationStatusResp cmeErrorResp =
+        new TGetOperationStatusResp()
+            .setStatus(
+                new TStatus()
+                    .setStatusCode(TStatusCode.SUCCESS_STATUS)
+                    .setErrorMessage(cmeErrorMessage)
+                    .setSqlState("42000"))
+            .setSqlState("42000")
+            .setOperationState(TOperationState.ERROR_STATE);
+
+    when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
+    when(thriftClient.GetOperationStatus(any(TGetOperationStatusReq.class)))
+        .thenReturn(cmeErrorResp);
+    Statement statement = mock(Statement.class);
+    when(parentStatement.getStatement()).thenReturn(statement);
+    when(statement.getQueryTimeout()).thenReturn(0);
+
+    DatabricksSQLException e =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+    assertEquals(
+        "40001",
+        e.getSQLState(),
+        "Expected ConcurrentModificationException with 42000 to be remapped to 40001");
+    assertEquals(EXECUTE_STATEMENT_FAILED.getCode(), e.getErrorCode());
   }
 
   private TFetchResultsReq getFetchResultsRequest(boolean includeMetadata)

@@ -29,7 +29,6 @@ public class LazyThriftResultTest {
   void setUp() throws SQLException {
     // Lenient stubbing to avoid unnecessary strictness
     lenient().when(session.getDatabricksClient()).thenReturn(databricksClient);
-    lenient().when(statement.getMaxRows()).thenReturn(0); // No limit by default
   }
 
   @Test
@@ -172,70 +171,6 @@ public class LazyThriftResultTest {
     assertTrue(result.next());
     verify(databricksClient, times(2)).getMoreResults(statement);
     assertEquals("final_col1", result.getObject(0));
-  }
-
-  @Test
-  void testMaxRowsLimit() throws SQLException {
-    when(statement.getMaxRows()).thenReturn(2); // Limit to 2 rows
-
-    TFetchResultsResp response =
-        createResponseWithStringData(
-            Arrays.asList("row1_col1", "row1_col2"),
-            Arrays.asList("row2_col1", "row2_col2"),
-            Arrays.asList("row3_col1", "row3_col2"),
-            true); // hasMoreRows = true
-
-    LazyThriftResult result = new LazyThriftResult(response, statement, session);
-
-    // Should only get first 2 rows due to maxRows limit
-    assertTrue(result.next());
-    assertEquals("row1_col1", result.getObject(0));
-
-    assertTrue(result.next());
-    assertEquals("row2_col1", result.getObject(0));
-
-    // Should not proceed to next row due to limit
-    assertFalse(result.hasNext());
-    assertFalse(result.next());
-
-    // Should not attempt to fetch more results from server
-    verify(databricksClient, never()).getMoreResults(any());
-  }
-
-  @Test
-  void testMaxRowsLimitAcrossBatches() throws SQLException {
-    when(statement.getMaxRows()).thenReturn(3); // Limit to 3 rows
-
-    // First batch has 2 rows
-    TFetchResultsResp firstBatch =
-        createResponseWithStringData(
-            Arrays.asList("row1_col1", "row1_col2"),
-            Arrays.asList("row2_col1", "row2_col2"),
-            true); // hasMoreRows = true
-
-    // Second batch has 2 rows
-    TFetchResultsResp secondBatch =
-        createResponseWithStringData(
-            Arrays.asList("row3_col1", "row3_col2"),
-            Arrays.asList("row4_col1", "row4_col2"),
-            false); // hasMoreRows = false
-
-    when(databricksClient.getMoreResults(statement)).thenReturn(secondBatch);
-
-    LazyThriftResult result = new LazyThriftResult(firstBatch, statement, session);
-
-    // Consume first batch
-    assertTrue(result.next()); // row 1
-    assertTrue(result.next()); // row 2
-
-    // Should get one more row from second batch then stop
-    assertTrue(result.next()); // row 3
-    assertEquals("row3_col1", result.getObject(0));
-
-    // Should stop due to maxRows limit
-    assertFalse(result.hasNext());
-    assertFalse(result.next());
-    assertEquals(4, result.getTotalRowsFetched()); // 2 from first batch + 2 from second batch
   }
 
   @Test

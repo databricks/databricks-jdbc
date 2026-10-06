@@ -1,6 +1,7 @@
 name: Code Coverage
 
 permissions:
+  id-token: write
   contents: read
 
 on:
@@ -9,37 +10,49 @@ on:
 jobs:
   coverage:
     runs-on:
-        group: databricks-protected-runner-group
-        labels: linux-ubuntu-latest
-    
+      group: databricks-protected-runner-group
+      labels: linux-ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       with:
         fetch-depth: 0  # Needed for coverage comparison
         ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
         repository: ${{ github.event.pull_request.head.repo.full_name ||  github.repository }}
-        
+
     - name: Set up JDK
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5.4.0
       with:
         java-version: '8'
         distribution: 'adopt'
-        
-    - name: Cache dependencies
-      uses: actions/cache@v4
+
+    - name: Check if fork
+      id: fork-check
+      shell: bash
+      run: |
+        if [ "${{ github.event.pull_request.head.repo.full_name }}" != "" ] && \
+           [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+          echo "is_fork=true" >> $GITHUB_OUTPUT
+          echo "This is a forked PR — will use cached dependencies"
+        else
+          echo "is_fork=false" >> $GITHUB_OUTPUT
+          echo "This is a same-repo PR — will use JFrog OIDC"
+        fi
+
+    - name: Setup Maven
+      uses: ./.github/actions/setup-maven
       with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: |
-          ${{ runner.os }}-m2-
-        
+        is-fork: ${{ steps.fork-check.outputs.is_fork }}
+
     - name: Run tests with coverage
-      run: mvn -pl jdbc-core clean test -Dgroups='!Jvm17PlusAndArrowToNioReflectionDisabled' jacoco:report
-      
+      run: mvn -pl jdbc-core clean test -Dspotless.skip=true jacoco:report
+
     - name: Check for coverage override
       id: override
+      env:
+        PR_BODY: ${{ github.event.pull_request.body }}
       run: |
-        OVERRIDE_COMMENT=$(echo "${{ github.event.pull_request.body }}" | grep -E "SKIP_COVERAGE_CHECK\s*=" || echo "")
+        OVERRIDE_COMMENT=$(echo "$PR_BODY" | grep -E "SKIP_COVERAGE_CHECK\s*=" || echo "")
         if [ -n "$OVERRIDE_COMMENT" ]; then
           echo "override=true" >> $GITHUB_OUTPUT
           REASON=$(echo "$OVERRIDE_COMMENT" | sed -E 's/.*SKIP_COVERAGE_CHECK\s*=\s*(.+)/\1/')
@@ -49,7 +62,7 @@ jobs:
           echo "override=false" >> $GITHUB_OUTPUT
           echo "No coverage override found"
         fi
-      
+
     - name: Check coverage percentage
       if: steps.override.outputs.override == 'false'
       run: |
@@ -58,22 +71,22 @@ jobs:
           echo "ERROR: Coverage file not found at $COVERAGE_FILE"
           exit 1
         fi
-        
+
         # Install xmllint if not available
         if ! command -v xmllint &> /dev/null; then
           sudo apt-get update && sudo apt-get install -y libxml2-utils
         fi
-        
+
         COVERED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@covered)" "$COVERAGE_FILE")
         MISSED=$(xmllint --xpath "string(//report/counter[@type='INSTRUCTION']/@missed)" "$COVERAGE_FILE")
         TOTAL=$((COVERED + MISSED))
-        
+
         # Use Python for floating-point math
         PERCENTAGE=$(python3 -c "covered=${COVERED}; total=${TOTAL}; print(round((covered/total)*100, 2))")
-        
+
         echo "Branch Coverage: $PERCENTAGE%"
         echo "Required Coverage: 80%"
-        
+
         # Use Python to compare the coverage with 80
         python3 -c "import sys; sys.exit(0 if float('$PERCENTAGE') >= 80 else 1)"
         if [ $? -eq 1 ]; then
@@ -82,12 +95,15 @@ jobs:
         else
           echo "SUCCESS: Coverage is $PERCENTAGE%, which meets the required 80%"
         fi
-        
+
     - name: Coverage enforcement summary
+      env:
+        OVERRIDE: ${{ steps.override.outputs.override }}
+        OVERRIDE_REASON: ${{ steps.override.outputs.reason }}
       run: |
-        if [ "${{ steps.override.outputs.override }}" == "true" ]; then
-          echo "⚠️ Coverage checks bypassed: ${{ steps.override.outputs.reason }}"
+        if [ "$OVERRIDE" == "true" ]; then
+          echo "Coverage checks bypassed: $OVERRIDE_REASON"
           echo "Please ensure this override is justified and temporary"
         else
-          echo "✅ Coverage checks enforced - minimum 80% required"
+          echo "Coverage checks enforced - minimum 80% required"
         fi

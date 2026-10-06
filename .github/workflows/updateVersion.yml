@@ -10,6 +10,10 @@ on:
         description: 'New version to update to'
         required: true
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   update-version:
     runs-on:
@@ -17,9 +21,27 @@ jobs:
       labels: linux-ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate version inputs
+        env:
+          OLD_VERSION: ${{ github.event.inputs.old_version }}
+          NEW_VERSION: ${{ github.event.inputs.new_version }}
+        run: |
+          # Validate versions match expected patterns (semver or semver-SNAPSHOT)
+          # to prevent shell/regex injection via crafted version strings.
+          VERSION_PATTERN='^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$'
+          if ! echo "$OLD_VERSION" | grep -qE "$VERSION_PATTERN"; then
+            echo "ERROR: old_version '$OLD_VERSION' does not match expected version pattern"
+            exit 1
+          fi
+          if ! echo "$NEW_VERSION" | grep -qE "$VERSION_PATTERN"; then
+            echo "ERROR: new_version '$NEW_VERSION' does not match expected version pattern"
+            exit 1
+          fi
+          echo "Version inputs validated: $OLD_VERSION -> $NEW_VERSION"
 
       - name: Set up Git configuration
         run: |
@@ -28,36 +50,42 @@ jobs:
 
       - name: Create new branch for version update
         id: create_branch
+        env:
+          NEW_VERSION: ${{ github.event.inputs.new_version }}
         run: |
-          BRANCH_NAME="version-update-${{ github.event.inputs.new_version }}"
-          git checkout -b $BRANCH_NAME
-          echo "::set-output name=branch::$BRANCH_NAME"
+          BRANCH_NAME="version-update-${NEW_VERSION}"
+          git checkout -b "$BRANCH_NAME"
+          echo "branch=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Replace old version with new version in repository
+        env:
+          OLD_VERSION: ${{ github.event.inputs.old_version }}
+          NEW_VERSION: ${{ github.event.inputs.new_version }}
         run: |
-          OLD_VERSION="${{ github.event.inputs.old_version }}"
-          NEW_VERSION="${{ github.event.inputs.new_version }}"
           # Recursively search for files containing the old version and replace them.
           # Adjust file patterns or directories as needed.
           grep -rl "$OLD_VERSION" . | xargs sed -i "s/$OLD_VERSION/$NEW_VERSION/g" || echo "No occurrences found."
 
       - name: Commit changes
+        env:
+          OLD_VERSION: ${{ github.event.inputs.old_version }}
+          NEW_VERSION: ${{ github.event.inputs.new_version }}
         run: |
           # Stage all changes
           git add .
           # Commit if there are changes
           if ! git diff --cached --quiet; then
-            git commit -m "Update version from ${{ github.event.inputs.old_version }} to ${{ github.event.inputs.new_version }}"
+            git commit -m "Update version from ${OLD_VERSION} to ${NEW_VERSION}"
           else
             echo "No changes to commit."
           fi
 
       - name: Push branch
         run: |
-          git push origin ${{ steps.create_branch.outputs.branch }}
+          git push origin "${{ steps.create_branch.outputs.branch }}"
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ steps.create_branch.outputs.branch }}

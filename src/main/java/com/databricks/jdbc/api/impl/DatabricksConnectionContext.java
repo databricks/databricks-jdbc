@@ -1,9 +1,9 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
-import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_SCOPE;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.parseOAuthScopes;
 import static com.databricks.jdbc.common.util.StringUtil.parseIntegerSet;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
@@ -29,10 +29,12 @@ import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
-import java.util.Collections;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URIBuilder;
 
 public class DatabricksConnectionContext implements IDatabricksConnectionContext {
@@ -43,6 +45,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private static final String SQL_EXEC_FLAG_NAME =
       "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc";
 
+  private static final String USE_QUERY_FOR_THRIFT_FLAG_NAME =
+      "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc";
+
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
@@ -52,6 +57,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private Supplier<DatabricksClientType> clientTypeSupplier;
   @VisibleForTesting final ImmutableMap<String, String> parameters;
   @VisibleForTesting final String connectionUuid;
+  private final boolean enableArrow;
 
   private DatabricksConnectionContext(
       String connectionURL,
@@ -68,6 +74,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.customHeaders = parseCustomHeaders(parameters);
     this.computeResource = buildCompute();
     this.connectionUuid = UUID.randomUUID().toString();
+    this.enableArrow = resolveEnableArrow();
     this.clientTypeSupplier =
         new Supplier<DatabricksClientType>() {
           private DatabricksClientType cType;
@@ -92,10 +99,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     this.customHeaders = parseCustomHeaders(parameters);
     this.computeResource = null;
     this.connectionUuid = UUID.randomUUID().toString();
+    this.enableArrow = resolveEnableArrow();
   }
 
   /**
    * Builds a map of properties from the given connection parameter string and properties object.
+   * Connection URL parameters take precedence over entries in the properties object.
    *
    * @param connectionParamString the connection parameter string
    * @param properties the properties object
@@ -104,25 +113,25 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public static ImmutableMap<String, String> buildPropertiesMap(
       String connectionParamString, Properties properties) {
     ImmutableMap.Builder<String, String> parametersBuilder = ImmutableMap.builder();
+    for (Map.Entry<Object, Object> entry : properties.entrySet()) {
+      parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
+    }
     // check if connectionParamString is empty or null
     if (!isNullOrEmpty(connectionParamString)) {
       String[] urlParts = connectionParamString.split(DatabricksJdbcConstants.URL_DELIMITER);
       for (String urlPart : urlParts) {
-        String[] pair = urlPart.split(DatabricksJdbcConstants.PAIR_DELIMITER);
-        if (pair.length == 1) {
-          pair = new String[] {pair[0], ""};
-        }
-        if (pair[0].startsWith(DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName())) {
-          parametersBuilder.put(pair[0], pair[1]);
+        // Split on first '=' only — values (like httpPath) may contain '=' (e.g. ?o=123)
+        int delimIdx = urlPart.indexOf(DatabricksJdbcConstants.PAIR_DELIMITER);
+        String key = delimIdx >= 0 ? urlPart.substring(0, delimIdx) : urlPart;
+        String value = delimIdx >= 0 ? urlPart.substring(delimIdx + 1) : "";
+        if (key.startsWith(DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName())) {
+          parametersBuilder.put(key, value);
         } else {
-          parametersBuilder.put(pair[0].toLowerCase(), pair[1]);
+          parametersBuilder.put(key.toLowerCase(), value);
         }
       }
     }
-    for (Map.Entry<Object, Object> entry : properties.entrySet()) {
-      parametersBuilder.put(entry.getKey().toString().toLowerCase(), entry.getValue().toString());
-    }
-    return parametersBuilder.build();
+    return parametersBuilder.buildKeepingLast();
   }
 
   static IDatabricksConnectionContext parseWithoutError(String url, Properties properties) {
@@ -150,7 +159,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       throws DatabricksSQLException {
     if (!ValidationUtil.isValidJdbcUrl(url)) {
       throw new DatabricksParsingException(
-          "Invalid url " + url, DatabricksDriverErrorCode.CONNECTION_ERROR);
+          "Invalid url " + redactConnectionURL(url), DatabricksDriverErrorCode.CONNECTION_ERROR);
     }
     Matcher urlMatcher = JDBC_URL_PATTERN.matcher(url);
     if (urlMatcher.find()) {
@@ -286,7 +295,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public Boolean getDirectResultMode() {
-    return Objects.equals(getParameter(DatabricksJdbcUrlParams.DIRECT_RESULT), "1");
+    return Objects.equals(
+        getParameter(
+            DatabricksJdbcUrlParams.DIRECT_RESULT,
+            getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_DIRECT_RESULTS)),
+        "1");
   }
 
   public Cloud getCloud() throws DatabricksParsingException {
@@ -325,13 +338,54 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getNullableClientId() {
-    return getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
+    String clientId = getParameter(DatabricksJdbcUrlParams.CLIENT_ID);
+    if (nullOrEmptyString(clientId) && isM2MClientCredentialsMode()) {
+      // Fall back to the JDBC username (user/UID from getConnection(url, user, password)) so BI
+      // tools can supply the OAuth client id without embedding OAuth2ClientId in the URL (issue
+      // #1132). The PAT sentinel value "token" is not a client id and is ignored.
+      String user = getUserProvidedClientId();
+      if (user != null) {
+        return user;
+      }
+    }
+    return clientId;
+  }
+
+  /**
+   * Returns the OAuth client id supplied via the JDBC {@code UID}/{@code user} property, treating
+   * the PAT sentinel {@code "token"} and blank values as absent. Returns null if none is usable.
+   */
+  private String getUserProvidedClientId() {
+    String user = getUserProvidedIdentity();
+    return (!nullOrEmptyString(user) && !VALID_UID_VALUE.equals(user)) ? user : null;
+  }
+
+  /** Returns the identity supplied via the JDBC {@code UID}/{@code user} property, or null. */
+  private String getUserProvidedIdentity() {
+    return getParameter(DatabricksJdbcUrlParams.UID, getParameter(DatabricksJdbcUrlParams.USER));
+  }
+
+  /** Returns the secret supplied via the JDBC {@code PWD}/{@code password} property, or null. */
+  private String getUserProvidedSecret() {
+    return getParameter(
+        DatabricksJdbcUrlParams.PWD, getParameter(DatabricksJdbcUrlParams.PASSWORD));
+  }
+
+  /**
+   * Returns true only for the OAuth M2M client-credentials flow (AuthMech=11, Auth_Flow=1), the
+   * flow for which reading the client id/secret from the JDBC user/password is intended (issue
+   * #1132). Scoped this narrowly so it never alters the U2M browser (public-client PKCE) or
+   * token-passthrough flows.
+   */
+  private boolean isM2MClientCredentialsMode() {
+    return getAuthMech() == AuthMech.OAUTH && getAuthFlow() == AuthFlow.CLIENT_CREDENTIALS;
   }
 
   @Override
   public List<String> getOAuthScopesForU2M() throws DatabricksParsingException {
-    if (getParameter(AUTH_SCOPE) != null) {
-      return Collections.singletonList(getAuthScope());
+    List<String> scopes = parseOAuthScopes(getAuthScope());
+    if (!scopes.isEmpty()) {
+      return scopes;
     }
     // Use uniform default scopes for all clouds: sql and offline_access
     return Arrays.asList(
@@ -340,7 +394,16 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public String getClientSecret() {
-    return getParameter(DatabricksJdbcUrlParams.CLIENT_SECRET);
+    String clientSecret = getParameter(DatabricksJdbcUrlParams.CLIENT_SECRET);
+    if (nullOrEmptyString(clientSecret) && isM2MClientCredentialsMode()) {
+      // Fall back to the JDBC password (PWD/password from getConnection(url, user, password)) so BI
+      // tools can mask the OAuth secret instead of exposing OAuth2Secret in the URL (issue #1132).
+      String pwd = getUserProvidedSecret();
+      if (!nullOrEmptyString(pwd)) {
+        return pwd;
+      }
+    }
+    return clientSecret;
   }
 
   @Override
@@ -450,10 +513,42 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       if (useThriftClient.equals("1")) {
         return DatabricksClientType.THRIFT;
       } else if (useThriftClient.equals("0")) {
+        // Warn if user explicitly chose SEA but also set Thrift-only metadata params
+        String explicitQueryForMetadata =
+            getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA);
+        String explicitCatalogAsPattern =
+            getParameterIgnoreDefault(
+                DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
+        if ((explicitQueryForMetadata != null && explicitQueryForMetadata.equals("0"))
+            || (explicitCatalogAsPattern != null && explicitCatalogAsPattern.equals("1"))) {
+          LOGGER.warn(
+              "UseThriftClient=0 (SEA) is set alongside Thrift-only metadata params "
+                  + "(UseQueryForMetadata={}, TreatMetadataCatalogNameAsPattern={}). "
+                  + "Honouring SEA — these metadata params will have no effect.",
+              explicitQueryForMetadata,
+              explicitCatalogAsPattern);
+        }
         return DatabricksClientType.SEA;
       }
     }
-    // Now, user has not provided a value, we will decide based on our checks
+    // Now, user has not provided a value for UseThriftClient, we will decide based on our checks.
+    // If user explicitly requires Thrift-native metadata behavior, stay on Thrift:
+    // - UseQueryForMetadata=0: user wants native Thrift RPCs for metadata (not SHOW commands)
+    // - TreatMetadataCatalogNameAsPattern=1: only works with native Thrift RPCs
+    String explicitUseQueryForMetadata =
+        getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA);
+    String explicitTreatCatalogAsPattern =
+        getParameterIgnoreDefault(DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
+    if ((explicitUseQueryForMetadata != null && explicitUseQueryForMetadata.equals("0"))
+        || (explicitTreatCatalogAsPattern != null && explicitTreatCatalogAsPattern.equals("1"))) {
+      LOGGER.info(
+          "Forcing Thrift client: user requires Thrift-native metadata behavior "
+              + "(UseQueryForMetadata={}, TreatMetadataCatalogNameAsPattern={})",
+          explicitUseQueryForMetadata,
+          explicitTreatCatalogAsPattern);
+      return DatabricksClientType.THRIFT;
+    }
+
     // Check if circuit breaker is open due to recent 429 rate limit failures
     if (SeaCircuitBreakerManager.isCircuitOpen()) {
       long remainingMs = SeaCircuitBreakerManager.getTimeRemainingMs();
@@ -464,8 +559,8 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
           remainingMs);
       return DatabricksClientType.THRIFT;
     }
-    // Check if Arrow is disabled - Thrift is required for inline mode
-    if (!Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_ARROW), "1")) {
+    // On AIX/PowerPC, Arrow may be disabled — check before routing to SEA
+    if (isAixOrPowerPc() && !shouldEnableArrow()) {
       return DatabricksClientType.THRIFT;
     }
     // Check if CloudFetch is disabled - Thrift is required for inline mode
@@ -628,7 +723,34 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public Boolean shouldEnableArrow() {
-    return Objects.equals(getParameter(DatabricksJdbcUrlParams.ENABLE_ARROW), "1");
+    return enableArrow;
+  }
+
+  /** Evaluates the Arrow enablement once at construction time. */
+  private boolean resolveEnableArrow() {
+    // Arrow is always enabled unless running on AIX or IBM Power (which have known
+    // issues with the Arrow native library). The EnableArrow connection property is
+    // deprecated and its value is ignored on non-AIX/IBM platforms.
+    if (isAixOrPowerPc()) {
+      // On AIX/PowerPC, Arrow native library has known issues — default to disabled.
+      // Honour explicit EnableArrow=1 if user sets it.
+      String explicitValue = getParameterIgnoreDefault(DatabricksJdbcUrlParams.ENABLE_ARROW);
+      if (explicitValue != null) {
+        return explicitValue.equals("1");
+      }
+      return false; // default disabled on AIX/PowerPC
+    }
+
+    // Log deprecation warning once if user explicitly set EnableArrow=0 (ignored)
+    String explicitValue = getParameterIgnoreDefault(DatabricksJdbcUrlParams.ENABLE_ARROW);
+    if (explicitValue != null && explicitValue.equals("0")) {
+      LOGGER.info(
+          "EnableArrow=0 is deprecated and ignored. Arrow serialization is always enabled. "
+              + "To use JSON inline results with SEA, disable CloudFetch via "
+              + "EnableQueryResultDownload=0.");
+    }
+
+    return true;
   }
 
   @Override
@@ -705,6 +827,47 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public String getConnectionURL() {
     return connectionURL;
+  }
+
+  // Connection-URL params whose values are secrets and must be masked before the URL is exposed
+  // (DatabaseMetaData.getURL(), exceptions, logs, telemetry).
+  private static final Set<String> SENSITIVE_URL_PARAMS =
+      Stream.of(
+              DatabricksJdbcUrlParams.PWD,
+              DatabricksJdbcUrlParams.PASSWORD,
+              DatabricksJdbcUrlParams.CLIENT_SECRET,
+              DatabricksJdbcUrlParams.AUTH_ACCESS_TOKEN,
+              DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN,
+              DatabricksJdbcUrlParams.OAUTH_REFRESH_TOKEN_2,
+              DatabricksJdbcUrlParams.PROXY_PWD,
+              DatabricksJdbcUrlParams.CF_PROXY_PWD,
+              DatabricksJdbcUrlParams.SSL_KEY_STORE_PASSWORD,
+              DatabricksJdbcUrlParams.SSL_TRUST_STORE_PASSWORD,
+              DatabricksJdbcUrlParams.TOKEN_CACHE_PASS_PHRASE,
+              DatabricksJdbcUrlParams.JWT_PASS_PHRASE)
+          .map(p -> p.getParamName().toLowerCase())
+          .collect(Collectors.toSet());
+
+  /** Masks the values of secret-bearing parameters in a JDBC connection URL. */
+  public static String redactConnectionURL(String url) {
+    if (url == null) {
+      return null;
+    }
+    String[] parts = url.split(URL_DELIMITER);
+    StringBuilder sb = new StringBuilder(url.length());
+    for (int i = 0; i < parts.length; i++) {
+      if (i > 0) {
+        sb.append(URL_DELIMITER);
+      }
+      String part = parts[i];
+      int idx = part.indexOf(PAIR_DELIMITER);
+      if (idx > 0 && SENSITIVE_URL_PARAMS.contains(part.substring(0, idx).toLowerCase())) {
+        sb.append(part, 0, idx + 1).append(REDACTED_TOKEN);
+      } else {
+        sb.append(part);
+      }
+    }
+    return sb.toString();
   }
 
   @Override
@@ -902,6 +1065,33 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return getParameter(DatabricksJdbcUrlParams.ENABLE_TELEMETRY).equals("1");
   }
 
+  public boolean isHeartbeatEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_HEARTBEAT).equals("1");
+  }
+
+  public int getHeartbeatIntervalSeconds() {
+    int interval;
+    try {
+      interval = Integer.parseInt(getParameter(DatabricksJdbcUrlParams.HEARTBEAT_INTERVAL_SECONDS));
+    } catch (NumberFormatException e) {
+      LOGGER.warn(
+          "Invalid HeartbeatIntervalSeconds value '{}'. Using default 60.",
+          getParameter(DatabricksJdbcUrlParams.HEARTBEAT_INTERVAL_SECONDS));
+      return 60;
+    }
+    if (interval <= 0) {
+      LOGGER.warn("HeartbeatIntervalSeconds must be positive, got {}. Using default 60.", interval);
+      return 60;
+    }
+    if (interval > 3600) {
+      LOGGER.warn(
+          "HeartbeatIntervalSeconds {} is very large (> 1 hour). "
+              + "Heartbeat may not keep the operation alive.",
+          interval);
+    }
+    return interval;
+  }
+
   @Override
   public String getVolumeOperationAllowedPaths() {
     return getParameter(
@@ -912,11 +1102,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isSqlExecHybridResultsEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_HYBRID_RESULTS).equals("1");
-  }
-
-  @Override
-  public boolean isSqlExecDirectResultsEnabled() {
-    return getParameter(DatabricksJdbcUrlParams.ENABLE_SQL_EXEC_DIRECT_RESULTS).equals("1");
   }
 
   @Override
@@ -962,9 +1147,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean isGeoSpatialSupportEnabled() {
-    // Geospatial support requires complex datatype support to be enabled
-    return isComplexDatatypeSupportEnabled()
-        && getParameter(DatabricksJdbcUrlParams.ENABLE_GEOSPATIAL_SUPPORT).equals("1");
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_GEOSPATIAL_SUPPORT).equals("1");
+  }
+
+  @Override
+  public boolean isTimestampNtzTypeNameEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_TIMESTAMP_NTZ_TYPE_NAME).equals("1");
   }
 
   @Override
@@ -1100,12 +1288,23 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public boolean useQueryForMetadata() {
-    return getParameter(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA).equals("1");
+    return resolveFeatureFlag(
+        DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA, USE_QUERY_FOR_THRIFT_FLAG_NAME);
   }
 
   @Override
   public boolean treatMetadataCatalogNameAsPattern() {
     return getParameter(DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN).equals("1");
+  }
+
+  @Override
+  public int getMetadataOperationTimeout() {
+    try {
+      return Integer.parseInt(getParameter(DatabricksJdbcUrlParams.METADATA_OPERATION_TIMEOUT));
+    } catch (NumberFormatException e) {
+      LOGGER.warn("Invalid value for MetadataOperationTimeout, using default of 300 seconds");
+      return 300;
+    }
   }
 
   @Override
@@ -1153,18 +1352,116 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     return this.parameters.getOrDefault(key.getParamName().toLowerCase(), null);
   }
 
+  /** Returns true if running on AIX or IBM PowerPC architecture. */
+  private static boolean isAixOrPowerPc() {
+    String osName = System.getProperty("os.name", "").toLowerCase();
+    String osArch = System.getProperty("os.arch", "").toLowerCase();
+    return osName.contains("aix") || osArch.contains("ppc");
+  }
+
+  /**
+   * Resolves a boolean feature flag with client-side priority over server-side.
+   *
+   * <p>Priority order:
+   *
+   * <ol>
+   *   <li>Client-side param (explicit user setting in JDBC URL) — honoured unconditionally
+   *   <li>Server-side feature flag (DBSQL warehouses only) — checked if user didn't set the param
+   *   <li>Default value from the param definition
+   * </ol>
+   *
+   * @param clientParam the JDBC URL parameter (e.g. USE_QUERY_FOR_METADATA)
+   * @param serverFlagName the server-side SAFE flag name
+   * @return true if the feature should be enabled
+   */
+  private boolean resolveFeatureFlag(DatabricksJdbcUrlParams clientParam, String serverFlagName) {
+    // 1. User explicitly set the param — honour it regardless of compute type
+    String explicitValue = getParameterIgnoreDefault(clientParam);
+    if (explicitValue != null) {
+      return explicitValue.equals("1");
+    }
+
+    // 2. No explicit setting + all-purpose cluster — always false
+    if (!(computeResource instanceof Warehouse)) {
+      return false;
+    }
+
+    // 3. No explicit setting + warehouse — enabled only when BOTH client default
+    //    AND server-side flag agree. This gives a two-key rollout mechanism:
+    //    flip the param default to "1" in the driver AND enable the server flag.
+    boolean clientDefault = getParameter(clientParam).equals("1");
+    boolean serverEnabled = false;
+    try {
+      serverEnabled =
+          DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
+              .isFeatureEnabled(serverFlagName);
+    } catch (Exception e) {
+      LOGGER.debug("Failed to check server-side flag {}: {}", serverFlagName, e.getMessage());
+    }
+
+    if (clientDefault && serverEnabled) {
+      LOGGER.debug(
+          "Feature {} enabled for warehouse: client default={}, server flag {} ={}",
+          clientParam.getParamName(),
+          clientDefault,
+          serverFlagName,
+          serverEnabled);
+      return true;
+    }
+
+    return false;
+  }
+
   private String getParameter(DatabricksJdbcUrlParams key, String defaultValue) {
     return this.parameters.getOrDefault(key.getParamName().toLowerCase(), defaultValue);
   }
 
+  private static final String ORG_ID_HEADER = "x-databricks-org-id";
+  private static final String ORG_ID_QUERY_PARAM = "o";
+
   private Map<String, String> parseCustomHeaders(ImmutableMap<String, String> parameters) {
     String filterPrefix = DatabricksJdbcUrlParams.HTTP_HEADERS.getParamName();
 
-    return parameters.entrySet().stream()
-        .filter(entry -> entry.getKey().startsWith(filterPrefix))
-        .collect(
-            Collectors.toMap(
-                entry -> entry.getKey().substring(filterPrefix.length()), Map.Entry::getValue));
+    Map<String, String> headers =
+        new HashMap<>(
+            parameters.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(filterPrefix))
+                .collect(
+                    Collectors.toMap(
+                        entry -> entry.getKey().substring(filterPrefix.length()),
+                        Map.Entry::getValue)));
+
+    // Extract org ID from ?o= in httpPath for SPOG routing
+    if (!headers.containsKey(ORG_ID_HEADER)) {
+      String httpPath =
+          parameters.getOrDefault(
+              DatabricksJdbcUrlParams.HTTP_PATH.getParamName().toLowerCase(), "");
+      try {
+        for (NameValuePair param :
+            new URIBuilder("http://placeholder" + httpPath).getQueryParams()) {
+          if (ORG_ID_QUERY_PARAM.equals(param.getName())
+              && param.getValue() != null
+              && !param.getValue().isEmpty()) {
+            headers.put(ORG_ID_HEADER, param.getValue());
+            LOGGER.debug(
+                "SPOG header extraction: injecting {}={} (extracted from ?o= in httpPath)",
+                ORG_ID_HEADER,
+                param.getValue());
+            break;
+          }
+        }
+      } catch (URISyntaxException e) {
+        LOGGER.debug(
+            "SPOG header extraction: malformed httpPath, skipping org-id extraction: "
+                + e.getMessage());
+      }
+    } else {
+      LOGGER.debug(
+          "SPOG header extraction: {} already set by caller, not extracting from httpPath",
+          ORG_ID_HEADER);
+    }
+
+    return headers;
   }
 
   @Override
@@ -1182,6 +1479,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isBatchedInsertsEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_BATCHED_INSERTS).equals("1");
+  }
+
+  @Override
+  public boolean isNativeBatchingEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_NATIVE_BATCHING).equals("1");
   }
 
   @Override
@@ -1216,6 +1518,12 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
+  public boolean isThriftNativeMetadataEnabled() {
+    return resolveFeatureFlag(
+        DatabricksJdbcUrlParams.ENABLE_THRIFT_NATIVE_METADATA, SQL_EXEC_FLAG_NAME);
+  }
+
+  @Override
   public boolean getDisableOauthRefreshToken() {
     return getParameter(DatabricksJdbcUrlParams.DISABLE_OAUTH_REFRESH_TOKEN, "1").equals("1");
   }
@@ -1238,6 +1546,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   @Override
   public boolean isCloudFetchEnabled() {
     return getParameter(DatabricksJdbcUrlParams.ENABLE_CLOUD_FETCH).equals("1");
+  }
+
+  @Override
+  public boolean isBoundedSeaApiEnabled() {
+    return resolveFeatureFlag(DatabricksJdbcUrlParams.USE_BOUNDED_SEA_API, SQL_EXEC_FLAG_NAME);
   }
 
   @Override

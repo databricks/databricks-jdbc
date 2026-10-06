@@ -58,12 +58,10 @@ public interface IDatabricksConnectionContext {
   /**
    * Returns the OAuth scopes to request for the user-to-machine (U2M) authorization flow.
    *
-   * <p>If an explicit auth scope is provided via connection parameters, this returns a singleton
-   * list containing that scope. On AWS and GCP, this returns the SQL scope and offline access
-   * scope. On Azure, this returns {@code null} because the default scope is set by the Databricks
-   * SDK.
+   * <p>If Auth_Scope is provided, this returns its whitespace-separated scopes. Otherwise, this
+   * returns the SQL and offline access scopes for all clouds.
    *
-   * @return a list of OAuth scopes to request, or {@code null} on Azure to use the SDK default
+   * @return a list of OAuth scopes to request
    * @throws DatabricksParsingException if connection parameters cannot be parsed
    */
   List<String> getOAuthScopesForU2M() throws DatabricksParsingException;
@@ -296,9 +294,6 @@ public interface IDatabricksConnectionContext {
   /** Returns true if driver should use hybrid results in SQL_EXEC API. */
   boolean isSqlExecHybridResultsEnabled();
 
-  /** Returns true if driver should use direct results in SQL_EXEC API. */
-  boolean isSqlExecDirectResultsEnabled();
-
   /** Returns the Azure tenant ID for the Azure Databricks workspace. */
   String getAzureTenantId();
 
@@ -311,11 +306,15 @@ public interface IDatabricksConnectionContext {
   /** Returns true if driver return complex data type java objects natively as opposed to string */
   boolean isComplexDatatypeSupportEnabled();
 
-  /**
-   * Returns true if driver returns GEOMETRY and GEOGRAPHY types natively. Requires
-   * isComplexDatatypeSupportEnabled() to be true
-   */
+  /** Returns true if driver returns GEOMETRY and GEOGRAPHY types natively. */
   boolean isGeoSpatialSupportEnabled();
+
+  /**
+   * Returns true if {@code ResultSetMetaData.getColumnTypeName()} should report "TIMESTAMP_NTZ" for
+   * TIMESTAMP_NTZ columns. When false, the type name is normalized to "TIMESTAMP" to match the
+   * legacy (v2.x.x) driver behavior.
+   */
+  boolean isTimestampNtzTypeNameEnabled();
 
   /** Returns the size for HTTP connection pool */
   int getHttpConnectionPoolSize() throws DatabricksValidationException;
@@ -409,8 +408,24 @@ public interface IDatabricksConnectionContext {
 
   boolean treatMetadataCatalogNameAsPattern();
 
+  /** Returns the timeout in seconds for metadata polling operations. 0 means no timeout. */
+  int getMetadataOperationTimeout();
+
+  /** Returns whether heartbeat/keep-alive polling is enabled. */
+  default boolean isHeartbeatEnabled() {
+    return false;
+  }
+
+  /** Returns the heartbeat polling interval in seconds. */
+  default int getHeartbeatIntervalSeconds() {
+    return 60;
+  }
+
   /** Returns whether batched INSERT optimization is enabled */
   boolean isBatchedInsertsEnabled();
+
+  /** Returns whether native parameter batch execution is enabled */
+  boolean isNativeBatchingEnabled();
 
   /** Returns whether transaction-related method calls should be ignored */
   boolean getIgnoreTransactions();
@@ -428,6 +443,9 @@ public interface IDatabricksConnectionContext {
    * synchronous metadata requests in SEA mode
    */
   boolean isSeaSyncMetadataEnabled();
+
+  /** Returns whether SEA metadata requests should require Thrift-native execution. */
+  boolean isThriftNativeMetadataEnabled();
 
   /** Returns whether OAuth refresh tokens should be disabled (omit offline_access by default). */
   boolean getDisableOauthRefreshToken();
@@ -453,6 +471,9 @@ public interface IDatabricksConnectionContext {
    * @return true if CloudFetch is enabled, false otherwise
    */
   boolean isCloudFetchEnabled();
+
+  /** Returns whether bounded SEA API mode is enabled for CloudFetch. */
+  boolean isBoundedSeaApiEnabled();
 
   /**
    * Returns the maximum number of batches to keep in memory for Thrift streaming.

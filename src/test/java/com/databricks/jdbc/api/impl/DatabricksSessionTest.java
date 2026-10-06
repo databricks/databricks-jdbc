@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataQueryClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
@@ -20,9 +21,13 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
+import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
+import java.util.stream.LongStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -47,6 +52,11 @@ public class DatabricksSessionTest {
   static void setupWarehouse(boolean useThrift) throws SQLException {
     String url = useThrift ? WAREHOUSE_JDBC_URL : WAREHOUSE_JDBC_URL_WITH_SEA;
     connectionContext = DatabricksConnectionContext.parse(url, new Properties());
+    // Override feature flags with empty map to prevent test contamination from
+    // other test classes (e.g. DatabricksConnectionContextTest) that set flags
+    // on the shared static DatabricksDriverFeatureFlagsContextFactory.
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        connectionContext, new HashMap<>());
   }
 
   private void setupCluster() throws SQLException {
@@ -75,11 +85,59 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
+    // Default UseQueryForMetadata=0: Thrift client used for metadata
     assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());
+  }
+
+  private DatabricksSession openSessionWithVersion(long initialVersion) throws SQLException {
+    setupWarehouse(false /* useThrift */);
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .sessionVersionId(initialVersion)
+            .computeResource(WAREHOUSE_COMPUTE)
+            .build();
+    when(sdkClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
+    DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
+    session.open();
+    return session;
+  }
+
+  @Test
+  public void testSessionVersionTracksConcurrentMaximum() throws SQLException {
+    DatabricksSession session = openSessionWithVersion(10L);
+
+    LongStream.rangeClosed(1, 1000)
+        .parallel()
+        .forEach(
+            version -> session.updateSessionVersion(new SessionVersion().setVersionId(version)));
+    session.updateSessionVersion(new SessionVersion().setVersionId(500L));
+
+    assertEquals(1000L, session.getSessionVersion().getVersionId());
+  }
+
+  @Test
+  public void testSessionVersionIgnoresIncompleteUpdates() throws SQLException {
+    DatabricksSession session = openSessionWithVersion(10L);
+
+    session.updateSessionVersion(new SessionVersion());
+    session.updateSessionVersion(null);
+
+    assertEquals(10L, session.getSessionVersion().getVersionId());
+  }
+
+  @Test
+  public void testSessionVersionClearsOnCloseAndIgnoresLaterUpdates() throws SQLException {
+    DatabricksSession session = openSessionWithVersion(10L);
+
+    session.close();
+    assertNull(session.getSessionVersion());
+    session.updateSessionVersion(new SessionVersion().setVersionId(1001L));
+    assertNull(session.getSessionVersion());
   }
 
   @Test
@@ -110,6 +168,7 @@ public class DatabricksSessionTest {
       assertEquals(SESSION_ID, session.getSessionId());
       assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
       assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksClient());
+      // After redirect to Thrift, default UseQueryForMetadata=0 → native Thrift for metadata
       assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksMetadataClient());
       assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
 
@@ -136,6 +195,7 @@ public class DatabricksSessionTest {
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
     assertEquals(tSessionHandle, session.getSessionInfo().sessionHandle());
+    // Default UseQueryForMetadata=0: Thrift client used for metadata
     assertEquals(thriftClient, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
@@ -156,6 +216,39 @@ public class DatabricksSessionTest {
     session.close();
     assertFalse(session.isOpen());
     assertNull(session.getSessionId());
+  }
+
+  @Test
+  public void testCloseIgnoresExpiredToken() throws SQLException {
+    // Reproduce GitHub #1221: when the auth token expires, deleteSession() gets a 401.
+    // close() must still clean up local session state (sessionInfo = null, isOpen = false).
+    setupWarehouse(true /* useThrift */);
+
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .computeResource(WAREHOUSE_COMPUTE)
+            .build();
+    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
+
+    // Simulate expired-token HTTP 401 error from deleteSession
+    DatabricksSQLException expiredTokenEx =
+        new DatabricksSQLException(
+            "HTTP request failed by code: 401, status line: HTTP/1.1 401 Unauthorized.", "08000");
+    doThrow(expiredTokenEx).when(thriftClient).deleteSession(any());
+
+    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
+    session.open();
+    assertTrue(session.isOpen());
+
+    // Must not throw — expired token during close() is silently swallowed
+    assertDoesNotThrow(session::close);
+
+    // Local state must be cleaned up despite the error
+    assertFalse(session.isOpen());
+    assertNull(session.getSessionId());
+
+    verify(thriftClient).deleteSession(any());
   }
 
   @Test
@@ -315,14 +408,46 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testUseQueryForMetadataDisabledByDefault() throws SQLException {
+  public void testUseQueryForMetadataDisabledByDefaultForWarehouse() throws SQLException {
     setupWarehouse(true /* useThrift */);
     DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
     assertFalse(connectionContext.useQueryForMetadata());
     assertInstanceOf(
         DatabricksThriftServiceClient.class,
         session.getDatabricksMetadataClient(),
-        "When UseQueryForMetadata is default (0), metadata client should be the Thrift client");
+        "Default UseQueryForMetadata=0: warehouse uses native Thrift RPCs for metadata");
+  }
+
+  @Test
+  public void testUseQueryForMetadataEnabledViaServerFlag() throws SQLException {
+    setupWarehouse(true /* useThrift */);
+    // Simulate server-side flag enabling SHOW commands for this warehouse
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+
+    assertTrue(connectionContext.useQueryForMetadata());
+    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
+    assertInstanceOf(
+        DatabricksMetadataQueryClient.class,
+        session.getDatabricksMetadataClient(),
+        "Server flag enabled: warehouse should use SHOW commands for metadata");
+
+    // Clean up so other tests are not affected
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        connectionContext, new HashMap<>());
+  }
+
+  @Test
+  public void testUseQueryForMetadataDisabledByDefaultForCluster() throws SQLException {
+    connectionContext = DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties());
+    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
+    assertFalse(connectionContext.useQueryForMetadata());
+    assertEquals(
+        thriftClient,
+        session.getDatabricksMetadataClient(),
+        "Clusters should use native Thrift RPCs by default");
   }
 
   @Test

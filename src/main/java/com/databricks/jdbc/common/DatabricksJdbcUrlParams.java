@@ -10,6 +10,7 @@ public enum DatabricksJdbcUrlParams {
   LOG_FILE_SIZE("LogFileSize", "Maximum size of the log file", "10"), // 10 MB
   LOG_FILE_COUNT("LogFileCount", "Number of log files to retain", "10"),
   UID("uid", "UID for authentication"),
+  USER("user", "Username passed to DriverManager.getConnection(url, user, password)"),
   PASSWORD("password", "Password for authentication"),
   CLIENT_ID("OAuth2ClientId", "OAuth2 Client ID"),
   CLIENT_SECRET("OAuth2Secret", "OAuth2 Client Secret"),
@@ -55,7 +56,11 @@ public enum DatabricksJdbcUrlParams {
   DISCOVERY_URL("OAuthDiscoveryURL", "OAuth discovery URL"), // Same as OIDC_DISCOVERY_ENDPOINT
   IDENTITY_FEDERATION_CLIENT_ID(
       "Identity_Federation_Client_Id", "OAuth Client ID for Token Federation"),
-  ENABLE_ARROW("EnableArrow", "Enable Arrow", "1"),
+  ENABLE_ARROW(
+      "EnableArrow",
+      "Deprecated: Arrow is always enabled. Value ignored except on AIX. "
+          + "Use EnableQueryResultDownload=0 for JSON inline results with SEA.",
+      "1"),
   DIRECT_RESULT("EnableDirectResults", "Enable direct results", "1"),
   LZ4_COMPRESSION_FLAG(
       "EnableQueryResultLZ4Compression", "Enable LZ4 compression"), // Backward compatibility
@@ -121,15 +126,23 @@ public enum DatabricksJdbcUrlParams {
   ENABLE_SQL_EXEC_HYBRID_RESULTS(
       "EnableSQLExecHybridResults", "flag to enable hybrid results", "1"),
   ENABLE_SQL_EXEC_DIRECT_RESULTS(
-      "EnableSQLExecDirectResults", "flag to enable direct results", "1"),
+      "EnableSQLExecDirectResults",
+      "Alias for EnableDirectResults. Enables direct results in SQL execution",
+      "1"),
   ENABLE_COMPLEX_DATATYPE_SUPPORT(
       "EnableComplexDatatypeSupport",
       "flag to enable native support of complex data types as java objects",
       "0"),
   ENABLE_GEOSPATIAL_SUPPORT(
       "EnableGeoSpatialSupport",
-      "flag to enable native support of GEOMETRY and GEOGRAPHY data types. Requires EnableComplexDatatypeSupport=1",
-      "0"),
+      "flag to enable native support of GEOMETRY and GEOGRAPHY data types",
+      "1"),
+  ENABLE_TIMESTAMP_NTZ_TYPE_NAME(
+      "EnableTimestampNtzTypeName",
+      "When enabled (default), ResultSetMetaData.getColumnTypeName() reports "
+          + "\"TIMESTAMP_NTZ\" for TIMESTAMP_NTZ columns. Set to 0 to report "
+          + "\"TIMESTAMP\" instead, matching the legacy (v2.x.x) driver behavior.",
+      "1"),
   ROWS_FETCHED_PER_BLOCK(
       "RowsFetchedPerBlock",
       "The maximum number of rows that a query returns at a time.",
@@ -171,12 +184,17 @@ public enum DatabricksJdbcUrlParams {
   USE_QUERY_FOR_METADATA(
       "UseQueryForMetadata",
       "Use SQL SHOW commands instead of Thrift RPCs for metadata operations. When enabled, EnableShowCommandForGetFunctions is redundant",
-      "0"),
+      "1"),
   TREAT_METADATA_CATALOG_NAME_AS_PATTERN(
       "TreatMetadataCatalogNameAsPattern",
       "Treat catalog names as patterns in Thrift metadata RPCs. When disabled (default), wildcard characters in catalog names are escaped",
       "0"),
+  METADATA_OPERATION_TIMEOUT(
+      "MetadataOperationTimeout",
+      "Timeout in seconds for metadata polling operations (e.g. GetTables, GetColumns). 0 means no timeout",
+      "300"),
   ENABLE_BATCHED_INSERTS("EnableBatchedInserts", "Enable batched INSERT optimization", "0"),
+  ENABLE_NATIVE_BATCHING("EnableNativeBatching", "Enable native parameter batch execution", "0"),
   ENABLE_SQL_VALIDATION_FOR_IS_VALID(
       "EnableSQLValidationForIsValid",
       "Enable SQL query execution for connection validation in isValid() method",
@@ -193,6 +211,14 @@ public enum DatabricksJdbcUrlParams {
   ENABLE_SEA_SYNC_METADATA(
       "EnableSeaSyncMetadata",
       "Enable x-databricks-sea-can-run-fully-sync header for synchronous metadata requests in SEA mode",
+      "1"),
+  USE_BOUNDED_SEA_API(
+      "UseBoundedSeaApi",
+      "Use bounded SEA API for CloudFetch: send row_offset on GetResultData, force StreamingChunkProvider, stop relying on total_chunk_count. Requires server support.",
+      "1"),
+  ENABLE_THRIFT_NATIVE_METADATA(
+      "EnableThriftNativeMetadata",
+      "Request Thrift-native SEA results for catalogs, schemas, tables, columns, functions, primary keys, imported keys, and cross references",
       "1"),
   DISABLE_OAUTH_REFRESH_TOKEN(
       "DisableOauthRefreshToken",
@@ -227,7 +253,15 @@ public enum DatabricksJdbcUrlParams {
   NON_ROWCOUNT_QUERY_PREFIXES(
       "NonRowcountQueryPrefixes",
       "Comma-separated list of query prefixes (like INSERT,UPDATE,DELETE) that should return result sets instead of row counts",
-      "");
+      ""),
+  ENABLE_HEARTBEAT(
+      "EnableHeartbeat",
+      "Enable periodic heartbeat polling to keep server-side results alive during slow consumption",
+      "0"),
+  HEARTBEAT_INTERVAL_SECONDS(
+      "HeartbeatIntervalSeconds",
+      "Interval in seconds between heartbeat RPCs to keep results alive",
+      "60");
 
   private final String paramName;
   private final String defaultValue;

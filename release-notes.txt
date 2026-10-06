@@ -6,6 +6,308 @@ The release notes summarize enhancements, new features, known issues, workflow c
 
 Version History ==============================================================
 
+3.4.3 ========================================================================
+Released 2026-09-17
+
+Added
+
+ * Added EnableThriftNativeMetadata to request and consume supported
+   Thrift-native SEA metadata results.
+ * Real-Time (Reyden) SQL warehouses now recover automatically when the gateway
+   rejects a Thrift OpenSession with SQLSTATE KP001. The driver reopens the
+   session on SEA and remembers the warehouse per host for about six hours.
+   Explicit UseThriftClient=1 connections are never auto-switched.
+ * Added session-version tracking from synchronous SQL Exec API responses for
+   Lakehouse Real-Time. With asynchronous execution, subsequent statements may
+   not observe session changes.
+
+Updated
+
+ * UseBoundedSeaApi and EnableThriftNativeMetadata now default to 1; when unset,
+   activation is controlled by the server-side enableSqlExecForJdbc rollout
+   flag.
+ * DatabaseMetaData.getColumns() with a null catalog now uses one SHOW COLUMNS
+   IN ALL CATALOGS statement instead of issuing one statement per catalog.
+   Older DBR versions transparently fall back to the previous behavior.
+ * Updated bundled Jackson, lz4-java, Netty, and Apache HttpComponents Client
+   and Core dependencies to patched versions addressing security findings.
+ * Updated bundled Apache Thrift to 0.24.0 to address CVE-2026-43871.
+
+Fixed
+
+ * Fixed DatabaseMetaData.getTypeInfo() returning the INTERVAL row out of
+   DATA_TYPE order.
+ * Fixed logging-enabled connections being unable to produce logs when an
+   earlier connection used LogLevel=OFF.
+ * Invalid or incomplete JDBC URLs now fail with a descriptive
+   DatabricksSQLException instead of a NullPointerException.
+ * Fixed connections failing when the same parameter is present in both the
+   JDBC URL and connection properties; the URL value takes precedence.
+ * Fixed IdleConnectionEvictor and related driver-resource leaks when
+   Connection.close() encounters cleanup failures.
+ * Complex-type getters called on the wrong complex type now throw
+   DatabricksSQLException instead of ClassCastException.
+ * Fixed NullPointerException and incorrect metadata when reading collated
+   string columns over Arrow.
+ * ResultSet.getObject(int) on the Arrow path now reports an out-of-range column
+   as DatabricksSQLException with SQLState INVALID_STATE.
+ * Unsupported AuthMech values are now rejected deterministically with
+   SQLState INPUT_VALIDATION_ERROR instead of causing recursive-update or stack
+   overflow failures.
+ * Improved SEA connection-failure error messages.
+ * Fixed NullPointerException when materializing arrays containing null nested
+   arrays, structs, or maps.
+
+3.4.2 ========================================================================
+Released 2026-07-14
+
+Added
+
+ * UseBoundedSeaApi connection property (default off) for the bounded SEA API
+   CloudFetch contract (row_offset on GetResultData; next_chunk_index for chunk
+   discovery). Requires server support.
+ * OAuth M2M (client credentials): client secret may be supplied via the JDBC
+   password/PWD property and client id via user/UID, instead of embedding
+   OAuth2Secret/OAuth2ClientId in the connection URL. Explicit
+   OAuth2ClientId/OAuth2Secret still take precedence.
+
+Updated
+
+ * Bumped Databricks SDK for Java from 0.106.0 to 0.118.0.
+
+Fixed
+
+ * Security: masked credentials in DatabaseMetaData.getURL(); redacted presigned
+   URL credentials and access tokens in logs; hardened the OAuth U2M token cache
+   at rest; fixed a SQL injection in binary parameter handling.
+ * Fixed telemetry misattribution across multiple connections on the same thread.
+ * Fixed StackOverflowError / hang when closing a ResultSet or Statement with
+   closeOnCompletion() enabled.
+ * Fixed setCatalog()/setSchema() producing invalid SQL when the identifier was
+   already backtick-wrapped; fixed metadata SQL generation for identifiers
+   containing backticks.
+ * Fixed SEA result truncation when direct results are disabled.
+ * Fixed getColumns() flooding the DriverManager log writer with recovered
+   Invalid column index stack traces.
+ * Fixed timezone-shifted TIMESTAMP values in nested complex types with
+   EnableComplexDatatypeSupport=1.
+ * Fixed MAP columns with complex value types rendering values as empty when
+   fetched via Arrow with EnableComplexDatatypeSupport disabled.
+ * Fixed supportsBatchUpdates() always returning false (now true when
+   EnableBatchedInserts=1).
+ * Fixed Connection.setReadOnly(true) throwing; it is now a no-op per spec.
+ * Fixed getColumnTypeName() returning TIMESTAMP for TIMESTAMP_NTZ columns
+   (regression from 3.0.7); set EnableTimestampNtzTypeName=0 to restore the
+   previous behavior.
+ * Fixed SQLException.getErrorCode() inconsistency between transports for
+   statement-execution failures: Thrift now reports EXECUTE_STATEMENT_FAILED
+   (1003) matching SEA (was 0). SQLState and message unchanged.
+
+
+3.4.1 ========================================================================
+Released 2026-05-26
+
+Breaking Changes
+
+ * Update (2026-07-23) - No customer action is required: For Thrift connections
+   to SQL warehouses, Databricks has temporarily restored the previous metadata
+   behavior. The update is applied automatically;
+   customers do not need to change driver versions, connection strings, or
+   application code. Consequently, the metadata behavior changes originally
+   announced below do not currently apply to these connections. SQL Exec API
+   behavior is unchanged, and All-Purpose Clusters were not affected by the
+   original metadata change.
+
+ * Original 3.4.1 metadata JDBC spec-compliance release note (SQL warehouses
+   only; All-Purpose Clusters unaffected):
+
+   * getTables/getColumns/getSchemas: Catalog parameter is now an exact-match
+     identifier per JDBC spec. Passing % or wildcard patterns as catalog no longer
+     returns results across all catalogs. Use null to search all catalogs.
+
+   * getTables with empty types array: Now returns zero rows per JDBC spec.
+     Use null to return all table types.
+
+   * getSchemas: Now includes information_schema in results. Excludes global_temp
+     schema (previously returned by Thrift for all catalogs).
+
+   * getPrimaryKeys/getImportedKeys/getCrossReference with non-existent catalog,
+     schema, or table: Now returns empty ResultSet instead of throwing SQLException.
+
+   * getImportedKeys UPDATE_RULE/DELETE_RULE: Now returns 3 (NO_ACTION) instead
+     of 0 (CASCADE) for Thrift and 3 instead of null for SEA, reflecting that
+     Unity Catalog foreign keys are informational and non-enforced.
+
+ * PreparedStatement.setDate() now sends parameter type as DATE instead of
+   TIMESTAMP. Server-side behavior is unchanged; applications that inspect
+   parameter types may see the difference.
+
+ * Native geospatial type support (GEOMETRY, GEOGRAPHY) is now enabled by default.
+   getObject() now returns IGeometry/IGeography instances instead of EWKT strings.
+   Set EnableGeoSpatialSupport=0 to restore the previous behavior.
+
+ * EnableArrow connection property is deprecated and ignored. Arrow serialization
+   is now always enabled. Setting EnableArrow=0 is a no-op (a deprecation warning
+   is logged). Exception: on AIX and PowerPC (os.arch contains "ppc"), EnableArrow
+   is still honored and defaults to disabled.
+
+Enhancements & New Features
+
+ * Added result set heartbeat / keep-alive (EnableHeartbeat=1) to prevent
+   server-side result expiry during slow consumption. The driver periodically polls
+   the backend while the client reads results. Configurable via HeartbeatIntervalSeconds
+   (default 60s). Disabled by default due to cost implications (heartbeats keep
+   the warehouse running).
+
+ * Metadata operations support SQL SHOW commands for both Thrift and SEA backends.
+   For Thrift connections to SQL warehouses, the previous native metadata path
+   has been restored automatically through a server-side setting; no customer
+   configuration change is required.
+
+ * EnableGeoSpatialSupport no longer requires EnableComplexDatatypeSupport=1.
+   Geospatial types can now be enabled independently of complex type support.
+
+ * getColumnTypeName() for DECIMAL columns now preserves precision/scale suffix
+   (e.g., "DECIMAL(10,2)") consistently across Thrift and SEA backends.
+
+ * Arrow schema deserialization failures now surface a dedicated error code
+   ARROW_SCHEMA_PARSING_ERROR (vendor code 22000, SQLSTATE 22000) instead of
+   the generic RESULT_SET_ERROR.
+
+ * When a Statement is re-executed, the previous server-side operation is now
+   explicitly closed, preventing orphaned server-side operations on reuse.
+
+ * Server-side operations are now closed proactively when ResultSet.close() is
+   called, improving server-side resource utilization. The Statement remains open
+   and reusable.
+
+ * Added MetadataOperationTimeout support for SHOW-commands metadata path.
+   Operations like getTables, getSchemas, and getColumns now respect the
+   MetadataOperationTimeout connection property.
+
+ * Transient server errors are now classified with standard SQL states: 08S01
+   (communication link failure) and 40001 (concurrent modification) for better
+   retry handling by frameworks.
+
+ * Bumped databricks-sdk-java from 0.69.0 to 0.106.0.
+
+Resolved Issues
+
+ * Fixed DML misclassification for statements containing UNION, INTERSECT, or
+   EXCEPT. Statement.execute() now correctly returns false for DML that includes
+   these set operators.
+
+ * Fixed client-side maxRows enforcement. When setMaxRows() is set, ResultSet.next()
+   returns false once the row limit is reached, across all result types (Thrift,
+   SEA, inline, CloudFetch).
+
+ * Fixed SQLInterpolator treating ? in SQL comments, string literals, and quoted
+   identifiers as parameter placeholders when supportManyParameters=1. Fixes #1331.
+
+ * Fixed PreparedStatement.getMetaData() crash (IllegalArgumentException) for SQL
+   type aliases (VARCHAR, INTEGER, NUMERIC, DEC, REAL, NVARCHAR, NCHAR) returned
+   by DESCRIBE QUERY.
+
+ * Fixed double-backtick wrapping in setCatalog() and setSchema(). Names already
+   wrapped in backticks are no longer double-wrapped.
+
+ * Fixed getTables(types=[]) returning rows in Thrift mode. An empty types array
+   now correctly returns zero rows per JDBC spec.
+
+ * Fixed telemetry HTTP client socket leak that prevented CRaC checkpoint. Delayed
+   flush tasks could re-create HTTP clients after Connection.close(), leaking TCP
+   sockets. Fixes #1325.
+
+ * Bumped shaded jackson-core 2.18.6 to 2.18.7 (SNYK-JAVA-COMFASTERXMLJACKSONCORE-15907551).
+ * Bumped shaded httpclient5/httpcore5 5.3.1 to 5.5.2 (CVE-2025-8671).
+ * Bumped shaded netty 4.2.12.Final to 4.2.13.Final (CVE-2026-42577 batch).
+ * Bumped shaded commons-configuration2 2.10.1 to 2.15.0 (CVE-2026-45205).
+ * Bumped shaded bouncycastle 1.79 to 1.84 (CVE-2026-5598 and two related MEDIUM CVEs).
+ * Bumped shaded libthrift 0.19.0 to 0.23.0 (CVE-2026-41603 batch).
+ * Bumped lz4-java to at.yawk.lz4:lz4-java:1.10.1 (CVE-2025-66566). Fixes #1455.
+
+3.3.3 ========================================================================
+Released 2026-04-29
+
+Enhancements & New Features
+
+ * Added `CallableStatement` support with IN parameters. `Connection.prepareCall()` now returns a working `DatabricksCallableStatement` that supports positional parameter binding and execution via `{call proc(?)}` JDBC escape syntax. OUT/INOUT parameters and named parameters throw `SQLFeatureNotSupportedException`.
+ * Added AI coding agent detection to the User-Agent header. When the driver is invoked by a known AI coding agent (e.g. Claude Code, Cursor, Gemini CLI), `agent/<product>` is appended to the User-Agent string.
+ * Added support for using SQL SHOW commands for Thrift-mode metadata operations (`getTables`, `getColumns`, `getSchemas`, `getFunctions`, `getPrimaryKeys`, `getImportedKeys`, `getCrossReference`). Enable by setting `UseQueryForMetadata=1`. This aligns Thrift metadata behavior with Statement Execution API (SEA) mode.
+
+Resolved Issues
+
+ * Fixed unresolvable Maven Central POM for the uber JAR. The published POM no longer declares a transitive dependency on the internal `databricks-jdbc-core` coordinate (which is not published to Maven Central), restoring resolution for downstream consumers.
+ * Improved error messages for cancelled statements: operations cancelled via `Statement.cancel()` or closed connections now return SQL state `HY008` (operation cancelled) instead of generic error codes.
+ * Fixed race condition between chunk download error handling and result set close that could cause invalid state transition warnings (`CHUNK_RELEASED -> DOWNLOAD_FAILED`) during Arrow Cloud Fetch operations in resource-constrained environments.
+ * Fixed `EnableBatchedInserts` silently falling back to individual execution when table or schema names contain special characters (e.g., hyphens) inside backtick-quoted identifiers. Added a warn log when the fallback occurs.
+ * Fixed `IntervalConverter` crash (`IllegalArgumentException: Invalid interval metadata`) when INTERVAL columns are returned via CloudFetch.
+ * Fixed `Statement` being prematurely closed after queries that return inline results, which prevented re-execution, `getResultSet()`, and `getExecutionResult()` from working.
+ * Fixed primitive types within complex types (ARRAY, MAP, STRUCT) not being correctly parsed when Arrow serialization uses alternate formats: TIMESTAMP/TIMESTAMP_NTZ as epoch microseconds or component arrays, and BINARY as base64-encoded strings.
+ * Fixed `PARSE_SYNTAX_ERROR` for column names containing special characters (e.g., dots) when `EnableBatchedInserts` is enabled.
+ * Fixed Volume ingestion for SEA mode, which was broken due to statement being closed prematurely.
+ * Fixed unclear `error: [null]` messages during transient HTTP failures (e.g. 502 Bad Gateway) in Thrift polling. Error messages now include server error details and use SQL state `08S01` (communication link failure) so callers can identify retryable errors. Also fixed `DatabricksError` (RuntimeException) from SDK client being unhandled in CloudFetch download paths.
+ * Fixed escaped pattern characters in catalogName for `getSchemas`, as returned catalogName should be unescaped.
+ * Fixed `getColumnClassName()` returning null for VARIANT columns in SEA mode by adding VARIANT to the type system.
+ * Fixed `getColumns()` returning `DATA_TYPE=0` (NULL) for GEOMETRY/GEOGRAPHY columns in Thrift mode. Now returns `Types.VARCHAR` (12) when geospatial is disabled and `Types.OTHER` (1111) when enabled, consistent with SEA mode.
+ * Fixed `getCrossReference()` returning 0 rows when parent args are passed in uppercase.
+
+3.3.2 ========================================================================
+DEPRECATED, Use v3.3.3 instead
+
+Released 2026-04-27
+
+Enhancements & New Features
+
+ * Added `CallableStatement` support with IN parameters. `Connection.prepareCall()` now returns a working `DatabricksCallableStatement` that supports positional parameter binding and execution via `{call proc(?)}` JDBC escape syntax. OUT/INOUT parameters and named parameters throw `SQLFeatureNotSupportedException`.
+ * Added AI coding agent detection to the User-Agent header. When the driver is invoked by a known AI coding agent (e.g. Claude Code, Cursor, Gemini CLI), `agent/<product>` is appended to the User-Agent string.
+ * Added support for using SQL SHOW commands for Thrift-mode metadata operations (`getTables`, `getColumns`, `getSchemas`, `getFunctions`, `getPrimaryKeys`, `getImportedKeys`, `getCrossReference`). Enable by setting `UseQueryForMetadata=1`. This aligns Thrift metadata behavior with Statement Execution API (SEA) mode.
+
+Resolved Issues
+
+ * Improved error messages for cancelled statements: operations cancelled via `Statement.cancel()` or closed connections now return SQL state `HY008` (operation cancelled) instead of generic error codes.
+ * Fixed race condition between chunk download error handling and result set close that could cause invalid state transition warnings (`CHUNK_RELEASED -> DOWNLOAD_FAILED`) during Arrow Cloud Fetch operations in resource-constrained environments.
+ * Fixed `EnableBatchedInserts` silently falling back to individual execution when table or schema names contain special characters (e.g., hyphens) inside backtick-quoted identifiers. Added a warn log when the fallback occurs.
+ * Fixed `IntervalConverter` crash (`IllegalArgumentException: Invalid interval metadata`) when INTERVAL columns are returned via CloudFetch.
+ * Fixed `Statement` being prematurely closed after queries that return inline results, which prevented re-execution, `getResultSet()`, and `getExecutionResult()` from working.
+ * Fixed primitive types within complex types (ARRAY, MAP, STRUCT) not being correctly parsed when Arrow serialization uses alternate formats: TIMESTAMP/TIMESTAMP_NTZ as epoch microseconds or component arrays, and BINARY as base64-encoded strings.
+ * Fixed `PARSE_SYNTAX_ERROR` for column names containing special characters (e.g., dots) when `EnableBatchedInserts` is enabled.
+ * Fixed Volume ingestion for SEA mode, which was broken due to statement being closed prematurely.
+ * Fixed unclear `error: [null]` messages during transient HTTP failures (e.g. 502 Bad Gateway) in Thrift polling. Error messages now include server error details and use SQL state `08S01` (communication link failure) so callers can identify retryable errors. Also fixed `DatabricksError` (RuntimeException) from SDK client being unhandled in CloudFetch download paths.
+ * Fixed escaped pattern characters in catalogName for `getSchemas`, as returned catalogName should be unescaped.
+ * Fixed `getColumnClassName()` returning null for VARIANT columns in SEA mode by adding VARIANT to the type system.
+ * Fixed `getColumns()` returning `DATA_TYPE=0` (NULL) for GEOMETRY/GEOGRAPHY columns in Thrift mode. Now returns `Types.VARCHAR` (12) when geospatial is disabled and `Types.OTHER` (1111) when enabled, consistent with SEA mode.
+ * Fixed `getCrossReference()` returning 0 rows when parent args are passed in uppercase.
+
+3.3.1 ========================================================================
+Released 2026-03-17
+
+Enhancements & New Features
+
+ * Added `DatabaseMetaData.getProcedures()` and `DatabaseMetaData.getProcedureColumns()` to discover stored procedures and their parameters. Queries `information_schema.routines` and `information_schema.parameters` using parameterized SQL for both SEA and Thrift transports.
+ * Added connection property `OAuthWebServerTimeout` to configure the OAuth browser authentication timeout for U2M (user-to-machine) flows, and also updated hardcoded 1-hour timeout to default 120 seconds timeout.
+ * Added connection property `UseQueryForMetadata` to use SQL SHOW commands instead of Thrift RPCs for metadata operations (getCatalogs, getSchemas, getTables, getColumns, getFunctions). This fixes incorrect wildcard matching where `_` was treated as a single-character wildcard in Thrift metadata pattern filters.
+ * Added connection property `TreatMetadataCatalogNameAsPattern` to control whether catalog names are treated as patterns in Thrift metadata RPCs. When disabled (default), unescaped `_` in catalog names is escaped to prevent single-character wildcard matching.
+ * Bumped `com.fasterxml.jackson.core:jackson-core` from 2.18.3 to 2.18.6.
+ * Fat jar now routes SDK and Apache HTTP client logs through Java Util Logging (JUL), removing the need for external logging libraries.
+ * Added Apache Arrow on-heap memory management for processing Arrow query results. Previously, Arrow result processing was unusable on JDK 16+ without passing the `--add-opens=java.base/java.nio=ALL-UNNAMED` JVM argument, due to stricter encapsulation of internal APIs. With this change, there is no JVM argument required - the driver automatically falls back to an on-heap memory path that uses standard JVM heap allocation instead of direct memory access.
+ * Log timestamps now explicitly display timezone.
+ * [Breaking Change] `PreparedStatement.setTimestamp(int, Timestamp, Calendar)` now properly applies Calendar timezone conversion using LocalDateTime pattern. Previously Calendar parameter was ineffective.
+ * `DatabaseMetaData.getColumns()` with null catalog parameter now retrieves columns from all available catalogs when using SQL Execution API.
+
+Resolved Issues
+
+ * Fixed statement timeout when the server returns `TIMEDOUT_STATE` directly in the `ExecuteStatement` response, the driver now throws `SQLTimeoutException` instead of `DatabricksHttpException`.
+ * Fixed Thrift polling infinite loop when server restarts invalidate operation handles, and added configurable timeout (`MetadataOperationTimeout`, default 300s) with sleep between polls for metadata operations.
+ * Fixed `DatabricksParameterMetaData.countParameters` and `DatabricksStatement.trimCommentsAndWhitespaces` with a `SqlCommentParser` utility class.
+ * Fixed `rollback()` to throw `SQLException` when called in auto-commit mode (no active transaction), aligning with JDBC spec.
+ * Fixed `fetchAutoCommitStateFromServer()` to accept both `"1"`/`"0"` and `"true"`/`"false"` responses from `SET AUTOCOMMIT` query.
+ * Fixed socket leak in SDK HTTP client that prevented CRaC checkpointing.
+ * Fixed `IdleConnectionEvictor` thread leak in long-running services.
+ * Fixed Date fields within complex types (ARRAY, STRUCT, MAP) being returned as epoch day integers instead of proper date values.
+ * Fixed `DatabaseMetaData.getColumns()` returning the column type name in `COLUMN_DEF` for columns with no default value. `COLUMN_DEF` now correctly returns `null` per the JDBC specification.
+ * Coalesce concurrent expired cloud fetch link refreshes into a single batch FetchResults RPC to prevent thread pool exhaustion under high concurrency.
+
 3.2.1 ========================================================================
 Released 2026-02-16
 

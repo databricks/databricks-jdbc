@@ -23,6 +23,7 @@ import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -62,19 +63,28 @@ public class ArrowStreamResult implements IExecutionResult {
       IDatabricksHttpClient httpClient)
       throws DatabricksSQLException {
     this.session = session;
-    // Check if the result data contains the arrow data inline
-    boolean isInlineArrow = resultData.getAttachment() != null;
-    if (isInlineArrow) {
+
+    Long totalChunkCount = resultManifest.getTotalChunkCount();
+    if (totalChunkCount != null && totalChunkCount == 0) {
       LOGGER.debug(
-          "Creating ArrowStreamResult with inline attachment for statementId: {}",
+          "Empty result (total_chunk_count=0) for statementId: {}, skipping chunk fetching",
           statementId.toSQLExecStatementId());
-      this.chunkProvider = new InlineChunkProvider(resultData, resultManifest);
+      this.chunkProvider = new EmptyChunkProvider();
     } else {
-      LOGGER.debug(
-          "Creating ArrowStreamResult with remote links for statementId: {}",
-          statementId.toSQLExecStatementId());
-      this.chunkProvider =
-          createRemoteChunkProvider(statementId, resultManifest, resultData, session, httpClient);
+      // Check if the result data contains the arrow data inline
+      boolean isInlineArrow = resultData.getAttachment() != null;
+      if (isInlineArrow) {
+        LOGGER.debug(
+            "Creating ArrowStreamResult with inline attachment for statementId: {}",
+            statementId.toSQLExecStatementId());
+        this.chunkProvider = new InlineChunkProvider(resultData, resultManifest);
+      } else {
+        LOGGER.debug(
+            "Creating ArrowStreamResult with remote links for statementId: {}",
+            statementId.toSQLExecStatementId());
+        this.chunkProvider =
+            createRemoteChunkProvider(statementId, resultManifest, resultData, session, httpClient);
+      }
     }
     this.columnInfos =
         resultManifest.getSchema().getColumnCount() == 0
@@ -102,7 +112,9 @@ public class ArrowStreamResult implements IExecutionResult {
 
     IDatabricksConnectionContext connectionContext = session.getConnectionContext();
 
-    if (connectionContext.isStreamingChunkProviderEnabled()) {
+    // Bounded SEA API forces StreamingChunkProvider — it doesn't rely on total_chunk_count
+    if (connectionContext.isStreamingChunkProviderEnabled()
+        || connectionContext.isBoundedSeaApiEnabled()) {
       LOGGER.info(
           "Using StreamingChunkProvider for statementId: {}", statementId.toSQLExecStatementId());
 
@@ -113,10 +125,13 @@ public class ArrowStreamResult implements IExecutionResult {
       int chunkReadyTimeoutSeconds = connectionContext.getChunkReadyTimeoutSeconds();
       double cloudFetchSpeedThreshold = connectionContext.getCloudFetchSpeedThreshold();
 
-      // Convert ExternalLinks to ChunkLinkFetchResult for the provider
+      // Convert ExternalLinks to ChunkLinkFetchResult for the provider.
+      // Bounded SEA API: pass null for totalChunkCount — we must not depend on
+      // manifest.{chunks, total_chunk_count, total_row_count} per the bounded API contract.
+      Long totalChunkCount =
+          connectionContext.isBoundedSeaApiEnabled() ? null : resultManifest.getTotalChunkCount();
       ChunkLinkFetchResult initialLinks =
-          convertToChunkLinkFetchResult(
-              resultData.getExternalLinks(), resultManifest.getTotalChunkCount());
+          convertToChunkLinkFetchResult(resultData.getExternalLinks(), totalChunkCount);
 
       return new StreamingChunkProvider(
           linkFetcher,
@@ -232,6 +247,10 @@ public class ArrowStreamResult implements IExecutionResult {
   /** {@inheritDoc} */
   @Override
   public Object getObject(int columnIndex) throws DatabricksSQLException {
+    if (columnIndex < 0 || columnIndex >= columnInfos.size()) {
+      throw new DatabricksSQLException(
+          "Column index out of bounds: " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE);
+    }
     ColumnInfo columnInfo = columnInfos.get(columnIndex);
     ColumnInfoTypeName requiredType = columnInfo.getTypeName();
     String arrowMetadata = chunkIterator.getType(columnIndex);
@@ -253,9 +272,7 @@ public class ArrowStreamResult implements IExecutionResult {
   public static boolean isComplexType(ColumnInfoTypeName type) {
     return type == ColumnInfoTypeName.ARRAY
         || type == ColumnInfoTypeName.MAP
-        || type == ColumnInfoTypeName.STRUCT
-        || type == ColumnInfoTypeName.GEOMETRY
-        || type == ColumnInfoTypeName.GEOGRAPHY;
+        || type == ColumnInfoTypeName.STRUCT;
   }
 
   /**
@@ -404,9 +421,14 @@ public class ArrowStreamResult implements IExecutionResult {
   private static ChunkLinkFetchResult convertToChunkLinkFetchResult(
       Collection<ExternalLink> externalLinks, Long totalChunkCount) {
     if (externalLinks == null || externalLinks.isEmpty()) {
-      // If total chunk count is zero, return end of stream
+      // total_chunk_count == 0: explicit empty result
       if (totalChunkCount != null && totalChunkCount == 0) {
         LOGGER.debug("Total chunk count is zero, returning end of stream");
+        return ChunkLinkFetchResult.endOfStream();
+      }
+      // Bounded-SEA mode omits total_chunk_count; empty links means the server has no chunks.
+      if (totalChunkCount == null) {
+        LOGGER.debug("No external links and total_chunk_count absent — treating as end of stream");
         return ChunkLinkFetchResult.endOfStream();
       }
       return null;

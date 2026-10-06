@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.arrow.ArrowStreamResult;
@@ -58,9 +59,9 @@ public class ExecutionResultFactoryTest {
   @Test
   public void testGetResultSet_externalLink() throws SQLException {
     when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
-    when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    lenient().when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
     when(session.getConnectionContext()).thenReturn(connectionContext);
-    when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
+    lenient().when(session.getConnectionContext().getCloudFetchThreadPoolSize()).thenReturn(16);
     ResultManifest manifest = new ResultManifest();
     manifest.setFormat(Format.ARROW_STREAM);
     manifest.setTotalChunkCount(0L);

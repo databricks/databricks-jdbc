@@ -27,8 +27,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public static final String DRIVER_NAME = "DatabricksJDBC";
   public static final String PRODUCT_NAME = "SparkSQL";
   public static final int DATABASE_MAJOR_VERSION = 3;
-  public static final int DATABASE_MINOR_VERSION = 2;
-  public static final int DATABASE_PATCH_VERSION = 1;
+  public static final int DATABASE_MINOR_VERSION = 3;
+  public static final int DATABASE_PATCH_VERSION = 3;
   public static final Integer MAX_NAME_LENGTH = 128;
   public static final String NUMERIC_FUNCTIONS =
       "ABS,ACOS,ASIN,ATAN,ATAN2,CEILING,COS,COT,DEGREES,EXP,FLOOR,LOG,LOG10,MOD,PI,POWER,RADIANS,RAND,ROUND,SIGN,SIN,SQRT,TAN,TRUNCATE";
@@ -64,7 +64,8 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   @Override
   public String getURL() throws SQLException {
     LOGGER.debug("public String getURL()");
-    return this.session.getConnectionContext().getConnectionURL();
+    return DatabricksConnectionContext.redactConnectionURL(
+        this.session.getConnectionContext().getConnectionURL());
   }
 
   @Override
@@ -885,21 +886,6 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
     return false;
   }
 
-  /**
-   * Builds the result set for stored procedures metadata.
-   *
-   * <p>The result set structure is defined based on the JDBC driver specifications to ensure
-   * consistency. The following columns are included in the result set:
-   *
-   * <ul>
-   *   <li>PROCEDURE_CAT: The catalog of the procedure (String)
-   *   <li>PROCEDURE_SCHEM: The schema of the procedure (String)
-   *   <li>PROCEDURE_NAME: The name of the procedure (String)
-   *   <li>REMARKS: A description or remarks about the procedure (String)
-   *   <li>PROCEDURE_TYPE: The type of procedure (e.g., FUNCTION, PROCEDURE) (String)
-   *   <li>SPECIFIC_NAME: The specific name for the procedure (String)
-   * </ul>
-   */
   @Override
   public ResultSet getProcedures(String catalog, String schemaPattern, String procedureNamePattern)
       throws SQLException {
@@ -909,44 +895,14 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         schemaPattern,
         procedureNamePattern);
     throwExceptionIfConnectionIsClosed();
-    return new DatabricksResultSet(
-        new StatementStatus().setState(StatementState.SUCCEEDED),
-        new StatementId("getprocedures-metadata"),
-        Arrays.asList(
-            "PROCEDURE_CAT",
-            "PROCEDURE_SCHEM",
-            "PROCEDURE_NAME",
-            "NUM_INPUT_PARAMS",
-            "NUM_OUTPUT_PARAMS",
-            "NUM_RESULT_SETS",
-            "REMARKS",
-            "PROCEDURE_TYPE",
-            "SPECIFIC_NAME"),
-        Arrays.asList(
-            "VARCHAR",
-            "VARCHAR",
-            "VARCHAR",
-            "INTEGER",
-            "INTEGER",
-            "INTEGER",
-            "VARCHAR",
-            "SMALLINT",
-            "VARCHAR"),
-        new int[] {
-          Types.VARCHAR,
-          Types.VARCHAR,
-          Types.VARCHAR,
-          Types.INTEGER,
-          Types.INTEGER,
-          Types.INTEGER,
-          Types.VARCHAR,
-          Types.SMALLINT,
-          Types.VARCHAR
-        },
-        new int[] {128, 128, 128, 10, 10, 10, 254, 5, 128},
-        new int[] {1, 1, 0, 1, 1, 1, 1, 1, 0},
-        new Object[0][0],
-        StatementType.METADATA);
+    try {
+      return session
+          .getDatabricksMetadataClient()
+          .listProcedures(session, catalog, schemaPattern, procedureNamePattern);
+    } catch (Exception e) {
+      LOGGER.error(e, "Unable to fetch procedures, returning empty result set");
+      return metadataResultSetBuilder.getProceduresResult(new ArrayList<>());
+    }
   }
 
   @Override
@@ -960,12 +916,15 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
         procedureNamePattern,
         columnNamePattern);
     throwExceptionIfConnectionIsClosed();
-
-    return metadataResultSetBuilder.getResultSetWithGivenRowsAndColumns(
-        PROCEDURE_COLUMNS_COLUMNS,
-        new ArrayList<>(),
-        METADATA_STATEMENT_ID,
-        CommandName.GET_PROCEDURES_COLUMNS);
+    try {
+      return session
+          .getDatabricksMetadataClient()
+          .listProcedureColumns(
+              session, catalog, schemaPattern, procedureNamePattern, columnNamePattern);
+    } catch (Exception e) {
+      LOGGER.error(e, "Unable to fetch procedure columns, returning empty result set");
+      return metadataResultSetBuilder.getProcedureColumnsResult(new ArrayList<>());
+    }
   }
 
   @Override
@@ -1167,9 +1126,18 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
             foreignTable));
 
     throwExceptionIfConnectionIsClosed();
-    if (parentTable == null && foreignTable == null) {
+    // Thrift requires parentTable — null or empty parentTable is invalid
+    if (parentTable == null || parentTable.isEmpty()) {
+      LOGGER.debug("getCrossReference: parentTable is null or empty, throwing");
       throw new DatabricksSQLException(
-          "Invalid argument: foreignTable and parentTableName are both null",
+          "Invalid argument: parentTable may not be null or empty",
+          DatabricksDriverErrorCode.INVALID_STATE);
+    }
+    // Empty foreign table is also invalid — Thrift server rejects it
+    if (foreignTable != null && foreignTable.isEmpty()) {
+      LOGGER.debug("getCrossReference: foreignTable is empty string, throwing");
+      throw new DatabricksSQLException(
+          "Invalid argument: foreignTable may not be empty",
           DatabricksDriverErrorCode.INVALID_STATE);
     }
 
@@ -1304,7 +1272,9 @@ public class DatabricksDatabaseMetaData implements DatabaseMetaData {
   public boolean supportsBatchUpdates() throws SQLException {
     LOGGER.debug("public boolean supportsBatchUpdates()");
     throwExceptionIfConnectionIsClosed();
-    return false;
+    // Advertise batch support only when the multi-row INSERT optimization is enabled, so
+    // batch-aware clients use executeBatch() instead of one executeUpdate() per row.
+    return session.getConnectionContext().isBatchedInsertsEnabled();
   }
 
   @Override

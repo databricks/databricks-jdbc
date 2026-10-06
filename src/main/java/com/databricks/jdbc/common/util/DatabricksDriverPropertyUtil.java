@@ -131,8 +131,8 @@ public class DatabricksDriverPropertyUtil {
         switch (authFlow) {
           case TOKEN_PASSTHROUGH:
             if (connectionContext.getOAuthRefreshToken() != null) {
-              addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_ID, true);
-              addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_SECRET, true);
+              addMissingClientId(missingPropertyInfos, connectionContext);
+              addMissingClientSecret(missingPropertyInfos, connectionContext);
               handleTokenEndpointAndDiscoveryMode(missingPropertyInfos, connectionContext);
             } else {
               addMissingProperty(
@@ -149,8 +149,8 @@ public class DatabricksDriverPropertyUtil {
             } else if (connectionContext.getCloud() == Cloud.AZURE) {
               addMissingProperty(missingPropertyInfos, connectionContext, AZURE_TENANT_ID, false);
             }
-            addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_SECRET, true);
-            addMissingProperty(missingPropertyInfos, connectionContext, CLIENT_ID, true);
+            addMissingClientSecret(missingPropertyInfos, connectionContext);
+            addMissingClientId(missingPropertyInfos, connectionContext);
 
             if (connectionContext.isPropertyPresent(USE_JWT_ASSERTION)) {
               if (connectionContext.useJWTAssertion()) {
@@ -221,5 +221,36 @@ public class DatabricksDriverPropertyUtil {
     if (!connectionContext.isPropertyPresent(param)) {
       missingPropertyInfos.add(getUrlParamInfo(param, required));
     }
+  }
+
+  /**
+   * Reports {@code OAuth2Secret} as missing unless a client id is resolvable — either from the
+   * explicit param or, in M2M mode, from the JDBC user/UID fallback (see issue #1132). Uses the
+   * resolved value from {@link DatabricksConnectionContext#getNullableClientId()} rather than raw
+   * key presence, so a UID/user of {@code "token"} (the PAT sentinel, which the resolver ignores)
+   * is correctly still reported as missing.
+   */
+  private static void addMissingClientId(
+      List<DriverPropertyInfo> missingPropertyInfos,
+      DatabricksConnectionContext connectionContext) {
+    if (connectionContext.getNullableClientId() != null) {
+      return;
+    }
+    missingPropertyInfos.add(getUrlParamInfo(CLIENT_ID, true));
+  }
+
+  /**
+   * Reports {@code OAuth2Secret} as missing unless a client secret is resolvable — either from the
+   * explicit param or, in M2M mode, from the JDBC password/PWD fallback (see issue #1132). Uses the
+   * resolved value from {@link DatabricksConnectionContext#getClientSecret()} so it stays
+   * consistent with what the auth flow actually receives.
+   */
+  private static void addMissingClientSecret(
+      List<DriverPropertyInfo> missingPropertyInfos,
+      DatabricksConnectionContext connectionContext) {
+    if (connectionContext.getClientSecret() != null) {
+      return;
+    }
+    missingPropertyInfos.add(getUrlParamInfo(CLIENT_SECRET, true));
   }
 }
