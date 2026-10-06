@@ -4,6 +4,8 @@
 
 ### Added
 
+- Added typed getters for all six SAFE feature flag types using the existing cache.
+
 ### Updated
 
 - Bumped Apache HttpClient 5 (`httpclient5`) from 5.6.3 to 5.6.4.
