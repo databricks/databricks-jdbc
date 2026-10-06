@@ -61,7 +61,7 @@
     <jacoco-maven-plugin.version>0.8.11</jacoco-maven-plugin.version>
     <spotless-maven-plugin.version>2.39.0</spotless-maven-plugin.version>
     <build-helper-maven-plugin.version>3.6.1</build-helper-maven-plugin.version>
-    <cyclonedx-maven-plugin.version>2.9.1</cyclonedx-maven-plugin.version>
+    <cyclonedx-maven-plugin.version>2.9.3</cyclonedx-maven-plugin.version>
 
     <!-- Dependency Versions -->
     <databricks-jdbc-version>3.4.3</databricks-jdbc-version>
