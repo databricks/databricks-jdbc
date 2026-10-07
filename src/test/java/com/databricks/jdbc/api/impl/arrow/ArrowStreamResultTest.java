@@ -98,6 +98,90 @@ public class ArrowStreamResultTest {
   }
 
   @Test
+  public void testEmptyChunkProvider() {
+    EmptyChunkProvider provider = new EmptyChunkProvider();
+    assertFalse(provider.hasNextChunk());
+    assertFalse(provider.next());
+    assertNull(provider.getChunk());
+    assertEquals(0, provider.getRowCount());
+    assertEquals(0, provider.getChunkCount());
+    assertFalse(provider.isClosed());
+    provider.close();
+    assertTrue(provider.isClosed());
+  }
+
+  @Test
+  public void testEmptyResultPreservesSchema() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    List<ColumnInfo> columns =
+        Arrays.asList(
+            new ColumnInfo().setName("col1").setTypeName(ColumnInfoTypeName.INT).setPosition(0L),
+            new ColumnInfo()
+                .setName("col2")
+                .setTypeName(ColumnInfoTypeName.STRING)
+                .setPosition(1L));
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(0L)
+            .setSchema(new ResultSchema().setColumns(columns).setColumnCount(2L));
+    ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
+    ArrowStreamResult result =
+        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
+
+    assertFalse(result.hasNext());
+    assertFalse(result.next());
+    assertEquals(0, result.getRowCount());
+    assertEquals(0, result.getChunkCount());
+    assertNull(result.getArrowMetadata());
+    result.close();
+  }
+
+  @Test
+  public void testEmptyResultWithNullExternalLinks() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(0L)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    ResultData resultData = new ResultData();
+    ArrowStreamResult result =
+        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
+
+    assertFalse(result.hasNext());
+    assertFalse(result.next());
+    assertEquals(0, result.getRowCount());
+    result.close();
+    assertFalse(result.hasNext());
+  }
+
+  @Test
+  public void testEmptyResultRepeatedNextReturnsFalse() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(0L)
+            .setTotalRowCount(0L)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    ResultData resultData = new ResultData().setExternalLinks(new ArrayList<>());
+    ArrowStreamResult result =
+        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session);
+
+    for (int i = 0; i < 5; i++) {
+      assertFalse(result.hasNext());
+      assertFalse(result.next());
+    }
+    result.close();
+  }
+
+  @Test
   public void testIteration() throws Exception {
     // Arrange
     ResultManifest resultManifest =
@@ -191,12 +275,61 @@ public class ArrowStreamResultTest {
   }
 
   @Test
+  public void testGetObjectOutOfRangeColumnThrowsSqlException() throws Exception {
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount((long) this.numberOfChunks)
+            .setTotalRowCount(this.numberOfChunks * 110L)
+            .setTotalByteCount(1000L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setChunks(this.chunkInfos)
+            .setSchema(
+                new ResultSchema()
+                    .setColumns(
+                        ImmutableList.of(
+                            new ColumnInfo().setTypeName(ColumnInfoTypeName.INT),
+                            new ColumnInfo().setTypeName(ColumnInfoTypeName.DOUBLE)))
+                    .setColumnCount(2L));
+
+    ResultData resultData = new ResultData().setExternalLinks(getChunkLinks(0L, 0L, false));
+
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    DatabricksSession session = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    setupMockResponse();
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
+    result.next();
+
+    // An out-of-range column index must throw a spec-compliant DatabricksSQLException, not a raw
+    // java.lang.IndexOutOfBoundsException (JDBC contract; matches the Thrift/inline result impls).
+    DatabricksSQLException tooHigh =
+        assertThrows(DatabricksSQLException.class, () -> result.getObject(5));
+    assertEquals("INVALID_STATE", tooHigh.getSQLState());
+    assertTrue(tooHigh.getMessage().contains("Column index out of bounds"));
+
+    DatabricksSQLException negative =
+        assertThrows(DatabricksSQLException.class, () -> result.getObject(-1));
+    assertEquals("INVALID_STATE", negative.getSQLState());
+  }
+
+  @Test
   public void testComplexTypeHandling() {
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.ARRAY));
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.MAP));
     assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.STRUCT));
-    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOMETRY));
-    assertTrue(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOGRAPHY));
+
+    // Geospatial types are NOT complex types — they have independent handling
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOMETRY));
+    assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.GEOGRAPHY));
+
+    // Geospatial type check is separate
+    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOMETRY));
+    assertTrue(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.GEOGRAPHY));
+    assertFalse(ArrowStreamResult.isGeospatialType(ColumnInfoTypeName.ARRAY));
 
     // Non-complex types should return false
     assertFalse(ArrowStreamResult.isComplexType(ColumnInfoTypeName.INT));
@@ -338,8 +471,8 @@ public class ArrowStreamResultTest {
 
   @Test
   public void testGeospatialTypeWithGeoSpatialSupportDisabled() throws Exception {
-    // Setup connection context with geospatial support disabled
-    // (EnableComplexDatatypeSupport=1, but EnableGeoSpatialSupport=0)
+    // Setup connection context with geospatial support disabled (EnableGeoSpatialSupport=0)
+    // Complex datatype flag is independent and has no effect on geospatial behavior
     Properties props = new Properties();
     props.setProperty("EnableComplexDatatypeSupport", "1");
     props.setProperty("EnableGeoSpatialSupport", "0");
@@ -396,32 +529,35 @@ public class ArrowStreamResultTest {
   }
 
   @Test
-  public void testGeospatialTypeWithBothFlagsEnabled() throws Exception {
-    // Setup connection context with both complex datatype and geospatial support enabled
+  public void testGeospatialEnabledIndependentlyOfComplexDatatype() throws Exception {
+    // Geospatial can be enabled with or without complex datatype support
     Properties props = new Properties();
     props.setProperty("EnableComplexDatatypeSupport", "1");
     props.setProperty("EnableGeoSpatialSupport", "1");
-    IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    IDatabricksConnectionContext ctx1 = DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    assertTrue(ctx1.isComplexDatatypeSupportEnabled());
+    assertTrue(ctx1.isGeoSpatialSupportEnabled());
 
-    // Verify both flags are enabled
-    assertTrue(connectionContext.isComplexDatatypeSupportEnabled());
-    assertTrue(connectionContext.isGeoSpatialSupportEnabled());
+    // Geospatial enabled without complex datatypes
+    Properties props2 = new Properties();
+    props2.setProperty("EnableComplexDatatypeSupport", "0");
+    props2.setProperty("EnableGeoSpatialSupport", "1");
+    IDatabricksConnectionContext ctx2 = DatabricksConnectionContextFactory.create(JDBC_URL, props2);
+    assertFalse(ctx2.isComplexDatatypeSupportEnabled());
+    assertTrue(ctx2.isGeoSpatialSupportEnabled());
   }
 
   @Test
-  public void testGeospatialSupportRequiresComplexDatatypeSupport() throws Exception {
-    // Test that EnableGeoSpatialSupport=1 alone (without EnableComplexDatatypeSupport) doesn't
-    // enable geospatial
+  public void testGeospatialSupportIndependentOfComplexDatatypeSupport() throws Exception {
+    // Geospatial support is independent of complex datatype support — can be enabled alone
     Properties props = new Properties();
     props.setProperty("EnableComplexDatatypeSupport", "0");
     props.setProperty("EnableGeoSpatialSupport", "1");
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContextFactory.create(JDBC_URL, props);
 
-    // Verify that geospatial support is disabled because complex datatype support is disabled
     assertFalse(connectionContext.isComplexDatatypeSupportEnabled());
-    assertFalse(connectionContext.isGeoSpatialSupportEnabled());
+    assertTrue(connectionContext.isGeoSpatialSupportEnabled());
   }
 
   @Test
@@ -657,6 +793,54 @@ public class ArrowStreamResultTest {
 
     assertNotNull(result);
     assertFalse(result.hasNext(), "Empty result should have no data");
+    assertDoesNotThrow(result::close);
+  }
+
+  /**
+   * Verifies the bounded-SEA contract: with UseBoundedSeaApi=1 and external links,
+   * ArrowStreamResult routes to StreamingChunkProvider and passes null for totalChunkCount (must
+   * not rely on manifest.total_chunk_count). A regression that reverts to getTotalChunkCount() for
+   * the bounded path would break against real bounded servers that omit the field.
+   */
+  @Test
+  public void testBoundedSeaApiUsesStreamingChunkProviderWithNullTotalChunkCount()
+      throws Exception {
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+
+    assertTrue(
+        connectionContext.isBoundedSeaApiEnabled(), "BoundedSeaApi should be enabled via property");
+
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    // Intentionally omit total_chunk_count (null) — bounded servers don't populate it.
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalRowCount(110L)
+            .setTotalByteCount(1000L)
+            .setResultCompression(CompressionCodec.NONE)
+            .setChunks(this.chunkInfos.subList(0, 1))
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    // total_chunk_count is null — asserting the provider is chosen without it
+    assertNull(
+        resultManifest.getTotalChunkCount(),
+        "total_chunk_count must be null to exercise the bounded-SEA contract");
+
+    ResultData localResultData = new ResultData().setExternalLinks(getChunkLinks(0L, 0L, true));
+
+    setupMockResponse();
+    when(mockHttpClient.execute(isA(HttpUriRequest.class), eq(true))).thenReturn(httpResponse);
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, localResultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    // StreamingChunkProvider is selected (not RemoteChunkProvider) — iteration completes
+    assertNotNull(result);
+    assertTrue(result.hasNext(), "Bounded-SEA result should have data");
+    assertTrue(result.next());
     assertDoesNotThrow(result::close);
   }
 }

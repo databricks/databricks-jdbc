@@ -237,6 +237,140 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
+  void testTimestampAsEpochMicrosInStruct() throws DatabricksParsingException {
+    // TIMESTAMP inside STRUCT — Arrow serializes as epoch microseconds
+    // 1696519230000000 micros represents the UTC wall-clock value 2023-10-05 15:20:30.
+    String json = "{\"ts\":1696519230000000}";
+
+    DatabricksStruct dbStruct = parser.parseJsonStringToDbStruct(json, "STRUCT<ts:TIMESTAMP>");
+    assertNotNull(dbStruct);
+
+    try {
+      Object[] attrs = dbStruct.getAttributes();
+      assertEquals(1, attrs.length);
+      assertInstanceOf(Timestamp.class, attrs[0]);
+      Timestamp ts = (Timestamp) attrs[0];
+      assertEquals(Timestamp.valueOf("2023-10-05 15:20:30"), ts);
+      assertEquals(0, ts.getNanos() % 1_000_000); // no sub-millisecond component
+    } catch (Exception e) {
+      fail("Should not throw: " + e.getMessage());
+    }
+  }
+
+  @Test
+  void testTimestampAsEpochMicrosInArray() throws DatabricksParsingException {
+    // TIMESTAMP inside plain ARRAY — Arrow serializes as epoch microseconds
+    String json = "[1696519230000000]";
+
+    DatabricksArray dbArray = parser.parseJsonStringToDbArray(json, "ARRAY<TIMESTAMP>");
+    assertNotNull(dbArray);
+
+    try {
+      Object[] elements = (Object[]) dbArray.getArray();
+      assertEquals(1, elements.length);
+      assertInstanceOf(Timestamp.class, elements[0]);
+      Timestamp ts = (Timestamp) elements[0];
+      assertEquals(Timestamp.valueOf("2023-10-05 15:20:30"), ts);
+    } catch (Exception e) {
+      fail("Should not throw: " + e.getMessage());
+    }
+  }
+
+  @Test
+  void testTimestampAsEpochMicrosInMap() throws DatabricksParsingException {
+    // TIMESTAMP as value in MAP — Arrow serializes as epoch microseconds
+    String json = "{\"key1\":1696519230000000}";
+
+    DatabricksMap<String, Object> dbMap =
+        parser.parseJsonStringToDbMap(json, "MAP<STRING,TIMESTAMP>");
+    assertNotNull(dbMap);
+
+    Object val = dbMap.get("key1");
+    assertInstanceOf(Timestamp.class, val);
+    assertEquals(Timestamp.valueOf("2023-10-05 15:20:30"), val);
+  }
+
+  @Test
+  void testTimestampNtzAsStringInStruct() throws DatabricksParsingException {
+    // TIMESTAMP_NTZ with string format should be handled, not fall through to STRING
+    String json = "{\"ts\":\"2023-10-05 15:20:30\"}";
+
+    DatabricksStruct dbStruct = parser.parseJsonStringToDbStruct(json, "STRUCT<ts:TIMESTAMP_NTZ>");
+    assertNotNull(dbStruct);
+
+    try {
+      Object[] attrs = dbStruct.getAttributes();
+      assertEquals(1, attrs.length);
+      assertInstanceOf(Timestamp.class, attrs[0]);
+    } catch (Exception e) {
+      fail("Should not throw: " + e.getMessage());
+    }
+  }
+
+  @Test
+  void testTimestampNtzAsArrayComponentsInStruct() throws DatabricksParsingException {
+    // Server actually returns TIMESTAMP_NTZ as array of components: [year,month,day,hour,min,sec]
+    // Confirmed via E2E: [{"event_ts_ntz":[2023,10,5,15,20,30]}]
+    String json = "{\"ts_ntz\":[2023,10,5,15,20,30]}";
+
+    DatabricksStruct dbStruct =
+        parser.parseJsonStringToDbStruct(json, "STRUCT<ts_ntz:TIMESTAMP_NTZ>");
+    assertNotNull(dbStruct);
+
+    try {
+      Object[] attrs = dbStruct.getAttributes();
+      assertEquals(1, attrs.length);
+      assertInstanceOf(Timestamp.class, attrs[0]);
+      // TIMESTAMP_NTZ is timezone-independent — Timestamp.valueOf(LocalDateTime) is used,
+      // so toLocalDateTime() gives back the exact components regardless of JVM timezone.
+      Timestamp ts = (Timestamp) attrs[0];
+      assertEquals(java.time.LocalDateTime.of(2023, 10, 5, 15, 20, 30), ts.toLocalDateTime());
+    } catch (Exception e) {
+      fail("Should not throw: " + e.getMessage());
+    }
+  }
+
+  @Test
+  void testBinaryAsBase64InStruct() throws DatabricksParsingException {
+    // BINARY inside STRUCT — server returns base64-encoded strings
+    // Confirmed via E2E: [{"bin_data":"QUJD"}] for CAST('ABC' AS BINARY)
+    // "QUJD" is base64 for "ABC"
+    String json = "{\"bin_data\":\"QUJD\"}";
+
+    DatabricksStruct dbStruct = parser.parseJsonStringToDbStruct(json, "STRUCT<bin_data:BINARY>");
+    assertNotNull(dbStruct);
+
+    try {
+      Object[] attrs = dbStruct.getAttributes();
+      assertEquals(1, attrs.length);
+      assertInstanceOf(byte[].class, attrs[0]);
+      assertArrayEquals("ABC".getBytes(), (byte[]) attrs[0]);
+    } catch (Exception e) {
+      fail("Should not throw: " + e.getMessage());
+    }
+  }
+
+  @Test
+  void testBinaryAsBase64InArray() throws DatabricksParsingException {
+    // BINARY inside ARRAY — server returns base64-encoded strings
+    // Confirmed via E2E: ["QUJD","WFla"] for ARRAY(CAST('ABC' AS BINARY), CAST('XYZ' AS BINARY))
+    String json = "[\"QUJD\",\"WFla\"]";
+
+    DatabricksArray dbArray = parser.parseJsonStringToDbArray(json, "ARRAY<BINARY>");
+    assertNotNull(dbArray);
+
+    try {
+      Object[] elements = (Object[]) dbArray.getArray();
+      assertEquals(2, elements.length);
+      assertInstanceOf(byte[].class, elements[0]);
+      assertArrayEquals("ABC".getBytes(), (byte[]) elements[0]);
+      assertArrayEquals("XYZ".getBytes(), (byte[]) elements[1]);
+    } catch (Exception e) {
+      fail("Should not throw: " + e.getMessage());
+    }
+  }
+
+  @Test
   void testFormatComplexTypeString_withMapType() {
     String jsonString = "[{\"key\":1,\"value\":2},{\"key\":3,\"value\":4}]";
     String expected = "{1:2,3:4}";
@@ -277,6 +411,44 @@ public class ComplexDataTypeParserTest {
     String expected = "{\"a\":100,\"b\":200}";
 
     String result = parser.formatMapString(jsonString, "MAP<STRING,INT>");
+    assertEquals(expected, result);
+  }
+
+  /** Reproduces https://github.com/databricks/databricks-jdbc/issues/1505 */
+  @Test
+  void testFormatMapString_withArrayValue() throws DatabricksParsingException {
+    // SELECT MAP(0, ARRAY(34277,0)) with EnableArrow=1
+    String jsonString = "[{\"key\":0,\"value\":[34277,0]}]";
+    String expected = "{0:[34277,0]}";
+
+    String result = parser.formatMapString(jsonString, "MAP<INT,ARRAY<BIGINT>>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapString_withStructValue() throws DatabricksParsingException {
+    String jsonString = "[{\"key\":1,\"value\":{\"a\":10,\"b\":20}}]";
+    String expected = "{1:{\"a\":10,\"b\":20}}";
+
+    String result = parser.formatMapString(jsonString, "MAP<INT,STRUCT<a:INT,b:INT>>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapString_withMapValue() throws DatabricksParsingException {
+    String jsonString = "[{\"key\":1,\"value\":[{\"key\":2,\"value\":3}]}]";
+    String expected = "{1:[{\"key\":2,\"value\":3}]}";
+
+    String result = parser.formatMapString(jsonString, "MAP<INT,MAP<INT,INT>>");
+    assertEquals(expected, result);
+  }
+
+  @Test
+  void testFormatMapString_withStringArrayValue() throws DatabricksParsingException {
+    String jsonString = "[{\"key\":\"a\",\"value\":[\"x\",\"y\"]}]";
+    String expected = "{\"a\":[\"x\",\"y\"]}";
+
+    String result = parser.formatMapString(jsonString, "MAP<STRING,ARRAY<STRING>>");
     assertEquals(expected, result);
   }
 }

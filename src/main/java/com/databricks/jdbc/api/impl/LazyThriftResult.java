@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createColumnarView;
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
@@ -21,7 +20,6 @@ public class LazyThriftResult implements IExecutionResult {
   private long globalRowIndex;
   private final IDatabricksSession session;
   private final IDatabricksStatementInternal statement;
-  private final int maxRows;
   private boolean hasReachedEnd;
   private boolean isClosed;
   private long totalRowsFetched;
@@ -42,7 +40,6 @@ public class LazyThriftResult implements IExecutionResult {
     this.currentResponse = initialResponse;
     this.statement = statement;
     this.session = session;
-    this.maxRows = statement != null ? statement.getMaxRows() : DEFAULT_RESULT_ROW_LIMIT;
     this.globalRowIndex = -1;
     this.currentBatchIndex = -1;
     this.hasReachedEnd = false;
@@ -115,13 +112,6 @@ public class LazyThriftResult implements IExecutionResult {
       return false;
     }
 
-    // Check if we've reached the maxRows limit
-    boolean hasRowLimit = maxRows > 0;
-    if (hasRowLimit && globalRowIndex + 1 >= maxRows) {
-      hasReachedEnd = true;
-      return false;
-    }
-
     // Move to next row in current batch
     currentBatchIndex++;
     globalRowIndex++;
@@ -160,12 +150,6 @@ public class LazyThriftResult implements IExecutionResult {
   @Override
   public boolean hasNext() {
     if (isClosed || hasReachedEnd) {
-      return false;
-    }
-
-    // Check maxRows limit
-    boolean hasRowLimit = maxRows > 0;
-    if (hasRowLimit && globalRowIndex + 1 >= maxRows) {
       return false;
     }
 

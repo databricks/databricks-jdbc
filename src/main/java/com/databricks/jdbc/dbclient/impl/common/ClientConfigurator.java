@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.parseOAuthScopes;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.*;
@@ -216,7 +217,11 @@ public class ClientConfigurator implements Closeable {
         .setOAuthRedirectUrl(redirectUrl);
 
     LOGGER.info("Using OAuth redirect URL: {}", redirectUrl);
-    databricksConfig.setScopes(connectionContext.getOAuthScopesForU2M());
+    // Wrap in a new ArrayList: SDK 0.106's DatabricksConfig.sortScopes() (invoked from
+    // innerResolve()) calls Collections.sort() in place on the list passed to setScopes,
+    // which throws UnsupportedOperationException for immutable lists (e.g. List.of,
+    // Collections.singletonList).
+    databricksConfig.setScopes(new ArrayList<>(connectionContext.getOAuthScopesForU2M()));
     TokenCache tokenCache;
     if (connectionContext.isTokenCacheEnabled()) {
       if (connectionContext.getTokenCachePassPhrase() == null) {
@@ -387,6 +392,10 @@ public class ClientConfigurator implements Closeable {
             .setAuthType(jwtProvider.authType())
             .setCredentialsProvider(wrapWithTokenFederationIfEnabled(jwtProvider));
       } else {
+        List<String> scopes = parseOAuthScopes(connectionContext.getAuthScope());
+        if (!scopes.isEmpty()) {
+          databricksConfig.setScopes(new ArrayList<>(scopes));
+        }
         CredentialsProvider m2mProvider = new OAuthM2MServicePrincipalCredentialsProvider();
         databricksConfig
             .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)

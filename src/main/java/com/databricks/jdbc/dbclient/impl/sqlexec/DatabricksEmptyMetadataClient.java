@@ -16,9 +16,16 @@ public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DatabricksEmptyMetadataClient.class);
   private final MetadataResultSetBuilder metadataResultSetBuilder;
+  private final IDatabricksConnectionContext connectionContext;
 
   public DatabricksEmptyMetadataClient(IDatabricksConnectionContext ctx) {
+    this.connectionContext = ctx;
     this.metadataResultSetBuilder = new MetadataResultSetBuilder(ctx);
+  }
+
+  @Override
+  public IDatabricksConnectionContext getConnectionContext() {
+    return connectionContext;
   }
 
   @Override
@@ -79,6 +86,29 @@ public class DatabricksEmptyMetadataClient implements IDatabricksMetadataClient 
       throws SQLException {
     LOGGER.warn("Empty metadata implementation for listFunctions.");
     return metadataResultSetBuilder.getFunctionsResult("", null);
+  }
+
+  @Override
+  public DatabricksResultSet listProcedures(
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String procedureNamePattern)
+      throws SQLException {
+    LOGGER.warn("Empty metadata implementation for listProcedures.");
+    return metadataResultSetBuilder.getProceduresResult(new ArrayList<>());
+  }
+
+  @Override
+  public DatabricksResultSet listProcedureColumns(
+      IDatabricksSession session,
+      String catalog,
+      String schemaNamePattern,
+      String procedureNamePattern,
+      String columnNamePattern)
+      throws SQLException {
+    LOGGER.warn("Empty metadata implementation for listProcedureColumns.");
+    return metadataResultSetBuilder.getProcedureColumnsResult(new ArrayList<>());
   }
 
   @Override

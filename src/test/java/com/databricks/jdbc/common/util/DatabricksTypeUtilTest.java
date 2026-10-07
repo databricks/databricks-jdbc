@@ -93,6 +93,7 @@ class DatabricksTypeUtilTest {
             .put(ColumnInfoTypeName.GEOMETRY, Types.OTHER)
             .put(ColumnInfoTypeName.GEOGRAPHY, Types.OTHER)
             .put(ColumnInfoTypeName.USER_DEFINED_TYPE, Types.OTHER)
+            .put(ColumnInfoTypeName.VARIANT, Types.OTHER)
             .build();
 
     expectedMappings.forEach(
@@ -135,6 +136,7 @@ class DatabricksTypeUtilTest {
             .put(ColumnInfoTypeName.MAP, "java.util.Map")
             .put(ColumnInfoTypeName.NULL, "null")
             .put(ColumnInfoTypeName.VOID, "null")
+            .put(ColumnInfoTypeName.VARIANT, "java.lang.String")
             .build();
 
     expectedMappings.forEach(
@@ -194,6 +196,7 @@ class DatabricksTypeUtilTest {
   void testIsSigned() {
     assertTrue(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.INT));
     assertFalse(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.BOOLEAN));
+    assertFalse(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.VARIANT));
   }
 
   @Test
@@ -267,7 +270,7 @@ class DatabricksTypeUtilTest {
   @ParameterizedTest
   @CsvSource({
     "STRING, STRING",
-    "DATE, TIMESTAMP",
+    "DATE, DATE",
     "TIMESTAMP, TIMESTAMP",
     "TIMESTAMP_NTZ, TIMESTAMP",
     "SHORT, SHORT",
@@ -275,21 +278,35 @@ class DatabricksTypeUtilTest {
     "TINYINT, TINYINT",
     "BYTE, BYTE",
     "INT, INT",
+    "INTEGER, INT",
     "BIGINT, LONG",
     "LONG, LONG",
     "FLOAT, FLOAT",
+    "REAL, FLOAT",
     "DOUBLE, DOUBLE",
     "BINARY, BINARY",
     "BOOLEAN, BOOLEAN",
     "DECIMAL, DECIMAL",
+    "NUMERIC, DECIMAL",
+    "DEC, DECIMAL",
     "STRUCT, STRUCT",
     "ARRAY, ARRAY",
     "VOID, NULL",
     "NULL, NULL",
     "MAP, MAP",
     "CHAR, STRING",
+    "VARCHAR, STRING",
+    "NVARCHAR, STRING",
+    "NCHAR, STRING",
     "INTERVAL, INTERVAL",
-    "UNKNOWN, USER_DEFINED_TYPE"
+    "VARIANT, VARIANT",
+    "GEOMETRY, GEOMETRY",
+    "GEOGRAPHY, GEOGRAPHY",
+    "UNKNOWN, USER_DEFINED_TYPE",
+    // Lowercase inputs fall through to USER_DEFINED_TYPE (getColumnInfoType expects uppercase)
+    "string, USER_DEFINED_TYPE",
+    "int, USER_DEFINED_TYPE",
+    "varchar, USER_DEFINED_TYPE"
   })
   public void testGetColumnInfoType(String inputTypeName, String expectedTypeName) {
     assertEquals(
@@ -298,6 +315,46 @@ class DatabricksTypeUtilTest {
         String.format(
             "inputType : %s, output should have been %s.  But was %s",
             inputTypeName, expectedTypeName, DatabricksTypeUtil.getColumnInfoType(inputTypeName)));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "INTERVAL DAY TO SECOND, INTERVAL",
+    "INTERVAL YEAR TO MONTH, INTERVAL",
+    "INTERVAL DAY TO HOUR, INTERVAL",
+    "INTERVAL DAY TO MINUTE, INTERVAL",
+    "INTERVAL HOUR TO MINUTE, INTERVAL",
+    "INTERVAL HOUR TO SECOND, INTERVAL",
+    "INTERVAL MINUTE TO SECOND, INTERVAL"
+  })
+  public void testGetColumnInfoTypeIntervalSubTypes(String inputTypeName, String expectedTypeName) {
+    assertEquals(
+        ColumnInfoTypeName.valueOf(expectedTypeName),
+        DatabricksTypeUtil.getColumnInfoType(inputTypeName),
+        String.format(
+            "inputType : %s, output should have been %s.  But was %s",
+            inputTypeName, expectedTypeName, DatabricksTypeUtil.getColumnInfoType(inputTypeName)));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "VARIANT, VARIANT, " + Types.OTHER,
+    "TIMESTAMP, TIMESTAMP, " + Types.TIMESTAMP,
+    "TIMESTAMP_NTZ, TIMESTAMP, " + Types.TIMESTAMP,
+    "GEOGRAPHY, GEOGRAPHY, " + Types.OTHER,
+    "GEOMETRY, GEOMETRY, " + Types.OTHER,
+  })
+  public void testGetColumnInfoTypeToJdbcType(
+      String inputTypeName, String expectedEnumName, int expectedJdbcType) {
+    ColumnInfoTypeName typeName = DatabricksTypeUtil.getColumnInfoType(inputTypeName);
+    assertEquals(
+        ColumnInfoTypeName.valueOf(expectedEnumName),
+        typeName,
+        "Enum mapping mismatch for " + inputTypeName);
+    assertEquals(
+        expectedJdbcType,
+        DatabricksTypeUtil.getColumnType(typeName),
+        "JDBC type code mismatch for " + inputTypeName);
   }
 
   @Test
@@ -386,5 +443,26 @@ class DatabricksTypeUtilTest {
     // Very small value with trailing zeros (ensures scale is preserved)
     assertEquals(
         "DECIMAL(8,8)", DatabricksTypeUtil.getDecimalTypeString(new BigDecimal("0.00000123")));
+  }
+
+  @Test
+  public void testRecoverStringType() {
+    // Plain and collated string, any case -> STRING
+    assertEquals(ColumnInfoTypeName.STRING, DatabricksTypeUtil.recoverStringType("STRING"));
+    assertEquals(
+        ColumnInfoTypeName.STRING,
+        DatabricksTypeUtil.recoverStringType("STRING COLLATE UTF8_LCASE"));
+    assertEquals(
+        ColumnInfoTypeName.STRING,
+        DatabricksTypeUtil.recoverStringType("string collate utf8_lcase"));
+    assertEquals(ColumnInfoTypeName.STRING, DatabricksTypeUtil.recoverStringType("STRING(10)"));
+
+    // Word-boundary: a longer type merely starting with STRING is not coerced
+    assertNull(DatabricksTypeUtil.recoverStringType("STRINGVIEW"));
+    assertNull(DatabricksTypeUtil.recoverStringType("STRINGSET"));
+
+    // Non-string / null
+    assertNull(DatabricksTypeUtil.recoverStringType("INT"));
+    assertNull(DatabricksTypeUtil.recoverStringType(null));
   }
 }

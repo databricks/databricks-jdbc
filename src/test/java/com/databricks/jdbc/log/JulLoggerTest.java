@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.verify;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,20 +25,31 @@ public class JulLoggerTest {
 
   @BeforeEach
   void setUp() {
+    resetLogger();
     mockLogger = Mockito.mock(Logger.class);
+    // By default treat every level as enabled so the existing verify-based tests
+    // exercise the real logging path. Individual tests override this to assert the
+    // level-guard added for GitHub issue #1511.
+    Mockito.when(mockLogger.isLoggable(Mockito.any())).thenReturn(true);
     julLogger = new JulLogger("test");
     julLogger.logger = mockLogger;
   }
 
   @AfterEach
   void tearDown() {
-    // Reset the logger after each test
+    resetLogger();
+  }
+
+  private void resetLogger() {
     JulLogger.isLoggerInitialized = false;
 
     Logger logger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
     logger.setLevel(null);
     for (Handler handler : logger.getHandlers()) {
       logger.removeHandler(handler);
+      if (handler instanceof FileHandler) {
+        handler.close();
+      }
     }
     logger.setUseParentHandlers(true);
   }
@@ -103,6 +116,50 @@ public class JulLoggerTest {
   }
 
   @Test
+  void testErrorWithThrowableAndFormatArgContainingPercent() {
+    // Reproduces the IllegalFormatConversionException crash (GitHub issue).
+    // When error(Throwable, String, Object...) formats a message whose argument
+    // contains literal % characters (e.g., %g from a Thrift server error), the
+    // formatted result is passed to error(String, Object...) which re-interprets
+    // it as a format string, causing String.format to apply %g to the Throwable.
+    Exception exception = new Exception("something with %g in it");
+    assertDoesNotThrow(
+        () ->
+            julLogger.error(
+                exception, "Unable to fetch functions, returning empty result set {}", exception),
+        "error(Throwable, String, Object...) should not throw when formatted message contains % characters");
+  }
+
+  @Test
+  void testNoLoggingWhenLevelDisabled() {
+    // Regression test for GitHub issue #1511: when the configured level would discard
+    // the record, log() must short-circuit before doing any work (notably the expensive
+    // getCaller() stack-trace walk), so logp() is never invoked.
+    Mockito.when(mockLogger.isLoggable(Mockito.any())).thenReturn(false);
+
+    julLogger.trace("trace message");
+    julLogger.debug("debug message");
+    julLogger.info("info message");
+    julLogger.warn("warn message");
+    julLogger.error("error message");
+    julLogger.error(new Exception("boom"), "error with throwable");
+
+    Mockito.verify(mockLogger, Mockito.never())
+        .logp(
+            Mockito.any(Level.class),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            Mockito.anyString());
+    Mockito.verify(mockLogger, Mockito.never())
+        .logp(
+            Mockito.any(Level.class),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            Mockito.any(Throwable.class));
+  }
+
+  @Test
   void testInitLoggerWithStdout() throws IOException {
     JulLogger.initLogger(Level.INFO, JulLogger.STDOUT, 1024, 1);
     Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
@@ -122,6 +179,80 @@ public class JulLoggerTest {
       handler.close();
       jdbcLogger.removeHandler(handler);
     }
+  }
+
+  @Test
+  void testInitLoggerPromotesFromOffToEnabled(@TempDir Path tempDir) throws IOException {
+    Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
+
+    JulLogger.initLogger(Level.OFF, JulLogger.STDOUT, 0, 0);
+
+    assertEquals(Level.OFF, jdbcLogger.getLevel());
+    assertEquals(0, jdbcLogger.getHandlers().length);
+    assertFalse(JulLogger.isLoggerInitialized);
+
+    JulLogger.initLogger(Level.FINEST, tempDir.toString(), 1024, 1);
+
+    assertEquals(Level.FINEST, jdbcLogger.getLevel());
+    assertEquals(1, jdbcLogger.getHandlers().length);
+    assertInstanceOf(FileHandler.class, jdbcLogger.getHandlers()[0]);
+    assertTrue(Files.exists(tempDir.resolve(JulLogger.DATABRICKS_LOG_FILE)));
+    assertTrue(JulLogger.isLoggerInitialized);
+  }
+
+  @Test
+  void testInitLoggerDoesNotDisableEnabledLogger(@TempDir Path tempDir) throws IOException {
+    Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
+    JulLogger.initLogger(Level.FINEST, tempDir.toString(), 1024, 1);
+    Handler enabledHandler = jdbcLogger.getHandlers()[0];
+
+    JulLogger.initLogger(Level.OFF, JulLogger.STDOUT, 0, 0);
+
+    assertEquals(Level.FINEST, jdbcLogger.getLevel());
+    assertArrayEquals(new Handler[] {enabledHandler}, jdbcLogger.getHandlers());
+    assertTrue(JulLogger.isLoggerInitialized);
+  }
+
+  @Test
+  void testConcurrentOffAndEnabledInitializationCreatesOneHandler(@TempDir Path tempDir) {
+    CompletableFuture<Void> offInitialization =
+        CompletableFuture.runAsync(
+            () ->
+                assertDoesNotThrow(() -> JulLogger.initLogger(Level.OFF, JulLogger.STDOUT, 0, 0)));
+    CompletableFuture<Void> enabledInitialization =
+        CompletableFuture.runAsync(
+            () ->
+                assertDoesNotThrow(
+                    () -> JulLogger.initLogger(Level.INFO, tempDir.toString(), 1024, 1)));
+
+    assertDoesNotThrow(
+        () -> CompletableFuture.allOf(offInitialization, enabledInitialization).join());
+
+    Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
+    assertEquals(Level.INFO, jdbcLogger.getLevel());
+    assertEquals(1, jdbcLogger.getHandlers().length);
+    assertInstanceOf(FileHandler.class, jdbcLogger.getHandlers()[0]);
+    assertTrue(JulLogger.isLoggerInitialized);
+  }
+
+  @Test
+  void testFailedInitializationCanBeRetried(@TempDir Path tempDir) throws IOException {
+    Path fileInsteadOfDirectory = tempDir.resolve("not-a-directory");
+    Files.write(fileInsteadOfDirectory, "test".getBytes(StandardCharsets.UTF_8));
+
+    assertThrows(
+        IOException.class,
+        () -> JulLogger.initLogger(Level.INFO, fileInsteadOfDirectory.toString(), 1024, 1));
+    assertFalse(JulLogger.isLoggerInitialized);
+
+    Path validLogDirectory = tempDir.resolve("logs");
+    JulLogger.initLogger(Level.INFO, validLogDirectory.toString(), 1024, 1);
+
+    Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);
+    assertEquals(Level.INFO, jdbcLogger.getLevel());
+    assertEquals(1, jdbcLogger.getHandlers().length);
+    assertTrue(Files.exists(validLogDirectory.resolve(JulLogger.DATABRICKS_LOG_FILE)));
+    assertTrue(JulLogger.isLoggerInitialized);
   }
 
   @Test

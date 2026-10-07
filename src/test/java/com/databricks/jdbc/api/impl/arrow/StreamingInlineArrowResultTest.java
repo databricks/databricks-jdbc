@@ -56,7 +56,6 @@ public class StreamingInlineArrowResultTest {
     connectionContext = DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
     lenient().when(session.getDatabricksClient()).thenReturn(databricksClient);
     lenient().when(session.getConnectionContext()).thenReturn(connectionContext);
-    lenient().when(statement.getMaxRows()).thenReturn(0);
     lenient().when(statement.getStatementId()).thenReturn(STATEMENT_ID);
   }
 
@@ -142,32 +141,6 @@ public class StreamingInlineArrowResultTest {
       Object stringValue = result.getObject(1);
       assertNotNull(stringValue);
       assertEquals("row_0_0", stringValue.toString());
-    } finally {
-      result.close();
-    }
-  }
-
-  @Test
-  void testMaxRowsLimit() throws SQLException {
-    int totalRows = 10;
-    int maxRows = 3;
-    when(statement.getMaxRows()).thenReturn(maxRows);
-
-    byte[] arrowData = createValidArrowData(1, totalRows);
-    TFetchResultsResp response = createFetchResultsResp(arrowData, totalRows, false);
-
-    StreamingInlineArrowResult result =
-        new StreamingInlineArrowResult(response, statement, session);
-
-    try {
-      int rowsRetrieved = 0;
-      while (result.next()) {
-        rowsRetrieved++;
-      }
-
-      assertEquals(maxRows, rowsRetrieved);
-      assertFalse(result.hasNext());
-      assertEquals(maxRows - 1, result.getCurrentRow());
     } finally {
       result.close();
     }
@@ -322,45 +295,6 @@ public class StreamingInlineArrowResultTest {
         caughtException.getMessage().contains("Prefetch failed")
             || caughtException.getMessage().contains("Network error"),
         "Exception message should contain error details: " + caughtException.getMessage());
-  }
-
-  @Test
-  void testMaxRowsLimitAcrossBatches() throws SQLException, InterruptedException {
-    // MaxRows limit of 3, spanning across 2 batches (2 rows each)
-    int rowsPerChunk = 2;
-    when(statement.getMaxRows()).thenReturn(3);
-
-    byte[] arrowData1 = createValidArrowData(1, rowsPerChunk);
-    byte[] arrowData2 = createValidArrowData(1, rowsPerChunk);
-
-    TFetchResultsResp firstResponse = createFetchResultsResp(arrowData1, rowsPerChunk, true);
-    TFetchResultsResp secondResponse = createFetchResultsResp(arrowData2, rowsPerChunk, false);
-
-    when(databricksClient.getMoreResults(statement)).thenReturn(secondResponse);
-
-    StreamingInlineArrowResult result =
-        new StreamingInlineArrowResult(firstResponse, statement, session);
-
-    try {
-      // Give prefetch thread time to start
-      Thread.sleep(100);
-
-      // Consume first batch (rows 0 and 1)
-      assertTrue(result.next());
-      assertEquals(0, result.getCurrentRow());
-      assertTrue(result.next());
-      assertEquals(1, result.getCurrentRow());
-
-      // Get one row from second batch (row 2)
-      assertTrue(result.next());
-      assertEquals(2, result.getCurrentRow());
-
-      // Should stop at maxRows=3
-      assertFalse(result.hasNext());
-      assertFalse(result.next());
-    } finally {
-      result.close();
-    }
   }
 
   @Test

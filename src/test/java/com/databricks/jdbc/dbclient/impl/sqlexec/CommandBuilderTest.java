@@ -49,6 +49,17 @@ class CommandBuilderTest {
     }
 
     @Test
+    @DisplayName("Should escape backticks in identifiers for primary keys")
+    void shouldEscapeBackticksInIdentifiersForPrimaryKeys() throws SQLException {
+      CommandBuilder builder =
+          new CommandBuilder("cat`alog", mockSession).setSchema("sch`ema").setTable("tab`le");
+
+      String sql = builder.getSQLString(CommandName.LIST_PRIMARY_KEYS);
+
+      assertEquals("SHOW KEYS IN CATALOG `cat``alog` IN SCHEMA `sch``ema` IN TABLE `tab``le`", sql);
+    }
+
+    @Test
     @DisplayName("Should throw SQLException when catalog is null for primary keys")
     void shouldThrowExceptionWhenCatalogIsNullForPrimaryKeys() {
       CommandBuilder builder =
@@ -141,12 +152,23 @@ class CommandBuilderTest {
     }
 
     @Test
-    @DisplayName("Should generate correct SQL for fetching tables with wildcard catalog")
-    void shouldGenerateCorrectSqlForTablesWithWildcardCatalog() throws SQLException {
-      // Test with '*' wildcard
+    @DisplayName("Should treat wildcard catalog as literal per JDBC spec (catalog is exact match)")
+    void shouldTreatWildcardCatalogAsLiteral() throws SQLException {
+      // Per JDBC spec, catalog is an exact match — '*' and '%' are literal catalog names,
+      // not wildcards. Only null means "do not narrow the search".
       CommandBuilder builder1 = new CommandBuilder("*", mockSession);
       String sql1 = builder1.getSQLString(CommandName.LIST_TABLES);
-      assertEquals(SHOW_TABLES_IN_ALL_CATALOGS_SQL, sql1);
+      assertEquals(String.format(SHOW_TABLES_SQL, "*"), sql1);
+    }
+
+    @Test
+    @DisplayName("Should escape backticks in catalog identifier for tables")
+    void shouldEscapeBackticksInCatalogIdentifierForTables() throws SQLException {
+      CommandBuilder builder = new CommandBuilder("cat`alog", mockSession);
+
+      String sql = builder.getSQLString(CommandName.LIST_TABLES);
+
+      assertEquals("SHOW TABLES IN CATALOG `cat``alog`", sql);
     }
 
     @Test
@@ -201,6 +223,18 @@ class CommandBuilderTest {
     }
 
     @Test
+    @DisplayName("Should escape backticks in identifiers for foreign keys")
+    void shouldEscapeBackticksInIdentifiersForForeignKeys() throws SQLException {
+      CommandBuilder builder =
+          new CommandBuilder("cat`alog", mockSession).setSchema("sch`ema").setTable("tab`le");
+
+      String sql = builder.getSQLString(CommandName.LIST_FOREIGN_KEYS);
+
+      assertEquals(
+          "SHOW FOREIGN KEYS IN CATALOG `cat``alog` IN SCHEMA `sch``ema` IN TABLE `tab``le`", sql);
+    }
+
+    @Test
     @DisplayName("Should throw SQLException when catalog is null for foreign keys")
     void shouldThrowExceptionWhenCatalogIsNullForForeignKeys() {
       CommandBuilder builder =
@@ -224,6 +258,41 @@ class CommandBuilderTest {
 
       assertThrows(SQLException.class, () -> builder.getSQLString(CommandName.LIST_FOREIGN_KEYS));
     }
+  }
+
+  @Test
+  @DisplayName("Should escape backticks in catalog identifiers for other metadata commands")
+  void shouldEscapeBackticksInCatalogIdentifiersForOtherMetadataCommands() throws SQLException {
+    CommandBuilder builder = new CommandBuilder("cat`alog", mockSession);
+
+    assertEquals("SHOW SCHEMAS IN `cat``alog`", builder.getSQLString(CommandName.LIST_SCHEMAS));
+    assertEquals(
+        "SHOW COLUMNS IN CATALOG `cat``alog`", builder.getSQLString(CommandName.LIST_COLUMNS));
+    assertEquals(
+        "SHOW FUNCTIONS IN CATALOG `cat``alog`", builder.getSQLString(CommandName.LIST_FUNCTIONS));
+  }
+
+  @Test
+  @DisplayName("Should generate SHOW COLUMNS IN ALL CATALOGS when catalog is null")
+  void shouldGenerateCorrectSqlForColumnsFromAllCatalogs() throws SQLException {
+    CommandBuilder builder = new CommandBuilder(null, mockSession);
+
+    assertEquals(SHOW_COLUMNS_IN_ALL_CATALOGS_SQL, builder.getSQLString(CommandName.LIST_COLUMNS));
+  }
+
+  @Test
+  @DisplayName(
+      "Should append SCHEMA/TABLE/column LIKE clauses to SHOW COLUMNS IN ALL CATALOGS when catalog is null")
+  void shouldGenerateCorrectSqlForColumnsFromAllCatalogsWithPatterns() throws SQLException {
+    CommandBuilder builder =
+        new CommandBuilder(null, mockSession)
+            .setSchemaPattern("testSchema")
+            .setTablePattern("testTable")
+            .setColumnPattern("testColumn");
+
+    assertEquals(
+        "SHOW COLUMNS IN ALL CATALOGS SCHEMA LIKE 'testSchema' TABLE LIKE 'testTable' LIKE 'testColumn'",
+        builder.getSQLString(CommandName.LIST_COLUMNS));
   }
 
   @Test

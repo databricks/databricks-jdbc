@@ -38,7 +38,7 @@ public class StreamingChunkDownloadTaskTest {
 
   @Mock private ArrowResultChunk chunk;
   @Mock private IDatabricksHttpClient httpClient;
-  @Mock private ChunkLinkFetcher linkFetcher;
+  @Mock private LinkRefresher linkRefresher;
 
   private StreamingChunkDownloadTask downloadTask;
   private CompletableFuture<Void> downloadFuture;
@@ -48,7 +48,7 @@ public class StreamingChunkDownloadTaskTest {
     downloadFuture = new CompletableFuture<>();
     downloadTask =
         new StreamingChunkDownloadTask(
-            chunk, httpClient, CompressionCodec.NONE, linkFetcher, CLOUD_FETCH_SPEED_THRESHOLD);
+            chunk, httpClient, CompressionCodec.NONE, linkRefresher, CLOUD_FETCH_SPEED_THRESHOLD);
   }
 
   @Test
@@ -137,7 +137,7 @@ public class StreamingChunkDownloadTaskTest {
     when(chunk.isChunkLinkInvalid()).thenReturn(true, false);
 
     ExternalLink freshLink = mock(ExternalLink.class);
-    when(linkFetcher.refetchLink(5L, 100L)).thenReturn(freshLink);
+    when(linkRefresher.refreshLink(5L, 100L)).thenReturn(freshLink);
 
     doNothing()
         .when(chunk)
@@ -145,9 +145,8 @@ public class StreamingChunkDownloadTaskTest {
 
     downloadTask.call();
 
-    // Verify link was refreshed
-    verify(linkFetcher, times(1)).refetchLink(5L, 100L);
-    verify(chunk, times(1)).setChunkLink(freshLink);
+    // Verify link was refreshed (setChunkLink is done inside getRefreshedLink, not here)
+    verify(linkRefresher, times(1)).refreshLink(5L, 100L);
     verify(chunk, times(1))
         .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
     assertTrue(downloadFuture.isDone());
@@ -162,7 +161,7 @@ public class StreamingChunkDownloadTaskTest {
     when(chunk.isChunkLinkInvalid()).thenReturn(true, true, false);
 
     ExternalLink freshLink = mock(ExternalLink.class);
-    when(linkFetcher.refetchLink(5L, 100L)).thenReturn(freshLink);
+    when(linkRefresher.refreshLink(5L, 100L)).thenReturn(freshLink);
 
     // First download fails with IOException, retry succeeds
     doThrow(new SocketException("Connection reset"))
@@ -172,9 +171,8 @@ public class StreamingChunkDownloadTaskTest {
 
     downloadTask.call();
 
-    // Should refresh link twice (once per attempt)
-    verify(linkFetcher, times(2)).refetchLink(5L, 100L);
-    verify(chunk, times(2)).setChunkLink(freshLink);
+    // Should refresh link twice (once per attempt; setChunkLink done inside getRefreshedLink)
+    verify(linkRefresher, times(2)).refreshLink(5L, 100L);
     verify(chunk, times(2))
         .downloadData(httpClient, CompressionCodec.NONE, CLOUD_FETCH_SPEED_THRESHOLD);
     verify(chunk, times(1)).setStatus(ChunkStatus.DOWNLOAD_RETRY);
@@ -253,7 +251,7 @@ public class StreamingChunkDownloadTaskTest {
             spiedChunk,
             httpClient,
             CompressionCodec.NONE,
-            linkFetcher,
+            linkRefresher,
             CLOUD_FETCH_SPEED_THRESHOLD);
 
     // Execute the task

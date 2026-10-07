@@ -13,6 +13,7 @@ import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.dbclient.IDatabricksMetadataClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
@@ -68,6 +69,11 @@ public class DatabricksDatabaseMetaDataTest {
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
     when(metadataClient.listCrossReferences(any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(Mockito.mock(DatabricksResultSet.class));
+    when(metadataClient.listProcedures(any(), any(), any(), any()))
+        .thenAnswer(invocation -> metadataResultSetBuilder.getProceduresResult(new ArrayList<>()));
+    when(metadataClient.listProcedureColumns(any(), any(), any(), any(), any()))
+        .thenAnswer(
+            invocation -> metadataResultSetBuilder.getProcedureColumnsResult(new ArrayList<>()));
     when(connection.getConnection()).thenReturn(Mockito.mock(Connection.class));
     when(session.isOpen()).thenReturn(true);
   }
@@ -89,9 +95,19 @@ public class DatabricksDatabaseMetaDataTest {
   }
 
   @Test
-  public void supportsBatchUpdates_returnsFalse() throws Exception {
+  public void supportsBatchUpdates_returnsFalseByDefault() throws Exception {
+    // Default EnableBatchedInserts=0, so batch support is not advertised
     boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
     assertFalse(supportsBatchUpdates);
+  }
+
+  @Test
+  public void supportsBatchUpdates_returnsTrueWhenBatchedInsertsEnabled() throws Exception {
+    String urlWithBatchedInserts = WAREHOUSE_JDBC_URL + ";EnableBatchedInserts=1";
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContext.parse(urlWithBatchedInserts, new Properties()));
+    boolean supportsBatchUpdates = metaData.supportsBatchUpdates();
+    assertTrue(supportsBatchUpdates);
   }
 
   @Test
@@ -103,7 +119,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void getDatabaseMinorVersion_returnsCorrectVersion() throws Exception {
     int minorVersion = metaData.getDatabaseMinorVersion();
-    assertEquals(2, minorVersion);
+    assertEquals(3, minorVersion);
   }
 
   @Test
@@ -822,7 +838,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetDatabaseProductVersion() throws SQLException {
     String result = metaData.getDatabaseProductVersion();
-    assertEquals("3.2.1", result);
+    assertEquals("3.3.3", result);
   }
 
   @Test
@@ -834,7 +850,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetDriverVersion() throws SQLException {
     String result = metaData.getDriverVersion();
-    assertEquals("3.2.1", result);
+    assertEquals("3.4.3", result);
   }
 
   @Test
@@ -846,7 +862,7 @@ public class DatabricksDatabaseMetaDataTest {
   @Test
   public void testGetDriverMinorVersion() {
     int result = metaData.getDriverMinorVersion();
-    assertEquals(2, result);
+    assertEquals(4, result);
   }
 
   @Test

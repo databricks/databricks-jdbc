@@ -21,8 +21,10 @@ public class IntervalConverter {
   private static final long NANOS_PER_HOUR = NANOS_PER_MINUTE * 60;
   private static final long NANOS_PER_DAY = NANOS_PER_HOUR * 24;
 
+  // Matches both SQL format ("INTERVAL YEAR TO MONTH") and Arrow/Spark internal format
+  // ("INTERVAL_YEAR_TO_MONTH" or "INTERVAL_YEAR_MONTH")
   private static final Pattern INTERVAL_PATTERN =
-      Pattern.compile("INTERVAL\\s+(\\w+)(?:\\s+TO\\s+(\\w+))?", Pattern.CASE_INSENSITIVE);
+      Pattern.compile("INTERVAL[_\\s]+(\\w+)(?:[_\\s]+TO[_\\s]+(\\w+))?", Pattern.CASE_INSENSITIVE);
 
   /** The supported fields in the SQL syntax. */
   public enum Field {
@@ -37,15 +39,25 @@ public class IntervalConverter {
   private final boolean isYearMonth;
 
   /**
-   * @param arrowMetadata e.g. "INTERVAL YEAR TO MONTH" or "INTERVAL HOUR TO SECOND"
+   * @param arrowMetadata e.g. "INTERVAL YEAR TO MONTH", "INTERVAL HOUR TO SECOND", or
+   *     "INTERVAL_YEAR_MONTH", "INTERVAL_DAY_TIME" (Arrow/Spark internal format from CloudFetch)
    */
   public IntervalConverter(String arrowMetadata) {
-    Matcher m = INTERVAL_PATTERN.matcher(arrowMetadata.trim());
+    String trimmed = arrowMetadata.trim().toUpperCase();
+    // Handle Arrow/Spark internal format: INTERVAL_YEAR_MONTH, INTERVAL_DAY_TIME
+    if (trimmed.contains("YEAR_MONTH") || trimmed.contains("YEAR TO MONTH")) {
+      this.isYearMonth = true;
+      return;
+    }
+    if (trimmed.contains("DAY_TIME") || trimmed.contains("DAY TO")) {
+      this.isYearMonth = false;
+      return;
+    }
+    Matcher m = INTERVAL_PATTERN.matcher(trimmed);
     if (!m.matches()) {
       throw new IllegalArgumentException("Invalid interval metadata: " + arrowMetadata);
     }
     Field start = Field.valueOf(m.group(1).toUpperCase());
-    // YEAR or MONTH qualifiers → Period; otherwise → Duration
     this.isYearMonth = (start.equals(Field.YEAR) || start.equals(Field.MONTH));
   }
 
