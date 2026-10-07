@@ -6,6 +6,9 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.UserAgent;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class UserAgentManager {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(UserAgentManager.class);
@@ -15,6 +18,8 @@ public class UserAgentManager {
   private static final String CLIENT_USER_AGENT_PREFIX = "Java";
   public static final String USER_AGENT_SEA_CLIENT = "SQLExecHttpClient";
   public static final String USER_AGENT_THRIFT_CLIENT = "THttpClient";
+  private static final String SEA_CLIENT_SEGMENT =
+      CLIENT_USER_AGENT_PREFIX + "/" + USER_AGENT_SEA_CLIENT;
   private static final String VERSION_FILLER = "version";
   private static final String AGENT_KEY = "agent";
 
@@ -37,6 +42,26 @@ public class UserAgentManager {
     }
   }
 
+  /** Returns a validated name/version segment, or null if the entry cannot be registered. */
+  public static String customerUserAgentSegment(String customerUserAgent) {
+    if (customerUserAgent == null) {
+      return null;
+    }
+    String[] parsed = parseCustomerUserAgent(customerUserAgent);
+    if (parsed == null) {
+      return null;
+    }
+    try {
+      String version = UserAgent.sanitize(parsed[1]);
+      UserAgent.matchAlphanum(parsed[0]);
+      UserAgent.matchAlphanumOrSemVer(version);
+      return parsed[0] + "/" + version;
+    } catch (IllegalArgumentException e) {
+      LOGGER.debug("Failed to set customer userAgent entry {}, Error {}", customerUserAgent, e);
+      return null;
+    }
+  }
+
   /**
    * Set the user agent for the Databricks JDBC driver.
    *
@@ -49,19 +74,11 @@ public class UserAgentManager {
     // Set client info (this may trigger getClientType which fetches feature flags)
     UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
 
-    // Set custom user agent (maintains proper order: base -> client type -> custom)
-    if (connectionContext.getCustomerUserAgent() != null) {
-      String[] parsed = parseCustomerUserAgent(connectionContext.getCustomerUserAgent());
-      if (parsed != null) {
-        try {
-          UserAgent.withOtherInfo(parsed[0], UserAgent.sanitize(parsed[1]));
-        } catch (IllegalArgumentException e) {
-          LOGGER.debug(
-              "Failed to set user agent for customer userAgent entry {}, Error {}",
-              connectionContext.getCustomerUserAgent(),
-              e);
-        }
-      }
+    String customerSegment = customerUserAgentSegment(connectionContext.getCustomerUserAgent());
+    if (customerSegment != null) {
+      int slash = customerSegment.indexOf('/');
+      UserAgent.withOtherInfo(
+          customerSegment.substring(0, slash), customerSegment.substring(slash + 1));
     }
   }
 
@@ -92,19 +109,9 @@ public class UserAgentManager {
     // OS name
     userAgent.append(" os/").append(System.getProperty("os.name", "unknown").replace(" ", "_"));
 
-    // Custom user agent (if provided)
-    if (connectionContext.getCustomerUserAgent() != null) {
-      String[] parsed = parseCustomerUserAgent(connectionContext.getCustomerUserAgent());
-      if (parsed != null) {
-        try {
-          userAgent.append(" ").append(parsed[0]).append("/").append(UserAgent.sanitize(parsed[1]));
-        } catch (IllegalArgumentException e) {
-          LOGGER.debug(
-              "Failed to include customer userAgent entry {} in connector service UA, Error {}",
-              connectionContext.getCustomerUserAgent(),
-              e);
-        }
-      }
+    String customerSegment = customerUserAgentSegment(connectionContext.getCustomerUserAgent());
+    if (customerSegment != null) {
+      userAgent.append(" ").append(customerSegment);
     }
 
     // Detect AI coding agent and append to user agent
@@ -134,5 +141,34 @@ public class UserAgentManager {
       }
     }
     return mergedString.toString();
+  }
+
+  /** Places a validated customer segment before the SEA marker, immediately after os. */
+  public static String orderSeaUserAgent(String sdkUserAgent, String customerSegment) {
+    if (sdkUserAgent == null || customerSegment == null) {
+      return sdkUserAgent;
+    }
+
+    List<String> segments = new ArrayList<>(Arrays.asList(sdkUserAgent.split("\\s+")));
+    int osIndex = -1;
+    for (int i = 0; i < segments.size(); i++) {
+      if (segments.get(i).startsWith("os/")) {
+        osIndex = i;
+        break;
+      }
+    }
+    if (osIndex < 0) {
+      return sdkUserAgent;
+    }
+    List<String> extraInfo = segments.subList(osIndex + 1, segments.size());
+    if (SEA_CLIENT_SEGMENT.equals(customerSegment)) {
+      return sdkUserAgent;
+    }
+
+    extraInfo.removeIf(
+        segment -> segment.equals(customerSegment) || segment.equals(SEA_CLIENT_SEGMENT));
+    extraInfo.add(0, SEA_CLIENT_SEGMENT);
+    extraInfo.add(0, customerSegment);
+    return String.join(" ", segments);
   }
 }

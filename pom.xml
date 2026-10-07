@@ -71,11 +71,11 @@
     <commons-io.version>2.14.0</commons-io.version>
     <databricks-sdk.version>0.118.0</databricks-sdk.version>
     <httpclient.version>4.5.14</httpclient.version>
-    <async-httpclient.version>5.6.3</async-httpclient.version>
+    <async-httpclient.version>5.6.4</async-httpclient.version>
     <httpcore5.version>5.4.3</httpcore5.version>
     <thrift.version>0.24.0</thrift.version>
     <slf4j.version>2.0.13</slf4j.version>
-    <jackson.version>2.18.9</jackson.version>
+    <jackson.version>2.18.11</jackson.version>
     <gson.version>2.13.2</gson.version>
     <google.guava.version>33.0.0-jre</google.guava.version>
     <google.findbugs.annotations.version>3.0.1</google.findbugs.annotations.version>

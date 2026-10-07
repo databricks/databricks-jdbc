@@ -5,7 +5,7 @@
     "url" : "/api/2.0/sql/sessions/",
     "method" : "POST",
     "bodyPatterns" : [ {
-      "equalTo" : "{\"warehouse_id\":\"31e4555776d18496\",\"schema\":\"default\",\"catalog\":\"SPARK\"}",
+      "equalTo" : "{\"warehouse_id\":\"31e4555776d18496\",\"schema\":\"default\",\"catalog\":\"SPARK\",\"execution_mode\":\"FAST\"}",
       "caseInsensitive" : false
     } ]
   },

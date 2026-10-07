@@ -275,6 +275,28 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
+  public void testU2MOAuthScopesUseSpaceSeparatedAuthScope() throws DatabricksSQLException {
+    String jdbcUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
+            + "Auth_Flow=2;httpPath=/sql/1.0/warehouses/99999999;Auth_Scope= sql   jobs ";
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(jdbcUrl, new Properties());
+
+    assertEquals(List.of("sql", "jobs"), context.getOAuthScopesForU2M());
+  }
+
+  @Test
+  public void testU2MBlankAuthScopeUsesDefault() throws DatabricksSQLException {
+    String jdbcUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
+            + "Auth_Flow=2;httpPath=/sql/1.0/warehouses/99999999;Auth_Scope=   ";
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(jdbcUrl, new Properties());
+
+    assertEquals(List.of("sql", "offline_access"), context.getOAuthScopesForU2M());
+  }
+
+  @Test
   public void testEmptySchemaConvertedToNull() throws DatabricksSQLException {
     String urlWithEmptySchema =
         "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/;ssl=1;AuthMech=3;"
@@ -1302,6 +1324,21 @@ class DatabricksConnectionContextTest {
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, props);
     assertFalse(ctx.getDisableOauthRefreshToken());
+  }
+
+  @Test
+  public void testSeaResponseCompressionDefaultsToDisabledAndCanBeEnabled()
+      throws DatabricksSQLException {
+    DatabricksConnectionContext defaultContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
+    assertFalse(defaultContext.isSeaResponseCompressionEnabled());
+
+    String compressionEnabledUrl = TestConstants.VALID_URL_1 + ";EnableSeaResponseCompression=1";
+    DatabricksConnectionContext enabledContext =
+        (DatabricksConnectionContext)
+            DatabricksConnectionContext.parse(compressionEnabledUrl, properties);
+    assertTrue(enabledContext.isSeaResponseCompressionEnabled());
   }
 
   @Test

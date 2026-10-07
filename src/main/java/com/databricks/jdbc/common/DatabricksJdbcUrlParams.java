@@ -212,6 +212,10 @@ public enum DatabricksJdbcUrlParams {
       "EnableSeaSyncMetadata",
       "Enable x-databricks-sea-can-run-fully-sync header for synchronous metadata requests in SEA mode",
       "1"),
+  ENABLE_SEA_RESPONSE_COMPRESSION(
+      "EnableSeaResponseCompression",
+      "Enable HTTP response compression for SQL Execution API requests",
+      "0"),
   USE_BOUNDED_SEA_API(
       "UseBoundedSeaApi",
       "Use bounded SEA API for CloudFetch: send row_offset on GetResultData, force StreamingChunkProvider, stop relying on total_chunk_count. Requires server support.",
