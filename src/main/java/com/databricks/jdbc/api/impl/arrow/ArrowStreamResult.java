@@ -401,7 +401,7 @@ public class ArrowStreamResult implements IExecutionResult {
         Object result =
             chunkIterator.getColumnObjectAtCurrentRow(
                 columnIndex, requiredType, arrowMetadata, columnInfo, false);
-        return result == null ? null : result.toString();
+        return result == null ? null : new ComplexDataTypeParser().formatComplexTypeValue(result);
       }
       Object result =
           chunkIterator.getColumnObjectAtCurrentRow(

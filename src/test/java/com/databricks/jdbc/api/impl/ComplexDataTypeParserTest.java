@@ -476,6 +476,26 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
+  void testFormatComplexTypeValuePreservesNestedValues() throws Exception {
+    ComplexDataTypeParser stringParser = new ComplexDataTypeParser(false);
+    String metadata =
+        "STRUCT<items:ARRAY<STRUCT<geom:GEOMETRY(4326),blob:BINARY>>,"
+            + "by_name:MAP<STRING,BINARY>,label:STRING>";
+    String json =
+        "{\"items\":[{\"geom\":"
+            + nativeGeoJson(4326, "POINT(1 2)")
+            + ",\"blob\":\"QUJD\"}],\"by_name\":{\"raw\":\"WFla\"},"
+            + "\"label\":\"quote\\\" and slash\\\\\"}";
+
+    DatabricksStruct value = stringParser.parseJsonStringToDbStruct(json, metadata);
+
+    assertEquals(
+        "{\"items\":[{\"geom\":\"SRID=4326;POINT(1 2)\",\"blob\":\"QUJD\"}],"
+            + "\"by_name\":{\"raw\":\"WFla\"},\"label\":\"quote\\\" and slash\\\\\"}",
+        stringParser.formatComplexTypeValue(value));
+  }
+
+  @Test
   void testFormatComplexTypeString_withMapType() {
     String jsonString = "[{\"key\":1,\"value\":2},{\"key\":3,\"value\":4}]";
     String expected = "{1:2,3:4}";

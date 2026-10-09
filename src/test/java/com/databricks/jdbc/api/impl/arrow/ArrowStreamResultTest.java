@@ -35,6 +35,7 @@ import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.collect.ImmutableList;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
 import org.apache.arrow.memory.RootAllocator;
@@ -620,6 +621,35 @@ public class ArrowStreamResultTest {
         "{\"geom\":\"SRID=3857;POINT(1 2)\"}",
         ArrowStreamResult.getObjectWithComplexTypeHandling(
             session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
+  }
+
+  @Test
+  public void testNestedGeospatialPreservesBinaryWhenComplexSupportDisabled() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("EnableComplexDatatypeSupport", "0");
+    props.setProperty("EnableGeoSpatialSupport", "1");
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContextFactory.create(JDBC_URL, props));
+
+    String metadata = "STRUCT<geom:GEOMETRY(4326),blob:BINARY>";
+    ColumnInfo columnInfo =
+        new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
+    Map<String, Object> fields = new LinkedHashMap<>();
+    fields.put("geom", "SRID=4326;POINT(1 2)");
+    fields.put("blob", "ABC".getBytes(StandardCharsets.UTF_8));
+    DatabricksStruct stringStruct = new DatabricksStruct(fields, metadata);
+    ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            0, ColumnInfoTypeName.STRUCT, metadata, columnInfo, false))
+        .thenReturn(stringStruct);
+
+    String result =
+        (String)
+            ArrowStreamResult.getObjectWithComplexTypeHandling(
+                session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo);
+
+    assertEquals("{\"geom\":\"SRID=4326;POINT(1 2)\",\"blob\":\"QUJD\"}", result);
+    assertFalse(result.contains("[B@"));
   }
 
   @Test
