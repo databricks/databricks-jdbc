@@ -13,6 +13,8 @@
 
 ### Fixed
 
+- Decode Reyden's native Arrow `struct<srid,wkb>` results for GEOMETRY and GEOGRAPHY, including
+  nested values in arrays, map values, and structs in both native-object and EWKT string modes.
 - Fixed `UserAgentEntry` attribution in Query History for SQL Execution API connections.
 - Honor `Auth_Scope` for OAuth client-secret M2M; unify scope parsing with JWT-assertion M2M and U2M. (#1706)
 

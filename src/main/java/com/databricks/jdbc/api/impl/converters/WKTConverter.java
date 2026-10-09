@@ -5,8 +5,11 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.nio.ByteOrder;
 import java.util.EnumSet;
+import java.util.regex.Pattern;
 import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.io.Ordinate;
+import org.locationtech.jts.io.OrdinateFormat;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBReader;
 import org.locationtech.jts.io.WKTReader;
@@ -22,6 +25,25 @@ import org.locationtech.jts.io.WKTWriter;
 public class WKTConverter {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(WKTConverter.class);
+  private static final Pattern TYPE_BODY_SPACING = Pattern.compile("\\b([A-Z]+) \\(");
+  private static final Pattern DIMENSION_BODY_SPACING = Pattern.compile("\\b(ZM|Z|M)\\(");
+  private static final Pattern DIMENSION_EMPTY_SPACING = Pattern.compile("\\b(ZM|Z|M)EMPTY\\b");
+  private static final Pattern COMMA_SPACING = Pattern.compile(",\\s+");
+  private static final PrecisionModel FULL_DOUBLE_PRECISION = new FullDoublePrecisionModel();
+
+  /**
+   * WKTWriter defaults to the geometry's floating precision model, which formats at most 16
+   * fractional digits and rounds valid small doubles such as 1e-20 to zero. This precision model is
+   * used only by WKTWriter's formatter and preserves the complete double range supported by JTS.
+   */
+  private static final class FullDoublePrecisionModel extends PrecisionModel {
+    private static final long serialVersionUID = 1L;
+
+    @Override
+    public int getMaximumSignificantDigits() {
+      return OrdinateFormat.MAX_FRACTION_DIGITS;
+    }
+  }
 
   /**
    * Converts WKT (Well-Known Text) to WKB (Well-Known Binary) format.
@@ -53,8 +75,13 @@ public class WKTConverter {
     }
   }
 
-  // USED ONLY IN TEST CASES (WITH NON-EMPTY GEOMETRIES) - DO NOT USE IN NORMAL FLOW
-  // WKB READER HAS LIMITATIONS WITH EMPTY GEOMETRIES
+  /**
+   * Converts OGC WKB to WKT while preserving the encoded coordinate dimension.
+   *
+   * @param wkb the WKB bytes to convert
+   * @return the WKT representation
+   * @throws DatabricksValidationException if the WKB is null, empty, or malformed
+   */
   public static String toWKT(byte[] wkb) throws DatabricksValidationException {
     if (wkb == null || wkb.length == 0) {
       throw new DatabricksValidationException("WKB bytes cannot be null or empty");
@@ -68,6 +95,7 @@ public class WKTConverter {
       int outputDimension = ordinates.size();
       WKTWriter writer = new WKTWriter(outputDimension);
       writer.setOutputOrdinates(ordinates);
+      writer.setPrecisionModel(FULL_DOUBLE_PRECISION);
       return writer.write(geometry);
     } catch (Exception e) {
       String errorMessage =
@@ -75,6 +103,26 @@ public class WKTConverter {
       LOGGER.error(errorMessage, e);
       throw new DatabricksValidationException(errorMessage, e);
     }
+  }
+
+  /**
+   * Converts OGC WKB to the canonical WKT spelling returned by Databricks.
+   *
+   * <p>JTS inserts presentation whitespace before two-dimensional coordinate bodies and after
+   * commas. Databricks omits that whitespace, while retaining a space between a Z/M qualifier and
+   * its coordinate body. Normalizing it here keeps native Arrow results consistent with the
+   * existing EWKT result path.
+   *
+   * @param wkb the WKB bytes to convert
+   * @return canonical Databricks WKT
+   * @throws DatabricksValidationException if the WKB is invalid
+   */
+  public static String toDatabricksWKT(byte[] wkb) throws DatabricksValidationException {
+    String wkt = toWKT(wkb);
+    wkt = TYPE_BODY_SPACING.matcher(wkt).replaceAll("$1(");
+    wkt = DIMENSION_BODY_SPACING.matcher(wkt).replaceAll("$1 (");
+    wkt = DIMENSION_EMPTY_SPACING.matcher(wkt).replaceAll("$1 EMPTY");
+    return COMMA_SPACING.matcher(wkt).replaceAll(",");
   }
 
   /**

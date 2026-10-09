@@ -21,7 +21,7 @@ public interface IDatabricksGeospatial {
    * storage and transmission. This method converts the internal representation to WKB format on
    * demand.
    *
-   * @return the WKB representation as a byte array
+   * @return a copy of the WKB representation as a byte array
    * @throws DatabricksValidationException if WKT to WKB conversion fails
    */
   byte[] getWKB() throws DatabricksValidationException;

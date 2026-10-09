@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.IDatabricksGeospatial;
+import com.databricks.jdbc.api.impl.converters.GeospatialConverter;
 import com.databricks.jdbc.api.impl.converters.TimestampConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
@@ -14,6 +16,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.DateTimeException;
@@ -23,15 +26,27 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class ComplexDataTypeParser {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ComplexDataTypeParser.class);
   private static final TimestampConverter TIMESTAMP_CONVERTER = new TimestampConverter();
+  private static final GeospatialConverter GEOSPATIAL_CONVERTER = new GeospatialConverter();
+  private final boolean geoSpatialSupportEnabled;
+
+  public ComplexDataTypeParser() {
+    this(true);
+  }
+
+  public ComplexDataTypeParser(boolean geoSpatialSupportEnabled) {
+    this.geoSpatialSupportEnabled = geoSpatialSupportEnabled;
+  }
 
   public DatabricksArray parseJsonStringToDbArray(String json, String arrayMetadata)
       throws DatabricksParsingException {
@@ -92,7 +107,7 @@ public class ComplexDataTypeParser {
           DatabricksDriverErrorCode.JSON_PARSING_ERROR);
     }
     LOGGER.debug("Parsing map with metadata: {}", mapMetadata);
-    String[] kv = MetadataParser.parseMapMetadata(mapMetadata).split(",", 2);
+    String[] kv = MetadataParser.parseMapMetadataParts(mapMetadata);
     String keyType = kv[0].trim();
     String valueType = kv[1].trim();
     Map<String, Object> rawMap = convertJsonNodeToJavaMap(node, keyType, valueType);
@@ -135,6 +150,9 @@ public class ComplexDataTypeParser {
     if (expectedType.startsWith(DatabricksTypeUtil.MAP)) {
       return parseToMap(node, expectedType);
     }
+    if (DatabricksTypeUtil.isGeospatialType(expectedType.toUpperCase(Locale.ROOT))) {
+      return convertGeospatial(node, expectedType);
+    }
     if (expectedType.equalsIgnoreCase(DatabricksTypeUtil.VARIANT)) {
       // For VARIANT, the node contains escaped JSON string, we need to unescape it
       // node.asText() gives us the content: "{\"nestedKey\":\"nestedValue\"}"
@@ -157,6 +175,48 @@ public class ComplexDataTypeParser {
       return convertTimestampNtzArray(node);
     }
     return convertPrimitive(node.asText(), expectedType);
+  }
+
+  private Object convertGeospatial(JsonNode node, String expectedType)
+      throws DatabricksParsingException {
+    String normalizedType = expectedType.toUpperCase(Locale.ROOT);
+    try {
+      IDatabricksGeospatial value;
+      if (node.isObject()) {
+        JsonNode sridNode = node.get("srid");
+        JsonNode wkbNode = node.get("wkb");
+        if (sridNode == null
+            || !sridNode.isIntegralNumber()
+            || !sridNode.canConvertToInt()
+            || wkbNode == null
+            || !wkbNode.isTextual()) {
+          throw new IllegalArgumentException(
+              "expected an object with int32 srid and base64 wkb fields");
+        }
+        Map<String, Object> nativeValue = new LinkedHashMap<>();
+        nativeValue.put("srid", sridNode.intValue());
+        nativeValue.put("wkb", Base64.getDecoder().decode(wkbNode.textValue()));
+        value =
+            normalizedType.startsWith(DatabricksTypeUtil.GEOMETRY)
+                ? GEOSPATIAL_CONVERTER.toDatabricksGeometry(nativeValue)
+                : GEOSPATIAL_CONVERTER.toDatabricksGeography(nativeValue);
+      } else if (node.isTextual()) {
+        value =
+            normalizedType.startsWith(DatabricksTypeUtil.GEOMETRY)
+                ? GEOSPATIAL_CONVERTER.toDatabricksGeometry(node.textValue())
+                : GEOSPATIAL_CONVERTER.toDatabricksGeography(node.textValue());
+      } else {
+        throw new IllegalArgumentException("expected a native Arrow object or an EWKT string");
+      }
+      return geoSpatialSupportEnabled ? value : GeospatialConverter.formatStringFallback(value);
+    } catch (DatabricksSQLException | IllegalArgumentException e) {
+      String message = String.format("Failed to parse nested %s value", expectedType);
+      throw new DatabricksParsingException(
+          message,
+          e,
+          DatabricksDriverErrorCode.INVALID_STATE.name(),
+          DatabricksDriverErrorCode.INVALID_STATE.getCode());
+    }
   }
 
   private Map<String, Object> convertJsonNodeToJavaMap(
@@ -330,6 +390,106 @@ public class ComplexDataTypeParser {
   }
 
   /**
+   * Formats a parsed complex value without losing nested values such as binary data.
+   *
+   * <p>This is used when complex datatype support is disabled but the Arrow value must first be
+   * parsed to convert nested geospatial values to their string representation.
+   *
+   * @param value the parsed complex value
+   * @return a JSON-like string representation
+   * @throws DatabricksParsingException if a JDBC complex value cannot be read
+   */
+  public String formatComplexTypeValue(Object value) throws DatabricksParsingException {
+    try {
+      return formatComplexValue(value);
+    } catch (SQLException e) {
+      throw new DatabricksParsingException(
+          "Failed to format complex type value", e, DatabricksDriverErrorCode.JSON_PARSING_ERROR);
+    }
+  }
+
+  private String formatComplexValue(Object value) throws SQLException {
+    if (value == null) {
+      return "null";
+    }
+    if (value instanceof DatabricksStruct) {
+      DatabricksStruct struct = (DatabricksStruct) value;
+      Object[] attributes = struct.getAttributes();
+      Iterator<String> fieldNames =
+          MetadataParser.parseStructMetadata(struct.getSQLTypeName()).keySet().iterator();
+      StringBuilder result = new StringBuilder("{");
+      for (int i = 0; i < attributes.length; i++) {
+        if (i > 0) {
+          result.append(",");
+        }
+        result
+            .append(quoteJsonString(fieldNames.next()))
+            .append(":")
+            .append(formatComplexValue(attributes[i]));
+      }
+      return result.append("}").toString();
+    }
+    if (value instanceof DatabricksArray) {
+      return formatArrayValue(((DatabricksArray) value).getArray());
+    }
+    if (value instanceof Map) {
+      StringBuilder result = new StringBuilder("{");
+      boolean first = true;
+      for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+        if (!first) {
+          result.append(",");
+        }
+        first = false;
+        result
+            .append(formatComplexValue(entry.getKey()))
+            .append(":")
+            .append(formatComplexValue(entry.getValue()));
+      }
+      return result.append("}").toString();
+    }
+    if (value instanceof Collection) {
+      return formatArrayValue(((Collection<?>) value).toArray());
+    }
+    if (value instanceof byte[]) {
+      return quoteJsonString(Base64.getEncoder().encodeToString((byte[]) value));
+    }
+    if (value.getClass().isArray()) {
+      int length = java.lang.reflect.Array.getLength(value);
+      Object[] elements = new Object[length];
+      for (int i = 0; i < length; i++) {
+        elements[i] = java.lang.reflect.Array.get(value, i);
+      }
+      return formatArrayValue(elements);
+    }
+    if (value instanceof JsonNode) {
+      return value.toString();
+    }
+    if (value instanceof String
+        || value instanceof Character
+        || DatabricksTypeUtil.isTemporalType(value)
+        || value instanceof IDatabricksGeospatial) {
+      return quoteJsonString(value.toString());
+    }
+    return value.toString();
+  }
+
+  private String formatArrayValue(Object array) throws SQLException {
+    int length = java.lang.reflect.Array.getLength(array);
+    StringBuilder result = new StringBuilder("[");
+    for (int i = 0; i < length; i++) {
+      if (i > 0) {
+        result.append(",");
+      }
+      result.append(formatComplexValue(java.lang.reflect.Array.get(array, i)));
+    }
+    return result.append("]").toString();
+  }
+
+  private String quoteJsonString(String value) {
+    return JsonUtil.getMapper().valueToTree(value).toString();
+  }
+
+  /**
    * Formats a map JSON string into the standard {key:value} format.
    *
    * @param jsonString The JSON string representation of the map
@@ -342,7 +502,7 @@ public class ComplexDataTypeParser {
       if (node.isArray() && node.size() > 0 && node.get(0).has("key")) {
         String[] kv = new String[] {"STRING", "STRING"};
         if (mapMetadata != null && mapMetadata.startsWith(DatabricksTypeUtil.MAP)) {
-          kv = MetadataParser.parseMapMetadata(mapMetadata).split(",", 2);
+          kv = MetadataParser.parseMapMetadataParts(mapMetadata);
         }
 
         String keyType = kv[0].trim();

@@ -1,8 +1,10 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /** Utility class for parsing metadata descriptions into structured type mappings. */
@@ -56,20 +58,55 @@ public class MetadataParser {
    * @throws DatabricksDriverException if the MAP metadata format is invalid
    */
   public static String parseMapMetadata(String metadata) {
+    String[] keyValueTypes = parseMapMetadataParts(metadata);
+    return keyValueTypes[0] + ", " + keyValueTypes[1];
+  }
+
+  /** Returns whether a type contains a GEOMETRY or GEOGRAPHY leaf at any nesting depth. */
+  public static boolean containsGeospatialType(String metadata) {
+    if (metadata == null) {
+      return false;
+    }
+    String type = cleanTypeName(metadata.trim());
+    String normalizedType = type.toUpperCase(Locale.ROOT);
+    if (DatabricksTypeUtil.isGeospatialType(normalizedType)) {
+      return true;
+    }
+    if (normalizedType.startsWith(DatabricksTypeUtil.ARRAY + "<")) {
+      return containsGeospatialType(parseArrayMetadata(type));
+    }
+    if (normalizedType.startsWith(DatabricksTypeUtil.MAP + "<")) {
+      String[] keyValueTypes = parseMapMetadataParts(type);
+      return containsGeospatialType(keyValueTypes[0]) || containsGeospatialType(keyValueTypes[1]);
+    }
+    if (normalizedType.startsWith(DatabricksTypeUtil.STRUCT + "<")) {
+      return parseStructMetadata(type).values().stream()
+          .anyMatch(MetadataParser::containsGeospatialType);
+    }
+    return false;
+  }
+
+  /** Parses MAP metadata into its key and value types without flattening nested type syntax. */
+  static String[] parseMapMetadataParts(String metadata) {
     metadata = metadata.substring("MAP<".length(), metadata.length() - 1).trim();
 
-    int depth = 0;
+    int angleBracketDepth = 0;
+    int parenDepth = 0;
     int splitIndex = -1;
 
     for (int i = 0; i < metadata.length(); i++) {
       char ch = metadata.charAt(i);
       if (ch == '<') {
-        depth++;
+        angleBracketDepth++;
       } else if (ch == '>') {
-        depth--;
+        angleBracketDepth--;
+      } else if (ch == '(') {
+        parenDepth++;
+      } else if (ch == ')') {
+        parenDepth--;
       }
 
-      if (ch == ',' && depth == 0) {
+      if (ch == ',' && angleBracketDepth == 0 && parenDepth == 0) {
         splitIndex = i;
         break;
       }
@@ -84,7 +121,7 @@ public class MetadataParser {
     String keyType = cleanTypeName(metadata.substring(0, splitIndex).trim());
     String valueType = cleanTypeName(metadata.substring(splitIndex + 1).trim());
 
-    return keyType + ", " + valueType;
+    return new String[] {keyType, valueType};
   }
 
   /**
