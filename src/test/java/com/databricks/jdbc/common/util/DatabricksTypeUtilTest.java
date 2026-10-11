@@ -218,7 +218,9 @@ class DatabricksTypeUtilTest {
             Map.entry(Types.DECIMAL, DatabricksTypeUtil.DECIMAL),
             Map.entry(Types.BOOLEAN, DatabricksTypeUtil.BOOLEAN),
             Map.entry(Types.DOUBLE, DatabricksTypeUtil.DOUBLE),
-            Map.entry(Types.FLOAT, DatabricksTypeUtil.FLOAT),
+            // JDBC spec Appendix B: Types.FLOAT is a synonym for DOUBLE (8-byte),
+            // only Types.REAL is 4-byte single precision.
+            Map.entry(Types.FLOAT, DatabricksTypeUtil.DOUBLE),
             Map.entry(Types.REAL, DatabricksTypeUtil.FLOAT),
             Map.entry(Types.TIMESTAMP, DatabricksTypeUtil.TIMESTAMP_NTZ),
             Map.entry(Types.TIMESTAMP_WITH_TIMEZONE, DatabricksTypeUtil.TIMESTAMP),
