@@ -200,6 +200,19 @@ public class MetadataParserTest {
   }
 
   @Test
+  public void testQuotedStructFieldDelimitersAreNotParsedAsTypeSyntax() {
+    Map<String, String> expected = new LinkedHashMap<>();
+    expected.put("a,b", "INT");
+    expected.put("c:d", "GEOMETRY(4326)");
+
+    assertEquals(
+        expected, MetadataParser.parseStructMetadata("STRUCT<`a,b`:INT,`c:d`:GEOMETRY(4326)>"));
+    assertFalse(MetadataParser.containsGeospatialType("STRUCT<`a,b`:INT>"));
+    assertTrue(
+        MetadataParser.containsGeospatialType("STRUCT<`a,b`:INT,`geometry`:GEOMETRY(4326)>"));
+  }
+
+  @Test
   public void testParseMapMetadataWithDecimalKeyAndGeospatialValue() {
     assertEquals(
         "DECIMAL(10,2), GEOMETRY(ANY)",

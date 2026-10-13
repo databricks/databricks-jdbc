@@ -234,6 +234,19 @@ public class DatabricksMapTest {
     metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
+  @Test
+  public void testNestedComplexNullValueIsPreserved() {
+    String metadata = "MAP<STRING,ARRAY<GEOMETRY(ANY)>>";
+    Map<String, Object> originalMap = new LinkedHashMap<>();
+    originalMap.put("missing", null);
+    mockParseMapMetadata(metadata, "STRING", "ARRAY<GEOMETRY(ANY)>");
+
+    DatabricksMap<String, Object> databricksMap = new DatabricksMap<>(originalMap, metadata);
+
+    assertTrue(databricksMap.containsKey("missing"));
+    assertNull(databricksMap.get("missing"));
+  }
+
   /** Test the constructor with empty original map. */
   @Test
   public void testConstructor_WithEmptyOriginalMap_ShouldHandleProperly() throws SQLException {

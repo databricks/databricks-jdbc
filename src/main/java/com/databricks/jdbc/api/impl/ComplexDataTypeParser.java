@@ -432,6 +432,24 @@ public class ComplexDataTypeParser {
     if (value instanceof DatabricksArray) {
       return formatArrayValue(((DatabricksArray) value).getArray());
     }
+    if (value instanceof DatabricksMap) {
+      DatabricksMap<?, ?> map = (DatabricksMap<?, ?>) value;
+      StringBuilder result = new StringBuilder("{");
+      boolean first = true;
+      for (Map.Entry<?, ?> entry : map.entrySet()) {
+        if (!first) {
+          result.append(",");
+        }
+        first = false;
+        Object key = entry.getKey();
+        result.append(
+            map.getKeyType().equalsIgnoreCase(DatabricksTypeUtil.STRING)
+                ? quoteJsonString(String.valueOf(key))
+                : String.valueOf(key));
+        result.append(":").append(formatComplexValue(entry.getValue()));
+      }
+      return result.append("}").toString();
+    }
     if (value instanceof Map) {
       StringBuilder result = new StringBuilder("{");
       boolean first = true;

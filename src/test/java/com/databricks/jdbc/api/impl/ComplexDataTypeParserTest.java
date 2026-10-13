@@ -496,6 +496,17 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
+  void testFormatComplexTypeValuePreservesNonStringMapKeyFormatting() throws Exception {
+    ComplexDataTypeParser stringParser = new ComplexDataTypeParser(false);
+    String metadata = "MAP<DECIMAL(10,2),GEOMETRY(ANY)>";
+    String json = "[{\"key\":1.25,\"value\":" + nativeGeoJson(4326, "POINT(1 2)") + "}]";
+
+    DatabricksMap<String, Object> value = stringParser.parseJsonStringToDbMap(json, metadata);
+
+    assertEquals("{1.25:\"SRID=4326;POINT(1 2)\"}", stringParser.formatComplexTypeValue(value));
+  }
+
+  @Test
   void testFormatComplexTypeString_withMapType() {
     String jsonString = "[{\"key\":1,\"value\":2},{\"key\":3,\"value\":4}]";
     String expected = "{1:2,3:4}";

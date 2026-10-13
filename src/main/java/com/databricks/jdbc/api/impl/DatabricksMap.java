@@ -17,6 +17,8 @@ import java.util.Map;
 /** Class for representation of Map complex object. */
 public class DatabricksMap<K, V> implements Map<K, V> {
   private final Map<K, V> map;
+  private final String keyType;
+  private final String valueType;
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksMap.class);
 
   /**
@@ -27,37 +29,34 @@ public class DatabricksMap<K, V> implements Map<K, V> {
    */
   public DatabricksMap(Map<K, V> map, String metadata) {
     LOGGER.debug("Initializing DatabricksMap with metadata: {}", metadata);
-    this.map = convertMap(map, metadata);
-  }
-
-  /**
-   * Converts the provided map according to specified metadata.
-   *
-   * @param originalMap the original map to be converted
-   * @param metadata the metadata for type conversion
-   * @return a converted map
-   */
-  private Map<K, V> convertMap(Map<K, V> originalMap, String metadata) {
-    LOGGER.debug("Converting map with metadata: {}", metadata);
-    Map<K, V> convertedMap = new LinkedHashMap<>();
     try {
       String[] mapMetadata = MetadataParser.parseMapMetadataParts(metadata);
-      String keyType = mapMetadata[0].trim();
-      String valueType = mapMetadata[1].trim();
-      LOGGER.debug("Parsed metadata - Key Type: {}, Value Type: {}", keyType, valueType);
-
-      for (Map.Entry<K, V> entry : originalMap.entrySet()) {
-        K key = convertSimpleValue(entry.getKey(), keyType);
-        V value = convertValue(entry.getValue(), valueType);
-        convertedMap.put(key, value);
-        LOGGER.trace("Converted entry - Key: {}, Converted Value: {}", key, value);
-      }
+      this.keyType = mapMetadata[0].trim();
+      this.valueType = mapMetadata[1].trim();
+      this.map = convertMap(map);
     } catch (Exception e) {
       LOGGER.error(e, "Error during map conversion: {}", e.getMessage());
       throw new DatabricksDriverException(
           "Invalid metadata or map structure",
           e,
           DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
+    }
+  }
+
+  /**
+   * Converts the provided map according to specified metadata.
+   *
+   * @param originalMap the original map to be converted
+   * @return a converted map
+   */
+  private Map<K, V> convertMap(Map<K, V> originalMap) {
+    Map<K, V> convertedMap = new LinkedHashMap<>();
+    LOGGER.debug("Parsed metadata - Key Type: {}, Value Type: {}", keyType, valueType);
+    for (Map.Entry<K, V> entry : originalMap.entrySet()) {
+      K key = convertSimpleValue(entry.getKey(), keyType);
+      V value = convertValue(entry.getValue(), valueType);
+      convertedMap.put(key, value);
+      LOGGER.trace("Converted entry - Key: {}, Converted Value: {}", key, value);
     }
     return convertedMap;
   }
@@ -72,6 +71,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
   private V convertValue(V value, String valueType) {
     try {
       LOGGER.debug("Converting value of type: {}", valueType);
+      if (value == null) {
+        return null;
+      }
       if (valueType.startsWith(DatabricksTypeUtil.STRUCT)) {
         if (value instanceof Map) {
           LOGGER.trace("Converting value as STRUCT");
@@ -115,6 +117,10 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       throw new DatabricksDriverException(
           errorMessage, e, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
     }
+  }
+
+  String getKeyType() {
+    return keyType;
   }
 
   /**

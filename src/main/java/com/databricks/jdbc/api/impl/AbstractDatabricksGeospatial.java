@@ -64,7 +64,7 @@ public abstract class AbstractDatabricksGeospatial implements IDatabricksGeospat
   /**
    * Returns the Well-Known Binary (WKB) representation of the geospatial object.
    *
-   * @return the WKB representation as a byte array
+   * @return a copy of the WKB representation as a byte array
    */
   @Override
   public byte[] getWKB() {
