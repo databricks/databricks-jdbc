@@ -1,15 +1,23 @@
 package com.databricks.jdbc.common.util;
 
 import static com.databricks.jdbc.TestConstants.*;
+import static com.databricks.jdbc.common.util.UserAgentManager.MAX_CUSTOMER_USER_AGENT_ENTRIES;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
+import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.getUserAgentString;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
+import com.databricks.sdk.core.UserAgent;
 import java.util.Properties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,11 +40,13 @@ public class UserAgentManagerTest {
     telemetryHelperMock = Mockito.mockStatic(TelemetryHelper.class);
     // Allow keyOf() to call the real method to avoid NPE
     telemetryHelperMock.when(() -> TelemetryHelper.keyOf(Mockito.any())).thenCallRealMethod();
+    UserAgentManager.resetRegisteredOtherInfo();
   }
 
   @AfterEach
   public void tearDown() {
     telemetryHelperMock.close();
+    UserAgentManager.resetRegisteredOtherInfo();
   }
 
   @Test
@@ -169,5 +179,47 @@ public class UserAgentManagerTest {
     UserAgentManager.setUserAgent(connectionContext);
     String userAgent = getUserAgentString();
     assertTrue(userAgent.contains("TEST/24.2.0.2712019"));
+  }
+
+  @Test
+  void testRepeatedSetUserAgentRegistersEachEntryOnce() {
+    when(connectionContext.getCustomerUserAgent()).thenReturn("RepeatApp/1.0");
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_THRIFT_CLIENT);
+    try (MockedStatic<UserAgent> userAgent =
+        Mockito.mockStatic(UserAgent.class, Mockito.CALLS_REAL_METHODS)) {
+      for (int i = 0; i < 1000; i++) {
+        UserAgentManager.setUserAgent(connectionContext);
+      }
+      userAgent.verify(() -> UserAgent.withOtherInfo("Java", USER_AGENT_THRIFT_CLIENT), times(1));
+      userAgent.verify(() -> UserAgent.withOtherInfo("RepeatApp", "1.0"), times(1));
+    }
+    assertTrue(getUserAgentString().contains("RepeatApp/1.0"));
+  }
+
+  @Test
+  void testDistinctCustomerUserAgentEntriesAreCapped() {
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_THRIFT_CLIENT);
+    try (MockedStatic<UserAgent> userAgent =
+        Mockito.mockStatic(UserAgent.class, Mockito.CALLS_REAL_METHODS)) {
+      // Stubbed so the JVM-wide SDK user agent is not filled with test entries.
+      userAgent
+          .when(() -> UserAgent.withOtherInfo(anyString(), anyString()))
+          .thenAnswer(invocation -> null);
+      for (int i = 0; i <= MAX_CUSTOMER_USER_AGENT_ENTRIES; i++) {
+        when(connectionContext.getCustomerUserAgent()).thenReturn("CapApp" + i + "/1.0");
+        UserAgentManager.setUserAgent(connectionContext);
+      }
+      // Client-type entries are not subject to the cap.
+      when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_SEA_CLIENT);
+      UserAgentManager.setUserAgent(connectionContext);
+
+      userAgent.verify(
+          () -> UserAgent.withOtherInfo(startsWith("CapApp"), eq("1.0")),
+          times(MAX_CUSTOMER_USER_AGENT_ENTRIES));
+      userAgent.verify(
+          () -> UserAgent.withOtherInfo("CapApp" + MAX_CUSTOMER_USER_AGENT_ENTRIES, "1.0"),
+          never());
+      userAgent.verify(() -> UserAgent.withOtherInfo("Java", USER_AGENT_SEA_CLIENT), times(1));
+    }
   }
 }
