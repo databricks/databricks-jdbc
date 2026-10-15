@@ -661,6 +661,67 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testQualifiedGeospatialGettersReturnWkb() throws Exception {
+    for (IDatabricksGeospatial geo :
+        List.of(
+            new DatabricksGeometry("POINT(1 2)", 0),
+            new DatabricksGeometry("POINT Z EMPTY", 3857),
+            new DatabricksGeography("POINT(1 2)", 4326))) {
+      for (String qualifier : List.of("(" + geo.getSRID() + ")", "(ANY)")) {
+        when(mockedExecutionResult.getObject(0)).thenReturn(geo);
+        when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.OTHER);
+        when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn(geo.getType() + qualifier);
+        when(mockedResultSetMetadata.getColumnNameIndex("geo")).thenReturn(1);
+        DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+        assertArrayEquals(geo.getWKB(), resultSet.getBytes(1));
+        assertArrayEquals(geo.getWKB(), resultSet.getBytes("geo"));
+        assertArrayEquals(geo.getWKB(), resultSet.getObject(1, byte[].class));
+        try (InputStream bytes = resultSet.getBinaryStream(1)) {
+          assertArrayEquals(geo.getWKB(), bytes.readAllBytes());
+        }
+        assertSame(geo, resultSet.getObject(1));
+      }
+    }
+  }
+
+  @Test
+  void testGetStringPreservesBinarySiblingsAndEscapesNestedText() throws Exception {
+    String metadata =
+        "STRUCT<g:GEOMETRY(0),blob:BINARY,items:ARRAY<BINARY>,"
+            + "by_name:MAP<STRING,BINARY>,text:STRING,missing:STRING>";
+    String json =
+        "{\"g\":\"POINT(1 2)\",\"blob\":\"AAECf4D/\","
+            + "\"items\":[\"AAECf4D/\",null],\"by_name\":{\"a\\\"\\n\":\"AAECf4D/\"},"
+            + "\"text\":\"quote\\\" slash\\\\ newline\\n\",\"missing\":null}";
+    DatabricksStruct value = new ComplexDataTypeParser().parseJsonStringToDbStruct(json, metadata);
+    when(mockedExecutionResult.getObject(0)).thenReturn(value);
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.STRUCT);
+    when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn(metadata);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.METADATA,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            true);
+    com.fasterxml.jackson.databind.JsonNode actual =
+        JsonUtil.getMapper().readTree(resultSet.getString(1));
+    byte[] binary = {0, 1, 2, 0x7f, (byte) 0x80, (byte) 0xff};
+    assertArrayEquals(binary, actual.get("blob").binaryValue());
+    assertArrayEquals(binary, actual.get("items").get(0).binaryValue());
+    assertArrayEquals(binary, actual.get("by_name").get("a\"\n").binaryValue());
+    assertEquals("quote\" slash\\ newline\n", actual.get("text").textValue());
+    assertTrue(actual.get("missing").isNull());
+    assertTrue(actual.get("items").get(1).isNull());
+    assertEquals("SRID=0;POINT(1 2)", actual.get("g").textValue());
+    assertSame(value, resultSet.getObject(1));
+    assertInstanceOf(DatabricksGeometry.class, value.getAttributes()[0]);
+    assertArrayEquals(binary, (byte[]) value.getAttributes()[1]);
+  }
+
+  @Test
   void testComplexGetterWrongTypeThrowsDatabricksSQLException() throws SQLException {
     DatabricksArray array = new DatabricksArray(List.of("a"), "ARRAY<STRING>");
     DatabricksMap<String, Integer> map = new DatabricksMap<>(Map.of("k", 1), "MAP<STRING, INT>");

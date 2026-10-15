@@ -2248,7 +2248,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     int columnSqlType = resultSetMetaData.getColumnType(columnIndex);
     try {
-      return (T) ConverterHelper.convertSqlTypeToSpecificJavaType(type, columnSqlType, obj);
+      return (T)
+          ConverterHelper.convertSqlTypeToSpecificJavaType(
+              type, columnSqlType, resultSetMetaData.getColumnTypeName(columnIndex), obj);
     } catch (Exception e) {
       String errorMessage =
           String.format(

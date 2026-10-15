@@ -10,6 +10,8 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.Map;
 import org.apache.arrow.vector.util.Text;
 
@@ -125,5 +127,10 @@ public class GeospatialConverter implements ObjectConverter {
     throw new DatabricksSQLException(
         "Unsupported byte array conversion operation for geospatial types",
         DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+  }
+
+  @Override
+  public InputStream toBinaryStream(Object object) throws DatabricksSQLException {
+    return new ByteArrayInputStream(toByteArray(object));
   }
 }

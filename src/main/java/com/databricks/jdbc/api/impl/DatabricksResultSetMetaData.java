@@ -259,8 +259,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                 .columnTypeClassName("java.lang.String")
                 .columnType(Types.OTHER)
                 .columnTypeText(VARIANT);
-          } else if ((isGeometryColumn(arrowMetadata, columnIndex)
-                  || isGeographyColumn(arrowMetadata, columnIndex))
+          } else if (isGeospatialType(columnInfo.getTypeName())
               && !ctx.isGeoSpatialSupportEnabled()) {
             // Convert geospatial types to STRING when support is disabled
             LOGGER.debug(
@@ -710,20 +709,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         && arrowMetadata.size() > i
         && arrowMetadata.get(i) != null
         && arrowMetadata.get(i).equalsIgnoreCase(VARIANT);
-  }
-
-  private boolean isGeometryColumn(List<String> arrowMetadata, int index) {
-    return arrowMetadata != null
-        && arrowMetadata.size() > index
-        && arrowMetadata.get(index) != null
-        && arrowMetadata.get(index).contains(GEOMETRY);
-  }
-
-  private boolean isGeographyColumn(List<String> arrowMetadata, int index) {
-    return arrowMetadata != null
-        && arrowMetadata.size() > index
-        && arrowMetadata.get(index) != null
-        && arrowMetadata.get(index).contains(GEOGRAPHY);
   }
 
   /**

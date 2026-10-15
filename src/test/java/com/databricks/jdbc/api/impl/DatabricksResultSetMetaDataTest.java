@@ -959,6 +959,29 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
+  public void testThriftNestedGeospatialColumnsKeepTheirContainerMetadata() throws SQLException {
+    when(connectionContext.isGeoSpatialSupportEnabled()).thenReturn(false);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(true);
+    TTypeId[] types = {TTypeId.STRUCT_TYPE, TTypeId.ARRAY_TYPE, TTypeId.MAP_TYPE};
+    String[] metadata = {
+      "STRUCT<g:GEOMETRY(0),day:DATE>", "ARRAY<GEOGRAPHY(4326)>", "MAP<STRING,GEOMETRY(ANY)>"
+    };
+    for (int i = 0; i < types.length; i++) {
+      TTypeEntry entry = new TTypeEntry();
+      entry.setPrimitiveEntry(new TPrimitiveTypeEntry(types[i]));
+      TTypeDesc typeDesc = new TTypeDesc().setTypes(List.of(entry));
+      TColumnDesc column = new TColumnDesc().setColumnName("value").setTypeDesc(typeDesc);
+      TGetResultSetMetadataResp response =
+          new TGetResultSetMetadataResp().setSchema(new TTableSchema().setColumns(List.of(column)));
+      DatabricksResultSetMetaData actual =
+          new DatabricksResultSetMetaData(
+              THRIFT_STATEMENT_ID, response, 1, 1, List.of(metadata[i]), connectionContext);
+      assertEquals(metadata[i], actual.getColumnTypeName(1));
+      assertNotEquals("java.lang.String", actual.getColumnClassName(1));
+    }
+  }
+
+  @Test
   public void testThriftGeographyColumnConvertedToStringWhenFlagDisabled() throws SQLException {
     // Mock connection context with geospatial support disabled
     when(connectionContext.isGeoSpatialSupportEnabled()).thenReturn(false);

@@ -381,6 +381,13 @@ public class ComplexDataTypeParser {
     }
 
     try {
+      if (typeMetadata != null && typeMetadata.contains(DatabricksTypeUtil.STRUCT + "<")) {
+        // Arrow StructVector.getObject omits null children. Restore their field
+        // presence from the schema without coercing any non-null scalar values.
+        JsonNode node = readComplexJson(jsonString);
+        restoreStructNullFields(node, typeMetadata);
+        jsonString = node.toString();
+      }
       if (complexType.equals(DatabricksTypeUtil.MAP)) {
         return formatMapString(jsonString, typeMetadata);
       }
@@ -391,18 +398,54 @@ public class ComplexDataTypeParser {
     return jsonString;
   }
 
+  private static JsonNode readComplexJson(String json) throws IOException {
+    return JsonUtil.getMapper()
+        .reader()
+        .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+        .without(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES)
+        .readTree(json);
+  }
+
+  private static void restoreStructNullFields(JsonNode node, String metadata) {
+    if (node == null || node.isNull()) {
+      return;
+    }
+    if (metadata.startsWith(DatabricksTypeUtil.STRUCT) && node.isObject()) {
+      for (Map.Entry<String, String> field :
+          MetadataParser.parseStructMetadata(metadata).entrySet()) {
+        if (!node.has(field.getKey())) {
+          ((ObjectNode) node).putNull(field.getKey());
+        } else {
+          restoreStructNullFields(node.get(field.getKey()), field.getValue());
+        }
+      }
+    } else if (metadata.startsWith(DatabricksTypeUtil.ARRAY) && node.isArray()) {
+      String elementType = MetadataParser.parseArrayMetadata(metadata);
+      for (JsonNode element : node) {
+        restoreStructNullFields(element, elementType);
+      }
+    } else if (metadata.startsWith(DatabricksTypeUtil.MAP)) {
+      String[] types = MetadataParser.parseMapMetadataParts(metadata);
+      if (node.isArray()) {
+        for (JsonNode entry : node) {
+          restoreStructNullFields(entry.get("key"), types[0].trim());
+          restoreStructNullFields(entry.get("value"), types[1].trim());
+        }
+      } else if (node.isObject()) {
+        for (JsonNode value : node) {
+          restoreStructNullFields(value, types[1].trim());
+        }
+      }
+    }
+  }
+
   /** Replaces only geospatial leaves in raw Arrow JSON when complex support is disabled. */
   public String formatGeospatialComplexTypeString(String json, String complexType, String metadata)
       throws DatabricksParsingException {
     try {
       // Do not coerce other fields through JDBC scalar objects: dates/timestamps
       // must keep their wire representation and decimals must retain precision.
-      JsonNode node =
-          JsonUtil.getMapper()
-              .reader()
-              .with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-              .without(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES)
-              .readTree(json);
+      JsonNode node = readComplexJson(json);
       JsonNode formatted = new ComplexDataTypeParser(false).geospatialLeavesAsText(node, metadata);
       return formatComplexTypeString(formatted.toString(), complexType, metadata);
     } catch (IOException e) {

@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -249,27 +248,11 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       } else {
         first = false;
       }
-      sb.append(formatForJson(entry.getKey())).append(":").append(formatForJson(entry.getValue()));
+      sb.append(JsonUtil.formatComplexValue(entry.getKey()))
+          .append(":")
+          .append(JsonUtil.formatComplexValue(entry.getValue()));
     }
     sb.append("}");
     return sb.toString();
-  }
-
-  /**
-   * Returns a String suitable for JSON-like output. - If obj is a String, encloses it in
-   * double-quotes. - Otherwise, uses obj.toString() without quotes. - If obj is null, returns
-   * "null".
-   */
-  private String formatForJson(Object obj) {
-    if (obj == null) {
-      return "null";
-    }
-    if (obj instanceof IDatabricksGeospatial) {
-      return JsonUtil.getMapper().valueToTree(obj.toString()).toString();
-    }
-    if (obj instanceof String) {
-      return "\"" + obj + "\"";
-    }
-    return obj.toString();
   }
 }

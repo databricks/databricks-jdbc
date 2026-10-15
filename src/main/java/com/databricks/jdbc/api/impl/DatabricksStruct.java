@@ -1,13 +1,11 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.fasterxml.jackson.databind.JsonNode;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
@@ -192,26 +190,8 @@ public class DatabricksStruct implements Struct {
       if (i > 0) {
         sb.append(",");
       }
-      sb.append("\"").append(fieldNames.get(i)).append("\":");
-
-      Object val = attributes[i];
-      if (val == null) {
-        // JSON-like null
-        sb.append("null");
-      } else if (val instanceof IDatabricksGeospatial) {
-        sb.append(JsonUtil.getMapper().valueToTree(val.toString()).toString());
-      } else if (val instanceof JsonNode) {
-        // VARIANT fields represented as JsonNode - preserve JSON structure without quotes
-        sb.append(val.toString());
-      } else if (val instanceof String || DatabricksTypeUtil.isTemporalType(val)) {
-        // Strings and temporal types get quoted and escaped
-        sb.append("\"")
-            .append(val.toString().replace("\\", "\\\\").replace("\"", "\\\""))
-            .append("\"");
-      } else {
-        // For non-string values, rely on their existing toString()
-        sb.append(val);
-      }
+      sb.append(JsonUtil.formatComplexValue(fieldNames.get(i))).append(":");
+      sb.append(JsonUtil.formatComplexValue(attributes[i]));
     }
     sb.append("}");
     return sb.toString();

@@ -5,10 +5,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.jdbc.api.impl.converters.WKTConverter;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Base64;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -526,6 +529,32 @@ public class ComplexDataTypeParserTest {
 
     String result = parser.formatComplexTypeString(jsonString, "MAP", "MAP<INT,INT>");
     assertEquals(expected, result);
+  }
+
+  @Test
+  void testComplexJsonRetainsSchemaDefinedNullFieldsWithoutCoercingSiblings() throws Exception {
+    String metadata =
+        "STRUCT<g:GEOMETRY(0),amount:DECIMAL(10,3),missing:STRING,"
+            + "arr:ARRAY<STRUCT<n:INT>>,map:MAP<STRING,STRUCT<n:INT>>,"
+            + "null_array:ARRAY<INT>,null_struct:STRUCT<n:INT>>";
+    String json =
+        "{\"g\":\"POINT(1 2)\",\"amount\":1.230,\"arr\":[{},null],"
+            + "\"map\":[{\"key\":\"item\",\"value\":{}}]}";
+    for (String formatted :
+        List.of(
+            parser.formatComplexTypeString(json, "STRUCT", metadata),
+            parser.formatGeospatialComplexTypeString(json, "STRUCT", metadata))) {
+      JsonNode node = new ObjectMapper().readTree(formatted);
+      assertTrue(node.get("missing").isNull());
+      assertTrue(node.get("null_array").isNull());
+      assertTrue(node.get("null_struct").isNull());
+      assertTrue(node.get("arr").get(0).get("n").isNull());
+      assertTrue(node.get("arr").get(1).isNull());
+      assertTrue(node.get("map").get(0).get("value").get("n").isNull());
+      assertTrue(node.get("amount").isNumber());
+      assertTrue(formatted.contains("1.230"));
+      assertEquals("POINT(1 2)", node.get("g").asText());
+    }
   }
 
   @Test
