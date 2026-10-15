@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl;
 
 import com.google.common.collect.ImmutableMap;
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -14,26 +16,20 @@ class CaseInsensitiveImmutableMap<V> {
     this.delegate = delegate;
   }
 
-  public static <V> CaseInsensitiveImmutableMap<V> copyOf(Map<String, V> map) {
-    ImmutableMap<String, V> normalizedMap =
-        map.entrySet().stream()
-            .collect(
-                ImmutableMap.toImmutableMap(
-                    entry -> entry.getKey().toLowerCase(), Map.Entry::getValue));
-
-    return new CaseInsensitiveImmutableMap<>(normalizedMap);
+  public static <V> Builder<V> builder() {
+    return new Builder<>();
   }
 
   public V get(String key) {
-    return delegate.get(key.toLowerCase());
+    return delegate.get(normalize(key));
   }
 
   public V getOrDefault(String key, V defaultValue) {
-    return delegate.getOrDefault(key.toLowerCase(), defaultValue);
+    return delegate.getOrDefault(normalize(key), defaultValue);
   }
 
   public boolean containsKey(String key) {
-    return delegate.containsKey(key.toLowerCase());
+    return delegate.containsKey(normalize(key));
   }
 
   public int size() {
@@ -42,5 +38,28 @@ class CaseInsensitiveImmutableMap<V> {
 
   public boolean isEmpty() {
     return delegate.isEmpty();
+  }
+
+  // Locale.ROOT so lookups don't depend on the default locale (e.g. Turkish "ID" -> "ıd").
+  private static String normalize(String key) {
+    return key.toLowerCase(Locale.ROOT);
+  }
+
+  static final class Builder<V> {
+    private final Map<String, V> entries = new HashMap<>();
+
+    private Builder() {}
+
+    /**
+     * Adds the entry unless a key differing only in case was already added, so the first one wins.
+     */
+    public Builder<V> putIfAbsent(String key, V value) {
+      entries.putIfAbsent(normalize(key), value);
+      return this;
+    }
+
+    public CaseInsensitiveImmutableMap<V> build() {
+      return new CaseInsensitiveImmutableMap<>(ImmutableMap.copyOf(entries));
+    }
   }
 }
