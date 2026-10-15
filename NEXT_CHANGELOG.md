@@ -16,6 +16,7 @@
 - Fixed `UserAgentEntry` attribution in Query History for SQL Execution API connections.
 - Honor `Auth_Scope` for OAuth client-secret M2M; unify scope parsing with JWT-assertion M2M and U2M. (#1706)
 - Fixed request latency and lock contention that grew with every connection opened in a long-running JVM. The driver now registers each User-Agent entry once instead of on every connection. At most 64 distinct `UserAgentEntry` values are added to the shared User-Agent per JVM; SQL Execution API requests still send their own entry.
+- Fixed queries failing with `Multiple entries with same key` when result column names differ only in case (e.g. `policyid` and `policyId`). Lookups by column label now return the first matching column, as the JDBC spec requires. (#1727)
 
 ---
 *Note: When making changes, please add your change under the appropriate section

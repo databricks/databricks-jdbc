@@ -24,6 +24,10 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.core.ColumnInfo;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ResultManifest;
+import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
@@ -1133,6 +1137,39 @@ public class DatabricksResultSetTest {
 
     // Verify the exception message
     assertTrue(exception.getMessage().contains("ResultSet is closed"));
+  }
+
+  @Test
+  void testLabelLookupWithColumnsDifferingOnlyInCase() throws SQLException {
+    // SELECT 1 AS A, 2 AS a
+    ResultManifest manifest =
+        new ResultManifest()
+            .setTotalRowCount(1L)
+            .setSchema(
+                new ResultSchema()
+                    .setColumnCount(2L)
+                    .setColumns(List.of(intColumn("A"), intColumn("a"))));
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.QUERY,
+            null,
+            mockedExecutionResult,
+            new DatabricksResultSetMetaData(
+                STATEMENT_ID, manifest, false, databricksConnectionContext),
+            false);
+    when(mockedExecutionResult.getObject(0)).thenReturn(1);
+    when(mockedExecutionResult.getObject(1)).thenReturn(2);
+
+    assertEquals(1, resultSet.getInt("A"));
+    assertEquals(1, resultSet.getInt("a"));
+    assertEquals(1, resultSet.findColumn("a"));
+    assertEquals(2, resultSet.getInt(2));
+  }
+
+  private static ColumnInfo intColumn(String name) {
+    return new ColumnInfo().setName(name).setTypeName(ColumnInfoTypeName.INT).setTypeText("INT");
   }
 
   @Test

@@ -124,6 +124,48 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
+  public void testColumnsDifferingOnlyInCaseSea() throws SQLException {
+    ResultManifest resultManifest = new ResultManifest();
+    resultManifest.setTotalRowCount(1L);
+    ResultSchema schema = new ResultSchema();
+    schema.setColumnCount(3L);
+    schema.setColumns(
+        List.of(
+            getColumn("policyid", ColumnInfoTypeName.INT, "int"),
+            getColumn("policyId", ColumnInfoTypeName.INT, "int"),
+            getColumn("other", ColumnInfoTypeName.STRING, "string")));
+    resultManifest.setSchema(schema);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+
+    assertEquals(3, metaData.getColumnCount());
+    assertEquals("policyId", metaData.getColumnName(2));
+    assertEquals(1, metaData.getColumnNameIndex("policyid"));
+    assertEquals(1, metaData.getColumnNameIndex("policyId"));
+    assertEquals(3, metaData.getColumnNameIndex("OTHER"));
+  }
+
+  @Test
+  public void testColumnsDifferingOnlyInCaseThrift() throws SQLException {
+    TGetResultSetMetadataResp resultManifest = new TGetResultSetMetadataResp();
+    resultManifest.setSchema(
+        new TTableSchema()
+            .setColumns(
+                List.of(
+                    new TColumnDesc().setColumnName("a"), new TColumnDesc().setColumnName("A"))));
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(
+            THRIFT_STATEMENT_ID, resultManifest, 1, 1, null, connectionContext);
+
+    assertEquals(2, metaData.getColumnCount());
+    assertEquals("A", metaData.getColumnName(2));
+    assertEquals(1, metaData.getColumnNameIndex("a"));
+    assertEquals(1, metaData.getColumnNameIndex("A"));
+  }
+
+  @Test
   public void testColumnsWithTimestampNTZ() throws SQLException {
     ResultManifest resultManifest = new ResultManifest();
     resultManifest.setTotalRowCount(10L);
