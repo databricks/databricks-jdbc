@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -237,6 +239,8 @@ public class DatabricksArray implements Array {
       if (element == null) {
         // JSON-like null
         sb.append("null");
+      } else if (element instanceof IDatabricksGeospatial) {
+        sb.append(JsonUtil.getMapper().valueToTree(element.toString()).toString());
       } else if (element instanceof String || DatabricksTypeUtil.isTemporalType(element)) {
         // Strings and temporal types get quoted
         sb.append("\"").append(element.toString()).append("\"");

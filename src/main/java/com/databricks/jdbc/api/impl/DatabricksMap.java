@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -261,6 +263,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
   private String formatForJson(Object obj) {
     if (obj == null) {
       return "null";
+    }
+    if (obj instanceof IDatabricksGeospatial) {
+      return JsonUtil.getMapper().valueToTree(obj.toString()).toString();
     }
     if (obj instanceof String) {
       return "\"" + obj + "\"";

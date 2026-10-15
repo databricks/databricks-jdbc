@@ -5,6 +5,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.nio.ByteOrder;
 import java.util.EnumSet;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.PrecisionModel;
@@ -96,7 +97,15 @@ public class WKTConverter {
       WKTWriter writer = new WKTWriter(outputDimension);
       writer.setOutputOrdinates(ordinates);
       writer.setPrecisionModel(FULL_DOUBLE_PRECISION);
-      return writer.write(geometry);
+      String result = writer.write(geometry);
+      // JTS infers output ordinates from coordinates, so a coordinate-free
+      // EMPTY loses its dimension even when setOutputOrdinates is explicit.
+      String type = geometry.getGeometryType().toUpperCase(Locale.ROOT);
+      if (ogcDimension != 0 && result.equals(type + " EMPTY")) {
+        String dimension = ogcDimension == 1000 ? "Z" : ogcDimension == 2000 ? "M" : "ZM";
+        return type + " " + dimension + " EMPTY";
+      }
+      return result;
     } catch (Exception e) {
       String errorMessage =
           String.format("Failed to parse WKB: %d bytes. Error: %s", wkb.length, e.getMessage());

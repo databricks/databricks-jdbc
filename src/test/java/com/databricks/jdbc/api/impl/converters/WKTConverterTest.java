@@ -9,6 +9,8 @@ import com.google.gson.reflect.TypeToken;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -153,6 +155,45 @@ public class WKTConverterTest {
     String wkt = WKTConverter.toWKT(wkb);
 
     assertEquals("POINT (1 2)", wkt);
+  }
+
+  // Construct wire fixtures directly, without exercising the driver's WKT/WKB writer.
+  static byte[] emptyWireWkb(int type, int dimension, ByteOrder order) {
+    int ordinates = dimension == 0 ? 2 : dimension == 3 ? 4 : 3;
+    ByteBuffer buffer = ByteBuffer.allocate(5 + (type == 1 ? ordinates * 8 : 4)).order(order);
+    buffer.put((byte) (order == ByteOrder.LITTLE_ENDIAN ? 1 : 0)).putInt(type + dimension * 1000);
+    if (type == 1) {
+      for (int i = 0; i < ordinates; i++) {
+        buffer.putDouble(Double.NaN); // OGC POINT EMPTY uses NaN coordinates, not a zero count.
+      }
+    } else {
+      buffer.putInt(0);
+    }
+    return buffer.array();
+  }
+
+  @Test
+  public void testRawWireEmptyGeometriesPreserveDimensions() throws Exception {
+    String[] types = {
+      "POINT",
+      "LINESTRING",
+      "POLYGON",
+      "MULTIPOINT",
+      "MULTILINESTRING",
+      "MULTIPOLYGON",
+      "GEOMETRYCOLLECTION"
+    };
+    String[] dimensions = {"", " Z", " M", " ZM"};
+    for (ByteOrder order : new ByteOrder[] {ByteOrder.LITTLE_ENDIAN, ByteOrder.BIG_ENDIAN}) {
+      for (int type = 1; type <= types.length; type++) {
+        for (int dimension = 0; dimension < dimensions.length; dimension++) {
+          byte[] wkb = emptyWireWkb(type, dimension, order);
+          String expected = types[type - 1] + dimensions[dimension] + " EMPTY";
+          assertEquals(expected, WKTConverter.toWKT(wkb));
+          assertEquals(expected, WKTConverter.toDatabricksWKT(wkb));
+        }
+      }
+    }
   }
 
   @Test

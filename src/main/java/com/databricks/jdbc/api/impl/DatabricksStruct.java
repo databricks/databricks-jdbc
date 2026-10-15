@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -196,6 +198,8 @@ public class DatabricksStruct implements Struct {
       if (val == null) {
         // JSON-like null
         sb.append("null");
+      } else if (val instanceof IDatabricksGeospatial) {
+        sb.append(JsonUtil.getMapper().valueToTree(val.toString()).toString());
       } else if (val instanceof JsonNode) {
         // VARIANT fields represented as JsonNode - preserve JSON structure without quotes
         sb.append(val.toString());

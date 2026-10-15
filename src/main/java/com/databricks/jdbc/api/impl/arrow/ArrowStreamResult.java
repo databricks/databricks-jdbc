@@ -397,12 +397,6 @@ public class ArrowStreamResult implements IExecutionResult {
 
     if (!isComplexDatatypeSupportEnabled && isComplexType(requiredType)) {
       LOGGER.debug("Complex datatype support is disabled, converting complex type to STRING");
-      if (MetadataParser.containsGeospatialType(arrowMetadata)) {
-        Object result =
-            chunkIterator.getColumnObjectAtCurrentRow(
-                columnIndex, requiredType, arrowMetadata, columnInfo, false);
-        return result == null ? null : new ComplexDataTypeParser().formatComplexTypeValue(result);
-      }
       Object result =
           chunkIterator.getColumnObjectAtCurrentRow(
               columnIndex, ColumnInfoTypeName.STRING, "STRING", columnInfo);
@@ -410,7 +404,10 @@ public class ArrowStreamResult implements IExecutionResult {
         return null;
       }
       ComplexDataTypeParser parser = new ComplexDataTypeParser();
-
+      if (MetadataParser.containsGeospatialType(arrowMetadata)) {
+        return parser.formatGeospatialComplexTypeString(
+            result.toString(), requiredType.name(), arrowMetadata);
+      }
       return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
     }
 

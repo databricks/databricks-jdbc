@@ -35,7 +35,6 @@ import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.collect.ImmutableList;
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
 import org.apache.arrow.memory.RootAllocator;
@@ -610,12 +609,10 @@ public class ArrowStreamResultTest {
     String metadata = "STRUCT<geom:GEOMETRY(3857)>";
     ColumnInfo columnInfo =
         new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
-    DatabricksStruct stringStruct =
-        new DatabricksStruct(Map.of("geom", "SRID=3857;POINT(1 2)"), metadata);
     ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
     when(chunkIterator.getColumnObjectAtCurrentRow(
-            0, ColumnInfoTypeName.STRUCT, metadata, columnInfo, false))
-        .thenReturn(stringStruct);
+            0, ColumnInfoTypeName.STRING, "STRING", columnInfo))
+        .thenReturn("{\"geom\":\"SRID=3857;POINT(1 2)\"}");
 
     assertEquals(
         "{\"geom\":\"SRID=3857;POINT(1 2)\"}",
@@ -634,14 +631,10 @@ public class ArrowStreamResultTest {
     String metadata = "STRUCT<geom:GEOMETRY(4326),blob:BINARY>";
     ColumnInfo columnInfo =
         new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
-    Map<String, Object> fields = new LinkedHashMap<>();
-    fields.put("geom", "SRID=4326;POINT(1 2)");
-    fields.put("blob", "ABC".getBytes(StandardCharsets.UTF_8));
-    DatabricksStruct stringStruct = new DatabricksStruct(fields, metadata);
     ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
     when(chunkIterator.getColumnObjectAtCurrentRow(
-            0, ColumnInfoTypeName.STRUCT, metadata, columnInfo, false))
-        .thenReturn(stringStruct);
+            0, ColumnInfoTypeName.STRING, "STRING", columnInfo))
+        .thenReturn("{\"geom\":\"SRID=4326;POINT(1 2)\",\"blob\":\"QUJD\"}");
 
     String result =
         (String)
@@ -650,6 +643,36 @@ public class ArrowStreamResultTest {
 
     assertEquals("{\"geom\":\"SRID=4326;POINT(1 2)\",\"blob\":\"QUJD\"}", result);
     assertFalse(result.contains("[B@"));
+  }
+
+  @Test
+  public void testNestedGeospatialDoesNotChangeOtherScalarRepresentations() throws Exception {
+    String scalarTypes = "d:DECIMAL(38,18),day:DATE,ts:TIMESTAMP,ntz:TIMESTAMP_NTZ,blob:BINARY";
+    String scalarJson =
+        "\"d\":12345678901234567890.123456789012345678,\"day\":19723,"
+            + "\"ts\":1704067200123456,\"ntz\":[2024,1,1,0,0,0,123456000],\"blob\":\"QUJD\"";
+    for (String flag : new String[] {"0", "1"}) {
+      Properties props = new Properties();
+      props.setProperty("EnableComplexDatatypeSupport", "0");
+      props.setProperty("EnableGeoSpatialSupport", flag);
+      when(session.getConnectionContext())
+          .thenReturn(DatabricksConnectionContextFactory.create(JDBC_URL, props));
+      for (boolean includeGeo : new boolean[] {false, true}) {
+        String metadata = "STRUCT<" + scalarTypes + (includeGeo ? ",g:GEOMETRY(4326)>" : ">");
+        // Raw wire WKB for POINT(1 2), independent of the driver's writer.
+        String geoJson = ",\"g\":{\"srid\":4326,\"wkb\":\"AQEAAAAAAAAAAADwPwAAAAAAAABA\"}";
+        String raw = "{" + scalarJson + (includeGeo ? geoJson : "") + "}";
+        ColumnInfo info =
+            new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
+        ArrowResultChunkIterator iterator = mock(ArrowResultChunkIterator.class);
+        when(iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.STRING, "STRING", info))
+            .thenReturn(raw);
+        assertEquals(
+            "{" + scalarJson + (includeGeo ? ",\"g\":\"SRID=4326;POINT(1 2)\"" : "") + "}",
+            ArrowStreamResult.getObjectWithComplexTypeHandling(
+                session, iterator, 0, ColumnInfoTypeName.STRUCT, metadata, info));
+      }
+    }
   }
 
   @Test

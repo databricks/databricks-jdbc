@@ -476,7 +476,7 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
-  void testFormatComplexTypeValuePreservesNestedValues() throws Exception {
+  void testFormatGeospatialComplexTypeStringPreservesNestedValues() throws Exception {
     ComplexDataTypeParser stringParser = new ComplexDataTypeParser(false);
     String metadata =
         "STRUCT<items:ARRAY<STRUCT<geom:GEOMETRY(4326),blob:BINARY>>,"
@@ -487,23 +487,36 @@ public class ComplexDataTypeParserTest {
             + ",\"blob\":\"QUJD\"}],\"by_name\":{\"raw\":\"WFla\"},"
             + "\"label\":\"quote\\\" and slash\\\\\"}";
 
-    DatabricksStruct value = stringParser.parseJsonStringToDbStruct(json, metadata);
-
     assertEquals(
         "{\"items\":[{\"geom\":\"SRID=4326;POINT(1 2)\",\"blob\":\"QUJD\"}],"
             + "\"by_name\":{\"raw\":\"WFla\"},\"label\":\"quote\\\" and slash\\\\\"}",
-        stringParser.formatComplexTypeValue(value));
+        stringParser.formatGeospatialComplexTypeString(json, "STRUCT", metadata));
   }
 
   @Test
-  void testFormatComplexTypeValuePreservesNonStringMapKeyFormatting() throws Exception {
+  void testFormatGeospatialComplexTypeStringPreservesNonStringMapKeyFormatting() throws Exception {
     ComplexDataTypeParser stringParser = new ComplexDataTypeParser(false);
     String metadata = "MAP<DECIMAL(10,2),GEOMETRY(ANY)>";
     String json = "[{\"key\":1.25,\"value\":" + nativeGeoJson(4326, "POINT(1 2)") + "}]";
 
-    DatabricksMap<String, Object> value = stringParser.parseJsonStringToDbMap(json, metadata);
+    assertEquals(
+        "{1.25:\"SRID=4326;POINT(1 2)\"}",
+        stringParser.formatGeospatialComplexTypeString(json, "MAP", metadata));
+  }
 
-    assertEquals("{1.25:\"SRID=4326;POINT(1 2)\"}", stringParser.formatComplexTypeValue(value));
+  @Test
+  void testFormatGeospatialComplexTypeStringPreservesRawNestedMapsAndNulls() throws Exception {
+    String json =
+        "{\"items\":[{\"key\":\"g\",\"value\":"
+            + nativeGeoJson(0, "POINT(1 2)")
+            + "},{\"key\":\"empty\",\"value\":null}],\"plain\":[{\"key\":\"n\",\"value\":1.20}]}";
+    assertEquals(
+        "{\"items\":[{\"key\":\"g\",\"value\":\"POINT(1 2)\"},{\"key\":\"empty\",\"value\":null}],"
+            + "\"plain\":[{\"key\":\"n\",\"value\":1.20}]}",
+        parser.formatGeospatialComplexTypeString(
+            json,
+            "STRUCT",
+            "STRUCT<items:MAP<STRING,GEOGRAPHY(ANY)>,plain:MAP<STRING,DECIMAL(10,2)>>"));
   }
 
   @Test

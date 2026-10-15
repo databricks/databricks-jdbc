@@ -5,6 +5,7 @@ import static com.databricks.jdbc.api.impl.converters.ArrowToJavaObjectConverter
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.impl.DatabricksArray;
 import com.databricks.jdbc.api.impl.DatabricksGeography;
 import com.databricks.jdbc.api.impl.DatabricksGeometry;
@@ -14,6 +15,7 @@ import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import java.math.BigDecimal;
+import java.nio.ByteOrder;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -416,6 +418,34 @@ public class ArrowToJavaObjectConverterTest {
 
       DatabricksStruct struct = assertInstanceOf(DatabricksStruct.class, result);
       assertEquals("SRID=3857;POINT(1 2)", struct.getAttributes()[0]);
+    }
+  }
+
+  @Test
+  public void testRawWireEmptyGeospatialValuesRetainDimensionInBothModes() throws Exception {
+    String[] types = {"POINT", "LINESTRING", "POLYGON"};
+    String[] dimensions = {"", " Z", " M", " ZM"};
+    for (ColumnInfoTypeName family :
+        new ColumnInfoTypeName[] {ColumnInfoTypeName.GEOMETRY, ColumnInfoTypeName.GEOGRAPHY}) {
+      ColumnInfo info = new ColumnInfo().setTypeName(family).setTypeText(family + "(4326)");
+      for (int type = 1; type <= types.length; type++) {
+        for (int dimension = 0; dimension < dimensions.length; dimension++) {
+          byte[] wkb = WKTConverterTest.emptyWireWkb(type, dimension, ByteOrder.LITTLE_ENDIAN);
+          String expected = types[type - 1] + dimensions[dimension] + " EMPTY";
+          try (StructVector vector = nativeGeospatialVector(4326, wkb)) {
+            IDatabricksGeospatial value =
+                assertInstanceOf(
+                    IDatabricksGeospatial.class,
+                    convert(vector, 0, family, info.getTypeText(), info));
+            assertEquals(family.name(), value.getType());
+            assertEquals(expected, value.getWKT());
+            assertArrayEquals(wkb, value.getWKB());
+            assertEquals(
+                "SRID=4326;" + expected,
+                convert(vector, 0, ColumnInfoTypeName.STRING, "STRING", info));
+          }
+        }
+      }
     }
   }
 

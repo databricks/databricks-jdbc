@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.ExecutionState;
+import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.IExecutionStatus;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
@@ -20,6 +21,7 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
@@ -612,6 +614,50 @@ public class DatabricksResultSetTest {
     // Retrieve map by label
     Map<String, Integer> retrievedMapByLabel = resultSet.getMap("int_map");
     assertNotNull(retrievedMapByLabel, "Retrieved map by label should not be null");
+  }
+
+  @Test
+  void testGetStringQuotesTypedGeospatialChildrenWithoutChangingGetObject() throws Exception {
+    for (IDatabricksGeospatial geo :
+        List.of(
+            new DatabricksGeometry("POINT(1 2)", 4326),
+            new DatabricksGeography("POINT(1 2)", 4326))) {
+      String type = geo.getType() + "(4326)";
+      DatabricksArray array = new DatabricksArray(Arrays.asList(geo, null), "ARRAY<" + type + ">");
+      DatabricksMap<String, Object> map =
+          new DatabricksMap<>(Map.of("g", geo), "MAP<STRING," + type + ">");
+      DatabricksStruct struct = new DatabricksStruct(Map.of("g", geo), "STRUCT<g:" + type + ">");
+      Object[] containers = {array, map, struct};
+      int[] sqlTypes = {Types.ARRAY, Types.JAVA_OBJECT, Types.STRUCT};
+      String[] typeNames = {
+        "ARRAY<" + type + ">", "MAP<STRING," + type + ">", "STRUCT<g:" + type + ">"
+      };
+      for (int i = 0; i < containers.length; i++) {
+        when(mockedExecutionResult.getObject(i)).thenReturn(containers[i]);
+        when(mockedResultSetMetadata.getColumnType(i + 1)).thenReturn(sqlTypes[i]);
+        when(mockedResultSetMetadata.getColumnTypeName(i + 1)).thenReturn(typeNames[i]);
+      }
+      DatabricksResultSet resultSet =
+          new DatabricksResultSet(
+              new StatementStatus().setState(StatementState.SUCCEEDED),
+              STATEMENT_ID,
+              StatementType.METADATA,
+              null,
+              mockedExecutionResult,
+              mockedResultSetMetadata,
+              true);
+      for (int i = 0; i < containers.length; i++) {
+        assertSame(containers[i], resultSet.getObject(i + 1));
+        String expected =
+            i == 0 ? "[\"SRID=4326;POINT(1 2)\",null]" : "{\"g\":\"SRID=4326;POINT(1 2)\"}";
+        assertEquals(
+            JsonUtil.getMapper().readTree(expected),
+            JsonUtil.getMapper().readTree(resultSet.getString(i + 1)));
+      }
+      assertSame(geo, ((Object[]) array.getArray())[0]);
+      assertSame(geo, map.get("g"));
+      assertSame(geo, struct.getAttributes()[0]);
+    }
   }
 
   @Test
