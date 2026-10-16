@@ -9,6 +9,8 @@ import com.google.gson.reflect.TypeToken;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -153,6 +155,92 @@ public class WKTConverterTest {
     String wkt = WKTConverter.toWKT(wkb);
 
     assertEquals("POINT (1 2)", wkt);
+  }
+
+  // Construct wire fixtures directly, without exercising the driver's WKT/WKB writer.
+  static byte[] emptyWireWkb(int type, int dimension, ByteOrder order) {
+    int ordinates = dimension == 0 ? 2 : dimension == 3 ? 4 : 3;
+    ByteBuffer buffer = ByteBuffer.allocate(5 + (type == 1 ? ordinates * 8 : 4)).order(order);
+    buffer.put((byte) (order == ByteOrder.LITTLE_ENDIAN ? 1 : 0)).putInt(type + dimension * 1000);
+    if (type == 1) {
+      for (int i = 0; i < ordinates; i++) {
+        buffer.putDouble(Double.NaN); // OGC POINT EMPTY uses NaN coordinates, not a zero count.
+      }
+    } else {
+      buffer.putInt(0);
+    }
+    return buffer.array();
+  }
+
+  @Test
+  public void testRawWireEmptyGeometriesPreserveDimensions() throws Exception {
+    String[] types = {
+      "POINT",
+      "LINESTRING",
+      "POLYGON",
+      "MULTIPOINT",
+      "MULTILINESTRING",
+      "MULTIPOLYGON",
+      "GEOMETRYCOLLECTION"
+    };
+    String[] dimensions = {"", " Z", " M", " ZM"};
+    for (ByteOrder order : new ByteOrder[] {ByteOrder.LITTLE_ENDIAN, ByteOrder.BIG_ENDIAN}) {
+      for (int type = 1; type <= types.length; type++) {
+        for (int dimension = 0; dimension < dimensions.length; dimension++) {
+          byte[] wkb = emptyWireWkb(type, dimension, order);
+          String expected = types[type - 1] + dimensions[dimension] + " EMPTY";
+          assertEquals(expected, WKTConverter.toWKT(wkb));
+          assertEquals(expected, WKTConverter.toDatabricksWKT(wkb));
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testToDatabricksWKT_NormalizesWireResultFormatting()
+      throws DatabricksValidationException {
+    assertEquals(
+        "LINESTRING(0 0,1 1,2 2)",
+        WKTConverter.toDatabricksWKT(WKTConverter.toWKB("LINESTRING (0 0, 1 1, 2 2)")));
+    assertEquals(
+        "POINT Z (1 2 3)", WKTConverter.toDatabricksWKT(WKTConverter.toWKB("POINT Z (1 2 3)")));
+    assertEquals(
+        "GEOMETRYCOLLECTION(POINT(1 2),LINESTRING EMPTY)",
+        WKTConverter.toDatabricksWKT(
+            WKTConverter.toWKB("GEOMETRYCOLLECTION(POINT(1 2),LINESTRING EMPTY)")));
+  }
+
+  @Test
+  public void testToDatabricksWKT_NormalizesMultiAndNestedDimensionFormatting()
+      throws DatabricksValidationException {
+    String[] canonicalWkts = {
+      "MULTIPOINT((1 2),(3 4))",
+      "MULTIPOLYGON(((0 0,0 1,1 0,0 0)))",
+      "GEOMETRYCOLLECTION ZM (POINT ZM (1 2 3 4),"
+          + "GEOMETRYCOLLECTION ZM (MULTIPOINT ZM ((5 6 7 8),(9 10 11 12)),"
+          + "MULTIPOLYGON ZM EMPTY))"
+    };
+
+    for (String canonicalWkt : canonicalWkts) {
+      assertEquals(
+          canonicalWkt,
+          WKTConverter.toDatabricksWKT(WKTConverter.toWKB(canonicalWkt)),
+          canonicalWkt);
+    }
+  }
+
+  @Test
+  public void testToDatabricksWKT_PreservesFullDoublePrecision()
+      throws DatabricksValidationException {
+    String original =
+        "POINT ZM (0.00000000000000000001 -0.00000000000000000001 "
+            + "1.2345678901234567 -0.00000000000000000003)";
+    byte[] wkb = WKTConverter.toWKB(original);
+
+    String decoded = WKTConverter.toDatabricksWKT(wkb);
+
+    assertEquals(original, decoded);
+    assertArrayEquals(wkb, WKTConverter.toWKB(decoded));
   }
 
   @Test

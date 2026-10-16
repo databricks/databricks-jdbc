@@ -20,9 +20,14 @@ public class MetadataParser {
     String[] fields = splitFields(metadata);
 
     for (String field : fields) {
-      String[] parts = field.split(":", 2);
-      String fieldName = parts[0].trim();
-      String fieldType = cleanTypeName(parts[1].trim());
+      int separator = findTopLevelDelimiter(field, ':');
+      if (separator < 0) {
+        throw new DatabricksDriverException(
+            "Invalid STRUCT field metadata: " + field,
+            DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_STRUCT_CONVERSION_ERROR);
+      }
+      String fieldName = parseFieldName(field.substring(0, separator));
+      String fieldType = cleanTypeName(field.substring(separator + 1).trim());
 
       if (fieldType.startsWith("STRUCT")) {
         typeMap.put(fieldName, fieldType);
@@ -56,20 +61,81 @@ public class MetadataParser {
    * @throws DatabricksDriverException if the MAP metadata format is invalid
    */
   public static String parseMapMetadata(String metadata) {
+    String[] keyValueTypes = parseMapMetadataParts(metadata);
+    return keyValueTypes[0] + ", " + keyValueTypes[1];
+  }
+
+  /** Returns whether a type contains a GEOMETRY or GEOGRAPHY leaf at any nesting depth. */
+  public static boolean containsGeospatialType(String metadata) {
+    if (metadata == null) {
+      return false;
+    }
+
+    boolean quoted = false;
+    for (int index = 0; index < metadata.length(); ) {
+      char ch = metadata.charAt(index);
+      if (ch == '`') {
+        if (quoted && index + 1 < metadata.length() && metadata.charAt(index + 1) == '`') {
+          index += 2;
+          continue;
+        }
+        quoted = !quoted;
+        index++;
+        continue;
+      }
+      if (quoted || !isIdentifierCharacter(ch)) {
+        index++;
+        continue;
+      }
+
+      int start = index;
+      while (index < metadata.length() && isIdentifierCharacter(metadata.charAt(index))) {
+        index++;
+      }
+      int length = index - start;
+      boolean isGeometry =
+          length == "GEOMETRY".length()
+              && metadata.regionMatches(true, start, "GEOMETRY", 0, length);
+      boolean isGeography =
+          length == "GEOGRAPHY".length()
+              && metadata.regionMatches(true, start, "GEOGRAPHY", 0, length);
+      if (!isGeometry && !isGeography) {
+        continue;
+      }
+
+      int next = index;
+      while (next < metadata.length() && Character.isWhitespace(metadata.charAt(next))) {
+        next++;
+      }
+      // An unquoted struct field may itself be named geometry/geography.
+      if (next >= metadata.length() || metadata.charAt(next) != ':') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Parses MAP metadata into its key and value types without flattening nested type syntax. */
+  static String[] parseMapMetadataParts(String metadata) {
     metadata = metadata.substring("MAP<".length(), metadata.length() - 1).trim();
 
-    int depth = 0;
+    int angleBracketDepth = 0;
+    int parenDepth = 0;
     int splitIndex = -1;
 
     for (int i = 0; i < metadata.length(); i++) {
       char ch = metadata.charAt(i);
       if (ch == '<') {
-        depth++;
+        angleBracketDepth++;
       } else if (ch == '>') {
-        depth--;
+        angleBracketDepth--;
+      } else if (ch == '(') {
+        parenDepth++;
+      } else if (ch == ')') {
+        parenDepth--;
       }
 
-      if (ch == ',' && depth == 0) {
+      if (ch == ',' && angleBracketDepth == 0 && parenDepth == 0) {
         splitIndex = i;
         break;
       }
@@ -84,7 +150,7 @@ public class MetadataParser {
     String keyType = cleanTypeName(metadata.substring(0, splitIndex).trim());
     String valueType = cleanTypeName(metadata.substring(splitIndex + 1).trim());
 
-    return keyType + ", " + valueType;
+    return new String[] {keyType, valueType};
   }
 
   /**
@@ -96,22 +162,34 @@ public class MetadataParser {
   private static String[] splitFields(String metadata) {
     int angleBracketDepth = 0;
     int parenDepth = 0;
+    boolean quoted = false;
     StringBuilder currentField = new StringBuilder();
     java.util.List<String> fields = new java.util.ArrayList<>();
 
-    for (char ch : metadata.toCharArray()) {
-      if (ch == '<') {
+    for (int index = 0; index < metadata.length(); index++) {
+      char ch = metadata.charAt(index);
+      if (ch == '`') {
+        currentField.append(ch);
+        if (quoted && index + 1 < metadata.length() && metadata.charAt(index + 1) == '`') {
+          currentField.append('`');
+          index++;
+        } else {
+          quoted = !quoted;
+        }
+        continue;
+      }
+      if (!quoted && ch == '<') {
         angleBracketDepth++;
-      } else if (ch == '>') {
+      } else if (!quoted && ch == '>') {
         angleBracketDepth--;
-      } else if (ch == '(') {
+      } else if (!quoted && ch == '(') {
         parenDepth++;
-      } else if (ch == ')') {
+      } else if (!quoted && ch == ')') {
         parenDepth--;
       }
 
       // Only split on commas when we're at the top level (both depths are 0)
-      if (ch == ',' && angleBracketDepth == 0 && parenDepth == 0) {
+      if (!quoted && ch == ',' && angleBracketDepth == 0 && parenDepth == 0) {
         String field = currentField.toString().trim();
         fields.add(field);
         currentField.setLength(0);
@@ -122,6 +200,52 @@ public class MetadataParser {
     String finalField = currentField.toString().trim();
     fields.add(finalField);
     return fields.toArray(new String[0]);
+  }
+
+  private static int findTopLevelDelimiter(String value, char delimiter) {
+    int angleBracketDepth = 0;
+    int parenDepth = 0;
+    boolean quoted = false;
+    for (int index = 0; index < value.length(); index++) {
+      char ch = value.charAt(index);
+      if (ch == '`') {
+        if (quoted && index + 1 < value.length() && value.charAt(index + 1) == '`') {
+          index++;
+        } else {
+          quoted = !quoted;
+        }
+        continue;
+      }
+      if (quoted) {
+        continue;
+      }
+      if (ch == '<') {
+        angleBracketDepth++;
+      } else if (ch == '>') {
+        angleBracketDepth--;
+      } else if (ch == '(') {
+        parenDepth++;
+      } else if (ch == ')') {
+        parenDepth--;
+      } else if (ch == delimiter && angleBracketDepth == 0 && parenDepth == 0) {
+        return index;
+      }
+    }
+    return -1;
+  }
+
+  private static String parseFieldName(String fieldName) {
+    String trimmed = fieldName.trim();
+    if (trimmed.length() >= 2
+        && trimmed.charAt(0) == '`'
+        && trimmed.charAt(trimmed.length() - 1) == '`') {
+      return trimmed.substring(1, trimmed.length() - 1).replace("``", "`");
+    }
+    return trimmed;
+  }
+
+  private static boolean isIdentifierCharacter(char value) {
+    return Character.isLetterOrDigit(value) || value == '_';
   }
 
   /**

@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -13,6 +14,7 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** Class for representation of Array complex object. */
@@ -112,6 +114,9 @@ public class DatabricksArray implements Array {
     LOGGER.trace("Converting simple value of type: {}", type);
     if (value == null) {
       return null;
+    }
+    if (DatabricksTypeUtil.isGeospatialType(type.toUpperCase(Locale.ROOT))) {
+      return value;
     }
 
     try {
@@ -229,17 +234,7 @@ public class DatabricksArray implements Array {
         sb.append(",");
       }
 
-      Object element = elements[i];
-      if (element == null) {
-        // JSON-like null
-        sb.append("null");
-      } else if (element instanceof String || DatabricksTypeUtil.isTemporalType(element)) {
-        // Strings and temporal types get quoted
-        sb.append("\"").append(element.toString()).append("\"");
-      } else {
-        // For non-string, just call toString()
-        sb.append(element.toString());
-      }
+      sb.append(JsonUtil.formatComplexValue(elements[i]));
     }
     sb.append("]");
     return sb.toString();
