@@ -120,10 +120,6 @@ public class DatabricksMap<K, V> implements Map<K, V> {
     }
   }
 
-  String getKeyType() {
-    return keyType;
-  }
-
   /**
    * Converts a simple value to the specified type.
    *
