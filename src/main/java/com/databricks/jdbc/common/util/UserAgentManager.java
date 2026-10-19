@@ -4,11 +4,14 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.UserAgent;
+import com.google.common.annotations.VisibleForTesting;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class UserAgentManager {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(UserAgentManager.class);
@@ -22,6 +25,18 @@ public class UserAgentManager {
       CLIENT_USER_AGENT_PREFIX + "/" + USER_AGENT_SEA_CLIENT;
   private static final String VERSION_FILLER = "version";
   private static final String AGENT_KEY = "agent";
+
+  /**
+   * Bounds SDK user-agent growth when an application passes a distinct {@code UserAgentEntry} per
+   * connection. Client-type entries are not counted.
+   */
+  @VisibleForTesting public static final int MAX_CUSTOMER_USER_AGENT_ENTRIES = 64;
+
+  // UserAgent.withOtherInfo appends on every call and UserAgent.asString formats the whole list on
+  // every request, so each entry is registered with the SDK once per JVM.
+  private static final Set<String> registeredOtherInfo = new HashSet<>();
+  private static int registeredCustomerEntries = 0;
+  private static boolean customerEntryLimitLogged = false;
 
   /**
    * Parse custom user agent string into name and version components.
@@ -71,15 +86,51 @@ public class UserAgentManager {
     // Set the base product
     UserAgent.withProduct(DEFAULT_USER_AGENT, DriverUtil.getDriverVersion());
 
-    // Set client info (this may trigger getClientType which fetches feature flags)
-    UserAgent.withOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent());
+    // Set client info (this may trigger getClientType which fetches feature flags). Not capped:
+    // getClientUserAgent only returns USER_AGENT_THRIFT_CLIENT or USER_AGENT_SEA_CLIENT.
+    registerOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent(), false);
 
     String customerSegment = customerUserAgentSegment(connectionContext.getCustomerUserAgent());
     if (customerSegment != null) {
       int slash = customerSegment.indexOf('/');
-      UserAgent.withOtherInfo(
-          customerSegment.substring(0, slash), customerSegment.substring(slash + 1));
+      registerOtherInfo(
+          customerSegment.substring(0, slash), customerSegment.substring(slash + 1), true);
     }
+  }
+
+  private static synchronized void registerOtherInfo(
+      String key, String value, boolean isCustomerEntry) {
+    String entry = key + "/" + value;
+    if (registeredOtherInfo.contains(entry)) {
+      return;
+    }
+    if (isCustomerEntry && registeredCustomerEntries >= MAX_CUSTOMER_USER_AGENT_ENTRIES) {
+      if (!customerEntryLimitLogged) {
+        customerEntryLimitLogged = true;
+        LOGGER.warn(
+            "Reached the limit of {} distinct UserAgentEntry values in this JVM; {} and later new"
+                + " values are left out of the shared User-Agent. SQL Execution API requests still"
+                + " send their own entry.",
+            MAX_CUSTOMER_USER_AGENT_ENTRIES,
+            entry);
+      } else {
+        LOGGER.debug("Not adding userAgent entry {}: UserAgentEntry limit reached", entry);
+      }
+      return;
+    }
+    UserAgent.withOtherInfo(key, value);
+    registeredOtherInfo.add(entry);
+    if (isCustomerEntry) {
+      registeredCustomerEntries++;
+    }
+  }
+
+  /** Forgets registered entries; the SDK keeps them, so re-registration only adds duplicates. */
+  @VisibleForTesting
+  public static synchronized void resetRegisteredOtherInfo() {
+    registeredOtherInfo.clear();
+    registeredCustomerEntries = 0;
+    customerEntryLimitLogged = false;
   }
 
   /**
