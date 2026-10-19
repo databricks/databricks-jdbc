@@ -2,7 +2,9 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.impl.converters.WKTConverter;
 import com.databricks.jdbc.exception.DatabricksValidationException;
+import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 /** Test class for DatabricksGeometry. Reference: DatabricksArrayTest.java */
@@ -92,6 +94,20 @@ public class DatabricksGeometryTest {
     byte[] wkb = geometry.getWKB();
     assertNotNull(wkb);
     assertTrue(wkb.length > 0);
+  }
+
+  @Test
+  public void testNativeWkbIsDefensivelyCopied() throws DatabricksValidationException {
+    byte[] expected = WKTConverter.toWKB("POINT(1 2)");
+    byte[] input = Arrays.copyOf(expected, expected.length);
+    DatabricksGeometry geometry = DatabricksGeometry.fromWKB(input, 4326);
+
+    input[0] ^= 1;
+    assertArrayEquals(expected, geometry.getWKB());
+
+    byte[] returned = geometry.getWKB();
+    returned[0] ^= 1;
+    assertArrayEquals(expected, geometry.getWKB());
   }
 
   // ===================================================================================

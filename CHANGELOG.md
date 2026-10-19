@@ -14,6 +14,8 @@
 
 ### Fixed
 
+- Decode Reyden's native Arrow `struct<srid,wkb>` results for GEOMETRY and GEOGRAPHY, including
+  nested values in arrays, map values, and structs in both native-object and EWKT string modes.
 - Fixed `UserAgentEntry` attribution in Query History for SQL Execution API connections.
 - Honor `Auth_Scope` for OAuth client-secret M2M; unify scope parsing with JWT-assertion M2M and U2M. (#1706)
 - Fixed request latency and lock contention that grew with every connection opened in a long-running JVM. The driver now registers each User-Agent entry once instead of on every connection. At most 64 distinct `UserAgentEntry` values are added to the shared User-Agent per JVM; SQL Execution API requests still send their own entry.
