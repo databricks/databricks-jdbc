@@ -5,7 +5,6 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import java.nio.ByteOrder;
 import java.util.EnumSet;
-import java.util.Locale;
 import java.util.regex.Pattern;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.PrecisionModel;
@@ -29,6 +28,10 @@ public class WKTConverter {
   private static final Pattern TYPE_BODY_SPACING = Pattern.compile("\\b([A-Z]+) \\(");
   private static final Pattern DIMENSION_BODY_SPACING = Pattern.compile("\\b(ZM|Z|M)\\(");
   private static final Pattern DIMENSION_EMPTY_SPACING = Pattern.compile("\\b(ZM|Z|M)EMPTY\\b");
+  private static final Pattern GEOMETRY_TYPE_WITHOUT_DIMENSION =
+      Pattern.compile(
+          "\\b(GEOMETRYCOLLECTION|MULTILINESTRING|MULTIPOLYGON|MULTIPOINT|LINESTRING|POLYGON|POINT)"
+              + "(?!\\s+(?:ZM|Z|M)\\b)");
   private static final Pattern COMMA_SPACING = Pattern.compile(",\\s+");
   private static final PrecisionModel FULL_DOUBLE_PRECISION = new FullDoublePrecisionModel();
 
@@ -98,12 +101,12 @@ public class WKTConverter {
       writer.setOutputOrdinates(ordinates);
       writer.setPrecisionModel(FULL_DOUBLE_PRECISION);
       String result = writer.write(geometry);
-      // JTS infers output ordinates from coordinates, so a coordinate-free
-      // EMPTY loses its dimension even when setOutputOrdinates is explicit.
-      String type = geometry.getGeometryType().toUpperCase(Locale.ROOT);
-      if (ogcDimension != 0 && result.equals(type + " EMPTY")) {
+      // JTS infers output ordinates from non-NaN coordinates, so empty geometries lose their
+      // dimension even when setOutputOrdinates is explicit. All-empty collections retain their
+      // members in WKT, so restore the qualifier on both the collection and its typed members.
+      if (ogcDimension != 0 && geometry.isEmpty()) {
         String dimension = ogcDimension == 1000 ? "Z" : ogcDimension == 2000 ? "M" : "ZM";
-        return type + " " + dimension + " EMPTY";
+        return GEOMETRY_TYPE_WITHOUT_DIMENSION.matcher(result).replaceAll("$1 " + dimension);
       }
       return result;
     } catch (Exception e) {

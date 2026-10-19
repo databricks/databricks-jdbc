@@ -172,6 +172,22 @@ public class WKTConverterTest {
     return buffer.array();
   }
 
+  private static byte[] collectionWireWkb(
+      int type, int dimension, ByteOrder order, byte[]... members) {
+    int size = 9;
+    for (byte[] member : members) {
+      size += member.length;
+    }
+
+    ByteBuffer buffer = ByteBuffer.allocate(size).order(order);
+    buffer.put((byte) (order == ByteOrder.LITTLE_ENDIAN ? 1 : 0));
+    buffer.putInt(type + dimension * 1000).putInt(members.length);
+    for (byte[] member : members) {
+      buffer.put(member);
+    }
+    return buffer.array();
+  }
+
   @Test
   public void testRawWireEmptyGeometriesPreserveDimensions() throws Exception {
     String[] types = {
@@ -192,6 +208,54 @@ public class WKTConverterTest {
           assertEquals(expected, WKTConverter.toWKT(wkb));
           assertEquals(expected, WKTConverter.toDatabricksWKT(wkb));
         }
+      }
+    }
+  }
+
+  @Test
+  public void testRawWireAllEmptyCollectionsPreserveDimensionsAndMembers() throws Exception {
+    String[] dimensions = {"", " Z", " M", " ZM"};
+    int[] collectionTypes = {4, 5, 6};
+    int[] memberTypes = {1, 2, 3};
+    String[] collectionNames = {"MULTIPOINT", "MULTILINESTRING", "MULTIPOLYGON"};
+
+    for (ByteOrder order : new ByteOrder[] {ByteOrder.LITTLE_ENDIAN, ByteOrder.BIG_ENDIAN}) {
+      for (int dimension = 1; dimension < dimensions.length; dimension++) {
+        String qualifier = dimensions[dimension];
+        for (int i = 0; i < collectionTypes.length; i++) {
+          byte[] member = emptyWireWkb(memberTypes[i], dimension, order);
+          byte[] wkb = collectionWireWkb(collectionTypes[i], dimension, order, member, member);
+          assertEquals(collectionNames[i] + qualifier + " (EMPTY, EMPTY)", WKTConverter.toWKT(wkb));
+          assertEquals(
+              collectionNames[i] + qualifier + " (EMPTY,EMPTY)", WKTConverter.toDatabricksWKT(wkb));
+        }
+
+        byte[] point = emptyWireWkb(1, dimension, order);
+        byte[] lineString = emptyWireWkb(2, dimension, order);
+        byte[] polygon = emptyWireWkb(3, dimension, order);
+        byte[] collection = collectionWireWkb(7, dimension, order, point, lineString, polygon);
+        assertEquals(
+            "GEOMETRYCOLLECTION"
+                + qualifier
+                + " (POINT"
+                + qualifier
+                + " EMPTY, LINESTRING"
+                + qualifier
+                + " EMPTY, POLYGON"
+                + qualifier
+                + " EMPTY)",
+            WKTConverter.toWKT(collection));
+        assertEquals(
+            "GEOMETRYCOLLECTION"
+                + qualifier
+                + " (POINT"
+                + qualifier
+                + " EMPTY,LINESTRING"
+                + qualifier
+                + " EMPTY,POLYGON"
+                + qualifier
+                + " EMPTY)",
+            WKTConverter.toDatabricksWKT(collection));
       }
     }
   }
