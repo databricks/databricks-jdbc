@@ -8,6 +8,8 @@
 
 ### Updated
 
+- Allow the server-side SQL Execution API feature flag to select SEA when CloudFetch is disabled.
+
 ### Fixed
 
 ---

@@ -611,14 +611,7 @@ class SeaInlineArrowChunkProviderTest {
       byte[] chunk0Data = createArrowData(1);
       ResultData initial = createResultData(chunk0Data, 1L, 0L, 1L);
 
-      // Create a slow-responding mock to keep prefetch busy
       setupSessionMocks();
-      when(mockSdkClient.getResultChunksData(eq(STATEMENT_ID), eq(1L), eq(1L)))
-          .thenAnswer(
-              inv -> {
-                TimeUnit.SECONDS.sleep(10);
-                return createResultData(createArrowData(2), 1L, 1L, null);
-              });
 
       provider =
           new SeaInlineArrowChunkProvider(

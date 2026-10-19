@@ -563,10 +563,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     if (isAixOrPowerPc() && !shouldEnableArrow()) {
       return DatabricksClientType.THRIFT;
     }
-    // Check if CloudFetch is disabled - Thrift is required for inline mode
-    if (!isCloudFetchEnabled()) {
-      return DatabricksClientType.THRIFT;
-    }
     // Check feature flag to determine if SEA client should be enabled
     if (DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
         .getBoolean(SQL_EXEC_FLAG_NAME)) {
