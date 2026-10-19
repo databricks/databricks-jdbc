@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExterna
 
 import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
 import com.databricks.jdbc.api.impl.IExecutionResult;
+import com.databricks.jdbc.api.impl.MetadataParser;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -403,8 +404,16 @@ public class ArrowStreamResult implements IExecutionResult {
         return null;
       }
       ComplexDataTypeParser parser = new ComplexDataTypeParser();
-
+      if (MetadataParser.containsGeospatialType(arrowMetadata)) {
+        return parser.formatGeospatialComplexTypeString(
+            result.toString(), requiredType.name(), arrowMetadata);
+      }
       return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
+    }
+
+    if (isComplexType(requiredType)) {
+      return chunkIterator.getColumnObjectAtCurrentRow(
+          columnIndex, requiredType, arrowMetadata, columnInfo, isGeoSpatialSupportEnabled);
     }
 
     return chunkIterator.getColumnObjectAtCurrentRow(
