@@ -783,10 +783,17 @@ public class DatabricksSdkClient implements IDatabricksClient {
     boolean boundedSeaInline =
         arrowEnabled && connectionContext.isBoundedSeaApiEnabled() && !cloudFetch;
     Format format = (cloudFetch || boundedSeaInline) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
-    Disposition disposition =
-        (cloudFetch || boundedSeaInline)
-            ? Disposition.INLINE_OR_EXTERNAL_LINKS
-            : Disposition.INLINE;
+    Disposition disposition;
+    if (cloudFetch) {
+      disposition =
+          connectionContext.isSqlExecHybridResultsEnabled()
+              ? Disposition.INLINE_OR_EXTERNAL_LINKS
+              : Disposition.EXTERNAL_LINKS;
+    } else if (boundedSeaInline) {
+      disposition = Disposition.INLINE_OR_EXTERNAL_LINKS;
+    } else {
+      disposition = Disposition.INLINE;
+    }
     long maxRows =
         (parentStatement == null) ? DEFAULT_RESULT_ROW_LIMIT : parentStatement.getMaxRows();
     CompressionCodec compressionCodec = session.getCompressionCodec();

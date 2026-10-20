@@ -549,6 +549,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return DatabricksClientType.THRIFT;
     }
 
+    // Preserve legacy routing unless bounded SEA can return inline Arrow results.
+    if (!isCloudFetchEnabled() && !(shouldEnableArrow() && isBoundedSeaApiEnabled())) {
+      return DatabricksClientType.THRIFT;
+    }
+
     // Check if circuit breaker is open due to recent 429 rate limit failures
     if (SeaCircuitBreakerManager.isCircuitOpen()) {
       long remainingMs = SeaCircuitBreakerManager.getTimeRemainingMs();
