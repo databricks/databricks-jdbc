@@ -1,16 +1,18 @@
 # Version Changelog
 
-## [v3.4.4] - 2026-10-19
+## [v3.4.4] - 2026-10-20
 
 ### Added
 
 - Added typed getters for all six SAFE feature flag types using the existing cache.
+- Added inline Arrow result support when `UseBoundedSeaApi=1` and `EnableQueryResultDownload=0`, including multi-chunk streaming without relying on the deprecated `total_row_count` manifest field.
 
 ### Updated
 
 - Bumped Apache HttpClient 5 (`httpclient5`) from 5.6.3 to 5.6.4.
 - Updated bundled Jackson from 2.18.9 to 2.18.11, lz4-java from 1.11.1 to 1.11.4, and Bouncy Castle from 1.84 to 1.85 to address security findings.
 - SQL Execution API requests now skip HTTP response compression by default to avoid gzipping inline LZ4-compressed Arrow results. Set `EnableSeaResponseCompression=1` to restore compression on bandwidth-constrained connections.
+- Allow the server-side SQL Execution API feature flag to select SEA when CloudFetch is disabled.
 
 ### Fixed
 
