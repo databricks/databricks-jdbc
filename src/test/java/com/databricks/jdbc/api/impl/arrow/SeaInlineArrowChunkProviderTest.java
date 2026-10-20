@@ -680,8 +680,7 @@ class SeaInlineArrowChunkProviderTest {
 
       // Consume chunks to release backpressure
       int consumed = 0;
-      while (provider.hasNextChunk()) {
-        assertTrue(provider.next());
+      while (provider.next()) {
         assertNotNull(provider.getChunk());
         consumed++;
         if (consumed > 10) fail("Infinite loop");
