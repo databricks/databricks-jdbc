@@ -1094,27 +1094,57 @@ class DatabricksConnectionContextTest {
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
   }
 
-  @Test
-  public void testClientTypeWhenCloudFetchDisabled() throws DatabricksSQLException {
-    String urlWithCloudFetchDisabled =
+  @ParameterizedTest(
+      name = "arrow={0}, cloudFetch={1}, boundedSea={2}, useQueryForMetadata0={3}, serverSea={4}")
+  @CsvSource({
+    "true,  true,  true,  false, true,  SEA",
+    "true,  true,  false, false, false, THRIFT",
+    "true,  false, true,  false, true,  SEA",
+    "true,  false, true,  false, false, THRIFT",
+    "true,  false, false, false, true,  THRIFT",
+    "false, false, true,  false, true,  THRIFT",
+    "true,  false, true,  true,  true,  THRIFT"
+  })
+  public void testAutomaticClientSelectionGrid(
+      boolean arrowEnabled,
+      boolean cloudFetchEnabled,
+      boolean boundedSeaEnabled,
+      boolean useQueryForMetadataDisabled,
+      boolean serverSeaEnabled,
+      DatabricksClientType expectedClientType)
+      throws DatabricksSQLException {
+    String url =
         "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableQueryResultDownload=0";
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableQueryResultDownload="
+            + (cloudFetchEnabled ? "1" : "0")
+            + ";UseBoundedSeaApi="
+            + (boundedSeaEnabled ? "1" : "0")
+            + (useQueryForMetadataDisabled ? ";UseQueryForMetadata=0" : "");
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(urlWithCloudFetchDisabled, properties);
-    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
+        spy((DatabricksConnectionContext) DatabricksConnectionContext.parse(url, properties));
+    doReturn(arrowEnabled).when(connectionContext).shouldEnableArrow();
+    Map<String, String> flags = new HashMap<>();
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc",
+        String.valueOf(serverSeaEnabled));
+    setFeatureFlagsContext(connectionContext, flags);
+
+    assertEquals(expectedClientType, connectionContext.getClientTypeFromContext());
   }
 
   @Test
-  public void testClientTypeWhenBothArrowAndCloudFetchDisabled_nonAix()
+  public void testClientTypeWhenBothArrowAndCloudFetchDisabledAndFeatureFlagDisabled_nonAix()
       throws DatabricksSQLException {
-    // EnableArrow=0 ignored on non-AIX; CloudFetch disabled → THRIFT
     String urlWithBothDisabled =
         "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
             + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableArrow=0;EnableQueryResultDownload=0";
     DatabricksConnectionContext connectionContext =
         (DatabricksConnectionContext)
             DatabricksConnectionContext.parse(urlWithBothDisabled, properties);
+    Map<String, String> flags = new HashMap<>();
+    flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "false");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
   }
 
@@ -1246,10 +1276,10 @@ class DatabricksConnectionContextTest {
     "false, 0, 1, 1, false, SEA", // Explicit useThriftClient=0 returns SEA (ignores flag)
     "false, null, 0, 1, true, SEA", // Arrow param ignored (deprecated) + CloudFetch enabled +
     // flag=true → SEA
-    "false, null, 1, 0, true, THRIFT", // CloudFetch disabled returns THRIFT
+    "false, null, 1, 0, true, SEA", // CloudFetch setting does not override flag=true
     "false, null, 1, 1, true, SEA", // All enabled + flag=true returns SEA
     "false, null, 1, 1, false, THRIFT", // All enabled + flag=false returns THRIFT
-    "false, null, 0, 0, true, THRIFT", // CloudFetch disabled returns THRIFT (Arrow param ignored)
+    "false, null, 0, 0, true, SEA", // CloudFetch and Arrow params do not override flag=true
   })
   public void testClientTypeDecisionMatrix(
       boolean isCluster,

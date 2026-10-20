@@ -156,7 +156,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     }
     this.columns = columnsBuilder.build();
     this.columnNameIndex = columnNameIndexBuilder.build();
-    this.totalRows = resultManifest.getTotalRowCount();
+    // Bounded SEA manifests may omit total_row_count; continuation is driven by
+    // next_chunk_index instead. Use the existing unknown-row-count sentinel.
+    this.totalRows = Objects.requireNonNullElse(resultManifest.getTotalRowCount(), -1L);
     this.chunkCount = resultManifest.getTotalChunkCount();
     this.isCloudFetchUsed = usesExternalLinks;
     this.truncated = Objects.requireNonNullElse(resultManifest.getTruncated(), false);
@@ -659,6 +661,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
   public long getTotalRows() {
     return totalRows;
+  }
+
+  public boolean hasKnownTotalRows() {
+    return totalRows >= 0;
   }
 
   public boolean getIsCloudFetchUsed() {

@@ -549,6 +549,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return DatabricksClientType.THRIFT;
     }
 
+    // Preserve legacy routing unless bounded SEA can return inline Arrow results.
+    if (!isCloudFetchEnabled() && !(shouldEnableArrow() && isBoundedSeaApiEnabled())) {
+      return DatabricksClientType.THRIFT;
+    }
+
     // Check if circuit breaker is open due to recent 429 rate limit failures
     if (SeaCircuitBreakerManager.isCircuitOpen()) {
       long remainingMs = SeaCircuitBreakerManager.getTimeRemainingMs();
@@ -561,10 +566,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     }
     // On AIX/PowerPC, Arrow may be disabled — check before routing to SEA
     if (isAixOrPowerPc() && !shouldEnableArrow()) {
-      return DatabricksClientType.THRIFT;
-    }
-    // Check if CloudFetch is disabled - Thrift is required for inline mode
-    if (!isCloudFetchEnabled()) {
       return DatabricksClientType.THRIFT;
     }
     // Check feature flag to determine if SEA client should be enabled

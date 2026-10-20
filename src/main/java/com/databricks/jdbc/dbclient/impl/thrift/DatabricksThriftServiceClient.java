@@ -430,6 +430,12 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   @Override
+  public ResultData getResultChunksData(StatementId statementId, long chunkIndex, long rowOffset)
+      throws DatabricksSQLException {
+    return getResultChunksData(statementId, chunkIndex);
+  }
+
+  @Override
   public DatabricksResultSet listTypeInfo(IDatabricksSession session) {
     LOGGER.debug("public ResultSet getTypeInfo()");
     return metadataResultSetBuilder.getTypeInfoResult();

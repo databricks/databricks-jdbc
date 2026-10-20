@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
@@ -48,6 +49,7 @@ import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -580,19 +582,43 @@ public class DatabricksSdkClientTest {
         INITIAL_SESSION_VERSION, connection.getSession().getSessionVersion().getVersionId());
   }
 
-  @Test
-  public void testDisposition_arrowAndCloudFetchEnabled_usesExternalLinks() throws Exception {
+  @ParameterizedTest(name = "arrow={0}, cloudFetch={1}, boundedSea={2}, hybrid={3}")
+  @CsvSource({
+    "false, false, false, false, JSON_ARRAY, INLINE",
+    "false, false, true,  true,  JSON_ARRAY, INLINE",
+    "false, true,  false, true,  JSON_ARRAY, INLINE",
+    "false, true,  true,  false, JSON_ARRAY, INLINE",
+    "true,  true,  false, false, ARROW_STREAM, EXTERNAL_LINKS",
+    "true,  true,  true,  true,  ARROW_STREAM, INLINE_OR_EXTERNAL_LINKS",
+    "true,  false, true,  false, ARROW_STREAM, INLINE_OR_EXTERNAL_LINKS",
+    "true,  false, false, true,  JSON_ARRAY, INLINE"
+  })
+  public void testSeaRequestConstructionGrid(
+      boolean arrowEnabled,
+      boolean cloudFetchEnabled,
+      boolean boundedSeaEnabled,
+      boolean hybridResultsEnabled,
+      Format expectedFormat,
+      Disposition expectedDisposition)
+      throws Exception {
     setupClientMocks(true, false);
-    // Default JDBC_URL has arrow enabled and cloud fetch enabled
     IDatabricksConnectionContext connectionContext =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+        spy(
+            DatabricksConnectionContext.parse(
+                JDBC_URL
+                    + "EnableQueryResultDownload="
+                    + (cloudFetchEnabled ? "1" : "0")
+                    + ";UseBoundedSeaApi="
+                    + (boundedSeaEnabled ? "1" : "0")
+                    + ";EnableSQLExecHybridResults="
+                    + (hybridResultsEnabled ? "1" : "0"),
+                new Properties()));
+    doReturn(arrowEnabled).when(connectionContext).shouldEnableArrow();
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     DatabricksConnection connection =
         new DatabricksConnection(connectionContext, databricksSdkClient);
     connection.open();
-    DatabricksStatement statement = new DatabricksStatement(connection);
-    statement.setMaxRows(100);
 
     databricksSdkClient.executeStatement(
         STATEMENT,
@@ -600,31 +626,18 @@ public class DatabricksSdkClientTest {
         sqlParams,
         StatementType.QUERY,
         connection.getSession(),
-        statement,
+        new DatabricksStatement(connection),
         null);
 
     ArgumentCaptor<ExecuteStatementRequest> captor =
         ArgumentCaptor.forClass(ExecuteStatementRequest.class);
     verify(apiClient, atLeastOnce()).serialize(captor.capture());
-    ExecuteStatementRequest captured = captor.getValue();
-    // With arrow + cloud fetch enabled, disposition should NOT be INLINE
-    assertNotEquals(Disposition.INLINE, captured.getDisposition());
-    assertEquals(Format.ARROW_STREAM, captured.getFormat());
-  }
-
-  @Test
-  public void testDisposition_cloudFetchDisabled_usesInline() throws Exception {
-    // Verify that when cloud fetch is disabled, the condition for external links is false
-    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
-    when(mockContext.shouldEnableArrow()).thenReturn(true);
-    when(mockContext.isCloudFetchEnabled()).thenReturn(false);
-
-    // arrow=true but cloudFetch=false → should use inline (not external links)
-    assertTrue(mockContext.shouldEnableArrow());
-    assertFalse(mockContext.isCloudFetchEnabled());
-    assertFalse(
-        mockContext.shouldEnableArrow() && mockContext.isCloudFetchEnabled(),
-        "With cloud fetch disabled, disposition should resolve to INLINE");
+    ExecuteStatementRequest request = captor.getValue();
+    assertEquals(expectedDisposition, request.getDisposition());
+    assertEquals(expectedFormat, request.getFormat());
+    if (expectedFormat == Format.JSON_ARRAY) {
+      assertEquals(CompressionCodec.NONE, request.getResultCompression());
+    }
   }
 
   @Test
