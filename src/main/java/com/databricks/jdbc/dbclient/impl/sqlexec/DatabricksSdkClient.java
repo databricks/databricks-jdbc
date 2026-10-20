@@ -702,16 +702,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
     return clientConfigurator.getDatabricksConfig();
   }
 
-  /**
-   * Determines whether cloud fetch (Arrow + external links) should be used for results. Based
-   * solely on connection parameters — not on statement type. Arrow must be enabled for cloud fetch,
-   * and the cloud fetch connection parameter (EnableQueryResultDownload) must also be enabled.
-   */
-  private boolean useCloudFetchForResult() {
-    return this.connectionContext.shouldEnableArrow()
-        && this.connectionContext.isCloudFetchEnabled();
-  }
-
   private Map<String, String> getHeaders(String method) {
     return getHeaders(method, null, false, null);
   }
@@ -788,26 +778,18 @@ public class DatabricksSdkClient implements IDatabricksClient {
       IDatabricksStatementInternal parentStatement,
       boolean executeAsync)
       throws SQLException {
-    boolean cloudFetch = useCloudFetchForResult();
-    // Bounded SEA inline Arrow: use ARROW_STREAM + INLINE_OR_EXTERNAL_LINKS even without CloudFetch
+    boolean arrowEnabled = connectionContext.shouldEnableArrow();
+    boolean cloudFetch = arrowEnabled && connectionContext.isCloudFetchEnabled();
     boolean boundedSeaInline = connectionContext.isBoundedSeaApiEnabled() && !cloudFetch;
-    Format format = (cloudFetch || boundedSeaInline) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
-    Disposition defaultDisposition =
-        connectionContext.isSqlExecHybridResultsEnabled()
+    Format format = arrowEnabled ? Format.ARROW_STREAM : Format.JSON_ARRAY;
+    Disposition disposition =
+        (cloudFetch || boundedSeaInline)
             ? Disposition.INLINE_OR_EXTERNAL_LINKS
-            : Disposition.EXTERNAL_LINKS;
-    Disposition disposition;
-    if (cloudFetch) {
-      disposition = defaultDisposition;
-    } else if (boundedSeaInline) {
-      disposition = Disposition.INLINE_OR_EXTERNAL_LINKS;
-    } else {
-      disposition = Disposition.INLINE;
-    }
+            : Disposition.INLINE;
     long maxRows =
         (parentStatement == null) ? DEFAULT_RESULT_ROW_LIMIT : parentStatement.getMaxRows();
     CompressionCodec compressionCodec = session.getCompressionCodec();
-    if (disposition.equals(Disposition.INLINE) && !boundedSeaInline) {
+    if (format.equals(Format.JSON_ARRAY)) {
       LOGGER.debug("Results are inline JSON, skipping compression.");
       compressionCodec = CompressionCodec.NONE;
     }

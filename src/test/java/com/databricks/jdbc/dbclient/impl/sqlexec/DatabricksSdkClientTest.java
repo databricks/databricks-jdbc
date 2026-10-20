@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
@@ -613,18 +614,62 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testDisposition_cloudFetchDisabled_usesInline() throws Exception {
-    // Verify that when cloud fetch is disabled, the condition for external links is false
-    IDatabricksConnectionContext mockContext = mock(IDatabricksConnectionContext.class);
-    when(mockContext.shouldEnableArrow()).thenReturn(true);
-    when(mockContext.isCloudFetchEnabled()).thenReturn(false);
+  public void testDisposition_cloudFetchDisabled_usesBoundedInlineArrow() throws Exception {
+    setupClientMocks(true, false);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            JDBC_URL + "EnableQueryResultDownload=0;UseBoundedSeaApi=1", new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
 
-    // arrow=true but cloudFetch=false → should use inline (not external links)
-    assertTrue(mockContext.shouldEnableArrow());
-    assertFalse(mockContext.isCloudFetchEnabled());
-    assertFalse(
-        mockContext.shouldEnableArrow() && mockContext.isCloudFetchEnabled(),
-        "With cloud fetch disabled, disposition should resolve to INLINE");
+    databricksSdkClient.executeStatement(
+        STATEMENT,
+        warehouse,
+        sqlParams,
+        StatementType.QUERY,
+        connection.getSession(),
+        new DatabricksStatement(connection),
+        null);
+
+    ArgumentCaptor<ExecuteStatementRequest> captor =
+        ArgumentCaptor.forClass(ExecuteStatementRequest.class);
+    verify(apiClient, atLeastOnce()).serialize(captor.capture());
+    assertEquals(Disposition.INLINE_OR_EXTERNAL_LINKS, captor.getValue().getDisposition());
+    assertEquals(Format.ARROW_STREAM, captor.getValue().getFormat());
+  }
+
+  @Test
+  public void testDisposition_arrowDisabled_usesBoundedInlineJson() throws Exception {
+    setupClientMocks(true, false);
+    IDatabricksConnectionContext connectionContext =
+        spy(
+            DatabricksConnectionContext.parse(
+                JDBC_URL + "EnableQueryResultDownload=0;UseBoundedSeaApi=1", new Properties()));
+    doReturn(false).when(connectionContext).shouldEnableArrow();
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    DatabricksConnection connection =
+        new DatabricksConnection(connectionContext, databricksSdkClient);
+    connection.open();
+
+    databricksSdkClient.executeStatement(
+        STATEMENT,
+        warehouse,
+        sqlParams,
+        StatementType.QUERY,
+        connection.getSession(),
+        new DatabricksStatement(connection),
+        null);
+
+    ArgumentCaptor<ExecuteStatementRequest> captor =
+        ArgumentCaptor.forClass(ExecuteStatementRequest.class);
+    verify(apiClient, atLeastOnce()).serialize(captor.capture());
+    assertEquals(Disposition.INLINE_OR_EXTERNAL_LINKS, captor.getValue().getDisposition());
+    assertEquals(Format.JSON_ARRAY, captor.getValue().getFormat());
+    assertEquals(CompressionCodec.NONE, captor.getValue().getResultCompression());
   }
 
   @Test
