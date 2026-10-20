@@ -35,6 +35,7 @@ import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.collect.ImmutableList;
 import java.io.*;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.*;
 import org.apache.arrow.memory.RootAllocator;
@@ -988,6 +989,55 @@ public class ArrowStreamResultTest {
     assertNotNull(result);
     assertTrue(result.hasNext(), "Bounded-SEA result should have data");
     assertTrue(result.next());
+    assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testBoundedSeaApiUsesSeaInlineProviderForHybridInlineResult() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "1");
+    props.setProperty("EnableQueryResultDownload", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    Schema schema = createTestSchema();
+    Object[][] testData = createTestData(schema, (int) rowsInChunk);
+    byte[] attachment;
+    try (RootAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
+      File arrowFile = createTestArrowFile("HybridInlineTestFile", schema, testData, allocator);
+      attachment = Files.readAllBytes(arrowFile.toPath());
+      Files.deleteIfExists(arrowFile.toPath());
+    }
+
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(2L)
+            .setTotalRowCount(rowsInChunk * 2)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    ResultData initialResultData = new ResultData();
+    initialResultData.setAttachment(attachment);
+    initialResultData.setRowCount(rowsInChunk);
+    initialResultData.setRowOffset(0L);
+    initialResultData.setNextChunkIndex(7L);
+    ResultData nextResultData = new ResultData();
+    nextResultData.setAttachment(attachment);
+    nextResultData.setRowCount(rowsInChunk);
+    nextResultData.setRowOffset(rowsInChunk);
+    when(mockedSdkClient.getResultChunksData(STATEMENT_ID, 7L, rowsInChunk))
+        .thenReturn(nextResultData);
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, initialResultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    assertInstanceOf(SeaInlineArrowChunkProvider.class, result.getChunkProvider());
+    long rowCount = 0;
+    while (result.next()) {
+      rowCount++;
+    }
+    assertEquals(rowsInChunk * 2, rowCount);
     assertDoesNotThrow(result::close);
   }
 }
