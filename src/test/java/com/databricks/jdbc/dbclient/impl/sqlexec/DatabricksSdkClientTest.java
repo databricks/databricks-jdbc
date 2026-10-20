@@ -642,7 +642,7 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testDisposition_arrowDisabled_usesBoundedInlineJson() throws Exception {
+  public void testDisposition_arrowDisabled_usesLegacyInlineJson() throws Exception {
     setupClientMocks(true, false);
     IDatabricksConnectionContext connectionContext =
         spy(
@@ -667,7 +667,7 @@ public class DatabricksSdkClientTest {
     ArgumentCaptor<ExecuteStatementRequest> captor =
         ArgumentCaptor.forClass(ExecuteStatementRequest.class);
     verify(apiClient, atLeastOnce()).serialize(captor.capture());
-    assertEquals(Disposition.INLINE_OR_EXTERNAL_LINKS, captor.getValue().getDisposition());
+    assertEquals(Disposition.INLINE, captor.getValue().getDisposition());
     assertEquals(Format.JSON_ARRAY, captor.getValue().getFormat());
     assertEquals(CompressionCodec.NONE, captor.getValue().getResultCompression());
   }

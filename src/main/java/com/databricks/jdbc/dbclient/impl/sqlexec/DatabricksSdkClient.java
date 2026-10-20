@@ -780,8 +780,9 @@ public class DatabricksSdkClient implements IDatabricksClient {
       throws SQLException {
     boolean arrowEnabled = connectionContext.shouldEnableArrow();
     boolean cloudFetch = arrowEnabled && connectionContext.isCloudFetchEnabled();
-    boolean boundedSeaInline = connectionContext.isBoundedSeaApiEnabled() && !cloudFetch;
-    Format format = arrowEnabled ? Format.ARROW_STREAM : Format.JSON_ARRAY;
+    boolean boundedSeaInline =
+        arrowEnabled && connectionContext.isBoundedSeaApiEnabled() && !cloudFetch;
+    Format format = (cloudFetch || boundedSeaInline) ? Format.ARROW_STREAM : Format.JSON_ARRAY;
     Disposition disposition =
         (cloudFetch || boundedSeaInline)
             ? Disposition.INLINE_OR_EXTERNAL_LINKS
