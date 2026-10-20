@@ -145,8 +145,6 @@ class SeaInlineArrowChunkProvider implements ChunkProvider {
   public boolean next() throws DatabricksSQLException {
     if (closed) return false;
 
-    checkPrefetchError();
-
     // Release previous chunk
     if (currentChunkIndex >= 0) {
       releaseChunk(currentChunkIndex);
