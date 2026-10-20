@@ -433,35 +433,37 @@ public class ArrowStreamResultTest {
     File file = new File(fileName);
     int cols = testData.length;
     int rows = testData[0].length;
-    VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, allocator);
-    ArrowWriter writer =
-        new ArrowStreamWriter(
-            vectorSchemaRoot,
-            new DictionaryProvider.MapDictionaryProvider(),
-            new FileOutputStream(file));
-    writer.start();
-    for (int j = 0; j < rows; j += rowsInRecordBatch) {
-      int rowsToAddToRecordBatch = min(rowsInRecordBatch, rows - j);
-      vectorSchemaRoot.setRowCount(rowsToAddToRecordBatch);
-      for (int i = 0; i < cols; i++) {
-        Types.MinorType type = Types.getMinorTypeForArrowType(schema.getFields().get(i).getType());
-        FieldVector fieldVector = vectorSchemaRoot.getFieldVectors().get(i);
-        if (type.equals(Types.MinorType.INT)) {
-          IntVector intVector = (IntVector) fieldVector;
-          intVector.setInitialCapacity(rowsToAddToRecordBatch);
-          for (int k = 0; k < rowsToAddToRecordBatch; k++) {
-            intVector.set(k, 1, (int) testData[i][j + k]);
+    try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, allocator);
+        ArrowWriter writer =
+            new ArrowStreamWriter(
+                vectorSchemaRoot,
+                new DictionaryProvider.MapDictionaryProvider(),
+                new FileOutputStream(file))) {
+      writer.start();
+      for (int j = 0; j < rows; j += rowsInRecordBatch) {
+        int rowsToAddToRecordBatch = min(rowsInRecordBatch, rows - j);
+        vectorSchemaRoot.setRowCount(rowsToAddToRecordBatch);
+        for (int i = 0; i < cols; i++) {
+          Types.MinorType type =
+              Types.getMinorTypeForArrowType(schema.getFields().get(i).getType());
+          FieldVector fieldVector = vectorSchemaRoot.getFieldVectors().get(i);
+          if (type.equals(Types.MinorType.INT)) {
+            IntVector intVector = (IntVector) fieldVector;
+            intVector.setInitialCapacity(rowsToAddToRecordBatch);
+            for (int k = 0; k < rowsToAddToRecordBatch; k++) {
+              intVector.set(k, 1, (int) testData[i][j + k]);
+            }
+          } else if (type.equals(Types.MinorType.FLOAT8)) {
+            Float8Vector float8Vector = (Float8Vector) fieldVector;
+            float8Vector.setInitialCapacity(rowsToAddToRecordBatch);
+            for (int currentRow = 0; currentRow < rowsToAddToRecordBatch; currentRow++) {
+              float8Vector.set(currentRow, 1, (double) testData[i][j + currentRow]);
+            }
           }
-        } else if (type.equals(Types.MinorType.FLOAT8)) {
-          Float8Vector float8Vector = (Float8Vector) fieldVector;
-          float8Vector.setInitialCapacity(rowsToAddToRecordBatch);
-          for (int currentRow = 0; currentRow < rowsToAddToRecordBatch; currentRow++) {
-            float8Vector.set(currentRow, 1, (double) testData[i][j + currentRow]);
-          }
+          fieldVector.setValueCount(rowsToAddToRecordBatch);
         }
-        fieldVector.setValueCount(rowsToAddToRecordBatch);
+        writer.writeBatch();
       }
-      writer.writeBatch();
     }
     return file;
   }
