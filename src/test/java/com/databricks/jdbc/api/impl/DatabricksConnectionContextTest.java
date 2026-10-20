@@ -1094,20 +1094,42 @@ class DatabricksConnectionContextTest {
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
   }
 
-  @Test
-  public void testClientTypeWhenCloudFetchDisabledAndFeatureFlagEnabled()
+  @ParameterizedTest(
+      name = "arrow={0}, cloudFetch={1}, boundedSea={2}, useQueryForMetadata0={3}, serverSea={4}")
+  @CsvSource({
+    "true,  true,  true,  false, true,  SEA",
+    "true,  true,  false, false, false, THRIFT",
+    "true,  false, true,  false, true,  SEA",
+    "true,  false, true,  false, false, THRIFT",
+    "true,  false, false, false, true,  THRIFT",
+    "false, false, true,  false, true,  THRIFT",
+    "true,  false, true,  true,  true,  THRIFT"
+  })
+  public void testAutomaticClientSelectionGrid(
+      boolean arrowEnabled,
+      boolean cloudFetchEnabled,
+      boolean boundedSeaEnabled,
+      boolean useQueryForMetadataDisabled,
+      boolean serverSeaEnabled,
+      DatabricksClientType expectedClientType)
       throws DatabricksSQLException {
-    String urlWithCloudFetchDisabled =
+    String url =
         "jdbc:databricks://sample-host.cloud.databricks.com:9999/default;AuthMech=3;"
-            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableQueryResultDownload=0";
+            + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableQueryResultDownload="
+            + (cloudFetchEnabled ? "1" : "0")
+            + ";UseBoundedSeaApi="
+            + (boundedSeaEnabled ? "1" : "0")
+            + (useQueryForMetadataDisabled ? ";UseQueryForMetadata=0" : "");
     DatabricksConnectionContext connectionContext =
-        (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(urlWithCloudFetchDisabled, properties);
+        spy((DatabricksConnectionContext) DatabricksConnectionContext.parse(url, properties));
+    doReturn(arrowEnabled).when(connectionContext).shouldEnableArrow();
     Map<String, String> flags = new HashMap<>();
-    flags.put("databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
+    flags.put(
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc",
+        String.valueOf(serverSeaEnabled));
+    setFeatureFlagsContext(connectionContext, flags);
 
-    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+    assertEquals(expectedClientType, connectionContext.getClientTypeFromContext());
   }
 
   @Test
