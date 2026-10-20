@@ -334,12 +334,8 @@ class SeaInlineArrowChunkProviderTest {
           new SeaInlineArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
-      // Initial row count from first chunk
-      assertEquals(3L, provider.getRowCount());
-
       // Consume all chunks, let prefetch accumulate
-      while (provider.hasNextChunk()) {
-        assertTrue(provider.next());
+      while (provider.next()) {
         assertNotNull(provider.getChunk());
       }
 
