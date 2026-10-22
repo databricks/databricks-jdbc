@@ -74,9 +74,7 @@ public class ArrowStreamResult implements IExecutionResult {
     } else {
       boolean isInlineArrow = resultData.getAttachment() != null;
       IDatabricksConnectionContext connectionContext = session.getConnectionContext();
-      if (isInlineArrow
-          && connectionContext.isBoundedSeaApiEnabled()
-          && !connectionContext.isCloudFetchEnabled()) {
+      if (isInlineArrow && connectionContext.isBoundedSeaApiEnabled()) {
         LOGGER.debug(
             "Creating ArrowStreamResult with SEA inline Arrow for statementId: {}",
             statementId.toSQLExecStatementId());
@@ -308,12 +306,14 @@ public class ArrowStreamResult implements IExecutionResult {
       return false;
     }
 
-    currentRowIndex++;
     if (chunkIterator == null || !chunkIterator.hasNextRow()) {
-      chunkProvider.next();
+      if (!chunkProvider.next()) {
+        return false;
+      }
       chunkIterator = chunkProvider.getChunk().getChunkIterator();
     }
 
+    currentRowIndex++;
     return chunkIterator.nextRow();
   }
 
