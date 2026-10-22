@@ -12,11 +12,13 @@ import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.Format;
 import java.io.ByteArrayOutputStream;
 import java.sql.SQLException;
@@ -229,6 +231,27 @@ public class ExecutionResultFactoryTest {
     assertInstanceOf(ArrowStreamResult.class, result);
     assertFalse(result.next());
     result.close();
+  }
+
+  @Test
+  public void testGetResultSet_thriftUrlBasedSetWithRowsButNoResultLinks_throws()
+      throws SQLException {
+    // Rows that are neither linked nor inline Arrow cannot be read, so they must not be dropped
+    TFetchResultsResp realFetchResp = createColumnarFetchResponse();
+    realFetchResp.getResultSetMetadata().setResultFormat(TSparkRowSetType.URL_BASED_SET);
+
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getCloudFetchThreadPoolSize()).thenReturn(16);
+    lenient().when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+    lenient().when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> ExecutionResultFactory.getResultSet(realFetchResp, session, parentStatement));
+
+    assertEquals(DatabricksDriverErrorCode.RESULT_SET_ERROR.name(), exception.getSQLState());
+    assertEquals(1004, DatabricksDriverErrorCode.RESULT_SET_ERROR.getCode());
   }
 
   // ==================== Helper Methods ====================
