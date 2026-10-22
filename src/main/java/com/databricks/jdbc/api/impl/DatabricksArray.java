@@ -1,18 +1,25 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksDriverException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.core.ColumnMetadata;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.service.sql.StatementState;
 import java.math.BigDecimal;
 import java.sql.Array;
 import java.sql.Date;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -23,6 +30,7 @@ public class DatabricksArray implements Array {
 
   private final Object[] elements;
   private final String typeName;
+  private final String elementType;
 
   /**
    * Constructs a DatabricksArray with the specified elements and metadata.
@@ -35,6 +43,7 @@ public class DatabricksArray implements Array {
     String elementType = MetadataParser.parseArrayMetadata(metadata);
     this.elements = convertElements(elements, elementType);
     this.typeName = metadata;
+    this.elementType = elementType;
   }
 
   /**
@@ -200,30 +209,86 @@ public class DatabricksArray implements Array {
 
   @Override
   public java.sql.ResultSet getResultSet() throws SQLException {
-    LOGGER.error("getResultSet() not implemented");
-    throw new DatabricksSQLFeatureNotSupportedException("getResultSet() not implemented");
+    LOGGER.debug("Getting result set for array");
+    return getResultSet(1, this.elements.length);
   }
 
   @Override
   public java.sql.ResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
-    LOGGER.error("getResultSet(Map<String, Class<?>> map) not implemented");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "getResultSet(Map<String, Class<?>> map) not implemented");
+    LOGGER.debug("Getting result set with type map for array");
+    return getResultSet();
   }
 
   @Override
   public java.sql.ResultSet getResultSet(long index, int count) throws SQLException {
-    LOGGER.error("getResultSet(long index, int count) not implemented");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "getResultSet(long index, int count) not implemented");
+    LOGGER.debug("Getting result set from index {} with count {}", index, count);
+    return buildResultSet(index, count);
   }
 
   @Override
   public java.sql.ResultSet getResultSet(long index, int count, Map<String, Class<?>> map)
       throws SQLException {
-    LOGGER.error("getResultSet(long index, int count, Map<String, Class<?>> map) not implemented");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "getResultSet(long index, int count, Map<String, Class<?>> map) not implemented");
+    LOGGER.debug("Getting result set with type map from index {} with count {}", index, count);
+    return getResultSet(index, count);
+  }
+
+  /**
+   * Builds a {@link java.sql.ResultSet} containing one row for each requested array element. Per
+   * the JDBC {@link Array#getResultSet()} contract, column 1 holds the 1-based index of the element
+   * within the array and column 2 holds the element value.
+   *
+   * @param index the 1-based index of the first element to return
+   * @param count the number of elements to return
+   * @return a result set over the requested window of elements
+   */
+  private java.sql.ResultSet buildResultSet(long index, int count) throws SQLException {
+    if (index < 1) {
+      throw new DatabricksDriverException(
+          "Array index must be >= 1 but was " + index,
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
+    }
+    int start = (int) index - 1;
+    int end = Math.min(this.elements.length, start + Math.max(count, 0));
+
+    int valueType;
+    try {
+      valueType =
+          DatabricksTypeUtil.getColumnType(
+              DatabricksTypeUtil.getColumnInfoType(this.elementType.toUpperCase(Locale.ROOT)));
+    } catch (RuntimeException e) {
+      valueType = Types.OTHER;
+    }
+
+    List<ColumnMetadata> columnMetadataList = new ArrayList<>();
+    columnMetadataList.add(
+        new ColumnMetadata.Builder()
+            .name("INDEX")
+            .typeText(DatabricksTypeUtil.BIGINT)
+            .typeInt(Types.BIGINT)
+            .nullable(ResultSetMetaData.columnNoNulls)
+            .build());
+    columnMetadataList.add(
+        new ColumnMetadata.Builder()
+            .name("VALUE")
+            .typeText(this.elementType)
+            .typeInt(valueType)
+            .nullable(ResultSetMetaData.columnNullable)
+            .build());
+
+    List<List<Object>> rows = new ArrayList<>();
+    for (int i = start; i < end; i++) {
+      List<Object> row = new ArrayList<>();
+      row.add((long) (i + 1));
+      row.add(this.elements[i]);
+      rows.add(row);
+    }
+
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        new StatementId("array-result-set"),
+        columnMetadataList,
+        rows,
+        StatementType.QUERY);
   }
 
   @Override

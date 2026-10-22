@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.exception.DatabricksDriverException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
@@ -567,14 +566,14 @@ public class DatabricksArrayTest {
   }
 
   /**
-   * Test the getResultSet() methods. These methods are not implemented and should throw
-   * DatabricksSQLFeatureNotSupportedException.
+   * Test the getResultSet() methods. Per the JDBC {@link java.sql.Array#getResultSet()} contract,
+   * these return a ResultSet with one row per element, where column 1 is the 1-based element index
+   * and column 2 is the element value.
    */
   @Test
-  public void getResultSet_ShouldThrowDatabricksSQLFeatureNotSupportedException()
-      throws SQLException {
+  public void getResultSet_ShouldReturnResultSetOfElements() throws SQLException {
     String metadata = "ARRAY<STRING>";
-    List<Object> originalList = Arrays.asList("apple", "banana");
+    List<Object> originalList = Arrays.asList("apple", "banana", "cherry");
 
     // Mock MetadataParser.parseArrayMetadata for "ARRAY<STRING>"
     metadataParserMock
@@ -584,56 +583,50 @@ public class DatabricksArrayTest {
     DatabricksArray databricksArray = new DatabricksArray(originalList, metadata);
 
     // Test getResultSet()
-    DatabricksSQLFeatureNotSupportedException exception1 =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> {
-              databricksArray.getResultSet();
-            },
-            "getResultSet() should throw DatabricksSQLFeatureNotSupportedException");
-    assertEquals(
-        "getResultSet() not implemented",
-        exception1.getMessage(),
-        "Exception message should match the implementation");
+    try (java.sql.ResultSet rs = databricksArray.getResultSet()) {
+      assertNotNull(rs);
+      String[] expected = {"apple", "banana", "cherry"};
+      int row = 0;
+      while (rs.next()) {
+        row++;
+        assertEquals(row, rs.getLong(1));
+        assertEquals(expected[row - 1], rs.getString(2));
+      }
+      assertEquals(3, row);
+    }
 
     // Test getResultSet(Map<String, Class<?>> map)
-    DatabricksSQLFeatureNotSupportedException exception2 =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> {
-              databricksArray.getResultSet(new LinkedHashMap<>());
-            },
-            "getResultSet(Map) should throw DatabricksSQLFeatureNotSupportedException");
-    assertEquals(
-        "getResultSet(Map<String, Class<?>> map) not implemented",
-        exception2.getMessage(),
-        "Exception message should match the implementation");
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(new LinkedHashMap<>())) {
+      assertNotNull(rs);
+      int row = 0;
+      while (rs.next()) {
+        row++;
+      }
+      assertEquals(3, row);
+    }
 
-    // Test getResultSet(long index, int count)
-    DatabricksSQLFeatureNotSupportedException exception3 =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> {
-              databricksArray.getResultSet(1, 2);
-            },
-            "getResultSet(long, int) should throw DatabricksSQLFeatureNotSupportedException");
-    assertEquals(
-        "getResultSet(long index, int count) not implemented",
-        exception3.getMessage(),
-        "Exception message should match the implementation");
+    // Test getResultSet(long index, int count) windowed variant
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(2, 2)) {
+      assertNotNull(rs);
+      long[] expectedIndex = {2, 3};
+      String[] expectedValue = {"banana", "cherry"};
+      int row = 0;
+      while (rs.next()) {
+        assertEquals(expectedIndex[row], rs.getLong(1));
+        assertEquals(expectedValue[row], rs.getString(2));
+        row++;
+      }
+      assertEquals(2, row);
+    }
 
     // Test getResultSet(long index, int count, Map<String, Class<?>> map)
-    DatabricksSQLFeatureNotSupportedException exception4 =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> {
-              databricksArray.getResultSet(1, 2, new LinkedHashMap<>());
-            },
-            "getResultSet(long, int, Map) should throw DatabricksSQLFeatureNotSupportedException");
-    assertEquals(
-        "getResultSet(long index, int count, Map<String, Class<?>> map) not implemented",
-        exception4.getMessage(),
-        "Exception message should match the implementation");
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(1, 1, new LinkedHashMap<>())) {
+      assertNotNull(rs);
+      assertTrue(rs.next());
+      assertEquals(1, rs.getLong(1));
+      assertEquals("apple", rs.getString(2));
+      assertFalse(rs.next());
+    }
   }
 
   /** Test the constructor with mixed null and non-null elements. */
