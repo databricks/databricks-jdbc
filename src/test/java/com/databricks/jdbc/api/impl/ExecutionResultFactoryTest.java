@@ -187,6 +187,50 @@ public class ExecutionResultFactoryTest {
     result.close(); // Clean up prefetch thread
   }
 
+  @Test
+  public void testGetResultSet_thriftUrlBasedSetWithInlineArrowBatches() throws SQLException {
+    // Server declares URL_BASED_SET but inlines a small result as Arrow batches, with no links
+    TFetchResultsResp realFetchResp = createArrowFetchResponse();
+    realFetchResp.getResultSetMetadata().setResultFormat(TSparkRowSetType.URL_BASED_SET);
+
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isInlineStreamingEnabled()).thenReturn(true);
+    when(connectionContext.getThriftMaxBatchesInMemory()).thenReturn(3);
+    when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
+    // Used only if the result is wrongly routed to the CloudFetch path
+    lenient().when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    lenient().when(connectionContext.getCloudFetchThreadPoolSize()).thenReturn(16);
+    lenient().when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(realFetchResp, session, parentStatement);
+
+    assertInstanceOf(StreamingInlineArrowResult.class, result);
+    assertTrue(result.next());
+    assertEquals(42, result.getObject(0));
+    assertFalse(result.next());
+    result.close();
+  }
+
+  @Test
+  public void testGetResultSet_thriftUrlBasedSetWithoutResultLinks() throws SQLException {
+    TFetchResultsResp realFetchResp = createArrowFetchResponse();
+    realFetchResp.getResultSetMetadata().setResultFormat(TSparkRowSetType.URL_BASED_SET);
+    realFetchResp.setResults(new TRowSet());
+
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getCloudFetchThreadPoolSize()).thenReturn(16);
+    lenient().when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+    lenient().when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
+
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(realFetchResp, session, parentStatement);
+
+    assertInstanceOf(ArrowStreamResult.class, result);
+    assertFalse(result.next());
+    result.close();
+  }
+
   // ==================== Helper Methods ====================
 
   /** Creates a valid TFetchResultsResp with columnar data for streaming tests. */

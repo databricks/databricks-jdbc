@@ -293,6 +293,9 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
   private void populateChunkIndexMap(TRowSet resultData, ConcurrentMap<Long, T> chunkIndexMap)
       throws DatabricksSQLException {
     rowCount += DatabricksThriftUtil.getRowCount(resultData);
+    if (resultData.getResultLinks() == null) {
+      return;
+    }
     for (TSparkArrowResultLink resultLink : resultData.getResultLinks()) {
       LOGGER.debug(
           "Chunk information log - Row Offset: {}, Row Count: {}, Expiry Time: {}",
