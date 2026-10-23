@@ -6,6 +6,7 @@ import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksDriverException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.StatementStatus;
@@ -221,15 +222,21 @@ public class DatabricksArray implements Array {
 
   /**
    * Returns a result set with one row for each element in the subarray. Column 1 (INDEX) contains
-   * the 1-based index of the element in the array. Column 2 (VALUE) contains the element.
+   * the 1-based index of the element in the array. Column 2 (VALUE) contains the element. The
+   * subarray stops at the end of the array.
    */
   @Override
   public java.sql.ResultSet getResultSet(long index, int count) throws SQLException {
     LOGGER.debug("Getting result set of subarray from index {} with count {}", index, count);
-    Object[] subArray = (Object[]) getArray(index, count);
+    if (index < 1) {
+      throw new DatabricksSQLException(
+          "Array index must be 1 or more, but was " + index,
+          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
+    }
     List<List<Object>> rows = new ArrayList<>();
-    for (int i = 0; i < subArray.length; i++) {
-      rows.add(Arrays.asList(index + i, subArray[i]));
+    long end = Math.min(elements.length, index - 1 + Math.max(count, 0));
+    for (long i = index - 1; i < end; i++) {
+      rows.add(Arrays.asList(i + 1, elements[(int) i]));
     }
     int elementSqlType = getSqlType(elementType);
     DatabricksResultSetMetaData metaData =

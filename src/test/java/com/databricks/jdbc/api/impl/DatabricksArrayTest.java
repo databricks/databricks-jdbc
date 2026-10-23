@@ -610,6 +610,27 @@ public class DatabricksArrayTest {
     }
   }
 
+  /** Test that getResultSet(index, count) stops at the end of the array. */
+  @Test
+  public void getResultSet_ShouldStopAtEndOfArray() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<INT>"))
+        .thenReturn("INT");
+
+    DatabricksArray databricksArray = new DatabricksArray(Arrays.asList("1", "2"), "ARRAY<INT>");
+
+    try (ResultSet rs = databricksArray.getResultSet(2, 5)) {
+      assertTrue(rs.next());
+      assertEquals(2L, rs.getLong(1));
+      assertEquals(2, rs.getInt(2));
+      assertFalse(rs.next());
+    }
+    try (ResultSet rs = databricksArray.getResultSet(3, 1)) {
+      assertFalse(rs.next());
+    }
+    assertThrows(SQLException.class, () -> databricksArray.getResultSet(0, 1));
+  }
+
   /** Test that getResultSet() returns nested arrays as java.sql.Array values. */
   @Test
   public void getResultSet_ShouldReturnNestedArrays() throws SQLException {
