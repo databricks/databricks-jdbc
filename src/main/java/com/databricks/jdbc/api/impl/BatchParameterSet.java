@@ -3,7 +3,9 @@ package com.databricks.jdbc.api.impl;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -12,16 +14,21 @@ import java.util.stream.Collectors;
 /**
  * Immutable, position-ordered snapshot of one prepared-statement parameter set.
  *
- * <p>This model normalizes JDBC's one-based parameter indexes to zero-based wire ordinals. It does
- * not validate parameter completeness, index continuity, or consistency with other parameter sets;
- * those validations remain the backend's responsibility.
+ * <p>This model preserves JDBC's one-based parameter indexes. Transport adapters are responsible
+ * for converting them to protocol-specific wire ordinals. It does not validate parameter
+ * completeness, index continuity, or consistency with other parameter sets; those validations
+ * remain the backend's responsibility.
  */
 public final class BatchParameterSet {
 
   private final List<ImmutableSqlParameter> parameters;
+  private final Map<Integer, ImmutableSqlParameter> parameterBindings;
 
   private BatchParameterSet(List<ImmutableSqlParameter> parameters) {
     this.parameters = List.copyOf(parameters);
+    Map<Integer, ImmutableSqlParameter> bindings = new LinkedHashMap<>();
+    this.parameters.forEach(parameter -> bindings.put(parameter.cardinal(), parameter));
+    this.parameterBindings = Collections.unmodifiableMap(bindings);
   }
 
   public static BatchParameterSet from(Map<Integer, ImmutableSqlParameter> parameterBindings) {
@@ -38,6 +45,10 @@ public final class BatchParameterSet {
     return parameters;
   }
 
+  public Map<Integer, ImmutableSqlParameter> getParameterBindings() {
+    return parameterBindings;
+  }
+
   public int size() {
     return parameters.size();
   }
@@ -50,7 +61,7 @@ public final class BatchParameterSet {
       Map.Entry<Integer, ImmutableSqlParameter> entry) {
     ImmutableSqlParameter parameter = entry.getValue();
     return ImmutableSqlParameter.builder()
-        .cardinal(entry.getKey() - 1)
+        .cardinal(entry.getKey())
         .type(parameter.type())
         .value(snapshotValue(parameter.value()))
         .build();
