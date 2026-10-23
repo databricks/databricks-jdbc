@@ -76,6 +76,27 @@ For RECORD or DRY modes, you need to set a personal access token:
 DATABRICKS_TOKEN=<personal-access-token> FAKE_SERVICE_TYPE=SQL_GATEWAY FAKE_SERVICE_TEST_MODE=record mvn -Dtest=*IntegrationTests test
 ```
 
+For SQL_EXEC replay, legacy CreateSession recordings are loaded with the warehouse ID moved
+from the expected body into the warehouse session URL. Other matchers and recorded responses
+are preserved; recordings do not simulate a Real-time session response header.
+
+## Warehouse session routing
+
+`WarehouseSessionRoutingTests` uses an OAuth access token, including one minted with M2M,
+to validate synchronous and asynchronous 25 MiB hybrid results, statement reuse, and session
+cleanup. Run it separately against a Real-time warehouse and a DBSQL warehouse. Set
+`DATABRICKS_HOST` (hostname without scheme or port), `DATABRICKS_HTTP_PATH`, and
+`DATABRICKS_TOKEN` in the environment. Set `DATABRICKS_EXPECT_REALTIME_SESSION=true` for
+Real-time and `false` for DBSQL. The test preserves the default `INLINE_OR_EXTERNAL_LINKS`.
+
+```bash
+mvn -pl jdbc-core -Dtest=WarehouseSessionRoutingTests test
+```
+
+Exact URL, serialized body, query parameter, and routing-header assertions belong to
+`DatabricksSdkClientTest.testSessionLifecycleWireContract`, which also covers polling,
+heartbeat, chunk fetches, cancellation, detached IDs, and both routing decisions.
+
 ## Test Class Naming Conventions
 
 - Classes ending with `Test` are unit tests

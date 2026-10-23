@@ -44,17 +44,21 @@ import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
 import com.databricks.sdk.service.sql.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
@@ -215,7 +219,8 @@ public class DatabricksSdkClientTest {
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
     ImmutableSessionInfo sessionInfo =
-        databricksSdkClient.createSession(warehouse, null, null, null);
+        databricksSdkClient.createSession(
+            warehouse, "catalog", "schema", Map.of("timezone", "UTC"));
     assertEquals(sessionInfo.sessionId(), SESSION_ID);
     assertEquals(sessionInfo.computeResource(), warehouse);
     assertEquals(INITIAL_SESSION_VERSION, sessionInfo.sessionVersionId());
@@ -233,21 +238,57 @@ public class DatabricksSdkClientTest {
             argThat(
                 request ->
                     request instanceof CreateSessionRequest
-                        && "FAST".equals(((CreateSessionRequest) request).getExecutionMode())));
+                        && "FAST".equals(((CreateSessionRequest) request).getExecutionMode())
+                        && ((CreateSessionRequest) request).getWarehouseId() == null
+                        && "catalog".equals(((CreateSessionRequest) request).getCatalog())
+                        && "schema".equals(((CreateSessionRequest) request).getSchema())
+                        && Map.of("timezone", "UTC")
+                            .equals(((CreateSessionRequest) request).getSessionConfigs())));
   }
 
-  @Test
-  public void testCreateSessionReadsResponseHeader() throws Exception {
-    AtomicReference<Request> sentRequest = new AtomicReference<>();
+  @ParameterizedTest
+  @MethodSource("sessionRoutes")
+  public void testSessionLifecycleWireContract(String realtimeHeader, boolean boundedSea)
+      throws Exception {
+    boolean realtime = realtimeHeader != null && "true".equalsIgnoreCase(realtimeHeader.trim());
+    List<Request> sent = new ArrayList<>();
     HttpClient transport =
         request -> {
-          sentRequest.set(request);
+          String path = request.getUri().getPath();
+          if (path.equals("/oidc/.well-known/oauth-authorization-server")) {
+            return new Response(request, 200, "OK", Map.of(), "{}");
+          }
+          sent.add(request);
+          if (path.equals(String.format(WAREHOUSE_SESSION_PATH, WAREHOUSE_ID))) {
+            Map<String, List<String>> headers =
+                realtimeHeader == null
+                    ? Map.of()
+                    : Map.of("X-Databricks-RT-Session", List.of(realtimeHeader));
+            return new Response(
+                request,
+                200,
+                "OK",
+                headers,
+                "{\"session_id\":\"session_id\",\"session_version\":{\"version_id\":10}}");
+          }
+          String body;
+          if (Request.POST.equals(request.getMethod()) && !path.endsWith("/cancel")) {
+            body = "{\"statement_id\":\"owned-statement\",\"status\":{\"state\":\"PENDING\"}}";
+          } else if (path.endsWith("/status")) {
+            body = "{\"state\":\"SUCCEEDED\"}";
+          } else if (path.contains("/result/chunks/")) {
+            body = "{\"external_links\":[]}";
+          } else {
+            body =
+                "{\"statement_id\":\"owned-statement\",\"status\":{\"state\":\"SUCCEEDED\","
+                    + "\"session_version\":{\"version_id\":12}}}";
+          }
           return new Response(
               request,
               200,
               "OK",
-              Map.of("X-Databricks-RT-Session", List.of("TrUe")),
-              "{\"session_id\":\"session_id\"}");
+              Map.of("X-Databricks-RT-Session", List.of(Boolean.toString(!realtime))),
+              body);
         };
     DatabricksConfig config =
         new DatabricksConfig()
@@ -256,115 +297,166 @@ public class DatabricksSdkClientTest {
             .setToken("test-token")
             .setHttpClient(transport);
     ThreadLocal<DatabricksSdkClient.CreateSessionResponseCapture> capture = new ThreadLocal<>();
-    ApiClient realApiClient = DatabricksSdkClient.buildApiClient(config, null, capture);
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    ApiClient realApiClient = DatabricksSdkClient.buildApiClient(config, null, true, capture);
+    Properties properties = new Properties();
+    properties.setProperty("UseBoundedSeaApi", boundedSea ? "1" : "0");
+    IDatabricksConnectionContext context = DatabricksConnectionContext.parse(JDBC_URL, properties);
     DatabricksSdkClient client =
         new DatabricksSdkClient(context, statementExecutionService, realApiClient, capture);
-
-    ImmutableSessionInfo sessionInfo = client.createSession(warehouse, null, null, null);
-
-    assertTrue(sessionInfo.realtimeSession());
-    assertEquals(
-        String.format(WAREHOUSE_SESSION_PATH, WAREHOUSE_ID), sentRequest.get().getUri().getPath());
-    assertFalse(sentRequest.get().getHeaders().containsKey("x-databricks-rt-session"));
-  }
-
-  @Test
-  public void testWarehouseUrlsForOwnedStatementLifecycle() throws Exception {
-    ThreadLocal<DatabricksSdkClient.CreateSessionResponseCapture> capture = new ThreadLocal<>();
-    when(apiClient.execute(any(Request.class), any()))
-        .thenAnswer(
-            invocation -> {
-              Class<?> responseType = invocation.getArgument(1, Class.class);
-              if (responseType == CreateSessionResponse.class) {
-                capture.get().realtimeSession = true;
-                return new CreateSessionResponse().setSessionId(SESSION_ID);
-              }
-              if (responseType == ExecuteStatementResponse.class) {
-                return new ExecuteStatementResponse()
-                    .setStatementId("owned-statement")
-                    .setStatus(new StatementStatus().setState(StatementState.PENDING));
-              }
-              if (responseType == GetStatementResponse.class) {
-                return new GetStatementResponse()
-                    .setStatementId("owned-statement")
-                    .setStatus(new StatementStatus().setState(StatementState.SUCCEEDED));
-              }
-              if (responseType == StatementStatus.class) {
-                return new StatementStatus().setState(StatementState.SUCCEEDED);
-              }
-              if (responseType == ResultData.class) {
-                return new ResultData().setExternalLinks(Collections.emptyList());
-              }
-              return null;
-            });
-    IDatabricksConnectionContext context =
-        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
-    DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, apiClient, capture);
     DatabricksConnection connection = new DatabricksConnection(context, client);
     connection.open();
-    assertTrue(connection.getSession().getSessionInfo().realtimeSession());
+    assertEquals(realtime, connection.getSession().getSessionInfo().realtimeSession());
+    assertNull(capture.get());
 
     DatabricksStatement statement = new DatabricksStatement(connection);
+    statement.setMaxRows(100);
+    client.executeStatement(
+        STATEMENT,
+        warehouse,
+        sqlParams,
+        StatementType.QUERY,
+        connection.getSession(),
+        statement,
+        null);
     client.executeStatementAsync(
-        "SELECT 1", warehouse, Collections.emptyMap(), connection.getSession(), statement);
+        STATEMENT, warehouse, sqlParams, connection.getSession(), statement);
     StatementId owned = statement.getStatementId();
     client.checkStatementAlive(owned);
     client.getStatementResult(owned, connection.getSession(), statement);
-    client.getResultChunks(owned, 0, 0);
-    client.getResultChunksData(owned, 0);
+    client.getResultChunks(owned, 0, 64);
+    client.getResultChunksData(owned, 0, 32);
     client.cancelStatement(owned);
     client.closeStatement(owned);
 
     StatementId detached = StatementId.deserialize("detached-statement");
     client.checkStatementAlive(detached);
     client.getStatementResult(detached, connection.getSession(), statement);
-    client.getResultChunks(detached, 0, 0);
-    client.getResultChunksData(detached, 0);
+    client.getResultChunks(detached, 0, 64);
+    client.getResultChunksData(detached, 0, 32);
     client.cancelStatement(detached);
     client.closeStatement(detached);
-    client.deleteSession(connection.getSession().getSessionInfo());
+    assertEquals(realtime, connection.getSession().getSessionInfo().realtimeSession());
+    connection.close();
 
-    ArgumentCaptor<Request> requests = ArgumentCaptor.forClass(Request.class);
-    verify(apiClient, atLeastOnce()).execute(requests.capture(), any());
-    List<Request> sent = requests.getAllValues();
+    assertEquals(
+        17,
+        sent.size(),
+        () ->
+            sent.stream()
+                .map(Request::getRequestLine)
+                .collect(java.util.stream.Collectors.joining("\n")));
+    assertWireRequest(
+        sent.get(0), Request.POST, String.format(WAREHOUSE_SESSION_PATH, WAREHOUSE_ID), Map.of());
+    ObjectMapper mapper = new ObjectMapper();
+    JsonNode createBody = mapper.readTree(sent.get(0).getBodyString());
+    assertEquals("FAST", createBody.path("execution_mode").asText());
+    assertFalse(createBody.has("warehouse_id"));
+    String collectionPath =
+        realtime
+            ? String.format(WAREHOUSE_STATEMENT_PATH, WAREHOUSE_ID, SESSION_ID)
+            : STATEMENT_PATH;
+    JsonNode syncBody = mapper.readTree(sent.get(1).getBodyString());
+    for (int index : List.of(1, 3)) {
+      Request execute = sent.get(index);
+      assertWireRequest(execute, Request.POST, collectionPath, Map.of());
+      JsonNode body = mapper.readTree(execute.getBodyString());
+      assertEquals(!realtime, body.has("warehouse_id"));
+      assertEquals(!realtime, body.has("session_id"));
+      assertFalse(body.has("statement_id"));
+      if (!realtime) {
+        assertEquals(WAREHOUSE_ID, body.path("warehouse_id").asText());
+        assertEquals(SESSION_ID, body.path("session_id").asText());
+      }
+      assertEquals(STATEMENT, body.path("statement").asText());
+      assertEquals("INLINE_OR_EXTERNAL_LINKS", body.path("disposition").asText());
+      assertEquals("ARROW_STREAM", body.path("format").asText());
+      assertEquals(100, body.path("row_limit").asInt());
+      assertEquals(4, body.path("parameters").size());
+      assertEquals(index == 1 ? 10 : 12, body.path("session_version").path("version_id").asInt());
+      if (index == 1) {
+        assertEquals("CONTINUE", body.path("on_wait_timeout").asText());
+      } else {
+        assertEquals("0s", body.path("wait_timeout").asText());
+      }
+    }
     String ownedPath =
-        String.format(
-            WAREHOUSE_STATEMENT_PATH_WITH_ID, WAREHOUSE_ID, SESSION_ID, "owned-statement");
-    assertTrue(
-        sent.stream()
-            .anyMatch(
-                req ->
-                    req.getMethod().equals(Request.POST)
-                        && req.getUrl()
-                            .equals(
-                                String.format(
-                                    WAREHOUSE_STATEMENT_PATH, WAREHOUSE_ID, SESSION_ID))));
-    assertTrue(sent.stream().anyMatch(req -> req.getUrl().equals(ownedPath + "/status")));
-    assertTrue(sent.stream().anyMatch(req -> req.getUrl().equals(ownedPath)));
-    assertTrue(sent.stream().anyMatch(req -> req.getUrl().equals(ownedPath + "/result/chunks/0")));
-    assertTrue(sent.stream().anyMatch(req -> req.getUrl().equals(ownedPath + "/cancel")));
-    assertTrue(
-        sent.stream()
-            .anyMatch(
-                req ->
-                    req.getMethod().equals(Request.DELETE)
-                        && req.getUrl()
-                            .equals(
-                                String.format(
-                                    WAREHOUSE_SESSION_PATH_WITH_ID, WAREHOUSE_ID, SESSION_ID))));
-    assertTrue(
-        sent.stream()
-            .filter(req -> req.getUrl().contains("detached-statement"))
-            .allMatch(req -> req.getUrl().startsWith(STATEMENT_PATH)));
-    assertTrue(
-        sent.stream()
-            .allMatch(
-                req ->
-                    req.getHeaders().keySet().stream()
-                        .noneMatch(name -> name.equalsIgnoreCase("x-databricks-rt-session"))));
+        realtime
+            ? String.format(
+                WAREHOUSE_STATEMENT_PATH_WITH_ID, WAREHOUSE_ID, SESSION_ID, "owned-statement")
+            : String.format(STATEMENT_PATH_WITH_ID, "owned-statement");
+    assertWireRequest(sent.get(2), Request.GET, ownedPath, Map.of());
+    if (realtime) {
+      assertNull(sent.get(2).getBodyString());
+    } else {
+      assertEquals(syncBody, mapper.readTree(sent.get(2).getBodyString()));
+    }
+    for (int start : List.of(4, 10)) {
+      boolean warehouseRoute = start == 4 && realtime;
+      String id = start == 4 ? "owned-statement" : "detached-statement";
+      String path = start == 4 ? ownedPath : String.format(STATEMENT_PATH_WITH_ID, id);
+      Map<String, List<String>> chunkQuery =
+          boundedSea ? Map.of("row_offset", List.of("64")) : Map.of();
+      assertWireRequest(sent.get(start), Request.GET, path + "/status", Map.of());
+      assertNull(sent.get(start).getBodyString());
+      assertWireRequest(sent.get(start + 1), Request.GET, path, Map.of());
+      assertWireRequest(sent.get(start + 2), Request.GET, path + "/result/chunks/0", chunkQuery);
+      Map<String, List<String>> inlineChunkQuery =
+          boundedSea ? Map.of("row_offset", List.of("32")) : Map.of();
+      assertWireRequest(
+          sent.get(start + 3), Request.GET, path + "/result/chunks/0", inlineChunkQuery);
+      assertWireRequest(sent.get(start + 4), Request.POST, path + "/cancel", Map.of());
+      assertWireRequest(sent.get(start + 5), Request.DELETE, path, Map.of());
+      for (int offset = 1; offset <= 5; offset++) {
+        String body = sent.get(start + offset).getBodyString();
+        if (warehouseRoute) {
+          assertNull(body);
+        } else {
+          String expected = offset >= 4 ? "{\"statementId\":\"" + id + "\"}" : "{}";
+          assertEquals(mapper.readTree(expected), mapper.readTree(body));
+        }
+      }
+    }
+    assertWireRequest(
+        sent.get(16),
+        Request.DELETE,
+        realtime
+            ? String.format(WAREHOUSE_SESSION_PATH_WITH_ID, WAREHOUSE_ID, SESSION_ID)
+            : String.format(SESSION_PATH_WITH_ID, SESSION_ID),
+        realtime ? Map.of() : Map.of("warehouse_id", List.of(WAREHOUSE_ID)));
+    assertNull(sent.get(16).getBodyString());
+    for (Request request : sent) {
+      assertTrue(
+          request.getHeaders().keySet().stream()
+              .map(name -> name.toLowerCase(Locale.ROOT))
+              .noneMatch(
+                  Set.of(
+                          "x-databricks-rt-session",
+                          "x-databricks-session-id",
+                          "x-databricks-statement-id",
+                          "x-databricks-reyder-resharding-enabled")
+                      ::contains));
+    }
+  }
+
+  private static Stream<Arguments> sessionRoutes() {
+    return Stream.of(
+        Arguments.of("true", false),
+        Arguments.of("true", true),
+        Arguments.of(" TrUe ", false),
+        Arguments.of("false", true),
+        Arguments.of("unexpected", false),
+        Arguments.of(null, false));
+  }
+
+  private static void assertWireRequest(
+      Request request, String method, String path, Map<String, List<String>> query) {
+    assertEquals(method, request.getMethod());
+    assertEquals(path, request.getUri().getPath());
+    Set<String> expected = new TreeSet<>();
+    query.forEach((name, values) -> values.forEach(value -> expected.add(name + "=" + value)));
+    String rawQuery = request.getUri().getRawQuery();
+    assertEquals(
+        expected, rawQuery == null ? Set.of() : new TreeSet<>(Arrays.asList(rawQuery.split("&"))));
   }
 
   @Test

@@ -90,6 +90,8 @@ public class SessionIdTest {
 
   @Test
   public void testInvalidSessionId() throws Exception {
+    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize("s|warehouse|"));
+    assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize("t|session-id|"));
     final String sessionId = "q|warehouse|test-session-id";
     assertThrows(DatabricksParsingException.class, () -> SessionId.deserialize(sessionId));
 
