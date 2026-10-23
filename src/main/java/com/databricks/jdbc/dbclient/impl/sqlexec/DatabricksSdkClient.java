@@ -77,15 +77,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
   private final IDatabricksConnectionContext connectionContext;
   private final ClientConfigurator clientConfigurator;
   private final String customerUserAgentSegment;
-  private final ThreadLocal<CreateSessionResponseCapture> createSessionCapture;
   private volatile ApiClient apiClient;
 
-  static final class CreateSessionResponseCapture {
-    final String path;
+  private static final class CreateSessionHttpRequest extends Request {
     boolean realtimeSession;
 
-    CreateSessionResponseCapture(String path) {
-      this.path = path;
+    CreateSessionHttpRequest(String path, String body) {
+      super(Request.POST, path, body);
     }
   }
 
@@ -96,7 +94,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
         DatabricksClientConfiguratorManager.getInstance().getConfigurator(connectionContext);
     this.customerUserAgentSegment =
         UserAgentManager.customerUserAgentSegment(connectionContext.getCustomerUserAgent());
-    this.createSessionCapture = new ThreadLocal<>();
     this.apiClient = newApiClient();
   }
 
@@ -106,22 +103,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
       StatementExecutionService statementExecutionService,
       ApiClient apiClient)
       throws DatabricksParsingException, DatabricksHttpException {
-    this(connectionContext, statementExecutionService, apiClient, new ThreadLocal<>());
-  }
-
-  @VisibleForTesting
-  DatabricksSdkClient(
-      IDatabricksConnectionContext connectionContext,
-      StatementExecutionService statementExecutionService,
-      ApiClient apiClient,
-      ThreadLocal<CreateSessionResponseCapture> createSessionCapture)
-      throws DatabricksParsingException, DatabricksHttpException {
     this.connectionContext = connectionContext;
     this.clientConfigurator =
         DatabricksClientConfiguratorManager.getInstance().getConfigurator(connectionContext);
     this.customerUserAgentSegment =
         UserAgentManager.customerUserAgentSegment(connectionContext.getCustomerUserAgent());
-    this.createSessionCapture = createSessionCapture;
     this.apiClient = apiClient;
   }
 
@@ -129,8 +115,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     return buildApiClient(
         clientConfigurator.getDatabricksConfig(),
         customerUserAgentSegment,
-        connectionContext.isSeaResponseCompressionEnabled(),
-        createSessionCapture);
+        connectionContext.isSeaResponseCompressionEnabled());
   }
 
   @VisibleForTesting
@@ -138,15 +123,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
       DatabricksConfig config,
       String customerUserAgentSegment,
       boolean responseCompressionEnabled) {
-    return buildApiClient(config, customerUserAgentSegment, responseCompressionEnabled, null);
-  }
-
-  @VisibleForTesting
-  static ApiClient buildApiClient(
-      DatabricksConfig config,
-      String customerUserAgentSegment,
-      boolean responseCompressionEnabled,
-      ThreadLocal<CreateSessionResponseCapture> createSessionCapture) {
     HttpClient transport = config.getHttpClient();
     HttpClient delegate = transport;
     transport =
@@ -163,13 +139,10 @@ public class DatabricksSdkClient implements IDatabricksClient {
             request.withHeader("Accept-Encoding", "identity");
           }
           Response response = delegate.execute(request);
-          CreateSessionResponseCapture capture =
-              createSessionCapture == null ? null : createSessionCapture.get();
-          if (capture != null
-              && Request.POST.equals(request.getMethod())
-              && capture.path.equals(request.getUri().getPath())) {
+          if (request instanceof CreateSessionHttpRequest) {
             String header = response.getFirstHeader(REALTIME_SESSION_HEADER);
-            capture.realtimeSession = header != null && "true".equalsIgnoreCase(header.trim());
+            ((CreateSessionHttpRequest) request).realtimeSession =
+                header != null && "true".equalsIgnoreCase(header.trim());
           }
           return response;
         };
@@ -218,12 +191,13 @@ public class DatabricksSdkClient implements IDatabricksClient {
     CreateSessionResponse createSessionResponse;
     String createPath =
         String.format(WAREHOUSE_SESSION_PATH, ((Warehouse) warehouse).getWarehouseId());
-    CreateSessionResponseCapture capture = new CreateSessionResponseCapture(createPath);
-    createSessionCapture.set(capture);
+    boolean realtimeSession;
     try {
-      Request req = new Request(Request.POST, createPath, apiClient.serialize(request));
+      CreateSessionHttpRequest req =
+          new CreateSessionHttpRequest(createPath, apiClient.serialize(request));
       req.withHeaders(getHeaders("createSession"));
       createSessionResponse = apiClient.execute(req, CreateSessionResponse.class);
+      realtimeSession = req.realtimeSession;
     } catch (DatabricksError e) {
       if (e.getStatusCode() == TEMPORARY_REDIRECT_STATUS_CODE) {
         throw new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION);
@@ -245,8 +219,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
       String errorMessage = "Error while processing the request via the sdk client";
       LOGGER.error(errorMessage, e);
       throw new DatabricksSQLException(errorMessage, e, DatabricksDriverErrorCode.SDK_CLIENT_ERROR);
-    } finally {
-      createSessionCapture.remove();
     }
     String sessionId = createSessionResponse.getSessionId();
     DatabricksThreadContextHolder.setSessionId(sessionId);
@@ -254,7 +226,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         ImmutableSessionInfo.builder()
             .computeResource(warehouse)
             .sessionId(sessionId)
-            .realtimeSession(capture.realtimeSession);
+            .realtimeSession(realtimeSession);
     SessionVersion initialVersion = createSessionResponse.getSessionVersion();
     if (initialVersion != null && initialVersion.getVersionId() != null) {
       sessionInfo.sessionVersionId(initialVersion.getVersionId());

@@ -296,17 +296,15 @@ public class DatabricksSdkClientTest {
             .setAuthType("pat")
             .setToken("test-token")
             .setHttpClient(transport);
-    ThreadLocal<DatabricksSdkClient.CreateSessionResponseCapture> capture = new ThreadLocal<>();
-    ApiClient realApiClient = DatabricksSdkClient.buildApiClient(config, null, true, capture);
+    ApiClient realApiClient = DatabricksSdkClient.buildApiClient(config, null, true);
     Properties properties = new Properties();
     properties.setProperty("UseBoundedSeaApi", boundedSea ? "1" : "0");
     IDatabricksConnectionContext context = DatabricksConnectionContext.parse(JDBC_URL, properties);
     DatabricksSdkClient client =
-        new DatabricksSdkClient(context, statementExecutionService, realApiClient, capture);
+        new DatabricksSdkClient(context, statementExecutionService, realApiClient);
     DatabricksConnection connection = new DatabricksConnection(context, client);
     connection.open();
     assertEquals(realtime, connection.getSession().getSessionInfo().realtimeSession());
-    assertNull(capture.get());
 
     DatabricksStatement statement = new DatabricksStatement(connection);
     statement.setMaxRows(100);
