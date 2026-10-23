@@ -6,6 +6,7 @@ import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ColumnMetadata;
@@ -218,6 +219,7 @@ public class DatabricksArray implements Array {
   @Override
   public java.sql.ResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
     LOGGER.debug("Getting result set with type map for array");
+    rejectCustomTypeMap(map, "getResultSet(Map<String, Class<?>> map)");
     return getResultSet();
   }
 
@@ -231,7 +233,22 @@ public class DatabricksArray implements Array {
   public java.sql.ResultSet getResultSet(long index, int count, Map<String, Class<?>> map)
       throws SQLException {
     LOGGER.debug("Getting result set with type map from index {} with count {}", index, count);
+    rejectCustomTypeMap(map, "getResultSet(long index, int count, Map<String, Class<?>> map)");
     return getResultSet(index, count);
+  }
+
+  /**
+   * Custom SQL-type-to-Java-class mappings are not supported. A null or empty map is equivalent to
+   * the default mapping, so it is accepted; a non-empty map is rejected rather than silently
+   * ignored.
+   */
+  private static void rejectCustomTypeMap(Map<String, Class<?>> map, String methodName)
+      throws SQLException {
+    if (map != null && !map.isEmpty()) {
+      String message = methodName + " with a non-empty type map is not supported";
+      LOGGER.error(message);
+      throw new DatabricksSQLFeatureNotSupportedException(message);
+    }
   }
 
   /**
@@ -251,11 +268,17 @@ public class DatabricksArray implements Array {
           ARRAY_SUBSCRIPT_ERROR_SQL_STATE,
           DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
+    if (count < 0) {
+      throw new DatabricksSQLException(
+          "Array element count must be >= 0 but was " + count,
+          ARRAY_SUBSCRIPT_ERROR_SQL_STATE,
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+    }
     // Do the window arithmetic in long and clamp to the array bounds before narrowing, so that a
     // large index or a count such as Integer.MAX_VALUE cannot overflow.
     long startL = Math.min(index - 1, (long) this.elements.length);
     int start = (int) startL;
-    int end = (int) Math.min((long) this.elements.length, startL + (long) Math.max(count, 0));
+    int end = (int) Math.min((long) this.elements.length, startL + (long) count);
 
     int valueType =
         DatabricksTypeUtil.getColumnType(
@@ -290,7 +313,10 @@ public class DatabricksArray implements Array {
         new StatementId("array-result-set"),
         columnMetadataList,
         rows,
-        StatementType.QUERY);
+        StatementType.QUERY,
+        // A DatabricksArray only exists when complex datatype support is enabled, so nested
+        // ARRAY/STRUCT/MAP elements must be returned as their Databricks types.
+        true);
   }
 
   /**

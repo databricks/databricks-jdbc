@@ -697,6 +697,63 @@ public class DatabricksArrayTest {
         () -> databricksArray.getResultSet(0, 1, new LinkedHashMap<>()));
   }
 
+  /** A negative count must raise a checked SQLException carrying the input-validation code. */
+  @Test
+  public void getResultSet_WithNegativeCount_ShouldThrowSQLException() {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray databricksArray =
+        new DatabricksArray(Arrays.asList("apple", "banana", "cherry"), "ARRAY<STRING>");
+
+    for (int badCount : new int[] {-1, Integer.MIN_VALUE}) {
+      SQLException exception =
+          assertThrows(SQLException.class, () -> databricksArray.getResultSet(1, badCount));
+      assertInstanceOf(DatabricksSQLException.class, exception);
+      assertEquals("2202E", exception.getSQLState());
+      assertEquals(
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), exception.getErrorCode());
+      assertEquals(1015, exception.getErrorCode());
+      assertTrue(exception.getMessage().contains("Array element count must be >= 0"));
+    }
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> databricksArray.getResultSet(1, -1, new LinkedHashMap<>()));
+  }
+
+  /** A non-empty type map must be rejected rather than silently ignored; null is accepted. */
+  @Test
+  public void getResultSet_WithNonEmptyTypeMap_ShouldThrowFeatureNotSupported()
+      throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray databricksArray =
+        new DatabricksArray(Arrays.asList("apple", "banana", "cherry"), "ARRAY<STRING>");
+    Map<String, Class<?>> typeMap = new LinkedHashMap<>();
+    typeMap.put("STRING", String.class);
+
+    assertThrows(
+        java.sql.SQLFeatureNotSupportedException.class,
+        () -> databricksArray.getResultSet(typeMap));
+    assertThrows(
+        java.sql.SQLFeatureNotSupportedException.class,
+        () -> databricksArray.getResultSet(1, 1, typeMap));
+
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(null)) {
+      int row = 0;
+      while (rs.next()) {
+        row++;
+      }
+      assertEquals(3, row);
+    }
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(1, 1, null)) {
+      assertTrue(rs.next());
+      assertEquals("apple", rs.getString(2));
+      assertFalse(rs.next());
+    }
+  }
+
   /** The VALUE column type must be derived from the base element type, ignoring parameters. */
   @Test
   public void getResultSet_MetadataShouldReflectParameterizedAndNestedElementTypes()
@@ -730,6 +787,34 @@ public class DatabricksArrayTest {
     DatabricksArray stringArray = new DatabricksArray(Arrays.asList("a"), "ARRAY<STRING>");
     try (java.sql.ResultSet rs = stringArray.getResultSet()) {
       assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
+    }
+  }
+
+  /** Nested complex elements must be readable via getArray/getObject on the element result set. */
+  @Test
+  public void getResultSet_NestedArrayElementsShouldBeReturnedAsDatabricksArray()
+      throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<ARRAY<INT>>"))
+        .thenReturn("ARRAY<INT>");
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<INT>"))
+        .thenReturn("INT");
+    DatabricksArray nestedArray =
+        new DatabricksArray(
+            Arrays.asList(Arrays.asList(1, 2), Arrays.asList(3)), "ARRAY<ARRAY<INT>>");
+    try (java.sql.ResultSet rs = nestedArray.getResultSet()) {
+      assertTrue(rs.next());
+      java.sql.Array first = rs.getArray(2);
+      assertInstanceOf(DatabricksArray.class, first);
+      assertArrayEquals(new Object[] {1, 2}, (Object[]) first.getArray());
+      assertInstanceOf(DatabricksArray.class, rs.getObject(2));
+
+      assertTrue(rs.next());
+      java.sql.Array second = rs.getArray(2);
+      assertInstanceOf(DatabricksArray.class, second);
+      assertArrayEquals(new Object[] {3}, (Object[]) second.getArray());
+      assertFalse(rs.next());
     }
   }
 
