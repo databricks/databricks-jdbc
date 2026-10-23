@@ -801,6 +801,53 @@ public class DatabricksArrayTest {
   }
 
   @Test
+  public void getBaseType_ShouldMatchStoredElementTypesForMapAndTime() throws SQLException {
+    String mapMetadata = "ARRAY<MAP<STRING,INT>>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(mapMetadata))
+        .thenReturn("MAP<STRING,INT>");
+    DatabricksArray mapArray = new DatabricksArray(Collections.emptyList(), mapMetadata);
+    assertEquals("MAP<STRING,INT>", mapArray.getBaseTypeName());
+    // Elements are DatabricksMap instances, so the base type must not be VARCHAR.
+    assertEquals(java.sql.Types.JAVA_OBJECT, mapArray.getBaseType());
+
+    String timeMetadata = "ARRAY<TIME>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(timeMetadata))
+        .thenReturn("TIME");
+    DatabricksArray timeArray =
+        new DatabricksArray(Collections.singletonList("12:34:56"), timeMetadata);
+    assertEquals("TIME", timeArray.getBaseTypeName());
+    assertEquals(java.sql.Types.TIME, timeArray.getBaseType());
+    assertTrue(((Object[]) timeArray.getArray())[0] instanceof java.sql.Time);
+  }
+
+  @Test
+  public void getBaseType_ShouldHandleCollatedLowercaseAndUnknownElements() throws SQLException {
+    String collatedMetadata = "ARRAY<STRING COLLATE UTF8_LCASE>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(collatedMetadata))
+        .thenReturn("STRING COLLATE UTF8_LCASE");
+    DatabricksArray collatedArray = new DatabricksArray(Collections.emptyList(), collatedMetadata);
+    assertEquals(java.sql.Types.VARCHAR, collatedArray.getBaseType());
+
+    String lowercaseMetadata = "array<bigint>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(lowercaseMetadata))
+        .thenReturn("bigint");
+    DatabricksArray lowercaseArray =
+        new DatabricksArray(Collections.emptyList(), lowercaseMetadata);
+    assertEquals(java.sql.Types.BIGINT, lowercaseArray.getBaseType());
+
+    String unknownMetadata = "ARRAY<MY_CUSTOM_UDT>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(unknownMetadata))
+        .thenReturn("MY_CUSTOM_UDT");
+    DatabricksArray unknownArray = new DatabricksArray(Collections.emptyList(), unknownMetadata);
+    assertEquals(java.sql.Types.OTHER, unknownArray.getBaseType());
+  }
+
+  @Test
   public void testToString_WithStringElements_ShouldProduceJsonLikeString() throws SQLException {
     // Arrange
     String metadata = "ARRAY<STRING>";

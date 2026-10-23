@@ -200,6 +200,15 @@ public class DatabricksArray implements Array {
       }
     }
     String baseName = upper.substring(0, end).trim();
+    // Report the type of the objects actually stored by convertElements/convertValue, which can
+    // differ from the column-level ResultSetMetaData mapping: MAP elements are DatabricksMap
+    // instances (not strings, so not VARCHAR), and TIME elements are java.sql.Time values.
+    if (DatabricksTypeUtil.MAP.equals(baseName)) {
+      return java.sql.Types.JAVA_OBJECT;
+    }
+    if (DatabricksTypeUtil.TIME.equals(baseName)) {
+      return java.sql.Types.TIME;
+    }
     try {
       return DatabricksTypeUtil.getColumnType(DatabricksTypeUtil.getColumnInfoType(baseName));
     } catch (Exception e) {
