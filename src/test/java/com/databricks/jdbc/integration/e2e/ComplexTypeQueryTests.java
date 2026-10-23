@@ -549,4 +549,63 @@ public class ComplexTypeQueryTests {
       }
     }
   }
+
+  @ParameterizedTest
+  @CsvSource({"0,1", "1,1"})
+  void testArrayGetResultSet(int thriftVal, int complexSupport) throws SQLException {
+    setupConnection(thriftVal, complexSupport);
+
+    String sql = "SELECT array('a', 'b', 'c') AS letters";
+    ResultSet rs = executeQuery(connection, sql);
+    assertNotNull(rs);
+    assertTrue(rs.next());
+    Array arr = rs.getArray("letters");
+    assertNotNull(arr);
+
+    ResultSet elements = arr.getResultSet();
+    String[] expected = {"a", "b", "c"};
+    int row = 0;
+    while (elements.next()) {
+      row++;
+      assertEquals(row, elements.getLong(1));
+      assertEquals(expected[row - 1], elements.getString(2));
+    }
+    assertEquals(3, row);
+
+    // A window of 2 elements from 1-based index 2.
+    elements = arr.getResultSet(2, 2);
+    assertTrue(elements.next());
+    assertEquals(2, elements.getLong(1));
+    assertEquals("b", elements.getString(2));
+    assertTrue(elements.next());
+    assertEquals(3, elements.getLong(1));
+    assertEquals("c", elements.getString(2));
+    assertFalse(elements.next());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0,1", "1,1"})
+  void testNestedArrayGetResultSet(int thriftVal, int complexSupport) throws SQLException {
+    setupConnection(thriftVal, complexSupport);
+
+    String sql = "SELECT array(array(1, 2), array(3)) AS nested";
+    ResultSet rs = executeQuery(connection, sql);
+    assertNotNull(rs);
+    assertTrue(rs.next());
+    ResultSet outer = rs.getArray("nested").getResultSet();
+    assertEquals(Types.ARRAY, outer.getMetaData().getColumnType(2));
+
+    assertTrue(outer.next());
+    ResultSet inner = outer.getArray(2).getResultSet();
+    assertTrue(inner.next());
+    assertEquals(1, inner.getLong(1));
+    assertEquals(1, inner.getInt(2));
+    assertTrue(inner.next());
+    assertEquals(2, inner.getInt(2));
+    assertFalse(inner.next());
+
+    assertTrue(outer.next());
+    assertArrayEquals(new Object[] {3}, (Object[]) outer.getArray(2).getArray());
+    assertFalse(outer.next());
+  }
 }
