@@ -23,6 +23,7 @@ public class DatabricksArray implements Array {
 
   private final Object[] elements;
   private final String typeName;
+  private final String elementTypeName;
 
   /**
    * Constructs a DatabricksArray with the specified elements and metadata.
@@ -35,6 +36,7 @@ public class DatabricksArray implements Array {
     String elementType = MetadataParser.parseArrayMetadata(metadata);
     this.elements = convertElements(elements, elementType);
     this.typeName = metadata;
+    this.elementTypeName = elementType;
   }
 
   /**
@@ -120,18 +122,30 @@ public class DatabricksArray implements Array {
     }
 
     try {
-      switch (type.toUpperCase()) {
+      // Switch on the base type name so parameterized types such as DECIMAL(10,2) convert to the
+      // same Java type that getBaseType() reports.
+      switch (stripTypeParameters(type.trim().toUpperCase(Locale.ROOT))) {
+        // Aliases mirror DatabricksTypeUtil.getColumnInfoType so getBaseType() stays in sync.
         case DatabricksTypeUtil.INT:
+        case DatabricksTypeUtil.INTEGER:
           return Integer.parseInt(value.toString());
         case DatabricksTypeUtil.BIGINT:
+        case DatabricksTypeUtil.LONG:
           return Long.parseLong(value.toString());
         case DatabricksTypeUtil.SMALLINT:
+        case DatabricksTypeUtil.SHORT:
           return Short.parseShort(value.toString());
+        case DatabricksTypeUtil.TINYINT:
+        case DatabricksTypeUtil.BYTE:
+          return Byte.parseByte(value.toString());
         case DatabricksTypeUtil.FLOAT:
+        case DatabricksTypeUtil.REAL:
           return Float.parseFloat(value.toString());
         case DatabricksTypeUtil.DOUBLE:
           return Double.parseDouble(value.toString());
         case DatabricksTypeUtil.DECIMAL:
+        case DatabricksTypeUtil.NUMERIC:
+        case DatabricksTypeUtil.DEC:
           return new BigDecimal(value.toString());
         case DatabricksTypeUtil.BOOLEAN:
           return Boolean.parseBoolean(value.toString());
@@ -157,16 +171,68 @@ public class DatabricksArray implements Array {
     }
   }
 
+  /**
+   * Returns the SQL type name of the elements in this array, as required by {@link
+   * Array#getBaseTypeName()} (e.g. {@code INT} for {@code ARRAY<INT>}).
+   */
   @Override
   public String getBaseTypeName() throws SQLException {
     LOGGER.debug("Getting base type name");
-    return this.typeName;
+    return this.elementTypeName;
   }
 
+  /**
+   * Returns the JDBC type code ({@link java.sql.Types}) of the elements in this array, as required
+   * by {@link Array#getBaseType()}.
+   */
   @Override
   public int getBaseType() throws SQLException {
     LOGGER.debug("Getting base type");
-    return java.sql.Types.OTHER; // Or appropriate SQL type
+    return getSqlTypeForElement(this.elementTypeName);
+  }
+
+  /**
+   * Maps an element type name (possibly parameterized, e.g. {@code DECIMAL(10,2)} or {@code
+   * STRUCT<a:INT>}) to its {@link java.sql.Types} code.
+   */
+  private static int getSqlTypeForElement(String elementTypeName) {
+    if (elementTypeName == null || elementTypeName.trim().isEmpty()) {
+      return java.sql.Types.OTHER;
+    }
+    String upper = elementTypeName.trim().toUpperCase(Locale.ROOT);
+    if (DatabricksTypeUtil.recoverStringType(upper) != null) {
+      return java.sql.Types.VARCHAR;
+    }
+    String baseName = stripTypeParameters(upper);
+    // Report the type of the objects actually stored by convertElements/convertValue, which can
+    // differ from the column-level ResultSetMetaData mapping: MAP elements are DatabricksMap
+    // instances (not strings, so not VARCHAR), and TIME elements are java.sql.Time values.
+    if (DatabricksTypeUtil.MAP.equals(baseName)) {
+      return java.sql.Types.JAVA_OBJECT;
+    }
+    if (DatabricksTypeUtil.TIME.equals(baseName)) {
+      return java.sql.Types.TIME;
+    }
+    try {
+      return DatabricksTypeUtil.getColumnType(DatabricksTypeUtil.getColumnInfoType(baseName));
+    } catch (Exception e) {
+      LOGGER.debug("Unable to map array element type {}: {}", elementTypeName, e.getMessage());
+      return java.sql.Types.OTHER;
+    }
+  }
+
+  /**
+   * Returns the base name of a type, dropping any {@code (...)} or {@code <...>} parameters (e.g.
+   * {@code DECIMAL(10,2)} becomes {@code DECIMAL}).
+   */
+  private static String stripTypeParameters(String typeName) {
+    for (int i = 0; i < typeName.length(); i++) {
+      char c = typeName.charAt(i);
+      if (c == '<' || c == '(') {
+        return typeName.substring(0, i).trim();
+      }
+    }
+    return typeName.trim();
   }
 
   @Override

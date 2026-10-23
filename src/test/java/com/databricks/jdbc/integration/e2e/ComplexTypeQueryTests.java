@@ -81,6 +81,51 @@ public class ComplexTypeQueryTests {
     }
   }
 
+  /**
+   * Per {@link java.sql.Array#getBaseTypeName()} and {@link java.sql.Array#getBaseType()}, both
+   * methods describe the ELEMENTS of the array, not the array itself (issue #1738).
+   */
+  @ParameterizedTest
+  @CsvSource({"0", "1"})
+  void testArrayBaseTypeNameDescribesElements(int thriftVal) throws SQLException {
+    setupConnection(thriftVal, 1);
+
+    String sql = "SELECT ARRAY(ARRAY(1, 2, 3)) AS arr";
+    ResultSet rs = executeQuery(connection, sql);
+    assertNotNull(rs);
+    assertTrue(rs.next());
+    Array outer = rs.getArray("arr");
+    assertNotNull(outer);
+    Array inner = (Array) ((Object[]) outer.getArray())[0];
+    assertNotNull(inner);
+
+    assertEquals("ARRAY<INT>", outer.getBaseTypeName().toUpperCase());
+    assertEquals("INT", inner.getBaseTypeName().toUpperCase());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0", "1"})
+  void testArrayBaseTypeDescribesElements(int thriftVal) throws SQLException {
+    setupConnection(thriftVal, 1);
+
+    String sql = "SELECT ARRAY(ARRAY(1, 2, 3)) AS arr, array('a', 'b') AS strs";
+    ResultSet rs = executeQuery(connection, sql);
+    assertNotNull(rs);
+    assertTrue(rs.next());
+    Array outer = rs.getArray("arr");
+    assertNotNull(outer);
+    Array inner = (Array) ((Object[]) outer.getArray())[0];
+    assertNotNull(inner);
+
+    assertEquals(Types.ARRAY, outer.getBaseType());
+    assertEquals(Types.INTEGER, inner.getBaseType());
+
+    Array strs = rs.getArray("strs");
+    assertNotNull(strs);
+    assertEquals(Types.VARCHAR, strs.getBaseType());
+    assertEquals("STRING", strs.getBaseTypeName().toUpperCase());
+  }
+
   @ParameterizedTest
   @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testQueryYieldingMap(int thriftVal, int complexSupport) throws SQLException {
