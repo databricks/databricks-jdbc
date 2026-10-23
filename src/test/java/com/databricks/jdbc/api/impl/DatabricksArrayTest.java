@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.exception.DatabricksDriverException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
@@ -626,6 +628,108 @@ public class DatabricksArrayTest {
       assertEquals(1, rs.getLong(1));
       assertEquals("apple", rs.getString(2));
       assertFalse(rs.next());
+    }
+  }
+
+  /** getResultSet(index, Integer.MAX_VALUE) must return all remaining elements (no overflow). */
+  @Test
+  public void getResultSet_WithMaxCount_ShouldReturnRemainingElements() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray databricksArray =
+        new DatabricksArray(Arrays.asList("apple", "banana", "cherry"), "ARRAY<STRING>");
+
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(2, Integer.MAX_VALUE)) {
+      long[] expectedIndex = {2, 3};
+      String[] expectedValue = {"banana", "cherry"};
+      int row = 0;
+      while (rs.next()) {
+        assertEquals(expectedIndex[row], rs.getLong(1));
+        assertEquals(expectedValue[row], rs.getString(2));
+        row++;
+      }
+      assertEquals(2, row);
+    }
+  }
+
+  /** An index past the end of the array (including > Integer.MAX_VALUE) yields an empty set. */
+  @Test
+  public void getResultSet_WithIndexPastEnd_ShouldReturnEmptyResultSet() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray databricksArray =
+        new DatabricksArray(Arrays.asList("apple", "banana", "cherry"), "ARRAY<STRING>");
+
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(5, 2)) {
+      assertFalse(rs.next());
+    }
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(4294967296L, 2)) {
+      assertFalse(rs.next());
+    }
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(4294967296L, Integer.MAX_VALUE)) {
+      assertFalse(rs.next());
+    }
+  }
+
+  /** An index < 1 must raise a checked SQLException carrying the input-validation error code. */
+  @Test
+  public void getResultSet_WithIndexBelowOne_ShouldThrowSQLException() {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray databricksArray =
+        new DatabricksArray(Arrays.asList("apple", "banana", "cherry"), "ARRAY<STRING>");
+
+    for (long badIndex : new long[] {0L, -1L}) {
+      SQLException exception =
+          assertThrows(SQLException.class, () -> databricksArray.getResultSet(badIndex, 2));
+      assertInstanceOf(DatabricksSQLException.class, exception);
+      assertEquals("2202E", exception.getSQLState());
+      assertEquals(
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), exception.getErrorCode());
+      assertEquals(1015, exception.getErrorCode());
+      assertTrue(exception.getMessage().contains("Array index must be >= 1"));
+    }
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> databricksArray.getResultSet(0, 1, new LinkedHashMap<>()));
+  }
+
+  /** The VALUE column type must be derived from the base element type, ignoring parameters. */
+  @Test
+  public void getResultSet_MetadataShouldReflectParameterizedAndNestedElementTypes()
+      throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<DECIMAL(10,2)>"))
+        .thenReturn("DECIMAL(10,2)");
+    DatabricksArray decimalArray =
+        new DatabricksArray(Arrays.asList("1.50", "2.25"), "ARRAY<DECIMAL(10,2)>");
+    try (java.sql.ResultSet rs = decimalArray.getResultSet()) {
+      assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
+      assertEquals(java.sql.Types.DECIMAL, rs.getMetaData().getColumnType(2));
+    }
+
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<ARRAY<INT>>"))
+        .thenReturn("ARRAY<INT>");
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<INT>"))
+        .thenReturn("INT");
+    DatabricksArray nestedArray =
+        new DatabricksArray(
+            Arrays.asList(Arrays.asList(1, 2), Arrays.asList(3)), "ARRAY<ARRAY<INT>>");
+    try (java.sql.ResultSet rs = nestedArray.getResultSet()) {
+      assertEquals(java.sql.Types.ARRAY, rs.getMetaData().getColumnType(2));
+    }
+
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray stringArray = new DatabricksArray(Arrays.asList("a"), "ARRAY<STRING>");
+    try (java.sql.ResultSet rs = stringArray.getResultSet()) {
+      assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
     }
   }
 

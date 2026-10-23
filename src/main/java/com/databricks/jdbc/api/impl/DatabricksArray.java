@@ -5,6 +5,7 @@ import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksDriverException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ColumnMetadata;
@@ -27,6 +28,7 @@ import java.util.Map;
 /** Class for representation of Array complex object. */
 public class DatabricksArray implements Array {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksArray.class);
+  private static final String ARRAY_SUBSCRIPT_ERROR_SQL_STATE = "2202E";
 
   private final Object[] elements;
   private final String typeName;
@@ -243,21 +245,21 @@ public class DatabricksArray implements Array {
    */
   private java.sql.ResultSet buildResultSet(long index, int count) throws SQLException {
     if (index < 1) {
-      throw new DatabricksDriverException(
+      // SQLState 2202E: array subscript error (invalid caller argument, not a conversion failure).
+      throw new DatabricksSQLException(
           "Array index must be >= 1 but was " + index,
-          DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
+          ARRAY_SUBSCRIPT_ERROR_SQL_STATE,
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
-    int start = (int) index - 1;
-    int end = Math.min(this.elements.length, start + Math.max(count, 0));
+    // Do the window arithmetic in long and clamp to the array bounds before narrowing, so that a
+    // large index or a count such as Integer.MAX_VALUE cannot overflow.
+    long startL = Math.min(index - 1, (long) this.elements.length);
+    int start = (int) startL;
+    int end = (int) Math.min((long) this.elements.length, startL + (long) Math.max(count, 0));
 
-    int valueType;
-    try {
-      valueType =
-          DatabricksTypeUtil.getColumnType(
-              DatabricksTypeUtil.getColumnInfoType(this.elementType.toUpperCase(Locale.ROOT)));
-    } catch (RuntimeException e) {
-      valueType = Types.OTHER;
-    }
+    int valueType =
+        DatabricksTypeUtil.getColumnType(
+            DatabricksTypeUtil.getColumnInfoType(baseTypeName(this.elementType)));
 
     List<ColumnMetadata> columnMetadataList = new ArrayList<>();
     columnMetadataList.add(
@@ -289,6 +291,28 @@ public class DatabricksArray implements Array {
         columnMetadataList,
         rows,
         StatementType.QUERY);
+  }
+
+  /**
+   * Normalizes a type text such as {@code DECIMAL(10,2)}, {@code ARRAY<INT>} or {@code
+   * STRUCT<a:INT>} to its upper-cased base type name ({@code DECIMAL}, {@code ARRAY}, {@code
+   * STRUCT}) so that it can be mapped via {@link DatabricksTypeUtil#getColumnInfoType(String)}.
+   */
+  private static String baseTypeName(String typeText) {
+    if (typeText == null) {
+      return "";
+    }
+    String normalized = typeText.trim().toUpperCase(Locale.ROOT);
+    int cut = normalized.length();
+    int angle = normalized.indexOf('<');
+    if (angle >= 0) {
+      cut = angle;
+    }
+    int paren = normalized.indexOf('(');
+    if (paren >= 0 && paren < cut) {
+      cut = paren;
+    }
+    return normalized.substring(0, cut).trim();
   }
 
   @Override
