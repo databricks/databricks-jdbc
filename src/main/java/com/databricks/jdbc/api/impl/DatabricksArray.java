@@ -122,7 +122,9 @@ public class DatabricksArray implements Array {
     }
 
     try {
-      switch (type.toUpperCase()) {
+      // Switch on the base type name so parameterized types such as DECIMAL(10,2) convert to the
+      // same Java type that getBaseType() reports.
+      switch (stripTypeParameters(type.trim().toUpperCase(Locale.ROOT))) {
         case DatabricksTypeUtil.INT:
           return Integer.parseInt(value.toString());
         case DatabricksTypeUtil.BIGINT:
@@ -194,15 +196,7 @@ public class DatabricksArray implements Array {
     if (DatabricksTypeUtil.recoverStringType(upper) != null) {
       return java.sql.Types.VARCHAR;
     }
-    int end = upper.length();
-    for (int i = 0; i < upper.length(); i++) {
-      char c = upper.charAt(i);
-      if (c == '<' || c == '(') {
-        end = i;
-        break;
-      }
-    }
-    String baseName = upper.substring(0, end).trim();
+    String baseName = stripTypeParameters(upper);
     // Report the type of the objects actually stored by convertElements/convertValue, which can
     // differ from the column-level ResultSetMetaData mapping: MAP elements are DatabricksMap
     // instances (not strings, so not VARCHAR), and TIME elements are java.sql.Time values.
@@ -218,6 +212,20 @@ public class DatabricksArray implements Array {
       LOGGER.debug("Unable to map array element type {}: {}", elementTypeName, e.getMessage());
       return java.sql.Types.OTHER;
     }
+  }
+
+  /**
+   * Returns the base name of a type, dropping any {@code (...)} or {@code <...>} parameters (e.g.
+   * {@code DECIMAL(10,2)} becomes {@code DECIMAL}).
+   */
+  private static String stripTypeParameters(String typeName) {
+    for (int i = 0; i < typeName.length(); i++) {
+      char c = typeName.charAt(i);
+      if (c == '<' || c == '(') {
+        return typeName.substring(0, i).trim();
+      }
+    }
+    return typeName.trim();
   }
 
   @Override

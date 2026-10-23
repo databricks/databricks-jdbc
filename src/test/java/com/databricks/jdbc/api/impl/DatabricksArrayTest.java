@@ -770,7 +770,7 @@ public class DatabricksArrayTest {
   @Test
   public void getBaseType_ShouldHandleParameterizedDecimalElement() throws SQLException {
     String metadata = "ARRAY<DECIMAL(10,2)>";
-    List<Object> originalList = Collections.emptyList();
+    List<Object> originalList = Arrays.asList("1.25", null, "-3.50");
     metadataParserMock
         .when(() -> MetadataParser.parseArrayMetadata(metadata))
         .thenReturn("DECIMAL(10,2)");
@@ -779,6 +779,15 @@ public class DatabricksArrayTest {
 
     assertEquals("DECIMAL(10,2)", databricksArray.getBaseTypeName());
     assertEquals(java.sql.Types.DECIMAL, databricksArray.getBaseType());
+
+    // Stored elements must agree with getBaseType(): DECIMAL elements are BigDecimal values.
+    Object[] elements = (Object[]) databricksArray.getArray();
+    assertEquals(3, elements.length);
+    assertInstanceOf(BigDecimal.class, elements[0]);
+    assertEquals(new BigDecimal("1.25"), elements[0]);
+    assertNull(elements[1]);
+    assertInstanceOf(BigDecimal.class, elements[2]);
+    assertEquals(new BigDecimal("-3.50"), elements[2]);
   }
 
   @Test
