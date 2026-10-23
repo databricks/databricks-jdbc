@@ -12,11 +12,13 @@ import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.Format;
 import java.io.ByteArrayOutputStream;
 import java.sql.SQLException;
@@ -185,6 +187,71 @@ public class ExecutionResultFactoryTest {
 
     assertInstanceOf(StreamingInlineArrowResult.class, result);
     result.close(); // Clean up prefetch thread
+  }
+
+  @Test
+  public void testGetResultSet_thriftUrlBasedSetWithInlineArrowBatches() throws SQLException {
+    // Server declares URL_BASED_SET but inlines a small result as Arrow batches, with no links
+    TFetchResultsResp realFetchResp = createArrowFetchResponse();
+    realFetchResp.getResultSetMetadata().setResultFormat(TSparkRowSetType.URL_BASED_SET);
+
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isInlineStreamingEnabled()).thenReturn(true);
+    when(connectionContext.getThriftMaxBatchesInMemory()).thenReturn(3);
+    when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
+    // Used only if the result is wrongly routed to the CloudFetch path
+    lenient().when(connectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    lenient().when(connectionContext.getCloudFetchThreadPoolSize()).thenReturn(16);
+    lenient().when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(realFetchResp, session, parentStatement);
+
+    assertInstanceOf(StreamingInlineArrowResult.class, result);
+    assertTrue(result.next());
+    assertEquals(42, result.getObject(0));
+    assertFalse(result.next());
+    result.close();
+  }
+
+  @Test
+  public void testGetResultSet_thriftUrlBasedSetWithoutResultLinks() throws SQLException {
+    TFetchResultsResp realFetchResp = createArrowFetchResponse();
+    realFetchResp.getResultSetMetadata().setResultFormat(TSparkRowSetType.URL_BASED_SET);
+    realFetchResp.setResults(new TRowSet());
+
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getCloudFetchThreadPoolSize()).thenReturn(16);
+    lenient().when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+    lenient().when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
+
+    IExecutionResult result =
+        ExecutionResultFactory.getResultSet(realFetchResp, session, parentStatement);
+
+    assertInstanceOf(ArrowStreamResult.class, result);
+    assertFalse(result.next());
+    result.close();
+  }
+
+  @Test
+  public void testGetResultSet_thriftUrlBasedSetWithRowsButNoResultLinks_throws()
+      throws SQLException {
+    // Rows that are neither linked nor inline Arrow cannot be read, so they must not be dropped
+    TFetchResultsResp realFetchResp = createColumnarFetchResponse();
+    realFetchResp.getResultSetMetadata().setResultFormat(TSparkRowSetType.URL_BASED_SET);
+
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.getCloudFetchThreadPoolSize()).thenReturn(16);
+    lenient().when(connectionContext.getConnectionUuid()).thenReturn("sample-uuid");
+    lenient().when(parentStatement.getStatementId()).thenReturn(STATEMENT_ID);
+
+    DatabricksSQLException exception =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> ExecutionResultFactory.getResultSet(realFetchResp, session, parentStatement));
+
+    assertEquals(DatabricksDriverErrorCode.RESULT_SET_ERROR.name(), exception.getSQLState());
+    assertEquals(1004, DatabricksDriverErrorCode.RESULT_SET_ERROR.getCode());
   }
 
   // ==================== Helper Methods ====================
