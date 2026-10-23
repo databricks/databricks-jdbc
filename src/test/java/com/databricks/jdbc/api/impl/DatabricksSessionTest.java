@@ -18,10 +18,12 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataQueryClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import com.databricks.jdbc.model.core.SessionVersion;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -31,6 +33,7 @@ import java.util.stream.LongStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -175,6 +178,58 @@ public class DatabricksSessionTest {
       session.close();
       assertFalse(session.isOpen());
       assertNull(session.getSessionId());
+    }
+  }
+
+  @Test
+  public void testSeaRateLimitDoesNotFallBackOrAffectSubsequentConnections() throws SQLException {
+    setupWarehouse(false /* useThrift */);
+    DatabricksRateLimitException rateLimit =
+        new DatabricksRateLimitException("SEA session rate limit exceeded", 429);
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .computeResource(WAREHOUSE_COMPUTE)
+            .build();
+    when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
+        .thenThrow(rateLimit)
+        .thenReturn(sessionInfo);
+
+    try (MockedConstruction<DatabricksThriftServiceClient> thriftConstruction =
+        Mockito.mockConstruction(DatabricksThriftServiceClient.class)) {
+      DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
+
+      DatabricksRateLimitException error =
+          assertThrows(DatabricksRateLimitException.class, session::open);
+
+      assertSame(rateLimit, error);
+      assertEquals("RATE_LIMIT_EXCEEDED", error.getSQLState());
+      assertEquals(0, error.getErrorCode());
+      assertEquals(1044, DatabricksDriverErrorCode.valueOf(error.getSQLState()).getCode());
+      assertFalse(session.isOpen());
+      assertNull(session.getSessionId());
+      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+      assertSame(sdkClient, session.getDatabricksClient());
+
+      IDatabricksConnectionContext nextContext =
+          DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL, new Properties());
+      DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+          nextContext,
+          Map.of(
+              "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true"));
+      try {
+        assertEquals(DatabricksClientType.SEA, nextContext.getClientType());
+        DatabricksSession nextSession = new DatabricksSession(nextContext, sdkClient);
+        nextSession.open();
+        assertTrue(nextSession.isOpen());
+        assertEquals(SESSION_ID, nextSession.getSessionId());
+        assertSame(sdkClient, nextSession.getDatabricksClient());
+        nextSession.close();
+      } finally {
+        DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+            nextContext, new HashMap<>());
+      }
+      assertTrue(thriftConstruction.constructed().isEmpty());
     }
   }
 

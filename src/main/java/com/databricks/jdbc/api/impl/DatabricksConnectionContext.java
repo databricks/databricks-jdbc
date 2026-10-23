@@ -11,7 +11,6 @@ import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
-import com.databricks.jdbc.common.SeaCircuitBreakerManager;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -554,16 +553,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       return DatabricksClientType.THRIFT;
     }
 
-    // Check if circuit breaker is open due to recent 429 rate limit failures
-    if (SeaCircuitBreakerManager.isCircuitOpen()) {
-      long remainingMs = SeaCircuitBreakerManager.getTimeRemainingMs();
-      LOGGER.debug(
-          "SEA circuit breaker is OPEN due to recent 429 rate limit failures. "
-              + "Using THRIFT client. Circuit will close in {} ({}ms)",
-          SeaCircuitBreakerManager.getTimeRemainingFormatted(),
-          remainingMs);
-      return DatabricksClientType.THRIFT;
-    }
     // On AIX/PowerPC, Arrow may be disabled — check before routing to SEA
     if (isAixOrPowerPc() && !shouldEnableArrow()) {
       return DatabricksClientType.THRIFT;
