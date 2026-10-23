@@ -6,6 +6,8 @@
 
 ### Updated
 
+- SQL Execution API sessions open with warehouse URLs. Real-time sessions use warehouse URLs for session-owned statement operations and session close.
+
 ### Fixed
 
 ---
