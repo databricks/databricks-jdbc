@@ -129,6 +129,9 @@ public class DatabricksArray implements Array {
           return Long.parseLong(value.toString());
         case DatabricksTypeUtil.SMALLINT:
           return Short.parseShort(value.toString());
+        case DatabricksTypeUtil.TINYINT:
+        case DatabricksTypeUtil.BYTE:
+          return Byte.parseByte(value.toString());
         case DatabricksTypeUtil.FLOAT:
           return Float.parseFloat(value.toString());
         case DatabricksTypeUtil.DOUBLE:

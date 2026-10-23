@@ -820,6 +820,19 @@ public class DatabricksArrayTest {
     assertEquals("TIME", timeArray.getBaseTypeName());
     assertEquals(java.sql.Types.TIME, timeArray.getBaseType());
     assertTrue(((Object[]) timeArray.getArray())[0] instanceof java.sql.Time);
+
+    String tinyintMetadata = "ARRAY<TINYINT>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(tinyintMetadata))
+        .thenReturn("TINYINT");
+    DatabricksArray tinyintArray =
+        new DatabricksArray(java.util.Arrays.asList("1", "-128", null), tinyintMetadata);
+    assertEquals("TINYINT", tinyintArray.getBaseTypeName());
+    assertEquals(java.sql.Types.TINYINT, tinyintArray.getBaseType());
+    Object[] tinyintElements = (Object[]) tinyintArray.getArray();
+    assertEquals((byte) 1, tinyintElements[0]);
+    assertEquals((byte) -128, tinyintElements[1]);
+    assertNull(tinyintElements[2]);
   }
 
   @Test
