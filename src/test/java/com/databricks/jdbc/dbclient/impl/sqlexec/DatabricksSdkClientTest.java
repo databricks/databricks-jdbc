@@ -23,6 +23,7 @@ import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtilsTest;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
@@ -259,6 +260,29 @@ public class DatabricksSdkClientTest {
     assertThrows(
         DatabricksTemporaryRedirectException.class,
         () -> databricksSdkClient.createSession(warehouse, null, null, null));
+  }
+
+  @Test
+  public void testCreateSessionRateLimitPreservesErrorCodeAndCause() throws Exception {
+    DatabricksError rateLimit = new DatabricksError("429", "Too many requests", 429);
+    when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
+        .thenThrow(rateLimit);
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksSdkClient client =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+
+    DatabricksRateLimitException error =
+        assertThrows(
+            DatabricksRateLimitException.class,
+            () -> client.createSession(warehouse, null, null, null));
+
+    assertEquals("RATE_LIMIT_EXCEEDED", error.getSQLState());
+    assertEquals(0, error.getErrorCode());
+    assertEquals(1044, DatabricksDriverErrorCode.valueOf(error.getSQLState()).getCode());
+    assertEquals(429, error.getStatusCode());
+    assertSame(rateLimit, error.getCause());
+    assertTrue(error.getMessage().contains(WAREHOUSE_ID));
   }
 
   @Test
