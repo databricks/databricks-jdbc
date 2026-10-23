@@ -9,6 +9,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -280,9 +281,17 @@ public class DatabricksArray implements Array {
     int start = (int) startL;
     int end = (int) Math.min((long) this.elements.length, startL + (long) count);
 
-    int valueType =
-        DatabricksTypeUtil.getColumnType(
-            DatabricksTypeUtil.getColumnInfoType(baseTypeName(this.elementType)));
+    ColumnInfoTypeName valueTypeName =
+        DatabricksTypeUtil.getColumnInfoType(baseTypeName(this.elementType));
+    if (valueTypeName == ColumnInfoTypeName.USER_DEFINED_TYPE) {
+      // A collated element type (e.g. "STRING COLLATE UTF8_LCASE") does not map directly. Recover
+      // STRING, as the other metadata paths do, so the VALUE column reports VARCHAR, not OTHER.
+      ColumnInfoTypeName recovered = DatabricksTypeUtil.recoverStringType(this.elementType);
+      if (recovered != null) {
+        valueTypeName = recovered;
+      }
+    }
+    int valueType = DatabricksTypeUtil.getColumnType(valueTypeName);
 
     List<ColumnMetadata> columnMetadataList = new ArrayList<>();
     columnMetadataList.add(

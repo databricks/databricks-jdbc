@@ -790,6 +790,21 @@ public class DatabricksArrayTest {
     }
   }
 
+  /** A collated string element type must report VARCHAR for the VALUE column, not OTHER. */
+  @Test
+  public void getResultSet_MetadataShouldReportVarcharForCollatedStringElementType()
+      throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING COLLATE UTF8_LCASE>"))
+        .thenReturn("STRING COLLATE UTF8_LCASE");
+    DatabricksArray collatedArray =
+        new DatabricksArray(Arrays.asList("a", "B"), "ARRAY<STRING COLLATE UTF8_LCASE>");
+    try (java.sql.ResultSet rs = collatedArray.getResultSet()) {
+      assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
+      assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
+    }
+  }
+
   /** Nested complex elements must be readable via getArray/getObject on the element result set. */
   @Test
   public void getResultSet_NestedArrayElementsShouldBeReturnedAsDatabricksArray()
