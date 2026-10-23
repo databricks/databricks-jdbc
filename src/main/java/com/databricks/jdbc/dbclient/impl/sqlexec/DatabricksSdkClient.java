@@ -125,6 +125,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       boolean responseCompressionEnabled) {
     HttpClient transport = config.getHttpClient();
     HttpClient delegate = transport;
+    // Always wrap the transport so CreateSession response headers can determine follow-up routing.
     transport =
         request -> {
           if (customerUserAgentSegment != null) {
@@ -255,11 +256,11 @@ public class DatabricksSdkClient implements IDatabricksClient {
   }
 
   private String statementPath(StatementId statementId) {
-    if (statementId.realtimeSessionId() != null) {
+    if (statementId.sessionId() != null) {
       return String.format(
           WAREHOUSE_STATEMENT_PATH_WITH_ID,
-          statementId.realtimeWarehouseId(),
-          statementId.realtimeSessionId(),
+          statementId.warehouseId(),
+          statementId.sessionId(),
           statementId.toSQLExecStatementId());
     }
     return String.format(STATEMENT_PATH_WITH_ID, statementId.toSQLExecStatementId());
@@ -267,7 +268,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
 
   private String serializeStatementRequest(StatementId statementId, Object request)
       throws IOException {
-    return statementId.realtimeSessionId() == null ? apiClient.serialize(request) : null;
+    return statementId.sessionId() == null ? apiClient.serialize(request) : null;
   }
 
   @Override

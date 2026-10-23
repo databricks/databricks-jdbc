@@ -64,10 +64,10 @@ public class StatementIdTest {
             .build();
     StatementId owned = StatementId.forCurrentSession("statement-id", session);
 
-    assertEquals("session-id", owned.realtimeSessionId());
-    assertEquals("warehouse-id", owned.realtimeWarehouseId());
-    assertNull(StatementId.deserialize(owned.toString()).realtimeSessionId());
-    assertNull(new StatementId("statement-id").realtimeSessionId());
+    assertEquals("session-id", owned.sessionId());
+    assertEquals("warehouse-id", owned.warehouseId());
+    assertNull(StatementId.deserialize(owned.toString()).sessionId());
+    assertNull(new StatementId("statement-id").sessionId());
   }
 
   /** Test the deserialize method with a valid Thrift statement ID. */

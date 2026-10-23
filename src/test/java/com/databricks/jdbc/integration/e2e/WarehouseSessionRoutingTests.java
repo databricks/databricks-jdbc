@@ -61,8 +61,7 @@ public class WarehouseSessionRoutingTests {
         }
         assertEquals(
             realtime,
-            statement.unwrap(DatabricksStatement.class).getStatementId().realtimeSessionId()
-                != null);
+            statement.unwrap(DatabricksStatement.class).getStatementId().sessionId() != null);
         try (ResultSet rows = result) {
           BitSet seen = new BitSet(25600);
           String expectedPayload = "x".repeat(1024);

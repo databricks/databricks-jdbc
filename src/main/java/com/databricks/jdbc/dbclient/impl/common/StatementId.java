@@ -20,8 +20,8 @@ public class StatementId {
   final DatabricksClientType clientType;
   final String guid;
   final String secret;
-  private final String realtimeSessionId;
-  private final String realtimeWarehouseId;
+  private final String sessionId;
+  private final String warehouseId;
 
   StatementId(DatabricksClientType clientType, String guid, String secret) {
     this(clientType, guid, secret, null, null);
@@ -31,13 +31,13 @@ public class StatementId {
       DatabricksClientType clientType,
       String guid,
       String secret,
-      String realtimeSessionId,
-      String realtimeWarehouseId) {
+      String sessionId,
+      String warehouseId) {
     this.clientType = clientType;
     this.guid = guid;
     this.secret = secret;
-    this.realtimeSessionId = realtimeSessionId;
-    this.realtimeWarehouseId = realtimeWarehouseId;
+    this.sessionId = sessionId;
+    this.warehouseId = warehouseId;
   }
 
   /** Constructs a StatementId identifier for a given SQl Exec statement-Id */
@@ -58,12 +58,12 @@ public class StatementId {
         ((Warehouse) sessionInfo.computeResource()).getWarehouseId());
   }
 
-  public String realtimeSessionId() {
-    return realtimeSessionId;
+  public String sessionId() {
+    return sessionId;
   }
 
-  public String realtimeWarehouseId() {
-    return realtimeWarehouseId;
+  public String warehouseId() {
+    return warehouseId;
   }
 
   /** Constructs a StatementId identifier for a given Thrift Server operation handle */
