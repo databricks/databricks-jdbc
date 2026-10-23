@@ -766,6 +766,10 @@ public class DatabricksArrayTest {
     try (java.sql.ResultSet rs = decimalArray.getResultSet()) {
       assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
       assertEquals(java.sql.Types.DECIMAL, rs.getMetaData().getColumnType(2));
+      assertEquals(19, rs.getMetaData().getPrecision(1));
+      assertEquals(0, rs.getMetaData().getScale(1));
+      assertEquals(10, rs.getMetaData().getPrecision(2));
+      assertEquals(2, rs.getMetaData().getScale(2));
     }
 
     metadataParserMock

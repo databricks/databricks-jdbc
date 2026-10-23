@@ -292,6 +292,7 @@ public class DatabricksArray implements Array {
       }
     }
     int valueType = DatabricksTypeUtil.getColumnType(valueTypeName);
+    int[] valuePrecisionAndScale = precisionAndScale(this.elementType, valueType);
 
     List<ColumnMetadata> columnMetadataList = new ArrayList<>();
     columnMetadataList.add(
@@ -299,6 +300,8 @@ public class DatabricksArray implements Array {
             .name("INDEX")
             .typeText(DatabricksTypeUtil.BIGINT)
             .typeInt(Types.BIGINT)
+            .precision(DatabricksTypeUtil.getPrecision(Types.BIGINT))
+            .scale(DatabricksTypeUtil.getScale(Types.BIGINT))
             .nullable(ResultSetMetaData.columnNoNulls)
             .build());
     columnMetadataList.add(
@@ -306,6 +309,8 @@ public class DatabricksArray implements Array {
             .name("VALUE")
             .typeText(this.elementType)
             .typeInt(valueType)
+            .precision(valuePrecisionAndScale[0])
+            .scale(valuePrecisionAndScale[1])
             .nullable(ResultSetMetaData.columnNullable)
             .build());
 
@@ -326,6 +331,32 @@ public class DatabricksArray implements Array {
         // A DatabricksArray only exists when complex datatype support is enabled, so nested
         // ARRAY/STRUCT/MAP elements must be returned as their Databricks types.
         true);
+  }
+
+  /**
+   * Returns {precision, scale} for the given element type. For {@code DECIMAL(p,s)} (or {@code
+   * DECIMAL(p)}) the declared parameters are used; otherwise the per-SQL-type defaults apply.
+   */
+  private static int[] precisionAndScale(String typeText, int sqlType) {
+    int precision = DatabricksTypeUtil.getPrecision(sqlType);
+    int scale = DatabricksTypeUtil.getScale(sqlType);
+    if (sqlType == Types.DECIMAL && typeText != null) {
+      String normalized = typeText.trim();
+      int open = normalized.indexOf('(');
+      int close = normalized.indexOf(')', open + 1);
+      if (open >= 0 && close > open) {
+        String[] parts = normalized.substring(open + 1, close).split(",");
+        try {
+          precision = Integer.parseInt(parts[0].trim());
+          scale = parts.length > 1 ? Integer.parseInt(parts[1].trim()) : 0;
+        } catch (NumberFormatException e) {
+          LOGGER.debug("Could not parse precision/scale from element type {}", typeText);
+          precision = DatabricksTypeUtil.getPrecision(sqlType);
+          scale = DatabricksTypeUtil.getScale(sqlType);
+        }
+      }
+    }
+    return new int[] {precision, scale};
   }
 
   /**
