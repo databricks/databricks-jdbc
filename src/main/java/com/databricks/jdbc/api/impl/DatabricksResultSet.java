@@ -291,8 +291,24 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<ColumnMetadata> columnMetadataList,
       List<List<Object>> rows,
       StatementType statementType) {
+    this(statementStatus, statementId, columnMetadataList, rows, statementType, false);
+  }
+
+  /**
+   * Constructs an in-memory result set from column metadata and rows, with an explicit complex
+   * datatype support flag. Used by {@link DatabricksArray#getResultSet()}, whose rows may hold
+   * nested {@link DatabricksArray}, {@link DatabricksStruct} or {@link DatabricksMap} values.
+   */
+  public DatabricksResultSet(
+      StatementStatus statementStatus,
+      StatementId statementId,
+      List<ColumnMetadata> columnMetadataList,
+      List<List<Object>> rows,
+      StatementType statementType,
+      boolean complexDatatypeSupport) {
     this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
+    this.complexDatatypeSupport = complexDatatypeSupport;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(statementId, columnMetadataList, rows.size());

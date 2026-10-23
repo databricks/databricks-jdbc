@@ -1,18 +1,28 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksDriverException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ColumnMetadata;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.service.sql.StatementState;
 import java.math.BigDecimal;
 import java.sql.Array;
 import java.sql.Date;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -20,9 +30,11 @@ import java.util.Map;
 /** Class for representation of Array complex object. */
 public class DatabricksArray implements Array {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksArray.class);
+  private static final String ARRAY_SUBSCRIPT_ERROR_SQL_STATE = "2202E";
 
   private final Object[] elements;
   private final String typeName;
+  private final String elementType;
 
   /**
    * Constructs a DatabricksArray with the specified elements and metadata.
@@ -35,6 +47,7 @@ public class DatabricksArray implements Array {
     String elementType = MetadataParser.parseArrayMetadata(metadata);
     this.elements = convertElements(elements, elementType);
     this.typeName = metadata;
+    this.elementType = elementType;
   }
 
   /**
@@ -200,30 +213,172 @@ public class DatabricksArray implements Array {
 
   @Override
   public java.sql.ResultSet getResultSet() throws SQLException {
-    LOGGER.error("getResultSet() not implemented");
-    throw new DatabricksSQLFeatureNotSupportedException("getResultSet() not implemented");
+    LOGGER.debug("Getting result set for array");
+    return getResultSet(1, this.elements.length);
   }
 
   @Override
   public java.sql.ResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
-    LOGGER.error("getResultSet(Map<String, Class<?>> map) not implemented");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "getResultSet(Map<String, Class<?>> map) not implemented");
+    LOGGER.debug("Getting result set with type map for array");
+    rejectCustomTypeMap(map, "getResultSet(Map<String, Class<?>> map)");
+    return getResultSet();
   }
 
   @Override
   public java.sql.ResultSet getResultSet(long index, int count) throws SQLException {
-    LOGGER.error("getResultSet(long index, int count) not implemented");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "getResultSet(long index, int count) not implemented");
+    LOGGER.debug("Getting result set from index {} with count {}", index, count);
+    return buildResultSet(index, count);
   }
 
   @Override
   public java.sql.ResultSet getResultSet(long index, int count, Map<String, Class<?>> map)
       throws SQLException {
-    LOGGER.error("getResultSet(long index, int count, Map<String, Class<?>> map) not implemented");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "getResultSet(long index, int count, Map<String, Class<?>> map) not implemented");
+    LOGGER.debug("Getting result set with type map from index {} with count {}", index, count);
+    rejectCustomTypeMap(map, "getResultSet(long index, int count, Map<String, Class<?>> map)");
+    return getResultSet(index, count);
+  }
+
+  /**
+   * Custom SQL-type-to-Java-class mappings are not supported. A null or empty map is equivalent to
+   * the default mapping, so it is accepted; a non-empty map is rejected rather than silently
+   * ignored.
+   */
+  private static void rejectCustomTypeMap(Map<String, Class<?>> map, String methodName)
+      throws SQLException {
+    if (map != null && !map.isEmpty()) {
+      String message = methodName + " with a non-empty type map is not supported";
+      LOGGER.error(message);
+      throw new DatabricksSQLFeatureNotSupportedException(message);
+    }
+  }
+
+  /**
+   * Builds a {@link java.sql.ResultSet} containing one row for each requested array element. Per
+   * the JDBC {@link Array#getResultSet()} contract, column 1 holds the 1-based index of the element
+   * within the array and column 2 holds the element value.
+   *
+   * @param index the 1-based index of the first element to return
+   * @param count the number of elements to return
+   * @return a result set over the requested window of elements
+   */
+  private java.sql.ResultSet buildResultSet(long index, int count) throws SQLException {
+    if (index < 1) {
+      // SQLState 2202E: array subscript error (invalid caller argument, not a conversion failure).
+      throw new DatabricksSQLException(
+          "Array index must be >= 1 but was " + index,
+          ARRAY_SUBSCRIPT_ERROR_SQL_STATE,
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+    }
+    if (count < 0) {
+      throw new DatabricksSQLException(
+          "Array element count must be >= 0 but was " + count,
+          ARRAY_SUBSCRIPT_ERROR_SQL_STATE,
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+    }
+    // Do the window arithmetic in long and clamp to the array bounds before narrowing, so that a
+    // large index or a count such as Integer.MAX_VALUE cannot overflow.
+    long startL = Math.min(index - 1, (long) this.elements.length);
+    int start = (int) startL;
+    int end = (int) Math.min((long) this.elements.length, startL + (long) count);
+
+    ColumnInfoTypeName valueTypeName =
+        DatabricksTypeUtil.getColumnInfoType(baseTypeName(this.elementType));
+    if (valueTypeName == ColumnInfoTypeName.USER_DEFINED_TYPE) {
+      // A collated element type (e.g. "STRING COLLATE UTF8_LCASE") does not map directly. Recover
+      // STRING, as the other metadata paths do, so the VALUE column reports VARCHAR, not OTHER.
+      ColumnInfoTypeName recovered = DatabricksTypeUtil.recoverStringType(this.elementType);
+      if (recovered != null) {
+        valueTypeName = recovered;
+      }
+    }
+    int valueType = DatabricksTypeUtil.getColumnType(valueTypeName);
+    int[] valuePrecisionAndScale = precisionAndScale(this.elementType, valueType);
+
+    List<ColumnMetadata> columnMetadataList = new ArrayList<>();
+    columnMetadataList.add(
+        new ColumnMetadata.Builder()
+            .name("INDEX")
+            .typeText(DatabricksTypeUtil.BIGINT)
+            .typeInt(Types.BIGINT)
+            .precision(DatabricksTypeUtil.getPrecision(Types.BIGINT))
+            .scale(DatabricksTypeUtil.getScale(Types.BIGINT))
+            .nullable(ResultSetMetaData.columnNoNulls)
+            .build());
+    columnMetadataList.add(
+        new ColumnMetadata.Builder()
+            .name("VALUE")
+            .typeText(this.elementType)
+            .typeInt(valueType)
+            .precision(valuePrecisionAndScale[0])
+            .scale(valuePrecisionAndScale[1])
+            .nullable(ResultSetMetaData.columnNullable)
+            .build());
+
+    List<List<Object>> rows = new ArrayList<>();
+    for (int i = start; i < end; i++) {
+      List<Object> row = new ArrayList<>();
+      row.add((long) (i + 1));
+      row.add(this.elements[i]);
+      rows.add(row);
+    }
+
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        new StatementId("array-result-set"),
+        columnMetadataList,
+        rows,
+        StatementType.QUERY,
+        // A DatabricksArray only exists when complex datatype support is enabled, so nested
+        // ARRAY/STRUCT/MAP elements must be returned as their Databricks types.
+        true);
+  }
+
+  /**
+   * Returns {precision, scale} for the given element type. For {@code DECIMAL(p,s)} (or {@code
+   * DECIMAL(p)}) the declared parameters are used; otherwise the per-SQL-type defaults apply.
+   */
+  private static int[] precisionAndScale(String typeText, int sqlType) {
+    int precision = DatabricksTypeUtil.getPrecision(sqlType);
+    int scale = DatabricksTypeUtil.getScale(sqlType);
+    if (sqlType == Types.DECIMAL && typeText != null) {
+      String normalized = typeText.trim();
+      int open = normalized.indexOf('(');
+      int close = normalized.indexOf(')', open + 1);
+      if (open >= 0 && close > open) {
+        String[] parts = normalized.substring(open + 1, close).split(",");
+        try {
+          precision = Integer.parseInt(parts[0].trim());
+          scale = parts.length > 1 ? Integer.parseInt(parts[1].trim()) : 0;
+        } catch (NumberFormatException e) {
+          LOGGER.debug("Could not parse precision/scale from element type {}", typeText);
+          precision = DatabricksTypeUtil.getPrecision(sqlType);
+          scale = DatabricksTypeUtil.getScale(sqlType);
+        }
+      }
+    }
+    return new int[] {precision, scale};
+  }
+
+  /**
+   * Normalizes a type text such as {@code DECIMAL(10,2)}, {@code ARRAY<INT>} or {@code
+   * STRUCT<a:INT>} to its upper-cased base type name ({@code DECIMAL}, {@code ARRAY}, {@code
+   * STRUCT}) so that it can be mapped via {@link DatabricksTypeUtil#getColumnInfoType(String)}.
+   */
+  private static String baseTypeName(String typeText) {
+    if (typeText == null) {
+      return "";
+    }
+    String normalized = typeText.trim().toUpperCase(Locale.ROOT);
+    int cut = normalized.length();
+    int angle = normalized.indexOf('<');
+    if (angle >= 0) {
+      cut = angle;
+    }
+    int paren = normalized.indexOf('(');
+    if (paren >= 0 && paren < cut) {
+      cut = paren;
+    }
+    return normalized.substring(0, cut).trim();
   }
 
   @Override
