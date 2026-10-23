@@ -432,8 +432,7 @@ public class DatabricksSdkClientTest {
                   Set.of(
                           "x-databricks-rt-session",
                           "x-databricks-session-id",
-                          "x-databricks-statement-id",
-                          "x-databricks-reyder-resharding-enabled")
+                          "x-databricks-statement-id")
                       ::contains));
     }
   }

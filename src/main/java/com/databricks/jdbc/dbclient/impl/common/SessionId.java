@@ -81,7 +81,7 @@ public class SessionId {
   public static SessionId deserialize(String serializedSessionId) throws SQLException {
     // We serialize the session-Id as:
     // For thrift: t|session-guid-id|session-secret
-    // The route marker survives connection ID round trips so close uses the same URL family.
+    // For SQL Execution API: s|warehouseId|session-id[|r] for Real-time sessions
     String[] parts = serializedSessionId.split("\\|");
     boolean realtimeSession = parts.length == 4 && "s".equals(parts[0]) && "r".equals(parts[3]);
     if (parts.length != 3 && !realtimeSession) {
