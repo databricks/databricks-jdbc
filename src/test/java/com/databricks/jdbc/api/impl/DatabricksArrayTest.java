@@ -766,6 +766,30 @@ public class DatabricksArrayTest {
   }
 
   @Test
+  public void getBaseType_CollatedString_ShouldReturnVarchar() throws SQLException {
+    String metadata = "ARRAY<STRING COLLATE UTF8_LCASE>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(metadata))
+        .thenReturn("STRING COLLATE UTF8_LCASE");
+
+    DatabricksArray databricksArray = new DatabricksArray(Arrays.asList("a", "B"), metadata);
+
+    assertEquals("STRING COLLATE UTF8_LCASE", databricksArray.getBaseTypeName());
+    assertEquals(java.sql.Types.VARCHAR, databricksArray.getBaseType());
+  }
+
+  @Test
+  public void getBaseType_Time_ShouldReturnTime() throws SQLException {
+    String metadata = "ARRAY<TIME>";
+    metadataParserMock.when(() -> MetadataParser.parseArrayMetadata(metadata)).thenReturn("TIME");
+
+    DatabricksArray databricksArray = new DatabricksArray(Arrays.asList("12:34:56"), metadata);
+
+    assertEquals("TIME", databricksArray.getBaseTypeName());
+    assertEquals(java.sql.Types.TIME, databricksArray.getBaseType());
+  }
+
+  @Test
   public void testToString_WithStringElements_ShouldProduceJsonLikeString() throws SQLException {
     // Arrange
     String metadata = "ARRAY<STRING>";

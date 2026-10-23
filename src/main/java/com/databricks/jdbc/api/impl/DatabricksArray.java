@@ -6,6 +6,7 @@ import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.sql.Array;
@@ -167,7 +168,14 @@ public class DatabricksArray implements Array {
   public int getBaseType() throws SQLException {
     LOGGER.debug("Getting base type");
     String baseTypeName = this.typeName.toUpperCase(Locale.ROOT).split("[<(]", 2)[0].trim();
-    return DatabricksTypeUtil.getColumnType(DatabricksTypeUtil.getColumnInfoType(baseTypeName));
+    if (baseTypeName.equals(DatabricksTypeUtil.TIME)) {
+      return java.sql.Types.TIME;
+    }
+    ColumnInfoTypeName columnInfoType = DatabricksTypeUtil.recoverStringType(baseTypeName);
+    if (columnInfoType == null) {
+      columnInfoType = DatabricksTypeUtil.getColumnInfoType(baseTypeName);
+    }
+    return DatabricksTypeUtil.getColumnType(columnInfoType);
   }
 
   @Override
