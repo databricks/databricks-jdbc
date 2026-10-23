@@ -13,9 +13,11 @@ import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.DriverUtil;
 import com.databricks.jdbc.common.util.ProtocolFeatureUtil;
@@ -173,6 +175,33 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   @Override
+  public boolean supportsNativeParameterBatching(IDatabricksComputeResource computeResource) {
+    if (computeResource instanceof AllPurposeCluster) {
+      return ProtocolFeatureUtil.supportsNativeParameterBatching(serverProtocolVersion);
+    }
+    return computeResource instanceof Warehouse;
+  }
+
+  @Override
+  public DatabricksResultSet executeStatementBatch(
+      String sql,
+      IDatabricksComputeResource computeResource,
+      List<BatchParameterSet> parameterSets,
+      StatementType statementType,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    LOGGER.debug(
+        "Executing native parameter batch with {} parameter sets on {}",
+        parameterSets.size(),
+        computeResource);
+    DatabricksThreadContextHolder.setStatementType(statementType);
+    TExecuteStatementReq request =
+        getBatchRequest(sql, parameterSets, session, parentStatement, statementType);
+    return thriftAccessor.execute(request, parentStatement, session, statementType);
+  }
+
+  @Override
   public DatabricksResultSet executeStatementAsync(
       String sql,
       IDatabricksComputeResource computeResource,
@@ -194,15 +223,45 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
 
   @VisibleForTesting
   TSparkParameter mapToSparkParameterListItem(ImmutableSqlParameter parameter) {
+    return mapToSparkParameterListItem(parameter, parameter.cardinal());
+  }
+
+  private TSparkParameter mapToSparkParameterListItem(
+      ImmutableSqlParameter parameter, int ordinal) {
     Object value = parameter.value();
     String typeString = parameter.type().name();
     if (typeString.equals(DECIMAL) && value instanceof BigDecimal) {
       typeString = getDecimalTypeString((BigDecimal) value);
     }
     return new TSparkParameter()
-        .setOrdinal(parameter.cardinal())
+        .setOrdinal(ordinal)
         .setType(typeString)
         .setValue(value != null ? TSparkParameterValue.stringValue(value.toString()) : null);
+  }
+
+  private TExecuteStatementReq getBatchRequest(
+      String sql,
+      List<BatchParameterSet> parameterSets,
+      IDatabricksSession session,
+      IDatabricksStatementInternal parentStatement,
+      StatementType statementType)
+      throws SQLException {
+    TExecuteStatementReq request =
+        getRequest(sql, Collections.emptyMap(), session, parentStatement, false, statementType);
+    request.unsetParameters();
+    request.unsetResultRowLimit();
+    List<List<TSparkParameter>> batchParameters =
+        parameterSets.stream()
+            .map(
+                parameterSet ->
+                    parameterSet.getParameters().stream()
+                        .map(
+                            parameter ->
+                                mapToSparkParameterListItem(parameter, parameter.cardinal() - 1))
+                        .collect(Collectors.toList()))
+            .collect(Collectors.toList());
+    request.setBatchParameters(batchParameters);
+    return request;
   }
 
   private TExecuteStatementReq getRequest(
