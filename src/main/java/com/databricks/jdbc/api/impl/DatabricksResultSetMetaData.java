@@ -361,9 +361,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         CaseInsensitiveImmutableMap.builder();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
     for (int i = 0; i < columnNames.size(); i++) {
+      // ColumnInfoTypeName has no TIMESTAMP_NTZ value, so map Types.TIMESTAMP to TIMESTAMP.
       ColumnInfoTypeName columnTypeName =
-          ColumnInfoTypeName.valueOf(
-              DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
+          columnTypes.get(i) == Types.TIMESTAMP
+              ? ColumnInfoTypeName.TIMESTAMP
+              : ColumnInfoTypeName.valueOf(
+                  DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
           .columnName(columnNames.get(i))

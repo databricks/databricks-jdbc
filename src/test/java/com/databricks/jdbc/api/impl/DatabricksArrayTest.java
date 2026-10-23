@@ -4,11 +4,14 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.exception.DatabricksDriverException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import java.math.BigDecimal;
+import java.sql.Array;
 import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.util.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -566,74 +569,75 @@ public class DatabricksArrayTest {
         "free() method should not throw any exceptions");
   }
 
-  /**
-   * Test the getResultSet() methods. These methods are not implemented and should throw
-   * DatabricksSQLFeatureNotSupportedException.
-   */
+  /** Test that getResultSet() returns one row per element with a 1-based index. */
   @Test
-  public void getResultSet_ShouldThrowDatabricksSQLFeatureNotSupportedException()
-      throws SQLException {
-    String metadata = "ARRAY<STRING>";
-    List<Object> originalList = Arrays.asList("apple", "banana");
-
-    // Mock MetadataParser.parseArrayMetadata for "ARRAY<STRING>"
+  public void getResultSet_ShouldReturnIndexAndValueRows() throws SQLException {
     metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
-        .thenReturn("STRING");
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<INT>"))
+        .thenReturn("INT");
 
-    DatabricksArray databricksArray = new DatabricksArray(originalList, metadata);
+    DatabricksArray databricksArray =
+        new DatabricksArray(Arrays.asList("1", null, "3"), "ARRAY<INT>");
 
-    // Test getResultSet()
-    DatabricksSQLFeatureNotSupportedException exception1 =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> {
-              databricksArray.getResultSet();
-            },
-            "getResultSet() should throw DatabricksSQLFeatureNotSupportedException");
-    assertEquals(
-        "getResultSet() not implemented",
-        exception1.getMessage(),
-        "Exception message should match the implementation");
+    try (ResultSet rs = databricksArray.getResultSet()) {
+      ResultSetMetaData metaData = rs.getMetaData();
+      assertEquals(2, metaData.getColumnCount());
+      assertEquals("INDEX", metaData.getColumnName(1));
+      assertEquals(Types.BIGINT, metaData.getColumnType(1));
+      assertEquals("VALUE", metaData.getColumnName(2));
+      assertEquals(Types.INTEGER, metaData.getColumnType(2));
 
-    // Test getResultSet(Map<String, Class<?>> map)
-    DatabricksSQLFeatureNotSupportedException exception2 =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> {
-              databricksArray.getResultSet(new LinkedHashMap<>());
-            },
-            "getResultSet(Map) should throw DatabricksSQLFeatureNotSupportedException");
-    assertEquals(
-        "getResultSet(Map<String, Class<?>> map) not implemented",
-        exception2.getMessage(),
-        "Exception message should match the implementation");
+      assertTrue(rs.next());
+      assertEquals(1L, rs.getLong(1));
+      assertEquals(1, rs.getInt(2));
+      assertTrue(rs.next());
+      assertEquals(2L, rs.getLong(1));
+      assertNull(rs.getObject(2));
+      assertTrue(rs.wasNull());
+      assertTrue(rs.next());
+      assertEquals(3L, rs.getLong(1));
+      assertEquals(3, rs.getObject(2));
+      assertFalse(rs.next());
+    }
 
-    // Test getResultSet(long index, int count)
-    DatabricksSQLFeatureNotSupportedException exception3 =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> {
-              databricksArray.getResultSet(1, 2);
-            },
-            "getResultSet(long, int) should throw DatabricksSQLFeatureNotSupportedException");
-    assertEquals(
-        "getResultSet(long index, int count) not implemented",
-        exception3.getMessage(),
-        "Exception message should match the implementation");
+    try (ResultSet rs = databricksArray.getResultSet(2, 2, new LinkedHashMap<>())) {
+      assertTrue(rs.next());
+      assertEquals(2L, rs.getLong(1));
+      assertTrue(rs.next());
+      assertEquals(3L, rs.getLong(1));
+      assertEquals(3, rs.getInt(2));
+      assertFalse(rs.next());
+    }
+  }
 
-    // Test getResultSet(long index, int count, Map<String, Class<?>> map)
-    DatabricksSQLFeatureNotSupportedException exception4 =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> {
-              databricksArray.getResultSet(1, 2, new LinkedHashMap<>());
-            },
-            "getResultSet(long, int, Map) should throw DatabricksSQLFeatureNotSupportedException");
-    assertEquals(
-        "getResultSet(long index, int count, Map<String, Class<?>> map) not implemented",
-        exception4.getMessage(),
-        "Exception message should match the implementation");
+  /** Test that getResultSet() returns nested arrays as java.sql.Array values. */
+  @Test
+  public void getResultSet_ShouldReturnNestedArrays() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<ARRAY<INT>>"))
+        .thenReturn("ARRAY<INT>");
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<INT>"))
+        .thenReturn("INT");
+
+    DatabricksArray databricksArray =
+        new DatabricksArray(
+            Arrays.asList(Arrays.asList("1", "2"), Arrays.asList("3")), "ARRAY<ARRAY<INT>>");
+
+    try (ResultSet rs = databricksArray.getResultSet()) {
+      assertEquals(Types.ARRAY, rs.getMetaData().getColumnType(2));
+      assertTrue(rs.next());
+      Array inner = rs.getArray(2);
+      assertArrayEquals(new Object[] {1, 2}, (Object[]) inner.getArray());
+      try (ResultSet innerRs = inner.getResultSet()) {
+        assertTrue(innerRs.next());
+        assertEquals(1L, innerRs.getLong(1));
+        assertEquals(1, innerRs.getInt(2));
+      }
+      assertTrue(rs.next());
+      assertArrayEquals(new Object[] {3}, (Object[]) ((Array) rs.getObject(2)).getArray());
+      assertFalse(rs.next());
+    }
   }
 
   /** Test the constructor with mixed null and non-null elements. */
