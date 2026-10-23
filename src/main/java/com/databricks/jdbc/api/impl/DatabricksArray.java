@@ -23,6 +23,7 @@ public class DatabricksArray implements Array {
 
   private final Object[] elements;
   private final String typeName;
+  private final String elementTypeName;
 
   /**
    * Constructs a DatabricksArray with the specified elements and metadata.
@@ -35,6 +36,7 @@ public class DatabricksArray implements Array {
     String elementType = MetadataParser.parseArrayMetadata(metadata);
     this.elements = convertElements(elements, elementType);
     this.typeName = metadata;
+    this.elementTypeName = elementType;
   }
 
   /**
@@ -157,16 +159,53 @@ public class DatabricksArray implements Array {
     }
   }
 
+  /**
+   * Returns the SQL type name of the elements in this array, as required by {@link
+   * Array#getBaseTypeName()} (e.g. {@code INT} for {@code ARRAY<INT>}).
+   */
   @Override
   public String getBaseTypeName() throws SQLException {
     LOGGER.debug("Getting base type name");
-    return this.typeName;
+    return this.elementTypeName;
   }
 
+  /**
+   * Returns the JDBC type code ({@link java.sql.Types}) of the elements in this array, as required
+   * by {@link Array#getBaseType()}.
+   */
   @Override
   public int getBaseType() throws SQLException {
     LOGGER.debug("Getting base type");
-    return java.sql.Types.OTHER; // Or appropriate SQL type
+    return getSqlTypeForElement(this.elementTypeName);
+  }
+
+  /**
+   * Maps an element type name (possibly parameterized, e.g. {@code DECIMAL(10,2)} or {@code
+   * STRUCT<a:INT>}) to its {@link java.sql.Types} code.
+   */
+  private static int getSqlTypeForElement(String elementTypeName) {
+    if (elementTypeName == null || elementTypeName.trim().isEmpty()) {
+      return java.sql.Types.OTHER;
+    }
+    String upper = elementTypeName.trim().toUpperCase(Locale.ROOT);
+    if (DatabricksTypeUtil.recoverStringType(upper) != null) {
+      return java.sql.Types.VARCHAR;
+    }
+    int end = upper.length();
+    for (int i = 0; i < upper.length(); i++) {
+      char c = upper.charAt(i);
+      if (c == '<' || c == '(') {
+        end = i;
+        break;
+      }
+    }
+    String baseName = upper.substring(0, end).trim();
+    try {
+      return DatabricksTypeUtil.getColumnType(DatabricksTypeUtil.getColumnInfoType(baseName));
+    } catch (Exception e) {
+      LOGGER.debug("Unable to map array element type {}: {}", elementTypeName, e.getMessage());
+      return java.sql.Types.OTHER;
+    }
   }
 
   @Override
