@@ -870,6 +870,28 @@ public class DatabricksArrayTest {
   }
 
   @Test
+  public void getBaseType_ShouldMatchStoredElementTypesForTypeAliases() throws SQLException {
+    Object[][] cases = {
+      {"LONG", "7", java.sql.Types.BIGINT, 7L},
+      {"INTEGER", "7", java.sql.Types.INTEGER, 7},
+      {"SHORT", "7", java.sql.Types.SMALLINT, (short) 7},
+      {"REAL", "1.5", java.sql.Types.FLOAT, 1.5f},
+      {"NUMERIC(10,2)", "1.25", java.sql.Types.DECIMAL, new BigDecimal("1.25")},
+      {"DEC(10,2)", "1.25", java.sql.Types.DECIMAL, new BigDecimal("1.25")},
+    };
+    for (Object[] c : cases) {
+      String elementType = (String) c[0];
+      String metadata = "ARRAY<" + elementType + ">";
+      metadataParserMock
+          .when(() -> MetadataParser.parseArrayMetadata(metadata))
+          .thenReturn(elementType);
+      DatabricksArray array = new DatabricksArray(Collections.singletonList(c[1]), metadata);
+      assertEquals(c[2], array.getBaseType(), elementType);
+      assertEquals(c[3], ((Object[]) array.getArray())[0], elementType);
+    }
+  }
+
+  @Test
   public void testToString_WithStringElements_ShouldProduceJsonLikeString() throws SQLException {
     // Arrange
     String metadata = "ARRAY<STRING>";

@@ -125,20 +125,27 @@ public class DatabricksArray implements Array {
       // Switch on the base type name so parameterized types such as DECIMAL(10,2) convert to the
       // same Java type that getBaseType() reports.
       switch (stripTypeParameters(type.trim().toUpperCase(Locale.ROOT))) {
+        // Aliases mirror DatabricksTypeUtil.getColumnInfoType so getBaseType() stays in sync.
         case DatabricksTypeUtil.INT:
+        case DatabricksTypeUtil.INTEGER:
           return Integer.parseInt(value.toString());
         case DatabricksTypeUtil.BIGINT:
+        case DatabricksTypeUtil.LONG:
           return Long.parseLong(value.toString());
         case DatabricksTypeUtil.SMALLINT:
+        case DatabricksTypeUtil.SHORT:
           return Short.parseShort(value.toString());
         case DatabricksTypeUtil.TINYINT:
         case DatabricksTypeUtil.BYTE:
           return Byte.parseByte(value.toString());
         case DatabricksTypeUtil.FLOAT:
+        case DatabricksTypeUtil.REAL:
           return Float.parseFloat(value.toString());
         case DatabricksTypeUtil.DOUBLE:
           return Double.parseDouble(value.toString());
         case DatabricksTypeUtil.DECIMAL:
+        case DatabricksTypeUtil.NUMERIC:
+        case DatabricksTypeUtil.DEC:
           return new BigDecimal(value.toString());
         case DatabricksTypeUtil.BOOLEAN:
           return Boolean.parseBoolean(value.toString());
