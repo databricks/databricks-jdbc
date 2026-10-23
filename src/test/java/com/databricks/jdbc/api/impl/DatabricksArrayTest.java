@@ -726,7 +726,7 @@ public class DatabricksArrayTest {
 
   /** Test the getBaseTypeName() method. */
   @Test
-  public void getBaseTypeName_ShouldReturnCorrectMetadata() throws SQLException {
+  public void getBaseTypeName_ShouldReturnElementType() throws SQLException {
     String metadata = "ARRAY<STRING>";
     List<Object> originalList = Arrays.asList("apple", "banana");
 
@@ -738,8 +738,7 @@ public class DatabricksArrayTest {
     DatabricksArray databricksArray = new DatabricksArray(originalList, metadata);
 
     String baseTypeName = databricksArray.getBaseTypeName();
-    assertEquals(
-        "ARRAY<STRING>", baseTypeName, "getBaseTypeName() should return the original metadata");
+    assertEquals("STRING", baseTypeName, "getBaseTypeName() should return the element type");
 
     // Verify that the mock was called once with the correct metadata
     metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
@@ -747,7 +746,7 @@ public class DatabricksArrayTest {
 
   /** Test the getBaseType() method. */
   @Test
-  public void getBaseType_ShouldReturnSqlTypesOther() throws SQLException {
+  public void getBaseType_ShouldReturnElementSqlType() throws SQLException {
     String metadata = "ARRAY<STRING>";
     List<Object> originalList = Arrays.asList("apple", "banana");
 
@@ -760,7 +759,7 @@ public class DatabricksArrayTest {
 
     int baseType = databricksArray.getBaseType();
     assertEquals(
-        java.sql.Types.OTHER, baseType, "getBaseType() should return java.sql.Types.OTHER");
+        java.sql.Types.VARCHAR, baseType, "getBaseType() should return the element SQL type");
 
     // Verify that the mock was called once with the correct metadata
     metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));

@@ -34,7 +34,7 @@ public class DatabricksArray implements Array {
     LOGGER.debug("Initializing DatabricksArray with metadata: {}", metadata);
     String elementType = MetadataParser.parseArrayMetadata(metadata);
     this.elements = convertElements(elements, elementType);
-    this.typeName = metadata;
+    this.typeName = elementType;
   }
 
   /**
@@ -166,7 +166,8 @@ public class DatabricksArray implements Array {
   @Override
   public int getBaseType() throws SQLException {
     LOGGER.debug("Getting base type");
-    return java.sql.Types.OTHER; // Or appropriate SQL type
+    String baseTypeName = this.typeName.toUpperCase(Locale.ROOT).split("[<(]", 2)[0].trim();
+    return DatabricksTypeUtil.getColumnType(DatabricksTypeUtil.getColumnInfoType(baseTypeName));
   }
 
   @Override
