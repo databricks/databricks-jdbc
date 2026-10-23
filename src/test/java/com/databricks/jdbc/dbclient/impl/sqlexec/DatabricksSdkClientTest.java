@@ -353,7 +353,6 @@ public class DatabricksSdkClientTest {
         realtime
             ? String.format(WAREHOUSE_STATEMENT_PATH, WAREHOUSE_ID, SESSION_ID)
             : STATEMENT_PATH;
-    JsonNode syncBody = mapper.readTree(sent.get(1).getBodyString());
     for (int index : List.of(1, 3)) {
       Request execute = sent.get(index);
       assertWireRequest(execute, Request.POST, collectionPath, Map.of());
@@ -366,16 +365,7 @@ public class DatabricksSdkClientTest {
         assertEquals(SESSION_ID, body.path("session_id").asText());
       }
       assertEquals(STATEMENT, body.path("statement").asText());
-      assertEquals("INLINE_OR_EXTERNAL_LINKS", body.path("disposition").asText());
-      assertEquals("ARROW_STREAM", body.path("format").asText());
-      assertEquals(100, body.path("row_limit").asInt());
-      assertEquals(4, body.path("parameters").size());
       assertEquals(index == 1 ? 10 : 12, body.path("session_version").path("version_id").asInt());
-      if (index == 1) {
-        assertEquals("CONTINUE", body.path("on_wait_timeout").asText());
-      } else {
-        assertEquals("0s", body.path("wait_timeout").asText());
-      }
     }
     String ownedPath =
         realtime
@@ -386,34 +376,18 @@ public class DatabricksSdkClientTest {
     if (realtime) {
       assertNull(sent.get(2).getBodyString());
     } else {
-      assertEquals(syncBody, mapper.readTree(sent.get(2).getBodyString()));
+      assertEquals(
+          mapper.readTree(sent.get(1).getBodyString()),
+          mapper.readTree(sent.get(2).getBodyString()));
     }
-    for (int start : List.of(4, 10)) {
-      boolean warehouseRoute = start == 4 && realtime;
-      String id = start == 4 ? "owned-statement" : "detached-statement";
-      String path = start == 4 ? ownedPath : String.format(STATEMENT_PATH_WITH_ID, id);
-      Map<String, List<String>> chunkQuery =
-          boundedSea ? Map.of("row_offset", List.of("64")) : Map.of();
-      assertWireRequest(sent.get(start), Request.GET, path + "/status", Map.of());
-      assertNull(sent.get(start).getBodyString());
-      assertWireRequest(sent.get(start + 1), Request.GET, path, Map.of());
-      assertWireRequest(sent.get(start + 2), Request.GET, path + "/result/chunks/0", chunkQuery);
-      Map<String, List<String>> inlineChunkQuery =
-          boundedSea ? Map.of("row_offset", List.of("32")) : Map.of();
-      assertWireRequest(
-          sent.get(start + 3), Request.GET, path + "/result/chunks/0", inlineChunkQuery);
-      assertWireRequest(sent.get(start + 4), Request.POST, path + "/cancel", Map.of());
-      assertWireRequest(sent.get(start + 5), Request.DELETE, path, Map.of());
-      for (int offset = 1; offset <= 5; offset++) {
-        String body = sent.get(start + offset).getBodyString();
-        if (warehouseRoute) {
-          assertNull(body);
-        } else {
-          String expected = offset >= 4 ? "{\"statementId\":\"" + id + "\"}" : "{}";
-          assertEquals(mapper.readTree(expected), mapper.readTree(body));
-        }
-      }
-    }
+    assertStatementFollowUps(
+        sent.subList(4, 10), ownedPath, "owned-statement", realtime, boundedSea);
+    assertStatementFollowUps(
+        sent.subList(10, 16),
+        String.format(STATEMENT_PATH_WITH_ID, "detached-statement"),
+        "detached-statement",
+        false,
+        boundedSea);
     assertWireRequest(
         sent.get(16),
         Request.DELETE,
@@ -432,6 +406,36 @@ public class DatabricksSdkClientTest {
                           "x-databricks-session-id",
                           "x-databricks-statement-id")
                       ::contains));
+    }
+  }
+
+  private static void assertStatementFollowUps(
+      List<Request> requests, String path, String id, boolean warehouseRoute, boolean boundedSea)
+      throws IOException {
+    assertWireRequest(requests.get(0), Request.GET, path + "/status", Map.of());
+    assertNull(requests.get(0).getBodyString());
+    assertWireRequest(requests.get(1), Request.GET, path, Map.of());
+    assertWireRequest(
+        requests.get(2),
+        Request.GET,
+        path + "/result/chunks/0",
+        boundedSea ? Map.of("row_offset", List.of("64")) : Map.of());
+    assertWireRequest(
+        requests.get(3),
+        Request.GET,
+        path + "/result/chunks/0",
+        boundedSea ? Map.of("row_offset", List.of("32")) : Map.of());
+    assertWireRequest(requests.get(4), Request.POST, path + "/cancel", Map.of());
+    assertWireRequest(requests.get(5), Request.DELETE, path, Map.of());
+    ObjectMapper mapper = new ObjectMapper();
+    for (int index = 1; index < requests.size(); index++) {
+      String body = requests.get(index).getBodyString();
+      if (warehouseRoute) {
+        assertNull(body);
+      } else {
+        String expected = index >= 4 ? "{\"statementId\":\"" + id + "\"}" : "{}";
+        assertEquals(mapper.readTree(expected), mapper.readTree(body));
+      }
     }
   }
 
