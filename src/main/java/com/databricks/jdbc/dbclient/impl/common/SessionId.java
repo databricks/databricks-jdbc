@@ -26,14 +26,6 @@ public class SessionId {
   final IDatabricksComputeResource clusterResource;
   private final boolean realtimeSession;
 
-  SessionId(
-      DatabricksClientType clientType,
-      String guid,
-      String secret,
-      IDatabricksComputeResource clusterResource) {
-    this(clientType, guid, secret, clusterResource, false);
-  }
-
   private SessionId(
       DatabricksClientType clientType,
       String guid,
@@ -49,7 +41,12 @@ public class SessionId {
 
   /** Constructs a SessionId identifier for a given SQL Exec session-Id */
   public SessionId(String sessionId, IDatabricksComputeResource warehouseId) {
-    this(DatabricksClientType.SEA, sessionId, null, warehouseId);
+    this(sessionId, warehouseId, false);
+  }
+
+  public SessionId(
+      String sessionId, IDatabricksComputeResource warehouseId, boolean realtimeSession) {
+    this(DatabricksClientType.SEA, sessionId, null, warehouseId, realtimeSession);
   }
 
   /** Constructs a SessionId identifier for a given Thrift Server session-Id */
@@ -58,18 +55,15 @@ public class SessionId {
         DatabricksClientType.THRIFT,
         ResourceId.fromBytes(identifier.getGuid()).toString(),
         ResourceId.fromBytes(identifier.getSecret()).toString(),
-        computeResource);
+        computeResource,
+        false);
   }
 
   /** Creates a SessionId identifier for a given Thrift Server session-Id */
   public static SessionId create(ImmutableSessionInfo sessionInfo) {
     if (sessionInfo.computeResource() instanceof Warehouse) {
       return new SessionId(
-          DatabricksClientType.SEA,
-          sessionInfo.sessionId(),
-          null,
-          sessionInfo.computeResource(),
-          sessionInfo.realtimeSession());
+          sessionInfo.sessionId(), sessionInfo.computeResource(), sessionInfo.realtimeSession());
     } else {
       assert sessionInfo.sessionHandle() != null;
       return new SessionId(
@@ -93,11 +87,10 @@ public class SessionId {
     }
     switch (parts[0]) {
       case "s":
-        return new SessionId(
-            DatabricksClientType.SEA, parts[2], null, new Warehouse(parts[1]), realtimeSession);
+        return new SessionId(parts[2], new Warehouse(parts[1]), realtimeSession);
 
       case "t":
-        return new SessionId(DatabricksClientType.THRIFT, parts[1], parts[2], null);
+        return new SessionId(DatabricksClientType.THRIFT, parts[1], parts[2], null, false);
     }
     String errorMessage =
         String.format("Session ID has 3 parts but is invalid %s", serializedSessionId);

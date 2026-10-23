@@ -58,6 +58,7 @@ public class SessionIdTest {
 
     SessionId sessionId = SessionId.create(sessionInfo);
     assertEquals("s|warehouse|test-session-id|r", sessionId.toString());
+    assertEquals(sessionId, new SessionId("test-session-id", new Warehouse(WAREHOUSE_ID), true));
     assertTrue(SessionId.deserialize(sessionId.toString()).getSessionInfo().realtimeSession());
     assertFalse(
         SessionId.deserialize("s|warehouse|test-session-id").getSessionInfo().realtimeSession());
