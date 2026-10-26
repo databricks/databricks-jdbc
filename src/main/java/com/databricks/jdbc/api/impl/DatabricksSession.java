@@ -9,7 +9,6 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.ReydenWarehouseCache;
-import com.databricks.jdbc.common.SeaCircuitBreakerManager;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
@@ -18,7 +17,6 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksEmptyMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataQueryClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
-import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -261,47 +259,6 @@ public class DatabricksSession implements IDatabricksSession {
               }
             } else {
               // User explicitly set use_thrift_client=1, honor it even on KP001
-              throw e;
-            }
-          } else if (e instanceof DatabricksRateLimitException) {
-            // Handle 429 rate limit error during SEA session creation
-            // Only handle if using SEA client (not applicable to Thrift)
-            if (connectionContext.getClientType() == DatabricksClientType.SEA) {
-              LOGGER.warn(
-                  "SEA session creation failed with HTTP {} (rate limit exceeded) after retries. "
-                      + "Recording failure and falling back to Thrift client for this connection. "
-                      + "Future connections will use Thrift for the next 24 hours.",
-                  SeaCircuitBreakerManager.HTTP_TOO_MANY_REQUESTS);
-              // Record the failure to open circuit breaker for future connections
-              SeaCircuitBreakerManager.record429Failure();
-              // Fall back to Thrift for this connection
-              this.connectionContext.setClientType(DatabricksClientType.THRIFT);
-              this.databricksClient =
-                  DatabricksMetricsTimedProcessor.createProxy(
-                      new DatabricksThriftServiceClient(connectionContext));
-              if (connectionContext.useQueryForMetadata()) {
-                this.databricksMetadataClient =
-                    DatabricksMetricsTimedProcessor.createProxy(
-                        new DatabricksMetadataQueryClient(databricksClient));
-              } else {
-                this.databricksMetadataClient = null;
-              }
-              try {
-                this.sessionInfo =
-                    this.databricksClient.createSession(
-                        this.computeResource, this.catalog, this.schema, this.sessionConfigs);
-              } catch (DatabricksSQLException fallbackException) {
-                throw new DatabricksSQLException(
-                    String.format(
-                        "SEA session creation failed with HTTP %d rate limit, "
-                            + "and Thrift fallback also failed: %s",
-                        SeaCircuitBreakerManager.HTTP_TOO_MANY_REQUESTS,
-                        fallbackException.getMessage()),
-                    fallbackException,
-                    DatabricksDriverErrorCode.CONNECTION_ERROR);
-              }
-            } else {
-              // Re-throw if not from SEA client (shouldn't happen, but defensive)
               throw e;
             }
           } else {

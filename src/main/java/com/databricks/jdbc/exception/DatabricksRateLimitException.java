@@ -3,12 +3,7 @@ package com.databricks.jdbc.exception;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import org.apache.http.HttpStatus;
 
-/**
- * Exception thrown when a Databricks API call fails due to rate limiting (HTTP 429).
- *
- * <p>This exception is used to distinguish rate limit errors from other HTTP errors, enabling
- * special handling such as circuit breaker activation for session creation failures.
- */
+/** Exception thrown when a Databricks API call fails due to rate limiting (HTTP 429). */
 public class DatabricksRateLimitException extends DatabricksSQLException {
 
   /** HTTP status code for rate limiting */
