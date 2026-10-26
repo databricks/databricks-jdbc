@@ -44,9 +44,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   private static final String SQL_EXEC_FLAG_NAME =
       "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc";
 
-  private static final String USE_QUERY_FOR_THRIFT_FLAG_NAME =
-      "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc";
-
   private final String host;
   @VisibleForTesting final int port;
   private final String schema;
@@ -512,38 +509,26 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       if (useThriftClient.equals("1")) {
         return DatabricksClientType.THRIFT;
       } else if (useThriftClient.equals("0")) {
-        // Warn if user explicitly chose SEA but also set Thrift-only metadata params
-        String explicitQueryForMetadata =
-            getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA);
         String explicitCatalogAsPattern =
             getParameterIgnoreDefault(
                 DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
-        if ((explicitQueryForMetadata != null && explicitQueryForMetadata.equals("0"))
-            || (explicitCatalogAsPattern != null && explicitCatalogAsPattern.equals("1"))) {
+        if (explicitCatalogAsPattern != null && explicitCatalogAsPattern.equals("1")) {
           LOGGER.warn(
-              "UseThriftClient=0 (SEA) is set alongside Thrift-only metadata params "
-                  + "(UseQueryForMetadata={}, TreatMetadataCatalogNameAsPattern={}). "
-                  + "Honouring SEA — these metadata params will have no effect.",
-              explicitQueryForMetadata,
+              "UseThriftClient=0 (SEA) is set alongside the Thrift-only metadata param "
+                  + "TreatMetadataCatalogNameAsPattern={}. Honouring SEA — this metadata param "
+                  + "will have no effect.",
               explicitCatalogAsPattern);
         }
         return DatabricksClientType.SEA;
       }
     }
     // Now, user has not provided a value for UseThriftClient, we will decide based on our checks.
-    // If user explicitly requires Thrift-native metadata behavior, stay on Thrift:
-    // - UseQueryForMetadata=0: user wants native Thrift RPCs for metadata (not SHOW commands)
-    // - TreatMetadataCatalogNameAsPattern=1: only works with native Thrift RPCs
-    String explicitUseQueryForMetadata =
-        getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA);
+    // TreatMetadataCatalogNameAsPattern only works with native Thrift metadata RPCs.
     String explicitTreatCatalogAsPattern =
         getParameterIgnoreDefault(DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
-    if ((explicitUseQueryForMetadata != null && explicitUseQueryForMetadata.equals("0"))
-        || (explicitTreatCatalogAsPattern != null && explicitTreatCatalogAsPattern.equals("1"))) {
+    if (explicitTreatCatalogAsPattern != null && explicitTreatCatalogAsPattern.equals("1")) {
       LOGGER.info(
-          "Forcing Thrift client: user requires Thrift-native metadata behavior "
-              + "(UseQueryForMetadata={}, TreatMetadataCatalogNameAsPattern={})",
-          explicitUseQueryForMetadata,
+          "Forcing Thrift client: user requires TreatMetadataCatalogNameAsPattern={}",
           explicitTreatCatalogAsPattern);
       return DatabricksClientType.THRIFT;
     }
@@ -1277,12 +1262,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public boolean useQueryForMetadata() {
-    return resolveFeatureFlag(
-        DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA, USE_QUERY_FOR_THRIFT_FLAG_NAME);
-  }
-
-  @Override
   public boolean treatMetadataCatalogNameAsPattern() {
     return getParameter(DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN).equals("1");
   }
@@ -1360,7 +1339,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
    *   <li>Default value from the param definition
    * </ol>
    *
-   * @param clientParam the JDBC URL parameter (e.g. USE_QUERY_FOR_METADATA)
+   * @param clientParam the JDBC URL parameter
    * @param serverFlagName the server-side SAFE flag name
    * @return true if the feature should be enabled
    */

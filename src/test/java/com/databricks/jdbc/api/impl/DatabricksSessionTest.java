@@ -27,7 +27,6 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import java.sql.SQLException;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 import java.util.stream.LongStream;
 import org.junit.jupiter.api.Test;
@@ -88,7 +87,7 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
-    // Default UseQueryForMetadata=0: Thrift client used for metadata
+    // Thrift connections use the Thrift client for metadata.
     assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
@@ -171,7 +170,7 @@ public class DatabricksSessionTest {
       assertEquals(SESSION_ID, session.getSessionId());
       assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
       assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksClient());
-      // After redirect to Thrift, default UseQueryForMetadata=0 → native Thrift for metadata
+      // After redirect to Thrift, metadata uses native Thrift RPCs.
       assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksMetadataClient());
       assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
 
@@ -250,7 +249,7 @@ public class DatabricksSessionTest {
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
     assertEquals(tSessionHandle, session.getSessionInfo().sessionHandle());
-    // Default UseQueryForMetadata=0: Thrift client used for metadata
+    // Thrift connections use the Thrift client for metadata.
     assertEquals(thriftClient, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
@@ -444,61 +443,19 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testUseQueryForMetadataEnabled() throws SQLException {
-    setupWarehouseWithQueryMetadata();
-    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
-    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
-    assertTrue(connectionContext.useQueryForMetadata());
-    assertInstanceOf(
-        DatabricksMetadataQueryClient.class,
-        session.getDatabricksMetadataClient(),
-        "When UseQueryForMetadata=1, metadata client should be DatabricksMetadataQueryClient");
-  }
-
-  static void setupWarehouseWithQueryMetadata() throws SQLException {
-    String url =
-        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;"
-            + "AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseQueryForMetadata=1";
-    connectionContext = DatabricksConnectionContext.parse(url, new Properties());
-  }
-
-  @Test
-  public void testUseQueryForMetadataDisabledByDefaultForWarehouse() throws SQLException {
+  public void testWarehouseThriftUsesNativeMetadataClient() throws SQLException {
     setupWarehouse(true /* useThrift */);
     DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
-    assertFalse(connectionContext.useQueryForMetadata());
     assertInstanceOf(
         DatabricksThriftServiceClient.class,
         session.getDatabricksMetadataClient(),
-        "Default UseQueryForMetadata=0: warehouse uses native Thrift RPCs for metadata");
+        "Thrift warehouses should use native metadata RPCs");
   }
 
   @Test
-  public void testUseQueryForMetadataEnabledViaServerFlag() throws SQLException {
-    setupWarehouse(true /* useThrift */);
-    // Simulate server-side flag enabling SHOW commands for this warehouse
-    Map<String, String> flags = new HashMap<>();
-    flags.put(
-        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
-
-    assertTrue(connectionContext.useQueryForMetadata());
-    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
-    assertInstanceOf(
-        DatabricksMetadataQueryClient.class,
-        session.getDatabricksMetadataClient(),
-        "Server flag enabled: warehouse should use SHOW commands for metadata");
-
-    // Clean up so other tests are not affected
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
-        connectionContext, new HashMap<>());
-  }
-
-  @Test
-  public void testUseQueryForMetadataDisabledByDefaultForCluster() throws SQLException {
+  public void testClusterUsesNativeMetadataClient() throws SQLException {
     connectionContext = DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties());
     DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
-    assertFalse(connectionContext.useQueryForMetadata());
     assertEquals(
         thriftClient,
         session.getDatabricksMetadataClient(),
@@ -506,11 +463,10 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testUseQueryForMetadataWithRedirectFallback() throws SQLException {
-    // SEA connection with UseQueryForMetadata=1
+  public void testRedirectToThriftUsesNativeMetadataClient() throws SQLException {
     String url =
         "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;"
-            + "AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=0;UseQueryForMetadata=1";
+            + "AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=0";
     connectionContext = DatabricksConnectionContext.parse(url, new Properties());
 
     ImmutableSessionInfo sessionInfo =
@@ -543,11 +499,10 @@ public class DatabricksSessionTest {
 
       assertTrue(session.isOpen());
       assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
-      // After redirect: UseQueryForMetadata=1 should preserve DatabricksMetadataQueryClient
       assertInstanceOf(
-          DatabricksMetadataQueryClient.class,
+          DatabricksThriftServiceClient.class,
           session.getDatabricksMetadataClient(),
-          "After SEA→Thrift redirect with UseQueryForMetadata=1, metadata client should be DatabricksMetadataQueryClient");
+          "After SEA-to-Thrift redirect, metadata should use native Thrift RPCs");
     }
   }
 }
