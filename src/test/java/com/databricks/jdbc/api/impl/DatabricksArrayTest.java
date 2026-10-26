@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.exception.DatabricksDriverException;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.sql.Array;
 import java.sql.Date;
@@ -628,7 +629,33 @@ public class DatabricksArrayTest {
     try (ResultSet rs = databricksArray.getResultSet(3, 1)) {
       assertFalse(rs.next());
     }
-    assertThrows(SQLException.class, () -> databricksArray.getResultSet(0, 1));
+    SQLException exception =
+        assertThrows(SQLException.class, () -> databricksArray.getResultSet(0, 1));
+    assertEquals(
+        DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR.name(),
+        exception.getSQLState());
+    assertEquals(
+        1017, DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR.getCode());
+  }
+
+  /** Test that getResultSet() keeps the precision and scale of DECIMAL elements. */
+  @Test
+  public void getResultSet_ShouldKeepDecimalScale() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<DECIMAL(10,2)>"))
+        .thenReturn("DECIMAL(10,2)");
+
+    DatabricksArray databricksArray =
+        new DatabricksArray(Arrays.asList(new BigDecimal("1.55")), "ARRAY<DECIMAL(10,2)>");
+
+    try (ResultSet rs = databricksArray.getResultSet()) {
+      ResultSetMetaData metaData = rs.getMetaData();
+      assertEquals(Types.DECIMAL, metaData.getColumnType(2));
+      assertEquals(10, metaData.getPrecision(2));
+      assertEquals(2, metaData.getScale(2));
+      assertTrue(rs.next());
+      assertEquals(new BigDecimal("1.55"), rs.getBigDecimal(2));
+    }
   }
 
   /** Test that getResultSet() returns nested arrays as java.sql.Array values. */

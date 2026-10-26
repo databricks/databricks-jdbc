@@ -18,7 +18,6 @@ import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -238,16 +237,11 @@ public class DatabricksArray implements Array {
     for (long i = index - 1; i < end; i++) {
       rows.add(Arrays.asList(i + 1, elements[(int) i]));
     }
-    int elementSqlType = getSqlType(elementType);
     DatabricksResultSetMetaData metaData =
         new DatabricksResultSetMetaData(
             new StatementId("array-result-set"),
             Arrays.asList("INDEX", "VALUE"),
             Arrays.asList(DatabricksTypeUtil.BIGINT, elementType),
-            Arrays.asList(Types.BIGINT, elementSqlType),
-            Arrays.asList(
-                DatabricksTypeUtil.getPrecision(Types.BIGINT),
-                DatabricksTypeUtil.getPrecision(elementSqlType)),
             Arrays.asList(Nullable.NO_NULLS, Nullable.NULLABLE),
             rows.size());
     return new DatabricksResultSet(
@@ -266,12 +260,6 @@ public class DatabricksArray implements Array {
     LOGGER.debug(
         "Getting result set of subarray with type map from index {} with count {}", index, count);
     return getResultSet(index, count);
-  }
-
-  /** Returns the java.sql.Types code for a type name such as INT, DECIMAL(10,2) or ARRAY<INT>. */
-  private static int getSqlType(String typeName) {
-    String baseTypeName = typeName.toUpperCase(Locale.ROOT).split("[<(]", 2)[0].trim();
-    return DatabricksTypeUtil.getColumnType(DatabricksTypeUtil.getColumnInfoType(baseTypeName));
   }
 
   @Override

@@ -1108,4 +1108,29 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("GEOGRAPHY", metaData.getColumnTypeName(2));
     assertEquals(Types.OTHER, metaData.getColumnType(2));
   }
+
+  @Test
+  public void testColumnsFromTypeText() throws SQLException {
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(
+            new StatementId("array-result-set"),
+            List.of("dec", "map", "arr", "ts"),
+            List.of("DECIMAL(10,2)", "MAP<STRING,INT>", "ARRAY<INT>", "TIMESTAMP"),
+            List.of(NULLABLE, NULLABLE, NULLABLE, NULLABLE),
+            0);
+
+    assertEquals(Types.DECIMAL, metaData.getColumnType(1));
+    assertEquals(10, metaData.getPrecision(1));
+    assertEquals(2, metaData.getScale(1));
+    assertEquals("java.math.BigDecimal", metaData.getColumnClassName(1));
+
+    assertEquals("MAP<STRING,INT>", metaData.getColumnTypeName(2));
+    assertEquals("java.util.Map", metaData.getColumnClassName(2));
+
+    assertEquals(Types.ARRAY, metaData.getColumnType(3));
+    assertEquals("java.sql.Array", metaData.getColumnClassName(3));
+
+    assertEquals(Types.TIMESTAMP, metaData.getColumnType(4));
+    assertEquals("java.sql.Timestamp", metaData.getColumnClassName(4));
+  }
 }

@@ -361,12 +361,9 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         CaseInsensitiveImmutableMap.builder();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
     for (int i = 0; i < columnNames.size(); i++) {
-      // ColumnInfoTypeName has no TIMESTAMP_NTZ value, so map Types.TIMESTAMP to TIMESTAMP.
       ColumnInfoTypeName columnTypeName =
-          columnTypes.get(i) == Types.TIMESTAMP
-              ? ColumnInfoTypeName.TIMESTAMP
-              : ColumnInfoTypeName.valueOf(
-                  DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
+          ColumnInfoTypeName.valueOf(
+              DatabricksTypeUtil.getDatabricksTypeFromSQLType(columnTypes.get(i)));
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
           .columnName(columnNames.get(i))
@@ -442,6 +439,64 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         // cols.
         columnBuilder.displaySize(254);
       }
+      columnsBuilder.add(columnBuilder.build());
+      // Keep index starting from 1, to be consistent with JDBC convention
+      columnNameIndexBuilder.putIfAbsent(columnNames.get(i), i + 1);
+    }
+    this.columns = columnsBuilder.build();
+    this.columnNameIndex = columnNameIndexBuilder.build();
+    this.totalRows = totalRows;
+    this.isCloudFetchUsed = false;
+    this.truncated = false;
+  }
+
+  /**
+   * Constructs a {@code DatabricksResultSetMetaData} object for a result set that the driver builds
+   * in memory, such as the result set of {@code Array.getResultSet()}. The column type, class name,
+   * precision and scale come from the type text of each column (for example INT, DECIMAL(10,2) or
+   * ARRAY&lt;INT&gt;).
+   *
+   * @param statementId the unique identifier of the SQL statement execution
+   * @param columnNames names of each column
+   * @param columnTypeText type text of each column
+   * @param columnNullables nullable value of each column
+   * @param totalRows total number of rows in result set
+   */
+  public DatabricksResultSetMetaData(
+      StatementId statementId,
+      List<String> columnNames,
+      List<String> columnTypeText,
+      List<Nullable> columnNullables,
+      long totalRows) {
+    this.statementId = statementId;
+    CaseInsensitiveImmutableMap.Builder<Integer> columnNameIndexBuilder =
+        CaseInsensitiveImmutableMap.builder();
+    ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
+    Pattern decimalPattern =
+        Pattern.compile("decimal\\((\\d+),\\s*(\\d+)\\)", Pattern.CASE_INSENSITIVE);
+    for (int i = 0; i < columnNames.size(); i++) {
+      String typeText = columnTypeText.get(i);
+      String baseTypeName = typeText.toUpperCase().split("[<(]", 2)[0].trim();
+      ColumnInfoTypeName columnTypeName = DatabricksTypeUtil.getColumnInfoType(baseTypeName);
+      int columnType = DatabricksTypeUtil.getColumnType(columnTypeName);
+      int precision = DatabricksTypeUtil.getPrecision(columnType);
+      int scale = DatabricksTypeUtil.getScale(columnType);
+      Matcher matcher = decimalPattern.matcher(typeText);
+      if (matcher.matches()) {
+        precision = Integer.parseInt(matcher.group(1));
+        scale = Integer.parseInt(matcher.group(2));
+      }
+      ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
+      columnBuilder
+          .columnName(columnNames.get(i))
+          .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
+          .columnType(columnType)
+          .columnTypeText(typeText)
+          .typePrecision(precision)
+          .typeScale(scale)
+          .displaySize(DatabricksTypeUtil.getDisplaySize(columnTypeName, precision, scale))
+          .nullable(columnNullables.get(i))
+          .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
       columnNameIndexBuilder.putIfAbsent(columnNames.get(i), i + 1);
