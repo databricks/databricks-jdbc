@@ -207,6 +207,51 @@ public class ReydenThriftAutoRecoveryTest {
   }
 
   /**
+   * Test: a metadata parameter that requires Thrift still counts as the default transport path, so
+   * a KP001 rejection recovers to SEA.
+   */
+  @Test
+  public void testReydenRecovery_WithThriftMetadataParam_StillRecovers() throws SQLException {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(
+            WAREHOUSE_URL_THRIFT + ";TreatMetadataCatalogNameAsPattern=1", new Properties());
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        connectionContext, new HashMap<>());
+
+    ImmutableSessionInfo successSessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId(SESSION_ID)
+            .computeResource(WAREHOUSE_COMPUTE)
+            .build();
+
+    DatabricksSQLException kp001Error =
+        new DatabricksSQLException(
+            "Lakehouse/RT is not supported for Thrift protocol",
+            "KP001",
+            DatabricksDriverErrorCode.CONNECTION_ERROR);
+    when(thriftClient.createSession(any(), any(), any(), any())).thenThrow(kp001Error);
+    when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
+        .thenReturn(successSessionInfo);
+
+    try (MockedStatic<DatabricksMetricsTimedProcessor> proxyMock =
+        Mockito.mockStatic(DatabricksMetricsTimedProcessor.class)) {
+      proxyMock
+          .when(() -> DatabricksMetricsTimedProcessor.createProxy(any()))
+          .thenAnswer(
+              invocation -> {
+                Object arg = invocation.getArgument(0);
+                return (arg instanceof DatabricksSdkClient) ? sdkClient : arg;
+              });
+
+      DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
+      assertDoesNotThrow(session::open);
+
+      assertTrue(session.isOpen());
+      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+    }
+  }
+
+  /**
    * Test: Explicit UseThriftClient=1 is honored — no fallback on KP001.
    *
    * <p>Real method called: DatabricksSession.open() is called. If UseThriftClient=1 is explicit,
