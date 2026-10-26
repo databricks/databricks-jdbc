@@ -1094,22 +1094,19 @@ class DatabricksConnectionContextTest {
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
   }
 
-  @ParameterizedTest(
-      name = "arrow={0}, cloudFetch={1}, boundedSea={2}, useQueryForMetadata0={3}, serverSea={4}")
+  @ParameterizedTest(name = "arrow={0}, cloudFetch={1}, boundedSea={2}, serverSea={3}")
   @CsvSource({
-    "true,  true,  true,  false, true,  SEA",
-    "true,  true,  false, false, false, THRIFT",
-    "true,  false, true,  false, true,  SEA",
-    "true,  false, true,  false, false, THRIFT",
-    "true,  false, false, false, true,  THRIFT",
-    "false, false, true,  false, true,  THRIFT",
-    "true,  false, true,  true,  true,  THRIFT"
+    "true,  true,  true,  true,  SEA",
+    "true,  true,  false, false, THRIFT",
+    "true,  false, true,  true,  SEA",
+    "true,  false, true,  false, THRIFT",
+    "true,  false, false, true,  THRIFT",
+    "false, false, true,  true,  THRIFT"
   })
   public void testAutomaticClientSelectionGrid(
       boolean arrowEnabled,
       boolean cloudFetchEnabled,
       boolean boundedSeaEnabled,
-      boolean useQueryForMetadataDisabled,
       boolean serverSeaEnabled,
       DatabricksClientType expectedClientType)
       throws DatabricksSQLException {
@@ -1118,8 +1115,7 @@ class DatabricksConnectionContextTest {
             + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableQueryResultDownload="
             + (cloudFetchEnabled ? "1" : "0")
             + ";UseBoundedSeaApi="
-            + (boundedSeaEnabled ? "1" : "0")
-            + (useQueryForMetadataDisabled ? ";UseQueryForMetadata=0" : "");
+            + (boundedSeaEnabled ? "1" : "0");
     DatabricksConnectionContext connectionContext =
         spy((DatabricksConnectionContext) DatabricksConnectionContext.parse(url, properties));
     doReturn(arrowEnabled).when(connectionContext).shouldEnableArrow();
