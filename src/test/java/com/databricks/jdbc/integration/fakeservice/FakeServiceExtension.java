@@ -2,9 +2,13 @@ package com.databricks.jdbc.integration.fakeservice;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.FAKE_SERVICE_URI_PROP_SUFFIX;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.IS_FAKE_SERVICE_TEST_PROP;
+import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.SESSION_PATH;
+import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.WAREHOUSE_SESSION_PATH;
 import static com.github.tomakehurst.wiremock.common.AbstractFileSource.byFileExtension;
 
 import com.databricks.jdbc.common.DatabricksJdbcConstants.FakeServiceType;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.common.BinaryFile;
 import com.github.tomakehurst.wiremock.common.ContentTypes;
@@ -12,7 +16,11 @@ import com.github.tomakehurst.wiremock.common.SingleRootFileSource;
 import com.github.tomakehurst.wiremock.common.TextFile;
 import com.github.tomakehurst.wiremock.http.ContentTypeHeader;
 import com.github.tomakehurst.wiremock.http.HttpHeaders;
+import com.github.tomakehurst.wiremock.http.RequestMethod;
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
+import com.github.tomakehurst.wiremock.matching.ContentPattern;
+import com.github.tomakehurst.wiremock.matching.EqualToJsonPattern;
+import com.github.tomakehurst.wiremock.matching.RequestPatternBuilder;
 import com.github.tomakehurst.wiremock.recording.RecordSpecBuilder;
 import com.github.tomakehurst.wiremock.standalone.JsonFileMappingsSource;
 import com.github.tomakehurst.wiremock.stubbing.StubMapping;
@@ -291,7 +299,34 @@ public class FakeServiceExtension extends DatabricksWireMockExtension {
           JsonUtils.read(mappingFile.readContents(), StubMappingCollection.class);
       for (StubMapping mapping : stubCollection.getMappingOrMappings()) {
         embedExtractedBodyFile(mapping);
+        adaptCreateSessionMapping(mapping);
         wireMockRuntimeInfo.getWireMock().register(mapping);
+      }
+    }
+  }
+
+  private void adaptCreateSessionMapping(StubMapping mapping) throws IOException {
+    if (fakeServiceType != FakeServiceType.SQL_EXEC
+        || !RequestMethod.POST.equals(mapping.getRequest().getMethod())
+        || !SESSION_PATH.equals(mapping.getRequest().getUrl())) {
+      return;
+    }
+    List<ContentPattern<?>> patterns = mapping.getRequest().getBodyPatterns();
+    for (int index = 0; patterns != null && index < patterns.size(); index++) {
+      if (patterns.get(index) instanceof EqualToJsonPattern) {
+        EqualToJsonPattern pattern = (EqualToJsonPattern) patterns.get(index);
+        ObjectNode body = JsonUtils.read(pattern.getExpected(), ObjectNode.class);
+        JsonNode warehouse = body.remove("warehouse_id");
+        if (warehouse != null) {
+          patterns.set(
+              index,
+              new EqualToJsonPattern(
+                  body.toString(), pattern.isIgnoreArrayOrder(), pattern.isIgnoreExtraElements()));
+          mapping.setRequest(
+              RequestPatternBuilder.like(mapping.getRequest())
+                  .withUrl(String.format(WAREHOUSE_SESSION_PATH, warehouse.asText()))
+                  .build());
+        }
       }
     }
   }

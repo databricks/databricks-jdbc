@@ -10,6 +10,11 @@ public class PathConstants {
   public static final String CANCEL_STATEMENT_PATH_WITH_ID = STATEMENT_PATH + "%s/cancel";
   public static final String STATEMENT_STATUS_PATH_WITH_ID = STATEMENT_PATH + "%s/status";
   public static final String RESULT_CHUNK_PATH = STATEMENT_PATH_WITH_ID + "/result/chunks/%s";
+  public static final String WAREHOUSE_SESSION_PATH = BASE_PATH + "warehouses/%s/sessions";
+  public static final String WAREHOUSE_SESSION_PATH_WITH_ID = WAREHOUSE_SESSION_PATH + "/%s";
+  public static final String WAREHOUSE_STATEMENT_PATH =
+      WAREHOUSE_SESSION_PATH_WITH_ID + "/statements";
+  public static final String WAREHOUSE_STATEMENT_PATH_WITH_ID = WAREHOUSE_STATEMENT_PATH + "/%s";
   public static final String TELEMETRY_PATH = "/telemetry-ext";
   public static final String TELEMETRY_PATH_UNAUTHENTICATED = "/telemetry-unauth";
   public static final String FS_BASE_PATH = "/api/2.0/fs";
