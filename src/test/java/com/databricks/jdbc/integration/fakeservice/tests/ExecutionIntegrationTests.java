@@ -1,10 +1,11 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
-import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.SESSION_PATH;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.STATEMENT_PATH;
+import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.WAREHOUSE_SESSION_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.api.IDatabricksConnection;
@@ -66,7 +67,9 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
 
     if (isSqlExecSdkClient()) {
       // Run validations for SQL_EXEC fake service
-      getDatabricksApiExtension().verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
+      getDatabricksApiExtension()
+          .verify(
+              1, postRequestedFor(urlPathMatching(String.format(WAREHOUSE_SESSION_PATH, "[^/]+"))));
 
       // At least 5 statement requests are sent: drop, create, insert, select, drop
       // There can be more for retries
@@ -101,7 +104,9 @@ public class ExecutionIntegrationTests extends AbstractFakeServiceIntegrationTes
 
     if (isSqlExecSdkClient()) {
       // Run validations for SQL_EXEC fake service
-      getDatabricksApiExtension().verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
+      getDatabricksApiExtension()
+          .verify(
+              1, postRequestedFor(urlPathMatching(String.format(WAREHOUSE_SESSION_PATH, "[^/]+"))));
 
       // At least 6 statement requests are sent: drop, create, insert, update, select, drop
       // There can be more for retries

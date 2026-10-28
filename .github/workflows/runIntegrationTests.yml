@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - test-command: mvn -pl jdbc-core -B compile test -Dtest=*IntegrationTests,!CircuitBreakerIntegrationTests,!ThriftCloudFetchFakeIntegrationTests
+          - test-command: mvn -pl jdbc-core -B compile test -Dtest=*IntegrationTests,!ThriftCloudFetchFakeIntegrationTests
             token-secret: DATABRICKS_TOKEN
             fake-service-type: 'SQL_EXEC'
           - test-command: mvn -pl jdbc-core -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!SqlExecApiHybridResultsIntegrationTests,!DBFSVolumeIntegrationTests,!M2MAuthIntegrationTests,!UCVolumeIntegrationTests,!SqlExecApiIntegrationTests

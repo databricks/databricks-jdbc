@@ -9,7 +9,6 @@ import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.ReydenWarehouseCache;
-import com.databricks.jdbc.common.SeaCircuitBreakerManager;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.IDatabricksClient;
@@ -18,7 +17,6 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksEmptyMetadataClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataQueryClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
-import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -86,8 +84,7 @@ public class DatabricksSession implements IDatabricksSession {
   public DatabricksSession(
       IDatabricksConnectionContext connectionContext, IDatabricksClient testDatabricksClient) {
     this.databricksClient = testDatabricksClient;
-    if (databricksClient instanceof DatabricksSdkClient
-        || connectionContext.useQueryForMetadata()) {
+    if (databricksClient instanceof DatabricksSdkClient) {
       this.databricksMetadataClient = new DatabricksMetadataQueryClient(databricksClient);
     }
     this.isSessionOpen = false;
@@ -172,7 +169,7 @@ public class DatabricksSession implements IDatabricksSession {
         LOGGER.debug(
             "Warehouse {} is known to be Reyden. Switching to SEA to skip Thrift rejection.",
             warehouseId);
-        warnIfOverridingThriftMetadataPreference(warehouseId);
+        warnIfOverridingCatalogPatternPreference(warehouseId);
         connectionContext.setClientType(DatabricksClientType.SEA);
       }
     }
@@ -183,11 +180,6 @@ public class DatabricksSession implements IDatabricksSession {
         this.databricksClient =
             DatabricksMetricsTimedProcessor.createProxy(
                 new DatabricksThriftServiceClient(connectionContext));
-        if (connectionContext.useQueryForMetadata()) {
-          this.databricksMetadataClient =
-              DatabricksMetricsTimedProcessor.createProxy(
-                  new DatabricksMetadataQueryClient(databricksClient));
-        }
       } else {
         this.databricksClient =
             DatabricksMetricsTimedProcessor.createProxy(new DatabricksSdkClient(connectionContext));
@@ -208,13 +200,7 @@ public class DatabricksSession implements IDatabricksSession {
           this.databricksClient =
               DatabricksMetricsTimedProcessor.createProxy(
                   new DatabricksThriftServiceClient(connectionContext));
-          if (connectionContext.useQueryForMetadata()) {
-            this.databricksMetadataClient =
-                DatabricksMetricsTimedProcessor.createProxy(
-                    new DatabricksMetadataQueryClient(databricksClient));
-          } else {
-            this.databricksMetadataClient = null;
-          }
+          this.databricksMetadataClient = null;
           this.sessionInfo =
               this.databricksClient.createSession(
                   this.computeResource, this.catalog, this.schema, this.sessionConfigs);
@@ -233,7 +219,7 @@ public class DatabricksSession implements IDatabricksSession {
                   "Thrift OpenSession rejected with SQLSTATE KP001 (not supported for Thrift protocol). "
                       + "Attempting transparent fallback to SEA. warehouse_id={}",
                   warehouseId);
-              warnIfOverridingThriftMetadataPreference(warehouseId);
+              warnIfOverridingCatalogPatternPreference(warehouseId);
               try {
                 this.connectionContext.setClientType(DatabricksClientType.SEA);
                 this.databricksClient =
@@ -261,47 +247,6 @@ public class DatabricksSession implements IDatabricksSession {
               }
             } else {
               // User explicitly set use_thrift_client=1, honor it even on KP001
-              throw e;
-            }
-          } else if (e instanceof DatabricksRateLimitException) {
-            // Handle 429 rate limit error during SEA session creation
-            // Only handle if using SEA client (not applicable to Thrift)
-            if (connectionContext.getClientType() == DatabricksClientType.SEA) {
-              LOGGER.warn(
-                  "SEA session creation failed with HTTP {} (rate limit exceeded) after retries. "
-                      + "Recording failure and falling back to Thrift client for this connection. "
-                      + "Future connections will use Thrift for the next 24 hours.",
-                  SeaCircuitBreakerManager.HTTP_TOO_MANY_REQUESTS);
-              // Record the failure to open circuit breaker for future connections
-              SeaCircuitBreakerManager.record429Failure();
-              // Fall back to Thrift for this connection
-              this.connectionContext.setClientType(DatabricksClientType.THRIFT);
-              this.databricksClient =
-                  DatabricksMetricsTimedProcessor.createProxy(
-                      new DatabricksThriftServiceClient(connectionContext));
-              if (connectionContext.useQueryForMetadata()) {
-                this.databricksMetadataClient =
-                    DatabricksMetricsTimedProcessor.createProxy(
-                        new DatabricksMetadataQueryClient(databricksClient));
-              } else {
-                this.databricksMetadataClient = null;
-              }
-              try {
-                this.sessionInfo =
-                    this.databricksClient.createSession(
-                        this.computeResource, this.catalog, this.schema, this.sessionConfigs);
-              } catch (DatabricksSQLException fallbackException) {
-                throw new DatabricksSQLException(
-                    String.format(
-                        "SEA session creation failed with HTTP %d rate limit, "
-                            + "and Thrift fallback also failed: %s",
-                        SeaCircuitBreakerManager.HTTP_TOO_MANY_REQUESTS,
-                        fallbackException.getMessage()),
-                    fallbackException,
-                    DatabricksDriverErrorCode.CONNECTION_ERROR);
-              }
-            } else {
-              // Re-throw if not from SEA client (shouldn't happen, but defensive)
               throw e;
             }
           } else {
@@ -349,8 +294,7 @@ public class DatabricksSession implements IDatabricksSession {
   @Override
   public IDatabricksMetadataClient getDatabricksMetadataClient() {
     LOGGER.debug("public IDatabricksClient getDatabricksMetadataClient()");
-    if (this.connectionContext.getClientType() == DatabricksClientType.THRIFT
-        && !this.connectionContext.useQueryForMetadata()) {
+    if (this.connectionContext.getClientType() == DatabricksClientType.THRIFT) {
       return (IDatabricksMetadataClient) databricksClient;
     }
     return databricksMetadataClient;
@@ -545,20 +489,15 @@ public class DatabricksSession implements IDatabricksSession {
    * entirely), but SEA serves metadata with {@code SHOW} commands rather than the native Thrift
    * RPCs the user asked for. This makes that otherwise-silent change observable.
    */
-  private void warnIfOverridingThriftMetadataPreference(String warehouseId) {
-    // These params force the Thrift client for native metadata (see getClientTypeFromContext):
-    // UseQueryForMetadata=0 (native RPCs instead of SHOW) or TreatMetadataCatalogNameAsPattern=1.
-    boolean forcedNativeMetadata =
-        connectionContext.isPropertyPresent(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA)
-            && !connectionContext.useQueryForMetadata();
+  private void warnIfOverridingCatalogPatternPreference(String warehouseId) {
     boolean forcedCatalogPattern =
         connectionContext.isPropertyPresent(
                 DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN)
             && connectionContext.treatMetadataCatalogNameAsPattern();
-    if (forcedNativeMetadata || forcedCatalogPattern) {
+    if (forcedCatalogPattern) {
       LOGGER.warn(
           "Reyden auto-recovery is switching to SEA, overriding a Thrift-only metadata preference "
-              + "(UseQueryForMetadata=0 / TreatMetadataCatalogNameAsPattern=1). Metadata will use "
+              + "(TreatMetadataCatalogNameAsPattern=1). Metadata will use "
               + "SEA SHOW commands instead of native Thrift RPCs. warehouse_id={}",
           warehouseId);
     }
