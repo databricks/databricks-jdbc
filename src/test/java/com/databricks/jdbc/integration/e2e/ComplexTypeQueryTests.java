@@ -556,24 +556,26 @@ public class ComplexTypeQueryTests {
     setupConnection(thriftVal, complexSupport);
 
     String sql = "SELECT array('a', 'b', 'c') AS letters";
-    ResultSet rs = executeQuery(connection, sql);
-    assertNotNull(rs);
-    assertTrue(rs.next());
-    Array arr = rs.getArray("letters");
-    assertNotNull(arr);
+    try (ResultSet rs = executeQuery(connection, sql)) {
+      assertNotNull(rs);
+      assertTrue(rs.next());
+      Array arr = rs.getArray("letters");
+      assertNotNull(arr);
 
-    ResultSet elements = arr.getResultSet();
-    assertNotNull(elements);
+      try (ResultSet elements = arr.getResultSet()) {
+        assertNotNull(elements);
 
-    String[] expected = {"a", "b", "c"};
-    int row = 0;
-    while (elements.next()) {
-      row++;
-      assertEquals(row, elements.getLong(1));
-      assertEquals(row, elements.getInt(1));
-      assertEquals(expected[row - 1], elements.getString(2));
+        String[] expected = {"a", "b", "c"};
+        int row = 0;
+        while (elements.next()) {
+          row++;
+          assertEquals(row, elements.getLong(1));
+          assertEquals(row, elements.getInt(1));
+          assertEquals(expected[row - 1], elements.getString(2));
+        }
+        assertEquals(3, row);
+      }
     }
-    assertEquals(3, row);
   }
 
   @ParameterizedTest
@@ -582,24 +584,25 @@ public class ComplexTypeQueryTests {
     setupConnection(thriftVal, complexSupport);
 
     String sql = "SELECT array(10, 20, 30, 40, 50) AS numbers";
-    ResultSet rs = executeQuery(connection, sql);
-    assertNotNull(rs);
-    assertTrue(rs.next());
-    Array arr = rs.getArray("numbers");
-    assertNotNull(arr);
+    try (ResultSet rs = executeQuery(connection, sql)) {
+      assertNotNull(rs);
+      assertTrue(rs.next());
+      Array arr = rs.getArray("numbers");
+      assertNotNull(arr);
 
-    // Request a window of 2 elements starting at 1-based index 2 (i.e. 20, 30).
-    ResultSet elements = arr.getResultSet(2, 2);
-    assertNotNull(elements);
+      try (ResultSet elements = arr.getResultSet(2, 2)) {
+        assertNotNull(elements);
 
-    long[] expectedIndex = {2, 3};
-    int[] expectedValue = {20, 30};
-    int row = 0;
-    while (elements.next()) {
-      assertEquals(expectedIndex[row], elements.getLong(1));
-      assertEquals(expectedValue[row], elements.getInt(2));
-      row++;
+        long[] expectedIndex = {2, 3};
+        int[] expectedValue = {20, 30};
+        int row = 0;
+        while (elements.next()) {
+          assertEquals(expectedIndex[row], elements.getLong(1));
+          assertEquals(expectedValue[row], elements.getInt(2));
+          row++;
+        }
+        assertEquals(2, row);
+      }
     }
-    assertEquals(2, row);
   }
 }

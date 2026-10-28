@@ -30,7 +30,6 @@ import java.util.Map;
 /** Class for representation of Array complex object. */
 public class DatabricksArray implements Array {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksArray.class);
-  private static final String ARRAY_SUBSCRIPT_ERROR_SQL_STATE = "2202E";
 
   private final Object[] elements;
   private final String typeName;
@@ -263,16 +262,15 @@ public class DatabricksArray implements Array {
    */
   private java.sql.ResultSet buildResultSet(long index, int count) throws SQLException {
     if (index < 1) {
-      // SQLState 2202E: array subscript error (invalid caller argument, not a conversion failure).
       throw new DatabricksSQLException(
           "Array index must be >= 1 but was " + index,
-          ARRAY_SUBSCRIPT_ERROR_SQL_STATE,
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
           DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
     if (count < 0) {
       throw new DatabricksSQLException(
           "Array element count must be >= 0 but was " + count,
-          ARRAY_SUBSCRIPT_ERROR_SQL_STATE,
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
           DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
     // Do the window arithmetic in long and clamp to the array bounds before narrowing, so that a

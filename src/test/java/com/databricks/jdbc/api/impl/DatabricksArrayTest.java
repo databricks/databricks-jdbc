@@ -5,7 +5,7 @@ import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
@@ -686,9 +686,7 @@ public class DatabricksArrayTest {
       SQLException exception =
           assertThrows(SQLException.class, () -> databricksArray.getResultSet(badIndex, 2));
       assertInstanceOf(DatabricksSQLException.class, exception);
-      assertEquals("2202E", exception.getSQLState());
-      assertEquals(
-          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), exception.getErrorCode());
+      assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
       assertEquals(1015, exception.getErrorCode());
       assertTrue(exception.getMessage().contains("Array index must be >= 1"));
     }
@@ -710,9 +708,7 @@ public class DatabricksArrayTest {
       SQLException exception =
           assertThrows(SQLException.class, () -> databricksArray.getResultSet(1, badCount));
       assertInstanceOf(DatabricksSQLException.class, exception);
-      assertEquals("2202E", exception.getSQLState());
-      assertEquals(
-          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.getCode(), exception.getErrorCode());
+      assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
       assertEquals(1015, exception.getErrorCode());
       assertTrue(exception.getMessage().contains("Array element count must be >= 0"));
     }
@@ -733,12 +729,18 @@ public class DatabricksArrayTest {
     Map<String, Class<?>> typeMap = new LinkedHashMap<>();
     typeMap.put("STRING", String.class);
 
-    assertThrows(
-        java.sql.SQLFeatureNotSupportedException.class,
-        () -> databricksArray.getResultSet(typeMap));
-    assertThrows(
-        java.sql.SQLFeatureNotSupportedException.class,
-        () -> databricksArray.getResultSet(1, 1, typeMap));
+    SQLException exception =
+        assertThrows(
+            DatabricksSQLFeatureNotSupportedException.class,
+            () -> databricksArray.getResultSet(typeMap));
+    assertEquals("UNSUPPORTED_OPERATION", exception.getSQLState());
+    assertEquals(0, exception.getErrorCode());
+    SQLException windowedException =
+        assertThrows(
+            DatabricksSQLFeatureNotSupportedException.class,
+            () -> databricksArray.getResultSet(1, 1, typeMap));
+    assertEquals("UNSUPPORTED_OPERATION", windowedException.getSQLState());
+    assertEquals(0, windowedException.getErrorCode());
 
     try (java.sql.ResultSet rs = databricksArray.getResultSet(null)) {
       int row = 0;
