@@ -1,7 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.getDriverSystemConfiguration;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -14,17 +13,14 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataQueryClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
-import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,7 +30,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedConstruction;
-import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -141,44 +136,6 @@ public class DatabricksSessionTest {
     assertNull(session.getSessionVersion());
     session.updateSessionVersion(new SessionVersion().setVersionId(1001L));
     assertNull(session.getSessionVersion());
-  }
-
-  @Test
-  public void testOpenRedirectedThriftSession() throws SQLException {
-    setupWarehouse(false /* useThrift */);
-    ImmutableSessionInfo sessionInfo =
-        ImmutableSessionInfo.builder()
-            .sessionId(SESSION_ID)
-            .computeResource(WAREHOUSE_COMPUTE)
-            .build();
-    when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
-        .thenThrow(new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION));
-    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
-    try (MockedStatic<DatabricksMetricsTimedProcessor> proxyMock =
-        Mockito.mockStatic(DatabricksMetricsTimedProcessor.class)) {
-      proxyMock
-          .when(() -> DatabricksMetricsTimedProcessor.createProxy(any()))
-          .thenReturn(thriftClient);
-
-      DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
-      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
-      assertInstanceOf(DatabricksMetadataQueryClient.class, session.getDatabricksMetadataClient());
-      assertFalse(session.isOpen());
-
-      session.open();
-
-      assertTrue(session.isOpen());
-      assertEquals(SESSION_ID, session.getSessionId());
-      assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
-      assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksClient());
-      // After redirect to Thrift, metadata uses native Thrift RPCs.
-      assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksMetadataClient());
-      assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
-
-      session.close();
-      assertFalse(session.isOpen());
-      assertNull(session.getSessionId());
-    }
   }
 
   @Test
@@ -461,49 +418,5 @@ public class DatabricksSessionTest {
         thriftClient,
         session.getDatabricksMetadataClient(),
         "Clusters should use native Thrift RPCs by default");
-  }
-
-  @Test
-  public void testRedirectToThriftUsesNativeMetadataClient() throws SQLException {
-    String url =
-        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;"
-            + "AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=0";
-    connectionContext = DatabricksConnectionContext.parse(url, new Properties());
-
-    ImmutableSessionInfo sessionInfo =
-        ImmutableSessionInfo.builder()
-            .sessionId(SESSION_ID)
-            .computeResource(WAREHOUSE_COMPUTE)
-            .build();
-    when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
-        .thenThrow(new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION));
-    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
-    try (MockedStatic<DatabricksMetricsTimedProcessor> proxyMock =
-        Mockito.mockStatic(DatabricksMetricsTimedProcessor.class)) {
-      proxyMock
-          .when(() -> DatabricksMetricsTimedProcessor.createProxy(any()))
-          .thenAnswer(
-              invocation -> {
-                Object arg = invocation.getArgument(0);
-                if (arg instanceof DatabricksMetadataQueryClient) {
-                  return arg;
-                }
-                return thriftClient;
-              });
-
-      DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
-      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
-      // Before redirect: SEA path sets DatabricksMetadataQueryClient via test constructor
-      assertInstanceOf(DatabricksMetadataQueryClient.class, session.getDatabricksMetadataClient());
-
-      session.open();
-
-      assertTrue(session.isOpen());
-      assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
-      assertInstanceOf(
-          DatabricksThriftServiceClient.class,
-          session.getDatabricksMetadataClient(),
-          "After SEA-to-Thrift redirect, metadata should use native Thrift RPCs");
-    }
   }
 }

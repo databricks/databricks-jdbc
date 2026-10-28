@@ -2,7 +2,6 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 
 import static com.databricks.jdbc.TestConstants.TEST_STRING;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
 import static com.databricks.jdbc.model.core.ColumnInfoTypeName.DECIMAL;
 import static com.databricks.jdbc.model.core.ColumnInfoTypeName.INT;
@@ -16,16 +15,18 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.MetadataOperationType;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.dbclient.impl.common.ConfiguratorUtilsTest;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.model.client.sqlexec.*;
 import com.databricks.jdbc.model.client.sqlexec.ExecuteStatementRequest;
@@ -64,6 +65,7 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -478,24 +480,93 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
-  public void testCreateSessionRedirect() throws DatabricksSQLException, IOException {
-    // Create a DatabricksError with 307 status code to simulate the temporary redirect.
-    DatabricksError redirectError =
-        new DatabricksError("307", "Redirect to Thrift Client", TEMPORARY_REDIRECT_STATUS_CODE);
+  public void testCreateSessionRedirectPreservesErrorCodeAndCause() throws Exception {
+    DatabricksError redirectError = new DatabricksError("307", "Redirect to Thrift Client", 307);
 
     when(apiClient.execute(any(Request.class), eq(CreateSessionResponse.class)))
         .thenThrow(redirectError);
 
-    // Set up the connection context and the client.
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     DatabricksSdkClient databricksSdkClient =
         new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
 
-    // Assert that createSession throws a DatabricksTemporaryRedirectException.
-    assertThrows(
-        DatabricksTemporaryRedirectException.class,
-        () -> databricksSdkClient.createSession(warehouse, null, null, null));
+    DatabricksSQLException error =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> databricksSdkClient.createSession(warehouse, null, null, null));
+
+    assertEquals("CONNECTION_ERROR", error.getSQLState());
+    assertEquals(0, error.getErrorCode());
+    assertEquals(1001, DatabricksDriverErrorCode.valueOf(error.getSQLState()).getCode());
+    assertSame(redirectError, error.getCause());
+    assertTrue(error.getMessage().contains("Redirect to Thrift Client"));
+    assertTrue(error.getMessage().contains("HTTP 307"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  public void testSessionRedirectDoesNotFallBackWithRealSdk(boolean explicitSea) throws Exception {
+    List<Request> sent = new ArrayList<>();
+    HttpClient transport =
+        request -> {
+          if (request.getUri().getPath().equals("/oidc/.well-known/oauth-authorization-server")) {
+            return new Response(request, 200, "OK", Map.of(), "{}");
+          }
+          sent.add(request);
+          return new Response(
+              request,
+              307,
+              "Temporary Redirect",
+              Map.of(),
+              "{\"error_code\":\"307\",\"message\":\"Redirect to Thrift Client\"}");
+        };
+    DatabricksConfig config =
+        new DatabricksConfig()
+            .setHost("https://example.com")
+            .setAuthType("pat")
+            .setToken("test-token")
+            .setHttpClient(transport);
+    ApiClient realApiClient = DatabricksSdkClient.buildApiClient(config, null, true);
+    Properties properties = new Properties();
+    if (explicitSea) {
+      properties.setProperty("UseThriftClient", "0");
+    }
+    IDatabricksConnectionContext context = DatabricksConnectionContext.parse(JDBC_URL, properties);
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        context,
+        Map.of(
+            "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true"));
+
+    try (MockedConstruction<DatabricksThriftServiceClient> thriftConstruction =
+        mockConstruction(DatabricksThriftServiceClient.class)) {
+      DatabricksSdkClient client =
+          new DatabricksSdkClient(context, statementExecutionService, realApiClient);
+      DatabricksSession session = new DatabricksSession(context, client);
+      assertEquals(DatabricksClientType.SEA, context.getClientType());
+      Object metadataClient = session.getDatabricksMetadataClient();
+
+      DatabricksSQLException error = assertThrows(DatabricksSQLException.class, session::open);
+
+      assertEquals("CONNECTION_ERROR", error.getSQLState());
+      assertEquals(0, error.getErrorCode());
+      assertEquals(1001, DatabricksDriverErrorCode.valueOf(error.getSQLState()).getCode());
+      DatabricksError cause = assertInstanceOf(DatabricksError.class, error.getCause());
+      assertEquals(307, cause.getStatusCode());
+      assertTrue(error.getMessage().contains("HTTP 307"));
+      assertFalse(session.isOpen());
+      assertNull(session.getSessionInfo());
+      assertNull(session.getSessionId());
+      assertEquals(DatabricksClientType.SEA, context.getClientType());
+      assertSame(client, session.getDatabricksClient());
+      assertSame(metadataClient, session.getDatabricksMetadataClient());
+      assertTrue(thriftConstruction.constructed().isEmpty());
+      assertEquals(1, sent.size());
+      assertWireRequest(
+          sent.get(0), Request.POST, String.format(WAREHOUSE_SESSION_PATH, WAREHOUSE_ID), Map.of());
+    } finally {
+      DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(context, new HashMap<>());
+    }
   }
 
   @Test
