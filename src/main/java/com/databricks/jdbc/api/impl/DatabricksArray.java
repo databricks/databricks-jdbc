@@ -280,7 +280,7 @@ public class DatabricksArray implements Array {
     int end = (int) Math.min((long) this.elements.length, startL + (long) count);
 
     ColumnInfoTypeName valueTypeName =
-        DatabricksTypeUtil.getColumnInfoType(baseTypeName(this.elementType));
+        DatabricksTypeUtil.getColumnInfoType(DatabricksTypeUtil.baseTypeName(this.elementType));
     if (valueTypeName == ColumnInfoTypeName.USER_DEFINED_TYPE) {
       // A collated element type (e.g. "STRING COLLATE UTF8_LCASE") does not map directly. Recover
       // STRING, as the other metadata paths do, so the VALUE column reports VARCHAR, not OTHER.
@@ -359,28 +359,6 @@ public class DatabricksArray implements Array {
       }
     }
     return new int[] {precision, scale};
-  }
-
-  /**
-   * Normalizes a type text such as {@code DECIMAL(10,2)}, {@code ARRAY<INT>} or {@code
-   * STRUCT<a:INT>} to its upper-cased base type name ({@code DECIMAL}, {@code ARRAY}, {@code
-   * STRUCT}) so that it can be mapped via {@link DatabricksTypeUtil#getColumnInfoType(String)}.
-   */
-  private static String baseTypeName(String typeText) {
-    if (typeText == null) {
-      return "";
-    }
-    String normalized = typeText.trim().toUpperCase(Locale.ROOT);
-    int cut = normalized.length();
-    int angle = normalized.indexOf('<');
-    if (angle >= 0) {
-      cut = angle;
-    }
-    int paren = normalized.indexOf('(');
-    if (paren >= 0 && paren < cut) {
-      cut = paren;
-    }
-    return normalized.substring(0, cut).trim();
   }
 
   @Override

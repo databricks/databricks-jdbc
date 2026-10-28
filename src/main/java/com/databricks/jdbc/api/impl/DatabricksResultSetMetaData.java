@@ -313,7 +313,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       if (metadata.getTypeInt() == Types.OTHER && metadata.getTypeText() != null) {
         // Types.OTHER (VARIANT, GEOMETRY, GEOGRAPHY, user-defined types) is not mapped by
         // getDatabricksTypeFromSQLType and would otherwise resolve to NULL; use the type text.
-        columnTypeName = getColumnInfoType(baseTypeNameOf(metadata.getTypeText()));
+        columnTypeName = getColumnInfoType(DatabricksTypeUtil.baseTypeName(metadata.getTypeText()));
       }
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
@@ -717,24 +717,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   public int[] getPrecisionAndScale(ColumnInfo columnInfo) {
     return getPrecisionAndScale(
         columnInfo, DatabricksTypeUtil.getColumnType(columnInfo.getTypeName()));
-  }
-
-  /**
-   * Returns the upper-cased base type name of a type text, e.g. {@code GEOMETRY(4326)} becomes
-   * {@code GEOMETRY} and {@code ARRAY<INT>} becomes {@code ARRAY}.
-   */
-  private static String baseTypeNameOf(String typeText) {
-    String normalized = typeText.trim().toUpperCase(java.util.Locale.ROOT);
-    int cut = normalized.length();
-    int angle = normalized.indexOf('<');
-    if (angle >= 0) {
-      cut = angle;
-    }
-    int paren = normalized.indexOf('(');
-    if (paren >= 0 && paren < cut) {
-      cut = paren;
-    }
-    return normalized.substring(0, cut).trim();
   }
 
   private boolean isLargeColumn(String columnName) {

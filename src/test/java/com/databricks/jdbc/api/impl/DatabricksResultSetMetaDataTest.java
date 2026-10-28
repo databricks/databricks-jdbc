@@ -16,6 +16,7 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import java.sql.ResultSetMetaData;
@@ -1107,5 +1108,61 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("region", metaData.getColumnName(2));
     assertEquals("GEOGRAPHY", metaData.getColumnTypeName(2));
     assertEquals(Types.OTHER, metaData.getColumnType(2));
+  }
+
+  private static ColumnMetadata columnMetadata(String name, int typeInt, String typeText) {
+    return new ColumnMetadata.Builder()
+        .name(name)
+        .typeInt(typeInt)
+        .typeText(typeText)
+        .nullable(ResultSetMetaData.columnNullable)
+        .build();
+  }
+
+  @Test
+  public void testColumnMetadataListConstructorWithTimestampColumn() throws SQLException {
+    // Types.TIMESTAMP maps to "TIMESTAMP_NTZ", which previously threw IllegalArgumentException
+    // from ColumnInfoTypeName.valueOf.
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(
+            STATEMENT_ID, List.of(columnMetadata("ts", Types.TIMESTAMP, TIMESTAMP)), 1);
+
+    assertEquals(1, metaData.getColumnCount());
+    assertEquals(Types.TIMESTAMP, metaData.getColumnType(1));
+    assertEquals(TIMESTAMP, metaData.getColumnTypeName(1));
+    assertEquals("java.sql.Timestamp", metaData.getColumnClassName(1));
+  }
+
+  @Test
+  public void testColumnMetadataListConstructorWithOtherColumns() throws SQLException {
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(
+            STATEMENT_ID,
+            List.of(
+                columnMetadata("v", Types.OTHER, VARIANT),
+                columnMetadata("g", Types.OTHER, "GEOMETRY(4326)"),
+                columnMetadata("n", Types.OTHER, null)),
+            1);
+
+    assertEquals(3, metaData.getColumnCount());
+
+    // VARIANT resolves from typeText instead of falling back to NULL.
+    assertEquals(Types.OTHER, metaData.getColumnType(1));
+    assertEquals(VARIANT, metaData.getColumnTypeName(1));
+    assertEquals("java.lang.String", metaData.getColumnClassName(1));
+
+    // Parameterized type text resolves via its base type name.
+    assertEquals(Types.OTHER, metaData.getColumnType(2));
+    assertEquals("GEOMETRY(4326)", metaData.getColumnTypeName(2));
+    assertEquals(
+        DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.GEOMETRY),
+        metaData.getColumnClassName(2));
+
+    // Without type text, Types.OTHER keeps the previous NULL resolution.
+    assertEquals(Types.OTHER, metaData.getColumnType(3));
+    assertNull(metaData.getColumnTypeName(3));
+    assertEquals(
+        DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.NULL),
+        metaData.getColumnClassName(3));
   }
 }
