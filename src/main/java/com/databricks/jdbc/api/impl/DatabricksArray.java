@@ -193,6 +193,14 @@ public class DatabricksArray implements Array {
     return this.getArray();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Note: unlike {@link #getResultSet(long, int)}, this method does not validate or clamp its
+   * window. An {@code index} below 1 or a negative {@code count} surfaces as an unchecked exception
+   * from {@link java.util.Arrays#copyOfRange}, and a window extending past the end of the array is
+   * padded with {@code null}s. Aligning the two behaviours is tracked as a separate follow-up.
+   */
   @Override
   public Object getArray(long index, int count) throws SQLException {
     LOGGER.debug("Getting subarray from index {} with count {}", index, count);
@@ -247,7 +255,8 @@ public class DatabricksArray implements Array {
     if (map != null && !map.isEmpty()) {
       String message = methodName + " with a non-empty type map is not supported";
       LOGGER.error(message);
-      throw new DatabricksSQLFeatureNotSupportedException(message);
+      throw new DatabricksSQLFeatureNotSupportedException(
+          message, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
     }
   }
 

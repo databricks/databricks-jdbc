@@ -8,4 +8,13 @@ public class DatabricksSQLFeatureNotSupportedException extends SQLFeatureNotSupp
   public DatabricksSQLFeatureNotSupportedException(String reason) {
     super(reason, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.toString());
   }
+
+  /**
+   * Creates an exception whose SQLState is the error code's name and whose vendor error code is
+   * the error code's numeric value.
+   */
+  public DatabricksSQLFeatureNotSupportedException(
+      String reason, DatabricksDriverErrorCode errorCode) {
+    super(reason, errorCode.name(), errorCode.getCode());
+  }
 }

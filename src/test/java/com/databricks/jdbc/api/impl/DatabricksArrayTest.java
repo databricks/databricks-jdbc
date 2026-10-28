@@ -736,13 +736,13 @@ public class DatabricksArrayTest {
             DatabricksSQLFeatureNotSupportedException.class,
             () -> databricksArray.getResultSet(typeMap));
     assertEquals("UNSUPPORTED_OPERATION", exception.getSQLState());
-    assertEquals(0, exception.getErrorCode());
+    assertEquals(1005, exception.getErrorCode());
     SQLException windowedException =
         assertThrows(
             DatabricksSQLFeatureNotSupportedException.class,
             () -> databricksArray.getResultSet(1, 1, typeMap));
     assertEquals("UNSUPPORTED_OPERATION", windowedException.getSQLState());
-    assertEquals(0, windowedException.getErrorCode());
+    assertEquals(1005, windowedException.getErrorCode());
 
     try (java.sql.ResultSet rs = databricksArray.getResultSet(null)) {
       int row = 0;
