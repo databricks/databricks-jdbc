@@ -811,6 +811,32 @@ public class DatabricksArrayTest {
     }
   }
 
+  /** TIMESTAMP and TIMESTAMP_NTZ element types must not break result-set metadata construction. */
+  @Test
+  public void getResultSet_ShouldSupportTimestampElementTypes() throws SQLException {
+    Timestamp ts1 = Timestamp.valueOf("2024-01-01 12:30:45.123");
+    Timestamp ts2 = Timestamp.valueOf("2024-02-15 08:15:30.456");
+    for (String elementType : new String[] {"TIMESTAMP", "TIMESTAMP_NTZ"}) {
+      String arrayType = "ARRAY<" + elementType + ">";
+      metadataParserMock
+          .when(() -> MetadataParser.parseArrayMetadata(arrayType))
+          .thenReturn(elementType);
+      DatabricksArray timestampArray = new DatabricksArray(List.of(ts1, ts2), arrayType);
+      try (java.sql.ResultSet rs = timestampArray.getResultSet()) {
+        assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
+        assertEquals(java.sql.Types.TIMESTAMP, rs.getMetaData().getColumnType(2), elementType);
+        assertEquals("java.sql.Timestamp", rs.getMetaData().getColumnClassName(2), elementType);
+        assertTrue(rs.next());
+        assertEquals(1L, rs.getLong(1));
+        assertEquals(ts1, rs.getObject(2));
+        assertTrue(rs.next());
+        assertEquals(2L, rs.getLong(1));
+        assertEquals(ts2, rs.getObject(2));
+        assertFalse(rs.next());
+      }
+    }
+  }
+
   /** Nested complex elements must be readable via getArray/getObject on the element result set. */
   @Test
   public void getResultSet_NestedArrayElementsShouldBeReturnedAsDatabricksArray()

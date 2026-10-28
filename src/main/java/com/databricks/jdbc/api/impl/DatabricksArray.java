@@ -305,6 +305,10 @@ public class DatabricksArray implements Array {
     columnMetadataList.add(
         new ColumnMetadata.Builder()
             .name("VALUE")
+            // Keep the full element type text (e.g. ARRAY<INT>, STRUCT<a:INT>, DECIMAL(10,2))
+            // rather than the base name: getObject() needs the parameterized text to parse nested
+            // complex values, and it tells callers the exact element type. As a result,
+            // getColumnTypeName(2) may differ from the base name used by query result metadata.
             .typeText(this.elementType)
             .typeInt(valueType)
             .precision(valuePrecisionAndScale[0])
