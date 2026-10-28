@@ -92,10 +92,11 @@ class ValidationUtilTest {
     when(response.getStatusLine()).thenReturn(statusLine);
     when(statusLine.getStatusCode()).thenReturn(400);
     when(statusLine.toString()).thenReturn("mockStatusLine");
-    Throwable exception =
+    DatabricksHttpException exception =
         assertThrows(DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response));
     assertEquals(
         "HTTP request failed by code: 400, status line: mockStatusLine.", exception.getMessage());
+    assertEquals(400, exception.getStatusCode());
 
     when(statusLine.getStatusCode()).thenReturn(102);
     assertThrows(DatabricksHttpException.class, () -> ValidationUtil.checkHTTPError(response));

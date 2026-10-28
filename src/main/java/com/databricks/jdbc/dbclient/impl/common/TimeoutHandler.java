@@ -73,6 +73,25 @@ public class TimeoutHandler {
   }
 
   /**
+   * Returns the time remaining, in milliseconds, before {@link #checkTimeout()} would actually
+   * enforce the deadline. Returns {@link Long#MAX_VALUE} when no timeout is configured ({@code
+   * timeoutSeconds <= 0}), and may return a negative value once the deadline has passed.
+   *
+   * <p>{@code checkTimeout()} compares whole (truncated) seconds and throws only once elapsed time
+   * <em>exceeds</em> {@code timeoutSeconds}, i.e. at {@code (timeoutSeconds + 1) * 1000} ms. This
+   * method reports the remaining time to that same enforcement point (not the nominal {@code
+   * timeoutSeconds * 1000}), so a caller capping a backoff sleep on it does not collapse the sleep
+   * to zero — and then busy-spin — during the sub-second window before enforcement fires.
+   */
+  public long getRemainingMillis() {
+    if (timeoutSeconds <= 0) {
+      return Long.MAX_VALUE;
+    }
+    long elapsedMillis = System.currentTimeMillis() - startTimeMillis;
+    return TimeUnit.SECONDS.toMillis(timeoutSeconds + 1L) - elapsedMillis;
+  }
+
+  /**
    * Factory method to create a timeout handler for a databricks client with a statement ID. This
    * works with any client that implements {@link IDatabricksClient}.
    *
