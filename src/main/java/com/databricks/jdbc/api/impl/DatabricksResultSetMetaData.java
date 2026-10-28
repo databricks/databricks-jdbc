@@ -314,6 +314,14 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         // Types.OTHER (VARIANT, GEOMETRY, GEOGRAPHY, user-defined types) is not mapped by
         // getDatabricksTypeFromSQLType and would otherwise resolve to NULL; use the type text.
         columnTypeName = getColumnInfoType(DatabricksTypeUtil.baseTypeName(metadata.getTypeText()));
+      } else if (metadata.getTypeInt() == Types.VARCHAR && metadata.getTypeText() != null) {
+        // MAP is reported as Types.VARCHAR (matching query metadata), which maps back to STRING.
+        // Use the type text so getColumnClassName reflects the java.util.Map returned by getObject.
+        ColumnInfoTypeName fromTypeText =
+            getColumnInfoType(DatabricksTypeUtil.baseTypeName(metadata.getTypeText()));
+        if (fromTypeText == ColumnInfoTypeName.MAP) {
+          columnTypeName = fromTypeText;
+        }
       }
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder

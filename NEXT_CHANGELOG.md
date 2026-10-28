@@ -18,6 +18,12 @@
   element index and column 2 is the element value, per the JDBC `Array` contract.
   Previously these methods threw `SQLFeatureNotSupportedException`.
 
+- Metadata and in-memory result sets built from column metadata now resolve
+  `getColumnTypeName`/`getColumnClassName` from the column type text for
+  `Types.OTHER` columns (e.g. VARIANT, GEOMETRY, GEOGRAPHY) instead of reporting
+  `NULL`, report MAP columns as `java.util.Map`, and no longer fail on
+  `Types.TIMESTAMP` columns.
+
 ---
 *Note: When making changes, please add your change under the appropriate section
 with a brief description.*

@@ -938,7 +938,8 @@ public class DatabricksArrayTest {
 
   /**
    * MAP elements must be returned as DatabricksMap. The VALUE column reports VARCHAR for MAP, which
-   * matches how MAP columns are reported in query result metadata.
+   * matches how MAP columns are reported in query result metadata, while getColumnClassName reports
+   * java.util.Map so it agrees with the value returned by getObject.
    */
   @Test
   public void getResultSet_MapElementsShouldBeReturnedAsDatabricksMap() throws SQLException {
@@ -954,6 +955,7 @@ public class DatabricksArrayTest {
         new DatabricksArray(Collections.singletonList(map), "ARRAY<MAP<STRING,INT>>");
     try (java.sql.ResultSet rs = mapArray.getResultSet()) {
       assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
+      assertEquals("java.util.Map", rs.getMetaData().getColumnClassName(2));
       assertTrue(rs.next());
       Object value = rs.getObject(2);
       assertInstanceOf(DatabricksMap.class, value);
