@@ -3,9 +3,11 @@ package com.databricks.jdbc.api.impl;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
@@ -837,6 +839,29 @@ public class DatabricksArrayTest {
     }
   }
 
+  /** Types.OTHER element types must report their real column class name, not "null". */
+  @Test
+  public void getResultSet_ShouldReportClassNameForOtherElementTypes() throws SQLException {
+    assertOtherElementClassName("VARIANT", ColumnInfoTypeName.VARIANT);
+    assertOtherElementClassName("GEOMETRY(4326)", ColumnInfoTypeName.GEOMETRY);
+    assertOtherElementClassName("GEOGRAPHY", ColumnInfoTypeName.GEOGRAPHY);
+  }
+
+  private void assertOtherElementClassName(String elementType, ColumnInfoTypeName expectedType)
+      throws SQLException {
+    String arrayType = "ARRAY<" + elementType + ">";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(arrayType))
+        .thenReturn(elementType);
+    DatabricksArray array = new DatabricksArray(Collections.emptyList(), arrayType);
+    try (java.sql.ResultSet rs = array.getResultSet()) {
+      assertEquals(java.sql.Types.OTHER, rs.getMetaData().getColumnType(2), elementType);
+      String className = rs.getMetaData().getColumnClassName(2);
+      assertNotEquals("null", className, elementType);
+      assertEquals(DatabricksTypeUtil.getColumnTypeClassName(expectedType), className, elementType);
+    }
+  }
+
   /** Nested complex elements must be readable via getArray/getObject on the element result set. */
   @Test
   public void getResultSet_NestedArrayElementsShouldBeReturnedAsDatabricksArray()
@@ -861,6 +886,99 @@ public class DatabricksArrayTest {
       java.sql.Array second = rs.getArray(2);
       assertInstanceOf(DatabricksArray.class, second);
       assertArrayEquals(new Object[] {3}, (Object[]) second.getArray());
+      assertFalse(rs.next());
+    }
+  }
+
+  /** An empty array must yield an empty result set with fully built metadata. */
+  @Test
+  public void getResultSet_EmptyArrayShouldReturnEmptyResultSetWithMetadata() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray emptyArray = new DatabricksArray(Collections.emptyList(), "ARRAY<STRING>");
+    try (java.sql.ResultSet rs = emptyArray.getResultSet()) {
+      assertEquals(2, rs.getMetaData().getColumnCount());
+      assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
+      assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
+      assertFalse(rs.next());
+    }
+  }
+
+  /** STRUCT elements must be returned as DatabricksStruct and reported as Types.STRUCT. */
+  @Test
+  public void getResultSet_StructElementsShouldBeReturnedAsDatabricksStruct() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRUCT<id:INT,name:STRING>>"))
+        .thenReturn("STRUCT<id:INT,name:STRING>");
+    Map<String, String> structType = new LinkedHashMap<>();
+    structType.put("id", "INT");
+    structType.put("name", "STRING");
+    metadataParserMock
+        .when(() -> MetadataParser.parseStructMetadata("STRUCT<id:INT,name:STRING>"))
+        .thenReturn(structType);
+    Map<String, Object> struct = new LinkedHashMap<>();
+    struct.put("id", 1);
+    struct.put("name", "alice");
+    DatabricksArray structArray =
+        new DatabricksArray(Arrays.asList(struct, null), "ARRAY<STRUCT<id:INT,name:STRING>>");
+    try (java.sql.ResultSet rs = structArray.getResultSet()) {
+      assertEquals(java.sql.Types.STRUCT, rs.getMetaData().getColumnType(2));
+      assertTrue(rs.next());
+      Object first = rs.getObject(2);
+      assertInstanceOf(DatabricksStruct.class, first);
+      assertArrayEquals(new Object[] {1, "alice"}, ((DatabricksStruct) first).getAttributes());
+      assertFalse(rs.wasNull());
+      assertTrue(rs.next());
+      assertNull(rs.getObject(2));
+      assertTrue(rs.wasNull());
+      assertFalse(rs.next());
+    }
+  }
+
+  /**
+   * MAP elements must be returned as DatabricksMap. The VALUE column reports VARCHAR for MAP, which
+   * matches how MAP columns are reported in query result metadata.
+   */
+  @Test
+  public void getResultSet_MapElementsShouldBeReturnedAsDatabricksMap() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<MAP<STRING,INT>>"))
+        .thenReturn("MAP<STRING,INT>");
+    metadataParserMock
+        .when(() -> MetadataParser.parseMapMetadataParts("MAP<STRING,INT>"))
+        .thenReturn(new String[] {"STRING", "INT"});
+    Map<String, Object> map = new LinkedHashMap<>();
+    map.put("k", 10);
+    DatabricksArray mapArray =
+        new DatabricksArray(Collections.singletonList(map), "ARRAY<MAP<STRING,INT>>");
+    try (java.sql.ResultSet rs = mapArray.getResultSet()) {
+      assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
+      assertTrue(rs.next());
+      Object value = rs.getObject(2);
+      assertInstanceOf(DatabricksMap.class, value);
+      assertEquals(10, ((Map<?, ?>) value).get("k"));
+      assertFalse(rs.next());
+    }
+  }
+
+  /** A null element must be returned as SQL NULL, with wasNull() reflecting it. */
+  @Test
+  public void getResultSet_NullElementShouldSetWasNull() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray array = new DatabricksArray(Arrays.asList("a", null), "ARRAY<STRING>");
+    try (java.sql.ResultSet rs = array.getResultSet()) {
+      assertTrue(rs.next());
+      assertEquals("a", rs.getString(2));
+      assertFalse(rs.wasNull());
+      assertTrue(rs.next());
+      assertEquals(2L, rs.getLong(1));
+      assertNull(rs.getString(2));
+      assertTrue(rs.wasNull());
+      assertNull(rs.getObject(2));
+      assertTrue(rs.wasNull());
       assertFalse(rs.next());
     }
   }
