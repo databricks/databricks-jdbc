@@ -12,6 +12,7 @@
 - SQL Execution API sessions open with warehouse URLs. Real-time sessions use warehouse URLs for session-owned statement operations and session close.
 
 ### Fixed
+- Fixed `DatabricksArray.getBaseTypeName()` and `getBaseType()` to describe the array elements, not the array ([#1738](https://github.com/databricks/databricks-jdbc/issues/1738)).
 
 ---
 *Note: When making changes, please add your change under the appropriate section
