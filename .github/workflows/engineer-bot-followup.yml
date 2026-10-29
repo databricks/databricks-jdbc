@@ -106,11 +106,19 @@ jobs:
       - name: Build driver (skip tests; warms the Maven repo + compiles jdbc-core)
         run: mvn -pl jdbc-core -am -B clean install -DskipTests -Ddependency-check.skip=true
 
-      # mvn install ran spotless:apply (compile-phase bound); revert any churn to
-      # pre-existing files so the followup's fixup commit carries only the agent's
-      # edits. The agent re-formats its own edits via `mvn spotless:apply`.
-      - name: Revert spotless churn (keep only the agent's edits)
-        run: git checkout -- .
+      # Surefire resolves its JUnit provider lazily when a test actually runs.
+      - name: Warm test dependencies for the offline agent
+        run: |
+          mvn -pl jdbc-core -B test \
+            -Dtest="DatabricksParameterMetaDataTest#testInitialization" \
+            -Ddependency-check.skip=true
+
+      # Empty offline settings use central, not the JFrog mirror's repository ID.
+      - name: Normalize _remote.repositories for offline resolution
+        run: |
+          set -euo pipefail
+          find ~/.m2/repository -name '_remote.repositories' \
+            -exec sed -i 's/jfrog-central/central/g' {} +
 
       # --- shared bot setup ----------------------------------------------------
       - name: Bot prelude (tokens + Node + engine install)
@@ -129,6 +137,16 @@ jobs:
           mkdir -p ~/.m2
           printf '<settings />\n' > ~/.m2/settings.xml
           echo "MAVEN_ARGS=-o" >> "$GITHUB_ENV"
+
+      - name: Verify Maven works offline before the agent runs
+        run: |
+          mvn -o -pl jdbc-core -B test \
+            -Dtest="DatabricksParameterMetaDataTest#testInitialization" \
+            -Ddependency-check.skip=true
+
+      # Both test runs apply Spotless; restore existing files before agent edits.
+      - name: Revert spotless churn (keep only the agent's edits)
+        run: git checkout -- .
 
       # Run the follow-up. NOTE: no live-warehouse connection env
       # (DATABRICKS_HOST / _HTTP_PATH / _TEST_CONFIG_FILE) is wired here — the
