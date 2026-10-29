@@ -308,6 +308,10 @@ public class DatabricksArray implements Array {
       // With geospatial support disabled, the parser stores GEOMETRY/GEOGRAPHY elements as their
       // string fallback. Report STRING, as query result metadata does in that case, so that
       // getColumnClassName(2) matches the java.lang.String returned by getObject(2).
+      // Deliberate limitation: a DatabricksArray does not know the connection's geospatial
+      // setting, so an empty or all-null geospatial array has no element to inspect and keeps the
+      // declared GEOMETRY/GEOGRAPHY type (Types.OTHER). No getObject(2) call can return a non-null
+      // value in that case, so no class-name mismatch is observable.
       valueTypeName = ColumnInfoTypeName.STRING;
       valueTypeText = DatabricksTypeUtil.STRING;
     }

@@ -918,6 +918,40 @@ public class DatabricksArrayTest {
     }
   }
 
+  /**
+   * An empty or all-null geospatial array has no element revealing whether geospatial support was
+   * enabled, so the VALUE column deliberately keeps the declared geospatial type (Types.OTHER).
+   */
+  @Test
+  public void getResultSet_EmptyOrAllNullGeospatialArrayShouldReportDeclaredType()
+      throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<GEOGRAPHY>"))
+        .thenReturn("GEOGRAPHY");
+    String expectedClassName =
+        DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.GEOGRAPHY);
+
+    DatabricksArray emptyArray = new DatabricksArray(Collections.emptyList(), "ARRAY<GEOGRAPHY>");
+    try (java.sql.ResultSet rs = emptyArray.getResultSet()) {
+      assertEquals(java.sql.Types.OTHER, rs.getMetaData().getColumnType(2));
+      assertEquals(expectedClassName, rs.getMetaData().getColumnClassName(2));
+      assertFalse(rs.next());
+    }
+
+    DatabricksArray allNullArray =
+        new DatabricksArray(Arrays.asList(null, null), "ARRAY<GEOGRAPHY>");
+    try (java.sql.ResultSet rs = allNullArray.getResultSet()) {
+      assertEquals(java.sql.Types.OTHER, rs.getMetaData().getColumnType(2));
+      assertEquals(expectedClassName, rs.getMetaData().getColumnClassName(2));
+      assertTrue(rs.next());
+      assertNull(rs.getObject(2));
+      assertTrue(rs.wasNull());
+      assertTrue(rs.next());
+      assertNull(rs.getObject(2));
+      assertFalse(rs.next());
+    }
+  }
+
   /** Native geospatial elements must be reported, and returned, as the geospatial interface. */
   @Test
   public void getResultSet_NativeGeospatialElementsShouldReportGeospatialClass()
