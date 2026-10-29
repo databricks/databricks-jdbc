@@ -14,6 +14,7 @@
 - SQL Execution API sessions open with warehouse URLs. Real-time sessions use warehouse URLs for session-owned statement operations and session close.
 
 ### Fixed
+- Fixed `DatabricksArray.getBaseTypeName()` and `getBaseType()` to describe the array's element type (e.g. `INT` / `Types.INTEGER` for `ARRAY<INT>`) per the `java.sql.Array` contract, instead of returning the full array type name and `Types.OTHER`. `ARRAY<MAP<...>>` reports `Types.OTHER`, since its elements are `DatabricksMap` objects.
 
 ---
 *Note: When making changes, please add your change under the appropriate section
