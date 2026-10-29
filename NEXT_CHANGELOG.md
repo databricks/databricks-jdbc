@@ -18,6 +18,11 @@
   element index and column 2 is the element value, per the JDBC `Array` contract.
   Previously these methods threw `SQLFeatureNotSupportedException`.
 
+- `DatabricksArray` elements of parameterized types such as `ARRAY<DECIMAL(10,2)>`
+  are now converted by their base type. `getArray()` returns `java.math.BigDecimal`
+  elements instead of `String`, and `toString()` now renders them as unquoted
+  numbers (e.g. `[1.50,2.25]` instead of `["1.50","2.25"]`).
+
 - Metadata and in-memory result sets built from column metadata now resolve
   `getColumnTypeName`/`getColumnClassName` from the column type text for
   `Types.OTHER` columns (e.g. VARIANT, GEOMETRY, GEOGRAPHY) instead of reporting

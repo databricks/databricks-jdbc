@@ -805,6 +805,29 @@ public class DatabricksArrayTest {
     }
   }
 
+  /**
+   * Parameterized DECIMAL(p,s) elements convert to BigDecimal (not String) for getArray(), and
+   * toString() renders them as unquoted JSON numbers.
+   */
+  @Test
+  public void parameterizedDecimalElements_ShouldConvertToBigDecimalForGetArrayAndToString()
+      throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<DECIMAL(10,2)>"))
+        .thenReturn("DECIMAL(10,2)");
+    DatabricksArray decimalArray =
+        new DatabricksArray(Arrays.asList("1.50", "2.25"), "ARRAY<DECIMAL(10,2)>");
+
+    Object[] elements = (Object[]) decimalArray.getArray();
+    assertEquals(2, elements.length);
+    assertInstanceOf(BigDecimal.class, elements[0]);
+    assertEquals(new BigDecimal("1.50"), elements[0]);
+    assertInstanceOf(BigDecimal.class, elements[1]);
+    assertEquals(new BigDecimal("2.25"), elements[1]);
+
+    assertEquals("[1.50,2.25]", decimalArray.toString());
+  }
+
   /** A collated string element type must report VARCHAR for the VALUE column, not OTHER. */
   @Test
   public void getResultSet_MetadataShouldReportVarcharForCollatedStringElementType()
