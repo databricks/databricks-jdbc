@@ -764,6 +764,7 @@ public class DatabricksArrayTest {
     try (java.sql.ResultSet rs = decimalArray.getResultSet()) {
       assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
       assertEquals(java.sql.Types.DECIMAL, rs.getMetaData().getColumnType(2));
+      assertEquals("DECIMAL(10,2)", rs.getMetaData().getColumnTypeName(2));
       assertEquals(19, rs.getMetaData().getPrecision(1));
       assertEquals(0, rs.getMetaData().getScale(1));
       assertEquals(10, rs.getMetaData().getPrecision(2));
@@ -790,6 +791,7 @@ public class DatabricksArrayTest {
             Arrays.asList(Arrays.asList(1, 2), Arrays.asList(3)), "ARRAY<ARRAY<INT>>");
     try (java.sql.ResultSet rs = nestedArray.getResultSet()) {
       assertEquals(java.sql.Types.ARRAY, rs.getMetaData().getColumnType(2));
+      assertEquals("ARRAY<INT>", rs.getMetaData().getColumnTypeName(2));
     }
 
     metadataParserMock
@@ -836,6 +838,7 @@ public class DatabricksArrayTest {
     try (java.sql.ResultSet rs = collatedArray.getResultSet()) {
       assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
       assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
+      assertEquals("STRING COLLATE UTF8_LCASE", rs.getMetaData().getColumnTypeName(2));
       assertEquals("java.lang.String", rs.getMetaData().getColumnClassName(2));
       assertEquals(false, rs.getMetaData().isSigned(2));
     }
@@ -1034,6 +1037,7 @@ public class DatabricksArrayTest {
         new DatabricksArray(Arrays.asList(struct, null), "ARRAY<STRUCT<id:INT,name:STRING>>");
     try (java.sql.ResultSet rs = structArray.getResultSet()) {
       assertEquals(java.sql.Types.STRUCT, rs.getMetaData().getColumnType(2));
+      assertEquals("STRUCT<id:INT,name:STRING>", rs.getMetaData().getColumnTypeName(2));
       assertTrue(rs.next());
       Object first = rs.getObject(2);
       assertInstanceOf(DatabricksStruct.class, first);
