@@ -114,17 +114,23 @@ jobs:
         run: |
           set -euo pipefail
           SUREFIRE_VERSION=$(mvn -pl jdbc-core -B help:evaluate \
-            -Dexpression=maven-surefire-plugin.version -q -DforceStdout)
+            -Dexpression=maven-surefire-plugin.version -q -DforceStdout) || SUREFIRE_VERSION=""
+          # Use the same pinned fallback as engineer-bot.yml.
+          SUREFIRE_VERSION=${SUREFIRE_VERSION:-3.1.2}
           # Surefire aligns its launcher with the project's resolved Platform engine.
           JUNIT_PLATFORM_VERSION=$(mvn -pl jdbc-core -B dependency:list \
             -DincludeGroupIds=org.junit.platform -DincludeArtifactIds=junit-platform-engine \
-            | sed -n 's/.*org\.junit\.platform:junit-platform-engine:jar:\([^: ]*\):.*/\1/p')
+            | sed -n 's/.*org\.junit\.platform:junit-platform-engine:jar:\([^: ]*\):.*/\1/p') || JUNIT_PLATFORM_VERSION=""
           mvn -N -B dependency:get \
             -Dartifact="org.apache.maven.surefire:surefire-junit-platform:${SUREFIRE_VERSION}" \
             || echo "::warning::Surefire provider warm-up failed; offline Maven tests may fail."
-          mvn -N -B dependency:get \
-            -Dartifact="org.junit.platform:junit-platform-launcher:${JUNIT_PLATFORM_VERSION}" \
-            || echo "::warning::JUnit Platform launcher warm-up failed; offline Maven tests may fail."
+          if [[ -n "$JUNIT_PLATFORM_VERSION" ]]; then
+            mvn -N -B dependency:get \
+              -Dartifact="org.junit.platform:junit-platform-launcher:${JUNIT_PLATFORM_VERSION}" \
+              || echo "::warning::JUnit Platform launcher warm-up failed; offline Maven tests may fail."
+          else
+            echo "::warning::JUnit Platform version lookup failed; launcher warm-up skipped."
+          fi
 
       # Empty offline settings use central, not the JFrog mirror's repository ID.
       - name: Normalize _remote.repositories for offline resolution
