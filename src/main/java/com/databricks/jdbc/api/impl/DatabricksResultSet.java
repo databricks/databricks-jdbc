@@ -301,8 +301,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
    *
    * @param complexDatatypeSupport whether {@code getObject}/{@code getArray} return nested values
    *     as Databricks complex types
-   * @param useTypeTextForColumnType whether the result set metadata derives each column's type
-   *     from {@link ColumnMetadata#getTypeText()} instead of {@link ColumnMetadata#getTypeInt()}
+   * @param useTypeTextForColumnType whether the result set metadata derives each column's type from
+   *     {@link ColumnMetadata#getTypeText()} instead of {@link ColumnMetadata#getTypeInt()}
    */
   DatabricksResultSet(
       StatementStatus statementStatus,
