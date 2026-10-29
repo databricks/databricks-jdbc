@@ -106,12 +106,22 @@ jobs:
       - name: Build driver (skip tests; warms the Maven repo + compiles jdbc-core)
         run: mvn -pl jdbc-core -am -B clean install -DskipTests -Ddependency-check.skip=true
 
-      # Surefire resolves its JUnit provider lazily when a test actually runs.
+      # Warm the cache even if the PR's smoke test is missing or broken.
       - name: Warm test dependencies for the offline agent
         run: |
+          set -euo pipefail
+          mvn -pl jdbc-core -B dependency:resolve dependency:resolve-plugins \
+            -Ddependency-check.skip=true || true
+          # Surefire's JUnit provider is resolved lazily, so fetch it explicitly.
+          SUREFIRE_VERSION=$(mvn -pl jdbc-core -B help:evaluate \
+            -Dexpression=maven-surefire-plugin.version -q -DforceStdout 2>/dev/null \
+            | tail -n1) || SUREFIRE_VERSION="3.1.2"
+          [ -n "$SUREFIRE_VERSION" ] || SUREFIRE_VERSION="3.1.2"
+          mvn -B dependency:get \
+            -Dartifact="org.apache.maven.surefire:surefire-junit-platform:${SUREFIRE_VERSION}" || true
           mvn -pl jdbc-core -B test \
             -Dtest="DatabricksParameterMetaDataTest#testInitialization" \
-            -Ddependency-check.skip=true
+            -Ddependency-check.skip=true || true
 
       # Empty offline settings use central, not the JFrog mirror's repository ID.
       - name: Normalize _remote.repositories for offline resolution
@@ -138,13 +148,12 @@ jobs:
           printf '<settings />\n' > ~/.m2/settings.xml
           echo "MAVEN_ARGS=-o" >> "$GITHUB_ENV"
 
-      - name: Verify Maven works offline before the agent runs
+      - name: Verify Maven dependency and plugin resolution offline
         run: |
-          mvn -o -pl jdbc-core -B test \
-            -Dtest="DatabricksParameterMetaDataTest#testInitialization" \
+          mvn -o -pl jdbc-core -B dependency:resolve dependency:resolve-plugins \
             -Ddependency-check.skip=true
 
-      # Both test runs apply Spotless; restore existing files before agent edits.
+      # The build and smoke test apply Spotless; restore files before agent edits.
       - name: Revert spotless churn (keep only the agent's edits)
         run: git checkout -- .
 
