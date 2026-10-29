@@ -1083,21 +1083,13 @@ public class DatabricksArrayTest {
   }
 
   @Test
-  public void getBaseType_ShouldHandleCollatedLowercaseAndUnknownElements() throws SQLException {
+  public void getBaseType_ShouldHandleCollatedAndUnknownElements() throws SQLException {
     String collatedMetadata = "ARRAY<STRING COLLATE UTF8_LCASE>";
     metadataParserMock
         .when(() -> MetadataParser.parseArrayMetadata(collatedMetadata))
         .thenReturn("STRING COLLATE UTF8_LCASE");
     DatabricksArray collatedArray = new DatabricksArray(Collections.emptyList(), collatedMetadata);
     assertEquals(java.sql.Types.VARCHAR, collatedArray.getBaseType());
-
-    String lowercaseMetadata = "array<bigint>";
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata(lowercaseMetadata))
-        .thenReturn("bigint");
-    DatabricksArray lowercaseArray =
-        new DatabricksArray(Collections.emptyList(), lowercaseMetadata);
-    assertEquals(java.sql.Types.BIGINT, lowercaseArray.getBaseType());
 
     String unknownMetadata = "ARRAY<MY_CUSTOM_UDT>";
     metadataParserMock

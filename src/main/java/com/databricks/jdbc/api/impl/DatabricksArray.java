@@ -309,13 +309,18 @@ public class DatabricksArray implements Array {
         /* complexDatatypeSupport= */ true);
   }
 
-  // Uses the same mapping as ResultSetMetaData.getColumnType() for a column of the element type.
+  // Uses the same mapping as ResultSetMetaData.getColumnType() for a column of the element type,
+  // except MAP: that column mapping (VARCHAR) assumes complex support is off, but MAP elements are
+  // always DatabricksMap objects.
   private int elementSqlType() {
     if (DatabricksTypeUtil.recoverStringType(this.elementType) != null) {
       return Types.VARCHAR; // collated strings, e.g. STRING COLLATE UTF8_LCASE
     }
-    return DatabricksTypeUtil.getColumnType(
-        DatabricksTypeUtil.getColumnInfoType(baseTypeName(this.elementType)));
+    String baseType = baseTypeName(this.elementType);
+    if (DatabricksTypeUtil.MAP.equals(baseType)) {
+      return Types.OTHER;
+    }
+    return DatabricksTypeUtil.getColumnType(DatabricksTypeUtil.getColumnInfoType(baseType));
   }
 
   // Strips type parameters, e.g. DECIMAL(10,2) -> DECIMAL and ARRAY<INT> -> ARRAY.
