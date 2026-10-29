@@ -126,6 +126,20 @@ jobs:
           echo "surefire-provider=${SUREFIRE_PROVIDER}" >> "$GITHUB_OUTPUT"
           mvn -B dependency:get -Dartifact="${SUREFIRE_PROVIDER}" \
             || echo "::warning::Surefire provider warm-up failed; continuing with the available cache."
+          # Surefire aligns its launcher with the project's resolved Platform engine.
+          JUNIT_PLATFORM_VERSION=$(mvn -pl jdbc-core -B dependency:list \
+            -DincludeGroupIds=org.junit.platform -DincludeArtifactIds=junit-platform-engine \
+            | sed -n 's/.*org\.junit\.platform:junit-platform-engine:jar:\([^: ]*\):.*/\1/p') \
+            || JUNIT_PLATFORM_VERSION=""
+          JUNIT_LAUNCHER=""
+          if [[ "$JUNIT_PLATFORM_VERSION" =~ ^[[:digit:]][[:alnum:]._-]*$ ]]; then
+            JUNIT_LAUNCHER="org.junit.platform:junit-platform-launcher:${JUNIT_PLATFORM_VERSION}"
+            mvn -B dependency:get -Dartifact="${JUNIT_LAUNCHER}" \
+              || echo "::warning::JUnit Platform launcher warm-up failed; continuing with the available cache."
+          else
+            echo "::warning::Could not determine the resolved JUnit Platform engine version; launcher warm-up skipped."
+          fi
+          echo "junit-launcher=${JUNIT_LAUNCHER}" >> "$GITHUB_OUTPUT"
 
       # Empty offline settings use central, not the JFrog mirror's repository ID.
       - name: Normalize _remote.repositories for offline resolution
@@ -155,6 +169,7 @@ jobs:
       - name: Check Maven dependency and plugin resolution offline
         env:
           SUREFIRE_PROVIDER: ${{ steps.warm-maven.outputs.surefire-provider }}
+          JUNIT_LAUNCHER: ${{ steps.warm-maven.outputs.junit-launcher }}
         run: |
           set -euo pipefail
           mvn -o -pl jdbc-core -B dependency:resolve dependency:resolve-plugins \
@@ -162,13 +177,17 @@ jobs:
             || echo "::warning::Some Maven dependencies or plugins are unavailable offline; the follow-up agent will report verification limits."
           mvn -o -B dependency:get -Dartifact="${SUREFIRE_PROVIDER}" \
             || echo "::warning::The Surefire provider or its dependencies are unavailable offline; the follow-up agent will report verification limits."
+          if [[ -n "$JUNIT_LAUNCHER" ]]; then
+            mvn -o -B dependency:get -Dartifact="${JUNIT_LAUNCHER}" \
+              || echo "::warning::The JUnit Platform launcher is unavailable offline; the follow-up agent will report verification limits."
+          fi
 
       - name: Warm test runtime offline
         run: |
           mvn -o -pl jdbc-core -B test \
             -Dtest="DatabricksParameterMetaDataTest#testInitialization" \
             -Ddependency-check.skip=true \
-            || echo "::warning::The offline smoke test could not complete; continuing so the follow-up agent can investigate."
+            || echo "::warning::The offline smoke test could not complete (missing or failing test, compilation error, or cache miss); continuing so the follow-up agent can investigate."
 
       # The build and smoke test apply Spotless; restore files before agent edits.
       - name: Revert spotless churn (keep only the agent's edits)
