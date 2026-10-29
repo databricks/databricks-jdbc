@@ -49,7 +49,6 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -464,7 +463,7 @@ public class DatabricksConnectionTest {
   }
 
   @Test
-  void testRetrievedStatementClosesWithConnection() throws SQLException {
+  void testClosingConnectionDoesNotCloseRetrievedOperation() throws SQLException {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
@@ -474,20 +473,15 @@ public class DatabricksConnectionTest {
       StatementId statementId = new StatementId("statement-id");
       DatabricksStatement statement =
           (DatabricksStatement) localConnection.getStatement(statementId.toString());
-      assertFalse(statement.isClosed());
+      when(databricksClient.getStatementResult(
+              eq(statementId), eq(localConnection.getSession()), eq(statement)))
+          .thenReturn(resultSet);
+      assertSame(resultSet, statement.getExecutionResult());
 
       localConnection.close();
 
-      assertTrue(statement.isClosed());
-      InOrder cleanup = inOrder(databricksClient);
-      cleanup.verify(databricksClient).closeStatement(statementId);
-      cleanup.verify(databricksClient).deleteSession(IMMUTABLE_SESSION_INFO);
-      DatabricksSQLException error =
-          assertThrows(DatabricksSQLException.class, statement::getExecutionResult);
-      assertEquals(DatabricksDriverErrorCode.STATEMENT_CLOSED.name(), error.getSQLState());
-      // Connection cleanup preserves the existing statement-closed vendor code.
-      assertEquals(0, error.getErrorCode());
-      verify(databricksClient, never()).getStatementResult(any(), any(), any());
+      verify(databricksClient, never()).closeStatement(any());
+      verify(databricksClient).deleteSession(IMMUTABLE_SESSION_INFO);
     }
   }
 
