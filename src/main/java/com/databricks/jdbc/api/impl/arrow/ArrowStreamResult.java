@@ -5,6 +5,7 @@ import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExterna
 
 import com.databricks.jdbc.api.impl.ComplexDataTypeParser;
 import com.databricks.jdbc.api.impl.IExecutionResult;
+import com.databricks.jdbc.api.impl.MetadataParser;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -71,9 +72,15 @@ public class ArrowStreamResult implements IExecutionResult {
           statementId.toSQLExecStatementId());
       this.chunkProvider = new EmptyChunkProvider();
     } else {
-      // Check if the result data contains the arrow data inline
       boolean isInlineArrow = resultData.getAttachment() != null;
-      if (isInlineArrow) {
+      IDatabricksConnectionContext connectionContext = session.getConnectionContext();
+      if (isInlineArrow && connectionContext.isBoundedSeaApiEnabled()) {
+        LOGGER.debug(
+            "Creating ArrowStreamResult with SEA inline Arrow for statementId: {}",
+            statementId.toSQLExecStatementId());
+        this.chunkProvider =
+            new SeaInlineArrowChunkProvider(resultData, resultManifest, statementId, session);
+      } else if (isInlineArrow) {
         LOGGER.debug(
             "Creating ArrowStreamResult with inline attachment for statementId: {}",
             statementId.toSQLExecStatementId());
@@ -299,12 +306,14 @@ public class ArrowStreamResult implements IExecutionResult {
       return false;
     }
 
-    currentRowIndex++;
     if (chunkIterator == null || !chunkIterator.hasNextRow()) {
-      chunkProvider.next();
+      if (!chunkProvider.next()) {
+        return false;
+      }
       chunkIterator = chunkProvider.getChunk().getChunkIterator();
     }
 
+    currentRowIndex++;
     return chunkIterator.nextRow();
   }
 
@@ -403,8 +412,16 @@ public class ArrowStreamResult implements IExecutionResult {
         return null;
       }
       ComplexDataTypeParser parser = new ComplexDataTypeParser();
-
+      if (MetadataParser.containsGeospatialType(arrowMetadata)) {
+        return parser.formatGeospatialComplexTypeString(
+            result.toString(), requiredType.name(), arrowMetadata);
+      }
       return parser.formatComplexTypeString(result.toString(), requiredType.name(), arrowMetadata);
+    }
+
+    if (isComplexType(requiredType)) {
+      return chunkIterator.getColumnObjectAtCurrentRow(
+          columnIndex, requiredType, arrowMetadata, columnInfo, isGeoSpatialSupportEnabled);
     }
 
     return chunkIterator.getColumnObjectAtCurrentRow(

@@ -1,9 +1,9 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
-import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.AUTH_SCOPE;
 import static com.databricks.jdbc.common.DatabricksJdbcUrlParams.DEFAULT_STRING_COLUMN_LENGTH;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_ROW_LIMIT_PER_BLOCK;
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.parseOAuthScopes;
 import static com.databricks.jdbc.common.util.StringUtil.parseIntegerSet;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_SEA_CLIENT;
 import static com.databricks.jdbc.common.util.UserAgentManager.USER_AGENT_THRIFT_CLIENT;
@@ -11,7 +11,6 @@ import static com.databricks.jdbc.common.util.WildcardUtil.isNullOrEmpty;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.*;
-import com.databricks.jdbc.common.SeaCircuitBreakerManager;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.ValidationUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -31,7 +30,6 @@ import com.google.common.collect.ImmutableMap;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
-import java.util.Collections;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -45,9 +43,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   private static final String SQL_EXEC_FLAG_NAME =
       "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc";
-
-  private static final String USE_QUERY_FOR_THRIFT_FLAG_NAME =
-      "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc";
 
   private final String host;
   @VisibleForTesting final int port;
@@ -384,8 +379,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   @Override
   public List<String> getOAuthScopesForU2M() throws DatabricksParsingException {
-    if (getParameter(AUTH_SCOPE) != null) {
-      return Collections.singletonList(getAuthScope());
+    List<String> scopes = parseOAuthScopes(getAuthScope());
+    if (!scopes.isEmpty()) {
+      return scopes;
     }
     // Use uniform default scopes for all clouds: sql and offline_access
     return Arrays.asList(
@@ -513,63 +509,42 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
       if (useThriftClient.equals("1")) {
         return DatabricksClientType.THRIFT;
       } else if (useThriftClient.equals("0")) {
-        // Warn if user explicitly chose SEA but also set Thrift-only metadata params
-        String explicitQueryForMetadata =
-            getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA);
         String explicitCatalogAsPattern =
             getParameterIgnoreDefault(
                 DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
-        if ((explicitQueryForMetadata != null && explicitQueryForMetadata.equals("0"))
-            || (explicitCatalogAsPattern != null && explicitCatalogAsPattern.equals("1"))) {
+        if (explicitCatalogAsPattern != null && explicitCatalogAsPattern.equals("1")) {
           LOGGER.warn(
-              "UseThriftClient=0 (SEA) is set alongside Thrift-only metadata params "
-                  + "(UseQueryForMetadata={}, TreatMetadataCatalogNameAsPattern={}). "
-                  + "Honouring SEA — these metadata params will have no effect.",
-              explicitQueryForMetadata,
+              "UseThriftClient=0 (SEA) is set alongside the Thrift-only metadata param "
+                  + "TreatMetadataCatalogNameAsPattern={}. Honouring SEA — this metadata param "
+                  + "will have no effect.",
               explicitCatalogAsPattern);
         }
         return DatabricksClientType.SEA;
       }
     }
     // Now, user has not provided a value for UseThriftClient, we will decide based on our checks.
-    // If user explicitly requires Thrift-native metadata behavior, stay on Thrift:
-    // - UseQueryForMetadata=0: user wants native Thrift RPCs for metadata (not SHOW commands)
-    // - TreatMetadataCatalogNameAsPattern=1: only works with native Thrift RPCs
-    String explicitUseQueryForMetadata =
-        getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA);
+    // TreatMetadataCatalogNameAsPattern only works with native Thrift metadata RPCs.
     String explicitTreatCatalogAsPattern =
         getParameterIgnoreDefault(DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN);
-    if ((explicitUseQueryForMetadata != null && explicitUseQueryForMetadata.equals("0"))
-        || (explicitTreatCatalogAsPattern != null && explicitTreatCatalogAsPattern.equals("1"))) {
+    if (explicitTreatCatalogAsPattern != null && explicitTreatCatalogAsPattern.equals("1")) {
       LOGGER.info(
-          "Forcing Thrift client: user requires Thrift-native metadata behavior "
-              + "(UseQueryForMetadata={}, TreatMetadataCatalogNameAsPattern={})",
-          explicitUseQueryForMetadata,
+          "Forcing Thrift client: user requires TreatMetadataCatalogNameAsPattern={}",
           explicitTreatCatalogAsPattern);
       return DatabricksClientType.THRIFT;
     }
 
-    // Check if circuit breaker is open due to recent 429 rate limit failures
-    if (SeaCircuitBreakerManager.isCircuitOpen()) {
-      long remainingMs = SeaCircuitBreakerManager.getTimeRemainingMs();
-      LOGGER.debug(
-          "SEA circuit breaker is OPEN due to recent 429 rate limit failures. "
-              + "Using THRIFT client. Circuit will close in {} ({}ms)",
-          SeaCircuitBreakerManager.getTimeRemainingFormatted(),
-          remainingMs);
+    // Preserve legacy routing unless bounded SEA can return inline Arrow results.
+    if (!isCloudFetchEnabled() && !(shouldEnableArrow() && isBoundedSeaApiEnabled())) {
       return DatabricksClientType.THRIFT;
     }
+
     // On AIX/PowerPC, Arrow may be disabled — check before routing to SEA
     if (isAixOrPowerPc() && !shouldEnableArrow()) {
       return DatabricksClientType.THRIFT;
     }
-    // Check if CloudFetch is disabled - Thrift is required for inline mode
-    if (!isCloudFetchEnabled()) {
-      return DatabricksClientType.THRIFT;
-    }
     // Check feature flag to determine if SEA client should be enabled
     if (DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
-        .isFeatureEnabled(SQL_EXEC_FLAG_NAME)) {
+        .getBoolean(SQL_EXEC_FLAG_NAME)) {
       return DatabricksClientType.SEA;
     }
     // Default to THRIFT if feature flag is not enabled or cannot be determined
@@ -1287,12 +1262,6 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   }
 
   @Override
-  public boolean useQueryForMetadata() {
-    return resolveFeatureFlag(
-        DatabricksJdbcUrlParams.USE_QUERY_FOR_METADATA, USE_QUERY_FOR_THRIFT_FLAG_NAME);
-  }
-
-  @Override
   public boolean treatMetadataCatalogNameAsPattern() {
     return getParameter(DatabricksJdbcUrlParams.TREAT_METADATA_CATALOG_NAME_AS_PATTERN).equals("1");
   }
@@ -1370,7 +1339,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
    *   <li>Default value from the param definition
    * </ol>
    *
-   * @param clientParam the JDBC URL parameter (e.g. USE_QUERY_FOR_METADATA)
+   * @param clientParam the JDBC URL parameter
    * @param serverFlagName the server-side SAFE flag name
    * @return true if the feature should be enabled
    */
@@ -1393,8 +1362,7 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
     boolean serverEnabled = false;
     try {
       serverEnabled =
-          DatabricksDriverFeatureFlagsContextFactory.getInstance(this)
-              .isFeatureEnabled(serverFlagName);
+          DatabricksDriverFeatureFlagsContextFactory.getInstance(this).getBoolean(serverFlagName);
     } catch (Exception e) {
       LOGGER.debug("Failed to check server-side flag {}: {}", serverFlagName, e.getMessage());
     }
@@ -1521,6 +1489,11 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
   public boolean isThriftNativeMetadataEnabled() {
     return resolveFeatureFlag(
         DatabricksJdbcUrlParams.ENABLE_THRIFT_NATIVE_METADATA, SQL_EXEC_FLAG_NAME);
+  }
+
+  @Override
+  public boolean isSeaResponseCompressionEnabled() {
+    return getParameter(DatabricksJdbcUrlParams.ENABLE_SEA_RESPONSE_COMPRESSION).equals("1");
   }
 
   @Override

@@ -73,6 +73,41 @@ public class DecompressionUtil {
     return new ByteArrayInputStream(compressedInput);
   }
 
+  /**
+   * Returns a streaming decompression wrapper around compressed bytes. Unlike {@link
+   * #decompressToStream}, this does NOT materialize the full decompressed output in memory — it
+   * decompresses lazily as the returned stream is read.
+   */
+  public static InputStream decompressLazy(
+      byte[] compressedInput, CompressionCodec compressionCodec, String context)
+      throws DatabricksSQLException {
+    if (compressionCodec == null || compressedInput == null) {
+      LOGGER.debug("Compression is NONE /InputStream is `NULL`. Skipping compression.");
+      return compressedInput == null ? null : new ByteArrayInputStream(compressedInput);
+    }
+    switch (compressionCodec) {
+      case NONE:
+        LOGGER.debug("Compression type is `NONE`. Skipping compression.");
+        return new ByteArrayInputStream(compressedInput);
+      case LZ4_FRAME:
+        try {
+          return new LZ4FrameInputStream(new ByteArrayInputStream(compressedInput));
+        } catch (IOException e) {
+          String errorMessage =
+              String.format("Unable to create LZ4 Frame decompression stream %s", context);
+          LOGGER.error(e, errorMessage);
+          throw new DatabricksParsingException(
+              errorMessage, e, DatabricksDriverErrorCode.DECOMPRESSION_ERROR);
+        }
+      default:
+        String errorMessage =
+            String.format("Unknown compression type: %s. Context : %s", compressionCodec, context);
+        LOGGER.error(errorMessage);
+        throw new DatabricksSQLException(
+            errorMessage, DatabricksDriverErrorCode.DECOMPRESSION_ERROR);
+    }
+  }
+
   public static InputStream decompress(
       InputStream compressedStream, CompressionCodec compressionCodec, String context)
       throws IOException, DatabricksSQLException {

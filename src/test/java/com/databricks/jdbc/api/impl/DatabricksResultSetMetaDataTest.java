@@ -124,6 +124,59 @@ public class DatabricksResultSetMetaDataTest {
   }
 
   @Test
+  public void testColumnsDifferingOnlyInCaseSea() throws SQLException {
+    ResultManifest resultManifest = new ResultManifest();
+    resultManifest.setTotalRowCount(1L);
+    ResultSchema schema = new ResultSchema();
+    schema.setColumnCount(3L);
+    schema.setColumns(
+        List.of(
+            getColumn("policyid", ColumnInfoTypeName.INT, "int"),
+            getColumn("policyId", ColumnInfoTypeName.INT, "int"),
+            getColumn("other", ColumnInfoTypeName.STRING, "string")));
+    resultManifest.setSchema(schema);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+
+    assertEquals(3, metaData.getColumnCount());
+    assertEquals("policyId", metaData.getColumnName(2));
+    assertEquals(1, metaData.getColumnNameIndex("policyid"));
+    assertEquals(1, metaData.getColumnNameIndex("policyId"));
+    assertEquals(3, metaData.getColumnNameIndex("OTHER"));
+  }
+
+  @Test
+  public void testMissingTotalRowCountIsUnknown() {
+    ResultManifest resultManifest = getResultManifest().setTotalRowCount(null);
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(STATEMENT_ID, resultManifest, false, connectionContext);
+
+    assertEquals(-1, metaData.getTotalRows());
+    assertFalse(metaData.hasKnownTotalRows());
+  }
+
+  @Test
+  public void testColumnsDifferingOnlyInCaseThrift() throws SQLException {
+    TGetResultSetMetadataResp resultManifest = new TGetResultSetMetadataResp();
+    resultManifest.setSchema(
+        new TTableSchema()
+            .setColumns(
+                List.of(
+                    new TColumnDesc().setColumnName("a"), new TColumnDesc().setColumnName("A"))));
+
+    DatabricksResultSetMetaData metaData =
+        new DatabricksResultSetMetaData(
+            THRIFT_STATEMENT_ID, resultManifest, 1, 1, null, connectionContext);
+
+    assertEquals(2, metaData.getColumnCount());
+    assertEquals("A", metaData.getColumnName(2));
+    assertEquals(1, metaData.getColumnNameIndex("a"));
+    assertEquals(1, metaData.getColumnNameIndex("A"));
+  }
+
+  @Test
   public void testColumnsWithTimestampNTZ() throws SQLException {
     ResultManifest resultManifest = new ResultManifest();
     resultManifest.setTotalRowCount(10L);
@@ -956,6 +1009,29 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("STRING", metaData.getColumnTypeName(1));
     assertEquals(Types.VARCHAR, metaData.getColumnType(1));
     assertEquals("java.lang.String", metaData.getColumnClassName(1));
+  }
+
+  @Test
+  public void testThriftNestedGeospatialColumnsKeepTheirContainerMetadata() throws SQLException {
+    when(connectionContext.isGeoSpatialSupportEnabled()).thenReturn(false);
+    when(connectionContext.isComplexDatatypeSupportEnabled()).thenReturn(true);
+    TTypeId[] types = {TTypeId.STRUCT_TYPE, TTypeId.ARRAY_TYPE, TTypeId.MAP_TYPE};
+    String[] metadata = {
+      "STRUCT<g:GEOMETRY(0),day:DATE>", "ARRAY<GEOGRAPHY(4326)>", "MAP<STRING,GEOMETRY(ANY)>"
+    };
+    for (int i = 0; i < types.length; i++) {
+      TTypeEntry entry = new TTypeEntry();
+      entry.setPrimitiveEntry(new TPrimitiveTypeEntry(types[i]));
+      TTypeDesc typeDesc = new TTypeDesc().setTypes(List.of(entry));
+      TColumnDesc column = new TColumnDesc().setColumnName("value").setTypeDesc(typeDesc);
+      TGetResultSetMetadataResp response =
+          new TGetResultSetMetadataResp().setSchema(new TTableSchema().setColumns(List.of(column)));
+      DatabricksResultSetMetaData actual =
+          new DatabricksResultSetMetaData(
+              THRIFT_STATEMENT_ID, response, 1, 1, List.of(metadata[i]), connectionContext);
+      assertEquals(metadata[i], actual.getColumnTypeName(1));
+      assertNotEquals("java.lang.String", actual.getColumnClassName(1));
+    }
   }
 
   @Test

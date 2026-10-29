@@ -10,11 +10,19 @@ import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -152,9 +160,69 @@ public class DatabricksDriverFeatureFlagsContext {
     this.connectionContext = newContext;
   }
 
-  public boolean isFeatureEnabled(String name) {
+  /** Returns true only for a case-insensitive "true" value; missing values default to false. */
+  public boolean getBoolean(String name) {
     String value = featureFlags.getIfPresent(name);
     return Boolean.parseBoolean(value);
+  }
+
+  public OptionalInt getInt32(String name) {
+    JsonNode value = parse(name);
+    return value != null && value.isIntegralNumber() && value.canConvertToInt()
+        ? OptionalInt.of(value.intValue())
+        : OptionalInt.empty();
+  }
+
+  public OptionalLong getInt64(String name) {
+    JsonNode value = parse(name);
+    return value != null && value.isIntegralNumber() && value.canConvertToLong()
+        ? OptionalLong.of(value.longValue())
+        : OptionalLong.empty();
+  }
+
+  public OptionalDouble getDouble(String name) {
+    JsonNode value = parse(name);
+    if (value == null || !value.isNumber()) {
+      return OptionalDouble.empty();
+    }
+    double number = value.doubleValue();
+    return Double.isFinite(number) ? OptionalDouble.of(number) : OptionalDouble.empty();
+  }
+
+  public Optional<String> getString(String name) {
+    JsonNode value = parse(name);
+    return value != null && value.isTextual() ? Optional.of(value.textValue()) : Optional.empty();
+  }
+
+  public Optional<List<String>> getStringList(String name) {
+    JsonNode value = parse(name);
+    if (value == null || !value.isArray()) {
+      return Optional.empty();
+    }
+    List<String> result = new ArrayList<>(value.size());
+    for (JsonNode item : value) {
+      if (!item.isTextual()) {
+        return Optional.empty();
+      }
+      result.add(item.textValue());
+    }
+    return Optional.of(Collections.unmodifiableList(result));
+  }
+
+  private JsonNode parse(String name) {
+    if (name == null || name.isEmpty()) {
+      return null;
+    }
+    String value = featureFlags.getIfPresent(name);
+    if (value == null) {
+      return null;
+    }
+    try {
+      return JsonUtil.getMapper().readTree(value);
+    } catch (IOException | RuntimeException e) {
+      LOGGER.debug("Feature flag {} has malformed JSON; using the consumer default", name);
+      return null;
+    }
   }
 
   public void shutdown() {
