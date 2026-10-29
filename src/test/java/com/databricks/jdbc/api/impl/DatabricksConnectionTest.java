@@ -15,7 +15,9 @@ import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.ClosedConnectionHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
@@ -25,6 +27,7 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTransactionException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -32,11 +35,19 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
+import org.apache.http.HttpVersion;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.message.BasicStatusLine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -364,6 +375,69 @@ public class DatabricksConnectionTest {
     connection.close();
     assertFalse(connection.isValid(1));
     assertThrows(DatabricksSQLException.class, connection::isReadOnly);
+    assertThrows(DatabricksSQLException.class, () -> connection.getStatement("statement-id"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testClosedConnectionStatementCreationPreservesServerFlags(boolean prepared)
+      throws Exception {
+    String sqlExecFlag =
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc";
+    Properties properties = new Properties();
+    properties.setProperty("UID", "token");
+    properties.setProperty("PWD", "test-token");
+    IDatabricksConnectionContext closedContext =
+        DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, properties);
+    IDatabricksConnectionContext freshContext =
+        DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, properties);
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+
+    DatabricksConnection closedConnection =
+        new DatabricksConnection(closedContext, databricksClient);
+    closedConnection.open();
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        closedContext, Map.of(sqlExecFlag, "true"));
+    assertTrue(closedContext.isThriftNativeMetadataEnabled());
+    closedConnection.close();
+
+    DatabricksSQLException error =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> {
+              try (Statement ignored =
+                  prepared
+                      ? closedConnection.prepareStatement(SQL)
+                      : closedConnection.createStatement()) {
+                fail("A closed connection must reject statement creation");
+              }
+            });
+    assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.name(), error.getSQLState());
+    assertEquals(0, error.getErrorCode());
+
+    DatabricksHttpClientFactory httpFactory = mock(DatabricksHttpClientFactory.class);
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(httpFactory.getClient(freshContext)).thenReturn(httpClient);
+    when(httpClient.execute(any(HttpGet.class))).thenReturn(response);
+    when(response.getStatusLine()).thenReturn(new BasicStatusLine(HttpVersion.HTTP_1_1, 200, "OK"));
+    when(response.getEntity())
+        .thenReturn(
+            new StringEntity(
+                "{\"flags\":[{\"name\":\"" + sqlExecFlag + "\",\"value\":\"true\"}]}",
+                StandardCharsets.UTF_8));
+    try (MockedStatic<DatabricksHttpClientFactory> factory =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      factory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpFactory);
+      try (DatabricksConnection freshConnection =
+          new DatabricksConnection(freshContext, databricksClient)) {
+        freshConnection.open();
+        assertTrue(freshContext.isThriftNativeMetadataEnabled());
+        verify(httpClient).execute(any(HttpGet.class));
+      }
+    }
   }
 
   @Test

@@ -88,6 +88,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
 
   @Override
   public Statement getStatement(String statementId) throws SQLException {
+    throwExceptionIfConnectionIsClosed();
     return new DatabricksStatement(this, StatementId.deserialize(statementId));
   }
 
@@ -108,6 +109,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public Statement createStatement() throws SQLException {
     LOGGER.debug("public Statement createStatement()");
+    throwExceptionIfConnectionIsClosed();
     DatabricksStatement statement = new DatabricksStatement(this);
     statementSet.add(statement);
     return statement;
@@ -117,6 +119,7 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   public PreparedStatement prepareStatement(String sql) throws SQLException {
     LOGGER.debug(
         String.format("public PreparedStatement prepareStatement(String sql = {%s})", sql));
+    throwExceptionIfConnectionIsClosed();
     DatabricksPreparedStatement statement = new DatabricksPreparedStatement(this, sql);
     statementSet.add(statement);
     return statement;

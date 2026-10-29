@@ -15,6 +15,8 @@
 
 ### Fixed
 
+- Reject statement creation on closed connections before stale connection state can disable server-controlled features for subsequent connections.
+
 ---
 *Note: When making changes, please add your change under the appropriate section
 with a brief description.*
