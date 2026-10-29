@@ -343,7 +343,9 @@ public class DatabricksArray implements Array {
         StatementType.QUERY,
         // A DatabricksArray only exists when complex datatype support is enabled, so nested
         // ARRAY/STRUCT/MAP elements must be returned as their Databricks types.
-        true);
+        /* complexDatatypeSupport= */ true,
+        // Column types come from the declared (parameterized) element typeText.
+        /* useTypeTextForColumnType= */ true);
   }
 
   /**

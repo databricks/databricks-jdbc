@@ -840,6 +840,8 @@ public class DatabricksArrayTest {
     try (java.sql.ResultSet rs = collatedArray.getResultSet()) {
       assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
       assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
+      assertEquals("java.lang.String", rs.getMetaData().getColumnClassName(2));
+      assertEquals(false, rs.getMetaData().isSigned(2));
     }
   }
 

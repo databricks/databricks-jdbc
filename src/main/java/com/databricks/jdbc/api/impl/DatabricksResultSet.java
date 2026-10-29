@@ -291,13 +291,18 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<ColumnMetadata> columnMetadataList,
       List<List<Object>> rows,
       StatementType statementType) {
-    this(statementStatus, statementId, columnMetadataList, rows, statementType, false);
+    this(statementStatus, statementId, columnMetadataList, rows, statementType, false, false);
   }
 
   /**
-   * Constructs an in-memory result set from column metadata and rows, with an explicit complex
-   * datatype support flag. Used by {@link DatabricksArray#getResultSet()}, whose rows may hold
-   * nested {@link DatabricksArray}, {@link DatabricksStruct} or {@link DatabricksMap} values.
+   * Constructs an in-memory result set from column metadata and rows. Used by {@link
+   * DatabricksArray#getResultSet()}, whose rows may hold nested {@link DatabricksArray}, {@link
+   * DatabricksStruct} or {@link DatabricksMap} values.
+   *
+   * @param complexDatatypeSupport whether {@code getObject}/{@code getArray} return nested values
+   *     as Databricks complex types
+   * @param useTypeTextForColumnType whether the result set metadata derives each column's type
+   *     from {@link ColumnMetadata#getTypeText()} instead of {@link ColumnMetadata#getTypeInt()}
    */
   DatabricksResultSet(
       StatementStatus statementStatus,
@@ -305,14 +310,15 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<ColumnMetadata> columnMetadataList,
       List<List<Object>> rows,
       StatementType statementType,
-      boolean complexDatatypeSupport) {
+      boolean complexDatatypeSupport,
+      boolean useTypeTextForColumnType) {
     this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     this.complexDatatypeSupport = complexDatatypeSupport;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(
-            statementId, columnMetadataList, rows.size(), complexDatatypeSupport);
+            statementId, columnMetadataList, rows.size(), useTypeTextForColumnType);
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = null;

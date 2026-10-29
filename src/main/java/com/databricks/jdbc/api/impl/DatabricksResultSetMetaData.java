@@ -316,6 +316,14 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               ? getColumnInfoType(DatabricksTypeUtil.baseTypeName(metadata.getTypeText()))
               : ColumnInfoTypeName.valueOf(
                   DatabricksTypeUtil.getDatabricksTypeFromSQLType(metadata.getTypeInt()));
+      if (useTypeText && columnTypeName == ColumnInfoTypeName.USER_DEFINED_TYPE) {
+        // A collated type text (e.g. "STRING COLLATE UTF8_LCASE") does not map directly; recover
+        // STRING as the SEA/Thrift metadata paths do so type-name-driven attributes match.
+        ColumnInfoTypeName recovered = DatabricksTypeUtil.recoverStringType(metadata.getTypeText());
+        if (recovered != null) {
+          columnTypeName = recovered;
+        }
+      }
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
           .columnName(metadata.getName())
