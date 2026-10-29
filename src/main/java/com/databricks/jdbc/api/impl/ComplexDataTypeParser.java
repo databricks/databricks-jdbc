@@ -103,7 +103,7 @@ public class ComplexDataTypeParser {
 
   public DatabricksMap<String, Object> parseToMap(JsonNode node, String mapMetadata)
       throws DatabricksParsingException {
-    if (!mapMetadata.trim().toUpperCase(Locale.ROOT).startsWith(DatabricksTypeUtil.MAP)) {
+    if (!mapMetadata.startsWith(DatabricksTypeUtil.MAP)) {
       throw new DatabricksParsingException(
           "Unexpected metadata format. Type is not a MAP: " + mapMetadata,
           DatabricksDriverErrorCode.JSON_PARSING_ERROR);
@@ -143,17 +143,13 @@ public class ComplexDataTypeParser {
     if (node == null || node.isNull()) {
       return null;
     }
-    // Dispatch case-insensitively so lowercase nested metadata (e.g. array<int>) is parsed into
-    // complex objects, matching DatabricksArray's element dispatch. The original expectedType is
-    // passed through so struct field names keep their case.
-    String expectedTypeUpper = expectedType.trim().toUpperCase(Locale.ROOT);
-    if (expectedTypeUpper.startsWith(DatabricksTypeUtil.ARRAY)) {
+    if (expectedType.startsWith(DatabricksTypeUtil.ARRAY)) {
       return parseToArray(node, expectedType);
     }
-    if (expectedTypeUpper.startsWith(DatabricksTypeUtil.STRUCT)) {
+    if (expectedType.startsWith(DatabricksTypeUtil.STRUCT)) {
       return parseToStruct(node, expectedType);
     }
-    if (expectedTypeUpper.startsWith(DatabricksTypeUtil.MAP)) {
+    if (expectedType.startsWith(DatabricksTypeUtil.MAP)) {
       return parseToMap(node, expectedType);
     }
     if (DatabricksTypeUtil.isGeospatialType(expectedType.toUpperCase(Locale.ROOT))) {
@@ -385,8 +381,7 @@ public class ComplexDataTypeParser {
     }
 
     try {
-      if (typeMetadata != null
-          && typeMetadata.toUpperCase(Locale.ROOT).contains(DatabricksTypeUtil.STRUCT + "<")) {
+      if (typeMetadata != null && typeMetadata.contains(DatabricksTypeUtil.STRUCT + "<")) {
         // Arrow StructVector.getObject omits null children. Restore their field
         // presence from the schema without coercing any non-null scalar values.
         JsonNode node = readComplexJson(jsonString);
@@ -403,11 +398,6 @@ public class ComplexDataTypeParser {
     return jsonString;
   }
 
-  /** Case-insensitive check that {@code metadata} is the given complex type (ARRAY/MAP/STRUCT). */
-  private static boolean isComplexType(String metadata, String typePrefix) {
-    return metadata != null && metadata.trim().toUpperCase(Locale.ROOT).startsWith(typePrefix);
-  }
-
   private static JsonNode readComplexJson(String json) throws IOException {
     return JsonUtil.getMapper()
         .reader()
@@ -420,7 +410,7 @@ public class ComplexDataTypeParser {
     if (node == null || node.isNull()) {
       return;
     }
-    if (isComplexType(metadata, DatabricksTypeUtil.STRUCT) && node.isObject()) {
+    if (metadata.startsWith(DatabricksTypeUtil.STRUCT) && node.isObject()) {
       for (Map.Entry<String, String> field :
           MetadataParser.parseStructMetadata(metadata).entrySet()) {
         if (!node.has(field.getKey())) {
@@ -429,12 +419,12 @@ public class ComplexDataTypeParser {
           restoreStructNullFields(node.get(field.getKey()), field.getValue());
         }
       }
-    } else if (isComplexType(metadata, DatabricksTypeUtil.ARRAY) && node.isArray()) {
+    } else if (metadata.startsWith(DatabricksTypeUtil.ARRAY) && node.isArray()) {
       String elementType = MetadataParser.parseArrayMetadata(metadata);
       for (JsonNode element : node) {
         restoreStructNullFields(element, elementType);
       }
-    } else if (isComplexType(metadata, DatabricksTypeUtil.MAP)) {
+    } else if (metadata.startsWith(DatabricksTypeUtil.MAP)) {
       String[] types = MetadataParser.parseMapMetadataParts(metadata);
       if (node.isArray()) {
         for (JsonNode entry : node) {
@@ -474,12 +464,12 @@ public class ComplexDataTypeParser {
     if (DatabricksTypeUtil.isGeospatialType(metadata.toUpperCase(Locale.ROOT))) {
       return JsonUtil.getMapper().valueToTree(convertGeospatial(node, metadata));
     }
-    if (isComplexType(metadata, DatabricksTypeUtil.ARRAY) && node.isArray()) {
+    if (metadata.startsWith(DatabricksTypeUtil.ARRAY) && node.isArray()) {
       String elementType = MetadataParser.parseArrayMetadata(metadata);
       for (int i = 0; i < node.size(); i++) {
         ((ArrayNode) node).set(i, geospatialLeavesAsText(node.get(i), elementType));
       }
-    } else if (isComplexType(metadata, DatabricksTypeUtil.STRUCT) && node.isObject()) {
+    } else if (metadata.startsWith(DatabricksTypeUtil.STRUCT) && node.isObject()) {
       for (Map.Entry<String, String> field :
           MetadataParser.parseStructMetadata(metadata).entrySet()) {
         if (node.has(field.getKey())) {
@@ -489,7 +479,7 @@ public class ComplexDataTypeParser {
                   geospatialLeavesAsText(node.get(field.getKey()), field.getValue()));
         }
       }
-    } else if (isComplexType(metadata, DatabricksTypeUtil.MAP)) {
+    } else if (metadata.startsWith(DatabricksTypeUtil.MAP)) {
       String[] types = MetadataParser.parseMapMetadataParts(metadata);
       if (node.isArray()) {
         for (JsonNode entry : node) {
@@ -521,7 +511,7 @@ public class ComplexDataTypeParser {
       JsonNode node = JsonUtil.getMapper().readTree(jsonString);
       if (node.isArray() && node.size() > 0 && node.get(0).has("key")) {
         String[] kv = new String[] {"STRING", "STRING"};
-        if (isComplexType(mapMetadata, DatabricksTypeUtil.MAP)) {
+        if (mapMetadata != null && mapMetadata.startsWith(DatabricksTypeUtil.MAP)) {
           kv = MetadataParser.parseMapMetadataParts(mapMetadata);
         }
 

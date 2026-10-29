@@ -35,7 +35,6 @@ public class DatabricksArray implements Array {
 
   private final Object[] elements;
   private final String elementType;
-  private final String elementTypeName;
 
   /**
    * Constructs a DatabricksArray with the specified elements and metadata.
@@ -48,22 +47,6 @@ public class DatabricksArray implements Array {
     String elementType = MetadataParser.parseArrayMetadata(metadata);
     this.elements = convertElements(elements, elementType);
     this.elementType = elementType;
-    this.elementTypeName = normalizeLeadingTypeKeyword(elementType);
-  }
-
-  /**
-   * Upper-cases only the leading type keyword (e.g. {@code int} becomes {@code INT}, {@code
-   * array<int>} becomes {@code ARRAY<int>}) so {@link #getBaseTypeName()} is consistent across
-   * transports. Any {@code <...>}/{@code (...)} parameters are kept exactly as the server sent them
-   * so struct field names keep their case.
-   */
-  private static String normalizeLeadingTypeKeyword(String typeName) {
-    if (typeName == null) {
-      return null;
-    }
-    String trimmed = typeName.trim();
-    String keyword = stripTypeParameters(trimmed);
-    return keyword.toUpperCase(Locale.ROOT) + trimmed.substring(keyword.length());
   }
 
   /**
@@ -76,15 +59,11 @@ public class DatabricksArray implements Array {
   private Object[] convertElements(List<Object> elements, String elementType) {
     LOGGER.debug("Converting elements with element type: {}", elementType);
     Object[] convertedElements = new Object[elements.size()];
-    // Dispatch case-insensitively (like getSqlTypeForElement) so getBaseType() always describes
-    // the objects actually stored. The original elementType is still passed to nested complex
-    // types so struct field names keep their case.
-    String elementTypeUpper = elementType.trim().toUpperCase(Locale.ROOT);
 
     for (int i = 0; i < elements.size(); i++) {
       Object element = elements.get(i);
       try {
-        if (elementTypeUpper.startsWith(DatabricksTypeUtil.STRUCT)) {
+        if (elementType.startsWith(DatabricksTypeUtil.STRUCT)) {
           if (element instanceof Map) {
             convertedElements[i] = new DatabricksStruct((Map<String, Object>) element, elementType);
           } else if (element instanceof DatabricksStruct) {
@@ -96,7 +75,7 @@ public class DatabricksArray implements Array {
                 "Expected a Map for STRUCT but found: " + element.getClass().getSimpleName(),
                 DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
           }
-        } else if (elementTypeUpper.startsWith(DatabricksTypeUtil.ARRAY)) {
+        } else if (elementType.startsWith(DatabricksTypeUtil.ARRAY)) {
           if (element instanceof List) {
             convertedElements[i] = new DatabricksArray((List<Object>) element, elementType);
           } else if (element instanceof DatabricksArray) {
@@ -108,7 +87,7 @@ public class DatabricksArray implements Array {
                 "Expected a List for ARRAY but found: " + element.getClass().getSimpleName(),
                 DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_ARRAY_CONVERSION_ERROR);
           }
-        } else if (elementTypeUpper.startsWith(DatabricksTypeUtil.MAP)) {
+        } else if (elementType.startsWith(DatabricksTypeUtil.MAP)) {
           if (element instanceof Map) {
             convertedElements[i] = new DatabricksMap<>((Map<String, Object>) element, elementType);
           } else if (element instanceof DatabricksMap) {
@@ -153,30 +132,18 @@ public class DatabricksArray implements Array {
     }
 
     try {
-      // Switch on the base type name so parameterized types such as DECIMAL(10,2) convert to the
-      // same Java type that getBaseType() reports.
-      switch (stripTypeParameters(type.trim().toUpperCase(Locale.ROOT))) {
-        // Aliases mirror DatabricksTypeUtil.getColumnInfoType so getBaseType() stays in sync.
+      switch (type.toUpperCase()) {
         case DatabricksTypeUtil.INT:
-        case DatabricksTypeUtil.INTEGER:
           return Integer.parseInt(value.toString());
         case DatabricksTypeUtil.BIGINT:
-        case DatabricksTypeUtil.LONG:
           return Long.parseLong(value.toString());
         case DatabricksTypeUtil.SMALLINT:
-        case DatabricksTypeUtil.SHORT:
           return Short.parseShort(value.toString());
-        case DatabricksTypeUtil.TINYINT:
-        case DatabricksTypeUtil.BYTE:
-          return Byte.parseByte(value.toString());
         case DatabricksTypeUtil.FLOAT:
-        case DatabricksTypeUtil.REAL:
           return Float.parseFloat(value.toString());
         case DatabricksTypeUtil.DOUBLE:
           return Double.parseDouble(value.toString());
         case DatabricksTypeUtil.DECIMAL:
-        case DatabricksTypeUtil.NUMERIC:
-        case DatabricksTypeUtil.DEC:
           return new BigDecimal(value.toString());
         case DatabricksTypeUtil.BOOLEAN:
           return Boolean.parseBoolean(value.toString());
@@ -202,78 +169,20 @@ public class DatabricksArray implements Array {
     }
   }
 
-  /**
-   * Returns the SQL type name of the elements in this array, as required by {@link
-   * Array#getBaseTypeName()} (e.g. {@code INT} for {@code ARRAY<INT>}). The leading type keyword is
-   * always upper case; any type parameters (e.g. the fields of a {@code STRUCT<...>}) keep the
-   * casing of the server-provided metadata.
-   */
+  /** Returns the SQL type name of the elements, e.g. {@code INT} for {@code ARRAY<INT>}. */
   @Override
   public String getBaseTypeName() throws SQLException {
     LOGGER.debug("Getting base type name");
-    return this.elementTypeName;
+    return this.elementType;
   }
 
   /**
-   * Returns the JDBC type code ({@link java.sql.Types}) of the elements in this array, as required
-   * by {@link Array#getBaseType()}.
+   * Returns the {@link Types} code of the elements, e.g. {@code INTEGER} for {@code ARRAY<INT>}.
    */
   @Override
   public int getBaseType() throws SQLException {
     LOGGER.debug("Getting base type");
-    return getSqlTypeForElement(this.elementTypeName);
-  }
-
-  /**
-   * Maps an element type name (possibly parameterized, e.g. {@code DECIMAL(10,2)} or {@code
-   * STRUCT<a:INT>}) to its {@link java.sql.Types} code.
-   */
-  private static int getSqlTypeForElement(String elementTypeName) {
-    if (elementTypeName == null || elementTypeName.trim().isEmpty()) {
-      return java.sql.Types.OTHER;
-    }
-    String upper = elementTypeName.trim().toUpperCase(Locale.ROOT);
-    if (DatabricksTypeUtil.recoverStringType(upper) != null) {
-      return java.sql.Types.VARCHAR;
-    }
-    String baseName = stripTypeParameters(upper);
-    // Report the type of the objects actually stored by convertElements/convertValue, which can
-    // differ from the column-level ResultSetMetaData mapping: MAP elements are DatabricksMap
-    // instances (not strings, so not VARCHAR), TIME elements are java.sql.Time values, and
-    // FLOAT/REAL elements are java.lang.Float values (Types.REAL; Types.FLOAT maps to double).
-    if (DatabricksTypeUtil.MAP.equals(baseName)) {
-      return java.sql.Types.JAVA_OBJECT;
-    }
-    if (DatabricksTypeUtil.TIME.equals(baseName)) {
-      return java.sql.Types.TIME;
-    }
-    if (DatabricksTypeUtil.FLOAT.equals(baseName) || DatabricksTypeUtil.REAL.equals(baseName)) {
-      return java.sql.Types.REAL;
-    }
-    // VOID/NULL elements (e.g. the empty literal ARRAY(), typed ARRAY<VOID>) can only be null.
-    if (DatabricksTypeUtil.VOID.equals(baseName) || DatabricksTypeUtil.NULL.equals(baseName)) {
-      return java.sql.Types.NULL;
-    }
-    try {
-      return DatabricksTypeUtil.getColumnType(DatabricksTypeUtil.getColumnInfoType(baseName));
-    } catch (Exception e) {
-      LOGGER.debug("Unable to map array element type {}: {}", elementTypeName, e.getMessage());
-      return java.sql.Types.OTHER;
-    }
-  }
-
-  /**
-   * Returns the base name of a type, dropping any {@code (...)} or {@code <...>} parameters (e.g.
-   * {@code DECIMAL(10,2)} becomes {@code DECIMAL}).
-   */
-  private static String stripTypeParameters(String typeName) {
-    for (int i = 0; i < typeName.length(); i++) {
-      char c = typeName.charAt(i);
-      if (c == '<' || c == '(') {
-        return typeName.substring(0, i).trim();
-      }
-    }
-    return typeName.trim();
+    return elementSqlType();
   }
 
   @Override
@@ -351,9 +260,7 @@ public class DatabricksArray implements Array {
     int start = (int) Math.min(index - 1, this.elements.length);
     int end = (int) Math.min(this.elements.length, start + (long) count);
 
-    int valueType =
-        DatabricksTypeUtil.getColumnType(
-            DatabricksTypeUtil.getColumnInfoType(baseTypeName(this.elementType)));
+    int valueType = elementSqlType();
     int valuePrecision = DatabricksTypeUtil.getPrecision(valueType);
     int valueScale = DatabricksTypeUtil.getScale(valueType);
     // DECIMAL values are read at the column scale, so use the declared one.
@@ -400,6 +307,15 @@ public class DatabricksArray implements Array {
         StatementType.QUERY,
         // A DatabricksArray only exists when complex datatype support is enabled.
         /* complexDatatypeSupport= */ true);
+  }
+
+  // Uses the same mapping as ResultSetMetaData.getColumnType() for a column of the element type.
+  private int elementSqlType() {
+    if (DatabricksTypeUtil.recoverStringType(this.elementType) != null) {
+      return Types.VARCHAR; // collated strings, e.g. STRING COLLATE UTF8_LCASE
+    }
+    return DatabricksTypeUtil.getColumnType(
+        DatabricksTypeUtil.getColumnInfoType(baseTypeName(this.elementType)));
   }
 
   // Strips type parameters, e.g. DECIMAL(10,2) -> DECIMAL and ARRAY<INT> -> ARRAY.

@@ -43,29 +43,6 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
-  void testParseJsonStringToDbArray_lowercaseNestedArrayMetadata() throws Exception {
-    DatabricksArray dbArray = parser.parseJsonStringToDbArray("[[1,2],[3]]", "array<array<int>>");
-
-    Object[] elements = (Object[]) dbArray.getArray();
-    assertEquals(2, elements.length);
-    assertInstanceOf(DatabricksArray.class, elements[0]);
-    Object[] inner = (Object[]) ((DatabricksArray) elements[0]).getArray();
-    assertEquals(2, inner.length);
-    assertEquals(1, inner[0]);
-    assertEquals(2, inner[1]);
-  }
-
-  @Test
-  void testParseJsonStringToDbArray_lowercaseNestedMapMetadata() throws Exception {
-    DatabricksArray dbArray =
-        parser.parseJsonStringToDbArray("[{\"k\":1}]", "array<map<string,int>>");
-
-    Object[] elements = (Object[]) dbArray.getArray();
-    assertEquals(1, elements.length);
-    assertInstanceOf(DatabricksMap.class, elements[0]);
-  }
-
-  @Test
   void testParseJsonStringToDbArray_invalidJson() {
     String invalidJson = "[1, 2"; // missing bracket
     Exception ex =
@@ -578,20 +555,6 @@ public class ComplexDataTypeParserTest {
       assertTrue(formatted.contains("1.230"));
       assertEquals("POINT(1 2)", node.get("g").asText());
     }
-  }
-
-  @Test
-  void testFormatComplexTypeString_lowercaseMetadataRestoresNullFieldsAndFormatsMap()
-      throws Exception {
-    String metadata = "struct<missing:string,arr:array<struct<n:int>>>";
-    JsonNode node =
-        new ObjectMapper()
-            .readTree(parser.formatComplexTypeString("{\"arr\":[{}]}", "STRUCT", metadata));
-    assertTrue(node.get("missing").isNull());
-    assertTrue(node.get("arr").get(0).get("n").isNull());
-
-    assertEquals(
-        "{1:\"a\"}", parser.formatMapString("[{\"key\":1,\"value\":\"a\"}]", "map<int,string>"));
   }
 
   @Test

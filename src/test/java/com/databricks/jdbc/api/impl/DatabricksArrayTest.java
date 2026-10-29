@@ -1053,24 +1053,14 @@ public class DatabricksArrayTest {
   @Test
   public void getBaseType_ShouldHandleParameterizedDecimalElement() throws SQLException {
     String metadata = "ARRAY<DECIMAL(10,2)>";
-    List<Object> originalList = Arrays.asList("1.25", null, "-3.50");
     metadataParserMock
         .when(() -> MetadataParser.parseArrayMetadata(metadata))
         .thenReturn("DECIMAL(10,2)");
 
-    DatabricksArray databricksArray = new DatabricksArray(originalList, metadata);
+    DatabricksArray databricksArray = new DatabricksArray(Collections.emptyList(), metadata);
 
     assertEquals("DECIMAL(10,2)", databricksArray.getBaseTypeName());
     assertEquals(java.sql.Types.DECIMAL, databricksArray.getBaseType());
-
-    // Stored elements must agree with getBaseType(): DECIMAL elements are BigDecimal values.
-    Object[] elements = (Object[]) databricksArray.getArray();
-    assertEquals(3, elements.length);
-    assertInstanceOf(BigDecimal.class, elements[0]);
-    assertEquals(new BigDecimal("1.25"), elements[0]);
-    assertNull(elements[1]);
-    assertInstanceOf(BigDecimal.class, elements[2]);
-    assertEquals(new BigDecimal("-3.50"), elements[2]);
   }
 
   @Test
@@ -1090,71 +1080,6 @@ public class DatabricksArrayTest {
     DatabricksArray nestedArray = new DatabricksArray(Collections.emptyList(), nestedMetadata);
     assertEquals("ARRAY<INT>", nestedArray.getBaseTypeName());
     assertEquals(java.sql.Types.ARRAY, nestedArray.getBaseType());
-  }
-
-  @Test
-  public void getBaseType_ShouldMatchStoredElementTypesForMapAndTime() throws SQLException {
-    String mapMetadata = "ARRAY<MAP<STRING,INT>>";
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata(mapMetadata))
-        .thenReturn("MAP<STRING,INT>");
-    DatabricksArray mapArray = new DatabricksArray(Collections.emptyList(), mapMetadata);
-    assertEquals("MAP<STRING,INT>", mapArray.getBaseTypeName());
-    // Elements are DatabricksMap instances, so the base type must not be VARCHAR.
-    assertEquals(java.sql.Types.JAVA_OBJECT, mapArray.getBaseType());
-    // Intentional divergence: a top-level MAP column reports VARCHAR via ResultSetMetaData
-    // (its value is surfaced as a String), whereas MAP array elements are DatabricksMap objects.
-    assertEquals(
-        java.sql.Types.VARCHAR,
-        com.databricks.jdbc.common.util.DatabricksTypeUtil.getColumnType(
-            com.databricks.jdbc.model.core.ColumnInfoTypeName.MAP));
-    assertNotEquals(
-        com.databricks.jdbc.common.util.DatabricksTypeUtil.getColumnType(
-            com.databricks.jdbc.model.core.ColumnInfoTypeName.MAP),
-        mapArray.getBaseType());
-
-    String timeMetadata = "ARRAY<TIME>";
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata(timeMetadata))
-        .thenReturn("TIME");
-    DatabricksArray timeArray =
-        new DatabricksArray(Collections.singletonList("12:34:56"), timeMetadata);
-    assertEquals("TIME", timeArray.getBaseTypeName());
-    assertEquals(java.sql.Types.TIME, timeArray.getBaseType());
-    assertTrue(((Object[]) timeArray.getArray())[0] instanceof java.sql.Time);
-
-    String tinyintMetadata = "ARRAY<TINYINT>";
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata(tinyintMetadata))
-        .thenReturn("TINYINT");
-    DatabricksArray tinyintArray =
-        new DatabricksArray(java.util.Arrays.asList("1", "-128", null), tinyintMetadata);
-    assertEquals("TINYINT", tinyintArray.getBaseTypeName());
-    assertEquals(java.sql.Types.TINYINT, tinyintArray.getBaseType());
-    Object[] tinyintElements = (Object[]) tinyintArray.getArray();
-    assertEquals((byte) 1, tinyintElements[0]);
-    assertEquals((byte) -128, tinyintElements[1]);
-    assertNull(tinyintElements[2]);
-  }
-
-  @Test
-  public void getBaseTypeName_ShouldUpperCaseOnlyLeadingKeyword() throws SQLException {
-    String intArrayMetadata = "array<int>";
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata(intArrayMetadata))
-        .thenReturn("int");
-    DatabricksArray intArray =
-        new DatabricksArray(Collections.singletonList("1"), intArrayMetadata);
-    assertEquals("INT", intArray.getBaseTypeName());
-    assertEquals(java.sql.Types.INTEGER, intArray.getBaseType());
-
-    String structMetadata = "array<struct<Id:int,Name:string>>";
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata(structMetadata))
-        .thenReturn("struct<Id:int,Name:string>");
-    DatabricksArray structArray =
-        new DatabricksArray(Collections.singletonList(null), structMetadata);
-    assertEquals("STRUCT<Id:int,Name:string>", structArray.getBaseTypeName());
   }
 
   @Test
@@ -1180,118 +1105,6 @@ public class DatabricksArrayTest {
         .thenReturn("MY_CUSTOM_UDT");
     DatabricksArray unknownArray = new DatabricksArray(Collections.emptyList(), unknownMetadata);
     assertEquals(java.sql.Types.OTHER, unknownArray.getBaseType());
-  }
-
-  @Test
-  public void getBaseType_ShouldReturnNullForVoidAndNullElements() throws SQLException {
-    for (String elementType : new String[] {"VOID", "void", "NULL"}) {
-      String metadata = "ARRAY<" + elementType + ">";
-      metadataParserMock
-          .when(() -> MetadataParser.parseArrayMetadata(metadata))
-          .thenReturn(elementType);
-      DatabricksArray array = new DatabricksArray(Collections.singletonList(null), metadata);
-      assertEquals(java.sql.Types.NULL, array.getBaseType(), elementType);
-      assertNull(((Object[]) array.getArray())[0], elementType);
-    }
-  }
-
-  @Test
-  public void convertElements_ShouldDispatchLowercaseComplexElementTypes() throws SQLException {
-    String outerMetadata = "array<array<int>>";
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata(outerMetadata))
-        .thenReturn("array<int>");
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata("array<int>"))
-        .thenReturn("int");
-    DatabricksArray nestedArray =
-        new DatabricksArray(
-            Collections.singletonList(java.util.Arrays.asList("1", "2")), outerMetadata);
-    assertEquals(java.sql.Types.ARRAY, nestedArray.getBaseType());
-    Object[] elements = (Object[]) nestedArray.getArray();
-    // The stored element must agree with getBaseType(), not fall through to a String.
-    assertInstanceOf(DatabricksArray.class, elements[0]);
-    assertArrayEquals(new Object[] {1, 2}, (Object[]) ((DatabricksArray) elements[0]).getArray());
-  }
-
-  @Test
-  public void convertElements_ShouldDispatchLowercaseComplexTypesNestedInStructAndMap()
-      throws SQLException {
-    // array<struct<a:array<int>>>: struct field "a" must be a DatabricksArray, not "[1,2]".
-    String outerMetadata = "array<struct<a:array<int>>>";
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata(outerMetadata))
-        .thenReturn("struct<a:array<int>>");
-    Map<String, String> structTypeMap = new LinkedHashMap<>();
-    structTypeMap.put("a", "array<int>");
-    metadataParserMock
-        .when(() -> MetadataParser.parseStructMetadata("struct<a:array<int>>"))
-        .thenReturn(structTypeMap);
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata("array<int>"))
-        .thenReturn("int");
-    Map<String, Object> structData = new LinkedHashMap<>();
-    structData.put("a", Arrays.asList("1", "2"));
-    DatabricksArray structArray =
-        new DatabricksArray(Collections.singletonList(structData), outerMetadata);
-    Object structElement = ((Object[]) structArray.getArray())[0];
-    assertInstanceOf(DatabricksStruct.class, structElement);
-    Object field = ((DatabricksStruct) structElement).getAttributes()[0];
-    assertInstanceOf(DatabricksArray.class, field);
-    assertArrayEquals(new Object[] {1, 2}, (Object[]) ((DatabricksArray) field).getArray());
-
-    // array<map<string,array<int>>>: the map value must become a DatabricksArray.
-    String mapOuterMetadata = "array<map<string,array<int>>>";
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata(mapOuterMetadata))
-        .thenReturn("map<string,array<int>>");
-    metadataParserMock
-        .when(() -> MetadataParser.parseMapMetadataParts("map<string,array<int>>"))
-        .thenReturn(new String[] {"string", "array<int>"});
-    Map<String, Object> mapData = new LinkedHashMap<>();
-    mapData.put("k", Arrays.asList("3"));
-    DatabricksArray mapArray =
-        new DatabricksArray(Collections.singletonList(mapData), mapOuterMetadata);
-    Object mapElement = ((Object[]) mapArray.getArray())[0];
-    assertInstanceOf(DatabricksMap.class, mapElement);
-    Object mapValue = ((DatabricksMap<?, ?>) mapElement).get("k");
-    assertInstanceOf(DatabricksArray.class, mapValue);
-    assertArrayEquals(new Object[] {3}, (Object[]) ((DatabricksArray) mapValue).getArray());
-  }
-
-  @Test
-  public void getBaseType_ShouldStripLowercaseNotNullFromElementType() throws SQLException {
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata("array<int not null>"))
-        .thenCallRealMethod();
-    DatabricksArray array =
-        new DatabricksArray(Collections.singletonList("7"), "array<int not null>");
-    assertEquals(java.sql.Types.INTEGER, array.getBaseType());
-    assertEquals(7, ((Object[]) array.getArray())[0]);
-  }
-
-  @Test
-  public void getBaseType_ShouldMatchStoredElementTypesForTypeAliases() throws SQLException {
-    Object[][] cases = {
-      {"LONG", "7", java.sql.Types.BIGINT, 7L},
-      {"INTEGER", "7", java.sql.Types.INTEGER, 7},
-      {"SHORT", "7", java.sql.Types.SMALLINT, (short) 7},
-      {"BYTE", "7", java.sql.Types.TINYINT, (byte) 7},
-      {"FLOAT", "1.5", java.sql.Types.REAL, 1.5f},
-      {"REAL", "1.5", java.sql.Types.REAL, 1.5f},
-      {"NUMERIC(10,2)", "1.25", java.sql.Types.DECIMAL, new BigDecimal("1.25")},
-      {"DEC(10,2)", "1.25", java.sql.Types.DECIMAL, new BigDecimal("1.25")},
-    };
-    for (Object[] c : cases) {
-      String elementType = (String) c[0];
-      String metadata = "ARRAY<" + elementType + ">";
-      metadataParserMock
-          .when(() -> MetadataParser.parseArrayMetadata(metadata))
-          .thenReturn(elementType);
-      DatabricksArray array = new DatabricksArray(Collections.singletonList(c[1]), metadata);
-      assertEquals(c[2], array.getBaseType(), elementType);
-      assertEquals(c[3], ((Object[]) array.getArray())[0], elementType);
-    }
   }
 
   @Test

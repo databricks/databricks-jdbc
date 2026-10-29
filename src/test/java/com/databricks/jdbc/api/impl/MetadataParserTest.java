@@ -297,24 +297,6 @@ public class MetadataParserTest {
         expected, actual, "Parsed array metadata should correctly remove 'NOT NULL' constraints.");
   }
 
-  @Test
-  @DisplayName("parseArrayMetadata should remove lowercase 'not null' constraints")
-  public void testParseArrayMetadata_WithLowercaseNotNullConstraints() {
-    assertEquals("int", MetadataParser.parseArrayMetadata("array<int not null>"));
-    assertEquals("INT", MetadataParser.parseArrayMetadata("ARRAY<INT Not  Null>"));
-  }
-
-  @Test
-  @DisplayName("NOT NULL inside quoted comments or identifiers should be preserved")
-  public void testNotNullInsideQuotesIsPreserved() {
-    assertEquals(
-        "INT COMMENT 'value is not null'",
-        MetadataParser.parseArrayMetadata("ARRAY<INT NOT NULL COMMENT 'value is not null'>"));
-    assertEquals(
-        "STRUCT<`a not null`: INT>",
-        MetadataParser.parseArrayMetadata("ARRAY<STRUCT<`a not null`: INT NOT NULL>>"));
-  }
-
   /** Test parsing of MAP metadata with "NOT NULL" constraints. */
   @Test
   @DisplayName("parseMapMetadata should handle 'NOT NULL' constraints")
