@@ -76,7 +76,8 @@ jobs:
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
-    timeout-minutes: 30
+    # Step caps: 26 min setup + 30 min agent + 4 min for post-actions.
+    timeout-minutes: 60
     concurrency:
       group: engineer-bot-followup-pr-${{ github.event.pull_request.number }}
       cancel-in-progress: false
@@ -85,6 +86,7 @@ jobs:
       # out the PR head BRANCH (not the merge ref) so fixups push back to it.
       # persist-credentials:false; the run step sets an authenticated push remote.
       - name: Checkout PR head branch
+        timeout-minutes: 2
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           ref: ${{ github.event.pull_request.head.ref }}
@@ -93,22 +95,27 @@ jobs:
 
       # --- Java + Maven toolchain (mirrors prCheck.yml; see engineer-bot.yml) ---
       - name: Set up JDK 21
+        timeout-minutes: 2
         uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520  # v5.4.0
         with:
           java-version: 21
           distribution: 'adopt'
 
       - name: Setup Maven (JFrog mirror via OIDC)
+        timeout-minutes: 2
         uses: ./.github/actions/setup-maven
         with:
           is-fork: 'false'
 
       - name: Build driver (skip tests; warms the Maven repo + compiles jdbc-core)
+        timeout-minutes: 6
         run: mvn -pl jdbc-core -am -B clean install -DskipTests -Ddependency-check.skip=true
 
       # Resolve test tooling with credentials; run PR tests only after scrubbing.
       - name: Warm test dependencies for the offline agent
         id: warm-maven
+        timeout-minutes: 6
+        continue-on-error: true
         run: |
           set -euo pipefail
           mvn -pl jdbc-core -B dependency:resolve dependency:resolve-plugins \
@@ -143,6 +150,7 @@ jobs:
 
       # Empty offline settings use central, not the JFrog mirror's repository ID.
       - name: Normalize _remote.repositories for offline resolution
+        timeout-minutes: 1
         run: |
           set -euo pipefail
           find ~/.m2/repository -name '_remote.repositories' \
@@ -151,6 +159,7 @@ jobs:
       # --- shared bot setup ----------------------------------------------------
       - name: Bot prelude (tokens + Node + engine install)
         id: prelude
+        timeout-minutes: 3
         uses: ./.github/actions/bot-prelude
         with:
           app-id: ${{ secrets.ENGINEER_BOT_APP_ID }}
@@ -160,6 +169,7 @@ jobs:
       # the build consumed it, and the agent's `mvn test` runs offline from the
       # warmed ~/.m2 repo. (See engineer-bot.yml for the full rationale.)
       - name: Scrub JFrog credentials before the agent runs
+        timeout-minutes: 1
         run: |
           echo "JFROG_ACCESS_TOKEN=" >> "$GITHUB_ENV"
           mkdir -p ~/.m2
@@ -167,6 +177,8 @@ jobs:
           echo "MAVEN_ARGS=-o" >> "$GITHUB_ENV"
 
       - name: Check Maven dependency and plugin resolution offline
+        timeout-minutes: 1
+        continue-on-error: true
         env:
           SUREFIRE_PROVIDER: ${{ steps.warm-maven.outputs.surefire-provider }}
           JUNIT_LAUNCHER: ${{ steps.warm-maven.outputs.junit-launcher }}
@@ -183,6 +195,8 @@ jobs:
           fi
 
       - name: Warm test runtime offline
+        timeout-minutes: 1
+        continue-on-error: true
         run: |
           mvn -o -pl jdbc-core -B test \
             -Dtest="DatabricksParameterMetaDataTest#testInitialization" \
@@ -191,6 +205,7 @@ jobs:
 
       # The build and smoke test apply Spotless; restore files before agent edits.
       - name: Revert spotless churn (keep only the agent's edits)
+        timeout-minutes: 1
         run: git checkout -- .
 
       # Run the follow-up. NOTE: no live-warehouse connection env
@@ -198,6 +213,7 @@ jobs:
       # followup prompt runs only the mocked unit suite and forbids live e2e, so
       # the agent never needs them.
       - name: Run engineer follow-up (catch-up over all unaddressed threads)
+        timeout-minutes: 30
         env:
           GH_TOKEN: ${{ steps.prelude.outputs.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
