@@ -774,6 +774,13 @@ public class DatabricksArrayTest {
       assertEquals(0, rs.getMetaData().getScale(1));
       assertEquals(10, rs.getMetaData().getPrecision(2));
       assertEquals(2, rs.getMetaData().getScale(2));
+      assertEquals("java.math.BigDecimal", rs.getMetaData().getColumnClassName(2));
+      assertTrue(rs.next());
+      assertEquals(new java.math.BigDecimal("1.50"), rs.getObject(2));
+      assertEquals(new java.math.BigDecimal("1.50"), rs.getBigDecimal(2));
+      assertTrue(rs.next());
+      assertEquals(new java.math.BigDecimal("2.25"), rs.getObject(2));
+      assertFalse(rs.next());
     }
 
     metadataParserMock

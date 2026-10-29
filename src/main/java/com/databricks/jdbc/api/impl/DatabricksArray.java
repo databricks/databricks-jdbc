@@ -132,7 +132,9 @@ public class DatabricksArray implements Array {
     }
 
     try {
-      switch (type.toUpperCase()) {
+      // Switch on the base type name so that parameterized types such as DECIMAL(10,2)
+      // convert to the Java class reported by the getResultSet() VALUE column metadata.
+      switch (DatabricksTypeUtil.baseTypeName(type)) {
         case DatabricksTypeUtil.INT:
           return Integer.parseInt(value.toString());
         case DatabricksTypeUtil.BIGINT:
