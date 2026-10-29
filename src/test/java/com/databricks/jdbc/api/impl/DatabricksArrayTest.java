@@ -774,6 +774,8 @@ public class DatabricksArrayTest {
       assertEquals(0, rs.getMetaData().getScale(1));
       assertEquals(10, rs.getMetaData().getPrecision(2));
       assertEquals(2, rs.getMetaData().getScale(2));
+      // Same display size a DECIMAL(10,2) query column reports: precision + sign + decimal point.
+      assertEquals(12, rs.getMetaData().getColumnDisplaySize(2));
       assertEquals("java.math.BigDecimal", rs.getMetaData().getColumnClassName(2));
       assertTrue(rs.next());
       assertEquals(new java.math.BigDecimal("1.50"), rs.getObject(2));

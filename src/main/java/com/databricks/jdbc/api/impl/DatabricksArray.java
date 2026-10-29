@@ -365,6 +365,12 @@ public class DatabricksArray implements Array {
   /**
    * Returns {precision, scale} for the given element type. For {@code DECIMAL(p,s)} (or {@code
    * DECIMAL(p)}) the declared parameters are used; otherwise the per-SQL-type defaults apply.
+   *
+   * <p>This is intentionally separate from {@code
+   * DatabricksResultSetMetaData#getPrecisionAndScale(String, int)}. That regex only matches {@code
+   * DECIMAL(p,s)}. This one also accepts {@code DECIMAL(p)} (scale 0, as in Spark SQL) because
+   * array element type text can be written that way. The existing DESCRIBE QUERY path is left
+   * unchanged in this fix. Merging the two parsers is left for a separate refactor.
    */
   private static int[] precisionAndScale(String typeText, int sqlType) {
     int precision = DatabricksTypeUtil.getPrecision(sqlType);

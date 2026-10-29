@@ -113,6 +113,13 @@ public class DatabricksTypeUtil {
    * GEOMETRY}, {@code ARRAY}, {@code STRUCT}) so that it can be mapped via {@link
    * #getColumnInfoType(String)}.
    *
+   * <p>This intentionally differs from {@code MetadataResultSetBuilder.stripBaseTypeName}: it trims
+   * and upper-cases (via {@link Locale#ROOT}) so the result can be passed straight to {@link
+   * #getColumnInfoType(String)}, and returns {@code ""} instead of {@code null}. It is used for
+   * {@code Array.getResultSet()} element metadata and arrow-metadata type text. The existing
+   * DESCRIBE QUERY / metadata paths keep using {@code stripBaseTypeName} so their behavior is
+   * unchanged. Merging the two is left for a separate refactor.
+   *
    * @param typeText the server type text; may be {@code null}
    * @return the upper-cased base type name, or an empty string if {@code typeText} is null
    */

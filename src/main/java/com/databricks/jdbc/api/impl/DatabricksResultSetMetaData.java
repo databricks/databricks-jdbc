@@ -324,6 +324,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           columnTypeName = recovered;
         }
       }
+      // Array result sets size columns from the resolved type name (with scale), as query results
+      // do; pre-defined metadata result sets keep the SQL-type-based sizing.
+      int displaySize =
+          useTypeText
+              ? DatabricksTypeUtil.getDisplaySize(
+                  columnTypeName, metadata.getPrecision(), metadata.getScale())
+              : DatabricksTypeUtil.getDisplaySize(metadata.getTypeInt(), metadata.getPrecision());
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
           .columnName(metadata.getName())
@@ -333,10 +340,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
           .typeScale(metadata.getScale())
           .nullable(DatabricksTypeUtil.getNullableFromValue(metadata.getNullable()))
-          .displaySize(
-              DatabricksTypeUtil.getDisplaySize(
-                  metadata.getTypeInt(),
-                  metadata.getPrecision())) // pass scale and precision from metadata result set
+          .displaySize(displaySize)
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
       if (isLargeColumn(
           metadata.getName())) { // special case: overriding default value of 128 for VARCHAR cols.
