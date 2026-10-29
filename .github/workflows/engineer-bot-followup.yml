@@ -8,8 +8,8 @@
 # Like the author, this sets up Java 21 + Maven (via setup-maven → JFrog mirror)
 # so the agent can run the mocked unit suite (`mvn -pl jdbc-core test`) to verify
 # a fixup. Unlike the author it wires NO live-warehouse env — the follow-up prompt
-# runs only unit tests and forbids the live e2e suite. Same spotless-churn revert
-# + credential-scrub as the author (see comments there).
+# runs only unit tests and forbids the live e2e suite. The smoke test runs after
+# Maven credentials are scrubbed; Spotless churn is reverted before the agent runs.
 #
 # The gate below is the canonical label-gated form from the engine dogfood. It
 # ANDs with the engine-side floor; do not weaken it.
@@ -124,7 +124,7 @@ jobs:
           fi
           SUREFIRE_PROVIDER="org.apache.maven.surefire:surefire-junit-platform:${SUREFIRE_VERSION}"
           echo "surefire-provider=${SUREFIRE_PROVIDER}" >> "$GITHUB_OUTPUT"
-          mvn -B dependency:get -Dartifact="${SUREFIRE_PROVIDER}" \
+          mvn -N -B dependency:get -Dartifact="${SUREFIRE_PROVIDER}" \
             || echo "::warning::Surefire provider warm-up failed; continuing with the available cache."
           # Surefire aligns its launcher with the project's resolved Platform engine.
           JUNIT_PLATFORM_VERSION=$(mvn -pl jdbc-core -B dependency:list \
@@ -134,7 +134,7 @@ jobs:
           JUNIT_LAUNCHER=""
           if [[ "$JUNIT_PLATFORM_VERSION" =~ ^[[:digit:]][[:alnum:]._-]*$ ]]; then
             JUNIT_LAUNCHER="org.junit.platform:junit-platform-launcher:${JUNIT_PLATFORM_VERSION}"
-            mvn -B dependency:get -Dartifact="${JUNIT_LAUNCHER}" \
+            mvn -N -B dependency:get -Dartifact="${JUNIT_LAUNCHER}" \
               || echo "::warning::JUnit Platform launcher warm-up failed; continuing with the available cache."
           else
             echo "::warning::Could not determine the resolved JUnit Platform engine version; launcher warm-up skipped."
@@ -174,12 +174,12 @@ jobs:
           set -euo pipefail
           mvn -o -pl jdbc-core -B dependency:resolve dependency:resolve-plugins \
             -Ddependency-check.skip=true \
-            || echo "::warning::Some Maven dependencies or plugins are unavailable offline; the follow-up agent will report verification limits."
-          mvn -o -B dependency:get -Dartifact="${SUREFIRE_PROVIDER}" \
-            || echo "::warning::The Surefire provider or its dependencies are unavailable offline; the follow-up agent will report verification limits."
+            || echo "::warning::Some Maven dependencies or plugins are unavailable offline; offline Maven tests may fail."
+          mvn -o -N -B dependency:get -Dartifact="${SUREFIRE_PROVIDER}" \
+            || echo "::warning::The Surefire provider or its dependencies are unavailable offline; offline Maven tests may fail."
           if [[ -n "$JUNIT_LAUNCHER" ]]; then
-            mvn -o -B dependency:get -Dartifact="${JUNIT_LAUNCHER}" \
-              || echo "::warning::The JUnit Platform launcher is unavailable offline; the follow-up agent will report verification limits."
+            mvn -o -N -B dependency:get -Dartifact="${JUNIT_LAUNCHER}" \
+              || echo "::warning::The JUnit Platform launcher is unavailable offline; offline Maven tests may fail."
           fi
 
       - name: Warm test runtime offline
