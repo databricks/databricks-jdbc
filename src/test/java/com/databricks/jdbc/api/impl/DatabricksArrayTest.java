@@ -6,7 +6,6 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -694,7 +693,7 @@ public class DatabricksArrayTest {
     }
     assertThrows(
         DatabricksSQLException.class,
-        () -> databricksArray.getResultSet(0, 1, new LinkedHashMap<>()));
+        () -> databricksArray.getResultSet(0, 1, Map.of("STRING", String.class)));
   }
 
   /** A negative count must raise a checked SQLException carrying the input-validation code. */
@@ -716,45 +715,40 @@ public class DatabricksArrayTest {
     }
     assertThrows(
         DatabricksSQLException.class,
-        () -> databricksArray.getResultSet(1, -1, new LinkedHashMap<>()));
+        () -> databricksArray.getResultSet(1, -1, Map.of("STRING", String.class)));
   }
 
-  /** A non-empty type map must be rejected rather than silently ignored; null is accepted. */
+  /** Type maps do not change the standard mappings for Databricks array elements. */
   @Test
-  public void getResultSet_WithNonEmptyTypeMap_ShouldThrowFeatureNotSupported()
-      throws SQLException {
+  public void getResultSet_WithTypeMap_ShouldUseDefaultMapping() throws SQLException {
     metadataParserMock
         .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
         .thenReturn("STRING");
     DatabricksArray databricksArray =
         new DatabricksArray(Arrays.asList("apple", "banana", "cherry"), "ARRAY<STRING>");
-    Map<String, Class<?>> typeMap = new LinkedHashMap<>();
-    typeMap.put("STRING", String.class);
+    List<Map<String, Class<?>>> typeMaps =
+        Arrays.asList(
+            null, Map.of(), Map.of("STRING", String.class), Map.of("UNUSED_UDT", Object.class));
+    String[] expectedValues = {"apple", "banana", "cherry"};
 
-    SQLException exception =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> databricksArray.getResultSet(typeMap));
-    assertEquals("UNSUPPORTED_OPERATION", exception.getSQLState());
-    assertEquals(1005, exception.getErrorCode());
-    SQLException windowedException =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> databricksArray.getResultSet(1, 1, typeMap));
-    assertEquals("UNSUPPORTED_OPERATION", windowedException.getSQLState());
-    assertEquals(1005, windowedException.getErrorCode());
-
-    try (java.sql.ResultSet rs = databricksArray.getResultSet(null)) {
-      int row = 0;
-      while (rs.next()) {
-        row++;
+    for (Map<String, Class<?>> typeMap : typeMaps) {
+      try (java.sql.ResultSet rs = databricksArray.getResultSet(typeMap)) {
+        for (int i = 0; i < expectedValues.length; i++) {
+          assertTrue(rs.next());
+          assertEquals(i + 1, rs.getLong(1));
+          assertEquals(expectedValues[i], rs.getObject(2));
+        }
+        assertFalse(rs.next());
       }
-      assertEquals(3, row);
-    }
-    try (java.sql.ResultSet rs = databricksArray.getResultSet(1, 1, null)) {
-      assertTrue(rs.next());
-      assertEquals("apple", rs.getString(2));
-      assertFalse(rs.next());
+      try (java.sql.ResultSet rs = databricksArray.getResultSet(2, 2, typeMap)) {
+        assertTrue(rs.next());
+        assertEquals(2, rs.getLong(1));
+        assertEquals("banana", rs.getObject(2));
+        assertTrue(rs.next());
+        assertEquals(3, rs.getLong(1));
+        assertEquals("cherry", rs.getObject(2));
+        assertFalse(rs.next());
+      }
     }
   }
 

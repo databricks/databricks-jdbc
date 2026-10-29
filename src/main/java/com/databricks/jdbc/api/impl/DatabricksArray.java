@@ -7,7 +7,6 @@ import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
@@ -220,7 +219,6 @@ public class DatabricksArray implements Array {
   @Override
   public java.sql.ResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
     LOGGER.debug("Getting result set with type map for array");
-    rejectCustomTypeMap(map, "getResultSet(Map<String, Class<?>> map)");
     return getResultSet();
   }
 
@@ -234,23 +232,7 @@ public class DatabricksArray implements Array {
   public java.sql.ResultSet getResultSet(long index, int count, Map<String, Class<?>> map)
       throws SQLException {
     LOGGER.debug("Getting result set with type map from index {} with count {}", index, count);
-    rejectCustomTypeMap(map, "getResultSet(long index, int count, Map<String, Class<?>> map)");
     return getResultSet(index, count);
-  }
-
-  /**
-   * Custom SQL-type-to-Java-class mappings are not supported. A null or empty map is equivalent to
-   * the default mapping, so it is accepted; a non-empty map is rejected rather than silently
-   * ignored.
-   */
-  private static void rejectCustomTypeMap(Map<String, Class<?>> map, String methodName)
-      throws SQLException {
-    if (map != null && !map.isEmpty()) {
-      String message = methodName + " with a non-empty type map is not supported";
-      LOGGER.error(message);
-      throw new DatabricksSQLFeatureNotSupportedException(
-          message, DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
-    }
   }
 
   /**
