@@ -62,6 +62,9 @@ Notice - https://github.com/apache/commons-fileupload/blob/master/NOTICE.txt
 ________________
 This Software contains code from the following open source projects, licensed under the MIT license (https://opensource.org/license/mit):
 
+typetools/checker-framework - https://github.com/typetools/checker-framework
+Copyright 2004-present by the Checker Framework developers
+
 mockito/mockito - https://github.com/mockito/mockito
 Copyright (c) 2007 Mockito contributors
 
