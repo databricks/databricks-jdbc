@@ -1108,6 +1108,25 @@ public class DatabricksArrayTest {
   }
 
   @Test
+  public void getResultSet_CollatedStringElementsShouldReportVarcharValueColumn()
+      throws SQLException {
+    String collatedMetadata = "ARRAY<STRING COLLATE UTF8_LCASE>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(collatedMetadata))
+        .thenReturn("STRING COLLATE UTF8_LCASE");
+    DatabricksArray collatedArray = new DatabricksArray(Arrays.asList("a", "B"), collatedMetadata);
+
+    try (java.sql.ResultSet rs = collatedArray.getResultSet()) {
+      assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
+      assertEquals("STRING COLLATE UTF8_LCASE", rs.getMetaData().getColumnTypeName(2));
+      assertTrue(rs.next());
+      assertEquals("a", rs.getString(2));
+      assertTrue(rs.next());
+      assertEquals("B", rs.getString(2));
+    }
+  }
+
+  @Test
   public void testToString_WithStringElements_ShouldProduceJsonLikeString() throws SQLException {
     // Arrange
     String metadata = "ARRAY<STRING>";
