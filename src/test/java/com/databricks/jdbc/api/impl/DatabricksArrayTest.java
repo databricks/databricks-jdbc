@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.exception.DatabricksDriverException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
@@ -567,14 +567,14 @@ public class DatabricksArrayTest {
   }
 
   /**
-   * Test the getResultSet() methods. These methods are not implemented and should throw
-   * DatabricksSQLFeatureNotSupportedException.
+   * Test the getResultSet() methods. Per the JDBC {@link java.sql.Array#getResultSet()} contract,
+   * these return a ResultSet with one row per element, where column 1 is the 1-based element index
+   * and column 2 is the element value.
    */
   @Test
-  public void getResultSet_ShouldThrowDatabricksSQLFeatureNotSupportedException()
-      throws SQLException {
+  public void getResultSet_ShouldReturnResultSetOfElements() throws SQLException {
     String metadata = "ARRAY<STRING>";
-    List<Object> originalList = Arrays.asList("apple", "banana");
+    List<Object> originalList = Arrays.asList("apple", "banana", "cherry");
 
     // Mock MetadataParser.parseArrayMetadata for "ARRAY<STRING>"
     metadataParserMock
@@ -584,56 +584,339 @@ public class DatabricksArrayTest {
     DatabricksArray databricksArray = new DatabricksArray(originalList, metadata);
 
     // Test getResultSet()
-    DatabricksSQLFeatureNotSupportedException exception1 =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> {
-              databricksArray.getResultSet();
-            },
-            "getResultSet() should throw DatabricksSQLFeatureNotSupportedException");
-    assertEquals(
-        "getResultSet() not implemented",
-        exception1.getMessage(),
-        "Exception message should match the implementation");
+    try (java.sql.ResultSet rs = databricksArray.getResultSet()) {
+      assertNotNull(rs);
+      String[] expected = {"apple", "banana", "cherry"};
+      int row = 0;
+      while (rs.next()) {
+        row++;
+        assertEquals(row, rs.getLong(1));
+        assertEquals(expected[row - 1], rs.getString(2));
+      }
+      assertEquals(3, row);
+    }
 
     // Test getResultSet(Map<String, Class<?>> map)
-    DatabricksSQLFeatureNotSupportedException exception2 =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> {
-              databricksArray.getResultSet(new LinkedHashMap<>());
-            },
-            "getResultSet(Map) should throw DatabricksSQLFeatureNotSupportedException");
-    assertEquals(
-        "getResultSet(Map<String, Class<?>> map) not implemented",
-        exception2.getMessage(),
-        "Exception message should match the implementation");
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(new LinkedHashMap<>())) {
+      assertNotNull(rs);
+      int row = 0;
+      while (rs.next()) {
+        row++;
+      }
+      assertEquals(3, row);
+    }
 
-    // Test getResultSet(long index, int count)
-    DatabricksSQLFeatureNotSupportedException exception3 =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> {
-              databricksArray.getResultSet(1, 2);
-            },
-            "getResultSet(long, int) should throw DatabricksSQLFeatureNotSupportedException");
-    assertEquals(
-        "getResultSet(long index, int count) not implemented",
-        exception3.getMessage(),
-        "Exception message should match the implementation");
+    // Test getResultSet(long index, int count) windowed variant
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(2, 2)) {
+      assertNotNull(rs);
+      long[] expectedIndex = {2, 3};
+      String[] expectedValue = {"banana", "cherry"};
+      int row = 0;
+      while (rs.next()) {
+        assertEquals(expectedIndex[row], rs.getLong(1));
+        assertEquals(expectedValue[row], rs.getString(2));
+        row++;
+      }
+      assertEquals(2, row);
+    }
 
     // Test getResultSet(long index, int count, Map<String, Class<?>> map)
-    DatabricksSQLFeatureNotSupportedException exception4 =
-        assertThrows(
-            DatabricksSQLFeatureNotSupportedException.class,
-            () -> {
-              databricksArray.getResultSet(1, 2, new LinkedHashMap<>());
-            },
-            "getResultSet(long, int, Map) should throw DatabricksSQLFeatureNotSupportedException");
-    assertEquals(
-        "getResultSet(long index, int count, Map<String, Class<?>> map) not implemented",
-        exception4.getMessage(),
-        "Exception message should match the implementation");
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(1, 1, new LinkedHashMap<>())) {
+      assertNotNull(rs);
+      assertTrue(rs.next());
+      assertEquals(1, rs.getLong(1));
+      assertEquals("apple", rs.getString(2));
+      assertFalse(rs.next());
+    }
+  }
+
+  /** Windows are clamped to the array bounds without int overflow. */
+  @Test
+  public void getResultSet_ShouldClampWindowToArrayBounds() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray databricksArray =
+        new DatabricksArray(Arrays.asList("apple", "banana", "cherry"), "ARRAY<STRING>");
+
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(2, Integer.MAX_VALUE)) {
+      long[] expectedIndex = {2, 3};
+      String[] expectedValue = {"banana", "cherry"};
+      int row = 0;
+      while (rs.next()) {
+        assertEquals(expectedIndex[row], rs.getLong(1));
+        assertEquals(expectedValue[row], rs.getString(2));
+        row++;
+      }
+      assertEquals(2, row);
+    }
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(5, 2)) {
+      assertFalse(rs.next());
+    }
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(4294967296L, 2)) {
+      assertFalse(rs.next());
+    }
+    try (java.sql.ResultSet rs = databricksArray.getResultSet(4294967296L, Integer.MAX_VALUE)) {
+      assertFalse(rs.next());
+    }
+  }
+
+  /** An index < 1 or a negative count raises SQLException with INPUT_VALIDATION_ERROR (1015). */
+  @Test
+  public void getResultSet_WithInvalidArguments_ShouldThrowSQLException() {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray databricksArray =
+        new DatabricksArray(Arrays.asList("apple", "banana", "cherry"), "ARRAY<STRING>");
+
+    for (long badIndex : new long[] {0L, -1L}) {
+      SQLException exception =
+          assertThrows(SQLException.class, () -> databricksArray.getResultSet(badIndex, 2));
+      assertInstanceOf(DatabricksSQLException.class, exception);
+      assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
+      assertEquals(1015, exception.getErrorCode());
+      assertTrue(exception.getMessage().contains("Array index must be >= 1"));
+    }
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> databricksArray.getResultSet(0, 1, Map.of("STRING", String.class)));
+
+    for (int badCount : new int[] {-1, Integer.MIN_VALUE}) {
+      SQLException exception =
+          assertThrows(SQLException.class, () -> databricksArray.getResultSet(1, badCount));
+      assertInstanceOf(DatabricksSQLException.class, exception);
+      assertEquals("INPUT_VALIDATION_ERROR", exception.getSQLState());
+      assertEquals(1015, exception.getErrorCode());
+      assertTrue(exception.getMessage().contains("Array element count must be >= 0"));
+    }
+    assertThrows(
+        DatabricksSQLException.class,
+        () -> databricksArray.getResultSet(1, -1, Map.of("STRING", String.class)));
+  }
+
+  /** Type maps do not change the standard mappings for Databricks array elements. */
+  @Test
+  public void getResultSet_WithTypeMap_ShouldUseDefaultMapping() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray databricksArray =
+        new DatabricksArray(Arrays.asList("apple", "banana", "cherry"), "ARRAY<STRING>");
+    List<Map<String, Class<?>>> typeMaps =
+        Arrays.asList(
+            null, Map.of(), Map.of("STRING", String.class), Map.of("UNUSED_UDT", Object.class));
+    String[] expectedValues = {"apple", "banana", "cherry"};
+
+    for (Map<String, Class<?>> typeMap : typeMaps) {
+      try (java.sql.ResultSet rs = databricksArray.getResultSet(typeMap)) {
+        for (int i = 0; i < expectedValues.length; i++) {
+          assertTrue(rs.next());
+          assertEquals(i + 1, rs.getLong(1));
+          assertEquals(expectedValues[i], rs.getObject(2));
+        }
+        assertFalse(rs.next());
+      }
+      try (java.sql.ResultSet rs = databricksArray.getResultSet(2, 2, typeMap)) {
+        assertTrue(rs.next());
+        assertEquals(2, rs.getLong(1));
+        assertEquals("banana", rs.getObject(2));
+        assertTrue(rs.next());
+        assertEquals(3, rs.getLong(1));
+        assertEquals("cherry", rs.getObject(2));
+        assertFalse(rs.next());
+      }
+    }
+  }
+
+  /** The VALUE column type must be derived from the base element type, ignoring parameters. */
+  @Test
+  public void getResultSet_MetadataShouldReflectParameterizedAndNestedElementTypes()
+      throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<DECIMAL(10,2)>"))
+        .thenReturn("DECIMAL(10,2)");
+    DatabricksArray decimalArray =
+        new DatabricksArray(Arrays.asList("1.50", "2.25"), "ARRAY<DECIMAL(10,2)>");
+    try (java.sql.ResultSet rs = decimalArray.getResultSet()) {
+      assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
+      assertEquals(java.sql.Types.DECIMAL, rs.getMetaData().getColumnType(2));
+      assertEquals("DECIMAL(10,2)", rs.getMetaData().getColumnTypeName(2));
+      assertEquals(10, rs.getMetaData().getPrecision(2));
+      assertEquals(2, rs.getMetaData().getScale(2));
+      assertTrue(rs.next());
+      assertEquals(new java.math.BigDecimal("1.50"), rs.getObject(2));
+      assertEquals(new java.math.BigDecimal("1.50"), rs.getBigDecimal(2));
+      assertTrue(rs.next());
+      assertEquals(new java.math.BigDecimal("2.25"), rs.getObject(2));
+      assertFalse(rs.next());
+    }
+
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<ARRAY<INT>>"))
+        .thenReturn("ARRAY<INT>");
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<INT>"))
+        .thenReturn("INT");
+    DatabricksArray nestedArray =
+        new DatabricksArray(
+            Arrays.asList(Arrays.asList(1, 2), Arrays.asList(3)), "ARRAY<ARRAY<INT>>");
+    try (java.sql.ResultSet rs = nestedArray.getResultSet()) {
+      assertEquals(java.sql.Types.ARRAY, rs.getMetaData().getColumnType(2));
+      assertEquals("ARRAY<INT>", rs.getMetaData().getColumnTypeName(2));
+    }
+
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray stringArray = new DatabricksArray(Arrays.asList("a"), "ARRAY<STRING>");
+    try (java.sql.ResultSet rs = stringArray.getResultSet()) {
+      assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
+    }
+  }
+
+  /** TIMESTAMP and TIMESTAMP_NTZ element types must not break result-set metadata construction. */
+  @Test
+  public void getResultSet_ShouldSupportTimestampElementTypes() throws SQLException {
+    Timestamp ts1 = Timestamp.valueOf("2024-01-01 12:30:45.123");
+    Timestamp ts2 = Timestamp.valueOf("2024-02-15 08:15:30.456");
+    for (String elementType : new String[] {"TIMESTAMP", "TIMESTAMP_NTZ"}) {
+      String arrayType = "ARRAY<" + elementType + ">";
+      metadataParserMock
+          .when(() -> MetadataParser.parseArrayMetadata(arrayType))
+          .thenReturn(elementType);
+      DatabricksArray timestampArray = new DatabricksArray(List.of(ts1, ts2), arrayType);
+      try (java.sql.ResultSet rs = timestampArray.getResultSet()) {
+        assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
+        assertEquals(java.sql.Types.TIMESTAMP, rs.getMetaData().getColumnType(2), elementType);
+        assertEquals("java.sql.Timestamp", rs.getMetaData().getColumnClassName(2), elementType);
+        assertTrue(rs.next());
+        assertEquals(1L, rs.getLong(1));
+        assertEquals(ts1, rs.getObject(2));
+        assertTrue(rs.next());
+        assertEquals(2L, rs.getLong(1));
+        assertEquals(ts2, rs.getObject(2));
+        assertFalse(rs.next());
+      }
+    }
+  }
+
+  /** Nested complex elements must be readable via getArray/getObject on the element result set. */
+  @Test
+  public void getResultSet_NestedArrayElementsShouldBeReturnedAsDatabricksArray()
+      throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<ARRAY<INT>>"))
+        .thenReturn("ARRAY<INT>");
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<INT>"))
+        .thenReturn("INT");
+    DatabricksArray nestedArray =
+        new DatabricksArray(
+            Arrays.asList(Arrays.asList(1, 2), Arrays.asList(3)), "ARRAY<ARRAY<INT>>");
+    try (java.sql.ResultSet rs = nestedArray.getResultSet()) {
+      assertTrue(rs.next());
+      java.sql.Array first = rs.getArray(2);
+      assertInstanceOf(DatabricksArray.class, first);
+      assertArrayEquals(new Object[] {1, 2}, (Object[]) first.getArray());
+      assertInstanceOf(DatabricksArray.class, rs.getObject(2));
+
+      assertTrue(rs.next());
+      java.sql.Array second = rs.getArray(2);
+      assertInstanceOf(DatabricksArray.class, second);
+      assertArrayEquals(new Object[] {3}, (Object[]) second.getArray());
+      assertFalse(rs.next());
+    }
+  }
+
+  /** An empty array must yield an empty result set with fully built metadata. */
+  @Test
+  public void getResultSet_EmptyArrayShouldReturnEmptyResultSetWithMetadata() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray emptyArray = new DatabricksArray(Collections.emptyList(), "ARRAY<STRING>");
+    try (java.sql.ResultSet rs = emptyArray.getResultSet()) {
+      assertEquals(2, rs.getMetaData().getColumnCount());
+      assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
+      assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
+      assertFalse(rs.next());
+    }
+  }
+
+  /** STRUCT elements must be returned as DatabricksStruct and reported as Types.STRUCT. */
+  @Test
+  public void getResultSet_StructElementsShouldBeReturnedAsDatabricksStruct() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRUCT<id:INT,name:STRING>>"))
+        .thenReturn("STRUCT<id:INT,name:STRING>");
+    Map<String, String> structType = new LinkedHashMap<>();
+    structType.put("id", "INT");
+    structType.put("name", "STRING");
+    metadataParserMock
+        .when(() -> MetadataParser.parseStructMetadata("STRUCT<id:INT,name:STRING>"))
+        .thenReturn(structType);
+    Map<String, Object> struct = new LinkedHashMap<>();
+    struct.put("id", 1);
+    struct.put("name", "alice");
+    DatabricksArray structArray =
+        new DatabricksArray(Arrays.asList(struct, null), "ARRAY<STRUCT<id:INT,name:STRING>>");
+    try (java.sql.ResultSet rs = structArray.getResultSet()) {
+      assertEquals(java.sql.Types.STRUCT, rs.getMetaData().getColumnType(2));
+      assertEquals("STRUCT<id:INT,name:STRING>", rs.getMetaData().getColumnTypeName(2));
+      assertTrue(rs.next());
+      Object first = rs.getObject(2);
+      assertInstanceOf(DatabricksStruct.class, first);
+      assertArrayEquals(new Object[] {1, "alice"}, ((DatabricksStruct) first).getAttributes());
+      assertFalse(rs.wasNull());
+      assertTrue(rs.next());
+      assertNull(rs.getObject(2));
+      assertTrue(rs.wasNull());
+      assertFalse(rs.next());
+    }
+  }
+
+  /** MAP elements must be returned as DatabricksMap. */
+  @Test
+  public void getResultSet_MapElementsShouldBeReturnedAsDatabricksMap() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<MAP<STRING,INT>>"))
+        .thenReturn("MAP<STRING,INT>");
+    metadataParserMock
+        .when(() -> MetadataParser.parseMapMetadataParts("MAP<STRING,INT>"))
+        .thenReturn(new String[] {"STRING", "INT"});
+    Map<String, Object> map = new LinkedHashMap<>();
+    map.put("k", 10);
+    DatabricksArray mapArray =
+        new DatabricksArray(Collections.singletonList(map), "ARRAY<MAP<STRING,INT>>");
+    try (java.sql.ResultSet rs = mapArray.getResultSet()) {
+      assertTrue(rs.next());
+      Object value = rs.getObject(2);
+      assertInstanceOf(DatabricksMap.class, value);
+      assertEquals(10, ((Map<?, ?>) value).get("k"));
+      assertFalse(rs.next());
+    }
+  }
+
+  /** A null element must be returned as SQL NULL, with wasNull() reflecting it. */
+  @Test
+  public void getResultSet_NullElementShouldSetWasNull() throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
+        .thenReturn("STRING");
+    DatabricksArray array = new DatabricksArray(Arrays.asList("a", null), "ARRAY<STRING>");
+    try (java.sql.ResultSet rs = array.getResultSet()) {
+      assertTrue(rs.next());
+      assertEquals("a", rs.getString(2));
+      assertFalse(rs.wasNull());
+      assertTrue(rs.next());
+      assertEquals(2L, rs.getLong(1));
+      assertNull(rs.getString(2));
+      assertTrue(rs.wasNull());
+      assertNull(rs.getObject(2));
+      assertTrue(rs.wasNull());
+      assertFalse(rs.next());
+    }
   }
 
   /** Test the constructor with mixed null and non-null elements. */

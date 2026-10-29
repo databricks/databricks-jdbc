@@ -4,6 +4,8 @@
 
 ### Added
 
+- Implemented `Array.getResultSet()` and its overloads, returning one row per element (1-based index, value).
+
 ### Updated
 - Removed automatic Thrift fallback and the 24-hour SEA circuit breaker after HTTP 429 session creation failures. Rate-limit errors now propagate to the caller without changing routing for subsequent connections.
 

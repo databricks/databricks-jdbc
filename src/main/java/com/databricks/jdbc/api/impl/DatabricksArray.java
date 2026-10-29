@@ -1,28 +1,41 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksDriverException;
-import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
+import com.databricks.jdbc.model.core.ColumnMetadata;
+import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.sdk.service.sql.StatementState;
 import java.math.BigDecimal;
 import java.sql.Array;
 import java.sql.Date;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Class for representation of Array complex object. */
 public class DatabricksArray implements Array {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksArray.class);
+  private static final Pattern DECIMAL_TYPE =
+      Pattern.compile("DECIMAL\\((\\d+),\\s*(\\d+)\\)", Pattern.CASE_INSENSITIVE);
 
   private final Object[] elements;
   private final String typeName;
+  private final String elementType;
 
   /**
    * Constructs a DatabricksArray with the specified elements and metadata.
@@ -35,6 +48,7 @@ public class DatabricksArray implements Array {
     String elementType = MetadataParser.parseArrayMetadata(metadata);
     this.elements = convertElements(elements, elementType);
     this.typeName = metadata;
+    this.elementType = elementType;
   }
 
   /**
@@ -200,30 +214,104 @@ public class DatabricksArray implements Array {
 
   @Override
   public java.sql.ResultSet getResultSet() throws SQLException {
-    LOGGER.error("getResultSet() not implemented");
-    throw new DatabricksSQLFeatureNotSupportedException("getResultSet() not implemented");
+    LOGGER.debug("Getting result set for array");
+    return getResultSet(1, this.elements.length);
   }
 
   @Override
   public java.sql.ResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
-    LOGGER.error("getResultSet(Map<String, Class<?>> map) not implemented");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "getResultSet(Map<String, Class<?>> map) not implemented");
+    LOGGER.debug("Getting result set with type map for array");
+    return getResultSet();
   }
 
   @Override
   public java.sql.ResultSet getResultSet(long index, int count) throws SQLException {
-    LOGGER.error("getResultSet(long index, int count) not implemented");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "getResultSet(long index, int count) not implemented");
+    LOGGER.debug("Getting result set from index {} with count {}", index, count);
+    return buildResultSet(index, count);
   }
 
   @Override
   public java.sql.ResultSet getResultSet(long index, int count, Map<String, Class<?>> map)
       throws SQLException {
-    LOGGER.error("getResultSet(long index, int count, Map<String, Class<?>> map) not implemented");
-    throw new DatabricksSQLFeatureNotSupportedException(
-        "getResultSet(long index, int count, Map<String, Class<?>> map) not implemented");
+    LOGGER.debug("Getting result set with type map from index {} with count {}", index, count);
+    return getResultSet(index, count);
+  }
+
+  /**
+   * Builds a result set with one row per element in the requested window. Per the {@link
+   * Array#getResultSet()} contract, column 1 is the 1-based element index and column 2 the value.
+   */
+  private java.sql.ResultSet buildResultSet(long index, int count) throws SQLException {
+    if (index < 1) {
+      throw new DatabricksSQLException(
+          "Array index must be >= 1 but was " + index,
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+    }
+    if (count < 0) {
+      throw new DatabricksSQLException(
+          "Array element count must be >= 0 but was " + count,
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
+          DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
+    }
+    // Clamp in long so a large index or count cannot overflow.
+    int start = (int) Math.min(index - 1, this.elements.length);
+    int end = (int) Math.min(this.elements.length, start + (long) count);
+
+    int valueType =
+        DatabricksTypeUtil.getColumnType(
+            DatabricksTypeUtil.getColumnInfoType(baseTypeName(this.elementType)));
+    int valuePrecision = DatabricksTypeUtil.getPrecision(valueType);
+    int valueScale = DatabricksTypeUtil.getScale(valueType);
+    // DECIMAL values are read at the column scale, so use the declared one.
+    Matcher decimal = DECIMAL_TYPE.matcher(this.elementType.trim());
+    if (decimal.matches()) {
+      valuePrecision = Integer.parseInt(decimal.group(1));
+      valueScale = Integer.parseInt(decimal.group(2));
+    }
+
+    List<ColumnMetadata> columnMetadataList = new ArrayList<>();
+    columnMetadataList.add(
+        new ColumnMetadata.Builder()
+            .name("INDEX")
+            .typeText(DatabricksTypeUtil.BIGINT)
+            .typeInt(Types.BIGINT)
+            .precision(DatabricksTypeUtil.getPrecision(Types.BIGINT))
+            .scale(DatabricksTypeUtil.getScale(Types.BIGINT))
+            .nullable(ResultSetMetaData.columnNoNulls)
+            .build());
+    columnMetadataList.add(
+        new ColumnMetadata.Builder()
+            .name("VALUE")
+            // Full element type text, which getObject() uses to return nested complex values.
+            .typeText(this.elementType)
+            .typeInt(valueType)
+            .precision(valuePrecision)
+            .scale(valueScale)
+            .nullable(ResultSetMetaData.columnNullable)
+            .build());
+
+    List<List<Object>> rows = new ArrayList<>();
+    for (int i = start; i < end; i++) {
+      List<Object> row = new ArrayList<>();
+      row.add((long) (i + 1));
+      row.add(this.elements[i]);
+      rows.add(row);
+    }
+
+    return new DatabricksResultSet(
+        new StatementStatus().setState(StatementState.SUCCEEDED),
+        new StatementId("array-result-set"),
+        columnMetadataList,
+        rows,
+        StatementType.QUERY,
+        // A DatabricksArray only exists when complex datatype support is enabled.
+        /* complexDatatypeSupport= */ true);
+  }
+
+  // Strips type parameters, e.g. DECIMAL(10,2) -> DECIMAL and ARRAY<INT> -> ARRAY.
+  private static String baseTypeName(String typeText) {
+    return typeText.split("[<(]", 2)[0].trim().toUpperCase(Locale.ROOT);
   }
 
   @Override
