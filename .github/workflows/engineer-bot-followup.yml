@@ -8,8 +8,8 @@
 # Like the author, this sets up Java 21 + Maven (via setup-maven → JFrog mirror)
 # so the agent can run the mocked unit suite (`mvn -pl jdbc-core test`) to verify
 # a fixup. Unlike the author it wires NO live-warehouse env — the follow-up prompt
-# runs only unit tests and forbids the live e2e suite. Same spotless-churn revert
-# + credential-scrub as the author (see comments there).
+# runs only unit tests and forbids the live e2e suite. The smoke test runs after
+# Maven credentials are scrubbed; Spotless churn is reverted before the agent runs.
 #
 # The gate below is the canonical label-gated form from the engine dogfood. It
 # ANDs with the engine-side floor; do not weaken it.
@@ -76,7 +76,8 @@ jobs:
     runs-on:
       group: databricks-protected-runner-group
       labels: linux-ubuntu-latest
-    timeout-minutes: 30
+    # Leave setup headroom before the agent's separate 30-minute limit.
+    timeout-minutes: 45
     concurrency:
       group: engineer-bot-followup-pr-${{ github.event.pull_request.number }}
       cancel-in-progress: false
@@ -106,11 +107,37 @@ jobs:
       - name: Build driver (skip tests; warms the Maven repo + compiles jdbc-core)
         run: mvn -pl jdbc-core -am -B clean install -DskipTests -Ddependency-check.skip=true
 
-      # mvn install ran spotless:apply (compile-phase bound); revert any churn to
-      # pre-existing files so the followup's fixup commit carries only the agent's
-      # edits. The agent re-formats its own edits via `mvn spotless:apply`.
-      - name: Revert spotless churn (keep only the agent's edits)
-        run: git checkout -- .
+      # Resolve test tooling with credentials; run PR tests only after scrubbing.
+      - name: Warm test dependencies for the offline agent
+        timeout-minutes: 5
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          SUREFIRE_VERSION=$(mvn -pl jdbc-core -B help:evaluate \
+            -Dexpression=maven-surefire-plugin.version -q -DforceStdout) || SUREFIRE_VERSION=""
+          # Use the same pinned fallback as engineer-bot.yml.
+          SUREFIRE_VERSION=${SUREFIRE_VERSION:-3.1.2}
+          # Surefire aligns its launcher with the project's resolved Platform engine.
+          JUNIT_PLATFORM_VERSION=$(mvn -pl jdbc-core -B dependency:list \
+            -DincludeGroupIds=org.junit.platform -DincludeArtifactIds=junit-platform-engine \
+            | sed -n 's/.*org\.junit\.platform:junit-platform-engine:jar:\([^: ]*\):.*/\1/p') || JUNIT_PLATFORM_VERSION=""
+          mvn -N -B dependency:get \
+            -Dartifact="org.apache.maven.surefire:surefire-junit-platform:${SUREFIRE_VERSION}" \
+            || echo "::warning::Surefire provider warm-up failed; offline Maven tests may fail."
+          if [[ -n "$JUNIT_PLATFORM_VERSION" ]]; then
+            mvn -N -B dependency:get \
+              -Dartifact="org.junit.platform:junit-platform-launcher:${JUNIT_PLATFORM_VERSION}" \
+              || echo "::warning::JUnit Platform launcher warm-up failed; offline Maven tests may fail."
+          else
+            echo "::warning::JUnit Platform version lookup failed; launcher warm-up skipped."
+          fi
+
+      # Empty offline settings use central, not the JFrog mirror's repository ID.
+      - name: Normalize _remote.repositories for offline resolution
+        run: |
+          set -euo pipefail
+          find ~/.m2/repository -name '_remote.repositories' \
+            -exec sed -i 's/jfrog-central/central/g' {} +
 
       # --- shared bot setup ----------------------------------------------------
       - name: Bot prelude (tokens + Node + engine install)
@@ -130,11 +157,25 @@ jobs:
           printf '<settings />\n' > ~/.m2/settings.xml
           echo "MAVEN_ARGS=-o" >> "$GITHUB_ENV"
 
+      - name: Check unit tests work offline
+        timeout-minutes: 2
+        continue-on-error: true
+        run: |
+          mvn -o -pl jdbc-core -B test \
+            -Dtest="DatabricksParameterMetaDataTest#testInitialization" \
+            -Ddependency-check.skip=true \
+            || echo "::warning::The offline smoke test failed; see the Maven output for the cause."
+
+      # The build and smoke test apply Spotless; restore files before agent edits.
+      - name: Revert spotless churn (keep only the agent's edits)
+        run: git checkout -- .
+
       # Run the follow-up. NOTE: no live-warehouse connection env
       # (DATABRICKS_HOST / _HTTP_PATH / _TEST_CONFIG_FILE) is wired here — the
       # followup prompt runs only the mocked unit suite and forbids live e2e, so
       # the agent never needs them.
       - name: Run engineer follow-up (catch-up over all unaddressed threads)
+        timeout-minutes: 30
         env:
           GH_TOKEN: ${{ steps.prelude.outputs.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
