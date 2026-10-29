@@ -44,6 +44,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -375,11 +376,27 @@ public class DatabricksConnectionTest {
     assertTrue(connection.isValid(1));
     connection.close();
     assertFalse(connection.isValid(1));
-    assertThrows(DatabricksSQLException.class, connection::isReadOnly);
-    DatabricksSQLException error =
-        assertThrows(DatabricksSQLException.class, () -> connection.getStatement("statement-id"));
-    assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.name(), error.getSQLState());
-    assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.getCode(), error.getErrorCode());
+    for (Executable operation :
+        List.<Executable>of(
+            connection::isReadOnly,
+            () -> connection.getStatement("statement-id"),
+            () -> connection.prepareStatement(SQL, Statement.NO_GENERATED_KEYS),
+            () ->
+                connection.prepareStatement(
+                    SQL,
+                    ResultSet.TYPE_FORWARD_ONLY,
+                    ResultSet.CONCUR_READ_ONLY,
+                    ResultSet.CLOSE_CURSORS_AT_COMMIT),
+            () ->
+                connection.prepareCall(
+                    SQL,
+                    ResultSet.TYPE_FORWARD_ONLY,
+                    ResultSet.CONCUR_READ_ONLY,
+                    ResultSet.CLOSE_CURSORS_AT_COMMIT))) {
+      DatabricksSQLException error = assertThrows(DatabricksSQLException.class, operation);
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.name(), error.getSQLState());
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.getCode(), error.getErrorCode());
+    }
   }
 
   @ParameterizedTest
@@ -600,8 +617,9 @@ public class DatabricksConnectionTest {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSetClientInfoPropertiesOnClosedConnection(boolean empty) throws SQLException {
+  @CsvSource({"true, false", "false, false", "false, true"})
+  void testSetClientInfoPropertiesOnClosedConnection(boolean empty, boolean nonStringValue)
+      throws SQLException {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
@@ -609,10 +627,12 @@ public class DatabricksConnectionTest {
         new DatabricksConnection(connectionContext, databricksClient)) {
       closedConnection.open();
       closedConnection.close();
-      Properties properties = new Properties();
+      Properties defaults = new Properties();
+      defaults.setProperty("TIMEZONE", "UTC");
+      Properties properties = new Properties(defaults);
       if (!empty) {
         properties.setProperty("QUERY_TAGS", "test:closed");
-        properties.setProperty("ApplicationName", "test:closed");
+        properties.put("ApplicationName", nonStringValue ? 123 : "test:closed");
       }
 
       SQLClientInfoException error =
