@@ -34,7 +34,6 @@ public class DatabricksArray implements Array {
       Pattern.compile("DECIMAL\\((\\d+),\\s*(\\d+)\\)", Pattern.CASE_INSENSITIVE);
 
   private final Object[] elements;
-  private final String typeName;
   private final String elementType;
 
   /**
@@ -47,7 +46,6 @@ public class DatabricksArray implements Array {
     LOGGER.debug("Initializing DatabricksArray with metadata: {}", metadata);
     String elementType = MetadataParser.parseArrayMetadata(metadata);
     this.elements = convertElements(elements, elementType);
-    this.typeName = metadata;
     this.elementType = elementType;
   }
 
@@ -171,16 +169,20 @@ public class DatabricksArray implements Array {
     }
   }
 
+  /** Returns the SQL type name of the elements, e.g. {@code INT} for {@code ARRAY<INT>}. */
   @Override
   public String getBaseTypeName() throws SQLException {
     LOGGER.debug("Getting base type name");
-    return this.typeName;
+    return this.elementType;
   }
 
+  /**
+   * Returns the {@link Types} code of the elements, e.g. {@code INTEGER} for {@code ARRAY<INT>}.
+   */
   @Override
   public int getBaseType() throws SQLException {
     LOGGER.debug("Getting base type");
-    return java.sql.Types.OTHER; // Or appropriate SQL type
+    return elementSqlType();
   }
 
   @Override
@@ -258,9 +260,7 @@ public class DatabricksArray implements Array {
     int start = (int) Math.min(index - 1, this.elements.length);
     int end = (int) Math.min(this.elements.length, start + (long) count);
 
-    int valueType =
-        DatabricksTypeUtil.getColumnType(
-            DatabricksTypeUtil.getColumnInfoType(baseTypeName(this.elementType)));
+    int valueType = elementSqlType();
     int valuePrecision = DatabricksTypeUtil.getPrecision(valueType);
     int valueScale = DatabricksTypeUtil.getScale(valueType);
     // DECIMAL values are read at the column scale, so use the declared one.
@@ -307,6 +307,20 @@ public class DatabricksArray implements Array {
         StatementType.QUERY,
         // A DatabricksArray only exists when complex datatype support is enabled.
         /* complexDatatypeSupport= */ true);
+  }
+
+  // Uses the same mapping as ResultSetMetaData.getColumnType() for a column of the element type,
+  // except MAP: that column mapping (VARCHAR) assumes complex support is off, but MAP elements are
+  // always DatabricksMap objects.
+  private int elementSqlType() {
+    if (DatabricksTypeUtil.recoverStringType(this.elementType) != null) {
+      return Types.VARCHAR; // collated strings, e.g. STRING COLLATE UTF8_LCASE
+    }
+    String baseType = baseTypeName(this.elementType);
+    if (DatabricksTypeUtil.MAP.equals(baseType)) {
+      return Types.OTHER;
+    }
+    return DatabricksTypeUtil.getColumnType(DatabricksTypeUtil.getColumnInfoType(baseType));
   }
 
   // Strips type parameters, e.g. DECIMAL(10,2) -> DECIMAL and ARRAY<INT> -> ARRAY.

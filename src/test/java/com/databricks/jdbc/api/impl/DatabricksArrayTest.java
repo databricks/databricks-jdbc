@@ -1020,9 +1020,9 @@ public class DatabricksArrayTest {
 
     DatabricksArray databricksArray = new DatabricksArray(originalList, metadata);
 
+    // java.sql.Array#getBaseTypeName: "the SQL type name of the elements in this array"
     String baseTypeName = databricksArray.getBaseTypeName();
-    assertEquals(
-        "ARRAY<STRING>", baseTypeName, "getBaseTypeName() should return the original metadata");
+    assertEquals("STRING", baseTypeName, "getBaseTypeName() should return the element type name");
 
     // Verify that the mock was called once with the correct metadata
     metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
@@ -1030,7 +1030,7 @@ public class DatabricksArrayTest {
 
   /** Test the getBaseType() method. */
   @Test
-  public void getBaseType_ShouldReturnSqlTypesOther() throws SQLException {
+  public void getBaseType_ShouldReturnElementSqlType() throws SQLException {
     String metadata = "ARRAY<STRING>";
     List<Object> originalList = Arrays.asList("apple", "banana");
 
@@ -1041,12 +1041,81 @@ public class DatabricksArrayTest {
 
     DatabricksArray databricksArray = new DatabricksArray(originalList, metadata);
 
+    // java.sql.Array#getBaseType: "the JDBC type of the elements in this array"
     int baseType = databricksArray.getBaseType();
     assertEquals(
-        java.sql.Types.OTHER, baseType, "getBaseType() should return java.sql.Types.OTHER");
+        java.sql.Types.VARCHAR, baseType, "getBaseType() should return the element JDBC type");
 
     // Verify that the mock was called once with the correct metadata
     metadataParserMock.verify(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"), times(1));
+  }
+
+  @Test
+  public void getBaseType_ShouldHandleParameterizedDecimalElement() throws SQLException {
+    String metadata = "ARRAY<DECIMAL(10,2)>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(metadata))
+        .thenReturn("DECIMAL(10,2)");
+
+    DatabricksArray databricksArray = new DatabricksArray(Collections.emptyList(), metadata);
+
+    assertEquals("DECIMAL(10,2)", databricksArray.getBaseTypeName());
+    assertEquals(java.sql.Types.DECIMAL, databricksArray.getBaseType());
+  }
+
+  @Test
+  public void getBaseType_ShouldHandleStructAndArrayElements() throws SQLException {
+    String structMetadata = "ARRAY<STRUCT<id:INT,name:STRING>>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(structMetadata))
+        .thenReturn("STRUCT<id:INT,name:STRING>");
+    DatabricksArray structArray = new DatabricksArray(Collections.emptyList(), structMetadata);
+    assertEquals("STRUCT<id:INT,name:STRING>", structArray.getBaseTypeName());
+    assertEquals(java.sql.Types.STRUCT, structArray.getBaseType());
+
+    String nestedMetadata = "ARRAY<ARRAY<INT>>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(nestedMetadata))
+        .thenReturn("ARRAY<INT>");
+    DatabricksArray nestedArray = new DatabricksArray(Collections.emptyList(), nestedMetadata);
+    assertEquals("ARRAY<INT>", nestedArray.getBaseTypeName());
+    assertEquals(java.sql.Types.ARRAY, nestedArray.getBaseType());
+  }
+
+  @Test
+  public void getBaseType_ShouldHandleCollatedAndUnknownElements() throws SQLException {
+    String collatedMetadata = "ARRAY<STRING COLLATE UTF8_LCASE>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(collatedMetadata))
+        .thenReturn("STRING COLLATE UTF8_LCASE");
+    DatabricksArray collatedArray = new DatabricksArray(Collections.emptyList(), collatedMetadata);
+    assertEquals(java.sql.Types.VARCHAR, collatedArray.getBaseType());
+
+    String unknownMetadata = "ARRAY<MY_CUSTOM_UDT>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(unknownMetadata))
+        .thenReturn("MY_CUSTOM_UDT");
+    DatabricksArray unknownArray = new DatabricksArray(Collections.emptyList(), unknownMetadata);
+    assertEquals(java.sql.Types.OTHER, unknownArray.getBaseType());
+  }
+
+  @Test
+  public void getResultSet_CollatedStringElementsShouldReportVarcharValueColumn()
+      throws SQLException {
+    String collatedMetadata = "ARRAY<STRING COLLATE UTF8_LCASE>";
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata(collatedMetadata))
+        .thenReturn("STRING COLLATE UTF8_LCASE");
+    DatabricksArray collatedArray = new DatabricksArray(Arrays.asList("a", "B"), collatedMetadata);
+
+    try (java.sql.ResultSet rs = collatedArray.getResultSet()) {
+      assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
+      assertEquals("STRING COLLATE UTF8_LCASE", rs.getMetaData().getColumnTypeName(2));
+      assertTrue(rs.next());
+      assertEquals("a", rs.getString(2));
+      assertTrue(rs.next());
+      assertEquals("B", rs.getString(2));
+    }
   }
 
   @Test

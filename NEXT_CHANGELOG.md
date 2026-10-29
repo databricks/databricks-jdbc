@@ -14,6 +14,7 @@
 - SQL Execution API sessions open with warehouse URLs. Real-time sessions use warehouse URLs for session-owned statement operations and session close.
 
 ### Fixed
+- Fixed `DatabricksArray.getBaseTypeName()` and `getBaseType()` to describe the array's element type (e.g. `INT` / `Types.INTEGER` for `ARRAY<INT>`) per the `java.sql.Array` contract, instead of returning the full array type name and `Types.OTHER`. `ARRAY<MAP<...>>` reports `Types.OTHER`, since its elements are `DatabricksMap` objects.
 
 - Reject statement creation on closed connections before stale connection state can disable server-controlled features for subsequent connections.
 - Report `CONNECTION_CLOSED` with vendor code `1010` from `DatabricksConnection` closed-connection checks, including statement preparation and `setClientInfo`.
