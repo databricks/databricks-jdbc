@@ -108,39 +108,6 @@ public class DatabricksTypeUtil {
   }
 
   /**
-   * Normalizes a type text such as {@code DECIMAL(10,2)}, {@code GEOMETRY(4326)}, {@code
-   * ARRAY<INT>} or {@code STRUCT<a:INT>} to its upper-cased base type name ({@code DECIMAL}, {@code
-   * GEOMETRY}, {@code ARRAY}, {@code STRUCT}) so that it can be mapped via {@link
-   * #getColumnInfoType(String)}.
-   *
-   * <p>This intentionally differs from {@code MetadataResultSetBuilder.stripBaseTypeName}: it trims
-   * and upper-cases (via {@link Locale#ROOT}) so the result can be passed straight to {@link
-   * #getColumnInfoType(String)}, and returns {@code ""} instead of {@code null}. It is used for
-   * {@code Array.getResultSet()} element metadata. The existing DESCRIBE QUERY / metadata paths
-   * keep using {@code stripBaseTypeName} so their behavior is unchanged. Merging the two is left
-   * for a separate refactor.
-   *
-   * @param typeText the server type text; may be {@code null}
-   * @return the upper-cased base type name, or an empty string if {@code typeText} is null
-   */
-  public static String baseTypeName(String typeText) {
-    if (typeText == null) {
-      return "";
-    }
-    String normalized = typeText.trim().toUpperCase(Locale.ROOT);
-    int cut = normalized.length();
-    int angle = normalized.indexOf('<');
-    if (angle >= 0) {
-      cut = angle;
-    }
-    int paren = normalized.indexOf('(');
-    if (paren >= 0 && paren < cut) {
-      cut = paren;
-    }
-    return normalized.substring(0, cut).trim();
-  }
-
-  /**
    * Maps a SQL type name (as returned by DESCRIBE QUERY or schema metadata) to the corresponding
    * {@link ColumnInfoTypeName}. Handles canonical names, Databricks aliases, and standard SQL
    * aliases (VARCHAR, INTEGER, NUMERIC, DEC, REAL, NVARCHAR, NCHAR). Returns {@link

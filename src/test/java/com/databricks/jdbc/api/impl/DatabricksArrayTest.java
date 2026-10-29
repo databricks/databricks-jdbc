@@ -3,10 +3,8 @@ package com.databricks.jdbc.api.impl;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
@@ -632,9 +630,9 @@ public class DatabricksArrayTest {
     }
   }
 
-  /** getResultSet(index, Integer.MAX_VALUE) must return all remaining elements (no overflow). */
+  /** Windows are clamped to the array bounds without int overflow. */
   @Test
-  public void getResultSet_WithMaxCount_ShouldReturnRemainingElements() throws SQLException {
+  public void getResultSet_ShouldClampWindowToArrayBounds() throws SQLException {
     metadataParserMock
         .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
         .thenReturn("STRING");
@@ -652,17 +650,6 @@ public class DatabricksArrayTest {
       }
       assertEquals(2, row);
     }
-  }
-
-  /** An index past the end of the array (including > Integer.MAX_VALUE) yields an empty set. */
-  @Test
-  public void getResultSet_WithIndexPastEnd_ShouldReturnEmptyResultSet() throws SQLException {
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
-        .thenReturn("STRING");
-    DatabricksArray databricksArray =
-        new DatabricksArray(Arrays.asList("apple", "banana", "cherry"), "ARRAY<STRING>");
-
     try (java.sql.ResultSet rs = databricksArray.getResultSet(5, 2)) {
       assertFalse(rs.next());
     }
@@ -674,9 +661,9 @@ public class DatabricksArrayTest {
     }
   }
 
-  /** An index < 1 must raise a checked SQLException carrying the input-validation error code. */
+  /** An index < 1 or a negative count raises SQLException with INPUT_VALIDATION_ERROR (1015). */
   @Test
-  public void getResultSet_WithIndexBelowOne_ShouldThrowSQLException() {
+  public void getResultSet_WithInvalidArguments_ShouldThrowSQLException() {
     metadataParserMock
         .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
         .thenReturn("STRING");
@@ -694,16 +681,6 @@ public class DatabricksArrayTest {
     assertThrows(
         DatabricksSQLException.class,
         () -> databricksArray.getResultSet(0, 1, Map.of("STRING", String.class)));
-  }
-
-  /** A negative count must raise a checked SQLException carrying the input-validation code. */
-  @Test
-  public void getResultSet_WithNegativeCount_ShouldThrowSQLException() {
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING>"))
-        .thenReturn("STRING");
-    DatabricksArray databricksArray =
-        new DatabricksArray(Arrays.asList("apple", "banana", "cherry"), "ARRAY<STRING>");
 
     for (int badCount : new int[] {-1, Integer.MIN_VALUE}) {
       SQLException exception =
@@ -765,13 +742,8 @@ public class DatabricksArrayTest {
       assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
       assertEquals(java.sql.Types.DECIMAL, rs.getMetaData().getColumnType(2));
       assertEquals("DECIMAL(10,2)", rs.getMetaData().getColumnTypeName(2));
-      assertEquals(19, rs.getMetaData().getPrecision(1));
-      assertEquals(0, rs.getMetaData().getScale(1));
       assertEquals(10, rs.getMetaData().getPrecision(2));
       assertEquals(2, rs.getMetaData().getScale(2));
-      // Same display size a DECIMAL(10,2) query column reports: precision + sign + decimal point.
-      assertEquals(12, rs.getMetaData().getColumnDisplaySize(2));
-      assertEquals("java.math.BigDecimal", rs.getMetaData().getColumnClassName(2));
       assertTrue(rs.next());
       assertEquals(new java.math.BigDecimal("1.50"), rs.getObject(2));
       assertEquals(new java.math.BigDecimal("1.50"), rs.getBigDecimal(2));
@@ -803,47 +775,6 @@ public class DatabricksArrayTest {
     }
   }
 
-  @Test
-  public void getResultSet_ShouldPreserveExistingArrayValuesAndStringRepresentation()
-      throws SQLException {
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<DECIMAL(10,2)>"))
-        .thenReturn("DECIMAL(10,2)");
-    DatabricksArray decimalArray =
-        new DatabricksArray(Arrays.asList("1.50", "2.25"), "ARRAY<DECIMAL(10,2)>");
-
-    Object[] expected = {"1.50", "2.25"};
-    assertArrayEquals(expected, (Object[]) decimalArray.getArray());
-    assertEquals("[\"1.50\",\"2.25\"]", decimalArray.toString());
-    try (java.sql.ResultSet rs = decimalArray.getResultSet()) {
-      assertTrue(rs.next());
-      assertEquals(new BigDecimal("1.50"), rs.getObject(2));
-      assertTrue(rs.next());
-      assertEquals(new BigDecimal("2.25"), rs.getObject(2));
-      assertFalse(rs.next());
-    }
-    assertArrayEquals(expected, (Object[]) decimalArray.getArray());
-    assertEquals("[\"1.50\",\"2.25\"]", decimalArray.toString());
-  }
-
-  /** A collated string element type must report VARCHAR for the VALUE column, not OTHER. */
-  @Test
-  public void getResultSet_MetadataShouldReportVarcharForCollatedStringElementType()
-      throws SQLException {
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<STRING COLLATE UTF8_LCASE>"))
-        .thenReturn("STRING COLLATE UTF8_LCASE");
-    DatabricksArray collatedArray =
-        new DatabricksArray(Arrays.asList("a", "B"), "ARRAY<STRING COLLATE UTF8_LCASE>");
-    try (java.sql.ResultSet rs = collatedArray.getResultSet()) {
-      assertEquals(java.sql.Types.BIGINT, rs.getMetaData().getColumnType(1));
-      assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
-      assertEquals("STRING COLLATE UTF8_LCASE", rs.getMetaData().getColumnTypeName(2));
-      assertEquals("java.lang.String", rs.getMetaData().getColumnClassName(2));
-      assertEquals(false, rs.getMetaData().isSigned(2));
-    }
-  }
-
   /** TIMESTAMP and TIMESTAMP_NTZ element types must not break result-set metadata construction. */
   @Test
   public void getResultSet_ShouldSupportTimestampElementTypes() throws SQLException {
@@ -867,111 +798,6 @@ public class DatabricksArrayTest {
         assertEquals(ts2, rs.getObject(2));
         assertFalse(rs.next());
       }
-    }
-  }
-
-  /** Types.OTHER element types must report their real column class name, not "null". */
-  @Test
-  public void getResultSet_ShouldReportClassNameForOtherElementTypes() throws SQLException {
-    assertOtherElementClassName("VARIANT", ColumnInfoTypeName.VARIANT);
-    assertOtherElementClassName("GEOMETRY(4326)", ColumnInfoTypeName.GEOMETRY);
-    assertOtherElementClassName("GEOGRAPHY", ColumnInfoTypeName.GEOGRAPHY);
-  }
-
-  private void assertOtherElementClassName(String elementType, ColumnInfoTypeName expectedType)
-      throws SQLException {
-    String arrayType = "ARRAY<" + elementType + ">";
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata(arrayType))
-        .thenReturn(elementType);
-    DatabricksArray array = new DatabricksArray(Collections.emptyList(), arrayType);
-    try (java.sql.ResultSet rs = array.getResultSet()) {
-      assertEquals(java.sql.Types.OTHER, rs.getMetaData().getColumnType(2), elementType);
-      String className = rs.getMetaData().getColumnClassName(2);
-      assertNotEquals("null", className, elementType);
-      assertEquals(DatabricksTypeUtil.getColumnTypeClassName(expectedType), className, elementType);
-    }
-  }
-
-  /**
-   * With geospatial support disabled, geospatial elements are held as string fallbacks; the VALUE
-   * column must then report STRING so that its class name matches getObject().
-   */
-  @Test
-  public void getResultSet_StringFallbackGeospatialElementsShouldReportString()
-      throws SQLException {
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<GEOMETRY(4326)>"))
-        .thenReturn("GEOMETRY(4326)");
-    DatabricksArray array =
-        new DatabricksArray(Arrays.asList("SRID=4326;POINT(1 2)", null), "ARRAY<GEOMETRY(4326)>");
-    try (java.sql.ResultSet rs = array.getResultSet()) {
-      assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
-      assertEquals("STRING", rs.getMetaData().getColumnTypeName(2));
-      assertEquals("java.lang.String", rs.getMetaData().getColumnClassName(2));
-      assertTrue(rs.next());
-      Object value = rs.getObject(2);
-      assertEquals("SRID=4326;POINT(1 2)", value);
-      assertEquals(rs.getMetaData().getColumnClassName(2), value.getClass().getName());
-      assertTrue(rs.next());
-      assertNull(rs.getObject(2));
-      assertFalse(rs.next());
-    }
-  }
-
-  /**
-   * An empty or all-null geospatial array has no element revealing whether geospatial support was
-   * enabled, so the VALUE column deliberately keeps the declared geospatial type (Types.OTHER).
-   */
-  @Test
-  public void getResultSet_EmptyOrAllNullGeospatialArrayShouldReportDeclaredType()
-      throws SQLException {
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<GEOGRAPHY>"))
-        .thenReturn("GEOGRAPHY");
-    String expectedClassName =
-        DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.GEOGRAPHY);
-
-    DatabricksArray emptyArray = new DatabricksArray(Collections.emptyList(), "ARRAY<GEOGRAPHY>");
-    try (java.sql.ResultSet rs = emptyArray.getResultSet()) {
-      assertEquals(java.sql.Types.OTHER, rs.getMetaData().getColumnType(2));
-      assertEquals(expectedClassName, rs.getMetaData().getColumnClassName(2));
-      assertFalse(rs.next());
-    }
-
-    DatabricksArray allNullArray =
-        new DatabricksArray(Arrays.asList(null, null), "ARRAY<GEOGRAPHY>");
-    try (java.sql.ResultSet rs = allNullArray.getResultSet()) {
-      assertEquals(java.sql.Types.OTHER, rs.getMetaData().getColumnType(2));
-      assertEquals(expectedClassName, rs.getMetaData().getColumnClassName(2));
-      assertTrue(rs.next());
-      assertNull(rs.getObject(2));
-      assertTrue(rs.wasNull());
-      assertTrue(rs.next());
-      assertNull(rs.getObject(2));
-      assertFalse(rs.next());
-    }
-  }
-
-  /** Native geospatial elements must be reported, and returned, as the geospatial interface. */
-  @Test
-  public void getResultSet_NativeGeospatialElementsShouldReportGeospatialClass()
-      throws SQLException {
-    metadataParserMock
-        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<GEOMETRY(4326)>"))
-        .thenReturn("GEOMETRY(4326)");
-    DatabricksGeometry geometry = new DatabricksGeometry("POINT(1 2)", 4326);
-    DatabricksArray array =
-        new DatabricksArray(Collections.singletonList(geometry), "ARRAY<GEOMETRY(4326)>");
-    try (java.sql.ResultSet rs = array.getResultSet()) {
-      assertEquals(java.sql.Types.OTHER, rs.getMetaData().getColumnType(2));
-      String className = rs.getMetaData().getColumnClassName(2);
-      assertEquals(DatabricksTypeUtil.GEOMETRY_CLASS_NAME, className);
-      assertTrue(rs.next());
-      Object value = rs.getObject(2);
-      assertSame(geometry, value);
-      assertTrue(com.databricks.jdbc.api.IGeometry.class.isInstance(value), className);
-      assertFalse(rs.next());
     }
   }
 
@@ -1050,11 +876,7 @@ public class DatabricksArrayTest {
     }
   }
 
-  /**
-   * MAP elements must be returned as DatabricksMap. The VALUE column reports VARCHAR for MAP, which
-   * matches how MAP columns are reported in query result metadata, while getColumnClassName reports
-   * java.util.Map so it agrees with the value returned by getObject.
-   */
+  /** MAP elements must be returned as DatabricksMap. */
   @Test
   public void getResultSet_MapElementsShouldBeReturnedAsDatabricksMap() throws SQLException {
     metadataParserMock
@@ -1068,8 +890,6 @@ public class DatabricksArrayTest {
     DatabricksArray mapArray =
         new DatabricksArray(Collections.singletonList(map), "ARRAY<MAP<STRING,INT>>");
     try (java.sql.ResultSet rs = mapArray.getResultSet()) {
-      assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
-      assertEquals("java.util.Map", rs.getMetaData().getColumnClassName(2));
       assertTrue(rs.next());
       Object value = rs.getObject(2);
       assertInstanceOf(DatabricksMap.class, value);

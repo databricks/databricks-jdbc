@@ -295,15 +295,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    */
   public DatabricksResultSetMetaData(
       StatementId statementId, List<ColumnMetadata> columnMetadataList, long totalRows) {
-    this(statementId, columnMetadataList, totalRows, false);
-  }
-
-  /** Uses the declared element types for array result sets, including nested complex values. */
-  DatabricksResultSetMetaData(
-      StatementId statementId,
-      List<ColumnMetadata> columnMetadataList,
-      long totalRows,
-      boolean useTypeText) {
     this.statementId = statementId;
     CaseInsensitiveImmutableMap.Builder<Integer> columnNameIndexBuilder =
         CaseInsensitiveImmutableMap.builder();
@@ -311,26 +302,13 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
     for (int i = 0; i < columnMetadataList.size(); i++) {
       ColumnMetadata metadata = columnMetadataList.get(i);
+      String databricksType =
+          DatabricksTypeUtil.getDatabricksTypeFromSQLType(metadata.getTypeInt());
+      // ColumnInfoTypeName has no TIMESTAMP_NTZ constant.
       ColumnInfoTypeName columnTypeName =
-          useTypeText
-              ? getColumnInfoType(DatabricksTypeUtil.baseTypeName(metadata.getTypeText()))
-              : ColumnInfoTypeName.valueOf(
-                  DatabricksTypeUtil.getDatabricksTypeFromSQLType(metadata.getTypeInt()));
-      if (useTypeText && columnTypeName == ColumnInfoTypeName.USER_DEFINED_TYPE) {
-        // A collated type text (e.g. "STRING COLLATE UTF8_LCASE") does not map directly; recover
-        // STRING as the SEA/Thrift metadata paths do so type-name-driven attributes match.
-        ColumnInfoTypeName recovered = DatabricksTypeUtil.recoverStringType(metadata.getTypeText());
-        if (recovered != null) {
-          columnTypeName = recovered;
-        }
-      }
-      // Array result sets size columns from the resolved type name (with scale), as query results
-      // do; pre-defined metadata result sets keep the SQL-type-based sizing.
-      int displaySize =
-          useTypeText
-              ? DatabricksTypeUtil.getDisplaySize(
-                  columnTypeName, metadata.getPrecision(), metadata.getScale())
-              : DatabricksTypeUtil.getDisplaySize(metadata.getTypeInt(), metadata.getPrecision());
+          DatabricksTypeUtil.TIMESTAMP_NTZ.equals(databricksType)
+              ? ColumnInfoTypeName.TIMESTAMP
+              : ColumnInfoTypeName.valueOf(databricksType);
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
           .columnName(metadata.getName())
@@ -340,7 +318,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .columnTypeClassName(DatabricksTypeUtil.getColumnTypeClassName(columnTypeName))
           .typeScale(metadata.getScale())
           .nullable(DatabricksTypeUtil.getNullableFromValue(metadata.getNullable()))
-          .displaySize(displaySize)
+          .displaySize(
+              DatabricksTypeUtil.getDisplaySize(
+                  metadata.getTypeInt(),
+                  metadata.getPrecision())) // pass scale and precision from metadata result set
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
       if (isLargeColumn(
           metadata.getName())) { // special case: overriding default value of 128 for VARCHAR cols.

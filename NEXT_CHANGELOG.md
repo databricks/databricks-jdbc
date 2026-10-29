@@ -4,10 +4,7 @@
 
 ### Added
 
-- Implemented `DatabricksArray.getResultSet()` (and its overloads) to return a
-  `ResultSet` with one row per array element, where column 1 is the 1-based
-  element index and column 2 is the element value, per the JDBC `Array` contract.
-  Previously these methods threw `SQLFeatureNotSupportedException`.
+- Implemented `Array.getResultSet()` and its overloads, returning one row per element (1-based index, value).
 
 ### Updated
 - Removed automatic Thrift fallback and the 24-hour SEA circuit breaker after HTTP 429 session creation failures. Rate-limit errors now propagate to the caller without changing routing for subsequent connections.

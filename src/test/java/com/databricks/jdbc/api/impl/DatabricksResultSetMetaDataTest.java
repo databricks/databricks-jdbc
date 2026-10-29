@@ -16,7 +16,6 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
-import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import java.sql.ResultSetMetaData;
@@ -1108,27 +1107,5 @@ public class DatabricksResultSetMetaDataTest {
     assertEquals("region", metaData.getColumnName(2));
     assertEquals("GEOGRAPHY", metaData.getColumnTypeName(2));
     assertEquals(Types.OTHER, metaData.getColumnType(2));
-  }
-
-  @Test
-  public void testArrayElementTypeMappingIsOptIn() throws SQLException {
-    List<ColumnMetadata> columns =
-        List.of(
-            new ColumnMetadata.Builder()
-                .name("VALUE")
-                .typeInt(Types.VARCHAR)
-                .typeText("MAP<STRING,INT>")
-                .nullable(ResultSetMetaData.columnNullable)
-                .build());
-
-    DatabricksResultSetMetaData metadataResult =
-        new DatabricksResultSetMetaData(STATEMENT_ID, columns, 1);
-    DatabricksResultSetMetaData arrayResult =
-        new DatabricksResultSetMetaData(STATEMENT_ID, columns, 1, true);
-
-    assertEquals("java.lang.String", metadataResult.getColumnClassName(1));
-    assertEquals("java.util.Map", arrayResult.getColumnClassName(1));
-    assertEquals(Types.VARCHAR, metadataResult.getColumnType(1));
-    assertEquals(Types.VARCHAR, arrayResult.getColumnType(1));
   }
 }

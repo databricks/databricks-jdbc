@@ -1,6 +1,5 @@
 package com.databricks.jdbc.api.impl;
 
-import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
@@ -9,7 +8,6 @@ import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
-import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ColumnMetadata;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -26,10 +24,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Class for representation of Array complex object. */
 public class DatabricksArray implements Array {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksArray.class);
+  private static final Pattern DECIMAL_TYPE =
+      Pattern.compile("DECIMAL\\((\\d+),\\s*(\\d+)\\)", Pattern.CASE_INSENSITIVE);
 
   private final Object[] elements;
   private final String typeName;
@@ -236,13 +238,8 @@ public class DatabricksArray implements Array {
   }
 
   /**
-   * Builds a {@link java.sql.ResultSet} containing one row for each requested array element. Per
-   * the JDBC {@link Array#getResultSet()} contract, column 1 holds the 1-based index of the element
-   * within the array and column 2 holds the element value.
-   *
-   * @param index the 1-based index of the first element to return
-   * @param count the number of elements to return
-   * @return a result set over the requested window of elements
+   * Builds a result set with one row per element in the requested window. Per the {@link
+   * Array#getResultSet()} contract, column 1 is the 1-based element index and column 2 the value.
    */
   private java.sql.ResultSet buildResultSet(long index, int count) throws SQLException {
     if (index < 1) {
@@ -257,33 +254,21 @@ public class DatabricksArray implements Array {
           DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR.name(),
           DatabricksDriverErrorCode.INPUT_VALIDATION_ERROR);
     }
-    // Do the window arithmetic in long and clamp to the array bounds before narrowing, so that a
-    // large index or a count such as Integer.MAX_VALUE cannot overflow.
-    long startL = Math.min(index - 1, (long) this.elements.length);
-    int start = (int) startL;
-    int end = (int) Math.min((long) this.elements.length, startL + (long) count);
+    // Clamp in long so a large index or count cannot overflow.
+    int start = (int) Math.min(index - 1, this.elements.length);
+    int end = (int) Math.min(this.elements.length, start + (long) count);
 
-    ColumnInfoTypeName valueTypeName =
-        DatabricksTypeUtil.getColumnInfoType(DatabricksTypeUtil.baseTypeName(this.elementType));
-    if (valueTypeName == ColumnInfoTypeName.USER_DEFINED_TYPE) {
-      // A collated element type (e.g. "STRING COLLATE UTF8_LCASE") does not map directly. Recover
-      // STRING, as the other metadata paths do, so the VALUE column reports VARCHAR, not OTHER.
-      ColumnInfoTypeName recovered = DatabricksTypeUtil.recoverStringType(this.elementType);
-      if (recovered != null) {
-        valueTypeName = recovered;
-      }
+    int valueType =
+        DatabricksTypeUtil.getColumnType(
+            DatabricksTypeUtil.getColumnInfoType(baseTypeName(this.elementType)));
+    int valuePrecision = DatabricksTypeUtil.getPrecision(valueType);
+    int valueScale = DatabricksTypeUtil.getScale(valueType);
+    // DECIMAL values are read at the column scale, so use the declared one.
+    Matcher decimal = DECIMAL_TYPE.matcher(this.elementType.trim());
+    if (decimal.matches()) {
+      valuePrecision = Integer.parseInt(decimal.group(1));
+      valueScale = Integer.parseInt(decimal.group(2));
     }
-    String valueTypeText = this.elementType;
-    if ((valueTypeName == ColumnInfoTypeName.GEOMETRY
-            || valueTypeName == ColumnInfoTypeName.GEOGRAPHY)
-        && hasStringFallbackGeospatialElement()) {
-      // Match string fallbacks when geospatial support was disabled. Empty/all-null arrays retain
-      // the declared type because DatabricksArray does not retain the connection's setting.
-      valueTypeName = ColumnInfoTypeName.STRING;
-      valueTypeText = DatabricksTypeUtil.STRING;
-    }
-    int valueType = DatabricksTypeUtil.getColumnType(valueTypeName);
-    int[] valuePrecisionAndScale = precisionAndScale(this.elementType, valueType);
 
     List<ColumnMetadata> columnMetadataList = new ArrayList<>();
     columnMetadataList.add(
@@ -298,17 +283,11 @@ public class DatabricksArray implements Array {
     columnMetadataList.add(
         new ColumnMetadata.Builder()
             .name("VALUE")
-            // Keep the full element type text (e.g. ARRAY<INT>, STRUCT<a:INT>, DECIMAL(10,2))
-            // rather than the base name: getObject() needs the parameterized text to parse nested
-            // complex values, and it tells callers the exact element type. As a result,
-            // getColumnTypeName(2) may differ from the base name used by query result metadata.
-            // DatabricksArray has no connection context, so the EnableTimestampNtzTypeName
-            // setting is not applied here: an ARRAY<TIMESTAMP_NTZ> always reports TIMESTAMP_NTZ,
-            // even when the connection would normalize that name to TIMESTAMP elsewhere.
-            .typeText(valueTypeText)
+            // Full element type text, which getObject() uses to return nested complex values.
+            .typeText(this.elementType)
             .typeInt(valueType)
-            .precision(valuePrecisionAndScale[0])
-            .scale(valuePrecisionAndScale[1])
+            .precision(valuePrecision)
+            .scale(valueScale)
             .nullable(ResultSetMetaData.columnNullable)
             .build());
 
@@ -326,57 +305,13 @@ public class DatabricksArray implements Array {
         columnMetadataList,
         rows,
         StatementType.QUERY,
-        // A DatabricksArray only exists when complex datatype support is enabled, so nested
-        // ARRAY/STRUCT/MAP elements must be returned as their Databricks types.
-        /* complexDatatypeSupport= */ true,
-        // Column types come from the declared (parameterized) element typeText.
-        /* useTypeTextForColumnType= */ true);
+        // A DatabricksArray only exists when complex datatype support is enabled.
+        /* complexDatatypeSupport= */ true);
   }
 
-  /**
-   * Returns whether any non-null element of a geospatial array holds a string fallback rather than
-   * a native {@link IDatabricksGeospatial} value, i.e. geospatial support was disabled when the
-   * array was parsed.
-   */
-  private boolean hasStringFallbackGeospatialElement() {
-    for (Object element : this.elements) {
-      if (element != null && !(element instanceof IDatabricksGeospatial)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Returns {precision, scale} for the given element type. For {@code DECIMAL(p,s)} (or {@code
-   * DECIMAL(p)}) the declared parameters are used; otherwise the per-SQL-type defaults apply.
-   *
-   * <p>This is intentionally separate from {@code
-   * DatabricksResultSetMetaData#getPrecisionAndScale(String, int)}. That regex only matches {@code
-   * DECIMAL(p,s)}. This one also accepts {@code DECIMAL(p)} (scale 0, as in Spark SQL) because
-   * array element type text can be written that way. The existing DESCRIBE QUERY path is left
-   * unchanged in this fix. Merging the two parsers is left for a separate refactor.
-   */
-  private static int[] precisionAndScale(String typeText, int sqlType) {
-    int precision = DatabricksTypeUtil.getPrecision(sqlType);
-    int scale = DatabricksTypeUtil.getScale(sqlType);
-    if (sqlType == Types.DECIMAL && typeText != null) {
-      String normalized = typeText.trim();
-      int open = normalized.indexOf('(');
-      int close = normalized.indexOf(')', open + 1);
-      if (open >= 0 && close > open) {
-        String[] parts = normalized.substring(open + 1, close).split(",");
-        try {
-          precision = Integer.parseInt(parts[0].trim());
-          scale = parts.length > 1 ? Integer.parseInt(parts[1].trim()) : 0;
-        } catch (NumberFormatException e) {
-          LOGGER.debug("Could not parse precision/scale from element type {}", typeText);
-          precision = DatabricksTypeUtil.getPrecision(sqlType);
-          scale = DatabricksTypeUtil.getScale(sqlType);
-        }
-      }
-    }
-    return new int[] {precision, scale};
+  // Strips type parameters, e.g. DECIMAL(10,2) -> DECIMAL and ARRAY<INT> -> ARRAY.
+  private static String baseTypeName(String typeText) {
+    return typeText.split("[<(]", 2)[0].trim().toUpperCase(Locale.ROOT);
   }
 
   @Override
