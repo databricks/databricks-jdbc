@@ -299,7 +299,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
    * datatype support flag. Used by {@link DatabricksArray#getResultSet()}, whose rows may hold
    * nested {@link DatabricksArray}, {@link DatabricksStruct} or {@link DatabricksMap} values.
    */
-  public DatabricksResultSet(
+  DatabricksResultSet(
       StatementStatus statementStatus,
       StatementId statementId,
       List<ColumnMetadata> columnMetadataList,
@@ -311,7 +311,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.complexDatatypeSupport = complexDatatypeSupport;
     this.executionResult = ExecutionResultFactory.getResultSet(rows);
     this.resultSetMetaData =
-        new DatabricksResultSetMetaData(statementId, columnMetadataList, rows.size());
+        new DatabricksResultSetMetaData(
+            statementId, columnMetadataList, rows.size(), complexDatatypeSupport);
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = null;

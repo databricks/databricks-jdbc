@@ -133,9 +133,7 @@ public class DatabricksArray implements Array {
     }
 
     try {
-      // Switch on the base type name so that parameterized types such as DECIMAL(10,2)
-      // convert to the Java class reported by the getResultSet() VALUE column metadata.
-      switch (DatabricksTypeUtil.baseTypeName(type)) {
+      switch (type.toUpperCase()) {
         case DatabricksTypeUtil.INT:
           return Integer.parseInt(value.toString());
         case DatabricksTypeUtil.BIGINT:
@@ -196,14 +194,6 @@ public class DatabricksArray implements Array {
     return this.getArray();
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Note: unlike {@link #getResultSet(long, int)}, this method does not validate or clamp its
-   * window. An {@code index} below 1 or a negative {@code count} surfaces as an unchecked exception
-   * from {@link java.util.Arrays#copyOfRange}, and a window extending past the end of the array is
-   * padded with {@code null}s. Aligning the two behaviours is tracked as a separate follow-up.
-   */
   @Override
   public Object getArray(long index, int count) throws SQLException {
     LOGGER.debug("Getting subarray from index {} with count {}", index, count);
@@ -305,13 +295,8 @@ public class DatabricksArray implements Array {
     if ((valueTypeName == ColumnInfoTypeName.GEOMETRY
             || valueTypeName == ColumnInfoTypeName.GEOGRAPHY)
         && hasStringFallbackGeospatialElement()) {
-      // With geospatial support disabled, the parser stores GEOMETRY/GEOGRAPHY elements as their
-      // string fallback. Report STRING, as query result metadata does in that case, so that
-      // getColumnClassName(2) matches the java.lang.String returned by getObject(2).
-      // Deliberate limitation: a DatabricksArray does not know the connection's geospatial
-      // setting, so an empty or all-null geospatial array has no element to inspect and keeps the
-      // declared GEOMETRY/GEOGRAPHY type (Types.OTHER). No getObject(2) call can return a non-null
-      // value in that case, so no class-name mismatch is observable.
+      // Match string fallbacks when geospatial support was disabled. Empty/all-null arrays retain
+      // the declared type because DatabricksArray does not retain the connection's setting.
       valueTypeName = ColumnInfoTypeName.STRING;
       valueTypeText = DatabricksTypeUtil.STRING;
     }

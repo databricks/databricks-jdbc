@@ -112,7 +112,7 @@ public class DatabricksStruct implements Struct {
     }
 
     try {
-      switch (DatabricksTypeUtil.baseTypeName(type)) {
+      switch (type.toUpperCase()) {
         case DatabricksTypeUtil.INT:
           return Integer.parseInt(value.toString());
         case DatabricksTypeUtil.BIGINT:

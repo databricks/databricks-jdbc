@@ -295,6 +295,15 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
    */
   public DatabricksResultSetMetaData(
       StatementId statementId, List<ColumnMetadata> columnMetadataList, long totalRows) {
+    this(statementId, columnMetadataList, totalRows, false);
+  }
+
+  /** Uses the declared element types for array result sets, including nested complex values. */
+  DatabricksResultSetMetaData(
+      StatementId statementId,
+      List<ColumnMetadata> columnMetadataList,
+      long totalRows,
+      boolean useTypeText) {
     this.statementId = statementId;
     CaseInsensitiveImmutableMap.Builder<Integer> columnNameIndexBuilder =
         CaseInsensitiveImmutableMap.builder();
@@ -302,27 +311,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
 
     for (int i = 0; i < columnMetadataList.size(); i++) {
       ColumnMetadata metadata = columnMetadataList.get(i);
-      String databricksType =
-          DatabricksTypeUtil.getDatabricksTypeFromSQLType(metadata.getTypeInt());
-      // Types.TIMESTAMP maps to "TIMESTAMP_NTZ", which has no ColumnInfoTypeName constant; both
-      // TIMESTAMP and TIMESTAMP_NTZ are represented as ColumnInfoTypeName.TIMESTAMP.
-      if (TIMESTAMP_NTZ.equals(databricksType)) {
-        databricksType = ColumnInfoTypeName.TIMESTAMP.name();
-      }
-      ColumnInfoTypeName columnTypeName = ColumnInfoTypeName.valueOf(databricksType);
-      if (metadata.getTypeInt() == Types.OTHER && metadata.getTypeText() != null) {
-        // Types.OTHER (VARIANT, GEOMETRY, GEOGRAPHY, user-defined types) is not mapped by
-        // getDatabricksTypeFromSQLType and would otherwise resolve to NULL; use the type text.
-        columnTypeName = getColumnInfoType(DatabricksTypeUtil.baseTypeName(metadata.getTypeText()));
-      } else if (metadata.getTypeInt() == Types.VARCHAR && metadata.getTypeText() != null) {
-        // MAP is reported as Types.VARCHAR (matching query metadata), which maps back to STRING.
-        // Use the type text so getColumnClassName reflects the java.util.Map returned by getObject.
-        ColumnInfoTypeName fromTypeText =
-            getColumnInfoType(DatabricksTypeUtil.baseTypeName(metadata.getTypeText()));
-        if (fromTypeText == ColumnInfoTypeName.MAP) {
-          columnTypeName = fromTypeText;
-        }
-      }
+      ColumnInfoTypeName columnTypeName =
+          useTypeText
+              ? getColumnInfoType(DatabricksTypeUtil.baseTypeName(metadata.getTypeText()))
+              : ColumnInfoTypeName.valueOf(
+                  DatabricksTypeUtil.getDatabricksTypeFromSQLType(metadata.getTypeInt()));
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
           .columnName(metadata.getName())

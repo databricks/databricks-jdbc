@@ -805,12 +805,8 @@ public class DatabricksArrayTest {
     }
   }
 
-  /**
-   * Parameterized DECIMAL(p,s) elements convert to BigDecimal (not String) for getArray(), and
-   * toString() renders them as unquoted JSON numbers.
-   */
   @Test
-  public void parameterizedDecimalElements_ShouldConvertToBigDecimalForGetArrayAndToString()
+  public void getResultSet_ShouldPreserveExistingArrayValuesAndStringRepresentation()
       throws SQLException {
     metadataParserMock
         .when(() -> MetadataParser.parseArrayMetadata("ARRAY<DECIMAL(10,2)>"))
@@ -818,14 +814,18 @@ public class DatabricksArrayTest {
     DatabricksArray decimalArray =
         new DatabricksArray(Arrays.asList("1.50", "2.25"), "ARRAY<DECIMAL(10,2)>");
 
-    Object[] elements = (Object[]) decimalArray.getArray();
-    assertEquals(2, elements.length);
-    assertInstanceOf(BigDecimal.class, elements[0]);
-    assertEquals(new BigDecimal("1.50"), elements[0]);
-    assertInstanceOf(BigDecimal.class, elements[1]);
-    assertEquals(new BigDecimal("2.25"), elements[1]);
-
-    assertEquals("[1.50,2.25]", decimalArray.toString());
+    Object[] expected = {"1.50", "2.25"};
+    assertArrayEquals(expected, (Object[]) decimalArray.getArray());
+    assertEquals("[\"1.50\",\"2.25\"]", decimalArray.toString());
+    try (java.sql.ResultSet rs = decimalArray.getResultSet()) {
+      assertTrue(rs.next());
+      assertEquals(new BigDecimal("1.50"), rs.getObject(2));
+      assertTrue(rs.next());
+      assertEquals(new BigDecimal("2.25"), rs.getObject(2));
+      assertFalse(rs.next());
+    }
+    assertArrayEquals(expected, (Object[]) decimalArray.getArray());
+    assertEquals("[\"1.50\",\"2.25\"]", decimalArray.toString());
   }
 
   /** A collated string element type must report VARCHAR for the VALUE column, not OTHER. */

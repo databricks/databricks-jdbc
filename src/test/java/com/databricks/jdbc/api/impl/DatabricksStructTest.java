@@ -46,22 +46,6 @@ public class DatabricksStructTest {
         .thenReturn(returnTypeMap);
   }
 
-  /** Parameterized field types such as DECIMAL(10,2) convert by their base type. */
-  @Test
-  public void constructor_ShouldConvertParameterizedDecimalToBigDecimal() throws SQLException {
-    String metadata = "STRUCT<a:DECIMAL(10,2)>";
-    Map<String, Object> attributes = new HashMap<>();
-    attributes.put("a", "1.50");
-
-    Map<String, String> typeMap = new LinkedHashMap<>();
-    typeMap.put("a", "DECIMAL(10,2)");
-    mockParseStructMetadata(metadata, typeMap);
-
-    DatabricksStruct databricksStruct = new DatabricksStruct(attributes, metadata);
-
-    assertEquals(new java.math.BigDecimal("1.50"), databricksStruct.getAttributes()[0]);
-  }
-
   /** Test the constructor with valid simple types. */
   @Test
   public void constructor_ShouldConvertSimpleTypesCorrectly() throws SQLException {

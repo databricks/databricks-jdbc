@@ -68,20 +68,6 @@ public class DatabricksMapTest {
     metadataParserMock.verify(() -> MetadataParser.parseMapMetadataParts(metadata), times(1));
   }
 
-  /** Parameterized value types such as DECIMAL(10,2) convert by their base type. */
-  @Test
-  public void testConstructor_WithParameterizedDecimalValues_ShouldConvertToBigDecimal() {
-    String metadata = "MAP<STRING, DECIMAL(10,2)>";
-    Map<String, Object> originalMap = new HashMap<>();
-    originalMap.put("a", "1.50");
-
-    mockParseMapMetadata(metadata, "STRING", "DECIMAL(10,2)");
-
-    DatabricksMap<String, Object> databricksMap = new DatabricksMap<>(originalMap, metadata);
-
-    assertEquals(new java.math.BigDecimal("1.50"), databricksMap.get("a"));
-  }
-
   /** Test the constructor with different key and value types. */
   @Test
   public void testConstructor_WithIntBooleanTypes_ShouldConvertCorrectly() throws SQLException {
