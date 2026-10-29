@@ -1051,7 +1051,8 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   private static ClientInfoStatus determineClientInfoStatus(String key, String value, Throwable e) {
     String invalidConfigMessage = String.format("Configuration %s is not available", key);
     String invalidValueMessage = String.format("Unsupported configuration %s=%s", key, value);
-    String errorMessage = e.getCause().getMessage();
+    Throwable failure = e.getCause() == null ? e : e.getCause();
+    String errorMessage = Objects.toString(failure.getMessage(), "");
     if (errorMessage.contains(invalidConfigMessage))
       return ClientInfoStatus.REASON_UNKNOWN_PROPERTY;
     else if (errorMessage.contains(invalidValueMessage))
@@ -1081,7 +1082,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   private void throwExceptionIfConnectionIsClosed() throws SQLException {
     if (this.isClosed()) {
       throw new DatabricksSQLException(
-          "Connection closed!", DatabricksDriverErrorCode.CONNECTION_CLOSED);
+          "Connection closed!",
+          DatabricksDriverErrorCode.CONNECTION_CLOSED.name(),
+          DatabricksDriverErrorCode.CONNECTION_CLOSED);
     }
   }
 

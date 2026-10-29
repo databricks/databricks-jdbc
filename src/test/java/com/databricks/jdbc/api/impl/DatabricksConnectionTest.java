@@ -415,7 +415,7 @@ public class DatabricksConnectionTest {
               }
             });
     assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.name(), error.getSQLState());
-    assertEquals(0, error.getErrorCode());
+    assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.getCode(), error.getErrorCode());
 
     DatabricksHttpClientFactory httpFactory = mock(DatabricksHttpClientFactory.class);
     IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
@@ -558,6 +558,53 @@ public class DatabricksConnectionTest {
         SQLClientInfoException.class, () -> connection.setClientInfo("RANDOM_CONF", "UNLIMITED"));
     assertNull(connection.getClientInfo("RANDOM_CONF"));
     assertNull(clientInfoProperties.get("RANDOM_CONF"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testSetClientInfoOnClosedConnection(boolean bulk) throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    try (DatabricksConnection closedConnection =
+        new DatabricksConnection(connectionContext, databricksClient)) {
+      closedConnection.open();
+      closedConnection.close();
+      Properties properties = new Properties();
+      properties.setProperty("QUERY_TAGS", "test:closed");
+
+      SQLClientInfoException error =
+          assertThrows(
+              SQLClientInfoException.class,
+              () -> {
+                if (bulk) {
+                  closedConnection.setClientInfo(properties);
+                } else {
+                  closedConnection.setClientInfo("QUERY_TAGS", "test:closed");
+                }
+              });
+      assertEquals(
+          Map.of("QUERY_TAGS", ClientInfoStatus.REASON_UNKNOWN), error.getFailedProperties());
+    }
+  }
+
+  @Test
+  void testSetClientInfoWithNullErrorMessage() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    try (DatabricksConnection openConnection =
+        spy(new DatabricksConnection(connectionContext, databricksClient))) {
+      openConnection.open();
+      doThrow(new SQLException()).when(openConnection).createStatement();
+
+      SQLClientInfoException error =
+          assertThrows(
+              SQLClientInfoException.class,
+              () -> openConnection.setClientInfo("QUERY_TAGS", "test:failure"));
+      assertEquals(
+          Map.of("QUERY_TAGS", ClientInfoStatus.REASON_UNKNOWN), error.getFailedProperties());
+    }
   }
 
   @Test
