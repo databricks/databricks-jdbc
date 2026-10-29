@@ -89,7 +89,10 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
   @Override
   public Statement getStatement(String statementId) throws SQLException {
     throwExceptionIfConnectionIsClosed();
-    return new DatabricksStatement(this, StatementId.deserialize(statementId));
+    DatabricksStatement statement =
+        new DatabricksStatement(this, StatementId.deserialize(statementId));
+    statementSet.add(statement);
+    return statement;
   }
 
   @Override

@@ -18,6 +18,7 @@ import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.ClosedConnectionHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
@@ -48,6 +49,7 @@ import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -458,6 +460,34 @@ public class DatabricksConnectionTest {
         assertTrue(freshContext.isThriftNativeMetadataEnabled());
         verify(httpClient).execute(any(HttpGet.class));
       }
+    }
+  }
+
+  @Test
+  void testRetrievedStatementClosesWithConnection() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    try (DatabricksConnection localConnection =
+        new DatabricksConnection(connectionContext, databricksClient)) {
+      localConnection.open();
+      StatementId statementId = new StatementId("statement-id");
+      DatabricksStatement statement =
+          (DatabricksStatement) localConnection.getStatement(statementId.toString());
+      assertFalse(statement.isClosed());
+
+      localConnection.close();
+
+      assertTrue(statement.isClosed());
+      InOrder cleanup = inOrder(databricksClient);
+      cleanup.verify(databricksClient).closeStatement(statementId);
+      cleanup.verify(databricksClient).deleteSession(IMMUTABLE_SESSION_INFO);
+      DatabricksSQLException error =
+          assertThrows(DatabricksSQLException.class, statement::getExecutionResult);
+      assertEquals(DatabricksDriverErrorCode.STATEMENT_CLOSED.name(), error.getSQLState());
+      // Connection cleanup preserves the existing statement-closed vendor code.
+      assertEquals(0, error.getErrorCode());
+      verify(databricksClient, never()).getStatementResult(any(), any(), any());
     }
   }
 
