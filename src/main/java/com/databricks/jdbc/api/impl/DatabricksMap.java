@@ -75,7 +75,10 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       if (value == null) {
         return null;
       }
-      if (valueType.startsWith(DatabricksTypeUtil.STRUCT)) {
+      // Dispatch case-insensitively (like DatabricksArray) so lowercase metadata still yields
+      // nested complex objects; the original valueType is passed on to preserve field-name case.
+      String valueTypeUpper = valueType.toUpperCase(Locale.ROOT);
+      if (valueTypeUpper.startsWith(DatabricksTypeUtil.STRUCT)) {
         if (value instanceof Map) {
           LOGGER.trace("Converting value as STRUCT");
           return (V) new DatabricksStruct((Map<String, Object>) value, valueType);
@@ -86,7 +89,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
               "Expected a Map for STRUCT but found: " + value.getClass().getSimpleName(),
               DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
         }
-      } else if (valueType.startsWith(DatabricksTypeUtil.ARRAY)) {
+      } else if (valueTypeUpper.startsWith(DatabricksTypeUtil.ARRAY)) {
         if (value instanceof List) {
           LOGGER.trace("Converting value as ARRAY");
           return (V) new DatabricksArray((List<Object>) value, valueType);
@@ -97,7 +100,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
               "Expected a List for ARRAY but found: " + value.getClass().getSimpleName(),
               DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
         }
-      } else if (valueType.startsWith(DatabricksTypeUtil.MAP)) {
+      } else if (valueTypeUpper.startsWith(DatabricksTypeUtil.MAP)) {
         if (value instanceof Map) {
           LOGGER.trace("Converting value as MAP");
           return (V) new DatabricksMap<>((Map<String, Object>) value, valueType);

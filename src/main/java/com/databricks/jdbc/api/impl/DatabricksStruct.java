@@ -57,10 +57,14 @@ public class DatabricksStruct implements Struct {
     for (String fieldName : fieldNames) {
       String fieldType = typeMap.get(fieldName);
       Object value = attributes.get(fieldName);
+      // Dispatch case-insensitively (like DatabricksArray) so lowercase metadata such as
+      // "array<int>" still yields nested complex objects. The original fieldType is passed on
+      // so nested struct field names keep their case.
+      String fieldTypeUpper = fieldType.trim().toUpperCase(Locale.ROOT);
 
       if (value == null) {
         convertedAttributes[index] = value;
-      } else if (fieldType.startsWith(DatabricksTypeUtil.STRUCT)) {
+      } else if (fieldTypeUpper.startsWith(DatabricksTypeUtil.STRUCT)) {
         if (value instanceof Map) {
           convertedAttributes[index] = new DatabricksStruct((Map<String, Object>) value, fieldType);
         } else if (value instanceof DatabricksStruct) {
@@ -68,7 +72,7 @@ public class DatabricksStruct implements Struct {
         } else {
           throwConversionException("Map for STRUCT", value);
         }
-      } else if (fieldType.startsWith(DatabricksTypeUtil.ARRAY)) {
+      } else if (fieldTypeUpper.startsWith(DatabricksTypeUtil.ARRAY)) {
         if (value instanceof List) {
           convertedAttributes[index] = new DatabricksArray((List<Object>) value, fieldType);
         } else if (value instanceof DatabricksArray) {
@@ -76,7 +80,7 @@ public class DatabricksStruct implements Struct {
         } else {
           throwConversionException("List for ARRAY", value);
         }
-      } else if (fieldType.startsWith(DatabricksTypeUtil.MAP)) {
+      } else if (fieldTypeUpper.startsWith(DatabricksTypeUtil.MAP)) {
         if (value instanceof Map) {
           convertedAttributes[index] = new DatabricksMap<>((Map<String, Object>) value, fieldType);
         } else if (value instanceof DatabricksMap) {
@@ -84,7 +88,7 @@ public class DatabricksStruct implements Struct {
         } else {
           throwConversionException("Map for MAP", value);
         }
-      } else if (fieldType.startsWith(DatabricksTypeUtil.VARIANT)) {
+      } else if (fieldTypeUpper.startsWith(DatabricksTypeUtil.VARIANT)) {
         // For VARIANT, preserve JsonNode objects as-is, otherwise convert to string
         convertedAttributes[index] = value;
       } else {

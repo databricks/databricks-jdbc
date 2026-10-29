@@ -4,6 +4,8 @@ import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Utility class for parsing metadata descriptions into structured type mappings. */
 public class MetadataParser {
@@ -249,12 +251,30 @@ public class MetadataParser {
   }
 
   /**
-   * Removes any "NOT NULL" constraints and trims the type name.
+   * Removes any "NOT NULL" constraints (case-insensitively) and trims the type name. Text inside
+   * quoted literals (e.g. {@code COMMENT 'value is not null'}) or backtick-quoted identifiers is
+   * left untouched.
    *
    * @param typeName the type name to clean
    * @return the cleaned type name without "NOT NULL" constraints
    */
   private static String cleanTypeName(String typeName) {
-    return typeName.replaceAll(" NOT NULL", "").trim();
+    Matcher matcher = NOT_NULL_PATTERN.matcher(typeName);
+    StringBuilder result = new StringBuilder();
+    while (matcher.find()) {
+      String quoted = matcher.group(1);
+      matcher.appendReplacement(result, quoted == null ? "" : Matcher.quoteReplacement(quoted));
+    }
+    matcher.appendTail(result);
+    return result.toString().trim();
   }
+
+  /**
+   * Matches either a quoted segment (group 1: single-quoted, double-quoted, or backtick-quoted),
+   * which is preserved, or an unquoted NOT NULL constraint, which is removed.
+   */
+  private static final Pattern NOT_NULL_PATTERN =
+      Pattern.compile(
+          "('(?:[^'\\\\]|\\\\.)*'|\"(?:[^\"\\\\]|\\\\.)*\"|`(?:[^`]|``)*`)|\\s+NOT\\s+NULL\\b",
+          Pattern.CASE_INSENSITIVE);
 }
