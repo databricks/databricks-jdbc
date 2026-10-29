@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
@@ -300,6 +301,16 @@ public class DatabricksArray implements Array {
         valueTypeName = recovered;
       }
     }
+    String valueTypeText = this.elementType;
+    if ((valueTypeName == ColumnInfoTypeName.GEOMETRY
+            || valueTypeName == ColumnInfoTypeName.GEOGRAPHY)
+        && hasStringFallbackGeospatialElement()) {
+      // With geospatial support disabled, the parser stores GEOMETRY/GEOGRAPHY elements as their
+      // string fallback. Report STRING, as query result metadata does in that case, so that
+      // getColumnClassName(2) matches the java.lang.String returned by getObject(2).
+      valueTypeName = ColumnInfoTypeName.STRING;
+      valueTypeText = DatabricksTypeUtil.STRING;
+    }
     int valueType = DatabricksTypeUtil.getColumnType(valueTypeName);
     int[] valuePrecisionAndScale = precisionAndScale(this.elementType, valueType);
 
@@ -320,7 +331,7 @@ public class DatabricksArray implements Array {
             // rather than the base name: getObject() needs the parameterized text to parse nested
             // complex values, and it tells callers the exact element type. As a result,
             // getColumnTypeName(2) may differ from the base name used by query result metadata.
-            .typeText(this.elementType)
+            .typeText(valueTypeText)
             .typeInt(valueType)
             .precision(valuePrecisionAndScale[0])
             .scale(valuePrecisionAndScale[1])
@@ -344,6 +355,20 @@ public class DatabricksArray implements Array {
         // A DatabricksArray only exists when complex datatype support is enabled, so nested
         // ARRAY/STRUCT/MAP elements must be returned as their Databricks types.
         true);
+  }
+
+  /**
+   * Returns whether any non-null element of a geospatial array holds a string fallback rather than
+   * a native {@link IDatabricksGeospatial} value, i.e. geospatial support was disabled when the
+   * array was parsed.
+   */
+  private boolean hasStringFallbackGeospatialElement() {
+    for (Object element : this.elements) {
+      if (element != null && !(element instanceof IDatabricksGeospatial)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

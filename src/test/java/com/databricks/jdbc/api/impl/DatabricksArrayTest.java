@@ -892,6 +892,54 @@ public class DatabricksArrayTest {
     }
   }
 
+  /**
+   * With geospatial support disabled, geospatial elements are held as string fallbacks; the VALUE
+   * column must then report STRING so that its class name matches getObject().
+   */
+  @Test
+  public void getResultSet_StringFallbackGeospatialElementsShouldReportString()
+      throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<GEOMETRY(4326)>"))
+        .thenReturn("GEOMETRY(4326)");
+    DatabricksArray array =
+        new DatabricksArray(Arrays.asList("SRID=4326;POINT(1 2)", null), "ARRAY<GEOMETRY(4326)>");
+    try (java.sql.ResultSet rs = array.getResultSet()) {
+      assertEquals(java.sql.Types.VARCHAR, rs.getMetaData().getColumnType(2));
+      assertEquals("STRING", rs.getMetaData().getColumnTypeName(2));
+      assertEquals("java.lang.String", rs.getMetaData().getColumnClassName(2));
+      assertTrue(rs.next());
+      Object value = rs.getObject(2);
+      assertEquals("SRID=4326;POINT(1 2)", value);
+      assertEquals(rs.getMetaData().getColumnClassName(2), value.getClass().getName());
+      assertTrue(rs.next());
+      assertNull(rs.getObject(2));
+      assertFalse(rs.next());
+    }
+  }
+
+  /** Native geospatial elements must be reported, and returned, as the geospatial interface. */
+  @Test
+  public void getResultSet_NativeGeospatialElementsShouldReportGeospatialClass()
+      throws SQLException {
+    metadataParserMock
+        .when(() -> MetadataParser.parseArrayMetadata("ARRAY<GEOMETRY(4326)>"))
+        .thenReturn("GEOMETRY(4326)");
+    DatabricksGeometry geometry = new DatabricksGeometry("POINT(1 2)", 4326);
+    DatabricksArray array =
+        new DatabricksArray(Collections.singletonList(geometry), "ARRAY<GEOMETRY(4326)>");
+    try (java.sql.ResultSet rs = array.getResultSet()) {
+      assertEquals(java.sql.Types.OTHER, rs.getMetaData().getColumnType(2));
+      String className = rs.getMetaData().getColumnClassName(2);
+      assertEquals(DatabricksTypeUtil.GEOMETRY_CLASS_NAME, className);
+      assertTrue(rs.next());
+      Object value = rs.getObject(2);
+      assertSame(geometry, value);
+      assertTrue(com.databricks.jdbc.api.IGeometry.class.isInstance(value), className);
+      assertFalse(rs.next());
+    }
+  }
+
   /** Nested complex elements must be readable via getArray/getObject on the element result set. */
   @Test
   public void getResultSet_NestedArrayElementsShouldBeReturnedAsDatabricksArray()
