@@ -10,7 +10,8 @@ public final class ApcSeaPrototype {
   private ApcSeaPrototype() {}
 
   public static boolean isEnabled() {
-    return Boolean.parseBoolean(System.getProperty(ENABLED_PROPERTY, "false"));
+    // Benchmark build: on by default so UseThriftClient alone selects DPR (1) vs SEA (0) on APC.
+    return Boolean.parseBoolean(System.getProperty(ENABLED_PROPERTY, "true"));
   }
 
   /** Emits one stable marker only after an APC session has been created successfully. */
