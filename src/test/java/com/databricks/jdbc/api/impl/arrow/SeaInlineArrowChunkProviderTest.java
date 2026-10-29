@@ -767,15 +767,18 @@ class SeaInlineArrowChunkProviderTest {
           new SeaInlineArrowChunkProvider(
               initial, createManifest(CompressionCodec.NONE), STATEMENT_ID, mockSession);
 
+      int expectedChunkCount = 3;
       int consumed = 0;
-      while (provider.hasNextChunk()) {
+      for (int i = 0; i < expectedChunkCount; i++) {
+        assertTrue(provider.hasNextChunk());
         assertTrue(provider.next());
         assertNotNull(provider.getChunk());
         consumed++;
-        if (consumed > 5) fail("Infinite loop");
       }
 
-      assertEquals(3, consumed);
+      assertFalse(provider.next());
+      assertFalse(provider.hasNextChunk());
+      assertEquals(expectedChunkCount, consumed);
       assertEquals(3L, provider.getRowCount());
 
       // Verify the server-provided chunk indices were used (1, then 3 — not 1, 2)
