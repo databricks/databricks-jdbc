@@ -264,7 +264,7 @@ public class ComplexDataTypeParser {
     if (text == null) {
       return null;
     }
-    switch (type.toUpperCase()) {
+    switch (DatabricksTypeUtil.baseTypeName(type)) {
       case DatabricksTypeUtil.INT:
         return Integer.parseInt(text);
       case DatabricksTypeUtil.BIGINT:

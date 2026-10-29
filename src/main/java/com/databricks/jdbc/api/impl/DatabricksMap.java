@@ -137,7 +137,7 @@ public class DatabricksMap<K, V> implements Map<K, V> {
     }
 
     try {
-      switch (valueType.toUpperCase()) {
+      switch (DatabricksTypeUtil.baseTypeName(valueType)) {
         case DatabricksTypeUtil.INT:
           return (T) Integer.valueOf(value.toString());
         case DatabricksTypeUtil.BIGINT:
