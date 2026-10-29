@@ -1141,7 +1141,7 @@ public class DatabricksResultSetMetaDataTest {
             List.of(
                 columnMetadata("v", Types.OTHER, VARIANT),
                 columnMetadata("g", Types.OTHER, "GEOMETRY(4326)"),
-                columnMetadata("n", Types.OTHER, null)),
+                columnMetadata("n", Types.OTHER, "CUSTOM_TYPE")),
             1);
 
     assertEquals(3, metaData.getColumnCount());
@@ -1158,11 +1158,9 @@ public class DatabricksResultSetMetaDataTest {
         DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.GEOMETRY),
         metaData.getColumnClassName(2));
 
-    // Without type text, Types.OTHER keeps the previous NULL resolution.
+    // Unknown type names retain their text and use the default string class.
     assertEquals(Types.OTHER, metaData.getColumnType(3));
-    assertNull(metaData.getColumnTypeName(3));
-    assertEquals(
-        DatabricksTypeUtil.getColumnTypeClassName(ColumnInfoTypeName.NULL),
-        metaData.getColumnClassName(3));
+    assertEquals("CUSTOM_TYPE", metaData.getColumnTypeName(3));
+    assertEquals("java.lang.String", metaData.getColumnClassName(3));
   }
 }

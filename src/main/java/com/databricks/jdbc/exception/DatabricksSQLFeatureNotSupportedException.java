@@ -10,8 +10,8 @@ public class DatabricksSQLFeatureNotSupportedException extends SQLFeatureNotSupp
   }
 
   /**
-   * Creates an exception whose SQLState is the error code's name and whose vendor error code is
-   * the error code's numeric value.
+   * Creates an exception whose SQLState is the error code's name and whose vendor error code is the
+   * error code's numeric value.
    */
   public DatabricksSQLFeatureNotSupportedException(
       String reason, DatabricksDriverErrorCode errorCode) {

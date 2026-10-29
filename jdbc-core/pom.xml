@@ -165,6 +165,12 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
+      <groupId>org.checkerframework</groupId>
+      <artifactId>checker-qual</artifactId>
+      <version>${checker-qual.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
       <groupId>net.hydromatic</groupId>
       <artifactId>sql-logic-test</artifactId>
       <version>${sql-logic-test.version}</version>
