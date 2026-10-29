@@ -320,6 +320,9 @@ public class DatabricksArray implements Array {
             // rather than the base name: getObject() needs the parameterized text to parse nested
             // complex values, and it tells callers the exact element type. As a result,
             // getColumnTypeName(2) may differ from the base name used by query result metadata.
+            // DatabricksArray has no connection context, so the EnableTimestampNtzTypeName
+            // setting is not applied here: an ARRAY<TIMESTAMP_NTZ> always reports TIMESTAMP_NTZ,
+            // even when the connection would normalize that name to TIMESTAMP elsewhere.
             .typeText(valueTypeText)
             .typeInt(valueType)
             .precision(valuePrecisionAndScale[0])
