@@ -184,6 +184,12 @@
                                     </shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>org.jspecify</pattern>
+                                    <shadedPattern>
+                                        com.databricks.internal.jspecify
+                                    </shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>org.locationtech.jts</pattern>
                                     <shadedPattern>com.databricks.internal.jts
                                     </shadedPattern>
