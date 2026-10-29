@@ -16,7 +16,7 @@
 ### Fixed
 
 - Reject statement creation on closed connections before stale connection state can disable server-controlled features for subsequent connections.
-- Consistently report `CONNECTION_CLOSED` with vendor code `1010` from guarded connection operations after closure, including statement preparation and `setClientInfo`.
+- Report `CONNECTION_CLOSED` with vendor code `1010` from `DatabricksConnection` closed-connection checks, including statement preparation and `setClientInfo`.
 - Report only explicitly supplied client-info properties when bulk updates fail on a closed connection.
 
 ---
