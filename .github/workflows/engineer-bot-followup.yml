@@ -106,22 +106,26 @@ jobs:
       - name: Build driver (skip tests; warms the Maven repo + compiles jdbc-core)
         run: mvn -pl jdbc-core -am -B clean install -DskipTests -Ddependency-check.skip=true
 
-      # Warm the cache even if the PR's smoke test is missing or broken.
+      # Resolve test tooling with credentials; run PR tests only after scrubbing.
       - name: Warm test dependencies for the offline agent
+        id: warm-maven
         run: |
           set -euo pipefail
           mvn -pl jdbc-core -B dependency:resolve dependency:resolve-plugins \
-            -Ddependency-check.skip=true || true
+            -Ddependency-check.skip=true \
+            || echo "::warning::Maven dependency warm-up failed; continuing with the available cache."
           # Surefire's JUnit provider is resolved lazily, so fetch it explicitly.
           SUREFIRE_VERSION=$(mvn -pl jdbc-core -B help:evaluate \
             -Dexpression=maven-surefire-plugin.version -q -DforceStdout 2>/dev/null \
-            | tail -n1) || SUREFIRE_VERSION="3.1.2"
-          [ -n "$SUREFIRE_VERSION" ] || SUREFIRE_VERSION="3.1.2"
-          mvn -B dependency:get \
-            -Dartifact="org.apache.maven.surefire:surefire-junit-platform:${SUREFIRE_VERSION}" || true
-          mvn -pl jdbc-core -B test \
-            -Dtest="DatabricksParameterMetaDataTest#testInitialization" \
-            -Ddependency-check.skip=true || true
+            | tail -n1) || SUREFIRE_VERSION=""
+          if [[ ! "$SUREFIRE_VERSION" =~ ^[[:alnum:]][[:alnum:]._-]*$ ]]; then
+            echo "::warning::Could not determine the Surefire version; using 3.1.2."
+            SUREFIRE_VERSION="3.1.2"
+          fi
+          SUREFIRE_PROVIDER="org.apache.maven.surefire:surefire-junit-platform:${SUREFIRE_VERSION}"
+          echo "surefire-provider=${SUREFIRE_PROVIDER}" >> "$GITHUB_OUTPUT"
+          mvn -B dependency:get -Dartifact="${SUREFIRE_PROVIDER}" \
+            || echo "::warning::Surefire provider warm-up failed; continuing with the available cache."
 
       # Empty offline settings use central, not the JFrog mirror's repository ID.
       - name: Normalize _remote.repositories for offline resolution
@@ -148,10 +152,23 @@ jobs:
           printf '<settings />\n' > ~/.m2/settings.xml
           echo "MAVEN_ARGS=-o" >> "$GITHUB_ENV"
 
-      - name: Verify Maven dependency and plugin resolution offline
+      - name: Check Maven dependency and plugin resolution offline
+        env:
+          SUREFIRE_PROVIDER: ${{ steps.warm-maven.outputs.surefire-provider }}
         run: |
+          set -euo pipefail
           mvn -o -pl jdbc-core -B dependency:resolve dependency:resolve-plugins \
-            -Ddependency-check.skip=true
+            -Ddependency-check.skip=true \
+            || echo "::warning::Some Maven dependencies or plugins are unavailable offline; the follow-up agent will report verification limits."
+          mvn -o -B dependency:get -Dartifact="${SUREFIRE_PROVIDER}" \
+            || echo "::warning::The Surefire provider or its dependencies are unavailable offline; the follow-up agent will report verification limits."
+
+      - name: Warm test runtime offline
+        run: |
+          mvn -o -pl jdbc-core -B test \
+            -Dtest="DatabricksParameterMetaDataTest#testInitialization" \
+            -Ddependency-check.skip=true \
+            || echo "::warning::The offline smoke test could not complete; continuing so the follow-up agent can investigate."
 
       # The build and smoke test apply Spotless; restore files before agent edits.
       - name: Revert spotless churn (keep only the agent's edits)
