@@ -781,11 +781,11 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
    *
    * @param name The name of the property to set
    * @param value The value to set
-   * @throws SQLClientInfoException If the property cannot be set due to validation errors or if the
-   *     property name is not recognized
+   * @throws SQLClientInfoException If the property cannot be set or the connection is closed
    */
   @Override
   public void setClientInfo(String name, String value) throws SQLClientInfoException {
+    throwClientInfoExceptionIfConnectionIsClosed(Collections.singleton(name));
     if (ALLOWED_SESSION_CONF_TO_DEFAULT_VALUES_MAP.keySet().stream()
         .map(String::toLowerCase)
         .anyMatch(s -> s.equalsIgnoreCase(name))) {
@@ -821,11 +821,12 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
    * Sets multiple client info properties from the provided Properties object.
    *
    * @param properties The properties containing client info to set
-   * @throws SQLClientInfoException If any property cannot be set
+   * @throws SQLClientInfoException If any property cannot be set or the connection is closed
    */
   @Override
   public void setClientInfo(Properties properties) throws SQLClientInfoException {
     LOGGER.debug("public void setClientInfo(Properties properties)");
+    throwClientInfoExceptionIfConnectionIsClosed(properties.stringPropertyNames());
     for (Map.Entry<Object, Object> entry : properties.entrySet()) {
       setClientInfo((String) entry.getKey(), (String) entry.getValue());
     }
@@ -1076,6 +1077,17 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
     } catch (SQLException e) {
       ClientInfoStatus status = determineClientInfoStatus(key, value, e);
       failedProperties.put(key, status);
+    }
+  }
+
+  private void throwClientInfoExceptionIfConnectionIsClosed(Set<String> propertyNames)
+      throws SQLClientInfoException {
+    try {
+      throwExceptionIfConnectionIsClosed();
+    } catch (SQLException e) {
+      Map<String, ClientInfoStatus> failedProperties = new HashMap<>();
+      propertyNames.forEach(name -> failedProperties.put(name, ClientInfoStatus.REASON_UNKNOWN));
+      throw new DatabricksSQLClientInfoException(e, failedProperties);
     }
   }
 

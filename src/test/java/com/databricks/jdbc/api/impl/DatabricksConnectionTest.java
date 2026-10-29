@@ -45,6 +45,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -375,7 +376,10 @@ public class DatabricksConnectionTest {
     connection.close();
     assertFalse(connection.isValid(1));
     assertThrows(DatabricksSQLException.class, connection::isReadOnly);
-    assertThrows(DatabricksSQLException.class, () -> connection.getStatement("statement-id"));
+    DatabricksSQLException error =
+        assertThrows(DatabricksSQLException.class, () -> connection.getStatement("statement-id"));
+    assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.name(), error.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.getCode(), error.getErrorCode());
   }
 
   @ParameterizedTest
@@ -561,8 +565,13 @@ public class DatabricksConnectionTest {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void testSetClientInfoOnClosedConnection(boolean bulk) throws SQLException {
+  @CsvSource({
+    "false, QUERY_TAGS",
+    "true, QUERY_TAGS",
+    "false, ApplicationName",
+    "true, ApplicationName"
+  })
+  void testSetClientInfoOnClosedConnection(boolean bulk, String property) throws SQLException {
     when(databricksClient.createSession(
             new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
         .thenReturn(IMMUTABLE_SESSION_INFO);
@@ -571,7 +580,7 @@ public class DatabricksConnectionTest {
       closedConnection.open();
       closedConnection.close();
       Properties properties = new Properties();
-      properties.setProperty("QUERY_TAGS", "test:closed");
+      properties.setProperty(property, "test:closed");
 
       SQLClientInfoException error =
           assertThrows(
@@ -580,11 +589,44 @@ public class DatabricksConnectionTest {
                 if (bulk) {
                   closedConnection.setClientInfo(properties);
                 } else {
-                  closedConnection.setClientInfo("QUERY_TAGS", "test:closed");
+                  closedConnection.setClientInfo(property, "test:closed");
                 }
               });
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.name(), error.getSQLState());
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.getCode(), error.getErrorCode());
+      assertEquals(Map.of(property, ClientInfoStatus.REASON_UNKNOWN), error.getFailedProperties());
+      assertInstanceOf(DatabricksSQLException.class, error.getCause());
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testSetClientInfoPropertiesOnClosedConnection(boolean empty) throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    try (DatabricksConnection closedConnection =
+        new DatabricksConnection(connectionContext, databricksClient)) {
+      closedConnection.open();
+      closedConnection.close();
+      Properties properties = new Properties();
+      if (!empty) {
+        properties.setProperty("QUERY_TAGS", "test:closed");
+        properties.setProperty("ApplicationName", "test:closed");
+      }
+
+      SQLClientInfoException error =
+          assertThrows(
+              SQLClientInfoException.class, () -> closedConnection.setClientInfo(properties));
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.name(), error.getSQLState());
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.getCode(), error.getErrorCode());
       assertEquals(
-          Map.of("QUERY_TAGS", ClientInfoStatus.REASON_UNKNOWN), error.getFailedProperties());
+          empty
+              ? Map.of()
+              : Map.of(
+                  "QUERY_TAGS", ClientInfoStatus.REASON_UNKNOWN,
+                  "ApplicationName", ClientInfoStatus.REASON_UNKNOWN),
+          error.getFailedProperties());
     }
   }
 
