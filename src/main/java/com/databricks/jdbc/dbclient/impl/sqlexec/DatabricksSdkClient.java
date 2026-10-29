@@ -3,13 +3,11 @@ package com.databricks.jdbc.dbclient.impl.sqlexec;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.JSON_HTTP_HEADERS;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.OPERATION_CANCELLED_SQLSTATE;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.QUERY_EXECUTION_TIMEOUT_SQLSTATE;
-import static com.databricks.jdbc.common.DatabricksJdbcConstants.TEMPORARY_REDIRECT_STATUS_CODE;
 import static com.databricks.jdbc.common.EnvironmentVariables.DEFAULT_RESULT_ROW_LIMIT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.DECIMAL;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.getDecimalTypeString;
 import static com.databricks.jdbc.common.util.SqlStateClassifier.classifyTransientSqlState;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.*;
-import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
 
 import com.databricks.jdbc.api.impl.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -200,9 +198,6 @@ public class DatabricksSdkClient implements IDatabricksClient {
       createSessionResponse = apiClient.execute(req, CreateSessionResponse.class);
       realtimeSession = req.realtimeSession;
     } catch (DatabricksError e) {
-      if (e.getStatusCode() == TEMPORARY_REDIRECT_STATUS_CODE) {
-        throw new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION);
-      }
       if (e.getStatusCode() == HttpStatus.SC_TOO_MANY_REQUESTS) {
         String errorMessage =
             String.format(

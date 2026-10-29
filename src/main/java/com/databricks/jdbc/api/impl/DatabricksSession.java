@@ -18,7 +18,6 @@ import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataQueryClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.SessionVersion;
@@ -194,15 +193,6 @@ public class DatabricksSession implements IDatabricksSession {
         try {
           this.sessionInfo =
               databricksClient.createSession(
-                  this.computeResource, this.catalog, this.schema, this.sessionConfigs);
-        } catch (DatabricksTemporaryRedirectException e) {
-          this.connectionContext.setClientType(DatabricksClientType.THRIFT);
-          this.databricksClient =
-              DatabricksMetricsTimedProcessor.createProxy(
-                  new DatabricksThriftServiceClient(connectionContext));
-          this.databricksMetadataClient = null;
-          this.sessionInfo =
-              this.databricksClient.createSession(
                   this.computeResource, this.catalog, this.schema, this.sessionConfigs);
         } catch (DatabricksSQLException e) {
           // Reyden Thrift auto-recovery: detect KP001 SQLSTATE on Thrift OpenSession rejection
