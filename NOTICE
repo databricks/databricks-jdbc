@@ -32,6 +32,9 @@ Notice - https://github.com/apache/commons-io/blob/master/NOTICE.txt
 google/guava - https://github.com/google/guava
 Copyright guava authors
 
+jspecify/jspecify - https://github.com/jspecify/jspecify
+Copyright The JSpecify Authors
+
 apache/logging-log4j2 - https://github.com/apache/logging-log4j2
 Copyright 1999-2025 Apache Software Foundation
 Notice - https://github.com/apache/logging-log4j2/blob/2.x/NOTICE.txt
@@ -61,6 +64,9 @@ Notice - https://github.com/apache/commons-fileupload/blob/master/NOTICE.txt
 
 ________________
 This Software contains code from the following open source projects, licensed under the MIT license (https://opensource.org/license/mit):
+
+typetools/checker-framework - https://github.com/typetools/checker-framework
+Copyright 2004-present by the Checker Framework developers
 
 mockito/mockito - https://github.com/mockito/mockito
 Copyright (c) 2007 Mockito contributors
