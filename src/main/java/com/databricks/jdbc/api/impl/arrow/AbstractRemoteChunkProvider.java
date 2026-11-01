@@ -294,7 +294,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
       throws DatabricksSQLException {
     long pageRowCount = DatabricksThriftUtil.getRowCount(resultData);
     rowCount += pageRowCount;
-    if (resultData.getResultLinks() == null) {
+    if (resultData.getResultLinks() == null || resultData.getResultLinks().isEmpty()) {
       if (pageRowCount > 0) {
         // Rows without result links cannot be downloaded; fail instead of silently skipping them
         throw new DatabricksSQLException(

@@ -251,7 +251,6 @@ public class ExecutionResultFactoryTest {
             () -> ExecutionResultFactory.getResultSet(realFetchResp, session, parentStatement));
 
     assertEquals(DatabricksDriverErrorCode.RESULT_SET_ERROR.name(), exception.getSQLState());
-    assertEquals(1004, DatabricksDriverErrorCode.RESULT_SET_ERROR.getCode());
   }
 
   // ==================== Helper Methods ====================

@@ -371,7 +371,7 @@ public class DatabricksThriftUtil {
     } else if (resultData.isSetColumns()) {
       List<TColumn> columns = resultData.getColumns();
       return columns == null || columns.isEmpty() ? 0 : getColumnValues(columns.get(0)).size();
-    } else if (resultData.isSetResultLinks()) {
+    } else if (resultData.isSetResultLinks() && !resultData.getResultLinks().isEmpty()) {
       return resultData.getResultLinks().stream()
           .mapToLong(link -> link.isSetRowCount() ? link.getRowCount() : 0)
           .sum();
