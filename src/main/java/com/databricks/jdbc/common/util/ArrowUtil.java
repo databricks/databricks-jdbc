@@ -16,6 +16,7 @@ import com.databricks.jdbc.model.client.thrift.generated.TGetResultSetMetadataRe
 import com.databricks.jdbc.model.client.thrift.generated.TPrimitiveTypeEntry;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkArrowBatch;
 import com.databricks.jdbc.model.client.thrift.generated.TTableSchema;
+import com.databricks.jdbc.model.core.ArrowBatch;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayInputStream;
@@ -47,6 +48,9 @@ import org.apache.arrow.vector.util.SchemaUtility;
 public final class ArrowUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowUtil.class);
+  private static final byte[] ARROW_STREAM_END_MARKER = {
+    (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, 0, 0, 0, 0
+  };
 
   private ArrowUtil() {
     // Utility class - prevent instantiation
@@ -118,6 +122,31 @@ public final class ArrowUtil {
           DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
     }
     return new Schema(fields);
+  }
+
+  /** Builds a complete Arrow IPC stream from one schema and ordered record-batch messages. */
+  public static ByteArrayInputStream createArrowBatchByteStream(
+      byte[] arrowSchema, List<ArrowBatch> arrowBatches) throws DatabricksParsingException {
+    if (arrowSchema == null || arrowSchema.length == 0) {
+      throw arrowBatchError("missing arrow_schema");
+    }
+    if (arrowBatches == null) {
+      throw arrowBatchError("missing arrow_batches");
+    }
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+    output.write(arrowSchema, 0, arrowSchema.length);
+    for (ArrowBatch arrowBatch : arrowBatches) {
+      byte[] batch = arrowBatch.getBatch();
+      output.write(batch, 0, batch.length);
+    }
+    output.write(ARROW_STREAM_END_MARKER, 0, ARROW_STREAM_END_MARKER.length);
+    return new ByteArrayInputStream(output.toByteArray());
+  }
+
+  private static DatabricksParsingException arrowBatchError(String detail) {
+    return new DatabricksParsingException(
+        "Cannot assemble native Arrow batches: " + detail,
+        DatabricksDriverErrorCode.INLINE_CHUNK_PARSING_ERROR);
   }
 
   /**

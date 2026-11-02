@@ -2,8 +2,8 @@ package com.databricks.jdbc.model.client.sqlexec;
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.model.core.Disposition;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.sdk.service.sql.ExecuteStatementRequestOnWaitTimeout;
-import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.service.sql.StatementParameterListItem;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -46,6 +46,9 @@ public class ExecuteStatementRequest {
   @JsonProperty("result_compression")
   private CompressionCodec resultCompression;
 
+  @JsonProperty("backend_compute")
+  private BackendCompute backendCompute;
+
   public String getStatement() {
     return statement;
   }
@@ -86,6 +89,10 @@ public class ExecuteStatementRequest {
     return resultCompression;
   }
 
+  public BackendCompute getBackendCompute() {
+    return backendCompute;
+  }
+
   // Setters
   public ExecuteStatementRequest setStatement(String statement) {
     this.statement = statement;
@@ -99,6 +106,11 @@ public class ExecuteStatementRequest {
 
   public ExecuteStatementRequest setWarehouseId(String warehouseId) {
     this.warehouseId = warehouseId;
+    return this;
+  }
+
+  public ExecuteStatementRequest setBackendCompute(BackendCompute backendCompute) {
+    this.backendCompute = backendCompute;
     return this;
   }
 
@@ -149,6 +161,7 @@ public class ExecuteStatementRequest {
         .add("sessionId", sessionId)
         .add("waitTimeout", waitTimeout)
         .add("warehouseId", warehouseId)
+        .add("backendCompute", backendCompute)
         .add("rowLimit", rowLimit)
         .toString();
   }
@@ -163,7 +176,8 @@ public class ExecuteStatementRequest {
         rowLimit,
         statement,
         waitTimeout,
-        warehouseId);
+        warehouseId,
+        backendCompute);
   }
 
   @Override
@@ -181,6 +195,7 @@ public class ExecuteStatementRequest {
         && Objects.equals(statement, that.statement)
         && Objects.equals(waitTimeout, that.waitTimeout)
         && Objects.equals(sessionId, that.sessionId)
-        && Objects.equals(warehouseId, that.warehouseId);
+        && Objects.equals(warehouseId, that.warehouseId)
+        && Objects.equals(backendCompute, that.backendCompute);
   }
 }

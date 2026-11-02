@@ -109,6 +109,12 @@ public interface IDatabricksConnectionContext {
 
   boolean isAllPurposeCluster();
 
+  /** Returns whether the local-only APC prototype switch applies to this APC connection. */
+  boolean isApcPrototypeEnabled();
+
+  /** Returns whether this connection is the explicit SEA/no-fallback side of the APC prototype. */
+  boolean isApcSeaPrototype();
+
   String getHttpPath();
 
   /** Returns the value of the EnableSQLValidationForIsValid connection property. */
