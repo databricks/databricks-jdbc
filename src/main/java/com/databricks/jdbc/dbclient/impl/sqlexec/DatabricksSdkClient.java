@@ -646,12 +646,26 @@ public class DatabricksSdkClient implements IDatabricksClient {
   @Override
   public ResultData getResultChunksData(StatementId typedStatementId, long chunkIndex)
       throws DatabricksSQLException {
+    return fetchResultChunkData(typedStatementId, chunkIndex, null);
+  }
+
+  @Override
+  public ResultData getResultChunksData(
+      StatementId typedStatementId, long chunkIndex, long chunkStartRowOffset)
+      throws DatabricksSQLException {
+    return fetchResultChunkData(typedStatementId, chunkIndex, chunkStartRowOffset);
+  }
+
+  private ResultData fetchResultChunkData(
+      StatementId typedStatementId, long chunkIndex, Long chunkStartRowOffset)
+      throws DatabricksSQLException {
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     String statementId = typedStatementId.toSQLExecStatementId();
     LOGGER.debug(
-        "public ResultData getResultChunksData(String statementId = {}, long chunkIndex = {})",
+        "ResultData getResultChunksData(String statementId = {}, long chunkIndex = {}, Long chunkStartRowOffset = {})",
         statementId,
-        chunkIndex);
+        chunkIndex,
+        chunkStartRowOffset);
     BackendCompute backendCompute = apcBackendComputeFor(connectionContext.getComputeResource());
     String path = String.format(RESULT_CHUNK_PATH, statementId, chunkIndex);
     try {
@@ -661,9 +675,15 @@ public class DatabricksSdkClient implements IDatabricksClient {
             new GetStatementResultChunkNRequest()
                 .setStatementId(statementId)
                 .setChunkIndex(chunkIndex);
+        if (chunkStartRowOffset != null) {
+          path = path + "?row_offset=" + chunkStartRowOffset;
+        }
         req = new Request(Request.GET, path, apiClient.serialize(request));
       } else {
         GetResultDataQuery request = new GetResultDataQuery().setBackendCompute(backendCompute);
+        if (chunkStartRowOffset != null) {
+          request.setRowOffset(chunkStartRowOffset);
+        }
         req = new Request(Request.GET, path, (String) null);
         ApiClient.setQuery(req, request);
       }

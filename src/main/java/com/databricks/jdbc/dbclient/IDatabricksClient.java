@@ -164,6 +164,19 @@ public interface IDatabricksClient {
   ResultData getResultChunksData(StatementId statementId, long chunkIndex)
       throws DatabricksSQLException;
 
+  /**
+   * Fetches the result data for given chunk index and statement-Id, starting at the given row
+   * offset. All-purpose clusters require the offset because each chunk maps to a positioned fetch
+   * on the cluster.
+   *
+   * @param statementId statement-Id for which chunk data should be fetched
+   * @param chunkIndex chunkIndex for which chunk data should be fetched
+   * @param chunkStartRowOffset the row offset where the chunk starts in the result set
+   * @return ResultData containing the chunk's data and metadata
+   */
+  ResultData getResultChunksData(StatementId statementId, long chunkIndex, long chunkStartRowOffset)
+      throws DatabricksSQLException;
+
   IDatabricksConnectionContext getConnectionContext();
 
   /**
