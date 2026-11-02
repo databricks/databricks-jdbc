@@ -715,6 +715,27 @@ public class DatabricksSdkClientTest {
   }
 
   @Test
+  public void testApcResultDataWithRowOffsetCarriesOffsetAndBackendCompute() throws Exception {
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());
+    DatabricksSdkClient databricksSdkClient =
+        new DatabricksSdkClient(connectionContext, statementExecutionService, apiClient);
+    when(apiClient.execute(any(Request.class), eq(ResultData.class))).thenReturn(new ResultData());
+
+    databricksSdkClient.getResultChunksData(STATEMENT_ID, 3L, 450L);
+
+    ArgumentCaptor<Request> resultCaptor = ArgumentCaptor.forClass(Request.class);
+    verify(apiClient).execute(resultCaptor.capture(), eq(ResultData.class));
+    Request resultRequest = resultCaptor.getValue();
+    assertEquals(
+        String.format(RESULT_CHUNK_PATH, STATEMENT_ID.toSQLExecStatementId(), 3),
+        resultRequest.getUrl());
+    assertEquals(
+        Collections.singletonList("450"), resultRequest.getQuery().get("row_offset"), "row_offset");
+    assertBackendComputeQuery(resultRequest);
+  }
+
+  @Test
   public void testApcGetStatementResultFetchesMissingInitialResult() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(APC_JDBC_URL, new Properties());

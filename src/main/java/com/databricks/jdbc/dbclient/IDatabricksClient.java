@@ -165,13 +165,16 @@ public interface IDatabricksClient {
       throws DatabricksSQLException;
 
   /**
-   * Fetches inline result data for a chunk at the given row offset.
+   * Fetches the result data for given chunk index and statement-Id, starting at the given row
+   * offset. All-purpose clusters require the offset because each chunk maps to a positioned fetch
+   * on the cluster.
    *
-   * @param statementId statement whose result data should be fetched
-   * @param chunkIndex server-provided chunk index
-   * @param rowOffset row offset required by the bounded SEA API
+   * @param statementId statement-Id for which chunk data should be fetched
+   * @param chunkIndex chunkIndex for which chunk data should be fetched
+   * @param chunkStartRowOffset the row offset where the chunk starts in the result set
+   * @return ResultData containing the chunk's data and metadata
    */
-  ResultData getResultChunksData(StatementId statementId, long chunkIndex, long rowOffset)
+  ResultData getResultChunksData(StatementId statementId, long chunkIndex, long chunkStartRowOffset)
       throws DatabricksSQLException;
 
   IDatabricksConnectionContext getConnectionContext();

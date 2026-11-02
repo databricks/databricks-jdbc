@@ -793,24 +793,28 @@ public class DatabricksSdkClient implements IDatabricksClient {
   @Override
   public ResultData getResultChunksData(StatementId typedStatementId, long chunkIndex)
       throws DatabricksSQLException {
-    return getResultChunksData(typedStatementId, chunkIndex, 0);
+    return fetchResultChunkData(typedStatementId, chunkIndex, null);
   }
 
-  /**
-   * Fetches inline result data for a specific chunk, with row_offset for bounded SEA inline Arrow.
-   */
   @Override
   public ResultData getResultChunksData(
-      StatementId typedStatementId, long chunkIndex, long rowOffset) throws DatabricksSQLException {
+      StatementId typedStatementId, long chunkIndex, long chunkStartRowOffset)
+      throws DatabricksSQLException {
+    return fetchResultChunkData(typedStatementId, chunkIndex, chunkStartRowOffset);
+  }
+
+  private ResultData fetchResultChunkData(
+      StatementId typedStatementId, long chunkIndex, Long chunkStartRowOffset)
+      throws DatabricksSQLException {
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     String statementId = typedStatementId.toSQLExecStatementId();
     LOGGER.debug(
-        "getResultChunksData(statementId={}, chunkIndex={}, rowOffset={})",
+        "ResultData getResultChunksData(String statementId = {}, long chunkIndex = {}, Long chunkStartRowOffset = {})",
         statementId,
         chunkIndex,
-        rowOffset);
-    String path = statementPath(typedStatementId) + "/result/chunks/" + chunkIndex;
+        chunkStartRowOffset);
     BackendCompute backendCompute = apcBackendComputeFor(connectionContext.getComputeResource());
+    String path = statementPath(typedStatementId) + "/result/chunks/" + chunkIndex;
     try {
       Request req;
       if (backendCompute == null) {
@@ -818,16 +822,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
             new GetStatementResultChunkNRequest()
                 .setStatementId(statementId)
                 .setChunkIndex(chunkIndex);
-        if (connectionContext.isBoundedSeaApiEnabled() && rowOffset > 0) {
-          path = path + "?row_offset=" + rowOffset;
+        if (chunkStartRowOffset != null) {
+          path = path + "?row_offset=" + chunkStartRowOffset;
         }
         req =
             new Request(
                 Request.GET, path, serializeStatementRequest(typedStatementId, request));
       } else {
         GetResultDataQuery request = new GetResultDataQuery().setBackendCompute(backendCompute);
-        if (connectionContext.isBoundedSeaApiEnabled() && rowOffset > 0) {
-          request.setRowOffset(rowOffset);
+        if (chunkStartRowOffset != null) {
+          request.setRowOffset(chunkStartRowOffset);
         }
         req = new Request(Request.GET, path, (String) null);
         ApiClient.setQuery(req, request);

@@ -4,8 +4,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.core.ArrowBatch;
 import com.databricks.jdbc.model.core.ColumnInfo;
@@ -38,6 +47,8 @@ import org.apache.arrow.vector.util.SchemaUtility;
 import org.junit.jupiter.api.Test;
 
 class ArrowBatchChunkProviderFactoryTest {
+  private static final StatementId STATEMENT_ID =
+      new StatementId("01f0aaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
 
   @Test
   void readsSingleNativeArrowBatch() throws Exception {
@@ -136,14 +147,9 @@ class ArrowBatchChunkProviderFactoryTest {
   }
 
   @Test
-  void rejectsPaginatedOrExternalNativeArrowBatches() throws Exception {
+  void rejectsExternalLinkNativeArrowBatches() throws Exception {
     List<ArrowBatch> batches = Collections.singletonList(arrowBatch(7));
 
-    assertThrows(
-        DatabricksParsingException.class,
-        () ->
-            ArrowBatchChunkProviderFactory.create(
-                resultData(batches, 1).setNextChunkIndex(1L), manifest(1)));
     assertThrows(
         DatabricksParsingException.class,
         () ->
@@ -151,6 +157,125 @@ class ArrowBatchChunkProviderFactoryTest {
                 resultData(batches, 1)
                     .setExternalLinks(Collections.singletonList(new ExternalLink())),
                 manifest(1)));
+  }
+
+  @Test
+  void rejectsPaginationWithoutSession() throws Exception {
+    List<ArrowBatch> batches = Collections.singletonList(arrowBatch(7));
+
+    assertThrows(
+        DatabricksParsingException.class,
+        () ->
+            ArrowBatchChunkProviderFactory.create(
+                page(batches, 0, 0).setNextChunkIndex(1L), pagedManifest()));
+  }
+
+  @Test
+  void readsPagesInOrderWithRowOffsets() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    when(client.getResultChunksData(STATEMENT_ID, 1L, 2L))
+        .thenReturn(page(Collections.singletonList(arrowBatch(3)), 1, 2).setNextChunkIndex(2L));
+    when(client.getResultChunksData(STATEMENT_ID, 2L, 3L))
+        .thenReturn(page(Arrays.asList(arrowBatch(4), arrowBatch(5, 6)), 2, 3));
+    ResultData firstPage = page(Collections.singletonList(arrowBatch(1, 2)), 0, 0);
+
+    ChunkProvider provider =
+        ArrowBatchChunkProviderFactory.create(
+            firstPage.setNextChunkIndex(1L), pagedManifest(), STATEMENT_ID, session(client));
+
+    assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6), readAllValues(provider));
+    verify(client).getResultChunksData(STATEMENT_ID, 1L, 2L);
+    verify(client).getResultChunksData(STATEMENT_ID, 2L, 3L);
+  }
+
+  @Test
+  void fetchesPagesLazily() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    when(client.getResultChunksData(STATEMENT_ID, 1L, 1L))
+        .thenReturn(page(Collections.singletonList(arrowBatch(2)), 1, 1));
+
+    ChunkProvider provider =
+        ArrowBatchChunkProviderFactory.create(
+            page(Collections.singletonList(arrowBatch(1)), 0, 0).setNextChunkIndex(1L),
+            pagedManifest(),
+            STATEMENT_ID,
+            session(client));
+    try {
+      assertTrue(provider.next());
+      verify(client, never()).getResultChunksData(any(), anyLong(), anyLong());
+      assertTrue(provider.hasNextChunk());
+      assertTrue(provider.next());
+      verify(client).getResultChunksData(STATEMENT_ID, 1L, 1L);
+      assertFalse(provider.hasNextChunk());
+    } finally {
+      provider.close();
+    }
+  }
+
+  @Test
+  void skipsEmptyPages() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    when(client.getResultChunksData(STATEMENT_ID, 1L, 0L))
+        .thenReturn(page(Collections.emptyList(), 1, 0).setNextChunkIndex(2L));
+    when(client.getResultChunksData(STATEMENT_ID, 2L, 0L))
+        .thenReturn(page(Collections.singletonList(arrowBatch(9)), 2, 0));
+
+    ChunkProvider provider =
+        ArrowBatchChunkProviderFactory.create(
+            page(Collections.emptyList(), 0, 0).setNextChunkIndex(1L),
+            pagedManifest(),
+            STATEMENT_ID,
+            session(client));
+
+    assertEquals(Collections.singletonList(9), readAllValues(provider));
+  }
+
+  @Test
+  void readsCompressedPages() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    when(client.getResultChunksData(STATEMENT_ID, 1L, 1L))
+        .thenReturn(page(Collections.singletonList(compress(arrowBatch(2))), 1, 1));
+
+    ChunkProvider provider =
+        ArrowBatchChunkProviderFactory.create(
+            page(Collections.singletonList(compress(arrowBatch(1))), 0, 0).setNextChunkIndex(1L),
+            pagedManifest().setResultCompression(CompressionCodec.LZ4_FRAME),
+            STATEMENT_ID,
+            session(client));
+
+    assertEquals(Arrays.asList(1, 2), readAllValues(provider));
+  }
+
+  @Test
+  void rejectsPageAtUnexpectedRowOffset() throws Exception {
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    when(client.getResultChunksData(STATEMENT_ID, 1L, 1L))
+        .thenReturn(page(Collections.singletonList(arrowBatch(2)), 1, 0));
+
+    ChunkProvider provider =
+        ArrowBatchChunkProviderFactory.create(
+            page(Collections.singletonList(arrowBatch(1)), 0, 0).setNextChunkIndex(1L),
+            pagedManifest(),
+            STATEMENT_ID,
+            session(client));
+    try {
+      assertTrue(provider.next());
+      assertThrows(DatabricksParsingException.class, provider::next);
+    } finally {
+      provider.close();
+    }
+  }
+
+  @Test
+  void rejectsNonIncreasingNextChunkIndex() throws Exception {
+    assertThrows(
+        DatabricksParsingException.class,
+        () ->
+            ArrowBatchChunkProviderFactory.create(
+                page(Collections.singletonList(arrowBatch(1)), 0, 0).setNextChunkIndex(0L),
+                pagedManifest(),
+                STATEMENT_ID,
+                session(mock(IDatabricksClient.class))));
   }
 
   @Test
@@ -181,8 +306,44 @@ class ArrowBatchChunkProviderFactoryTest {
     }
   }
 
+  private static List<Integer> readAllValues(ChunkProvider provider) throws Exception {
+    try {
+      List<Integer> values = new ArrayList<>();
+      ColumnInfo column = intColumn();
+      while (provider.hasNextChunk()) {
+        assertTrue(provider.next());
+        ArrowResultChunkIterator iterator = provider.getChunk().getChunkIterator();
+        while (iterator.nextRow()) {
+          values.add(
+              (Integer)
+                  iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.INT, "INT", column));
+        }
+      }
+      return values;
+    } finally {
+      provider.close();
+    }
+  }
+
+  /** Stands in for the SEA chunk endpoint, which the provider calls for each later page. */
+  private static IDatabricksSession session(IDatabricksClient client) {
+    IDatabricksSession session = mock(IDatabricksSession.class);
+    when(session.getDatabricksClient()).thenReturn(client);
+    return session;
+  }
+
   private static ResultData resultData(List<ArrowBatch> batches, long rowCount) {
     return new ResultData().setArrowBatches(batches).setRowCount(rowCount);
+  }
+
+  private static ResultData page(List<ArrowBatch> batches, long chunkIndex, long rowOffset) {
+    long rowCount = batches.stream().mapToLong(ArrowBatch::getRowCount).sum();
+    return resultData(batches, rowCount).setChunkIndex(chunkIndex).setRowOffset(rowOffset);
+  }
+
+  /** APC manifests carry no chunk or row totals; pages are discovered by next_chunk_index. */
+  private static ResultManifest pagedManifest() {
+    return manifest(0).setTotalChunkCount(null).setTotalRowCount(null);
   }
 
   private static ResultManifest manifest(long rowCount) {
