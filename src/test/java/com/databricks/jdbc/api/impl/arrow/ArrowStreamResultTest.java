@@ -35,6 +35,7 @@ import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.collect.ImmutableList;
 import java.io.*;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.*;
 import org.apache.arrow.memory.RootAllocator;
@@ -432,35 +433,37 @@ public class ArrowStreamResultTest {
     File file = new File(fileName);
     int cols = testData.length;
     int rows = testData[0].length;
-    VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, allocator);
-    ArrowWriter writer =
-        new ArrowStreamWriter(
-            vectorSchemaRoot,
-            new DictionaryProvider.MapDictionaryProvider(),
-            new FileOutputStream(file));
-    writer.start();
-    for (int j = 0; j < rows; j += rowsInRecordBatch) {
-      int rowsToAddToRecordBatch = min(rowsInRecordBatch, rows - j);
-      vectorSchemaRoot.setRowCount(rowsToAddToRecordBatch);
-      for (int i = 0; i < cols; i++) {
-        Types.MinorType type = Types.getMinorTypeForArrowType(schema.getFields().get(i).getType());
-        FieldVector fieldVector = vectorSchemaRoot.getFieldVectors().get(i);
-        if (type.equals(Types.MinorType.INT)) {
-          IntVector intVector = (IntVector) fieldVector;
-          intVector.setInitialCapacity(rowsToAddToRecordBatch);
-          for (int k = 0; k < rowsToAddToRecordBatch; k++) {
-            intVector.set(k, 1, (int) testData[i][j + k]);
+    try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, allocator);
+        ArrowWriter writer =
+            new ArrowStreamWriter(
+                vectorSchemaRoot,
+                new DictionaryProvider.MapDictionaryProvider(),
+                new FileOutputStream(file))) {
+      writer.start();
+      for (int j = 0; j < rows; j += rowsInRecordBatch) {
+        int rowsToAddToRecordBatch = min(rowsInRecordBatch, rows - j);
+        vectorSchemaRoot.setRowCount(rowsToAddToRecordBatch);
+        for (int i = 0; i < cols; i++) {
+          Types.MinorType type =
+              Types.getMinorTypeForArrowType(schema.getFields().get(i).getType());
+          FieldVector fieldVector = vectorSchemaRoot.getFieldVectors().get(i);
+          if (type.equals(Types.MinorType.INT)) {
+            IntVector intVector = (IntVector) fieldVector;
+            intVector.setInitialCapacity(rowsToAddToRecordBatch);
+            for (int k = 0; k < rowsToAddToRecordBatch; k++) {
+              intVector.set(k, 1, (int) testData[i][j + k]);
+            }
+          } else if (type.equals(Types.MinorType.FLOAT8)) {
+            Float8Vector float8Vector = (Float8Vector) fieldVector;
+            float8Vector.setInitialCapacity(rowsToAddToRecordBatch);
+            for (int currentRow = 0; currentRow < rowsToAddToRecordBatch; currentRow++) {
+              float8Vector.set(currentRow, 1, (double) testData[i][j + currentRow]);
+            }
           }
-        } else if (type.equals(Types.MinorType.FLOAT8)) {
-          Float8Vector float8Vector = (Float8Vector) fieldVector;
-          float8Vector.setInitialCapacity(rowsToAddToRecordBatch);
-          for (int currentRow = 0; currentRow < rowsToAddToRecordBatch; currentRow++) {
-            float8Vector.set(currentRow, 1, (double) testData[i][j + currentRow]);
-          }
+          fieldVector.setValueCount(rowsToAddToRecordBatch);
         }
-        fieldVector.setValueCount(rowsToAddToRecordBatch);
+        writer.writeBatch();
       }
-      writer.writeBatch();
     }
     return file;
   }
@@ -988,6 +991,55 @@ public class ArrowStreamResultTest {
     assertNotNull(result);
     assertTrue(result.hasNext(), "Bounded-SEA result should have data");
     assertTrue(result.next());
+    assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testBoundedSeaApiUsesSeaInlineProviderForHybridInlineResult() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "1");
+    props.setProperty("EnableQueryResultDownload", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    Schema schema = createTestSchema();
+    Object[][] testData = createTestData(schema, (int) rowsInChunk);
+    byte[] attachment;
+    try (RootAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
+      File arrowFile = createTestArrowFile("HybridInlineTestFile", schema, testData, allocator);
+      attachment = Files.readAllBytes(arrowFile.toPath());
+      Files.deleteIfExists(arrowFile.toPath());
+    }
+
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(2L)
+            .setTotalRowCount(rowsInChunk * 2)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    ResultData initialResultData = new ResultData();
+    initialResultData.setAttachment(attachment);
+    initialResultData.setRowCount(rowsInChunk);
+    initialResultData.setRowOffset(0L);
+    initialResultData.setNextChunkIndex(7L);
+    ResultData nextResultData = new ResultData();
+    nextResultData.setAttachment(attachment);
+    nextResultData.setRowCount(rowsInChunk);
+    nextResultData.setRowOffset(rowsInChunk);
+    when(mockedSdkClient.getResultChunksData(STATEMENT_ID, 7L, rowsInChunk))
+        .thenReturn(nextResultData);
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, initialResultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    assertInstanceOf(SeaInlineArrowChunkProvider.class, result.getChunkProvider());
+    long rowCount = 0;
+    while (result.next()) {
+      rowCount++;
+    }
+    assertEquals(rowsInChunk * 2, rowCount);
     assertDoesNotThrow(result::close);
   }
 }

@@ -207,14 +207,14 @@ public class ReydenThriftAutoRecoveryTest {
   }
 
   /**
-   * Test: a Thrift-forcing metadata param (UseQueryForMetadata=0) still counts as the default path
-   * (UseThriftClient unset), so a KP001 recovers to SEA. Exercises the metadata-override warn.
+   * Test: a metadata parameter that requires Thrift still counts as the default transport path, so
+   * a KP001 rejection recovers to SEA.
    */
   @Test
   public void testReydenRecovery_WithThriftMetadataParam_StillRecovers() throws SQLException {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(
-            WAREHOUSE_URL_THRIFT + ";UseQueryForMetadata=0", new Properties());
+            WAREHOUSE_URL_THRIFT + ";TreatMetadataCatalogNameAsPattern=1", new Properties());
     DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
         connectionContext, new HashMap<>());
 
@@ -235,7 +235,6 @@ public class ReydenThriftAutoRecoveryTest {
 
     try (MockedStatic<DatabricksMetricsTimedProcessor> proxyMock =
         Mockito.mockStatic(DatabricksMetricsTimedProcessor.class)) {
-      // Swap only the SEA client for the mock; pass other proxied objects through unchanged.
       proxyMock
           .when(() -> DatabricksMetricsTimedProcessor.createProxy(any()))
           .thenAnswer(
@@ -247,7 +246,6 @@ public class ReydenThriftAutoRecoveryTest {
       DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
       assertDoesNotThrow(session::open);
 
-      // Recovery proceeds despite the metadata-forcing param (it is not a protocol choice).
       assertTrue(session.isOpen());
       assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
     }

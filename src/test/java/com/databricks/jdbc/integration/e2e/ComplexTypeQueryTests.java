@@ -81,6 +81,51 @@ public class ComplexTypeQueryTests {
     }
   }
 
+  /**
+   * Per {@link java.sql.Array#getBaseTypeName()} and {@link java.sql.Array#getBaseType()}, both
+   * methods describe the ELEMENTS of the array, not the array itself (issue #1738).
+   */
+  @ParameterizedTest
+  @CsvSource({"0", "1"})
+  void testArrayBaseTypeNameDescribesElements(int thriftVal) throws SQLException {
+    setupConnection(thriftVal, 1);
+
+    String sql = "SELECT ARRAY(ARRAY(1, 2, 3)) AS arr";
+    ResultSet rs = executeQuery(connection, sql);
+    assertNotNull(rs);
+    assertTrue(rs.next());
+    Array outer = rs.getArray("arr");
+    assertNotNull(outer);
+    Array inner = (Array) ((Object[]) outer.getArray())[0];
+    assertNotNull(inner);
+
+    assertEquals("ARRAY<INT>", outer.getBaseTypeName().toUpperCase());
+    assertEquals("INT", inner.getBaseTypeName().toUpperCase());
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0", "1"})
+  void testArrayBaseTypeDescribesElements(int thriftVal) throws SQLException {
+    setupConnection(thriftVal, 1);
+
+    String sql = "SELECT ARRAY(ARRAY(1, 2, 3)) AS arr, array('a', 'b') AS strs";
+    ResultSet rs = executeQuery(connection, sql);
+    assertNotNull(rs);
+    assertTrue(rs.next());
+    Array outer = rs.getArray("arr");
+    assertNotNull(outer);
+    Array inner = (Array) ((Object[]) outer.getArray())[0];
+    assertNotNull(inner);
+
+    assertEquals(Types.ARRAY, outer.getBaseType());
+    assertEquals(Types.INTEGER, inner.getBaseType());
+
+    Array strs = rs.getArray("strs");
+    assertNotNull(strs);
+    assertEquals(Types.VARCHAR, strs.getBaseType());
+    assertEquals("STRING", strs.getBaseTypeName().toUpperCase());
+  }
+
   @ParameterizedTest
   @CsvSource({"0,0", "1,0", "0,1", "1,1"})
   void testQueryYieldingMap(int thriftVal, int complexSupport) throws SQLException {
@@ -546,6 +591,62 @@ public class ComplexTypeQueryTests {
         String text = (String) obj;
         assertTrue(text.contains("k1"));
         assertTrue(text.contains("200"));
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0,1", "1,1"})
+  void testArrayGetResultSet(int thriftVal, int complexSupport) throws SQLException {
+    setupConnection(thriftVal, complexSupport);
+
+    String sql = "SELECT array('a', 'b', 'c') AS letters";
+    try (ResultSet rs = executeQuery(connection, sql)) {
+      assertNotNull(rs);
+      assertTrue(rs.next());
+      Array arr = rs.getArray("letters");
+      assertNotNull(arr);
+
+      try (ResultSet elements = arr.getResultSet()) {
+        assertNotNull(elements);
+
+        String[] expected = {"a", "b", "c"};
+        int row = 0;
+        while (elements.next()) {
+          row++;
+          assertEquals(row, elements.getLong(1));
+          assertEquals(row, elements.getInt(1));
+          assertEquals(expected[row - 1], elements.getString(2));
+        }
+        assertEquals(3, row);
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"0,1", "1,1"})
+  void testArrayGetResultSetWindowed(int thriftVal, int complexSupport) throws SQLException {
+    setupConnection(thriftVal, complexSupport);
+
+    String sql = "SELECT array(10, 20, 30, 40, 50) AS numbers";
+    try (ResultSet rs = executeQuery(connection, sql)) {
+      assertNotNull(rs);
+      assertTrue(rs.next());
+      Array arr = rs.getArray("numbers");
+      assertNotNull(arr);
+
+      try (ResultSet elements = arr.getResultSet(2, 2)) {
+        assertNotNull(elements);
+
+        long[] expectedIndex = {2, 3};
+        int[] expectedValue = {20, 30};
+        int row = 0;
+        while (elements.next()) {
+          assertEquals(expectedIndex[row], elements.getLong(1));
+          assertEquals(expectedValue[row], elements.getInt(2));
+          row++;
+        }
+        assertEquals(2, row);
       }
     }
   }

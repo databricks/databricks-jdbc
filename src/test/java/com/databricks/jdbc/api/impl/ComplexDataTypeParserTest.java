@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +40,34 @@ public class ComplexDataTypeParserTest {
       assertEquals(3, elements[2]);
     } catch (Exception e) {
       fail("Should not throw: " + e.getMessage());
+    }
+  }
+
+  @Test
+  void testParseJsonStringToDbArray_baseTypeDescribesElements() throws Exception {
+    // {array metadata, JSON value, expected getBaseTypeName(), expected getBaseType()}
+    Object[][] cases = {
+      {"ARRAY<MAP<STRING,INT>>", "[{\"a\":1}]", "MAP<STRING,INT>", Types.OTHER},
+      {"ARRAY<TINYINT>", "[1]", "TINYINT", Types.TINYINT},
+      {"ARRAY<TIMESTAMP_NTZ>", "[\"2023-10-05 15:20:30\"]", "TIMESTAMP_NTZ", Types.TIMESTAMP},
+      {
+        "ARRAY<INTERVAL DAY TO SECOND>",
+        "[\"1 02:03:04.000000000\"]",
+        "INTERVAL DAY TO SECOND",
+        Types.VARCHAR
+      },
+      {"ARRAY<VOID>", "[null]", "VOID", Types.VARCHAR},
+      {"ARRAY<VARIANT>", "[\"{\\\"k\\\":1}\"]", "VARIANT", Types.OTHER},
+      {"ARRAY<GEOMETRY(ANY)>", "[null]", "GEOMETRY(ANY)", Types.OTHER},
+      {"ARRAY<STRING COLLATE UTF8_LCASE>", "[\"a\"]", "STRING COLLATE UTF8_LCASE", Types.VARCHAR},
+      {"ARRAY<DECIMAL(10,2)>", "[\"1.25\"]", "DECIMAL(10,2)", Types.DECIMAL},
+      {"ARRAY<INT NOT NULL>", "[1]", "INT", Types.INTEGER},
+    };
+    for (Object[] c : cases) {
+      String metadata = (String) c[0];
+      DatabricksArray dbArray = parser.parseJsonStringToDbArray((String) c[1], metadata);
+      assertEquals(c[2], dbArray.getBaseTypeName(), metadata);
+      assertEquals(c[3], dbArray.getBaseType(), metadata);
     }
   }
 

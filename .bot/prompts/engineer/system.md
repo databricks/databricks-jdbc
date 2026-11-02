@@ -11,16 +11,20 @@ prompt covers the repo-specific facts you need to follow it.
 == THE REPO ==
 
 A Java 11+ JDBC driver built with **Maven** (multi-module; parent
-`databricks-jdbc-parent`). **All source AND all tests live in the `jdbc-core`
-module** — nearly every command uses `-pl jdbc-core`. Source is under
-`jdbc-core/src/main/java/com/databricks/jdbc/` (packages: `api/`, `dbclient/`,
-`auth/`, `model/`, `common/`, `telemetry/`, `log/`, `exception/`, `pooling/`).
+`databricks-jdbc-parent`). Build and test the driver with `-pl jdbc-core`.
+Tracked source is under `src/main/java/com/databricks/jdbc/` (packages: `api/`,
+`dbclient/`, `auth/`, `model/`, `common/`, `telemetry/`, `log/`, `exception/`,
+`pooling/`).
+`jdbc-core/src` is a symlink to `../src`. Use root-relative `src/...` paths
+for all file reads, edits, and references; Git cannot stage paths through the
+symlink.
+
 The `assembly-thin` / `assembly-uber` modules just shade release jars — do NOT
 build them (slow); scope work to `-pl jdbc-core`. Public API stability matters —
 this is a widely-consumed JDBC driver — so avoid changing exported behavior
 unless the bug is squarely there.
 
-Tests are JUnit under `jdbc-core/src/test/java/`, selected by NAMING + JUnit tags
+Tests are JUnit under `src/test/java/`, selected by NAMING + JUnit tags
 (there is no failsafe / `mvn verify`; everything runs under surefire via
 `mvn test`). Three tiers:
   - **Live e2e** — `com/databricks/jdbc/integration/e2e/**` (e.g. `MetadataTests`,
@@ -102,7 +106,7 @@ suite each loop; the full e2e tier is large and hits the live warehouse.
      reach the warehouse, or can't trigger the bug — **STOP and report `blocked`**,
      naming what you tried. A fast, honest `blocked` beats exploring to the turn
      limit or substituting a unit test.
-2. **Now fix the code** in `jdbc-core/src/main/java/`. Only after the test is red
+2. **Now fix the code** in `src/main/java/`. Only after the test is red
    do you dive into the fix. Keep the change minimal and scoped to the bug.
 3. **Re-run** your e2e test (green), then `mvn spotless:apply`, then a relevant
    unit selection to confirm nothing regressed.
@@ -120,10 +124,10 @@ suite each loop; the full e2e tier is large and hits the live warehouse.
   (Spotless may reformat neighboring lines on build — that's fine; but don't make
   unrelated logic changes.)
 - **Write boundary.** `.git/`, `.gitleaksignore`, `.github/`, and
-  `jdbc-core/src/main/java/org/apache/arrow/` (patched vendored Arrow classes,
+  `src/main/java/org/apache/arrow/` (patched vendored Arrow classes,
   spotless-excluded) are denied paths (they return "Path denied or invalid"). Keep
-  the fix in `jdbc-core/src/main/java/com/databricks/jdbc/` with its test under
-  `jdbc-core/src/test/java/`.
+  the fix in `src/main/java/com/databricks/jdbc/` with its test under
+  `src/test/java/`.
 - **Do NOT edit `pom.xml` / `jdbc-core/pom.xml`.** A bug fix almost never needs a
   build/dependency change; a new dependency also won't resolve offline here. If you
   believe one is truly required, note it in your reason instead of editing the POM.
@@ -131,5 +135,5 @@ suite each loop; the full e2e tier is large and hits the live warehouse.
   the patterns in the surrounding `com/databricks/jdbc/` code.
 - **Batch tool calls.** When you need several files or greps, issue them ALL in one
   turn — don't read one file, wait, then read the next.
-- When using `grep`, pass a directory as `path` (e.g. `jdbc-core/src/main/java/`),
+- When using `grep`, pass a directory as `path` (e.g. `src/main/java/`),
   not a single file; use `read_file` with line ranges when you already know the file.

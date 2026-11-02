@@ -24,21 +24,29 @@ public class SessionId {
   final String guid;
   final String secret;
   final IDatabricksComputeResource clusterResource;
+  private final boolean realtimeSession;
 
-  SessionId(
+  private SessionId(
       DatabricksClientType clientType,
       String guid,
       String secret,
-      IDatabricksComputeResource clusterResource) {
+      IDatabricksComputeResource clusterResource,
+      boolean realtimeSession) {
     this.clientType = clientType;
     this.guid = guid;
     this.secret = secret;
     this.clusterResource = clusterResource;
+    this.realtimeSession = realtimeSession;
   }
 
   /** Constructs a SessionId identifier for a given SQL Exec session-Id */
   public SessionId(String sessionId, IDatabricksComputeResource warehouseId) {
-    this(DatabricksClientType.SEA, sessionId, null, warehouseId);
+    this(sessionId, warehouseId, false);
+  }
+
+  public SessionId(
+      String sessionId, IDatabricksComputeResource warehouseId, boolean realtimeSession) {
+    this(DatabricksClientType.SEA, sessionId, null, warehouseId, realtimeSession);
   }
 
   /** Constructs a SessionId identifier for a given Thrift Server session-Id */
@@ -47,13 +55,15 @@ public class SessionId {
         DatabricksClientType.THRIFT,
         ResourceId.fromBytes(identifier.getGuid()).toString(),
         ResourceId.fromBytes(identifier.getSecret()).toString(),
-        computeResource);
+        computeResource,
+        false);
   }
 
   /** Creates a SessionId identifier for a given Thrift Server session-Id */
   public static SessionId create(ImmutableSessionInfo sessionInfo) {
     if (sessionInfo.computeResource() instanceof Warehouse) {
-      return new SessionId(sessionInfo.sessionId(), sessionInfo.computeResource());
+      return new SessionId(
+          sessionInfo.sessionId(), sessionInfo.computeResource(), sessionInfo.realtimeSession());
     } else {
       assert sessionInfo.sessionHandle() != null;
       return new SessionId(
@@ -65,9 +75,10 @@ public class SessionId {
   public static SessionId deserialize(String serializedSessionId) throws SQLException {
     // We serialize the session-Id as:
     // For thrift: t|session-guid-id|session-secret
-    // For SEA: s|warehouseId|session-id
+    // For SQL Execution API: s|warehouseId|session-id[|r] for Real-time sessions
     String[] parts = serializedSessionId.split("\\|");
-    if (parts.length != 3) {
+    boolean realtimeSession = parts.length == 4 && "s".equals(parts[0]) && "r".equals(parts[3]);
+    if (parts.length != 3 && !realtimeSession) {
       String errorMessage =
           String.format("Session ID has invalid number of parts %s", serializedSessionId);
       LOGGER.error(errorMessage);
@@ -76,10 +87,10 @@ public class SessionId {
     }
     switch (parts[0]) {
       case "s":
-        return new SessionId(parts[2], new Warehouse(parts[1]));
+        return new SessionId(parts[2], new Warehouse(parts[1]), realtimeSession);
 
       case "t":
-        return new SessionId(DatabricksClientType.THRIFT, parts[1], parts[2], null);
+        return new SessionId(DatabricksClientType.THRIFT, parts[1], parts[2], null, false);
     }
     String errorMessage =
         String.format("Session ID has 3 parts but is invalid %s", serializedSessionId);
@@ -92,7 +103,9 @@ public class SessionId {
   public String toString() {
     switch (clientType) {
       case SEA:
-        return String.format("s|%s|%s", ((Warehouse) clusterResource).getWarehouseId(), guid);
+        String serialized =
+            String.format("s|%s|%s", ((Warehouse) clusterResource).getWarehouseId(), guid);
+        return realtimeSession ? serialized + "|r" : serialized;
       case THRIFT:
         return String.format("t|%s|%s", guid, secret);
     }
@@ -122,6 +135,7 @@ public class SessionId {
             .sessionHandle(null)
             .sessionId(guid)
             .computeResource(clusterResource)
+            .realtimeSession(realtimeSession)
             .build();
     }
     // should not reach here
@@ -141,6 +155,7 @@ public class SessionId {
     }
     return Objects.equals(this.guid, ((SessionId) otherSession).guid)
         && Objects.equals(this.secret, ((SessionId) otherSession).secret)
+        && this.realtimeSession == ((SessionId) otherSession).realtimeSession
         // For Thrift client type, cluster resource is ignored
         && (this.clientType == DatabricksClientType.THRIFT
             || Objects.equals(this.clusterResource, ((SessionId) otherSession).clusterResource));

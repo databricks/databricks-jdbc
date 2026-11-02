@@ -2,10 +2,10 @@
   "id" : "6862353a-33da-4a2b-a025-dca1cb5de5c6",
   "name" : "api_2.0_sql_sessions",
   "request" : {
-    "url" : "/api/2.0/sql/sessions/",
+    "url" : "/api/2.0/sql/warehouses/31e4555776d18496/sessions",
     "method" : "POST",
     "bodyPatterns" : [ {
-      "equalTo" : "{\"warehouse_id\":\"31e4555776d18496\",\"schema\":\"default\",\"catalog\":\"SPARK\",\"execution_mode\":\"FAST\"}",
+      "equalTo" : "{\"schema\":\"default\",\"catalog\":\"SPARK\",\"execution_mode\":\"FAST\"}",
       "caseInsensitive" : false
     } ]
   },

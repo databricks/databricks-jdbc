@@ -1094,22 +1094,19 @@ class DatabricksConnectionContextTest {
     assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
   }
 
-  @ParameterizedTest(
-      name = "arrow={0}, cloudFetch={1}, boundedSea={2}, useQueryForMetadata0={3}, serverSea={4}")
+  @ParameterizedTest(name = "arrow={0}, cloudFetch={1}, boundedSea={2}, serverSea={3}")
   @CsvSource({
-    "true,  true,  true,  false, true,  SEA",
-    "true,  true,  false, false, false, THRIFT",
-    "true,  false, true,  false, true,  SEA",
-    "true,  false, true,  false, false, THRIFT",
-    "true,  false, false, false, true,  THRIFT",
-    "false, false, true,  false, true,  THRIFT",
-    "true,  false, true,  true,  true,  THRIFT"
+    "true,  true,  true,  true,  SEA",
+    "true,  true,  false, false, THRIFT",
+    "true,  false, true,  true,  SEA",
+    "true,  false, true,  false, THRIFT",
+    "true,  false, false, true,  THRIFT",
+    "false, false, true,  true,  THRIFT"
   })
   public void testAutomaticClientSelectionGrid(
       boolean arrowEnabled,
       boolean cloudFetchEnabled,
       boolean boundedSeaEnabled,
-      boolean useQueryForMetadataDisabled,
       boolean serverSeaEnabled,
       DatabricksClientType expectedClientType)
       throws DatabricksSQLException {
@@ -1118,8 +1115,7 @@ class DatabricksConnectionContextTest {
             + "httpPath=/sql/1.0/warehouses/9999999999999999;EnableQueryResultDownload="
             + (cloudFetchEnabled ? "1" : "0")
             + ";UseBoundedSeaApi="
-            + (boundedSeaEnabled ? "1" : "0")
-            + (useQueryForMetadataDisabled ? ";UseQueryForMetadata=0" : "");
+            + (boundedSeaEnabled ? "1" : "0");
     DatabricksConnectionContext connectionContext =
         spy((DatabricksConnectionContext) DatabricksConnectionContext.parse(url, properties));
     doReturn(arrowEnabled).when(connectionContext).shouldEnableArrow();
@@ -1641,125 +1637,6 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testUseQueryForMetadataDefaultFalseForWarehouse() throws DatabricksSQLException {
-    // Warehouse without explicit setting — requires both client default AND server flag.
-    // Client default is "1" but no server flag set → false
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
-    assertFalse(ctx.useQueryForMetadata());
-  }
-
-  @Test
-  public void testUseQueryForMetadataDefaultFalseForCluster() throws DatabricksSQLException {
-    // Cluster without explicit setting — always false regardless of defaults
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
-    assertFalse(ctx.useQueryForMetadata());
-  }
-
-  @Test
-  public void testUseQueryForMetadataExplicitTrueOnCluster() throws DatabricksSQLException {
-    // Cluster URL with explicit UseQueryForMetadata=1 — should be honoured
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(
-            TestConstants.VALID_CLUSTER_URL + ";UseQueryForMetadata=1", properties);
-    assertTrue(ctx.useQueryForMetadata());
-  }
-
-  @Test
-  public void testUseQueryForMetadataExplicitFalseOnWarehouse() throws DatabricksSQLException {
-    // Warehouse URL with explicit UseQueryForMetadata=0 — should be honoured
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(
-            TestConstants.VALID_URL_1 + ";UseQueryForMetadata=0", properties);
-    assertFalse(ctx.useQueryForMetadata());
-  }
-
-  @Test
-  public void testUseQueryForMetadata_serverFlagEnabled_warehouseReturnsTrue()
-      throws DatabricksSQLException {
-    // Warehouse without explicit setting — client default "1" + server flag enabled → true
-    DatabricksConnectionContext ctx =
-        (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
-
-    Map<String, String> flags = new HashMap<>();
-    flags.put(
-        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
-
-    assertTrue(ctx.useQueryForMetadata());
-  }
-
-  @Test
-  public void testUseQueryForMetadata_serverFlagDisabled_warehouseReturnsFalse()
-      throws DatabricksSQLException {
-    // Warehouse without explicit setting — client default "1" but server flag disabled → false
-    DatabricksConnectionContext ctx =
-        (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(TestConstants.VALID_URL_1, properties);
-
-    Map<String, String> flags = new HashMap<>();
-    flags.put(
-        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc",
-        "false");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
-
-    assertFalse(ctx.useQueryForMetadata());
-  }
-
-  @Test
-  public void testUseQueryForMetadata_serverFlagEnabled_clusterIgnored()
-      throws DatabricksSQLException {
-    // All-purpose cluster — always false, server flag and client default both ignored
-    DatabricksConnectionContext ctx =
-        (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(TestConstants.VALID_CLUSTER_URL, properties);
-
-    Map<String, String> flags = new HashMap<>();
-    flags.put(
-        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
-
-    assertFalse(ctx.useQueryForMetadata());
-  }
-
-  @Test
-  public void testUseQueryForMetadata_clientExplicit1_overridesServerFlagDisabled()
-      throws DatabricksSQLException {
-    // Client sets UseQueryForMetadata=1 — should be honoured even if server flag is disabled
-    DatabricksConnectionContext ctx =
-        (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(
-                TestConstants.VALID_URL_1 + ";UseQueryForMetadata=1", properties);
-
-    Map<String, String> flags = new HashMap<>();
-    flags.put(
-        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc",
-        "false");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
-
-    assertTrue(ctx.useQueryForMetadata());
-  }
-
-  @Test
-  public void testUseQueryForMetadata_clientExplicit0_overridesServerFlagEnabled()
-      throws DatabricksSQLException {
-    // Client sets UseQueryForMetadata=0 — should be honoured even if server flag is enabled
-    DatabricksConnectionContext ctx =
-        (DatabricksConnectionContext)
-            DatabricksConnectionContext.parse(
-                TestConstants.VALID_URL_1 + ";UseQueryForMetadata=0", properties);
-
-    Map<String, String> flags = new HashMap<>();
-    flags.put(
-        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(ctx, flags);
-
-    assertFalse(ctx.useQueryForMetadata());
-  }
-
-  @Test
   public void testNativeMetadataViaSea_serverFlagEnabled_warehouseReturnsTrue()
       throws DatabricksSQLException {
     DatabricksConnectionContext ctx =
@@ -1889,17 +1766,8 @@ class DatabricksConnectionContextTest {
   }
 
   // ---------------------------------------------------------------------------
-  // Client type selection with Thrift-native metadata params
+  // Client type selection with Thrift-native metadata parameters
   // ---------------------------------------------------------------------------
-
-  @Test
-  public void testUseQueryForMetadata0_forcesThrift() throws DatabricksSQLException {
-    // UseQueryForMetadata=0 without UseThriftClient → forces Thrift
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(
-            TestConstants.VALID_URL_1 + ";UseQueryForMetadata=0", properties);
-    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
-  }
 
   @Test
   public void testTreatCatalogAsPattern1_forcesThrift() throws DatabricksSQLException {
@@ -1911,27 +1779,6 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testBothMetadataParams_forcesThrift() throws DatabricksSQLException {
-    // Both UseQueryForMetadata=0 and TreatMetadataCatalogNameAsPattern=1 → forces Thrift
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(
-            TestConstants.VALID_URL_1
-                + ";UseQueryForMetadata=0;TreatMetadataCatalogNameAsPattern=1",
-            properties);
-    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
-  }
-
-  @Test
-  public void testUseQueryForMetadata0_withExplicitSEA_honoursSEA() throws DatabricksSQLException {
-    // UseThriftClient=0 (explicit SEA) + UseQueryForMetadata=0 → SEA wins
-    // User explicitly chose SEA, so we honour that even though metadata param won't work
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(
-            TestConstants.VALID_URL_1 + ";UseThriftClient=0;UseQueryForMetadata=0", properties);
-    assertEquals(DatabricksClientType.SEA, ctx.getClientType());
-  }
-
-  @Test
   public void testTreatCatalogAsPattern1_withExplicitSEA_honoursSEA()
       throws DatabricksSQLException {
     // UseThriftClient=0 (explicit SEA) + TreatMetadataCatalogNameAsPattern=1 → SEA wins
@@ -1939,27 +1786,6 @@ class DatabricksConnectionContextTest {
         DatabricksConnectionContext.parse(
             TestConstants.VALID_URL_1 + ";UseThriftClient=0;TreatMetadataCatalogNameAsPattern=1",
             properties);
-    assertEquals(DatabricksClientType.SEA, ctx.getClientType());
-  }
-
-  @Test
-  public void testUseQueryForMetadata0_withExplicitThrift_staysThrift()
-      throws DatabricksSQLException {
-    // UseThriftClient=1 (explicit Thrift) + UseQueryForMetadata=0 → Thrift
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(
-            TestConstants.VALID_URL_1 + ";UseThriftClient=1;UseQueryForMetadata=0", properties);
-    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
-  }
-
-  @Test
-  public void testUseQueryForMetadata1_doesNotForceThrift() throws DatabricksSQLException {
-    // UseQueryForMetadata=1 (SHOW commands) with explicit SEA → should remain SEA
-    // Proves our new check doesn't trigger for UseQueryForMetadata=1
-    // VALID_URL_2 has UseThriftClient=0, so it's SEA
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(
-            TestConstants.VALID_URL_2 + ";UseQueryForMetadata=1", properties_with_pwd);
     assertEquals(DatabricksClientType.SEA, ctx.getClientType());
   }
 
@@ -1986,17 +1812,6 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testUseQueryForMetadataFalseString_doesNotForceThrift()
-      throws DatabricksSQLException {
-    // "false" is not "0" — our check uses .equals("0"), so "false" doesn't trigger it.
-    // With explicit SEA (VALID_URL_2), should stay SEA.
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(
-            TestConstants.VALID_URL_2 + ";UseQueryForMetadata=false", properties_with_pwd);
-    assertEquals(DatabricksClientType.SEA, ctx.getClientType());
-  }
-
-  @Test
   public void testTreatCatalogAsPatternTrueString_doesNotForceThrift()
       throws DatabricksSQLException {
     // "true" is not "1" — our check uses .equals("1"), so "true" doesn't trigger it.
@@ -2013,25 +1828,8 @@ class DatabricksConnectionContextTest {
     // All-Purpose Cluster always uses Thrift regardless of metadata params
     IDatabricksConnectionContext ctx =
         DatabricksConnectionContext.parse(
-            TestConstants.VALID_CLUSTER_URL + ";UseQueryForMetadata=0", properties);
-    assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
-
-    ctx =
-        DatabricksConnectionContext.parse(
             TestConstants.VALID_CLUSTER_URL + ";TreatMetadataCatalogNameAsPattern=1", properties);
     assertEquals(DatabricksClientType.THRIFT, ctx.getClientType());
-  }
-
-  @Test
-  public void testUseQueryForMetadata0_withExplicitSEA_useQueryForMetadataStillFalse()
-      throws DatabricksSQLException {
-    // Even though SEA is forced, UseQueryForMetadata=0 should still report false
-    // (the metadata param value is independent of client type selection)
-    IDatabricksConnectionContext ctx =
-        DatabricksConnectionContext.parse(
-            TestConstants.VALID_URL_1 + ";UseThriftClient=0;UseQueryForMetadata=0", properties);
-    assertEquals(DatabricksClientType.SEA, ctx.getClientType());
-    assertFalse(ctx.useQueryForMetadata());
   }
 
   @Test

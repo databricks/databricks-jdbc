@@ -19,10 +19,9 @@ jobs:
       matrix:
         include:
           # SQL_EXEC mode: Tests SEA client behavior
-          # Note: CircuitBreakerIntegrationTests requires THRIFT_SERVER mode (tested in second matrix entry)
-          - test-command: mvn -pl jdbc-core -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!M2MAuthIntegrationTests,!CircuitBreakerIntegrationTests,!ThriftCloudFetchFakeIntegrationTests
+          - test-command: mvn -pl jdbc-core -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!M2MAuthIntegrationTests,!ThriftCloudFetchFakeIntegrationTests
             fake-service-type: 'SQL_EXEC'
-          # THRIFT_SERVER mode: Tests Thrift client behavior and circuit breaker fallback
+          # THRIFT_SERVER mode: Tests Thrift client behavior
           - test-command: mvn -pl jdbc-core -B compile test -Dtest=*IntegrationTests,!M2MPrivateKeyCredentialsIntegrationTests,!SqlExecApiHybridResultsIntegrationTests,!DBFSVolumeIntegrationTests,!M2MAuthIntegrationTests,!UCVolumeIntegrationTests,!SqlExecApiIntegrationTests
             fake-service-type: 'THRIFT_SERVER'
     steps:

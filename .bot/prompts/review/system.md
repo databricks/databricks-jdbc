@@ -43,10 +43,12 @@ these:
 Landmarks for this repo:
 - Conventions live in `CONTRIBUTING.md`, the root `CLAUDE.md`, and `pom.xml`.
   Build/test via Maven (`mvn -pl jdbc-core test`, `mvn spotless:check`).
-- Source + tests are in the `jdbc-core` module: main under
-  `jdbc-core/src/main/java/com/databricks/jdbc/` (`api/`, `dbclient/`, `auth/`,
+- `jdbc-core/src` is a symlink to `../src`; use root-relative `src/...` paths
+  for file reads and review findings so follow-up edits can be staged by Git.
+- Tracked source is under
+  `src/main/java/com/databricks/jdbc/` (`api/`, `dbclient/`, `auth/`,
   `model/`, `common/`, `exception/`, `telemetry/`, `pooling/`); tests under
-  `jdbc-core/src/test/java/` with three tiers — unit (mocked), `integration/
+  `src/test/java/` with three tiers — unit (mocked), `integration/
   fakeservice/**` (WireMock `*IntegrationTests`), and `integration/e2e/**`
   (live warehouse). `src/main/java/org/apache/arrow/` holds PATCHED vendored Arrow
   classes (spotless-excluded) — flag hand-edits there; the `assembly-*` modules

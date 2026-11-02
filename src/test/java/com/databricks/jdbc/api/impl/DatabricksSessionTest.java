@@ -1,7 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
 import static com.databricks.jdbc.TestConstants.*;
-import static com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode.TEMPORARY_REDIRECT_EXCEPTION;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.getDriverSystemConfiguration;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -14,15 +13,14 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.DatabricksClientType;
 import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
-import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksMetadataQueryClient;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.dbclient.impl.thrift.DatabricksThriftServiceClient;
 import com.databricks.jdbc.exception.DatabricksParsingException;
+import com.databricks.jdbc.exception.DatabricksRateLimitException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
-import com.databricks.jdbc.exception.DatabricksTemporaryRedirectException;
 import com.databricks.jdbc.model.client.thrift.generated.TSessionHandle;
 import com.databricks.jdbc.model.core.SessionVersion;
-import com.databricks.jdbc.telemetry.latency.DatabricksMetricsTimedProcessor;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,7 +29,7 @@ import java.util.stream.LongStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
+import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -85,7 +83,7 @@ public class DatabricksSessionTest {
     session.open();
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
-    // Default UseQueryForMetadata=0: Thrift client used for metadata
+    // Thrift connections use the Thrift client for metadata.
     assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
@@ -141,40 +139,54 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testOpenRedirectedThriftSession() throws SQLException {
+  public void testSeaRateLimitDoesNotFallBackOrAffectSubsequentConnections() throws SQLException {
     setupWarehouse(false /* useThrift */);
+    DatabricksRateLimitException rateLimit =
+        new DatabricksRateLimitException("SEA session rate limit exceeded", 429);
     ImmutableSessionInfo sessionInfo =
         ImmutableSessionInfo.builder()
             .sessionId(SESSION_ID)
             .computeResource(WAREHOUSE_COMPUTE)
             .build();
     when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
-        .thenThrow(new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION));
-    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
-    try (MockedStatic<DatabricksMetricsTimedProcessor> proxyMock =
-        Mockito.mockStatic(DatabricksMetricsTimedProcessor.class)) {
-      proxyMock
-          .when(() -> DatabricksMetricsTimedProcessor.createProxy(any()))
-          .thenReturn(thriftClient);
+        .thenThrow(rateLimit)
+        .thenReturn(sessionInfo);
 
+    try (MockedConstruction<DatabricksThriftServiceClient> thriftConstruction =
+        Mockito.mockConstruction(DatabricksThriftServiceClient.class)) {
       DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
-      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
-      assertInstanceOf(DatabricksMetadataQueryClient.class, session.getDatabricksMetadataClient());
-      assertFalse(session.isOpen());
 
-      session.open();
+      DatabricksRateLimitException error =
+          assertThrows(DatabricksRateLimitException.class, session::open);
 
-      assertTrue(session.isOpen());
-      assertEquals(SESSION_ID, session.getSessionId());
-      assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
-      assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksClient());
-      // After redirect to Thrift, default UseQueryForMetadata=0 → native Thrift for metadata
-      assertInstanceOf(DatabricksThriftServiceClient.class, session.getDatabricksMetadataClient());
-      assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
-
-      session.close();
+      assertSame(rateLimit, error);
+      assertEquals("RATE_LIMIT_EXCEEDED", error.getSQLState());
+      assertEquals(0, error.getErrorCode());
+      assertEquals(1044, DatabricksDriverErrorCode.valueOf(error.getSQLState()).getCode());
       assertFalse(session.isOpen());
       assertNull(session.getSessionId());
+      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+      assertSame(sdkClient, session.getDatabricksClient());
+
+      IDatabricksConnectionContext nextContext =
+          DatabricksConnectionContext.parse(WAREHOUSE_JDBC_URL, new Properties());
+      DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+          nextContext,
+          Map.of(
+              "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc", "true"));
+      try {
+        assertEquals(DatabricksClientType.SEA, nextContext.getClientType());
+        DatabricksSession nextSession = new DatabricksSession(nextContext, sdkClient);
+        nextSession.open();
+        assertTrue(nextSession.isOpen());
+        assertEquals(SESSION_ID, nextSession.getSessionId());
+        assertSame(sdkClient, nextSession.getDatabricksClient());
+        nextSession.close();
+      } finally {
+        DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+            nextContext, new HashMap<>());
+      }
+      assertTrue(thriftConstruction.constructed().isEmpty());
     }
   }
 
@@ -195,7 +207,7 @@ public class DatabricksSessionTest {
     assertTrue(session.isOpen());
     assertEquals(SESSION_ID, session.getSessionId());
     assertEquals(tSessionHandle, session.getSessionInfo().sessionHandle());
-    // Default UseQueryForMetadata=0: Thrift client used for metadata
+    // Thrift connections use the Thrift client for metadata.
     assertEquals(thriftClient, session.getDatabricksMetadataClient());
     assertEquals(WAREHOUSE_COMPUTE, session.getComputeResource());
     session.close();
@@ -389,110 +401,22 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testUseQueryForMetadataEnabled() throws SQLException {
-    setupWarehouseWithQueryMetadata();
-    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
-    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
-    assertTrue(connectionContext.useQueryForMetadata());
-    assertInstanceOf(
-        DatabricksMetadataQueryClient.class,
-        session.getDatabricksMetadataClient(),
-        "When UseQueryForMetadata=1, metadata client should be DatabricksMetadataQueryClient");
-  }
-
-  static void setupWarehouseWithQueryMetadata() throws SQLException {
-    String url =
-        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;"
-            + "AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseQueryForMetadata=1";
-    connectionContext = DatabricksConnectionContext.parse(url, new Properties());
-  }
-
-  @Test
-  public void testUseQueryForMetadataDisabledByDefaultForWarehouse() throws SQLException {
+  public void testWarehouseThriftUsesNativeMetadataClient() throws SQLException {
     setupWarehouse(true /* useThrift */);
     DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
-    assertFalse(connectionContext.useQueryForMetadata());
     assertInstanceOf(
         DatabricksThriftServiceClient.class,
         session.getDatabricksMetadataClient(),
-        "Default UseQueryForMetadata=0: warehouse uses native Thrift RPCs for metadata");
+        "Thrift warehouses should use native metadata RPCs");
   }
 
   @Test
-  public void testUseQueryForMetadataEnabledViaServerFlag() throws SQLException {
-    setupWarehouse(true /* useThrift */);
-    // Simulate server-side flag enabling SHOW commands for this warehouse
-    Map<String, String> flags = new HashMap<>();
-    flags.put(
-        "databricks.partnerplatform.clientConfigsFeatureFlags.enableUseQueryForThriftJdbc", "true");
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(connectionContext, flags);
-
-    assertTrue(connectionContext.useQueryForMetadata());
-    DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
-    assertInstanceOf(
-        DatabricksMetadataQueryClient.class,
-        session.getDatabricksMetadataClient(),
-        "Server flag enabled: warehouse should use SHOW commands for metadata");
-
-    // Clean up so other tests are not affected
-    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
-        connectionContext, new HashMap<>());
-  }
-
-  @Test
-  public void testUseQueryForMetadataDisabledByDefaultForCluster() throws SQLException {
+  public void testClusterUsesNativeMetadataClient() throws SQLException {
     connectionContext = DatabricksConnectionContext.parse(VALID_CLUSTER_URL, new Properties());
     DatabricksSession session = new DatabricksSession(connectionContext, thriftClient);
-    assertFalse(connectionContext.useQueryForMetadata());
     assertEquals(
         thriftClient,
         session.getDatabricksMetadataClient(),
         "Clusters should use native Thrift RPCs by default");
-  }
-
-  @Test
-  public void testUseQueryForMetadataWithRedirectFallback() throws SQLException {
-    // SEA connection with UseQueryForMetadata=1
-    String url =
-        "jdbc:databricks://sample-host.18.azuredatabricks.net:9999/default;transportMode=http;ssl=1;"
-            + "AuthMech=3;httpPath=/sql/1.0/warehouses/warehouse_id;UseThriftClient=0;UseQueryForMetadata=1";
-    connectionContext = DatabricksConnectionContext.parse(url, new Properties());
-
-    ImmutableSessionInfo sessionInfo =
-        ImmutableSessionInfo.builder()
-            .sessionId(SESSION_ID)
-            .computeResource(WAREHOUSE_COMPUTE)
-            .build();
-    when(sdkClient.createSession(eq(WAREHOUSE_COMPUTE), any(), any(), any()))
-        .thenThrow(new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION));
-    when(thriftClient.createSession(any(), any(), any(), any())).thenReturn(sessionInfo);
-    try (MockedStatic<DatabricksMetricsTimedProcessor> proxyMock =
-        Mockito.mockStatic(DatabricksMetricsTimedProcessor.class)) {
-      proxyMock
-          .when(() -> DatabricksMetricsTimedProcessor.createProxy(any()))
-          .thenAnswer(
-              invocation -> {
-                Object arg = invocation.getArgument(0);
-                if (arg instanceof DatabricksMetadataQueryClient) {
-                  return arg;
-                }
-                return thriftClient;
-              });
-
-      DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
-      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
-      // Before redirect: SEA path sets DatabricksMetadataQueryClient via test constructor
-      assertInstanceOf(DatabricksMetadataQueryClient.class, session.getDatabricksMetadataClient());
-
-      session.open();
-
-      assertTrue(session.isOpen());
-      assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
-      // After redirect: UseQueryForMetadata=1 should preserve DatabricksMetadataQueryClient
-      assertInstanceOf(
-          DatabricksMetadataQueryClient.class,
-          session.getDatabricksMetadataClient(),
-          "After SEA→Thrift redirect with UseQueryForMetadata=1, metadata client should be DatabricksMetadataQueryClient");
-    }
   }
 }
