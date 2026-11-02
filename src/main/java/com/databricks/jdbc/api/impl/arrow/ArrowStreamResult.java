@@ -75,7 +75,8 @@ public class ArrowStreamResult implements IExecutionResult {
       LOGGER.debug(
           "Creating ArrowStreamResult with native Arrow batches for statementId: {}",
           statementId.toSQLExecStatementId());
-      this.chunkProvider = ArrowBatchChunkProviderFactory.create(resultData, resultManifest);
+      this.chunkProvider =
+          ArrowBatchChunkProviderFactory.create(resultData, resultManifest, statementId, session);
     } else if (totalChunkCount != null && totalChunkCount == 0) {
       LOGGER.debug(
           "Empty result (total_chunk_count=0) for statementId: {}, skipping chunk fetching",
