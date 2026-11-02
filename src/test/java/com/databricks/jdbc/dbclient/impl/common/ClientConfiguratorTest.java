@@ -828,6 +828,30 @@ public class ClientConfiguratorTest {
   void sdkHttpClient_DoesNotReuseConnectionIdleLongerThanExpiry() throws Exception {
     // The workspace front end drops requests sent on a keep-alive connection just before its
     // ~186s idle close, so connections idle past IdleHttpConnectionExpiry must not be reused.
+    List<Integer> clientPorts = clientPortsAroundIdle(2, 3000);
+
+    assertEquals(clientPorts.get(0), clientPorts.get(1), "Recently used connection is reused");
+    assertNotEquals(
+        clientPorts.get(1),
+        clientPorts.get(2),
+        "Connection idle longer than IdleHttpConnectionExpiry must not be reused");
+  }
+
+  @Test
+  void sdkHttpClient_ReusesIdleConnectionWhenExpiryDisabled() throws Exception {
+    List<Integer> clientPorts = clientPortsAroundIdle(0, 3000);
+
+    assertEquals(
+        clientPorts.get(1),
+        clientPorts.get(2),
+        "IdleHttpConnectionExpiry=0 keeps idle connections");
+  }
+
+  /**
+   * Sends two back-to-back requests through the SDK HTTP client, stays idle, then sends a third.
+   * Returns the client port of each request, so equal ports mean the connection was reused.
+   */
+  private List<Integer> clientPortsAroundIdle(int expirySeconds, long idleMillis) throws Exception {
     List<Integer> clientPorts = Collections.synchronizedList(new ArrayList<>());
     HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
     // Only /api is recorded; config resolution also fetches /.well-known/databricks-config.
@@ -848,21 +872,16 @@ public class ClientConfiguratorTest {
     when(mockContext.getToken()).thenReturn("test-token");
     when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
     when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
-    when(mockContext.getIdleHttpConnectionExpiry()).thenReturn(1);
+    when(mockContext.getIdleHttpConnectionExpiry()).thenReturn(expirySeconds);
     configurator = new ClientConfigurator(mockContext);
     try {
       HttpClient httpClient = configurator.getDatabricksConfig().getHttpClient();
 
       httpClient.execute(new Request(Request.GET, host + "/api"));
       httpClient.execute(new Request(Request.GET, host + "/api"));
-      Thread.sleep(1500);
+      Thread.sleep(idleMillis);
       httpClient.execute(new Request(Request.GET, host + "/api"));
-
-      assertEquals(clientPorts.get(0), clientPorts.get(1), "Recently used connection is reused");
-      assertNotEquals(
-          clientPorts.get(1),
-          clientPorts.get(2),
-          "Connection idle longer than IdleHttpConnectionExpiry must not be reused");
+      return new ArrayList<>(clientPorts);
     } finally {
       configurator.close();
       server.stop(0);
