@@ -22,6 +22,7 @@ import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -66,7 +67,16 @@ public class ArrowStreamResult implements IExecutionResult {
     this.session = session;
 
     Long totalChunkCount = resultManifest.getTotalChunkCount();
-    if (totalChunkCount != null && totalChunkCount == 0) {
+    boolean hasExternalLinks =
+        resultData != null
+            && resultData.getExternalLinks() != null
+            && !resultData.getExternalLinks().isEmpty();
+    if (resultManifest.getFormat() == Format.ARROW_BATCH && !hasExternalLinks) {
+      LOGGER.debug(
+          "Creating ArrowStreamResult with native Arrow batches for statementId: {}",
+          statementId.toSQLExecStatementId());
+      this.chunkProvider = ArrowBatchChunkProviderFactory.create(resultData, resultManifest);
+    } else if (totalChunkCount != null && totalChunkCount == 0) {
       LOGGER.debug(
           "Empty result (total_chunk_count=0) for statementId: {}, skipping chunk fetching",
           statementId.toSQLExecStatementId());

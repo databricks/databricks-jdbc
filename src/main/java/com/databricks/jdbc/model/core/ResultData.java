@@ -4,6 +4,7 @@ import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -39,6 +40,9 @@ public class ResultData {
 
   @JsonProperty("attachment")
   private byte[] attachment;
+
+  @JsonProperty("arrow_batches")
+  private List<ArrowBatch> arrowBatches;
 
   public ResultData setByteCount(Long byteCount) {
     this.byteCount = byteCount;
@@ -120,6 +124,15 @@ public class ResultData {
     this.attachment = attachment;
   }
 
+  public List<ArrowBatch> getArrowBatches() {
+    return arrowBatches;
+  }
+
+  public ResultData setArrowBatches(List<ArrowBatch> arrowBatches) {
+    this.arrowBatches = arrowBatches;
+    return this;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -133,7 +146,8 @@ public class ResultData {
         && Objects.equals(nextChunkInternalLink, that.nextChunkInternalLink)
         && Objects.equals(rowCount, that.rowCount)
         && Objects.equals(rowOffset, that.rowOffset)
-        && Arrays.equals(attachment, that.attachment);
+        && Arrays.equals(attachment, that.attachment)
+        && Objects.equals(arrowBatches, that.arrowBatches);
   }
 
   @Override
@@ -147,7 +161,8 @@ public class ResultData {
         nextChunkInternalLink,
         rowCount,
         rowOffset,
-        Arrays.hashCode(attachment));
+        Arrays.hashCode(attachment),
+        arrowBatches);
   }
 
   @Override
@@ -161,6 +176,7 @@ public class ResultData {
         .add("nextChunkInternalLink", nextChunkInternalLink)
         .add("rowCount", rowCount)
         .add("rowOffset", rowOffset)
+        .add("arrowBatches", arrowBatches)
         .toString();
   }
 }
