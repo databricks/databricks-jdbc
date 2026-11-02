@@ -10,11 +10,11 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.client.thrift.generated.TSparkRowSetType;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.enums.ExecutionResultFormat;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
-import com.databricks.sdk.service.sql.Format;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -214,6 +214,8 @@ public class TelemetryCollector {
 
   private ExecutionResultFormat getResultFormat(Format resultFormat) {
     switch (resultFormat) {
+      case ARROW_BATCH:
+        return ExecutionResultFormat.INLINE_ARROW;
       case ARROW_STREAM:
         return ExecutionResultFormat.EXTERNAL_LINKS;
       case JSON_ARRAY:

@@ -2,9 +2,9 @@ package com.databricks.jdbc.model.client.sqlexec;
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.model.core.Disposition;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.SessionVersion;
 import com.databricks.sdk.service.sql.ExecuteStatementRequestOnWaitTimeout;
-import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.service.sql.StatementParameterListItem;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -50,6 +50,9 @@ public class ExecuteStatementRequest {
   @JsonProperty("session_version")
   private SessionVersion sessionVersion;
 
+  @JsonProperty("backend_compute")
+  private BackendCompute backendCompute;
+
   public String getStatement() {
     return statement;
   }
@@ -94,6 +97,10 @@ public class ExecuteStatementRequest {
     return sessionVersion;
   }
 
+  public BackendCompute getBackendCompute() {
+    return backendCompute;
+  }
+
   // Setters
   public ExecuteStatementRequest setStatement(String statement) {
     this.statement = statement;
@@ -107,6 +114,11 @@ public class ExecuteStatementRequest {
 
   public ExecuteStatementRequest setWarehouseId(String warehouseId) {
     this.warehouseId = warehouseId;
+    return this;
+  }
+
+  public ExecuteStatementRequest setBackendCompute(BackendCompute backendCompute) {
+    this.backendCompute = backendCompute;
     return this;
   }
 
@@ -163,6 +175,7 @@ public class ExecuteStatementRequest {
         .add("sessionVersion", sessionVersion)
         .add("waitTimeout", waitTimeout)
         .add("warehouseId", warehouseId)
+        .add("backendCompute", backendCompute)
         .add("rowLimit", rowLimit)
         .toString();
   }
@@ -178,7 +191,8 @@ public class ExecuteStatementRequest {
         sessionVersion,
         statement,
         waitTimeout,
-        warehouseId);
+        warehouseId,
+        backendCompute);
   }
 
   @Override
@@ -197,6 +211,7 @@ public class ExecuteStatementRequest {
         && Objects.equals(waitTimeout, that.waitTimeout)
         && Objects.equals(sessionId, that.sessionId)
         && Objects.equals(sessionVersion, that.sessionVersion)
-        && Objects.equals(warehouseId, that.warehouseId);
+        && Objects.equals(warehouseId, that.warehouseId)
+        && Objects.equals(backendCompute, that.backendCompute);
   }
 }
