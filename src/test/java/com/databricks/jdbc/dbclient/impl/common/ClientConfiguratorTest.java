@@ -23,12 +23,17 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.http.HttpClient;
+import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.utils.Cloud;
+import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -817,5 +822,50 @@ public class ClientConfiguratorTest {
 
     assertDoesNotThrow(() -> configurator.close());
     assertDoesNotThrow(() -> configurator.close());
+  }
+
+  @Test
+  void sdkHttpClient_DoesNotReuseConnectionIdleLongerThanExpiry() throws Exception {
+    // The workspace front end drops requests sent on a keep-alive connection just before its
+    // ~186s idle close, so connections idle past IdleHttpConnectionExpiry must not be reused.
+    List<Integer> clientPorts = Collections.synchronizedList(new ArrayList<>());
+    HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+    // Only /api is recorded; config resolution also fetches /.well-known/databricks-config.
+    server.createContext(
+        "/api",
+        exchange -> {
+          clientPorts.add(exchange.getRemoteAddress().getPort());
+          byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+          exchange.getResponseHeaders().add("Content-Type", "application/json");
+          exchange.sendResponseHeaders(200, body.length);
+          exchange.getResponseBody().write(body);
+          exchange.close();
+        });
+    server.start();
+    String host = "http://localhost:" + server.getAddress().getPort();
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
+    when(mockContext.getHostUrl()).thenReturn(host);
+    when(mockContext.getToken()).thenReturn("test-token");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getIdleHttpConnectionExpiry()).thenReturn(1);
+    configurator = new ClientConfigurator(mockContext);
+    try {
+      HttpClient httpClient = configurator.getDatabricksConfig().getHttpClient();
+
+      httpClient.execute(new Request(Request.GET, host + "/api"));
+      httpClient.execute(new Request(Request.GET, host + "/api"));
+      Thread.sleep(1500);
+      httpClient.execute(new Request(Request.GET, host + "/api"));
+
+      assertEquals(clientPorts.get(0), clientPorts.get(1), "Recently used connection is reused");
+      assertNotEquals(
+          clientPorts.get(1),
+          clientPorts.get(2),
+          "Connection idle longer than IdleHttpConnectionExpiry must not be reused");
+    } finally {
+      configurator.close();
+      server.stop(0);
+    }
   }
 }

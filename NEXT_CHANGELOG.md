@@ -25,6 +25,7 @@
 - Reject statement creation on closed connections before stale connection state can disable server-controlled features for subsequent connections.
 - Report `CONNECTION_CLOSED` with vendor code `1010` from `DatabricksConnection` closed-connection checks, including statement preparation and `setClientInfo`.
 - Report only explicitly supplied client-info properties when bulk updates fail on a closed connection.
+- Fixed intermittent `NoHttpResponseException` ("failed to respond") on SQL Execution API connections that sat idle for about three minutes. The driver now closes SEA HTTP connections idle longer than `IdleHttpConnectionExpiry` (default 60 seconds) instead of reusing them, matching the Thrift client.
 
 ---
 *Note: When making changes, please add your change under the appropriate section
