@@ -12,6 +12,7 @@ import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 
 /** Class to manage inline Arrow chunks */
 public class InlineChunkProvider implements ChunkProvider {
@@ -32,20 +33,25 @@ public class InlineChunkProvider implements ChunkProvider {
    */
   InlineChunkProvider(ResultData resultData, ResultManifest resultManifest)
       throws DatabricksSQLException {
-    this.currentChunkIndex = -1;
-    this.totalRows = resultManifest.getTotalRowCount();
+    this(inlineStream(resultData, resultManifest), resultManifest.getTotalRowCount());
+  }
 
-    // Decompress the inline data if applicable and create an ArrowResultChunk
+  InlineChunkProvider(InputStream inputStream, long totalRows) throws DatabricksSQLException {
+    this.currentChunkIndex = -1;
+    this.totalRows = totalRows;
+    this.arrowResultChunk =
+        ArrowResultChunk.builder().withInputStream(inputStream, totalRows).build();
+  }
+
+  private static ByteArrayInputStream inlineStream(
+      ResultData resultData, ResultManifest resultManifest) throws DatabricksSQLException {
     CompressionCodec compressionType = resultManifest.getResultCompression();
     byte[] decompressedBytes =
         decompress(
             resultData.getAttachment(),
             compressionType,
             "Data fetch for inline arrow batch with decompression algorithm : " + compressionType);
-    this.arrowResultChunk =
-        ArrowResultChunk.builder()
-            .withInputStream(new ByteArrayInputStream(decompressedBytes), totalRows)
-            .build();
+    return new ByteArrayInputStream(decompressedBytes);
   }
 
   /** {@inheritDoc} */

@@ -456,6 +456,7 @@ final class DatabricksThriftAccessor {
     TFetchResultsResp resultSet = null;
     try {
       response = getOperationStatus(request, statementId);
+      checkOperationStatusForErrors(response, statementId.toSQLExecStatementId());
       TOperationState operationState = response.getOperationState();
       if (operationState == TOperationState.CANCELED_STATE) {
         throw cancelledStatementException(statementId.toSQLExecStatementId());
@@ -895,7 +896,10 @@ final class DatabricksThriftAccessor {
                   + "error: [%s]",
               statusResp.getStatus().getStatusCode(), statementId, serverError);
       LOGGER.error(errorMsg);
-      String originalSqlState = statusResp.isSetSqlState() ? statusResp.getSqlState() : null;
+      String originalSqlState =
+          statusResp.getStatus().isSetSqlState()
+              ? statusResp.getStatus().getSqlState()
+              : statusResp.isSetSqlState() ? statusResp.getSqlState() : null;
       String remappedSqlState = classifyTransientSqlState(serverError, originalSqlState);
       if (!Objects.equals(remappedSqlState, originalSqlState)) {
         LOGGER.info(

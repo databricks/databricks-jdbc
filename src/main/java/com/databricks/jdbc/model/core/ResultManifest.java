@@ -2,9 +2,9 @@ package com.databricks.jdbc.model.core;
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
-import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.support.ToStringer;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Objects;
 
@@ -22,6 +22,9 @@ public class ResultManifest {
 
   @JsonProperty("schema")
   private ResultSchema schema;
+
+  @JsonProperty("arrow_schema")
+  private byte[] arrowSchema;
 
   @JsonProperty("total_byte_count")
   private Long totalByteCount;
@@ -80,6 +83,15 @@ public class ResultManifest {
 
   public ResultSchema getSchema() {
     return this.schema;
+  }
+
+  public ResultManifest setArrowSchema(byte[] arrowSchema) {
+    this.arrowSchema = arrowSchema;
+    return this;
+  }
+
+  public byte[] getArrowSchema() {
+    return arrowSchema;
   }
 
   public ResultManifest setTotalByteCount(Long totalByteCount) {
@@ -144,6 +156,7 @@ public class ResultManifest {
       return Objects.equals(this.chunks, that.chunks)
           && Objects.equals(this.format, that.format)
           && Objects.equals(this.schema, that.schema)
+          && Arrays.equals(this.arrowSchema, that.arrowSchema)
           && Objects.equals(this.totalByteCount, that.totalByteCount)
           && Objects.equals(this.totalChunkCount, that.totalChunkCount)
           && Objects.equals(this.totalRowCount, that.totalRowCount)
@@ -160,6 +173,7 @@ public class ResultManifest {
         this.chunks,
         this.format,
         this.schema,
+        Arrays.hashCode(this.arrowSchema),
         this.totalByteCount,
         this.totalChunkCount,
         this.totalRowCount,
@@ -173,6 +187,7 @@ public class ResultManifest {
         .add("chunks", this.chunks)
         .add("format", this.format)
         .add("schema", this.schema)
+        .add("arrowSchemaByteCount", this.arrowSchema == null ? null : this.arrowSchema.length)
         .add("totalByteCount", this.totalByteCount)
         .add("totalChunkCount", this.totalChunkCount)
         .add("totalRowCount", this.totalRowCount)
