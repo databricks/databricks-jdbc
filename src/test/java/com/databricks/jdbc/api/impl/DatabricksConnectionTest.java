@@ -15,7 +15,10 @@ import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.common.safe.DatabricksDriverFeatureFlagsContextFactory;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.ClosedConnectionHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
@@ -25,6 +28,7 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTransactionException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -32,11 +36,21 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
+import org.apache.http.HttpVersion;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.message.BasicStatusLine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -363,7 +377,112 @@ public class DatabricksConnectionTest {
     assertTrue(connection.isValid(1));
     connection.close();
     assertFalse(connection.isValid(1));
-    assertThrows(DatabricksSQLException.class, connection::isReadOnly);
+    for (Executable operation :
+        List.<Executable>of(
+            connection::isReadOnly,
+            () -> connection.getStatement("statement-id"),
+            () -> connection.prepareStatement(SQL, Statement.NO_GENERATED_KEYS),
+            () ->
+                connection.prepareStatement(
+                    SQL,
+                    ResultSet.TYPE_FORWARD_ONLY,
+                    ResultSet.CONCUR_READ_ONLY,
+                    ResultSet.CLOSE_CURSORS_AT_COMMIT),
+            () ->
+                connection.prepareCall(
+                    SQL,
+                    ResultSet.TYPE_FORWARD_ONLY,
+                    ResultSet.CONCUR_READ_ONLY,
+                    ResultSet.CLOSE_CURSORS_AT_COMMIT))) {
+      DatabricksSQLException error = assertThrows(DatabricksSQLException.class, operation);
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.name(), error.getSQLState());
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.getCode(), error.getErrorCode());
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testClosedConnectionStatementCreationPreservesServerFlags(boolean prepared)
+      throws Exception {
+    String sqlExecFlag =
+        "databricks.partnerplatform.clientConfigsFeatureFlags.enableSqlExecForJdbc";
+    Properties properties = new Properties();
+    properties.setProperty("UID", "token");
+    properties.setProperty("PWD", "test-token");
+    IDatabricksConnectionContext closedContext =
+        DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, properties);
+    IDatabricksConnectionContext freshContext =
+        DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, properties);
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+
+    DatabricksConnection closedConnection =
+        new DatabricksConnection(closedContext, databricksClient);
+    closedConnection.open();
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(
+        closedContext, Map.of(sqlExecFlag, "true"));
+    assertTrue(closedContext.isThriftNativeMetadataEnabled());
+    closedConnection.close();
+
+    DatabricksSQLException error =
+        assertThrows(
+            DatabricksSQLException.class,
+            () -> {
+              try (Statement ignored =
+                  prepared
+                      ? closedConnection.prepareStatement(SQL)
+                      : closedConnection.createStatement()) {
+                fail("A closed connection must reject statement creation");
+              }
+            });
+    assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.name(), error.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.getCode(), error.getErrorCode());
+
+    DatabricksHttpClientFactory httpFactory = mock(DatabricksHttpClientFactory.class);
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(httpFactory.getClient(freshContext)).thenReturn(httpClient);
+    when(httpClient.execute(any(HttpGet.class))).thenReturn(response);
+    when(response.getStatusLine()).thenReturn(new BasicStatusLine(HttpVersion.HTTP_1_1, 200, "OK"));
+    when(response.getEntity())
+        .thenReturn(
+            new StringEntity(
+                "{\"flags\":[{\"name\":\"" + sqlExecFlag + "\",\"value\":\"true\"}]}",
+                StandardCharsets.UTF_8));
+    try (MockedStatic<DatabricksHttpClientFactory> factory =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      factory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpFactory);
+      try (DatabricksConnection freshConnection =
+          new DatabricksConnection(freshContext, databricksClient)) {
+        freshConnection.open();
+        assertTrue(freshContext.isThriftNativeMetadataEnabled());
+        verify(httpClient).execute(any(HttpGet.class));
+      }
+    }
+  }
+
+  @Test
+  void testClosingConnectionDoesNotCloseRetrievedOperation() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    try (DatabricksConnection localConnection =
+        new DatabricksConnection(connectionContext, databricksClient)) {
+      localConnection.open();
+      StatementId statementId = new StatementId("statement-id");
+      DatabricksStatement statement =
+          (DatabricksStatement) localConnection.getStatement(statementId.toString());
+      when(databricksClient.getStatementResult(
+              eq(statementId), eq(localConnection.getSession()), eq(statement)))
+          .thenReturn(resultSet);
+      assertSame(resultSet, statement.getExecutionResult());
+
+      localConnection.close();
+
+      verify(databricksClient, never()).closeStatement(any());
+      verify(databricksClient).deleteSession(IMMUTABLE_SESSION_INFO);
+    }
   }
 
   @Test
@@ -484,6 +603,94 @@ public class DatabricksConnectionTest {
         SQLClientInfoException.class, () -> connection.setClientInfo("RANDOM_CONF", "UNLIMITED"));
     assertNull(connection.getClientInfo("RANDOM_CONF"));
     assertNull(clientInfoProperties.get("RANDOM_CONF"));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "false, QUERY_TAGS",
+    "true, QUERY_TAGS",
+    "false, ApplicationName",
+    "true, ApplicationName"
+  })
+  void testSetClientInfoOnClosedConnection(boolean bulk, String property) throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    try (DatabricksConnection closedConnection =
+        new DatabricksConnection(connectionContext, databricksClient)) {
+      closedConnection.open();
+      closedConnection.close();
+      Properties properties = new Properties();
+      properties.setProperty(property, "test:closed");
+
+      SQLClientInfoException error =
+          assertThrows(
+              SQLClientInfoException.class,
+              () -> {
+                if (bulk) {
+                  closedConnection.setClientInfo(properties);
+                } else {
+                  closedConnection.setClientInfo(property, "test:closed");
+                }
+              });
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.name(), error.getSQLState());
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.getCode(), error.getErrorCode());
+      assertEquals(Map.of(property, ClientInfoStatus.REASON_UNKNOWN), error.getFailedProperties());
+      assertInstanceOf(DatabricksSQLException.class, error.getCause());
+    }
+  }
+
+  @ParameterizedTest
+  @CsvSource({"true, false", "false, false", "false, true"})
+  void testSetClientInfoPropertiesOnClosedConnection(boolean empty, boolean nonStringValue)
+      throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    try (DatabricksConnection closedConnection =
+        new DatabricksConnection(connectionContext, databricksClient)) {
+      closedConnection.open();
+      closedConnection.close();
+      Properties defaults = new Properties();
+      defaults.setProperty("TIMEZONE", "UTC");
+      Properties properties = new Properties(defaults);
+      if (!empty) {
+        properties.setProperty("QUERY_TAGS", "test:closed");
+        properties.put("ApplicationName", nonStringValue ? 123 : "test:closed");
+      }
+
+      SQLClientInfoException error =
+          assertThrows(
+              SQLClientInfoException.class, () -> closedConnection.setClientInfo(properties));
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.name(), error.getSQLState());
+      assertEquals(DatabricksDriverErrorCode.CONNECTION_CLOSED.getCode(), error.getErrorCode());
+      assertEquals(
+          empty
+              ? Map.of()
+              : Map.of(
+                  "QUERY_TAGS", ClientInfoStatus.REASON_UNKNOWN,
+                  "ApplicationName", ClientInfoStatus.REASON_UNKNOWN),
+          error.getFailedProperties());
+    }
+  }
+
+  @Test
+  void testSetClientInfoWithNullErrorMessage() throws SQLException {
+    when(databricksClient.createSession(
+            new Warehouse(WAREHOUSE_ID), CATALOG, SCHEMA, new HashMap<>()))
+        .thenReturn(IMMUTABLE_SESSION_INFO);
+    try (DatabricksConnection openConnection =
+        spy(new DatabricksConnection(connectionContext, databricksClient))) {
+      openConnection.open();
+      doThrow(new SQLException()).when(openConnection).createStatement();
+
+      SQLClientInfoException error =
+          assertThrows(
+              SQLClientInfoException.class,
+              () -> openConnection.setClientInfo("QUERY_TAGS", "test:failure"));
+      assertEquals(
+          Map.of("QUERY_TAGS", ClientInfoStatus.REASON_UNKNOWN), error.getFailedProperties());
+    }
   }
 
   @Test

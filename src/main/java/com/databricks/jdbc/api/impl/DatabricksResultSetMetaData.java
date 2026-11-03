@@ -26,9 +26,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -63,7 +61,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       IDatabricksConnectionContext ctx) {
     this.ctx = ctx;
     this.statementId = statementId;
-    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
+    CaseInsensitiveImmutableMap.Builder<Integer> columnNameIndexBuilder =
+        CaseInsensitiveImmutableMap.builder();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
     MetadataResultSetBuilder metadataResultSetBuilder = new MetadataResultSetBuilder(ctx);
 
@@ -85,7 +84,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .tableName(null)
           .isSigned(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.STRING));
       columnsBuilder.add(columnBuilder.build());
-      columnNameToIndexMap.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
+      columnNameIndexBuilder.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
     } else {
       if (resultManifest.getSchema().getColumnCount() > 0) {
         for (ColumnInfo columnInfo : resultManifest.getSchema().getColumns()) {
@@ -151,13 +150,15 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
               .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
           columnsBuilder.add(columnBuilder.build());
           // Keep index starting from 1, to be consistent with JDBC convention
-          columnNameToIndexMap.putIfAbsent(columnInfo.getName(), ++currIndex);
+          columnNameIndexBuilder.putIfAbsent(columnInfo.getName(), ++currIndex);
         }
       }
     }
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
-    this.totalRows = resultManifest.getTotalRowCount();
+    this.columnNameIndex = columnNameIndexBuilder.build();
+    // Bounded SEA manifests may omit total_row_count; continuation is driven by
+    // next_chunk_index instead. Use the existing unknown-row-count sentinel.
+    this.totalRows = Objects.requireNonNullElse(resultManifest.getTotalRowCount(), -1L);
     this.chunkCount = resultManifest.getTotalChunkCount();
     this.isCloudFetchUsed = usesExternalLinks;
     this.truncated = Objects.requireNonNullElse(resultManifest.getTruncated(), false);
@@ -181,7 +182,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       IDatabricksConnectionContext ctx) {
     this.ctx = ctx;
     this.statementId = statementId;
-    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
+    CaseInsensitiveImmutableMap.Builder<Integer> columnNameIndexBuilder =
+        CaseInsensitiveImmutableMap.builder();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
     LOGGER.debug(
         String.format(
@@ -202,7 +204,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .tableName(null)
           .isSigned(DatabricksTypeUtil.isSigned(ColumnInfoTypeName.STRING));
       columnsBuilder.add(columnBuilder.build());
-      columnNameToIndexMap.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
+      columnNameIndexBuilder.putIfAbsent(VOLUME_OPERATION_STATUS_COLUMN_NAME, ++currIndex);
     } else {
       if (resultManifest.getSchema() != null && resultManifest.getSchema().getColumnsSize() > 0) {
         for (int columnIndex = 0;
@@ -259,8 +261,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                 .columnTypeClassName("java.lang.String")
                 .columnType(Types.OTHER)
                 .columnTypeText(VARIANT);
-          } else if ((isGeometryColumn(arrowMetadata, columnIndex)
-                  || isGeographyColumn(arrowMetadata, columnIndex))
+          } else if (isGeospatialType(columnInfo.getTypeName())
               && !ctx.isGeoSpatialSupportEnabled()) {
             // Convert geospatial types to STRING when support is disabled
             LOGGER.debug(
@@ -272,12 +273,12 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
                 .columnTypeText("STRING");
           }
           columnsBuilder.add(columnBuilder.build());
-          columnNameToIndexMap.putIfAbsent(columnInfo.getName(), ++currIndex);
+          columnNameIndexBuilder.putIfAbsent(columnInfo.getName(), ++currIndex);
         }
       }
     }
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
+    this.columnNameIndex = columnNameIndexBuilder.build();
     this.totalRows = rows;
     this.chunkCount = chunkCount;
     this.isCloudFetchUsed = getIsCloudFetchFromManifest(resultManifest);
@@ -295,14 +296,19 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
   public DatabricksResultSetMetaData(
       StatementId statementId, List<ColumnMetadata> columnMetadataList, long totalRows) {
     this.statementId = statementId;
-    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
+    CaseInsensitiveImmutableMap.Builder<Integer> columnNameIndexBuilder =
+        CaseInsensitiveImmutableMap.builder();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
 
     for (int i = 0; i < columnMetadataList.size(); i++) {
       ColumnMetadata metadata = columnMetadataList.get(i);
+      String databricksType =
+          DatabricksTypeUtil.getDatabricksTypeFromSQLType(metadata.getTypeInt());
+      // ColumnInfoTypeName has no TIMESTAMP_NTZ constant.
       ColumnInfoTypeName columnTypeName =
-          ColumnInfoTypeName.valueOf(
-              DatabricksTypeUtil.getDatabricksTypeFromSQLType(metadata.getTypeInt()));
+          DatabricksTypeUtil.TIMESTAMP_NTZ.equals(databricksType)
+              ? ColumnInfoTypeName.TIMESTAMP
+              : ColumnInfoTypeName.valueOf(databricksType);
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();
       columnBuilder
           .columnName(metadata.getName())
@@ -324,11 +330,11 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       }
 
       columnsBuilder.add(columnBuilder.build());
-      columnNameToIndexMap.putIfAbsent(metadata.getName(), i + 1); // JDBC index starts from 1
+      columnNameIndexBuilder.putIfAbsent(metadata.getName(), i + 1); // JDBC index starts from 1
     }
 
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
+    this.columnNameIndex = columnNameIndexBuilder.build();
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
     this.truncated = false;
@@ -355,7 +361,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       long totalRows) {
     this.statementId = statementId;
 
-    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
+    CaseInsensitiveImmutableMap.Builder<Integer> columnNameIndexBuilder =
+        CaseInsensitiveImmutableMap.builder();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
     for (int i = 0; i < columnNames.size(); i++) {
       ColumnInfoTypeName columnTypeName =
@@ -378,10 +385,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       }
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
-      columnNameToIndexMap.putIfAbsent(columnNames.get(i), i + 1);
+      columnNameIndexBuilder.putIfAbsent(columnNames.get(i), i + 1);
     }
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
+    this.columnNameIndex = columnNameIndexBuilder.build();
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
     this.truncated = false;
@@ -408,7 +415,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       long totalRows) {
     this.statementId = statementId;
 
-    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
+    CaseInsensitiveImmutableMap.Builder<Integer> columnNameIndexBuilder =
+        CaseInsensitiveImmutableMap.builder();
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
     for (int i = 0; i < columnNames.size(); i++) {
       ColumnInfoTypeName columnTypeName =
@@ -437,10 +445,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       }
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
-      columnNameToIndexMap.putIfAbsent(columnNames.get(i), i + 1);
+      columnNameIndexBuilder.putIfAbsent(columnNames.get(i), i + 1);
     }
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
+    this.columnNameIndex = columnNameIndexBuilder.build();
     this.totalRows = totalRows;
     this.isCloudFetchUsed = false;
     this.truncated = false;
@@ -463,7 +471,8 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
       IDatabricksConnectionContext ctx) {
     this.ctx = ctx;
     ImmutableList.Builder<ImmutableDatabricksColumn> columnsBuilder = ImmutableList.builder();
-    Map<String, Integer> columnNameToIndexMap = new HashMap<>();
+    CaseInsensitiveImmutableMap.Builder<Integer> columnNameIndexBuilder =
+        CaseInsensitiveImmutableMap.builder();
     MetadataResultSetBuilder metadataResultSetBuilder = new MetadataResultSetBuilder(ctx);
 
     // Capitalize all the columnDataTypes
@@ -509,14 +518,14 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
           .isSigned(DatabricksTypeUtil.isSigned(columnTypeName));
       columnsBuilder.add(columnBuilder.build());
       // Keep index starting from 1, to be consistent with JDBC convention
-      columnNameToIndexMap.putIfAbsent(columnName, i + 1);
+      columnNameIndexBuilder.putIfAbsent(columnName, i + 1);
     }
     this.statementId = statementId;
     this.isCloudFetchUsed = false;
     this.truncated = false;
     this.totalRows = -1;
     this.columns = columnsBuilder.build();
-    this.columnNameIndex = CaseInsensitiveImmutableMap.copyOf(columnNameToIndexMap);
+    this.columnNameIndex = columnNameIndexBuilder.build();
   }
 
   @Override
@@ -658,6 +667,10 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     return totalRows;
   }
 
+  public boolean hasKnownTotalRows() {
+    return totalRows >= 0;
+  }
+
   public boolean getIsCloudFetchUsed() {
     return isCloudFetchUsed;
   }
@@ -710,20 +723,6 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
         && arrowMetadata.size() > i
         && arrowMetadata.get(i) != null
         && arrowMetadata.get(i).equalsIgnoreCase(VARIANT);
-  }
-
-  private boolean isGeometryColumn(List<String> arrowMetadata, int index) {
-    return arrowMetadata != null
-        && arrowMetadata.size() > index
-        && arrowMetadata.get(index) != null
-        && arrowMetadata.get(index).contains(GEOMETRY);
-  }
-
-  private boolean isGeographyColumn(List<String> arrowMetadata, int index) {
-    return arrowMetadata != null
-        && arrowMetadata.size() > index
-        && arrowMetadata.get(index) != null
-        && arrowMetadata.get(index).contains(GEOGRAPHY);
   }
 
   /**

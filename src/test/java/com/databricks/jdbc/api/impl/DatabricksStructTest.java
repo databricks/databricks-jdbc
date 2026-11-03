@@ -201,10 +201,10 @@ public class DatabricksStructTest {
     outerTypeMap.put("preferences", "MAP<STRING, STRING>");
     mockParseStructMetadata(metadata, outerTypeMap);
 
-    // Mock MetadataParser.parseMapMetadata for "MAP<STRING, STRING>"
+    // Mock MetadataParser.parseMapMetadataParts for "MAP<STRING, STRING>"
     metadataParserMock
-        .when(() -> MetadataParser.parseMapMetadata("MAP<STRING, STRING>"))
-        .thenReturn("STRING,STRING");
+        .when(() -> MetadataParser.parseMapMetadataParts("MAP<STRING, STRING>"))
+        .thenReturn(new String[] {"STRING", "STRING"});
 
     DatabricksStruct databricksStruct = new DatabricksStruct(attributes, metadata);
 
@@ -231,10 +231,10 @@ public class DatabricksStructTest {
         mapEntries.get("notifications"),
         "Preference 'notifications' should be 'enabled'");
 
-    // Verify that parseStructMetadata was called once and parseMapMetadata was called once
+    // Verify that parseStructMetadata and parseMapMetadataParts were each called once
     metadataParserMock.verify(() -> MetadataParser.parseStructMetadata(metadata), times(1));
     metadataParserMock.verify(
-        () -> MetadataParser.parseMapMetadata("MAP<STRING, STRING>"), times(1));
+        () -> MetadataParser.parseMapMetadataParts("MAP<STRING, STRING>"), times(1));
   }
 
   /**
@@ -789,8 +789,8 @@ public class DatabricksStructTest {
         .thenReturn("STRING");
 
     metadataParserMock
-        .when(() -> MetadataParser.parseMapMetadata("MAP<STRING,INT>"))
-        .thenReturn("STRING,INT");
+        .when(() -> MetadataParser.parseMapMetadataParts("MAP<STRING,INT>"))
+        .thenReturn(new String[] {"STRING", "INT"});
 
     Map<String, Object> attributes = new LinkedHashMap<>();
     attributes.put("id", 123);

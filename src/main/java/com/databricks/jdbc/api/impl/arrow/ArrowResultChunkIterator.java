@@ -79,10 +79,25 @@ public class ArrowResultChunkIterator {
   Object getColumnObjectAtCurrentRow(
       int columnIndex, ColumnInfoTypeName requiredType, String arrowMetadata, ColumnInfo columnInfo)
       throws DatabricksSQLException {
+    return getColumnObjectAtCurrentRow(columnIndex, requiredType, arrowMetadata, columnInfo, true);
+  }
+
+  Object getColumnObjectAtCurrentRow(
+      int columnIndex,
+      ColumnInfoTypeName requiredType,
+      String arrowMetadata,
+      ColumnInfo columnInfo,
+      boolean geoSpatialSupportEnabled)
+      throws DatabricksSQLException {
     ValueVector columnVector =
         this.resultChunk.getColumnVector(this.recordBatchCursorInChunk, columnIndex);
     return ArrowToJavaObjectConverter.convert(
-        columnVector, this.rowCursorInRecordBatch, requiredType, arrowMetadata, columnInfo);
+        columnVector,
+        this.rowCursorInRecordBatch,
+        requiredType,
+        arrowMetadata,
+        columnInfo,
+        geoSpatialSupportEnabled);
   }
 
   String getType(int columnIndex) {

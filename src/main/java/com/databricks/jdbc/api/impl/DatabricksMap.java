@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -11,11 +12,14 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** Class for representation of Map complex object. */
 public class DatabricksMap<K, V> implements Map<K, V> {
   private final Map<K, V> map;
+  private final String keyType;
+  private final String valueType;
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksMap.class);
 
   /**
@@ -26,37 +30,34 @@ public class DatabricksMap<K, V> implements Map<K, V> {
    */
   public DatabricksMap(Map<K, V> map, String metadata) {
     LOGGER.debug("Initializing DatabricksMap with metadata: {}", metadata);
-    this.map = convertMap(map, metadata);
-  }
-
-  /**
-   * Converts the provided map according to specified metadata.
-   *
-   * @param originalMap the original map to be converted
-   * @param metadata the metadata for type conversion
-   * @return a converted map
-   */
-  private Map<K, V> convertMap(Map<K, V> originalMap, String metadata) {
-    LOGGER.debug("Converting map with metadata: {}", metadata);
-    Map<K, V> convertedMap = new LinkedHashMap<>();
     try {
-      String[] mapMetadata = MetadataParser.parseMapMetadata(metadata).split(",", 2);
-      String keyType = mapMetadata[0].trim();
-      String valueType = mapMetadata[1].trim();
-      LOGGER.debug("Parsed metadata - Key Type: {}, Value Type: {}", keyType, valueType);
-
-      for (Map.Entry<K, V> entry : originalMap.entrySet()) {
-        K key = convertSimpleValue(entry.getKey(), keyType);
-        V value = convertValue(entry.getValue(), valueType);
-        convertedMap.put(key, value);
-        LOGGER.trace("Converted entry - Key: {}, Converted Value: {}", key, value);
-      }
+      String[] mapMetadata = MetadataParser.parseMapMetadataParts(metadata);
+      this.keyType = mapMetadata[0].trim();
+      this.valueType = mapMetadata[1].trim();
+      this.map = convertMap(map);
     } catch (Exception e) {
       LOGGER.error(e, "Error during map conversion: {}", e.getMessage());
       throw new DatabricksDriverException(
           "Invalid metadata or map structure",
           e,
           DatabricksDriverErrorCode.COMPLEX_DATA_TYPE_MAP_CONVERSION_ERROR);
+    }
+  }
+
+  /**
+   * Converts the provided map according to specified metadata.
+   *
+   * @param originalMap the original map to be converted
+   * @return a converted map
+   */
+  private Map<K, V> convertMap(Map<K, V> originalMap) {
+    Map<K, V> convertedMap = new LinkedHashMap<>();
+    LOGGER.debug("Parsed metadata - Key Type: {}, Value Type: {}", keyType, valueType);
+    for (Map.Entry<K, V> entry : originalMap.entrySet()) {
+      K key = convertSimpleValue(entry.getKey(), keyType);
+      V value = convertValue(entry.getValue(), valueType);
+      convertedMap.put(key, value);
+      LOGGER.trace("Converted entry - Key: {}, Converted Value: {}", key, value);
     }
     return convertedMap;
   }
@@ -71,6 +72,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
   private V convertValue(V value, String valueType) {
     try {
       LOGGER.debug("Converting value of type: {}", valueType);
+      if (value == null) {
+        return null;
+      }
       if (valueType.startsWith(DatabricksTypeUtil.STRUCT)) {
         if (value instanceof Map) {
           LOGGER.trace("Converting value as STRUCT");
@@ -127,6 +131,9 @@ public class DatabricksMap<K, V> implements Map<K, V> {
   private <T> T convertSimpleValue(Object value, String valueType) {
     if (value == null) {
       return null;
+    }
+    if (DatabricksTypeUtil.isGeospatialType(valueType.toUpperCase(Locale.ROOT))) {
+      return (T) value;
     }
 
     try {
@@ -237,24 +244,11 @@ public class DatabricksMap<K, V> implements Map<K, V> {
       } else {
         first = false;
       }
-      sb.append(formatForJson(entry.getKey())).append(":").append(formatForJson(entry.getValue()));
+      sb.append(JsonUtil.formatComplexValue(entry.getKey()))
+          .append(":")
+          .append(JsonUtil.formatComplexValue(entry.getValue()));
     }
     sb.append("}");
     return sb.toString();
-  }
-
-  /**
-   * Returns a String suitable for JSON-like output. - If obj is a String, encloses it in
-   * double-quotes. - Otherwise, uses obj.toString() without quotes. - If obj is null, returns
-   * "null".
-   */
-  private String formatForJson(Object obj) {
-    if (obj == null) {
-      return "null";
-    }
-    if (obj instanceof String) {
-      return "\"" + obj + "\"";
-    }
-    return obj.toString();
   }
 }

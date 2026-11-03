@@ -178,7 +178,7 @@ public class JwtPrivateKeyClientCredentials implements TokenSource {
     // Generate new JWT and retrieve token
     Map<String, String> params = new HashMap<>();
     params.put("grant_type", "client_credentials");
-    if (scopes != null) {
+    if (scopes != null && !scopes.isEmpty()) {
       params.put("scope", String.join(" ", scopes));
     }
     params.put("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");

@@ -3,28 +3,30 @@
 ## [Unreleased]
 
 ### Added
-- Added `EnableThriftNativeMetadata` to request and consume supported Thrift-native SEA metadata results.
+
+- Implemented `Array.getResultSet()` and its overloads, returning one row per element (1-based index, value).
 
 ### Updated
-- `DatabaseMetaData.getColumns(...)` with a `null` catalog now issues a single `SHOW COLUMNS IN ALL CATALOGS` statement (consistent with `getSchemas`/`getTables`) instead of enumerating every catalog and issuing a per-catalog `SHOW COLUMNS`. Older DBR versions that do not support the syntax transparently fall back to the previous enumerate-and-fan-out behavior.
-- Updated bundled Jackson, lz4-java, Netty, and Apache HttpComponents Client and Core dependencies to patched versions to address security findings.
+- Updated bundled Netty (`netty-common` and `netty-buffer`) from 4.2.15.Final to 4.2.18.Final.
+
+- Upgraded the bundled Guava dependency to 33.7.2-jre to address CVE-2026-102554.
+
+- Removed automatic Thrift fallback after HTTP 307 SEA session creation failures. Redirect errors now propagate as connection errors without changing the selected protocol.
+
+- Removed automatic Thrift fallback and the 24-hour SEA circuit breaker after HTTP 429 session creation failures. Rate-limit errors now propagate to the caller without changing routing for subsequent connections.
+
+- Removed the `UseQueryForMetadata` connection property. It no longer forces the Thrift client, so connections eligible for SEA now use SEA with SQL metadata queries. Thrift connections use native metadata RPCs.
+
+- SQL Execution API sessions open with warehouse URLs. Real-time sessions use warehouse URLs for session-owned statement operations and session close.
 
 ### Fixed
-- Invalid or incomplete Databricks JDBC URLs now fail with a descriptive `DatabricksSQLException`
-  instead of leaking a `NullPointerException` when required connection parameters are missing.
+- Fixed `DatabricksArray.getBaseTypeName()` and `getBaseType()` to describe the array's element type (e.g. `INT` / `Types.INTEGER` for `ARRAY<INT>`) per the `java.sql.Array` contract, instead of returning the full array type name and `Types.OTHER`. `ARRAY<MAP<...>>` reports `Types.OTHER`, since its elements are `DatabricksMap` objects.
 
-- Fixed connections failing when the same parameter is provided in both the JDBC URL and the connection properties, with the JDBC URL taking precedence.
-- Fixed `IdleConnectionEvictor` thread leak in long-running applications. Driver-side resources (HTTP client, background threads) are now always released when `Connection.close()` is called, even if statement cleanup or server-side session termination fails.
+- Reject statement creation on closed connections before stale connection state can disable server-controlled features for subsequent connections.
+- Report `CONNECTION_CLOSED` with vendor code `1010` from `DatabricksConnection` closed-connection checks, including statement preparation and `setClientInfo`.
+- Report only explicitly supplied client-info properties when bulk updates fail on a closed connection.
+- Fixed intermittent `NoHttpResponseException` ("failed to respond") on SQL Execution API connections that sat idle for about three minutes. The driver now closes SEA HTTP connections idle longer than `IdleHttpConnectionExpiry` (default 60 seconds) instead of reusing them, matching the Thrift client.
 
-- Throw `DatabricksSQLException` instead of an unchecked `ClassCastException` when a complex-type getter (`getArray`, `getStruct`, `getMap`) is called on a column of a different complex type.
-
-- Fixed `NullPointerException` when reading collated string columns (e.g. `STRING COLLATE UTF8_LCASE`) over Arrow. Such columns report a `type_name` that does not map to a `ColumnInfoTypeName`, leaving it null; the value read now recovers `STRING` from the type text and the result set metadata reports `VARCHAR` instead of `OTHER`, while `getColumnTypeName()` still preserves the collated type text.
-- Fixed `ResultSet.getObject(int)` on the Arrow result path leaking a raw `java.lang.IndexOutOfBoundsException` (with a null SQLState) for an out-of-range column index. It now throws a `DatabricksSQLException` (SQLState `INVALID_STATE`, `"Column index out of bounds: <n>"`), matching the JDBC contract and the Thrift/inline result implementations. Affects the Arrow/CloudFetch path used by SEA and by Thrift CloudFetch results.
-- Fixed connecting with an unsupported `AuthMech` (e.g. `AuthMech=99`) intermittently failing with an internal `IllegalStateException: Recursive update` or `StackOverflowError` on both the SEA and Thrift paths. The value is now validated at connect time and rejected deterministically with a `SQLException` (`SQLState=INPUT_VALIDATION_ERROR`).
-
-- Improved SEA connection-failure error messages.
-
-- Fixed `NullPointerException` being thrown when materializing an array containing nested object types (other arrays, structs or maps) as `DatabricksArray` when some or all elements are literal `null`. 
 ---
 *Note: When making changes, please add your change under the appropriate section
 with a brief description.*

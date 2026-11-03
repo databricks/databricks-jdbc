@@ -21,4 +21,9 @@ public class DatabricksParsingException extends DatabricksSQLException {
   public DatabricksParsingException(String message, Throwable cause, String internalErrorCode) {
     super(message, cause, internalErrorCode);
   }
+
+  public DatabricksParsingException(
+      String message, Throwable cause, String sqlState, int vendorCode) {
+    super(message, sqlState, vendorCode, cause);
+  }
 }

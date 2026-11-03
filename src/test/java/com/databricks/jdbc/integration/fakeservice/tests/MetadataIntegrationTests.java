@@ -1,10 +1,11 @@
 package com.databricks.jdbc.integration.fakeservice.tests;
 
-import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.SESSION_PATH;
 import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.STATEMENT_PATH;
+import static com.databricks.jdbc.dbclient.impl.sqlexec.PathConstants.WAREHOUSE_SESSION_PATH;
 import static com.databricks.jdbc.integration.IntegrationTestUtil.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -73,7 +74,9 @@ public class MetadataIntegrationTests extends AbstractFakeServiceIntegrationTest
 
     if (isSqlExecSdkClient()) {
       // Create session request is sent
-      getDatabricksApiExtension().verify(1, postRequestedFor(urlEqualTo(SESSION_PATH)));
+      getDatabricksApiExtension()
+          .verify(
+              1, postRequestedFor(urlPathMatching(String.format(WAREHOUSE_SESSION_PATH, "[^/]+"))));
     }
   }
 

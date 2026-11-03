@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.google.common.collect.ImmutableMap;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -14,14 +15,8 @@ class CaseInsensitiveImmutableMap<V> {
     this.delegate = delegate;
   }
 
-  public static <V> CaseInsensitiveImmutableMap<V> copyOf(Map<String, V> map) {
-    ImmutableMap<String, V> normalizedMap =
-        map.entrySet().stream()
-            .collect(
-                ImmutableMap.toImmutableMap(
-                    entry -> entry.getKey().toLowerCase(), Map.Entry::getValue));
-
-    return new CaseInsensitiveImmutableMap<>(normalizedMap);
+  public static <V> Builder<V> builder() {
+    return new Builder<>();
   }
 
   public V get(String key) {
@@ -42,5 +37,23 @@ class CaseInsensitiveImmutableMap<V> {
 
   public boolean isEmpty() {
     return delegate.isEmpty();
+  }
+
+  static final class Builder<V> {
+    private final Map<String, V> entries = new HashMap<>();
+
+    private Builder() {}
+
+    /**
+     * Adds the entry unless a key differing only in case was already added, so the first one wins.
+     */
+    public Builder<V> putIfAbsent(String key, V value) {
+      entries.putIfAbsent(key.toLowerCase(), value);
+      return this;
+    }
+
+    public CaseInsensitiveImmutableMap<V> build() {
+      return new CaseInsensitiveImmutableMap<>(ImmutableMap.copyOf(entries));
+    }
   }
 }

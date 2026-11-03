@@ -19,6 +19,9 @@ public class CreateSessionRequest {
   @JsonProperty("session_confs")
   private Map<String, String> sessionConfigs;
 
+  @JsonProperty("execution_mode")
+  private String executionMode;
+
   public CreateSessionRequest setWarehouseId(String warehouseId) {
     this.warehouseId = warehouseId;
     return this;
@@ -53,5 +56,14 @@ public class CreateSessionRequest {
 
   public Map<String, String> getSessionConfigs() {
     return sessionConfigs;
+  }
+
+  public CreateSessionRequest setExecutionMode(String executionMode) {
+    this.executionMode = executionMode;
+    return this;
+  }
+
+  public String getExecutionMode() {
+    return executionMode;
   }
 }

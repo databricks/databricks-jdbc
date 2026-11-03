@@ -23,12 +23,17 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.DatabricksException;
 import com.databricks.sdk.core.ProxyConfig;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.http.HttpClient;
+import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.utils.Cloud;
+import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -103,6 +108,52 @@ public class ClientConfiguratorTest {
     assertEquals("client-id", config.getClientId());
     assertEquals("client-secret", config.getClientSecret());
     assertEquals(DatabricksJdbcConstants.M2M_AUTH_TYPE, config.getAuthType());
+    assertEquals(List.of("all-apis"), config.getScopes());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithClientCredentials_UsesConfiguredScope()
+      throws DatabricksSQLException {
+    String jdbcUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
+            + "Auth_Flow=1;httpPath=/sql/1.0/warehouses/99999999;"
+            + "OAuth2ClientId=client-id;OAuth2Secret=client-secret;Auth_Scope= sql ";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
+    assertEquals(" sql ", connectionContext.getAuthScope());
+    configurator = new ClientConfigurator(connectionContext);
+
+    assertEquals(List.of("sql"), configurator.getDatabricksConfig().getScopes());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithClientCredentials_BlankScopeUsesDefault()
+      throws DatabricksSQLException {
+    String jdbcUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
+            + "Auth_Flow=1;httpPath=/sql/1.0/warehouses/99999999;"
+            + "OAuth2ClientId=client-id;OAuth2Secret=client-secret;Auth_Scope=";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
+    assertEquals("", connectionContext.getAuthScope());
+    configurator = new ClientConfigurator(connectionContext);
+
+    assertEquals(List.of("all-apis"), configurator.getDatabricksConfig().getScopes());
+  }
+
+  @Test
+  void getWorkspaceClient_OAuthWithClientCredentials_UsesMultipleScopes()
+      throws DatabricksSQLException {
+    String jdbcUrl =
+        "jdbc:databricks://sample-host.cloud.databricks.com:443/default;SSL=1;AuthMech=11;"
+            + "Auth_Flow=1;httpPath=/sql/1.0/warehouses/99999999;"
+            + "OAuth2ClientId=client-id;OAuth2Secret=client-secret;Auth_Scope= sql   jobs ";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(jdbcUrl, new Properties());
+    assertEquals(" sql   jobs ", connectionContext.getAuthScope());
+    configurator = new ClientConfigurator(connectionContext);
+
+    assertEquals(List.of("jobs", "sql"), configurator.getDatabricksConfig().getScopes());
   }
 
   @Test
@@ -771,5 +822,69 @@ public class ClientConfiguratorTest {
 
     assertDoesNotThrow(() -> configurator.close());
     assertDoesNotThrow(() -> configurator.close());
+  }
+
+  @Test
+  void sdkHttpClient_DoesNotReuseConnectionIdleLongerThanExpiry() throws Exception {
+    // The workspace front end drops requests sent on a keep-alive connection just before its
+    // ~186s idle close, so connections idle past IdleHttpConnectionExpiry must not be reused.
+    List<Integer> clientPorts = clientPortsAroundIdle(2, 3000);
+
+    assertEquals(clientPorts.get(0), clientPorts.get(1), "Recently used connection is reused");
+    assertNotEquals(
+        clientPorts.get(1),
+        clientPorts.get(2),
+        "Connection idle longer than IdleHttpConnectionExpiry must not be reused");
+  }
+
+  @Test
+  void sdkHttpClient_ReusesIdleConnectionWhenExpiryDisabled() throws Exception {
+    List<Integer> clientPorts = clientPortsAroundIdle(0, 3000);
+
+    assertEquals(
+        clientPorts.get(1),
+        clientPorts.get(2),
+        "IdleHttpConnectionExpiry=0 keeps idle connections");
+  }
+
+  /**
+   * Sends two back-to-back requests through the SDK HTTP client, stays idle, then sends a third.
+   * Returns the client port of each request, so equal ports mean the connection was reused.
+   */
+  private List<Integer> clientPortsAroundIdle(int expirySeconds, long idleMillis) throws Exception {
+    List<Integer> clientPorts = Collections.synchronizedList(new ArrayList<>());
+    HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+    // Only /api is recorded; config resolution also fetches /.well-known/databricks-config.
+    server.createContext(
+        "/api",
+        exchange -> {
+          clientPorts.add(exchange.getRemoteAddress().getPort());
+          byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+          exchange.getResponseHeaders().add("Content-Type", "application/json");
+          exchange.sendResponseHeaders(200, body.length);
+          exchange.getResponseBody().write(body);
+          exchange.close();
+        });
+    server.start();
+    String host = "http://localhost:" + server.getAddress().getPort();
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
+    when(mockContext.getHostUrl()).thenReturn(host);
+    when(mockContext.getToken()).thenReturn("test-token");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    when(mockContext.getIdleHttpConnectionExpiry()).thenReturn(expirySeconds);
+    configurator = new ClientConfigurator(mockContext);
+    try {
+      HttpClient httpClient = configurator.getDatabricksConfig().getHttpClient();
+
+      httpClient.execute(new Request(Request.GET, host + "/api"));
+      httpClient.execute(new Request(Request.GET, host + "/api"));
+      Thread.sleep(idleMillis);
+      httpClient.execute(new Request(Request.GET, host + "/api"));
+      return new ArrayList<>(clientPorts);
+    } finally {
+      configurator.close();
+      server.stop(0);
+    }
   }
 }

@@ -4,10 +4,15 @@ import static com.databricks.jdbc.TestConstants.*;
 import static java.lang.Math.min;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContextFactory;
+import com.databricks.jdbc.api.impl.DatabricksGeography;
+import com.databricks.jdbc.api.impl.DatabricksGeometry;
 import com.databricks.jdbc.api.impl.DatabricksSession;
+import com.databricks.jdbc.api.impl.DatabricksStruct;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
@@ -30,6 +35,7 @@ import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.collect.ImmutableList;
 import java.io.*;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.*;
 import org.apache.arrow.memory.RootAllocator;
@@ -427,35 +433,37 @@ public class ArrowStreamResultTest {
     File file = new File(fileName);
     int cols = testData.length;
     int rows = testData[0].length;
-    VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, allocator);
-    ArrowWriter writer =
-        new ArrowStreamWriter(
-            vectorSchemaRoot,
-            new DictionaryProvider.MapDictionaryProvider(),
-            new FileOutputStream(file));
-    writer.start();
-    for (int j = 0; j < rows; j += rowsInRecordBatch) {
-      int rowsToAddToRecordBatch = min(rowsInRecordBatch, rows - j);
-      vectorSchemaRoot.setRowCount(rowsToAddToRecordBatch);
-      for (int i = 0; i < cols; i++) {
-        Types.MinorType type = Types.getMinorTypeForArrowType(schema.getFields().get(i).getType());
-        FieldVector fieldVector = vectorSchemaRoot.getFieldVectors().get(i);
-        if (type.equals(Types.MinorType.INT)) {
-          IntVector intVector = (IntVector) fieldVector;
-          intVector.setInitialCapacity(rowsToAddToRecordBatch);
-          for (int k = 0; k < rowsToAddToRecordBatch; k++) {
-            intVector.set(k, 1, (int) testData[i][j + k]);
+    try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, allocator);
+        ArrowWriter writer =
+            new ArrowStreamWriter(
+                vectorSchemaRoot,
+                new DictionaryProvider.MapDictionaryProvider(),
+                new FileOutputStream(file))) {
+      writer.start();
+      for (int j = 0; j < rows; j += rowsInRecordBatch) {
+        int rowsToAddToRecordBatch = min(rowsInRecordBatch, rows - j);
+        vectorSchemaRoot.setRowCount(rowsToAddToRecordBatch);
+        for (int i = 0; i < cols; i++) {
+          Types.MinorType type =
+              Types.getMinorTypeForArrowType(schema.getFields().get(i).getType());
+          FieldVector fieldVector = vectorSchemaRoot.getFieldVectors().get(i);
+          if (type.equals(Types.MinorType.INT)) {
+            IntVector intVector = (IntVector) fieldVector;
+            intVector.setInitialCapacity(rowsToAddToRecordBatch);
+            for (int k = 0; k < rowsToAddToRecordBatch; k++) {
+              intVector.set(k, 1, (int) testData[i][j + k]);
+            }
+          } else if (type.equals(Types.MinorType.FLOAT8)) {
+            Float8Vector float8Vector = (Float8Vector) fieldVector;
+            float8Vector.setInitialCapacity(rowsToAddToRecordBatch);
+            for (int currentRow = 0; currentRow < rowsToAddToRecordBatch; currentRow++) {
+              float8Vector.set(currentRow, 1, (double) testData[i][j + currentRow]);
+            }
           }
-        } else if (type.equals(Types.MinorType.FLOAT8)) {
-          Float8Vector float8Vector = (Float8Vector) fieldVector;
-          float8Vector.setInitialCapacity(rowsToAddToRecordBatch);
-          for (int currentRow = 0; currentRow < rowsToAddToRecordBatch; currentRow++) {
-            float8Vector.set(currentRow, 1, (double) testData[i][j + currentRow]);
-          }
+          fieldVector.setValueCount(rowsToAddToRecordBatch);
         }
-        fieldVector.setValueCount(rowsToAddToRecordBatch);
+        writer.writeBatch();
       }
-      writer.writeBatch();
     }
     return file;
   }
@@ -470,9 +478,7 @@ public class ArrowStreamResultTest {
   }
 
   @Test
-  public void testGeospatialTypeWithGeoSpatialSupportDisabled() throws Exception {
-    // Setup connection context with geospatial support disabled (EnableGeoSpatialSupport=0)
-    // Complex datatype flag is independent and has no effect on geospatial behavior
+  public void testGeospatialSupportDisabledRequestsStringForBothTypes() throws Exception {
     Properties props = new Properties();
     props.setProperty("EnableComplexDatatypeSupport", "1");
     props.setProperty("EnableGeoSpatialSupport", "0");
@@ -480,52 +486,196 @@ public class ArrowStreamResultTest {
         DatabricksConnectionContextFactory.create(JDBC_URL, props);
     when(session.getConnectionContext()).thenReturn(connectionContext);
 
-    // Verify the flags are set correctly
-    assertTrue(connectionContext.isComplexDatatypeSupportEnabled());
-    assertFalse(connectionContext.isGeoSpatialSupportEnabled());
-
-    // Test with GEOMETRY column
-    List<ColumnInfo> geometryColumnInfos = new ArrayList<>();
-    geometryColumnInfos.add(
+    ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
+    ColumnInfo geometryInfo =
         new ColumnInfo()
             .setName("geometry_col")
-            .setTypeText("GEOMETRY")
-            .setTypeName(ColumnInfoTypeName.GEOMETRY));
-
-    ResultManifest geometryManifest =
-        new ResultManifest()
-            .setTotalChunkCount(0L)
-            .setTotalRowCount(1L)
-            .setSchema(new ResultSchema().setColumns(geometryColumnInfos).setColumnCount(1L));
-    ResultData geometryData = new ResultData().setExternalLinks(new ArrayList<>());
-
-    ArrowStreamResult geometryResult =
-        new ArrowStreamResult(geometryManifest, geometryData, STATEMENT_ID, session);
-
-    // Verify that GEOMETRY type is converted to STRING when geospatial support is disabled
-    // The actual conversion happens in getObject(), but we're testing the flag behavior here
-    assertFalse(geometryResult.hasNext());
-
-    // Test with GEOGRAPHY column
-    List<ColumnInfo> geographyColumnInfos = new ArrayList<>();
-    geographyColumnInfos.add(
+            .setTypeText("GEOMETRY(3857)")
+            .setTypeName(ColumnInfoTypeName.GEOMETRY);
+    ColumnInfo geographyInfo =
         new ColumnInfo()
             .setName("geography_col")
-            .setTypeText("GEOGRAPHY")
-            .setTypeName(ColumnInfoTypeName.GEOGRAPHY));
+            .setTypeText("GEOGRAPHY(4326)")
+            .setTypeName(ColumnInfoTypeName.GEOGRAPHY);
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            0, ColumnInfoTypeName.STRING, "STRING", geometryInfo))
+        .thenReturn("SRID=3857;POINT(1 2)");
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            1, ColumnInfoTypeName.STRING, "STRING", geographyInfo))
+        .thenReturn("SRID=4326;POINT(3 4)");
 
-    ResultManifest geographyManifest =
-        new ResultManifest()
-            .setTotalChunkCount(0L)
-            .setTotalRowCount(1L)
-            .setSchema(new ResultSchema().setColumns(geographyColumnInfos).setColumnCount(1L));
-    ResultData geographyData = new ResultData().setExternalLinks(new ArrayList<>());
+    assertEquals(
+        "SRID=3857;POINT(1 2)",
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session,
+            chunkIterator,
+            0,
+            ColumnInfoTypeName.GEOMETRY,
+            "STRUCT<srid:INT,wkb:BINARY>",
+            geometryInfo));
+    assertEquals(
+        "SRID=4326;POINT(3 4)",
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session,
+            chunkIterator,
+            1,
+            ColumnInfoTypeName.GEOGRAPHY,
+            "STRUCT<srid:INT,wkb:BINARY>",
+            geographyInfo));
+    verify(chunkIterator)
+        .getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.STRING, "STRING", geometryInfo);
+    verify(chunkIterator)
+        .getColumnObjectAtCurrentRow(1, ColumnInfoTypeName.STRING, "STRING", geographyInfo);
+  }
 
-    ArrowStreamResult geographyResult =
-        new ArrowStreamResult(geographyManifest, geographyData, STATEMENT_ID, session);
+  @Test
+  public void testGeospatialSupportEnabledRequestsNativeTypes() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("EnableGeoSpatialSupport", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
 
-    // Verify that GEOGRAPHY type is handled when geospatial support is disabled
-    assertFalse(geographyResult.hasNext());
+    ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
+    ColumnInfo geometryInfo =
+        new ColumnInfo().setTypeName(ColumnInfoTypeName.GEOMETRY).setTypeText("GEOMETRY(3857)");
+    ColumnInfo geographyInfo =
+        new ColumnInfo().setTypeName(ColumnInfoTypeName.GEOGRAPHY).setTypeText("GEOGRAPHY(4326)");
+    DatabricksGeometry geometry = new DatabricksGeometry("POINT(1 2)", 3857);
+    DatabricksGeography geography = new DatabricksGeography("POINT(3 4)", 4326);
+    String arrowMetadata = "STRUCT<srid:INT,wkb:BINARY>";
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            0, ColumnInfoTypeName.GEOMETRY, arrowMetadata, geometryInfo))
+        .thenReturn(geometry);
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            1, ColumnInfoTypeName.GEOGRAPHY, arrowMetadata, geographyInfo))
+        .thenReturn(geography);
+
+    assertSame(
+        geometry,
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session, chunkIterator, 0, ColumnInfoTypeName.GEOMETRY, arrowMetadata, geometryInfo));
+    assertSame(
+        geography,
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session, chunkIterator, 1, ColumnInfoTypeName.GEOGRAPHY, arrowMetadata, geographyInfo));
+  }
+
+  @Test
+  public void testNestedGeospatialUsesConfiguredRepresentation() throws Exception {
+    String metadata = "STRUCT<geom:GEOMETRY(ANY)>";
+    ColumnInfo columnInfo =
+        new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
+    ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
+
+    Properties nativeProps = new Properties();
+    nativeProps.setProperty("EnableComplexDatatypeSupport", "1");
+    nativeProps.setProperty("EnableGeoSpatialSupport", "1");
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContextFactory.create(JDBC_URL, nativeProps));
+    DatabricksGeometry geometry = new DatabricksGeometry("POINT(1 2)", 3857);
+    DatabricksStruct nativeStruct = new DatabricksStruct(Map.of("geom", geometry), metadata);
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            0, ColumnInfoTypeName.STRUCT, metadata, columnInfo, true))
+        .thenReturn(nativeStruct);
+
+    assertSame(
+        nativeStruct,
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
+
+    Properties stringProps = new Properties();
+    stringProps.setProperty("EnableComplexDatatypeSupport", "1");
+    stringProps.setProperty("EnableGeoSpatialSupport", "0");
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContextFactory.create(JDBC_URL, stringProps));
+    DatabricksStruct stringStruct =
+        new DatabricksStruct(Map.of("geom", geometry.toString()), metadata);
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            0, ColumnInfoTypeName.STRUCT, metadata, columnInfo, false))
+        .thenReturn(stringStruct);
+
+    assertSame(
+        stringStruct,
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
+  }
+
+  @Test
+  public void testNestedGeospatialReturnsOuterStringWhenComplexSupportDisabled() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("EnableComplexDatatypeSupport", "0");
+    props.setProperty("EnableGeoSpatialSupport", "1");
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContextFactory.create(JDBC_URL, props));
+
+    String metadata = "STRUCT<geom:GEOMETRY(3857)>";
+    ColumnInfo columnInfo =
+        new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
+    ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            0, ColumnInfoTypeName.STRING, "STRING", columnInfo))
+        .thenReturn("{\"geom\":\"SRID=3857;POINT(1 2)\"}");
+
+    assertEquals(
+        "{\"geom\":\"SRID=3857;POINT(1 2)\"}",
+        ArrowStreamResult.getObjectWithComplexTypeHandling(
+            session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo));
+  }
+
+  @Test
+  public void testNestedGeospatialPreservesBinaryWhenComplexSupportDisabled() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("EnableComplexDatatypeSupport", "0");
+    props.setProperty("EnableGeoSpatialSupport", "1");
+    when(session.getConnectionContext())
+        .thenReturn(DatabricksConnectionContextFactory.create(JDBC_URL, props));
+
+    String metadata = "STRUCT<geom:GEOMETRY(4326),blob:BINARY>";
+    ColumnInfo columnInfo =
+        new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
+    ArrowResultChunkIterator chunkIterator = mock(ArrowResultChunkIterator.class);
+    when(chunkIterator.getColumnObjectAtCurrentRow(
+            0, ColumnInfoTypeName.STRING, "STRING", columnInfo))
+        .thenReturn("{\"geom\":\"SRID=4326;POINT(1 2)\",\"blob\":\"QUJD\"}");
+
+    String result =
+        (String)
+            ArrowStreamResult.getObjectWithComplexTypeHandling(
+                session, chunkIterator, 0, ColumnInfoTypeName.STRUCT, metadata, columnInfo);
+
+    assertEquals("{\"geom\":\"SRID=4326;POINT(1 2)\",\"blob\":\"QUJD\"}", result);
+    assertFalse(result.contains("[B@"));
+  }
+
+  @Test
+  public void testNestedGeospatialDoesNotChangeOtherScalarRepresentations() throws Exception {
+    String scalarTypes = "d:DECIMAL(38,18),day:DATE,ts:TIMESTAMP,ntz:TIMESTAMP_NTZ,blob:BINARY";
+    String scalarJson =
+        "\"d\":12345678901234567890.123456789012345678,\"day\":19723,"
+            + "\"ts\":1704067200123456,\"ntz\":[2024,1,1,0,0,0,123456000],\"blob\":\"QUJD\"";
+    for (String flag : new String[] {"0", "1"}) {
+      Properties props = new Properties();
+      props.setProperty("EnableComplexDatatypeSupport", "0");
+      props.setProperty("EnableGeoSpatialSupport", flag);
+      when(session.getConnectionContext())
+          .thenReturn(DatabricksConnectionContextFactory.create(JDBC_URL, props));
+      for (boolean includeGeo : new boolean[] {false, true}) {
+        String metadata = "STRUCT<" + scalarTypes + (includeGeo ? ",g:GEOMETRY(4326)>" : ">");
+        // Raw wire WKB for POINT(1 2), independent of the driver's writer.
+        String geoJson = ",\"g\":{\"srid\":4326,\"wkb\":\"AQEAAAAAAAAAAADwPwAAAAAAAABA\"}";
+        String raw = "{" + scalarJson + (includeGeo ? geoJson : "") + "}";
+        ColumnInfo info =
+            new ColumnInfo().setTypeName(ColumnInfoTypeName.STRUCT).setTypeText(metadata);
+        ArrowResultChunkIterator iterator = mock(ArrowResultChunkIterator.class);
+        when(iterator.getColumnObjectAtCurrentRow(0, ColumnInfoTypeName.STRING, "STRING", info))
+            .thenReturn(raw);
+        assertEquals(
+            "{" + scalarJson + (includeGeo ? ",\"g\":\"SRID=4326;POINT(1 2)\"" : "") + "}",
+            ArrowStreamResult.getObjectWithComplexTypeHandling(
+                session, iterator, 0, ColumnInfoTypeName.STRUCT, metadata, info));
+      }
+    }
   }
 
   @Test
@@ -841,6 +991,55 @@ public class ArrowStreamResultTest {
     assertNotNull(result);
     assertTrue(result.hasNext(), "Bounded-SEA result should have data");
     assertTrue(result.next());
+    assertDoesNotThrow(result::close);
+  }
+
+  @Test
+  public void testBoundedSeaApiUsesSeaInlineProviderForHybridInlineResult() throws Exception {
+    Properties props = new Properties();
+    props.setProperty("UseBoundedSeaApi", "1");
+    props.setProperty("EnableQueryResultDownload", "1");
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContextFactory.create(JDBC_URL, props);
+    DatabricksSession localSession = new DatabricksSession(connectionContext, mockedSdkClient);
+
+    Schema schema = createTestSchema();
+    Object[][] testData = createTestData(schema, (int) rowsInChunk);
+    byte[] attachment;
+    try (RootAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
+      File arrowFile = createTestArrowFile("HybridInlineTestFile", schema, testData, allocator);
+      attachment = Files.readAllBytes(arrowFile.toPath());
+      Files.deleteIfExists(arrowFile.toPath());
+    }
+
+    ResultManifest resultManifest =
+        new ResultManifest()
+            .setTotalChunkCount(2L)
+            .setTotalRowCount(rowsInChunk * 2)
+            .setResultCompression(CompressionCodec.NONE)
+            .setSchema(new ResultSchema().setColumns(new ArrayList<>()).setColumnCount(0L));
+    ResultData initialResultData = new ResultData();
+    initialResultData.setAttachment(attachment);
+    initialResultData.setRowCount(rowsInChunk);
+    initialResultData.setRowOffset(0L);
+    initialResultData.setNextChunkIndex(7L);
+    ResultData nextResultData = new ResultData();
+    nextResultData.setAttachment(attachment);
+    nextResultData.setRowCount(rowsInChunk);
+    nextResultData.setRowOffset(rowsInChunk);
+    when(mockedSdkClient.getResultChunksData(STATEMENT_ID, 7L, rowsInChunk))
+        .thenReturn(nextResultData);
+
+    ArrowStreamResult result =
+        new ArrowStreamResult(
+            resultManifest, initialResultData, STATEMENT_ID, localSession, mockHttpClient);
+
+    assertInstanceOf(SeaInlineArrowChunkProvider.class, result.getChunkProvider());
+    long rowCount = 0;
+    while (result.next()) {
+      rowCount++;
+    }
+    assertEquals(rowsInChunk * 2, rowCount);
     assertDoesNotThrow(result::close);
   }
 }

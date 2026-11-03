@@ -33,8 +33,7 @@ flowchart TD
     subgraph "DatabaseMetaData (getColumns, getTables, ...)"
         META[getMetaData.getColumns]
         META -->|SEA backend| SQL_META["Issues SQL:<br/>SHOW COLUMNS / SHOW TABLES / ..."]
-        META -->|Thrift backend<br/>useQueryForMetadata=0| THRIFT_RPC["Thrift RPC:<br/>TGetColumnsReq / TGetTablesReq / ..."]
-        META -->|Thrift backend<br/>useQueryForMetadata=1| SQL_META
+        META -->|Thrift backend| THRIFT_RPC["Thrift RPC:<br/>TGetColumnsReq / TGetTablesReq / ..."]
         SQL_META -->|"In MST"| BLOCKED["MSTCheckRule blocks it"]
         THRIFT_RPC -->|"In MST"| NONTXN_DATA["Succeeds but returns<br/>non-transactional data<br/>(sees concurrent DDL)"]
         BLOCKED --> EXCEPTION[SQLException thrown]

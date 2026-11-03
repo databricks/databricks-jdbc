@@ -91,4 +91,81 @@ public class DecompressionUtilTest {
         DecompressionUtil.decompress(
             (ByteArrayInputStream) null, CompressionCodec.LZ4_FRAME, CONTEXT));
   }
+
+  @Test
+  public void testDecompressLazyLZ4Frame() throws Exception {
+    byte[] uncompressed = INITIAL_STRING.getBytes();
+    byte[] compressed = compressBytes(uncompressed);
+
+    InputStream result =
+        DecompressionUtil.decompressLazy(compressed, CompressionCodec.LZ4_FRAME, CONTEXT);
+    assertNotNull(result);
+    assertTrue(IOUtils.contentEquals(result, new ByteArrayInputStream(uncompressed)));
+  }
+
+  @Test
+  public void testDecompressLazyNoneCodec() throws Exception {
+    byte[] data = INITIAL_STRING.getBytes();
+    InputStream result = DecompressionUtil.decompressLazy(data, CompressionCodec.NONE, CONTEXT);
+    assertNotNull(result);
+    assertTrue(IOUtils.contentEquals(result, new ByteArrayInputStream(data)));
+  }
+
+  @Test
+  public void testDecompressLazyNullCodec() throws Exception {
+    byte[] data = INITIAL_STRING.getBytes();
+    InputStream result = DecompressionUtil.decompressLazy(data, null, CONTEXT);
+    assertNotNull(result);
+    assertTrue(IOUtils.contentEquals(result, new ByteArrayInputStream(data)));
+  }
+
+  @Test
+  public void testDecompressLazyNullInput() throws Exception {
+    InputStream result =
+        DecompressionUtil.decompressLazy(null, CompressionCodec.LZ4_FRAME, CONTEXT);
+    assertNull(result);
+  }
+
+  @Test
+  public void testDecompressLazyNullInputNullCodec() throws Exception {
+    InputStream result = DecompressionUtil.decompressLazy(null, null, CONTEXT);
+    assertNull(result);
+  }
+
+  @Test
+  public void testDecompressLazyHighlyCompressibleData() throws Exception {
+    // Large repetitive data — high compression ratio
+    byte[] largeData = new byte[1_000_000];
+    java.util.Arrays.fill(largeData, (byte) 'A');
+    byte[] compressed = compressBytes(largeData);
+
+    // Compressed should be much smaller
+    assertTrue(
+        compressed.length < largeData.length / 10,
+        "Compressed size should be much smaller for repetitive data");
+
+    InputStream result =
+        DecompressionUtil.decompressLazy(compressed, CompressionCodec.LZ4_FRAME, CONTEXT);
+    assertNotNull(result);
+    byte[] decompressed = IOUtils.toByteArray(result);
+    assertArrayEquals(largeData, decompressed);
+  }
+
+  @Test
+  public void testDecompressLazyCorruptedDataFailsOnRead() throws Exception {
+    byte[] corrupted = new byte[] {0x01, 0x02, 0x03, 0x04};
+    // decompressLazy is lazy — creation succeeds, but reading the stream fails
+    InputStream stream =
+        DecompressionUtil.decompressLazy(corrupted, CompressionCodec.LZ4_FRAME, CONTEXT);
+    assertNotNull(stream);
+    assertThrows(IOException.class, () -> IOUtils.toByteArray(stream));
+  }
+
+  private static byte[] compressBytes(byte[] data) throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (LZ4FrameOutputStream lz4 = new LZ4FrameOutputStream(out)) {
+      lz4.write(data);
+    }
+    return out.toByteArray();
+  }
 }

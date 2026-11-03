@@ -2,6 +2,7 @@ package com.databricks.jdbc.dbclient.impl.common;
 
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.*;
 import static com.databricks.jdbc.common.util.DatabricksAuthUtil.initializeConfigWithToken;
+import static com.databricks.jdbc.common.util.DatabricksAuthUtil.parseOAuthScopes;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.auth.*;
@@ -18,6 +19,7 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.WorkspaceClient;
 import com.databricks.sdk.core.*;
 import com.databricks.sdk.core.commons.CommonsHttpClient;
+import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.oauth.AzureServicePrincipalCredentialsProvider;
 import com.databricks.sdk.core.oauth.ExternalBrowserCredentialsProvider;
 import com.databricks.sdk.core.oauth.OAuthM2MServicePrincipalCredentialsProvider;
@@ -34,6 +36,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 
@@ -57,7 +60,7 @@ public class ClientConfigurator implements Closeable {
     httpClientBuilder.withTimeoutSeconds(connectionContext.getSocketTimeout());
     setupProxyConfig(httpClientBuilder);
     setupConnectionManager(httpClientBuilder);
-    this.databricksConfig.setHttpClient(httpClientBuilder.build());
+    this.databricksConfig.setHttpClient(withIdleConnectionExpiry(httpClientBuilder.build()));
     setupDiscoveryEndpoint();
     setupAuthConfig();
     this.databricksConfig.resolve();
@@ -129,6 +132,21 @@ public class ClientConfigurator implements Closeable {
     connManager.setDefaultMaxPerRoute(connectionContext.getHttpMaxConnectionsPerRoute());
     httpClientBuilder.withConnectionManager(connManager);
     this.sdkConnectionManager = connManager;
+  }
+
+  /**
+   * Closes pooled connections idle longer than IdleHttpConnectionExpiry before each request. The
+   * workspace front end drops requests sent just before it closes an idle keep-alive connection.
+   */
+  private HttpClient withIdleConnectionExpiry(HttpClient delegate) {
+    int expirySeconds = connectionContext.getIdleHttpConnectionExpiry();
+    if (expirySeconds <= 0) {
+      return delegate;
+    }
+    return request -> {
+      sdkConnectionManager.closeIdleConnections(expirySeconds, TimeUnit.SECONDS);
+      return delegate.execute(request);
+    };
   }
 
   /** Set up proxy settings in the databricks config. */
@@ -390,6 +408,10 @@ public class ClientConfigurator implements Closeable {
             .setAuthType(jwtProvider.authType())
             .setCredentialsProvider(wrapWithTokenFederationIfEnabled(jwtProvider));
       } else {
+        List<String> scopes = parseOAuthScopes(connectionContext.getAuthScope());
+        if (!scopes.isEmpty()) {
+          databricksConfig.setScopes(new ArrayList<>(scopes));
+        }
         CredentialsProvider m2mProvider = new OAuthM2MServicePrincipalCredentialsProvider();
         databricksConfig
             .setAuthType(DatabricksJdbcConstants.M2M_AUTH_TYPE)

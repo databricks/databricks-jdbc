@@ -9,7 +9,6 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.HeaderFactory;
 import com.databricks.sdk.core.oauth.Token;
 import com.google.common.annotations.VisibleForTesting;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.http.HttpHeaders;
@@ -43,7 +42,7 @@ public class PrivateKeyClientCredentialProvider implements CredentialsProvider {
         .withJwtKeyPassphrase(connectionContext.getJWTPassphrase())
         .withJwtAlgorithm(connectionContext.getJWTAlgorithm())
         .withTokenUrl(tokenEndpoint)
-        .withScopes(Collections.singletonList(connectionContext.getAuthScope()))
+        .withScopes(DatabricksAuthUtil.parseOAuthScopes(connectionContext.getAuthScope()))
         .build();
   }
 

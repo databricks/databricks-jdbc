@@ -16,6 +16,9 @@ public class StatementStatus {
   @JsonProperty("sql_state")
   private String sqlState;
 
+  @JsonProperty("session_version")
+  private SessionVersion sessionVersion;
+
   public StatementStatus() {}
 
   public StatementStatus setError(ServiceError error) {
@@ -45,6 +48,15 @@ public class StatementStatus {
     return this.sqlState;
   }
 
+  public StatementStatus setSessionVersion(SessionVersion sessionVersion) {
+    this.sessionVersion = sessionVersion;
+    return this;
+  }
+
+  public SessionVersion getSessionVersion() {
+    return sessionVersion;
+  }
+
   public boolean equals(Object o) {
     if (this == o) {
       return true;
@@ -52,14 +64,15 @@ public class StatementStatus {
       StatementStatus that = (StatementStatus) o;
       return Objects.equals(this.error, that.error)
           && Objects.equals(this.state, that.state)
-          && Objects.equals(this.sqlState, that.sqlState);
+          && Objects.equals(this.sqlState, that.sqlState)
+          && Objects.equals(this.sessionVersion, that.sessionVersion);
     } else {
       return false;
     }
   }
 
   public int hashCode() {
-    return Objects.hash(new Object[] {this.error, this.state, this.sqlState});
+    return Objects.hash(new Object[] {this.error, this.state, this.sqlState, this.sessionVersion});
   }
 
   public String toString() {
@@ -67,6 +80,7 @@ public class StatementStatus {
         .add("error", this.error)
         .add("state", this.state)
         .add("sqlState", this.sqlState)
+        .add("sessionVersion", this.sessionVersion)
         .toString();
   }
 }

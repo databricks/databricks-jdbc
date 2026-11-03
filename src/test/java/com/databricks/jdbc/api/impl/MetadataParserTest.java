@@ -187,6 +187,41 @@ public class MetadataParserTest {
         "Parsed map metadata with nested MAP value type should match expected key and value types.");
   }
 
+  @Test
+  public void testContainsGeospatialTypeAtAnyNestingDepth() {
+    assertTrue(MetadataParser.containsGeospatialType("GEOMETRY(3857)"));
+    assertTrue(MetadataParser.containsGeospatialType("ARRAY<GEOGRAPHY(4326)>"));
+    assertTrue(
+        MetadataParser.containsGeospatialType(
+            "STRUCT<id:INT,nested:MAP<STRING,ARRAY<GEOMETRY(ANY)>>>"));
+    assertFalse(MetadataParser.containsGeospatialType("STRUCT<geometry:STRING>"));
+    assertFalse(MetadataParser.containsGeospatialType("MAP<STRING,ARRAY<INT>>"));
+    assertFalse(MetadataParser.containsGeospatialType(null));
+  }
+
+  @Test
+  public void testQuotedStructFieldDelimitersAreNotParsedAsTypeSyntax() {
+    Map<String, String> expected = new LinkedHashMap<>();
+    expected.put("a,b", "INT");
+    expected.put("c:d", "GEOMETRY(4326)");
+
+    assertEquals(
+        expected, MetadataParser.parseStructMetadata("STRUCT<`a,b`:INT,`c:d`:GEOMETRY(4326)>"));
+    assertFalse(MetadataParser.containsGeospatialType("STRUCT<`a,b`:INT>"));
+    assertTrue(
+        MetadataParser.containsGeospatialType("STRUCT<`a,b`:INT,`geometry`:GEOMETRY(4326)>"));
+  }
+
+  @Test
+  public void testParseMapMetadataWithDecimalKeyAndGeospatialValue() {
+    assertEquals(
+        "DECIMAL(10,2), GEOMETRY(ANY)",
+        MetadataParser.parseMapMetadata("MAP<DECIMAL(10,2),GEOMETRY(ANY)>"));
+    assertArrayEquals(
+        new String[] {"DECIMAL(10,2)", "GEOMETRY(ANY)"},
+        MetadataParser.parseMapMetadataParts("MAP<DECIMAL(10,2),GEOMETRY(ANY)>"));
+  }
+
   /**
    * Test parsing of MAP metadata with invalid format (missing comma). Expects
    * IllegalArgumentException.

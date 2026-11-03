@@ -12,10 +12,14 @@ import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import java.io.IOException;
 import java.nio.file.Path;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -200,9 +204,24 @@ public class PrivateKeyClientCredentialProviderTest {
   }
 
   @Test
-  void should_HandleNullScope() throws IOException {
+  void should_NormalizeMultipleScopesInTokenRequest() throws Exception {
+    assertTokenRequestScope(" sql   jobs ", "sql jobs");
+  }
+
+  @Test
+  void should_OmitBlankScopeFromTokenRequest() throws Exception {
+    assertTokenRequestScope("   ", null);
+  }
+
+  @Test
+  void should_HandleNullScope() throws Exception {
+    assertTokenRequestScope(null, null);
+  }
+
+  private void assertTokenRequestScope(String configuredScope, String expectedScope)
+      throws Exception {
     setup();
-    when(context.getAuthScope()).thenReturn(null);
+    when(context.getAuthScope()).thenReturn(configuredScope);
 
     try (MockedStatic<DatabricksHttpClientFactory> factoryMocked =
         mockStatic(DatabricksHttpClientFactory.class)) {
@@ -210,13 +229,28 @@ public class PrivateKeyClientCredentialProviderTest {
       factoryMocked.when(DatabricksHttpClientFactory::getInstance).thenReturn(mockFactory);
       when(mockFactory.getClient(any())).thenReturn(httpClient);
       when(config.getOidcEndpoints()).thenReturn(TEST_OIDC_ENDPOINTS);
+      org.apache.http.HttpEntity httpEntity = mock(org.apache.http.HttpEntity.class);
+      org.apache.http.client.methods.CloseableHttpResponse httpResponse =
+          mock(org.apache.http.client.methods.CloseableHttpResponse.class);
+      when(httpClient.execute(any())).thenReturn(httpResponse);
+      when(httpResponse.getEntity()).thenReturn(httpEntity);
+      when(httpEntity.getContent())
+          .thenReturn(new java.io.ByteArrayInputStream(TEST_OAUTH_RESPONSE.getBytes()));
 
       PrivateKeyClientCredentialProvider provider =
           new PrivateKeyClientCredentialProvider(context, config);
+      provider.configure(config).headers();
 
-      JwtPrivateKeyClientCredentials clientCredentials = provider.getClientCredentialObject(config);
-
-      assertEquals(TEST_TOKEN_URL, clientCredentials.getTokenEndpoint());
+      ArgumentCaptor<HttpUriRequest> requestCaptor = ArgumentCaptor.forClass(HttpUriRequest.class);
+      verify(httpClient).execute(requestCaptor.capture());
+      HttpPost request = (HttpPost) requestCaptor.getValue();
+      String actualScope =
+          URLEncodedUtils.parse(request.getEntity()).stream()
+              .filter(parameter -> "scope".equals(parameter.getName()))
+              .map(parameter -> parameter.getValue())
+              .findFirst()
+              .orElse(null);
+      assertEquals(expectedScope, actualScope);
     }
   }
 }

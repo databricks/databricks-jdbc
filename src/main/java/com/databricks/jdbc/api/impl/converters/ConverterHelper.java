@@ -472,11 +472,16 @@ public class ConverterHelper {
    */
   public static Object convertSqlTypeToSpecificJavaType(
       Class<?> javaType, int columnSqlType, Object obj) throws DatabricksSQLException {
+    return convertSqlTypeToSpecificJavaType(javaType, columnSqlType, null, obj);
+  }
+
+  public static Object convertSqlTypeToSpecificJavaType(
+      Class<?> javaType, int columnSqlType, String columnTypeName, Object obj)
+      throws DatabricksSQLException {
     if (obj == null) {
       return null;
     }
-    // Get the appropriate converter for the SQL type
-    ObjectConverter converter = getConverterForSqlType(columnSqlType);
+    ObjectConverter converter = getConverterForColumnType(columnSqlType, columnTypeName);
     if (javaType == String.class) {
       return converter.toString(obj);
     } else if (javaType == BigDecimal.class) {
@@ -546,7 +551,8 @@ public class ConverterHelper {
   public static ObjectConverter getConverterForColumnType(
       int columnSqlType, String columnTypeName) {
     if (columnTypeName != null) {
-      if (columnTypeName.equals(GEOMETRY) || columnTypeName.equals(GEOGRAPHY)) {
+      String baseTypeName = columnTypeName.split("\\(", 2)[0].trim().toUpperCase(Locale.ROOT);
+      if (baseTypeName.equals(GEOMETRY) || baseTypeName.equals(GEOGRAPHY)) {
         return GEOSPATIAL_CONVERTER;
       }
     }
