@@ -103,18 +103,21 @@ class PreparedStatementBatchExecutorTest {
 
   @Test
   void unsupportedNativeExecutorFallsBackToLegacyExecution() throws Exception {
-    setBatchedInsertsEnabled(false);
+    setBatchedInsertsEnabled(true);
     when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
     when(nativeBatchExecutor.isSupported()).thenReturn(false);
-    List<BatchParameterSet> batch = createBatch(1);
-    when(statementExecutor.execute(eq(INSERT_SQL), anyMap(), eq(StatementType.UPDATE), eq(false)))
+    List<BatchParameterSet> batch = createBatch(2);
+    when(statementExecutor.execute(
+            eq(multiRowInsert(2)), anyMap(), eq(StatementType.UPDATE), eq(false)))
         .thenReturn(firstResultSet);
-    when(firstResultSet.getUpdateCount()).thenReturn(6L);
 
     long[] counts = newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch);
 
-    assertArrayEquals(new long[] {6}, counts);
+    assertArrayEquals(new long[] {1, 1}, counts);
+    verify(nativeBatchExecutor).isSupported();
     verify(nativeBatchExecutor, never()).execute(anyString(), eq(batch));
+    verify(statementExecutor)
+        .execute(eq(multiRowInsert(2)), anyMap(), eq(StatementType.UPDATE), eq(false));
   }
 
   @Test
