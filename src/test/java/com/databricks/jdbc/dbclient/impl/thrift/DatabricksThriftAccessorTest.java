@@ -1516,6 +1516,7 @@ public class DatabricksThriftAccessorTest {
                                     List.of("private-column-name", "private-column-comment"))))));
     assertSame(results.getResultSet(), accessor.getThriftResponse(request));
 
+    results.getOperationStatus().setErrorMessage("operation failure detail").setSqlState("HY000");
     results
         .getResultSet()
         .setStatus(
@@ -1523,6 +1524,7 @@ public class DatabricksThriftAccessorTest {
                 .setSqlState(QUERY_EXECUTION_TIMEOUT_SQLSTATE)
                 .setErrorMessage("metadata timed out")
                 .setErrorCode(123)
+                .setDisplayMessage("metadata display detail")
                 .setInfoMessages(List.of("internal-metadata-stack"))
                 .setErrorDetailsJson("private-metadata-details"));
     try (LogCapture logs = new LogCapture()) {
@@ -1533,6 +1535,8 @@ public class DatabricksThriftAccessorTest {
       assertTrue(
           error.getMessage().contains("sqlState [" + QUERY_EXECUTION_TIMEOUT_SQLSTATE + "]"));
       assertTrue(error.getMessage().contains("errorCode [123]"));
+      assertTrue(error.getMessage().contains("operationErrorMessage [operation failure detail]"));
+      assertTrue(error.getMessage().contains("operationSqlState [HY000]"));
       assertTrue(error.getMessage().contains(StatementId.loggableStatementId(handle)));
       assertEquals(QUERY_EXECUTION_TIMEOUT_SQLSTATE, error.getSQLState());
       assertInstanceOf(DatabricksTimeoutException.class, error.getCause());
@@ -1544,10 +1548,37 @@ public class DatabricksThriftAccessorTest {
           List.of(
               "private-column-name",
               "private-column-comment",
+              "metadata display detail",
               "internal-metadata-stack",
               "private-metadata-details")) {
         assertFalse(error.getMessage().contains(excluded));
         assertFalse(logs.getOutput().contains(excluded));
+      }
+    }
+
+    for (String missingMessage : new String[] {null, ""}) {
+      results.getResultSet().getStatus().setErrorMessage(missingMessage);
+      try (LogCapture logs = new LogCapture()) {
+        SQLException error =
+            assertThrows(SQLException.class, () -> accessor.getThriftResponse(request));
+        for (String detail :
+            List.of(
+                "errorCode=123",
+                "metadata display detail",
+                "internal-metadata-stack",
+                "private-metadata-details",
+                "operationErrorMessage [operation failure detail]",
+                "operationSqlState [HY000]")) {
+          assertTrue(error.getMessage().contains(detail));
+        }
+        assertEquals(QUERY_EXECUTION_TIMEOUT_SQLSTATE, error.getSQLState());
+        assertInstanceOf(DatabricksTimeoutException.class, error.getCause());
+        assertEquals(0, error.getErrorCode());
+        for (String excluded :
+            List.of("private-column-name", "private-column-comment", "secret:")) {
+          assertFalse(error.getMessage().contains(excluded));
+          assertFalse(logs.getOutput().contains(excluded));
+        }
       }
     }
     assertArrayEquals(

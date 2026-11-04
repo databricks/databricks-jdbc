@@ -760,15 +760,19 @@ final class DatabricksThriftAccessor {
     if (response.isSet(directResultsField)) {
       TSparkDirectResults directResults =
           (TSparkDirectResults) response.getFieldValue(directResultsField);
+      TGetOperationStatusResp directOperationStatus = directResults.getOperationStatus();
       checkDirectResultsForErrorStatus(
           directResults,
           status ->
               String.format(
-                  "%s errorMessage [%s], sqlState [%s], errorCode [%s]",
+                  "%s errorMessage [%s], sqlState [%s], errorCode [%s], "
+                      + "operationErrorMessage [%s], operationSqlState [%s]",
                   response.getClass().getSimpleName(),
-                  status.getErrorMessage(),
+                  enrichErrorMessage(status),
                   status.getSqlState(),
-                  status.isSetErrorCode() ? status.getErrorCode() : null),
+                  status.isSetErrorCode() ? status.getErrorCode() : null,
+                  directOperationStatus == null ? null : directOperationStatus.getErrorMessage(),
+                  directOperationStatus == null ? null : directOperationStatus.getSqlState()),
           statementId);
       statusResp = directResults.getOperationStatus();
       checkOperationStatusForErrors(statusResp, statementId);
@@ -935,35 +939,6 @@ final class DatabricksThriftAccessor {
       throw new DatabricksSQLException(
           errorMsg, remappedSqlState, DatabricksDriverErrorCode.EXECUTE_STATEMENT_FAILED);
     }
-  }
-
-  /**
-   * Enriches a null or empty error message from TStatus by including errorCode, errorDetailsJson,
-   * and infoMessages. Returns the original errorMessage if it is already present.
-   */
-  private String enrichErrorMessage(TStatus status) {
-    if (status == null) {
-      return "no error details from server";
-    }
-    String errorMessage = status.getErrorMessage();
-    if (errorMessage != null && !errorMessage.isEmpty()) {
-      return errorMessage;
-    }
-    StringBuilder detail = new StringBuilder();
-    if (status.isSetErrorCode()) {
-      detail.append("errorCode=").append(status.getErrorCode());
-    }
-    if (status.isSetErrorDetailsJson()
-        && status.getErrorDetailsJson() != null
-        && !status.getErrorDetailsJson().isEmpty()) {
-      if (detail.length() > 0) detail.append(", ");
-      detail.append("details=").append(status.getErrorDetailsJson());
-    }
-    if (status.isSetInfoMessages() && status.getInfoMessages() != null) {
-      if (detail.length() > 0) detail.append(", ");
-      detail.append("infoMessages=").append(status.getInfoMessages());
-    }
-    return detail.length() > 0 ? detail.toString() : "no error details from server";
   }
 
   /**

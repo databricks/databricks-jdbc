@@ -131,6 +131,42 @@ public class DatabricksThriftUtil {
     }
   }
 
+  /** Returns the server error, falling back to available status diagnostics. */
+  public static String enrichErrorMessage(TStatus status) {
+    if (status == null) {
+      return "no error details from server";
+    }
+    String errorMessage = status.getErrorMessage();
+    if (errorMessage != null && !errorMessage.isEmpty()) {
+      return errorMessage;
+    }
+    StringBuilder detail = new StringBuilder();
+    if (status.isSetErrorCode()) {
+      detail.append("errorCode=").append(status.getErrorCode());
+    }
+    if (status.getDisplayMessage() != null && !status.getDisplayMessage().isEmpty()) {
+      if (detail.length() > 0) {
+        detail.append(", ");
+      }
+      detail.append("displayMessage=").append(status.getDisplayMessage());
+    }
+    if (status.isSetErrorDetailsJson()
+        && status.getErrorDetailsJson() != null
+        && !status.getErrorDetailsJson().isEmpty()) {
+      if (detail.length() > 0) {
+        detail.append(", ");
+      }
+      detail.append("details=").append(status.getErrorDetailsJson());
+    }
+    if (status.isSetInfoMessages() && status.getInfoMessages() != null) {
+      if (detail.length() > 0) {
+        detail.append(", ");
+      }
+      detail.append("infoMessages=").append(status.getInfoMessages());
+    }
+    return detail.length() > 0 ? detail.toString() : "no error details from server";
+  }
+
   public static int getColumnCount(TGetResultSetMetadataResp resultManifest) {
     if (resultManifest == null || resultManifest.getSchema() == null) {
       return 0;
