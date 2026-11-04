@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.http;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.THRIFT_ERROR_MESSAGE_HEADER;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.util.NetworkRetryUtil;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -38,9 +39,16 @@ public class DatabricksHttpRetryHandler
   private static final int MAX_NETWORK_RETRIES = 3;
 
   private final IDatabricksConnectionContext connectionContext;
+  private final boolean retryConnectionFailures;
 
   public DatabricksHttpRetryHandler(IDatabricksConnectionContext connectionContext) {
+    this(connectionContext, HttpClientType.COMMON);
+  }
+
+  DatabricksHttpRetryHandler(
+      IDatabricksConnectionContext connectionContext, HttpClientType clientType) {
     this.connectionContext = connectionContext;
+    this.retryConnectionFailures = clientType == HttpClientType.COMMON;
   }
 
   /**
@@ -131,10 +139,16 @@ public class DatabricksHttpRetryHandler
   @Override
   public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
     if (NetworkRetryUtil.isRetryableConnectionFailure(exception)) {
-      if (executionCount > MAX_NETWORK_RETRIES) {
+      if (!retryConnectionFailures || executionCount > MAX_NETWORK_RETRIES) {
         return false;
       }
-      doSleepForDelay(calculateExponentialBackoff(executionCount));
+      long delayMillis = calculateExponentialBackoff(executionCount);
+      LOGGER.debug(
+          "Retrying connection failure after execution {} in {} ms ({})",
+          executionCount,
+          delayMillis,
+          exception.getClass().getSimpleName());
+      doSleepForDelay(delayMillis);
       return true;
     }
 

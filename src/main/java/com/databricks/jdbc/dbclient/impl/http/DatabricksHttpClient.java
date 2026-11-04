@@ -168,7 +168,7 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
     DatabricksHttpRetryHandler retryHandler =
         type.equals(HttpClientType.VOLUME)
             ? new UCVolumeHttpRetryHandler(connectionContext)
-            : new DatabricksHttpRetryHandler(connectionContext);
+            : new DatabricksHttpRetryHandler(connectionContext, type);
     HttpClientBuilder builder =
         HttpClientBuilder.create()
             .setConnectionManager(connectionManager)

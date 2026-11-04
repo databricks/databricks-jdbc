@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import java.io.IOException;
 import java.net.BindException;
@@ -58,7 +59,12 @@ public class DatabricksHttpRetryHandlerTest {
 
   private class TestDatabricksHttpRetryHandler extends DatabricksHttpRetryHandler {
     TestDatabricksHttpRetryHandler(IDatabricksConnectionContext connectionContext) {
-      super(connectionContext);
+      this(connectionContext, HttpClientType.COMMON);
+    }
+
+    TestDatabricksHttpRetryHandler(
+        IDatabricksConnectionContext connectionContext, HttpClientType clientType) {
+      super(connectionContext, clientType);
     }
 
     @Override
@@ -84,6 +90,33 @@ public class DatabricksHttpRetryHandlerTest {
   void retriesConnectionFailuresWithBackoff(IOException failure) {
     assertTrue(retryHandler.retryRequest(failure, 1, httpContext));
     assertEquals(List.of(2000L), sleepDurations);
+  }
+
+  @ParameterizedTest
+  @MethodSource("retryableConnectionFailures")
+  void telemetryDoesNotRetryConnectionFailures(IOException failure) {
+    retryHandler =
+        new TestDatabricksHttpRetryHandler(mockConnectionContext, HttpClientType.TELEMETRY);
+    assertFalse(retryHandler.retryRequest(failure, 1, httpContext));
+    assertTrue(sleepDurations.isEmpty());
+  }
+
+  @Test
+  void telemetryPreservesHttpStatusRetries() {
+    retryHandler =
+        new TestDatabricksHttpRetryHandler(mockConnectionContext, HttpClientType.TELEMETRY);
+    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
+    when(mockConnectionContext.getRateLimitRetryTimeout()).thenReturn(10);
+    httpContext.setAttribute(HttpCoreContext.HTTP_REQUEST, createRequest("POST", "/telemetry"));
+    DatabricksRetryHandlerException failure =
+        assertThrows(
+            DatabricksRetryHandlerException.class,
+            () ->
+                retryHandler.process(
+                    createResponse(HttpStatus.SC_TOO_MANY_REQUESTS, "1"), httpContext));
+
+    assertTrue(retryHandler.retryRequest(failure, 1, httpContext));
+    assertEquals(List.of(1000L), sleepDurations);
   }
 
   static Stream<IOException> retryableConnectionFailures() {

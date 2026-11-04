@@ -6,17 +6,20 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.sdk.core.ProxyConfig;
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.*;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
+import org.apache.http.client.HttpRequestRetryHandler;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -31,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -53,6 +57,24 @@ public class DatabricksHttpClientTest {
   @AfterEach
   public void tearDown() {
     DatabricksHttpClientFactory.getInstance().reset();
+  }
+
+  @Test
+  void telemetryClientDoesNotRetryConnectionFailures() throws IOException {
+    when(mockConnectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    HttpClientBuilder builder = mock(HttpClientBuilder.class, RETURNS_SELF);
+    when(builder.build()).thenReturn(mockHttpClient);
+    try (MockedStatic<HttpClientBuilder> builders = mockStatic(HttpClientBuilder.class)) {
+      builders.when(HttpClientBuilder::create).thenReturn(builder);
+      try (DatabricksHttpClient client =
+          new DatabricksHttpClient(mockConnectionContext, HttpClientType.TELEMETRY)) {
+        ArgumentCaptor<HttpRequestRetryHandler> handler =
+            ArgumentCaptor.forClass(HttpRequestRetryHandler.class);
+        verify(builder).setRetryHandler(handler.capture());
+        assertFalse(
+            handler.getValue().retryRequest(new ConnectException("Connection refused"), 1, null));
+      }
+    }
   }
 
   @Test
