@@ -28,6 +28,7 @@ import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
@@ -502,6 +503,36 @@ public class DatabricksThriftAccessorTest {
     DatabricksResultSet resultSet = accessor.getStatementResult(tOperationHandle, null, session);
     assertEquals(StatementState.RUNNING, resultSet.getStatementStatus().getState());
     assertNull(resultSet.getMetaData());
+  }
+
+  @Test
+  void testGetStatementResultTransportErrorExcludesHandle() throws Exception {
+    setup(false);
+    TOperationHandle handle = spy(tOperationHandle.deepCopy());
+    lenient()
+        .doThrow(new AssertionError("Operation handle must not be dumped"))
+        .when(handle)
+        .toString();
+    TException failure = new TException("RPC failed");
+    when(thriftClient.GetOperationStatus(any(TGetOperationStatusReq.class))).thenThrow(failure);
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksHttpException error =
+          assertThrows(
+              DatabricksHttpException.class,
+              () -> accessor.getStatementResult(handle, parentStatement, session));
+      assertEquals(
+          String.format(
+              "Error while receiving response from Thrift server. StatementId {%s}, Error {RPC failed}",
+              StatementId.loggableStatementId(handle)),
+          error.getMessage());
+      assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
+      assertEquals(0, error.getErrorCode());
+      assertSame(failure, error.getCause());
+      assertTrue(logs.getOutput().contains(StatementId.loggableStatementId(handle)));
+      assertFalse(logs.getOutput().contains("secret:"));
+      assertFalse(logs.getOutput().contains(TEST_STMT_ID.split("\\|")[1]));
+    }
   }
 
   @Test
@@ -1451,6 +1482,14 @@ public class DatabricksThriftAccessorTest {
                   "Unexpected Thrift RPC: " + invocation.getMethod().getName());
             });
     setup(true);
+    TSessionHandle sessionHandle = spy(new TSessionHandle(handleIdentifier.deepCopy()));
+    lenient()
+        .doThrow(new AssertionError("Metadata session handle must not be dumped"))
+        .when(sessionHandle)
+        .toString();
+    request.setFieldValue(
+        request.fieldForId(TGetFunctionsReq._Fields.SESSION_HANDLE.getThriftFieldId()),
+        sessionHandle);
     TOperationHandle handle = spy(tOperationHandle.deepCopy());
     lenient()
         .doThrow(new AssertionError("Operation handle must not be dumped"))
@@ -1458,27 +1497,42 @@ public class DatabricksThriftAccessorTest {
         .toString();
     TSparkDirectResults results = spy(directResults.deepCopy());
     lenient()
-        .doThrow(new AssertionError("Successful metadata must not render direct results"))
+        .doThrow(new AssertionError("Metadata must not render direct results"))
         .when(results)
         .toString();
     response.setFieldValue(
         response.fieldForId(STATUS_FIELD_ID), new TStatus(TStatusCode.SUCCESS_STATUS));
     response.setFieldValue(response.fieldForId(OPERATION_HANDLE_FIELD_ID), handle);
     response.setFieldValue(response.fieldForId(DIRECT_RESULTS_FIELD_ID), results);
+    results
+        .getResultSet()
+        .setResults(
+            new TRowSet()
+                .setColumns(
+                    List.of(
+                        TColumn.stringVal(
+                            new TStringColumn()
+                                .setValues(
+                                    List.of("private-column-name", "private-column-comment"))))));
     assertSame(results.getResultSet(), accessor.getThriftResponse(request));
-    doCallRealMethod().when(results).toString();
 
     results
         .getResultSet()
         .setStatus(
             new TStatus(TStatusCode.ERROR_STATUS)
                 .setSqlState(QUERY_EXECUTION_TIMEOUT_SQLSTATE)
-                .setErrorMessage("metadata timed out"));
+                .setErrorMessage("metadata timed out")
+                .setErrorCode(123)
+                .setInfoMessages(List.of("internal-metadata-stack"))
+                .setErrorDetailsJson("private-metadata-details"));
     try (LogCapture logs = new LogCapture()) {
       SQLException error =
           assertThrows(SQLException.class, () -> accessor.getThriftResponse(request));
       assertTrue(error.getMessage().contains(response.getClass().getSimpleName()));
       assertTrue(error.getMessage().contains("metadata timed out"));
+      assertTrue(
+          error.getMessage().contains("sqlState [" + QUERY_EXECUTION_TIMEOUT_SQLSTATE + "]"));
+      assertTrue(error.getMessage().contains("errorCode [123]"));
       assertTrue(error.getMessage().contains(StatementId.loggableStatementId(handle)));
       assertEquals(QUERY_EXECUTION_TIMEOUT_SQLSTATE, error.getSQLState());
       assertInstanceOf(DatabricksTimeoutException.class, error.getCause());
@@ -1486,6 +1540,15 @@ public class DatabricksThriftAccessorTest {
       assertFalse(logs.getOutput().isEmpty());
       assertFalse(logs.getOutput().contains("secret:"));
       assertFalse(logs.getOutput().contains(TEST_STMT_ID.split("\\|")[1]));
+      for (String excluded :
+          List.of(
+              "private-column-name",
+              "private-column-comment",
+              "internal-metadata-stack",
+              "private-metadata-details")) {
+        assertFalse(error.getMessage().contains(excluded));
+        assertFalse(logs.getOutput().contains(excluded));
+      }
     }
     assertArrayEquals(
         tOperationHandle.getOperationId().getSecret(), handle.getOperationId().getSecret());
