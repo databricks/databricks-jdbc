@@ -117,6 +117,19 @@ Optional parameters:
 
 The driver supports logging configuration via JDBC URL parameters or system properties. For detailed configuration options, see [Logging Documentation](./docs/LOGGING.md).
 
+### Network retries
+
+Thrift and SQL Execution API (SEA) requests retry connection failures up to three times.
+Thrift waits 2, 4, and 8 seconds between attempts; SEA uses the SDK's backoff.
+Network retry decisions are limited to an elapsed-time window of `socketTimeout` seconds,
+including the initial attempt (900 seconds by default). If `socketTimeout` is zero, the
+retry window remains 900 seconds. This window does not interrupt an attempt already in
+progress, and HTTP-status retries use their existing policies.
+
+DNS lookup failures are retried because Java's `UnknownHostException` can represent both
+temporary resolver failures and invalid hostnames. A mistyped hostname can therefore add
+up to 14 seconds of backoff in Thrift mode, or the SDK's backoff in SEA mode, before failing.
+
 ## Running Tests
 
 Basic test execution:

@@ -30,6 +30,7 @@ import org.apache.hc.core5.concurrent.FutureCallback;
 import org.apache.hc.core5.http.nio.AsyncRequestProducer;
 import org.apache.hc.core5.http.nio.AsyncResponseConsumer;
 import org.apache.http.HttpHost;
+import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -176,6 +177,11 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
             .setDefaultRequestConfig(makeRequestConfig(connectionContext, type))
             .setRetryHandler(retryHandler)
             .addInterceptorFirst(retryHandler);
+    if (type == HttpClientType.COMMON) {
+      builder.addInterceptorFirst(
+          (HttpRequestInterceptor)
+              (request, context) -> retryHandler.initializeNetworkRetry(context));
+    }
     setupProxy(connectionContext, builder);
     if (DriverUtil.isRunningAgainstFake()) {
       setFakeServiceRouteInHttpClient(builder);

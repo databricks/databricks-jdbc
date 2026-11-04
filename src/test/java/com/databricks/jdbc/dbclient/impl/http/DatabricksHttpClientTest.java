@@ -19,10 +19,12 @@ import java.util.*;
 import java.util.concurrent.*;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
+import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.client.HttpRequestRetryHandler;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.conn.routing.HttpRoutePlanner;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -73,6 +75,34 @@ public class DatabricksHttpClientTest {
         verify(builder).setRetryHandler(handler.capture());
         assertFalse(
             handler.getValue().retryRequest(new ConnectException("Connection refused"), 1, null));
+      }
+    }
+  }
+
+  @Test
+  void commonClientStartsNetworkRetryTimeBeforeTransport() throws Exception {
+    when(mockConnectionContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    HttpClientBuilder builder = mock(HttpClientBuilder.class, RETURNS_SELF);
+    when(builder.build()).thenReturn(mockHttpClient);
+    try (MockedStatic<HttpClientBuilder> builders = mockStatic(HttpClientBuilder.class)) {
+      builders.when(HttpClientBuilder::create).thenReturn(builder);
+      try (DatabricksHttpClient client =
+          new DatabricksHttpClient(mockConnectionContext, HttpClientType.COMMON)) {
+        ArgumentCaptor<HttpRequestRetryHandler> handler =
+            ArgumentCaptor.forClass(HttpRequestRetryHandler.class);
+        verify(builder).setRetryHandler(handler.capture());
+        DatabricksHttpRetryHandler retryHandler =
+            spy((DatabricksHttpRetryHandler) handler.getValue());
+        doNothing().when(retryHandler).doSleepForDelay(anyLong());
+        HttpClientContext context = HttpClientContext.create();
+        assertFalse(retryHandler.retryRequest(new ConnectException(), 1, context));
+
+        ArgumentCaptor<HttpRequestInterceptor> initializer =
+            ArgumentCaptor.forClass(HttpRequestInterceptor.class);
+        verify(builder).addInterceptorFirst(initializer.capture());
+        initializer.getValue().process(new HttpGet("https://example.com"), context);
+
+        assertTrue(retryHandler.retryRequest(new ConnectException(), 1, context));
       }
     }
   }

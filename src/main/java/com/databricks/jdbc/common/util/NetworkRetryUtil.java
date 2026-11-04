@@ -1,5 +1,6 @@
 package com.databricks.jdbc.common.util;
 
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import java.net.BindException;
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
@@ -9,12 +10,24 @@ import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLHandshakeException;
 import org.apache.http.conn.ConnectTimeoutException;
 
 public final class NetworkRetryUtil {
+  private static final int DEFAULT_RETRY_TIMEOUT_SECONDS =
+      Integer.parseInt(DatabricksJdbcUrlParams.SOCKET_TIMEOUT.getDefaultValue());
+
   private NetworkRetryUtil() {}
+
+  public static boolean hasRetryTimeRemaining(
+      long elapsedNanos, long delayMillis, int socketTimeoutSeconds) {
+    int timeoutSeconds =
+        socketTimeoutSeconds > 0 ? socketTimeoutSeconds : DEFAULT_RETRY_TIMEOUT_SECONDS;
+    return elapsedNanos
+        < TimeUnit.SECONDS.toNanos(timeoutSeconds) - TimeUnit.MILLISECONDS.toNanos(delayMillis);
+  }
 
   /** Connection failures that occur before a statement can reach the server. */
   public static boolean isRetryableConnectionFailure(Throwable exception) {

@@ -23,7 +23,9 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLPeerUnverifiedException;
@@ -41,7 +43,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 
 class DatabricksRetryStrategyPickerTest {
-  private final DatabricksRetryStrategyPicker picker = new DatabricksRetryStrategyPicker();
+  private final DatabricksRetryStrategyPicker picker = new DatabricksRetryStrategyPicker(900);
 
   @ParameterizedTest
   @CsvSource({
@@ -98,6 +100,45 @@ class DatabricksRetryStrategyPickerTest {
         new SocketException("Network is unreachable"),
         new SSLHandshakeException("Remote host terminated the handshake"),
         new IOException("Wrapped connection failure", new ConnectException("Connection refused")));
+  }
+
+  @ParameterizedTest
+  @MethodSource({"connectionFailures", "ambiguousNetworkFailures"})
+  void initialAttemptCountsTowardNetworkRetryTimeLimit(IOException failure) {
+    AtomicLong nanoTime = new AtomicLong();
+    DatabricksRetryStrategyPicker timedPicker =
+        new DatabricksRetryStrategyPicker(900, nanoTime::get);
+    for (String method : List.of("GET", "POST")) {
+      RetryStrategy strategy =
+          timedPicker.getRetryStrategy(new Request(method, "/api/2.0/sql/statements/statement"));
+      nanoTime.addAndGet(TimeUnit.SECONDS.toNanos(900));
+      assertFalse(strategy.isRetriable(new DatabricksError("IO_ERROR", 523, failure)));
+    }
+  }
+
+  @Test
+  void networkRetryTimeLimitIsIndependentForEachRequest() {
+    AtomicLong nanoTime = new AtomicLong();
+    DatabricksRetryStrategyPicker timedPicker = new DatabricksRetryStrategyPicker(3, nanoTime::get);
+    Request request = new Request("POST", "/api/2.0/sql/statements/");
+    RetryStrategy firstRequest = timedPicker.getRetryStrategy(request);
+    DatabricksError failure = new DatabricksError("IO_ERROR", 523, new ConnectTimeoutException());
+    nanoTime.set(TimeUnit.SECONDS.toNanos(3));
+    RetryStrategy nextRequest = timedPicker.getRetryStrategy(request);
+
+    assertFalse(firstRequest.isRetriable(failure));
+    assertTrue(nextRequest.isRetriable(failure));
+  }
+
+  @Test
+  void networkRetryTimeLimitDoesNotChangeHttpStatusPolicy() {
+    AtomicLong nanoTime = new AtomicLong();
+    DatabricksRetryStrategyPicker timedPicker = new DatabricksRetryStrategyPicker(3, nanoTime::get);
+    RetryStrategy strategy =
+        timedPicker.getRetryStrategy(new Request("POST", "/api/2.0/sql/statements/"));
+    nanoTime.set(TimeUnit.SECONDS.toNanos(3));
+
+    assertTrue(strategy.isRetriable(new DatabricksError("HTTP_ERROR", "Unavailable", 503)));
   }
 
   @ParameterizedTest
@@ -179,7 +220,7 @@ class DatabricksRetryStrategyPickerTest {
         };
     DatabricksConfig config = config(transport, false);
     try (MockedConstruction<SystemTimer> timers = mockConstruction(SystemTimer.class)) {
-      ApiClient client = DatabricksSdkClient.buildApiClient(config, null, true);
+      ApiClient client = DatabricksSdkClient.buildApiClient(config, null, true, 900);
       client.execute(new Request(method, path, "{}"), Void.class);
       assertEquals(2, attempts.get());
       verify(timers.constructed().get(0)).sleep(anyLong());
@@ -208,7 +249,7 @@ class DatabricksRetryStrategyPickerTest {
             },
             false);
     try (MockedConstruction<SystemTimer> timers = mockConstruction(SystemTimer.class)) {
-      ApiClient client = DatabricksSdkClient.buildApiClient(config, null, true);
+      ApiClient client = DatabricksSdkClient.buildApiClient(config, null, true, 900);
       DatabricksException error =
           assertThrows(
               DatabricksException.class,
@@ -236,7 +277,7 @@ class DatabricksRetryStrategyPickerTest {
                     "{}"),
             false);
     try (MockedConstruction<SystemTimer> timers = mockConstruction(SystemTimer.class)) {
-      ApiClient client = DatabricksSdkClient.buildApiClient(config, null, true);
+      ApiClient client = DatabricksSdkClient.buildApiClient(config, null, true, 900);
       client.execute(new Request("POST", "/api/2.0/sql/statements/", "{}"), Void.class);
       assertEquals(2, attempts.get());
       ArgumentCaptor<Long> delay = ArgumentCaptor.forClass(Long.class);
@@ -255,7 +296,7 @@ class DatabricksRetryStrategyPickerTest {
               throw new ConnectTimeoutException("Connect timed out");
             },
             true);
-    ApiClient client = DatabricksSdkClient.buildApiClient(config, null, true);
+    ApiClient client = DatabricksSdkClient.buildApiClient(config, null, true, 900);
     assertThrows(
         DatabricksException.class,
         () -> client.execute(new Request("POST", "/api/2.0/sql/statements/", "{}"), Void.class));

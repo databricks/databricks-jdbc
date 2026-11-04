@@ -9,7 +9,7 @@
 ### Fixed
 
 - Retry transient connection failures in Thrift and SQL Execution API modes, and correctly select
-  retry policies for idempotent SQL Execution API requests.
+  retry policies for idempotent SQL Execution API requests. Bound network retry decisions by elapsed time.
 
 ---
 *Note: When making changes, please add your change under the appropriate section

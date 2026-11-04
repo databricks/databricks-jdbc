@@ -6,7 +6,9 @@ import com.databricks.sdk.core.retry.IdempotentRequestRetryStrategy;
 import com.databricks.sdk.core.retry.NonIdempotentRequestRetryStrategy;
 import com.databricks.sdk.core.retry.RetryStrategy;
 import com.databricks.sdk.core.retry.RetryStrategyPicker;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
+import java.util.function.LongSupplier;
 import java.util.regex.Pattern;
 
 /** Selects SEA retry policies using paths, before the SDK prepends the workspace host. */
@@ -24,9 +26,22 @@ final class DatabricksRetryStrategyPicker implements RetryStrategyPicker {
   private static final Pattern STATEMENT_READ =
       Pattern.compile(STATEMENT_PATH + "(?:/status|/result/chunks/[^/]+)?/?");
   private static final Pattern CANCEL = Pattern.compile(STATEMENT_PATH + "/cancel/?");
+  private final int socketTimeoutSeconds;
+  private final LongSupplier nanoTime;
+
+  DatabricksRetryStrategyPicker(int socketTimeoutSeconds) {
+    this(socketTimeoutSeconds, System::nanoTime);
+  }
+
+  @VisibleForTesting
+  DatabricksRetryStrategyPicker(int socketTimeoutSeconds, LongSupplier nanoTime) {
+    this.socketTimeoutSeconds = socketTimeoutSeconds;
+    this.nanoTime = nanoTime;
+  }
 
   @Override
   public RetryStrategy getRetryStrategy(Request request) {
+    long startTime = nanoTime.getAsLong();
     String path = request.getUri().getPath();
     boolean idempotent;
     switch (request.getMethod()) {
@@ -49,6 +64,10 @@ final class DatabricksRetryStrategyPicker implements RetryStrategyPicker {
         return false;
       }
       if (error.getCause() instanceof IOException) {
+        if (!NetworkRetryUtil.hasRetryTimeRemaining(
+            nanoTime.getAsLong() - startTime, 0, socketTimeoutSeconds)) {
+          return false;
+        }
         if (NetworkRetryUtil.isRetryableConnectionFailure(error.getCause())) {
           return true;
         }

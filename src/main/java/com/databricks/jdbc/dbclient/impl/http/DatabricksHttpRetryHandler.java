@@ -12,6 +12,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.LongSupplier;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpResponseInterceptor;
 import org.apache.http.HttpStatus;
@@ -28,6 +29,7 @@ public class DatabricksHttpRetryHandler
       JdbcLoggerFactory.getLogger(DatabricksHttpRetryHandler.class);
 
   static final String RETRY_INTERVAL_KEY = "retryInterval";
+  private static final String NETWORK_RETRY_START_TIME_KEY = "networkRetryStartTime";
   private static final String TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY =
       "tempUnavailableAccumulatedTime";
   private static final String RATE_LIMIT_ACCUMULATED_TIME_KEY = "rateLimitAccumulatedTime";
@@ -40,6 +42,7 @@ public class DatabricksHttpRetryHandler
 
   private final IDatabricksConnectionContext connectionContext;
   private final boolean retryConnectionFailures;
+  private final LongSupplier nanoTime;
 
   public DatabricksHttpRetryHandler(IDatabricksConnectionContext connectionContext) {
     this(connectionContext, HttpClientType.COMMON);
@@ -47,8 +50,30 @@ public class DatabricksHttpRetryHandler
 
   DatabricksHttpRetryHandler(
       IDatabricksConnectionContext connectionContext, HttpClientType clientType) {
+    this(connectionContext, clientType, System::nanoTime);
+  }
+
+  @VisibleForTesting
+  DatabricksHttpRetryHandler(
+      IDatabricksConnectionContext connectionContext,
+      HttpClientType clientType,
+      LongSupplier nanoTime) {
     this.connectionContext = connectionContext;
     this.retryConnectionFailures = clientType == HttpClientType.COMMON;
+    this.nanoTime = nanoTime;
+  }
+
+  void initializeNetworkRetry(HttpContext context) {
+    if (context.getAttribute(NETWORK_RETRY_START_TIME_KEY) == null) {
+      context.setAttribute(NETWORK_RETRY_START_TIME_KEY, nanoTime.getAsLong());
+    }
+  }
+
+  private boolean hasNetworkRetryTimeRemaining(HttpContext context, long delayMillis) {
+    Long startTime = (Long) context.getAttribute(NETWORK_RETRY_START_TIME_KEY);
+    return startTime != null
+        && NetworkRetryUtil.hasRetryTimeRemaining(
+            nanoTime.getAsLong() - startTime, delayMillis, connectionContext.getSocketTimeout());
   }
 
   /**
@@ -143,13 +168,17 @@ public class DatabricksHttpRetryHandler
         return false;
       }
       long delayMillis = calculateExponentialBackoff(executionCount);
+      if (!hasNetworkRetryTimeRemaining(context, delayMillis)) {
+        LOGGER.debug("Connection retry time limit reached after execution {}", executionCount);
+        return false;
+      }
       LOGGER.debug(
           "Retrying connection failure after execution {} in {} ms ({})",
           executionCount,
           delayMillis,
           exception.getClass().getSimpleName());
       doSleepForDelay(delayMillis);
-      return true;
+      return hasNetworkRetryTimeRemaining(context, 0);
     }
 
     // check if retrying this status code is supported

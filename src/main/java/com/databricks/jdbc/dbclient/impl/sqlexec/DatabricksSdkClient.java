@@ -113,14 +113,16 @@ public class DatabricksSdkClient implements IDatabricksClient {
     return buildApiClient(
         clientConfigurator.getDatabricksConfig(),
         customerUserAgentSegment,
-        connectionContext.isSeaResponseCompressionEnabled());
+        connectionContext.isSeaResponseCompressionEnabled(),
+        connectionContext.getSocketTimeout());
   }
 
   @VisibleForTesting
   static ApiClient buildApiClient(
       DatabricksConfig config,
       String customerUserAgentSegment,
-      boolean responseCompressionEnabled) {
+      boolean responseCompressionEnabled,
+      int socketTimeoutSeconds) {
     HttpClient transport = config.getHttpClient();
     HttpClient delegate = transport;
     // Always wrap the transport so CreateSession response headers can determine follow-up routing.
@@ -148,7 +150,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     ApiClient.Builder builder =
         new ApiClient.Builder().withDatabricksConfig(config).withHttpClient(transport);
     if (!config.getDisableRetries()) {
-      builder.withRetryStrategyPicker(new DatabricksRetryStrategyPicker());
+      builder.withRetryStrategyPicker(new DatabricksRetryStrategyPicker(socketTimeoutSeconds));
     }
     return builder.build();
   }

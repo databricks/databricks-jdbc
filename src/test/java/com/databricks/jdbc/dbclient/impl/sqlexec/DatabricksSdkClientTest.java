@@ -299,7 +299,7 @@ public class DatabricksSdkClientTest {
             .setAuthType("pat")
             .setToken("test-token")
             .setHttpClient(transport);
-    ApiClient realApiClient = DatabricksSdkClient.buildApiClient(config, null, true);
+    ApiClient realApiClient = DatabricksSdkClient.buildApiClient(config, null, true, 900);
     Properties properties = new Properties();
     properties.setProperty("UseBoundedSeaApi", boundedSea ? "1" : "0");
     IDatabricksConnectionContext context = DatabricksConnectionContext.parse(JDBC_URL, properties);
@@ -527,7 +527,7 @@ public class DatabricksSdkClientTest {
             .setAuthType("pat")
             .setToken("test-token")
             .setHttpClient(transport);
-    ApiClient realApiClient = DatabricksSdkClient.buildApiClient(config, null, true);
+    ApiClient realApiClient = DatabricksSdkClient.buildApiClient(config, null, true, 900);
     Properties properties = new Properties();
     if (explicitSea) {
       properties.setProperty("UseThriftClient", "0");

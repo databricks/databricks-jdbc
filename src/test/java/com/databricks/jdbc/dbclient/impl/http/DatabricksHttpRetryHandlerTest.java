@@ -17,6 +17,8 @@ import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLPeerUnverifiedException;
@@ -56,6 +58,7 @@ public class DatabricksHttpRetryHandlerTest {
   private HttpClientContext httpContext;
   private DatabricksHttpRetryHandler retryHandler;
   private List<Long> sleepDurations;
+  private final AtomicLong nanoTime = new AtomicLong();
 
   private class TestDatabricksHttpRetryHandler extends DatabricksHttpRetryHandler {
     TestDatabricksHttpRetryHandler(IDatabricksConnectionContext connectionContext) {
@@ -64,12 +67,13 @@ public class DatabricksHttpRetryHandlerTest {
 
     TestDatabricksHttpRetryHandler(
         IDatabricksConnectionContext connectionContext, HttpClientType clientType) {
-      super(connectionContext, clientType);
+      super(connectionContext, clientType, DatabricksHttpRetryHandlerTest.this.nanoTime::get);
     }
 
     @Override
     protected void doSleepForDelay(long delayMillis) {
       sleepDurations.add(delayMillis);
+      nanoTime.addAndGet(TimeUnit.MILLISECONDS.toNanos(delayMillis));
     }
   }
 
@@ -83,6 +87,7 @@ public class DatabricksHttpRetryHandlerTest {
     httpContext.setAttribute(RETRY_INTERVAL_KEY, 0);
     httpContext.setAttribute(TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY, 0L);
     httpContext.setAttribute(RATE_LIMIT_ACCUMULATED_TIME_KEY, 0L);
+    retryHandler.initializeNetworkRetry(httpContext);
   }
 
   @ParameterizedTest
@@ -143,6 +148,38 @@ public class DatabricksHttpRetryHandlerTest {
     }
     assertFalse(retryHandler.retryRequest(failure, 4, httpContext));
     assertEquals(List.of(2000L, 4000L, 8000L), sleepDurations);
+  }
+
+  @ParameterizedTest
+  @MethodSource("retryableConnectionFailures")
+  void initialAttemptCountsTowardNetworkRetryTimeLimit(IOException failure) {
+    when(mockConnectionContext.getSocketTimeout()).thenReturn(900);
+    nanoTime.set(TimeUnit.SECONDS.toNanos(900));
+    retryHandler.initializeNetworkRetry(httpContext);
+
+    assertFalse(retryHandler.retryRequest(failure, 1, httpContext));
+    assertTrue(sleepDurations.isEmpty());
+  }
+
+  @Test
+  void doesNotSleepWhenBackoffWouldExhaustNetworkRetryTimeLimit() {
+    when(mockConnectionContext.getSocketTimeout()).thenReturn(3);
+    nanoTime.set(TimeUnit.SECONDS.toNanos(1));
+
+    assertFalse(retryHandler.retryRequest(new ConnectException(), 1, httpContext));
+    assertTrue(sleepDurations.isEmpty());
+  }
+
+  @Test
+  void networkRetryTimeLimitIsIndependentForEachRequest() {
+    when(mockConnectionContext.getSocketTimeout()).thenReturn(900);
+    nanoTime.set(TimeUnit.SECONDS.toNanos(900));
+    HttpClientContext nextRequest = HttpClientContext.create();
+    retryHandler.initializeNetworkRetry(nextRequest);
+
+    assertFalse(retryHandler.retryRequest(new ConnectException(), 1, httpContext));
+    assertTrue(retryHandler.retryRequest(new ConnectException(), 1, nextRequest));
+    assertEquals(List.of(2000L), sleepDurations);
   }
 
   @ParameterizedTest

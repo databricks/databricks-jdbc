@@ -92,7 +92,8 @@ class DatabricksSdkClientUserAgentTest {
         DatabricksSdkClient.buildApiClient(
             config,
             UserAgentManager.customerUserAgentSegment(connectionContext.getCustomerUserAgent()),
-            true);
+            true,
+            connectionContext.getSocketTimeout());
     apiClient.execute(new Request(Request.POST, "/api/2.0/sql/statements"), Void.class);
     return sentUserAgent.get();
   }
@@ -122,7 +123,7 @@ class DatabricksSdkClientUserAgentTest {
             .setToken("test-token")
             .setHttpClient(transport);
     ApiClient apiClient =
-        DatabricksSdkClient.buildApiClient(config, null, responseCompressionEnabled);
+        DatabricksSdkClient.buildApiClient(config, null, responseCompressionEnabled, 900);
     apiClient.execute(new Request(Request.POST, "/api/2.0/sql/statements"), Void.class);
     return sentAcceptEncoding.get();
   }
