@@ -7,13 +7,28 @@ import static org.mockito.Mockito.when;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import java.io.IOException;
+import java.net.BindException;
+import java.net.ConnectException;
+import java.net.NoRouteToHostException;
+import java.net.PortUnreachableException;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
+import javax.net.ssl.SSLHandshakeException;
+import javax.net.ssl.SSLPeerUnverifiedException;
+import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.apache.http.NoHttpResponseException;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.conn.ConnectTimeoutException;
+import org.apache.http.conn.ConnectionPoolTimeoutException;
+import org.apache.http.conn.HttpHostConnectException;
 import org.apache.http.message.BasicHttpRequest;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicRequestLine;
@@ -22,6 +37,8 @@ import org.apache.http.protocol.HttpCoreContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -60,6 +77,56 @@ public class DatabricksHttpRetryHandlerTest {
     httpContext.setAttribute(RETRY_INTERVAL_KEY, 0);
     httpContext.setAttribute(TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY, 0L);
     httpContext.setAttribute(RATE_LIMIT_ACCUMULATED_TIME_KEY, 0L);
+  }
+
+  @ParameterizedTest
+  @MethodSource("retryableConnectionFailures")
+  void retriesConnectionFailuresWithBackoff(IOException failure) {
+    assertTrue(retryHandler.retryRequest(failure, 1, httpContext));
+    assertEquals(List.of(2000L), sleepDurations);
+  }
+
+  static Stream<IOException> retryableConnectionFailures() {
+    return Stream.of(
+        new ConnectException("Connection refused"),
+        new HttpHostConnectException(
+            new ConnectException("Connection refused"), new HttpHost("example.com")),
+        new ConnectTimeoutException("Connect timed out"),
+        new ConnectionPoolTimeoutException("Pool timed out"),
+        new NoRouteToHostException("No route to host"),
+        new PortUnreachableException("Port unreachable"),
+        new BindException("Cannot assign requested address"),
+        new UnknownHostException("Temporary failure in name resolution"),
+        new SocketException("Network is unreachable"),
+        new SSLHandshakeException("Remote host terminated the handshake"),
+        new IOException("Wrapped connection failure", new ConnectException("Connection refused")));
+  }
+
+  @Test
+  void limitsNetworkRetries() {
+    IOException failure = new ConnectException("Connection refused");
+    for (int executionCount = 1; executionCount <= 3; executionCount++) {
+      assertTrue(retryHandler.retryRequest(failure, executionCount, httpContext));
+    }
+    assertFalse(retryHandler.retryRequest(failure, 4, httpContext));
+    assertEquals(List.of(2000L, 4000L, 8000L), sleepDurations);
+  }
+
+  @ParameterizedTest
+  @MethodSource("nonRetryableNetworkFailures")
+  void doesNotReplayAmbiguousOrCertificateFailures(IOException failure) {
+    assertFalse(retryHandler.retryRequest(failure, 1, httpContext));
+    assertTrue(sleepDurations.isEmpty());
+  }
+
+  static Stream<IOException> nonRetryableNetworkFailures() {
+    return Stream.of(
+        new SocketTimeoutException("Read timed out"),
+        new SocketException("Connection reset"),
+        new NoHttpResponseException("Server failed to respond"),
+        new SSLHandshakeException("PKIX path building failed"),
+        new SSLPeerUnverifiedException("Hostname mismatch"),
+        new IOException("Unknown I/O failure"));
   }
 
   @Test
@@ -245,6 +312,8 @@ public class DatabricksHttpRetryHandlerTest {
 
   @Test
   void testRetryRequestWithInvalidRetryInterval() {
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
+    when(mockConnectionContext.shouldRetryRateLimitError()).thenReturn(true);
     // Set up context with -1 retry interval (invalid)
     httpContext.setAttribute(RETRY_INTERVAL_KEY, -1);
 

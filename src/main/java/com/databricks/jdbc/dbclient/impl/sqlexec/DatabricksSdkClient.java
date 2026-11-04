@@ -145,7 +145,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
           }
           return response;
         };
-    return new ApiClient.Builder().withDatabricksConfig(config).withHttpClient(transport).build();
+    ApiClient.Builder builder =
+        new ApiClient.Builder().withDatabricksConfig(config).withHttpClient(transport);
+    if (!config.getDisableRetries()) {
+      builder.withRetryStrategyPicker(new DatabricksRetryStrategyPicker());
+    }
+    return builder.build();
   }
 
   @Override

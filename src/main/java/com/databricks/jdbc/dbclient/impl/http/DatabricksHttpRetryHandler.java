@@ -3,6 +3,7 @@ package com.databricks.jdbc.dbclient.impl.http;
 import static com.databricks.jdbc.common.DatabricksJdbcConstants.THRIFT_ERROR_MESSAGE_HEADER;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.util.NetworkRetryUtil;
 import com.databricks.jdbc.exception.DatabricksRetryHandlerException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -34,6 +35,7 @@ public class DatabricksHttpRetryHandler
   private static final int DEFAULT_BACKOFF_FACTOR = 2; // Exponential factor
   private static final int MIN_BACKOFF_INTERVAL = 1000; // 1s
   private static final int MAX_RETRY_INTERVAL = 10 * 1000; // 10s
+  private static final int MAX_NETWORK_RETRIES = 3;
 
   private final IDatabricksConnectionContext connectionContext;
 
@@ -128,6 +130,14 @@ public class DatabricksHttpRetryHandler
    */
   @Override
   public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
+    if (NetworkRetryUtil.isRetryableConnectionFailure(exception)) {
+      if (executionCount > MAX_NETWORK_RETRIES) {
+        return false;
+      }
+      doSleepForDelay(calculateExponentialBackoff(executionCount));
+      return true;
+    }
+
     // check if retrying this status code is supported
     int statusCode = getErrorCodeFromException(exception);
     if (!isStatusCodeRetryable(statusCode)) {
