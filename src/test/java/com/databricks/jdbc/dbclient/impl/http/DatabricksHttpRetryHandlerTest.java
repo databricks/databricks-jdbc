@@ -150,6 +150,44 @@ public class DatabricksHttpRetryHandlerTest {
     assertEquals(List.of(2000L, 4000L, 8000L), sleepDurations);
   }
 
+  @Test
+  void httpStatusRetriesDoNotConsumeNetworkRetryCountOrBackoff() {
+    when(mockConnectionContext.shouldRetryTemporarilyUnavailableError()).thenReturn(true);
+    when(mockConnectionContext.getTemporarilyUnavailableRetryTimeout()).thenReturn(30);
+    httpContext.setAttribute(HttpCoreContext.HTTP_REQUEST, createRequest("POST", "/thrift"));
+    DatabricksRetryHandlerException unavailable =
+        assertThrows(
+            DatabricksRetryHandlerException.class,
+            () ->
+                retryHandler.process(
+                    createResponse(HttpStatus.SC_SERVICE_UNAVAILABLE, "1"), httpContext));
+    for (int executionCount = 1; executionCount <= 3; executionCount++) {
+      assertTrue(retryHandler.retryRequest(unavailable, executionCount, httpContext));
+    }
+
+    IOException connectionFailure = new ConnectException("Connection refused");
+    assertTrue(retryHandler.retryRequest(connectionFailure, 4, httpContext));
+    assertTrue(retryHandler.retryRequest(unavailable, 5, httpContext));
+    assertTrue(retryHandler.retryRequest(connectionFailure, 6, httpContext));
+    assertTrue(retryHandler.retryRequest(connectionFailure, 7, httpContext));
+    assertFalse(retryHandler.retryRequest(connectionFailure, 8, httpContext));
+    assertEquals(List.of(1000L, 1000L, 1000L, 2000L, 1000L, 4000L, 8000L), sleepDurations);
+  }
+
+  @Test
+  void networkRetryCountIsIndependentForEachRequest() {
+    IOException failure = new ConnectException("Connection refused");
+    for (int executionCount = 1; executionCount <= 3; executionCount++) {
+      assertTrue(retryHandler.retryRequest(failure, executionCount, httpContext));
+    }
+    HttpClientContext nextRequest = HttpClientContext.create();
+    retryHandler.initializeNetworkRetry(nextRequest);
+
+    assertTrue(retryHandler.retryRequest(failure, 1, nextRequest));
+    assertFalse(retryHandler.retryRequest(failure, 4, httpContext));
+    assertEquals(List.of(2000L, 4000L, 8000L, 2000L), sleepDurations);
+  }
+
   @ParameterizedTest
   @MethodSource("retryableConnectionFailures")
   void initialAttemptCountsTowardNetworkRetryTimeLimit(IOException failure) {

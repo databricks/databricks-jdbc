@@ -46,7 +46,7 @@ final class DatabricksRetryStrategyPicker implements RetryStrategyPicker {
     boolean idempotent;
     switch (request.getMethod()) {
       case Request.GET:
-        idempotent = STATEMENT_READ.matcher(path).matches();
+        idempotent = SESSION.matcher(path).matches() || STATEMENT_READ.matcher(path).matches();
         break;
       case Request.DELETE:
         idempotent = SESSION.matcher(path).matches() || STATEMENT.matcher(path).matches();

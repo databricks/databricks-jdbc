@@ -30,6 +30,7 @@ public class DatabricksHttpRetryHandler
 
   static final String RETRY_INTERVAL_KEY = "retryInterval";
   private static final String NETWORK_RETRY_START_TIME_KEY = "networkRetryStartTime";
+  private static final String NETWORK_RETRY_COUNT_KEY = "networkRetryCount";
   private static final String TEMP_UNAVAILABLE_ACCUMULATED_TIME_KEY =
       "tempUnavailableAccumulatedTime";
   private static final String RATE_LIMIT_ACCUMULATED_TIME_KEY = "rateLimitAccumulatedTime";
@@ -164,16 +165,24 @@ public class DatabricksHttpRetryHandler
   @Override
   public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
     if (NetworkRetryUtil.isRetryableConnectionFailure(exception)) {
-      if (!retryConnectionFailures || executionCount > MAX_NETWORK_RETRIES) {
+      if (!retryConnectionFailures) {
         return false;
       }
-      long delayMillis = calculateExponentialBackoff(executionCount);
+      Integer previousRetries = (Integer) context.getAttribute(NETWORK_RETRY_COUNT_KEY);
+      int networkRetryCount = previousRetries == null ? 0 : previousRetries;
+      if (networkRetryCount >= MAX_NETWORK_RETRIES) {
+        return false;
+      }
+      int nextRetry = networkRetryCount + 1;
+      long delayMillis = calculateExponentialBackoff(nextRetry);
       if (!hasNetworkRetryTimeRemaining(context, delayMillis)) {
         LOGGER.debug("Connection retry time limit reached after execution {}", executionCount);
         return false;
       }
+      context.setAttribute(NETWORK_RETRY_COUNT_KEY, nextRetry);
       LOGGER.debug(
-          "Retrying connection failure after execution {} in {} ms ({})",
+          "Retrying connection failure {} after execution {} in {} ms ({})",
+          nextRetry,
           executionCount,
           delayMillis,
           exception.getClass().getSimpleName());
