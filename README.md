@@ -133,6 +133,11 @@ DNS lookup failures are retried because Java's `UnknownHostException` can repres
 temporary resolver failures and invalid hostnames. A mistyped hostname can therefore add
 up to 14 seconds of backoff in Thrift mode, or the SDK's backoff in SEA mode, before failing.
 
+SEA follows the SDK policy of replaying session creation after ambiguous I/O failures.
+If the server creates a session but its response is lost, a retry can leave the original
+session orphaned until its server-side idle timeout. This is an accepted trade-off to
+recover connection setup; statement submissions are not replayed after ambiguous failures.
+
 ## Running Tests
 
 Basic test execution:
