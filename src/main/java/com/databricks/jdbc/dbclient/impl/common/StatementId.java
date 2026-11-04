@@ -119,7 +119,15 @@ public class StatementId {
    * purposes to avoid logging sensitive information.
    */
   public static String loggableStatementId(TOperationHandle operationHandle) {
-    return new StatementId(operationHandle.getOperationId()).toSQLExecStatementId();
+    if (operationHandle == null || operationHandle.getOperationId() == null) {
+      return null;
+    }
+    return ResourceId.fromBytes(operationHandle.getOperationId().getGuid()).toString();
+  }
+
+  /** Returns the public identifier for diagnostics, without the serialized Thrift secret. */
+  public static String loggableStatementId(StatementId statementId) {
+    return statementId == null ? null : statementId.toSQLExecStatementId();
   }
 
   @Override

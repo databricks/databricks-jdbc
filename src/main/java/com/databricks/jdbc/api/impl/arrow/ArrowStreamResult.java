@@ -210,7 +210,9 @@ public class ArrowStreamResult implements IExecutionResult {
 
     if (connectionContext.isStreamingChunkProviderEnabled()) {
       StatementId statementId = parentStatement.getStatementId();
-      LOGGER.info("Using StreamingChunkProvider for Thrift statementId: {}", statementId);
+      LOGGER.info(
+          "Using StreamingChunkProvider for Thrift statementId: {}",
+          StatementId.loggableStatementId(statementId));
 
       ChunkLinkFetcher linkFetcher = new ThriftChunkLinkFetcher(session, statementId);
       int maxChunksInMemory = connectionContext.getCloudFetchThreadPoolSize();

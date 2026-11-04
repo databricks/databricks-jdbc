@@ -83,7 +83,8 @@ final class DatabricksThriftAccessor {
 
   @SuppressWarnings("rawtypes")
   TBase getThriftResponse(TBase request) throws DatabricksSQLException {
-    LOGGER.debug("Fetching thrift response for request {}", request.toString());
+    String requestType = request.getClass().getSimpleName();
+    LOGGER.debug("Fetching thrift response for request {}", requestType);
     try {
       if (request instanceof TOpenSessionReq) {
         return getThriftClient().OpenSession((TOpenSessionReq) request);
@@ -109,7 +110,8 @@ final class DatabricksThriftAccessor {
         return listColumns((TGetColumnsReq) request);
       }
       String errorMessage =
-          String.format("No implementation for fetching thrift response for Request {%s}", request);
+          String.format(
+              "No implementation for fetching thrift response for Request {%s}", requestType);
       LOGGER.error(errorMessage);
       throw new DatabricksSQLFeatureNotSupportedException(errorMessage);
     } catch (TException | SQLException e) {
@@ -124,7 +126,7 @@ final class DatabricksThriftAccessor {
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
-              request, e.getMessage());
+              requestType, e.getMessage());
       LOGGER.error(e, errorMessage);
       if (e instanceof SQLException) {
         SQLException sqlException = (SQLException) e;
@@ -169,8 +171,8 @@ final class DatabricksThriftAccessor {
     } catch (TException e) {
       String errorMessage =
           String.format(
-              "Error while canceling operation from Thrift server. Request {%s}, Error {%s}",
-              req.toString(), e.getMessage());
+              "Error while canceling operation from Thrift server. StatementId {%s}, Error {%s}",
+              StatementId.loggableStatementId(req.getOperationHandle()), e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
@@ -182,8 +184,8 @@ final class DatabricksThriftAccessor {
     } catch (TException e) {
       String errorMessage =
           String.format(
-              "Error while closing operation from Thrift server. Request {%s}, Error {%s}",
-              req.toString(), e.getMessage());
+              "Error while closing operation from Thrift server. StatementId {%s}, Error {%s}",
+              StatementId.loggableStatementId(req.getOperationHandle()), e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
@@ -263,7 +265,10 @@ final class DatabricksThriftAccessor {
         LOGGER.debug(
             String.format(
                 "Connection [%s] Statement [%s] Session [%s] Thrift fetch latency: %dms",
-                connectionUuid, statementId, sessionDebugInfo, fetchLatencyMillis));
+                connectionUuid,
+                statementId.toSQLExecStatementId(),
+                sessionDebugInfo,
+                fetchLatencyMillis));
       }
 
       DatabricksResultSet databricksResultSet =
@@ -285,7 +290,7 @@ final class DatabricksThriftAccessor {
         LOGGER.debug(
             "Statement {} received direct results via Thrift with close confirmation, "
                 + "marking as direct results received",
-            statementId);
+            statementId.toSQLExecStatementId());
         parentStatement.markDirectResultsReceived();
       }
 
@@ -294,7 +299,7 @@ final class DatabricksThriftAccessor {
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
-              request, e.getMessage());
+              request.getClass().getSimpleName(), e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
@@ -370,7 +375,10 @@ final class DatabricksThriftAccessor {
     LOGGER.debug(
         String.format(
             "Connection [%s] Statement [%s] Session [%s] Thrift polling latency: %dms",
-            connectionUuid, statementId, sessionDebugInfo, pollingLatencyMillis));
+            connectionUuid,
+            statementId.toSQLExecStatementId(),
+            sessionDebugInfo,
+            pollingLatencyMillis));
     return statusResp;
   }
 
@@ -387,9 +395,8 @@ final class DatabricksThriftAccessor {
       if (Arrays.asList(TStatusCode.ERROR_STATUS, TStatusCode.INVALID_HANDLE_STATUS)
           .contains(response.status.statusCode)) {
         LOGGER.error(
-            "Received error response {} from Thrift Server for request {}",
-            response,
-            request.toString());
+            "Received error status {} from Thrift Server for ExecuteStatement",
+            response.getStatus());
         String originalSqlState = response.status.sqlState;
         String remappedSqlState =
             classifyTransientSqlState(response.status.errorMessage, originalSqlState);
@@ -406,7 +413,7 @@ final class DatabricksThriftAccessor {
       String errorMessage =
           String.format(
               "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
-              request.toString(), e.getMessage());
+              request.getClass().getSimpleName(), e.getMessage());
       LOGGER.error(e, errorMessage);
       if (e instanceof DatabricksSQLException) {
         throw new DatabricksHttpException(errorMessage, ((DatabricksSQLException) e).getSQLState());
@@ -471,7 +478,7 @@ final class DatabricksThriftAccessor {
             "Connection ["
                 + connectionUuid
                 + "] Statement ["
-                + statementId
+                + statementId.toSQLExecStatementId()
                 + "] Session ["
                 + sessionInfo
                 + "] Thrift getStatementResult fetch latency: "
@@ -486,7 +493,7 @@ final class DatabricksThriftAccessor {
             "Connection ["
                 + connectionUuid
                 + "] Statement ["
-                + statementId
+                + statementId.toSQLExecStatementId()
                 + "] Session ["
                 + sessionInfo
                 + "] Thrift getStatementResult latency: "
@@ -509,7 +516,7 @@ final class DatabricksThriftAccessor {
           "Connection ["
               + connectionUuid
               + "] Statement ["
-              + statementId
+              + statementId.toSQLExecStatementId()
               + "] Session ["
               + sessionInfo
               + "] Thrift getStatementResult latency (with error): "
@@ -518,8 +525,8 @@ final class DatabricksThriftAccessor {
 
       String errorMessage =
           String.format(
-              "Error while receiving response from Thrift server. Request {%s}, Error {%s}",
-              request.toString(), e.getMessage());
+              "Error while receiving response from Thrift server. StatementId {%s}, Error {%s}",
+              StatementId.loggableStatementId(request.getOperationHandle()), e.getMessage());
       LOGGER.error(e, errorMessage);
       throw new DatabricksHttpException(errorMessage, e, DatabricksDriverErrorCode.INVALID_STATE);
     }
@@ -532,7 +539,7 @@ final class DatabricksThriftAccessor {
         "Connection ["
             + connectionUuid
             + "] Statement ["
-            + statementId
+            + statementId.toSQLExecStatementId()
             + "] Session ["
             + sessionInfo
             + "] Thrift getStatementResult latency: "
@@ -644,58 +651,58 @@ final class DatabricksThriftAccessor {
       throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetFunctionsResp response = getThriftClient().GetFunctions(request);
-    return fetchMetadataResults(response, response.toString());
+    return fetchMetadataResults(response);
   }
 
   private TFetchResultsResp listPrimaryKeys(TGetPrimaryKeysReq request)
       throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetPrimaryKeysResp response = getThriftClient().GetPrimaryKeys(request);
-    return fetchMetadataResults(response, response.toString());
+    return fetchMetadataResults(response);
   }
 
   private TFetchResultsResp listCrossReferences(TGetCrossReferenceReq request)
       throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetCrossReferenceResp response = getThriftClient().GetCrossReference(request);
-    return fetchMetadataResults(response, response.toString());
+    return fetchMetadataResults(response);
   }
 
   private TFetchResultsResp getTables(TGetTablesReq request) throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetTablesResp response = getThriftClient().GetTables(request);
-    return fetchMetadataResults(response, response.toString());
+    return fetchMetadataResults(response);
   }
 
   private TFetchResultsResp getTableTypes(TGetTableTypesReq request)
       throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetTableTypesResp response = getThriftClient().GetTableTypes(request);
-    return fetchMetadataResults(response, response.toString());
+    return fetchMetadataResults(response);
   }
 
   private TFetchResultsResp getCatalogs(TGetCatalogsReq request) throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetCatalogsResp response = getThriftClient().GetCatalogs(request);
-    return fetchMetadataResults(response, response.toString());
+    return fetchMetadataResults(response);
   }
 
   private TFetchResultsResp listSchemas(TGetSchemasReq request) throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetSchemasResp response = getThriftClient().GetSchemas(request);
-    return fetchMetadataResults(response, response.toString());
+    return fetchMetadataResults(response);
   }
 
   private TFetchResultsResp getTypeInfo(TGetTypeInfoReq request) throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetTypeInfoResp response = getThriftClient().GetTypeInfo(request);
-    return fetchMetadataResults(response, response.toString());
+    return fetchMetadataResults(response);
   }
 
   private TFetchResultsResp listColumns(TGetColumnsReq request) throws TException, SQLException {
     if (enableDirectResults) request.setGetDirectResults(DEFAULT_DIRECT_RESULTS);
     TGetColumnsResp response = getThriftClient().GetColumns(request);
-    return fetchMetadataResults(response, response.toString());
+    return fetchMetadataResults(response);
   }
 
   /** Creates a new thrift client for the given endpoint URL and authentication headers. */
@@ -722,7 +729,6 @@ final class DatabricksThriftAccessor {
    * Otherwise, the metadata results are fetched by polling the operation status.
    *
    * @param response Thrift response object
-   * @param contextDescription description of the context in which the response was received
    * @return metadata results {@link TFetchResultsResp}
    * @param <TResp> Thrift response type
    * @param <FResp> Thrift response field type
@@ -730,8 +736,8 @@ final class DatabricksThriftAccessor {
    * @throws DatabricksSQLException if an error occurs while fetching the metadata results
    */
   private <TResp extends TBase<TResp, FResp>, FResp extends TFieldIdEnum>
-      TFetchResultsResp fetchMetadataResults(TResp response, String contextDescription)
-          throws TException, SQLException {
+      TFetchResultsResp fetchMetadataResults(TResp response) throws TException, SQLException {
+    String contextDescription = response.getClass().getSimpleName();
     checkResponseForErrors(response);
 
     // Get the operation status from direct results if present
@@ -769,7 +775,7 @@ final class DatabricksThriftAccessor {
             () -> {
               try {
                 if (operationHandle != null) {
-                  LOGGER.debug("Canceling metadata operation due to timeout: {}", operationHandle);
+                  LOGGER.debug("Canceling metadata operation due to timeout: {}", statementId);
                   cancelOperation(new TCancelOperationReq().setOperationHandle(operationHandle));
                 }
               } catch (Exception e) {
@@ -838,7 +844,7 @@ final class DatabricksThriftAccessor {
 
     if (!response.isSet(operationHandleField) || isErrorStatusCode(status)) {
       // if the operationHandle has not been set, it is an error from the server.
-      LOGGER.error("Error thrift response {}", response);
+      LOGGER.error("Error thrift response for {}: {}", response.getClass().getSimpleName(), status);
       String originalSqlState = status.getSqlState();
       String remappedSqlState =
           classifyTransientSqlState(status.getErrorMessage(), originalSqlState);
@@ -894,8 +900,11 @@ final class DatabricksThriftAccessor {
       String serverError = enrichErrorMessage(statusResp.getStatus());
       String errorMsg =
           String.format(
-              "Operation failed with error: [%s] for statement [%s], with response [%s]",
-              serverError, statementId, statusResp);
+              "Operation failed with error: [%s] for statement [%s], state [%s], server error [%s]",
+              serverError,
+              statementId,
+              statusResp.getOperationState(),
+              statusResp.getErrorMessage());
       LOGGER.error(errorMsg);
 
       String sqlState = statusResp.getSqlState();
@@ -1022,13 +1031,14 @@ final class DatabricksThriftAccessor {
       int timeoutInSeconds,
       DatabricksDriverErrorCode internalErrorCode) {
     final TOperationHandle operationHandle = response.getOperationHandle();
+    final String statementId = StatementId.loggableStatementId(operationHandle);
 
     return new TimeoutHandler(
         timeoutInSeconds,
-        "Thrift Operation Handle: " + operationHandle.toString(),
+        "Statement ID: " + statementId,
         () -> {
           try {
-            LOGGER.debug("Canceling operation due to timeout: {}", operationHandle);
+            LOGGER.debug("Canceling operation due to timeout: {}", statementId);
             cancelOperation(new TCancelOperationReq().setOperationHandle(operationHandle));
           } catch (Exception e) {
             LOGGER.warn("Failed to cancel operation on timeout: {}", e.getMessage());
@@ -1050,7 +1060,7 @@ final class DatabricksThriftAccessor {
         (operationStatusEndTime - operationStatusStartTime) / 1_000_000;
     LOGGER.debug(
         "Statement [{}] Thrift operation status latency: {}ms",
-        statementId,
+        statementId.toSQLExecStatementId(),
         operationStatusLatencyMillis);
     TelemetryHelper.recordGetOperationStatus(
         connectionContext, statementId.toSQLExecStatementId(), operationStatusLatencyMillis);

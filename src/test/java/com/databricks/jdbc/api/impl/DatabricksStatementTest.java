@@ -372,6 +372,19 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  void testStatementDiagnosticsExcludeSecret() throws DatabricksSQLException {
+    DatabricksConnection mockConnection = mock(DatabricksConnection.class);
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    when(mockConnection.getConnectionContext()).thenReturn(context);
+    StatementId id = StatementId.deserialize("public-guid|handle-secret");
+    DatabricksStatement statement = new DatabricksStatement(mockConnection, id);
+    assertTrue(statement.toString().contains("public-guid"));
+    assertFalse(statement.toString().contains("handle-secret"));
+    assertEquals("public-guid|handle-secret", statement.getStatementId().toString());
+  }
+
+  @Test
   public void testExecuteAsync() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());

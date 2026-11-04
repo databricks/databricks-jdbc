@@ -90,7 +90,7 @@ public class TimeoutHandler {
 
     return new TimeoutHandler(
         timeoutSeconds,
-        "Statement ID: " + statementId,
+        "Statement ID: " + StatementId.loggableStatementId(statementId),
         () -> {
           try {
             client.cancelStatement(statementId);

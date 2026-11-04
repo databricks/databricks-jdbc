@@ -146,6 +146,9 @@ public class DatabricksResultSetTest {
     when(databricksConnectionContext.isComplexDatatypeSupportEnabled()).thenReturn(false);
     DatabricksResultSet resultSet = getThriftResultSetMetadata();
     DatabricksThreadContextHolder.clearAllContext();
+    assertEquals(THRIFT_STATEMENT_ID.toString(), resultSet.getStatementId());
+    assertTrue(resultSet.toString().contains(THRIFT_STATEMENT_ID.toSQLExecStatementId()));
+    assertFalse(resultSet.toString().contains(THRIFT_STATEMENT_ID.toString().split("\\|")[1]));
     assertFalse(resultSet.next());
   }
 

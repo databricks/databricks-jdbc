@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,8 +24,10 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
+import com.databricks.jdbc.log.LogCapture;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
@@ -43,6 +46,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -93,6 +97,61 @@ public class DatabricksThriftServiceClientTest {
     ImmutableSessionInfo actualResponse =
         client.createSession(CLUSTER_COMPUTE, CATALOG, SCHEMA, EMPTY_MAP);
     assertEquals(actualResponse.sessionHandle(), SESSION_HANDLE);
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testSessionDiagnosticsDoNotDumpHandles(boolean failed) throws SQLException {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    TSessionHandle handle = spy(SESSION_HANDLE.deepCopy());
+    lenient()
+        .doThrow(new AssertionError("Session handle must not be dumped"))
+        .when(handle)
+        .toString();
+    TStatus status =
+        new TStatus(failed ? TStatusCode.ERROR_STATUS : TStatusCode.SUCCESS_STATUS)
+            .setSqlState("08000")
+            .setErrorMessage("session RPC failed");
+    TOpenSessionResp openResponse =
+        new TOpenSessionResp()
+            .setSessionHandle(handle)
+            .setServerProtocolVersion(JDBC_THRIFT_VERSION)
+            .setStatus(status);
+    when(thriftAccessor.getThriftResponse(any(TOpenSessionReq.class))).thenReturn(openResponse);
+    when(thriftAccessor.getThriftResponse(any(TCloseSessionReq.class)))
+        .thenReturn(new TCloseSessionResp(status));
+    ImmutableSessionInfo sessionInfo =
+        ImmutableSessionInfo.builder()
+            .sessionId("public-session-id")
+            .computeResource(CLUSTER_COMPUTE)
+            .sessionHandle(handle)
+            .build();
+
+    try (LogCapture logs = new LogCapture()) {
+      if (failed) {
+        DatabricksHttpException openError =
+            assertThrows(
+                DatabricksHttpException.class,
+                () -> client.createSession(CLUSTER_COMPUTE, CATALOG, SCHEMA, EMPTY_MAP));
+        DatabricksHttpException closeError =
+            assertThrows(DatabricksHttpException.class, () -> client.deleteSession(sessionInfo));
+        for (DatabricksHttpException error : List.of(openError, closeError)) {
+          assertTrue(error.getMessage().contains("session RPC failed"));
+          assertFalse(error.getMessage().contains("secret:"));
+          assertEquals("08000", error.getSQLState());
+          assertEquals(0, error.getErrorCode());
+        }
+      } else {
+        assertSame(
+            handle,
+            client.createSession(CLUSTER_COMPUTE, CATALOG, SCHEMA, EMPTY_MAP).sessionHandle());
+        client.deleteSession(sessionInfo);
+      }
+      assertFalse(logs.getOutput().isEmpty());
+      assertFalse(logs.getOutput().contains("secret:"));
+    }
+    assertArrayEquals(SESSION_HANDLE.getSessionId().getSecret(), handle.getSessionId().getSecret());
   }
 
   @Test

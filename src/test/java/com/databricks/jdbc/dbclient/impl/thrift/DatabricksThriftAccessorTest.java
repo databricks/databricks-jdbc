@@ -20,18 +20,26 @@ import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
+import com.databricks.jdbc.log.LogCapture;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.databricks.sdk.service.sql.StatementState;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.stream.Stream;
+import org.apache.thrift.TBase;
 import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransportException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -948,12 +956,24 @@ public class DatabricksThriftAccessorTest {
 
     // The execute method should throw a timeout exception since the operation does not complete
     // within 1 second. The polling interval is 1 second, and multiple polling attempts are made
-    DatabricksTimeoutException exception =
-        assertThrows(
-            DatabricksTimeoutException.class,
-            () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+    DatabricksTimeoutException exception;
+    try (LogCapture logs = new LogCapture()) {
+      exception =
+          assertThrows(
+              DatabricksTimeoutException.class,
+              () -> accessor.execute(request, parentStatement, session, StatementType.SQL));
+      assertTrue(logs.getOutput().contains(StatementId.loggableStatementId(tOperationHandle)));
+      assertFalse(logs.getOutput().contains("secret:"));
+      assertFalse(logs.getOutput().contains(TEST_STMT_ID.split("\\|")[1]));
+    }
 
     assertTrue(exception.getMessage().contains("timed-out after 1 seconds"));
+    assertTrue(exception.getMessage().contains(StatementId.loggableStatementId(tOperationHandle)));
+    assertFalse(exception.getMessage().contains("secret:"));
+    assertFalse(exception.getMessage().contains(TEST_STMT_ID.split("\\|")[1]));
+    assertEquals(
+        DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT.name(), exception.getSQLState());
+    assertEquals(0, exception.getErrorCode());
 
     // Verify that cancel was called
     verify(thriftClient).CancelOperation(any(TCancelOperationReq.class));
@@ -1350,6 +1370,130 @@ public class DatabricksThriftAccessorTest {
         e.getSQLState(),
         "Expected ConcurrentModificationException with 42000 to be remapped to 40001");
     assertEquals(EXECUTE_STATEMENT_FAILED.getCode(), e.getErrorCode());
+  }
+
+  private static Stream<Arguments> metadataRpcs() {
+    return Stream.of(
+        Arguments.of(new TGetFunctionsReq(), new TGetFunctionsResp()),
+        Arguments.of(new TGetPrimaryKeysReq(), new TGetPrimaryKeysResp()),
+        Arguments.of(new TGetCrossReferenceReq(), new TGetCrossReferenceResp()),
+        Arguments.of(new TGetTablesReq(), new TGetTablesResp()),
+        Arguments.of(new TGetTableTypesReq(), new TGetTableTypesResp()),
+        Arguments.of(new TGetCatalogsReq(), new TGetCatalogsResp()),
+        Arguments.of(new TGetSchemasReq(), new TGetSchemasResp()),
+        Arguments.of(new TGetTypeInfoReq(), new TGetTypeInfoResp()),
+        Arguments.of(new TGetColumnsReq(), new TGetColumnsResp()));
+  }
+
+  @ParameterizedTest
+  @MethodSource("metadataRpcs")
+  @SuppressWarnings({"rawtypes", "unchecked"})
+  void testMetadataDiagnosticsDoNotSerializeResponses(TBase request, TBase response)
+      throws Exception {
+    thriftClient = mock(TCLIService.Client.class, invocation -> response);
+    setup(true);
+    TOperationHandle handle = spy(tOperationHandle.deepCopy());
+    lenient()
+        .doThrow(new AssertionError("Operation handle must not be dumped"))
+        .when(handle)
+        .toString();
+    TSparkDirectResults results = directResults.deepCopy();
+    response.setFieldValue(response.fieldForId((short) 1), new TStatus(TStatusCode.SUCCESS_STATUS));
+    response.setFieldValue(response.fieldForId((short) 2), handle);
+    response.setFieldValue(response.fieldForId((short) 1281), results);
+    assertSame(results.getResultSet(), accessor.getThriftResponse(request));
+
+    results
+        .getResultSet()
+        .setStatus(
+            new TStatus(TStatusCode.ERROR_STATUS)
+                .setSqlState(QUERY_EXECUTION_TIMEOUT_SQLSTATE)
+                .setErrorMessage("metadata timed out"));
+    try (LogCapture logs = new LogCapture()) {
+      SQLException error =
+          assertThrows(SQLException.class, () -> accessor.getThriftResponse(request));
+      assertTrue(error.getMessage().contains(response.getClass().getSimpleName()));
+      assertTrue(error.getMessage().contains("metadata timed out"));
+      assertTrue(error.getMessage().contains(StatementId.loggableStatementId(handle)));
+      assertEquals(QUERY_EXECUTION_TIMEOUT_SQLSTATE, error.getSQLState());
+      assertInstanceOf(DatabricksTimeoutException.class, error.getCause());
+      assertEquals(0, error.getErrorCode());
+      assertFalse(logs.getOutput().isEmpty());
+      assertFalse(logs.getOutput().contains("secret:"));
+      assertFalse(logs.getOutput().contains(TEST_STMT_ID.split("\\|")[1]));
+    }
+    assertArrayEquals(
+        tOperationHandle.getOperationId().getSecret(), handle.getOperationId().getSecret());
+    response.setFieldValue(
+        response.fieldForId((short) 1),
+        new TStatus(TStatusCode.ERROR_STATUS)
+            .setSqlState("42000")
+            .setErrorMessage("metadata RPC failed"));
+    try (LogCapture logs = new LogCapture()) {
+      SQLException error =
+          assertThrows(SQLException.class, () -> accessor.getThriftResponse(request));
+      assertTrue(error.getMessage().contains("metadata RPC failed"));
+      assertEquals("42000", error.getSQLState());
+      assertEquals(EXECUTE_STATEMENT_FAILED.getCode(), error.getErrorCode());
+      assertFalse(logs.getOutput().contains("secret:"));
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testExecutionErrorsDoNotDumpSessionRequests(boolean async) throws Exception {
+    setup(true);
+    TSessionHandle handle = spy(new TSessionHandle(handleIdentifier.deepCopy()));
+    lenient()
+        .doThrow(new AssertionError("Session handle must not be dumped"))
+        .when(handle)
+        .toString();
+    TExecuteStatementReq request = new TExecuteStatementReq().setSessionHandle(handle);
+    when(thriftClient.ExecuteStatement(request)).thenThrow(new TException("RPC failed"));
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksHttpException error =
+          assertThrows(
+              DatabricksHttpException.class,
+              () -> {
+                if (async)
+                  accessor.executeAsync(request, parentStatement, session, StatementType.SQL);
+                else accessor.execute(request, parentStatement, session, StatementType.SQL);
+              });
+      assertTrue(error.getMessage().contains("RPC failed"));
+      assertFalse(error.getMessage().contains("secret:"));
+      assertFalse(logs.getOutput().isEmpty());
+      assertFalse(logs.getOutput().contains("secret:"));
+      assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
+      assertEquals(0, error.getErrorCode());
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testOperationErrorsDoNotDumpHandles(boolean cancel) throws Exception {
+    setup(true);
+    TOperationHandle handle = spy(tOperationHandle.deepCopy());
+    lenient()
+        .doThrow(new AssertionError("Operation handle must not be dumped"))
+        .when(handle)
+        .toString();
+    if (cancel)
+      when(thriftClient.CancelOperation(any())).thenThrow(new TException("cancel failed"));
+    else when(thriftClient.CloseOperation(any())).thenThrow(new TException("close failed"));
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksHttpException error =
+          assertThrows(
+              DatabricksHttpException.class,
+              () -> {
+                if (cancel) accessor.cancelOperation(new TCancelOperationReq(handle));
+                else accessor.closeOperation(new TCloseOperationReq(handle));
+              });
+      assertTrue(error.getMessage().contains(StatementId.loggableStatementId(handle)));
+      assertFalse(logs.getOutput().contains("secret:"));
+      assertFalse(logs.getOutput().contains(TEST_STMT_ID.split("\\|")[1]));
+      assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), error.getSQLState());
+      assertEquals(0, error.getErrorCode());
+    }
   }
 
   private TFetchResultsReq getFetchResultsRequest(boolean includeMetadata)

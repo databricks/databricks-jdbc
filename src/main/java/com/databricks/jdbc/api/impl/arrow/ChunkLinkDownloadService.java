@@ -98,7 +98,7 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
       long nextBatchStartIndex) {
     LOGGER.info(
         "Initializing ChunkLinkDownloadService for statement {} with total chunks: {}, starting at index: {}",
-        statementId,
+        StatementId.loggableStatementId(statementId),
         totalChunks,
         nextBatchStartIndex);
 
@@ -189,7 +189,9 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
 
   /** Shuts down the service and cancels all pending operations. */
   public void shutdown() {
-    LOGGER.info("Shutting down ChunkLinkDownloadService for statement {}", statementId);
+    LOGGER.info(
+        "Shutting down ChunkLinkDownloadService for statement {}",
+        StatementId.loggableStatementId(statementId));
     isShutdown = true;
     chunkIndexToLinkFuture.forEach(
         (index, future) -> {
@@ -252,7 +254,7 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
                 LOGGER.debug(
                     "Link batch fetch: statementId={}, batchStartIndex={}, "
                         + "linksRetrieved={}, fetchApiMs={}",
-                    statementId,
+                    StatementId.loggableStatementId(statementId),
                     batchStartIndex,
                     result.getChunkLinks().size(),
                     fetchMs);
@@ -265,7 +267,7 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
                     LOGGER.debug(
                         "Completing future for chunk {} for statement id {}",
                         link.getChunkIndex(),
-                        statementId);
+                        StatementId.loggableStatementId(statementId));
                     future.complete(link);
                   }
                 }

@@ -100,9 +100,10 @@ public class DatabricksThriftUtil {
       String errorMessage =
           statementId != null
               ? String.format(
-                  "Error thrift response received [%s] for statementId [%s]",
-                  errorContext, statementId)
-              : String.format("Error thrift response received [%s]", errorContext);
+                  "Error thrift response received [%s] for statementId [%s], status [%s]",
+                  errorContext, statementId, status)
+              : String.format(
+                  "Error thrift response received [%s], status [%s]", errorContext, status);
 
       String sqlState = status.getSqlState();
       if (sqlState != null && QUERY_EXECUTION_TIMEOUT_SQLSTATE.equals(sqlState)) {
