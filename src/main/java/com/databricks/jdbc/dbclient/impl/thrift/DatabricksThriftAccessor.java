@@ -762,7 +762,7 @@ final class DatabricksThriftAccessor {
           (TSparkDirectResults) response.getFieldValue(directResultsField);
       checkDirectResultsForErrorStatus(
           directResults,
-          String.format("%s direct results [%s]", contextDescription, directResults),
+          () -> String.format("%s direct results [%s]", contextDescription, directResults),
           statementId);
       statusResp = directResults.getOperationStatus();
       checkOperationStatusForErrors(statusResp, statementId);

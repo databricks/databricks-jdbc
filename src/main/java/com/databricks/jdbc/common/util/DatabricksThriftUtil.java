@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -96,7 +97,14 @@ public class DatabricksThriftUtil {
 
   public static void verifySuccessStatus(TStatus status, String errorContext, String statementId)
       throws SQLException {
+    verifySuccessStatus(status, () -> errorContext, statementId);
+  }
+
+  private static void verifySuccessStatus(
+      TStatus status, Supplier<String> errorContextSupplier, String statementId)
+      throws SQLException {
     if (!SUCCESS_STATUS_LIST.contains(status.getStatusCode())) {
+      String errorContext = errorContextSupplier.get();
       String errorMessage =
           statementId != null
               ? String.format(
@@ -386,6 +394,12 @@ public class DatabricksThriftUtil {
 
   public static void checkDirectResultsForErrorStatus(
       TSparkDirectResults directResults, String context, String statementId) throws SQLException {
+    checkDirectResultsForErrorStatus(directResults, () -> context, statementId);
+  }
+
+  public static void checkDirectResultsForErrorStatus(
+      TSparkDirectResults directResults, Supplier<String> context, String statementId)
+      throws SQLException {
     if (directResults.isSetOperationStatus()) {
       LOGGER.debug(
           "direct result operation status being verified for success response for statementId {}",

@@ -467,7 +467,7 @@ public class ChunkLinkDownloadService<T extends AbstractArrowResultChunk> {
               + "Total chunks: "
               + totalChunks
               + ", StatementId: "
-              + statementId);
+              + StatementId.loggableStatementId(statementId));
     }
     return chunk.getStartRowOffset();
   }

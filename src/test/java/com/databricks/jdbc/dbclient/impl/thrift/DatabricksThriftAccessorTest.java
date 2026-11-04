@@ -54,6 +54,12 @@ public class DatabricksThriftAccessorTest {
   private static DatabricksThriftAccessor accessor;
   private static final String TEST_STMT_ID =
       "01efc77c-7c8b-1a8e-9ecb-a9a6e6aa050a|338d529d-8272-46eb-8482-cb419466839d";
+  private static final short STATUS_FIELD_ID =
+      TExecuteStatementResp._Fields.STATUS.getThriftFieldId();
+  private static final short OPERATION_HANDLE_FIELD_ID =
+      TExecuteStatementResp._Fields.OPERATION_HANDLE.getThriftFieldId();
+  private static final short DIRECT_RESULTS_FIELD_ID =
+      TExecuteStatementResp._Fields.DIRECT_RESULTS.getThriftFieldId();
   private static final THandleIdentifier handleIdentifier =
       StatementId.deserialize(TEST_STMT_ID).toOperationIdentifier();
   private static final TOperationHandle tOperationHandle =
@@ -211,6 +217,44 @@ public class DatabricksThriftAccessorTest {
             DatabricksSQLException.class,
             () -> accessor.executeAsync(request, null, session, StatementType.SQL));
     assertEquals("42601", exception.getSQLState());
+  }
+
+  @Test
+  void testExecuteAsyncErrorStatusDiagnosticsExcludeHandles() throws Exception {
+    setup(true);
+    TSessionHandle sessionHandle = spy(new TSessionHandle(handleIdentifier.deepCopy()));
+    TOperationHandle operationHandle = spy(tOperationHandle.deepCopy());
+    lenient()
+        .doThrow(new AssertionError("Session handle must not be dumped"))
+        .when(sessionHandle)
+        .toString();
+    lenient()
+        .doThrow(new AssertionError("Operation handle must not be dumped"))
+        .when(operationHandle)
+        .toString();
+    TExecuteStatementReq request = new TExecuteStatementReq().setSessionHandle(sessionHandle);
+    TExecuteStatementResp response =
+        new TExecuteStatementResp()
+            .setOperationHandle(operationHandle)
+            .setStatus(
+                new TStatus(TStatusCode.ERROR_STATUS)
+                    .setSqlState("42601")
+                    .setErrorMessage("invalid SQL"));
+    when(thriftClient.ExecuteStatement(request)).thenReturn(response);
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksHttpException error =
+          assertThrows(
+              DatabricksHttpException.class,
+              () -> accessor.executeAsync(request, parentStatement, session, StatementType.SQL));
+      assertTrue(error.getMessage().contains("Request {TExecuteStatementReq}"));
+      assertTrue(error.getMessage().contains("invalid SQL"));
+      assertFalse(error.getMessage().contains("secret:"));
+      assertTrue(logs.getOutput().contains("invalid SQL"));
+      assertFalse(logs.getOutput().contains("secret:"));
+      assertEquals("42601", error.getSQLState());
+      assertEquals(0, error.getErrorCode());
+    }
   }
 
   @Test
@@ -1396,18 +1440,33 @@ public class DatabricksThriftAccessorTest {
   @SuppressWarnings({"rawtypes", "unchecked"})
   void testMetadataDiagnosticsDoNotSerializeResponses(TBase request, TBase response)
       throws Exception {
-    thriftClient = mock(TCLIService.Client.class, invocation -> response);
+    thriftClient =
+        mock(
+            TCLIService.Client.class,
+            invocation -> {
+              if (invocation.getArguments().length == 1 && invocation.getArgument(0) == request) {
+                return response;
+              }
+              throw new AssertionError(
+                  "Unexpected Thrift RPC: " + invocation.getMethod().getName());
+            });
     setup(true);
     TOperationHandle handle = spy(tOperationHandle.deepCopy());
     lenient()
         .doThrow(new AssertionError("Operation handle must not be dumped"))
         .when(handle)
         .toString();
-    TSparkDirectResults results = directResults.deepCopy();
-    response.setFieldValue(response.fieldForId((short) 1), new TStatus(TStatusCode.SUCCESS_STATUS));
-    response.setFieldValue(response.fieldForId((short) 2), handle);
-    response.setFieldValue(response.fieldForId((short) 1281), results);
+    TSparkDirectResults results = spy(directResults.deepCopy());
+    lenient()
+        .doThrow(new AssertionError("Successful metadata must not render direct results"))
+        .when(results)
+        .toString();
+    response.setFieldValue(
+        response.fieldForId(STATUS_FIELD_ID), new TStatus(TStatusCode.SUCCESS_STATUS));
+    response.setFieldValue(response.fieldForId(OPERATION_HANDLE_FIELD_ID), handle);
+    response.setFieldValue(response.fieldForId(DIRECT_RESULTS_FIELD_ID), results);
     assertSame(results.getResultSet(), accessor.getThriftResponse(request));
+    doCallRealMethod().when(results).toString();
 
     results
         .getResultSet()
@@ -1431,7 +1490,7 @@ public class DatabricksThriftAccessorTest {
     assertArrayEquals(
         tOperationHandle.getOperationId().getSecret(), handle.getOperationId().getSecret());
     response.setFieldValue(
-        response.fieldForId((short) 1),
+        response.fieldForId(STATUS_FIELD_ID),
         new TStatus(TStatusCode.ERROR_STATUS)
             .setSqlState("42000")
             .setErrorMessage("metadata RPC failed"));
@@ -1461,9 +1520,11 @@ public class DatabricksThriftAccessorTest {
           assertThrows(
               DatabricksHttpException.class,
               () -> {
-                if (async)
+                if (async) {
                   accessor.executeAsync(request, parentStatement, session, StatementType.SQL);
-                else accessor.execute(request, parentStatement, session, StatementType.SQL);
+                } else {
+                  accessor.execute(request, parentStatement, session, StatementType.SQL);
+                }
               });
       assertTrue(error.getMessage().contains("RPC failed"));
       assertFalse(error.getMessage().contains("secret:"));
@@ -1483,16 +1544,21 @@ public class DatabricksThriftAccessorTest {
         .doThrow(new AssertionError("Operation handle must not be dumped"))
         .when(handle)
         .toString();
-    if (cancel)
+    if (cancel) {
       when(thriftClient.CancelOperation(any())).thenThrow(new TException("cancel failed"));
-    else when(thriftClient.CloseOperation(any())).thenThrow(new TException("close failed"));
+    } else {
+      when(thriftClient.CloseOperation(any())).thenThrow(new TException("close failed"));
+    }
     try (LogCapture logs = new LogCapture()) {
       DatabricksHttpException error =
           assertThrows(
               DatabricksHttpException.class,
               () -> {
-                if (cancel) accessor.cancelOperation(new TCancelOperationReq(handle));
-                else accessor.closeOperation(new TCloseOperationReq(handle));
+                if (cancel) {
+                  accessor.cancelOperation(new TCancelOperationReq(handle));
+                } else {
+                  accessor.closeOperation(new TCloseOperationReq(handle));
+                }
               });
       assertTrue(error.getMessage().contains(StatementId.loggableStatementId(handle)));
       assertFalse(logs.getOutput().contains("secret:"));

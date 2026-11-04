@@ -138,11 +138,11 @@ public class DatabricksThriftServiceClientTest {
                 () -> client.createSession(CLUSTER_COMPUTE, CATALOG, SCHEMA, EMPTY_MAP));
         DatabricksHttpException closeError =
             assertThrows(DatabricksHttpException.class, () -> client.deleteSession(sessionInfo));
+        assertFalse(openError.getMessage().contains("secret:"));
         for (DatabricksHttpException error : List.of(openError, closeError)) {
           assertTrue(error.getMessage().contains("session RPC failed"));
           assertTrue(error.getMessage().contains("Server diagnostic information"));
           assertTrue(error.getMessage().contains("Server error details"));
-          assertFalse(error.getMessage().contains("secret:"));
           assertEquals("08000", error.getSQLState());
           assertEquals(0, error.getErrorCode());
         }

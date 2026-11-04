@@ -94,6 +94,25 @@ class ChunkLinkDownloadServiceTest {
   }
 
   @Test
+  void testMissingChunkErrorExcludesStatementSecret() {
+    when(mockSession.getConnectionContext().getClientType())
+        .thenReturn(DatabricksClientType.THRIFT);
+    StatementId statementId = StatementId.deserialize("public-guid|handle-secret");
+    ChunkLinkDownloadService<ArrowResultChunk> service =
+        new ChunkLinkDownloadService<>(
+            mockSession, statementId, TOTAL_CHUNKS, mockChunkMap, NEXT_BATCH_START_INDEX);
+    try {
+      IllegalStateException error =
+          assertThrows(IllegalStateException.class, () -> service.getLinkForChunk(1L));
+      assertTrue(error.getMessage().contains("Chunk not found in map for index 1"));
+      assertTrue(error.getMessage().contains("StatementId: public-guid"));
+      assertFalse(error.getMessage().contains("handle-secret"));
+    } finally {
+      service.shutdown();
+    }
+  }
+
+  @Test
   void testGetLinkForChunk_InvalidIndex() throws ExecutionException, InterruptedException {
     ChunkLinkDownloadService<ArrowResultChunk> service =
         new ChunkLinkDownloadService<>(
