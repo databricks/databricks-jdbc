@@ -715,7 +715,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @Override
   public ResultSet getExecutionResult() throws SQLException {
     LOGGER.debug(
-        "ResultSet getExecutionResult() for statementId {%s}",
+        "ResultSet getExecutionResult() for statementId {}",
         StatementId.loggableStatementId(statementId));
     checkIfClosed();
 
