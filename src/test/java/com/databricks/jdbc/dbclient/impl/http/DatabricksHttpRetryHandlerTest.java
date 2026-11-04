@@ -136,6 +136,7 @@ public class DatabricksHttpRetryHandlerTest {
         new BindException("Cannot assign requested address"),
         new UnknownHostException("Temporary failure in name resolution"),
         new SocketException("Network is unreachable"),
+        new SocketException("Network is unreachable (connect failed)"),
         new SSLHandshakeException("Remote host terminated the handshake"),
         new IOException("Wrapped connection failure", new ConnectException("Connection refused")));
   }

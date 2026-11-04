@@ -44,7 +44,8 @@ public final class NetworkRetryUtil {
         return true;
       }
       if (cause instanceof SocketException
-          && "Network is unreachable".equalsIgnoreCase(cause.getMessage())) {
+          && ("Network is unreachable".equalsIgnoreCase(cause.getMessage())
+              || "Network is unreachable (connect failed)".equalsIgnoreCase(cause.getMessage()))) {
         return true;
       }
       if (cause instanceof SSLHandshakeException
