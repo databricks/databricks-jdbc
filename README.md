@@ -129,6 +129,11 @@ checks again after sleeping. SEA checks before the SDK's backoff, so a retry app
 near the window's end can start after it expires. This window does not interrupt an
 attempt already in progress, and HTTP-status retries use their existing policies.
 
+Positive `socketTimeout` values of 1 or 2 seconds disable Thrift connection retries:
+the first 2-second backoff cannot fit in the window. Larger values can still allow fewer
+than three retries as attempts and backoff consume the window. SEA can retry with these
+short timeouts because it checks before the SDK's backoff.
+
 DNS lookup failures are retried because Java's `UnknownHostException` can represent both
 temporary resolver failures and invalid hostnames. A mistyped hostname can therefore add
 up to 14 seconds of backoff in Thrift mode, or the SDK's backoff in SEA mode, before failing.
