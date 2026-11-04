@@ -1312,7 +1312,10 @@ public class DatabricksThriftAccessorTest {
                     .setErrorMessage(ucErrorMessage)
                     .setSqlState("XXUCC"))
             .setSqlState("XXUCC")
-            .setOperationState(TOperationState.ERROR_STATE);
+            .setOperationState(TOperationState.ERROR_STATE)
+            .setDisplayMessage("Retry the query")
+            .setDiagnosticInfo("Server diagnostic information")
+            .setErrorDetailsJson("Server error details");
 
     when(thriftClient.ExecuteStatement(request)).thenReturn(tExecuteStatementResp);
     when(thriftClient.GetOperationStatus(any(TGetOperationStatusReq.class)))
@@ -1329,6 +1332,9 @@ public class DatabricksThriftAccessorTest {
         "08S01",
         e.getSQLState(),
         "Expected UC error on operation-state branch to be remapped to 08S01");
+    assertTrue(e.getMessage().contains("Retry the query"));
+    assertTrue(e.getMessage().contains("Server diagnostic information"));
+    assertTrue(e.getMessage().contains("Server error details"));
   }
 
   @Test

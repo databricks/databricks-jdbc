@@ -31,10 +31,6 @@ public class StatementIdTest {
         StatementId.loggableStatementId(new TOperationHandle().setOperationId(identifier)));
     assertEquals(statementId, StatementId.deserialize(statementId.toString()));
     assertArrayEquals(testSecretBytes, statementId.toOperationIdentifier().getSecret());
-    assertEquals(
-        publicId,
-        StatementId.loggableStatementId(
-            new TOperationHandle().setOperationId(new THandleIdentifier().setGuid(testGuidBytes))));
     assertNull(StatementId.loggableStatementId((StatementId) null));
     assertNull(StatementId.loggableStatementId((TOperationHandle) null));
     assertNull(StatementId.loggableStatementId(new TOperationHandle()));

@@ -26,8 +26,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.NullSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -130,45 +128,6 @@ public class DatabricksThriftUtilTest {
 
     assertEquals(QUERY_EXECUTION_TIMEOUT_SQLSTATE, timeoutException.getSQLState());
     assertTrue(timeoutException.getMessage().contains("f6c9348e-84fb-47e8-8dcd-07455ff39ff5"));
-  }
-
-  @ParameterizedTest
-  @NullSource
-  @ValueSource(strings = {"f6c9348e-84fb-47e8-8dcd-07455ff39ff5"})
-  void testVerifySuccessStatusIncludesOnlySelectedStatusFields(String statementId) {
-    TStatus status =
-        new TStatus(TStatusCode.ERROR_STATUS) {
-          @Override
-          public String toString() {
-            throw new AssertionError("Status must not be dumped");
-          }
-        };
-    status
-        .setErrorMessage("Table does not exist")
-        .setSqlState("42S02")
-        .setErrorCode(123)
-        .setDisplayMessage("Check the table name")
-        .setInfoMessages(List.of("internal-stack-trace"))
-        .setErrorDetailsJson("internal-error-details");
-
-    DatabricksHttpException error =
-        assertThrows(
-            DatabricksHttpException.class,
-            () -> DatabricksThriftUtil.verifySuccessStatus(status, "GetTables", statementId));
-    String message = error.getMessage();
-    assertTrue(message.contains("GetTables"));
-    assertTrue(message.contains("statusCode=ERROR_STATUS"));
-    assertTrue(message.contains("errorMessage=Table does not exist"));
-    assertTrue(message.contains("sqlState=42S02"));
-    assertTrue(message.contains("errorCode=123"));
-    assertTrue(message.contains("displayMessage=Check the table name"));
-    assertFalse(message.contains("internal-stack-trace"));
-    assertFalse(message.contains("internal-error-details"));
-    if (statementId != null) {
-      assertTrue(message.contains(statementId));
-    }
-    assertEquals("42S02", error.getSQLState());
-    assertEquals(0, error.getErrorCode());
   }
 
   private static Stream<Arguments> resultDataTypes() {

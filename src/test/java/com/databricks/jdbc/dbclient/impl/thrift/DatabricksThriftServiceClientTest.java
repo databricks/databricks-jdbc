@@ -112,7 +112,9 @@ public class DatabricksThriftServiceClientTest {
     TStatus status =
         new TStatus(failed ? TStatusCode.ERROR_STATUS : TStatusCode.SUCCESS_STATUS)
             .setSqlState("08000")
-            .setErrorMessage("session RPC failed");
+            .setErrorMessage("session RPC failed")
+            .setInfoMessages(List.of("Server diagnostic information"))
+            .setErrorDetailsJson("Server error details");
     TOpenSessionResp openResponse =
         new TOpenSessionResp()
             .setSessionHandle(handle)
@@ -138,6 +140,8 @@ public class DatabricksThriftServiceClientTest {
             assertThrows(DatabricksHttpException.class, () -> client.deleteSession(sessionInfo));
         for (DatabricksHttpException error : List.of(openError, closeError)) {
           assertTrue(error.getMessage().contains("session RPC failed"));
+          assertTrue(error.getMessage().contains("Server diagnostic information"));
+          assertTrue(error.getMessage().contains("Server error details"));
           assertFalse(error.getMessage().contains("secret:"));
           assertEquals("08000", error.getSQLState());
           assertEquals(0, error.getErrorCode());

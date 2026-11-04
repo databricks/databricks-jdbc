@@ -97,21 +97,12 @@ public class DatabricksThriftUtil {
   public static void verifySuccessStatus(TStatus status, String errorContext, String statementId)
       throws SQLException {
     if (!SUCCESS_STATUS_LIST.contains(status.getStatusCode())) {
-      String statusDetails =
-          String.format(
-              "statusCode=%s, errorMessage=%s, sqlState=%s, errorCode=%s, displayMessage=%s",
-              status.getStatusCode(),
-              status.getErrorMessage(),
-              status.getSqlState(),
-              status.isSetErrorCode() ? status.getErrorCode() : null,
-              status.getDisplayMessage());
       String errorMessage =
           statementId != null
               ? String.format(
-                  "Error thrift response received [%s] for statementId [%s], status [%s]",
-                  errorContext, statementId, statusDetails)
-              : String.format(
-                  "Error thrift response received [%s], status [%s]", errorContext, statusDetails);
+                  "Error thrift response received [%s] for statementId [%s]",
+                  errorContext, statementId)
+              : String.format("Error thrift response received [%s]", errorContext);
 
       String sqlState = status.getSqlState();
       if (sqlState != null && QUERY_EXECUTION_TIMEOUT_SQLSTATE.equals(sqlState)) {

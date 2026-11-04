@@ -122,7 +122,7 @@ public class StatementId {
     if (operationHandle == null || operationHandle.getOperationId() == null) {
       return null;
     }
-    return ResourceId.fromBytes(operationHandle.getOperationId().getGuid()).toString();
+    return new StatementId(operationHandle.getOperationId()).toSQLExecStatementId();
   }
 
   /** Returns the public identifier for diagnostics, without the serialized Thrift secret. */

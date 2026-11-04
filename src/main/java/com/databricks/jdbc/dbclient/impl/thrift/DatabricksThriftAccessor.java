@@ -737,7 +737,11 @@ final class DatabricksThriftAccessor {
    */
   private <TResp extends TBase<TResp, FResp>, FResp extends TFieldIdEnum>
       TFetchResultsResp fetchMetadataResults(TResp response) throws TException, SQLException {
-    String contextDescription = response.getClass().getSimpleName();
+    String contextDescription =
+        String.format(
+            "%s status [%s]",
+            response.getClass().getSimpleName(),
+            response.getFieldValue(response.fieldForId(statusFieldId)));
     checkResponseForErrors(response);
 
     // Get the operation status from direct results if present
@@ -756,7 +760,10 @@ final class DatabricksThriftAccessor {
     if (response.isSet(directResultsField)) {
       TSparkDirectResults directResults =
           (TSparkDirectResults) response.getFieldValue(directResultsField);
-      checkDirectResultsForErrorStatus(directResults, contextDescription, statementId);
+      checkDirectResultsForErrorStatus(
+          directResults,
+          String.format("%s direct results [%s]", contextDescription, directResults),
+          statementId);
       statusResp = directResults.getOperationStatus();
       checkOperationStatusForErrors(statusResp, statementId);
     }
@@ -900,11 +907,8 @@ final class DatabricksThriftAccessor {
       String serverError = enrichErrorMessage(statusResp.getStatus());
       String errorMsg =
           String.format(
-              "Operation failed with error: [%s] for statement [%s], state [%s], server error [%s]",
-              serverError,
-              statementId,
-              statusResp.getOperationState(),
-              statusResp.getErrorMessage());
+              "Operation failed with error: [%s] for statement [%s], with response [%s]",
+              serverError, statementId, statusResp);
       LOGGER.error(errorMsg);
 
       String sqlState = statusResp.getSqlState();
