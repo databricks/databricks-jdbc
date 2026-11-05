@@ -468,7 +468,6 @@ public class DatabricksPreparedStatementTest {
             eq(statement),
             any()))
         .thenReturn(resultSet);
-    when(resultSet.getUpdateCount()).thenReturn(1L);
 
     assertArrayEquals(new int[] {1}, statement.executeBatch());
     Object snapshottedValue = parametersCaptor.getValue().get(1).value();
