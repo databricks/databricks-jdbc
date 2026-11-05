@@ -1,6 +1,7 @@
 package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.common.util.InsertStatementParser;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import java.sql.SQLException;
@@ -72,7 +73,7 @@ class PreparedStatementBatchExecutor {
       return new long[0];
     }
     if (!InsertStatementParser.isParametrizedInsert(sql)) {
-      return legacyExecutor.executeIndividually(batchParameterSets);
+      return legacyExecutor.executeIndividualStatements(batchParameterSets);
     }
     if (!connection.getConnectionContext().isNativeBatchingEnabled()
         || !nativeExecutor.isSupported()) {
@@ -94,7 +95,8 @@ class PreparedStatementBatchExecutor {
   }
 
   private boolean isUnsupportedNativeBatching(SQLException exception) {
-    return "42P02".equals(exception.getSQLState())
+    return connection.getConnectionContext().getComputeResource() instanceof Warehouse
+        && "42P02".equals(exception.getSQLState())
         && exception.getMessage() != null
         && exception.getMessage().contains("[UNBOUND_SQL_PARAMETER]");
   }
