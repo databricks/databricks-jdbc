@@ -169,7 +169,7 @@ public class StreamingChunkProvider implements ChunkProvider {
 
     LOGGER.info(
         "Creating StreamingChunkProvider for statement {}: maxChunksInMemory={}, linkPrefetchWindow={}",
-        statementId,
+        StatementId.loggableStatementId(statementId),
         maxChunksInMemory,
         linkPrefetchWindow);
 
@@ -295,7 +295,9 @@ public class StreamingChunkProvider implements ChunkProvider {
       return;
     }
 
-    LOGGER.info("Closing StreamingChunkProvider for statement {}", statementId);
+    LOGGER.info(
+        "Closing StreamingChunkProvider for statement {}",
+        StatementId.loggableStatementId(statementId));
     closed = true;
 
     // Wake up any waiting threads so they can exit
@@ -371,7 +373,9 @@ public class StreamingChunkProvider implements ChunkProvider {
   // ==================== Link Prefetch Logic ====================
 
   private void linkPrefetchLoop() {
-    LOGGER.debug("Link prefetch thread started for statement {}", statementId);
+    LOGGER.debug(
+        "Link prefetch thread started for statement {}",
+        StatementId.loggableStatementId(statementId));
 
     while (!closed && !Thread.currentThread().isInterrupted()) {
       try {
@@ -421,7 +425,9 @@ public class StreamingChunkProvider implements ChunkProvider {
       }
     }
 
-    LOGGER.debug("Link prefetch thread exiting for statement {}", statementId);
+    LOGGER.debug(
+        "Link prefetch thread exiting for statement {}",
+        StatementId.loggableStatementId(statementId));
   }
 
   private void fetchNextLinkBatch() throws SQLException {
@@ -434,12 +440,13 @@ public class StreamingChunkProvider implements ChunkProvider {
         "Fetching links starting from index {}, row offset {} for statement {}",
         pos.chunkIndex,
         pos.rowOffset,
-        statementId);
+        StatementId.loggableStatementId(statementId));
 
     ChunkLinkFetchResult result = linkFetcher.fetchLinks(pos.chunkIndex, pos.rowOffset);
 
     if (result.isEndOfStream()) {
-      LOGGER.info("End of stream reached for statement {}", statementId);
+      LOGGER.info(
+          "End of stream reached for statement {}", StatementId.loggableStatementId(statementId));
       endOfStreamReached = true;
       notifyChunkCreated(); // Wake consumer parked in waitForNextChunkEnqueued
       return;
@@ -455,7 +462,9 @@ public class StreamingChunkProvider implements ChunkProvider {
       nextFetchPosition = new FetchPosition(result.getNextFetchIndex(), result.getNextRowOffset());
     } else {
       endOfStreamReached = true;
-      LOGGER.info("End of stream reached for statement {} (hasMore=false)", statementId);
+      LOGGER.info(
+          "End of stream reached for statement {} (hasMore=false)",
+          StatementId.loggableStatementId(statementId));
       notifyChunkCreated(); // Wake consumer parked in waitForNextChunkEnqueued
     }
 
@@ -472,14 +481,16 @@ public class StreamingChunkProvider implements ChunkProvider {
   private void processInitialLinks(ChunkLinkFetchResult initialLinks)
       throws DatabricksParsingException {
     if (initialLinks == null) {
-      LOGGER.debug("No initial links provided for statement {}", statementId);
+      LOGGER.debug(
+          "No initial links provided for statement {}",
+          StatementId.loggableStatementId(statementId));
       return;
     }
 
     LOGGER.info(
         "Processing {} initial links for statement {}",
         initialLinks.getChunkLinks().size(),
-        statementId);
+        StatementId.loggableStatementId(statementId));
 
     for (ExternalLink link : initialLinks.getChunkLinks()) {
       createChunkFromLink(link);
@@ -497,7 +508,9 @@ public class StreamingChunkProvider implements ChunkProvider {
     } else {
       endOfStreamReached = true;
       notifyChunkCreated(); // Wake consumer parked in waitForNextChunkEnqueued
-      LOGGER.info("End of stream reached from initial links for statement {}", statementId);
+      LOGGER.info(
+          "End of stream reached from initial links for statement {}",
+          StatementId.loggableStatementId(statementId));
     }
   }
 
@@ -540,7 +553,10 @@ public class StreamingChunkProvider implements ChunkProvider {
     notifyChunkCreated();
 
     LOGGER.debug(
-        "Created chunk {} with {} rows for statement {}", chunkIndex, rowCount, statementId);
+        "Created chunk {} with {} rows for statement {}",
+        chunkIndex,
+        rowCount,
+        StatementId.loggableStatementId(statementId));
   }
 
   // ==================== Download Coordination ====================

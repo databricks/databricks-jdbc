@@ -15,6 +15,8 @@ import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
+import com.databricks.jdbc.exception.DatabricksTimeoutException;
+import com.databricks.jdbc.log.LogCapture;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
@@ -27,6 +29,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -331,6 +334,39 @@ public class DatabricksStatementTest {
   }
 
   @Test
+  void testTimeoutDiagnosticsExcludeStatementSecret() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = mock(DatabricksConnection.class);
+    when(connection.getConnectionContext()).thenReturn(context);
+    DatabricksStatement statement = spy(new DatabricksStatement(connection));
+    statement.setStatementId(StatementId.deserialize("public-guid|handle-secret"));
+    statement.setQueryTimeout(1);
+    CompletableFuture<DatabricksResultSet> future = mock(CompletableFuture.class);
+    when(future.get(1, TimeUnit.SECONDS)).thenThrow(new TimeoutException("query timed out"));
+    doReturn(future)
+        .when(statement)
+        .getFutureResult(eq(STATEMENT), anyMap(), eq(StatementType.QUERY));
+
+    try (LogCapture logs = new LogCapture()) {
+      DatabricksTimeoutException error =
+          assertThrows(
+              DatabricksTimeoutException.class,
+              () ->
+                  statement.executeInternal(
+                      STATEMENT, new HashMap<>(), StatementType.QUERY, false));
+      assertTrue(error.getMessage().contains("statementId public-guid"));
+      assertFalse(error.getMessage().contains("handle-secret"));
+      assertTrue(logs.getOutput().contains("Statement execution timed-out"));
+      assertFalse(logs.getOutput().contains("handle-secret"));
+      assertEquals(
+          DatabricksDriverErrorCode.STATEMENT_EXECUTION_TIMEOUT.name(), error.getSQLState());
+      assertEquals(0, error.getErrorCode());
+    }
+    verify(future).cancel(true);
+  }
+
+  @Test
   public void testInputStreamForVolumeOperation() throws Exception {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
@@ -369,6 +405,19 @@ public class DatabricksStatementTest {
     when(mockConnection.getConnectionContext()).thenReturn(connectionContext);
     DatabricksStatement statement = new DatabricksStatement(mockConnection, STATEMENT_ID);
     assertEquals(STATEMENT_ID, statement.getStatementId());
+  }
+
+  @Test
+  void testStatementDiagnosticsExcludeSecret() throws DatabricksSQLException {
+    DatabricksConnection mockConnection = mock(DatabricksConnection.class);
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContextFactory.create(JDBC_URL, new Properties());
+    when(mockConnection.getConnectionContext()).thenReturn(context);
+    StatementId id = StatementId.deserialize("public-guid|handle-secret");
+    DatabricksStatement statement = new DatabricksStatement(mockConnection, id);
+    assertTrue(statement.toString().contains("public-guid"));
+    assertFalse(statement.toString().contains("handle-secret"));
+    assertEquals("public-guid|handle-secret", statement.getStatementId().toString());
   }
 
   @Test

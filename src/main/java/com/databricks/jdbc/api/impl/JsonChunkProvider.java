@@ -62,7 +62,9 @@ public class JsonChunkProvider {
    */
   private void fetchAndCombineAllChunks(ResultData initialResultData)
       throws DatabricksSQLException {
-    LOGGER.debug("Starting to fetch and combine JSON chunks for statement: {}", statementId);
+    LOGGER.debug(
+        "Starting to fetch and combine JSON chunks for statement: {}",
+        StatementId.loggableStatementId(statementId));
 
     // Add data from the first chunk
     addDataFromChunk(initialResultData);
@@ -85,7 +87,11 @@ public class JsonChunkProvider {
               session.getDatabricksClient().getResultChunksData(statementId, chunkIndex);
           addDataFromChunk(chunkData);
         } catch (DatabricksSQLException e) {
-          LOGGER.error("Failed to fetch chunk {} for statement {}", chunkIndex, statementId, e);
+          LOGGER.error(
+              "Failed to fetch chunk {} for statement {}",
+              chunkIndex,
+              StatementId.loggableStatementId(statementId),
+              e);
           throw new DatabricksSQLException(
               String.format("Failed to fetch chunk %d: %s", chunkIndex, e.getMessage()),
               e,
@@ -147,7 +153,8 @@ public class JsonChunkProvider {
   public void close() {
     isClosed = true;
     allData.clear();
-    LOGGER.debug("JsonChunkProvider closed for statement: {}", statementId);
+    LOGGER.debug(
+        "JsonChunkProvider closed for statement: {}", StatementId.loggableStatementId(statementId));
   }
 
   /**

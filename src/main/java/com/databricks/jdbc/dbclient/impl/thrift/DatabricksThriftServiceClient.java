@@ -111,7 +111,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       openSessionReq.setInitialNamespace(getNamespace(catalog, schema));
     }
     TOpenSessionResp response = (TOpenSessionResp) thriftAccessor.getThriftResponse(openSessionReq);
-    verifySuccessStatus(response.status, response.toString());
+    verifySuccessStatus(response.status, String.format("OpenSession status [%s]", response.status));
 
     // cache the server protocol version
     serverProtocolVersion = response.getServerProtocolVersion();
@@ -136,9 +136,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
 
   @Override
   public void deleteSession(ImmutableSessionInfo sessionInfo) throws SQLException {
-    LOGGER.debug(
-        String.format(
-            "public void deleteSession(Session session = {%s}))", sessionInfo.toString()));
+    LOGGER.debug("Deleting session {} using Thrift client", sessionInfo.sessionId());
     DatabricksThreadContextHolder.setSessionId(sessionInfo.sessionId());
     TCloseSessionReq closeSessionReq =
         new TCloseSessionReq().setSessionHandle(sessionInfo.sessionHandle());
@@ -285,7 +283,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       if (state == null) {
         LOGGER.warn(
             "Heartbeat for statement {} received null operation state, assuming alive",
-            statementId);
+            StatementId.loggableStatementId(statementId));
         return true; // assume alive — server returned response but no state
       }
       // Terminal states mean the operation is no longer alive
@@ -310,12 +308,15 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     LOGGER.debug(
         String.format(
             "public void closeStatement(String statementId = {%s}) using Thrift client",
-            statementId));
+            StatementId.loggableStatementId(statementId)));
     DatabricksThreadContextHolder.setStatementId(statementId);
     TCloseOperationReq request =
         new TCloseOperationReq().setOperationHandle(getOperationHandle(statementId));
     TCloseOperationResp resp = thriftAccessor.closeOperation(request);
-    LOGGER.debug("Statement {} closed with status {}", statementId, resp.getStatus());
+    LOGGER.debug(
+        "Statement {} closed with status {}",
+        StatementId.loggableStatementId(statementId),
+        resp.getStatus());
   }
 
   @Override
@@ -323,12 +324,15 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     LOGGER.debug(
         String.format(
             "public void cancelStatement(String statementId = {%s}) using Thrift client",
-            statementId));
+            StatementId.loggableStatementId(statementId)));
     DatabricksThreadContextHolder.setStatementId(statementId);
     TCancelOperationReq request =
         new TCancelOperationReq().setOperationHandle(getOperationHandle(statementId));
     TCancelOperationResp resp = thriftAccessor.cancelOperation(request);
-    LOGGER.debug("Statement {} cancelled with status {}", statementId, resp.getStatus());
+    LOGGER.debug(
+        "Statement {} cancelled with status {}",
+        StatementId.loggableStatementId(statementId),
+        resp.getStatus());
   }
 
   @Override
@@ -340,7 +344,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     LOGGER.debug(
         String.format(
             "public DatabricksResultSet getStatementResult(String statementId = {%s}) using Thrift client",
-            statementId));
+            StatementId.loggableStatementId(statementId)));
     DatabricksThreadContextHolder.setStatementId(statementId);
     DatabricksThreadContextHolder.setSessionId(session.getSessionId());
     return thriftAccessor.getStatementResult(
@@ -353,7 +357,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     // Thrift uses rowOffset with FETCH_ABSOLUTE; chunkIndex is used for link metadata
     LOGGER.debug(
         "getResultChunks(statementId={}, chunkIndex={}, rowOffset={}) using Thrift client",
-        statementId,
+        StatementId.loggableStatementId(statementId),
         chunkIndex,
         chunkStartRowOffset);
 
@@ -366,7 +370,9 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
 
     if (resultLinks == null || resultLinks.isEmpty()) {
       LOGGER.debug(
-          "No result links returned for statement {}, hasMoreRows={}", statementId, hasMoreRows);
+          "No result links returned for statement {}, hasMoreRows={}",
+          StatementId.loggableStatementId(statementId),
+          hasMoreRows);
       // For Thrift, hasMoreRows is the source of truth. Even with no links,
       // if hasMoreRows is true, we should indicate continuation with the same offset.
       return ChunkLinkFetchResult.of(
@@ -412,7 +418,7 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     LOGGER.debug(
         "Built ChunkLinkFetchResult with {} links for statement {}, hasMore={}, nextFetchIndex={}, nextRowOffset={}",
         chunkLinks.size(),
-        statementId,
+        StatementId.loggableStatementId(statementId),
         hasMoreRows,
         nextFetchIndex,
         nextRowOffset);

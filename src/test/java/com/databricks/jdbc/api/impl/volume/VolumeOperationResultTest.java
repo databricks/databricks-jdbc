@@ -12,6 +12,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ResultManifest;
@@ -510,11 +511,18 @@ public class VolumeOperationResultTest {
     assertEquals("SUCCEEDED", volumeOperationResult.getObject(0));
     assertFalse(volumeOperationResult.hasNext());
     assertFalse(volumeOperationResult.next());
+    when(statement.getStatementId())
+        .thenReturn(StatementId.deserialize("public-guid|handle-secret"));
     try {
       volumeOperationResult.getObject(2);
       fail("Should throw DatabricksSQLException");
     } catch (DatabricksSQLException e) {
       assertTrue(e.getMessage().contains("Invalid column access"));
+      assertTrue(e.getMessage().contains("public-guid"));
+      assertFalse(e.getMessage().contains("handle-secret"));
+      assertEquals(
+          DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE.name(), e.getSQLState());
+      assertEquals(0, e.getErrorCode());
     }
   }
 

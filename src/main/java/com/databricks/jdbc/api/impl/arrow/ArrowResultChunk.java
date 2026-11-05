@@ -108,7 +108,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
         String ctx =
             String.format(
                 "Data decompression for chunk index [%d] and statement [%s]",
-                this.chunkIndex, this.statementId);
+                this.chunkIndex, StatementId.loggableStatementId(this.statementId));
         initializeData(
             DecompressionUtil.decompressToInputStream(compressed, compressionCodec, ctx));
       } catch (Exception e) {
@@ -120,7 +120,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
           "Chunk download complete: statementId={}, chunkIndex={}, "
               + "compressedBytes={}, httpResponseMs={}, streamReadMs={}, decompressAndParseMs={}, "
               + "totalMs={}",
-          statementId,
+          StatementId.loggableStatementId(statementId),
           chunkIndex,
           compressed.length,
           downloadTimeMs,
@@ -153,7 +153,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     errorMessage =
         String.format(
             "Data parsing failed for chunk index [%d] and statement [%s]. Exception [%s]",
-            this.chunkIndex, this.statementId, exception);
+            this.chunkIndex, StatementId.loggableStatementId(this.statementId), exception);
     LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
     throw new DatabricksParsingException(errorMessage, exception, failedStatus.toString());
@@ -166,7 +166,7 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       LOGGER.debug(
           "No encryption headers present for chunk index {} and statement {}",
           chunkIndex,
-          statementId);
+          StatementId.loggableStatementId(statementId));
     }
   }
 

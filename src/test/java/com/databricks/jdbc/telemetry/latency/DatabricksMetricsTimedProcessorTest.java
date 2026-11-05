@@ -33,6 +33,20 @@ class DatabricksMetricsTimedProcessorTest {
     String untimedMethod(String input);
   }
 
+  interface SecretArgumentInterface {
+    @DatabricksMetricsTimed
+    Object accept(Object value);
+  }
+
+  @Test
+  void timedDiagnosticsDoNotSerializeArguments() {
+    Object secretArgument = mock(Object.class);
+    doThrow(new AssertionError("Argument must not be dumped")).when(secretArgument).toString();
+    SecretArgumentInterface target = value -> value;
+    SecretArgumentInterface proxy = DatabricksMetricsTimedProcessor.createProxy(target);
+    assertSame(secretArgument, proxy.accept(secretArgument));
+  }
+
   static class TestClass implements TestInterface {
     @Override
     public String timedMethod(String input) {

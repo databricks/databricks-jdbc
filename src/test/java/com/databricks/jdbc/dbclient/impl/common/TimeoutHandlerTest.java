@@ -137,7 +137,7 @@ class TimeoutHandlerTest {
 
   @Test
   void testForStatementFactory() throws Exception {
-    when(mockStatementId.toString()).thenReturn("test-statement-id");
+    when(mockStatementId.toSQLExecStatementId()).thenReturn("test-statement-id");
 
     // Create handler with factory method
     TimeoutHandler handler =
@@ -168,7 +168,7 @@ class TimeoutHandlerTest {
 
   @Test
   void testForStatementCancelFailure() throws Exception {
-    when(mockStatementId.toString()).thenReturn("test-statement-id");
+    when(mockStatementId.toSQLExecStatementId()).thenReturn("test-statement-id");
     // Configure mock to throw exception
     doThrow(new RuntimeException("Cancel failed"))
         .when(mockClient)

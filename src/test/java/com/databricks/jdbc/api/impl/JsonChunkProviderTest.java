@@ -32,7 +32,7 @@ class JsonChunkProviderTest {
 
   @BeforeEach
   void setUp() {
-    when(mockStatementId.toString()).thenReturn("test-statement-id");
+    when(mockStatementId.toSQLExecStatementId()).thenReturn("test-statement-id");
 
     // Setup test data
     resultManifest = new ResultManifest();

@@ -10,6 +10,7 @@ import com.databricks.jdbc.common.HttpClientType;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.common.util.VolumeUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
@@ -190,7 +191,10 @@ public class VolumeOperationResult implements IExecutionResult {
     String errorMessage =
         String.format(
             "%s, Row: %s, Column: %s, statementID %s",
-            userMessage, currentRowIndex, columnIndex, statement.getStatementId());
+            userMessage,
+            currentRowIndex,
+            columnIndex,
+            StatementId.loggableStatementId(statement.getStatementId()));
     LOGGER.error(errorMessage);
     throw new DatabricksVolumeOperationException(
         errorMessage, DatabricksDriverErrorCode.VOLUME_OPERATION_INVALID_STATE);

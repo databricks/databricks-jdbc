@@ -37,7 +37,7 @@ public class ArrowResultChunkStateMachine {
           String.format(
               "Invalid state transition for chunk [%d] and statement [%s]: %s -> %s. Valid transitions from %s are: %s",
               chunkIndex,
-              statementId,
+              StatementId.loggableStatementId(statementId),
               currentStatus,
               targetStatus,
               currentStatus,

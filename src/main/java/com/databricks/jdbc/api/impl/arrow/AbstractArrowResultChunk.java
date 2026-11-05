@@ -254,7 +254,7 @@ public abstract class AbstractArrowResultChunk {
           targetStatus,
           getStatus(),
           chunkIndex,
-          statementId,
+          StatementId.loggableStatementId(statementId),
           ExceptionUtils.getStackTrace(e));
     }
   }
@@ -294,7 +294,7 @@ public abstract class AbstractArrowResultChunk {
           e,
           "Chunk download interrupted for chunk index {} and statement {}",
           chunkIndex,
-          statementId);
+          StatementId.loggableStatementId(statementId));
       Thread.currentThread().interrupt();
       throw e;
     }
@@ -310,14 +310,17 @@ public abstract class AbstractArrowResultChunk {
    */
   protected void initializeData(InputStream inputStream)
       throws DatabricksSQLException, IOException {
-    LOGGER.debug("Parsing data for chunk index {} and statement {}", chunkIndex, statementId);
+    LOGGER.debug(
+        "Parsing data for chunk index {} and statement {}",
+        chunkIndex,
+        StatementId.loggableStatementId(statementId));
     ArrowData arrowData = getRecordBatchList(inputStream, rootAllocator, statementId, chunkIndex);
     recordBatchList = arrowData.getValueVectors();
     arrowMetadata = arrowData.getMetadata();
     LOGGER.debug(
         "Data parsed for chunk index {} and statement {}. Row count: {}",
         chunkIndex,
-        statementId,
+        StatementId.loggableStatementId(statementId),
         arrowData.getRowCount());
     setStatus(ChunkStatus.PROCESSING_SUCCEEDED);
   }
@@ -352,7 +355,7 @@ public abstract class AbstractArrowResultChunk {
             "Extracted metadata from VectorSchemaRoot before loading batches. "
                 + "Schema has {} fields. Statement: {}, Chunk: {}",
             vectorSchemaRoot.getFieldVectors().size(),
-            statementId,
+            StatementId.loggableStatementId(statementId),
             chunkIndex);
       }
 
@@ -367,7 +370,7 @@ public abstract class AbstractArrowResultChunk {
           e,
           "Data parsing interrupted for chunk index [{}] and statement [{}]. Error [{}]",
           chunkIndex,
-          statementId,
+          StatementId.loggableStatementId(statementId),
           e.getMessage());
       purgeArrowData(recordBatchList);
     } catch (IOException e) {
