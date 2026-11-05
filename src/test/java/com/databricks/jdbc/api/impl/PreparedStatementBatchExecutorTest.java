@@ -14,7 +14,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.AllPurposeCluster;
 import com.databricks.jdbc.common.StatementType;
+import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.exception.DatabricksBatchUpdateException;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import java.sql.SQLException;
@@ -123,6 +125,7 @@ class PreparedStatementBatchExecutorTest {
   void unboundParameterCompatibilityErrorFallsBackToLegacyExecution() throws Exception {
     setBatchedInsertsEnabled(false);
     when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(connectionContext.getComputeResource()).thenReturn(new Warehouse("warehouse"));
     when(nativeBatchExecutor.isSupported()).thenReturn(true);
     List<BatchParameterSet> batch = createBatch(1);
     when(nativeBatchExecutor.execute(INSERT_SQL, batch))
@@ -137,6 +140,28 @@ class PreparedStatementBatchExecutorTest {
     assertArrayEquals(new long[] {4}, counts);
     verify(statementExecutor)
         .execute(INSERT_SQL, batch.get(0).getParameterBindings(), StatementType.UPDATE, false);
+  }
+
+  @Test
+  void unboundParameterCompatibilityErrorDoesNotFallbackOnAllPurposeCluster() throws Exception {
+    when(connection.getConnectionContext()).thenReturn(connectionContext);
+    when(connectionContext.isNativeBatchingEnabled()).thenReturn(true);
+    when(connectionContext.getComputeResource())
+        .thenReturn(new AllPurposeCluster("org", "cluster"));
+    when(nativeBatchExecutor.isSupported()).thenReturn(true);
+    List<BatchParameterSet> batch = createBatch(1);
+    SQLException cause =
+        new SQLException("[UNBOUND_SQL_PARAMETER] Native batching is unsupported", "42P02", 0);
+    when(nativeBatchExecutor.execute(INSERT_SQL, batch)).thenThrow(cause);
+
+    DatabricksBatchUpdateException exception =
+        assertThrows(
+            DatabricksBatchUpdateException.class,
+            () -> newExecutor(INSERT_SQL, false, nativeBatchExecutor).executeBatch(batch));
+
+    assertSame(cause, exception.getCause());
+    assertArrayEquals(new long[] {Statement.EXECUTE_FAILED}, exception.getLargeUpdateCounts());
+    verifyNoInteractions(statementExecutor);
   }
 
   @Test

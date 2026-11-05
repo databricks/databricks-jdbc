@@ -1417,6 +1417,28 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testGetBatchUpdateCountsExpandsMixedRepeatRows() throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);
+    when(mockedResultSetMetadata.getColumnNameIndex("repeat")).thenReturn(2);
+    when(mockedExecutionResult.next()).thenReturn(true, true, true, false);
+    when(mockedExecutionResult.getObject(0)).thenReturn(1L, 0L, 1L);
+    when(mockedExecutionResult.getObject(1)).thenReturn(3L, 2L, 4L);
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            StatementType.UPDATE,
+            null,
+            mockedExecutionResult,
+            mockedResultSetMetadata,
+            false);
+
+    assertArrayEquals(new long[] {1, 1, 1, 0, 0, 1, 1, 1, 1}, resultSet.getBatchUpdateCounts(9));
+  }
+
+  @Test
   void testGetBatchUpdateCountsRejectsWrongCardinality() throws SQLException {
     when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
     when(mockedResultSetMetadata.getColumnNameIndex(AFFECTED_ROWS_COUNT)).thenReturn(1);

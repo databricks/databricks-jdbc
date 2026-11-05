@@ -971,7 +971,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
             sql,
             stackTraceMessage,
             getFutureBatchResult(sql, parameterSets, StatementType.UPDATE),
-            true);
+            false);
     try {
       return result.getBatchUpdateCounts(parameterSets.size());
     } catch (SQLException e) {
