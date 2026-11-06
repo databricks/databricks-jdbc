@@ -1543,10 +1543,11 @@ public class DatabricksConnectionTest {
         DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
     DatabricksHttpClientFactory httpClientFactory = DatabricksHttpClientFactory.getInstance();
 
-    try {
-      IdleConnectionEvictor evictor =
-          getIdleConnectionEvictor(
-              httpClientFactory.getClient(localContext, HttpClientType.COMMON));
+    try (DatabricksHttpClient httpClient =
+        assertInstanceOf(
+            DatabricksHttpClient.class,
+            httpClientFactory.getClient(localContext, HttpClientType.COMMON))) {
+      IdleConnectionEvictor evictor = getIdleConnectionEvictor(httpClient);
       assertTrue(
           evictor.isRunning(), "Creating a real HTTP client must start an IdleConnectionEvictor");
 
@@ -1580,10 +1581,11 @@ public class DatabricksConnectionTest {
         DatabricksConnectionContext.parse(CATALOG_SCHEMA_JDBC_URL, new Properties());
     DatabricksHttpClientFactory httpClientFactory = DatabricksHttpClientFactory.getInstance();
 
-    try {
-      IdleConnectionEvictor evictor =
-          getIdleConnectionEvictor(
-              httpClientFactory.getClient(localContext, HttpClientType.COMMON));
+    try (DatabricksHttpClient httpClient =
+        assertInstanceOf(
+            DatabricksHttpClient.class,
+            httpClientFactory.getClient(localContext, HttpClientType.COMMON))) {
+      IdleConnectionEvictor evictor = getIdleConnectionEvictor(httpClient);
       assertTrue(
           evictor.isRunning(), "Creating a real HTTP client must start an IdleConnectionEvictor");
 
@@ -1623,7 +1625,7 @@ public class DatabricksConnectionTest {
     return (Set<IDatabricksStatementInternal>) field.get(databricksConnection);
   }
 
-  private static IdleConnectionEvictor getIdleConnectionEvictor(IDatabricksHttpClient httpClient)
+  private static IdleConnectionEvictor getIdleConnectionEvictor(DatabricksHttpClient httpClient)
       throws ReflectiveOperationException {
     Field field = DatabricksHttpClient.class.getDeclaredField("idleConnectionEvictor");
     field.setAccessible(true);
