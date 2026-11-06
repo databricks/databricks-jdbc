@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.DEFAULT_HTTP_EXCEPTION_SQLSTATE;
 import static com.databricks.jdbc.common.util.DatabricksThriftUtil.createExternalLink;
 import static com.databricks.jdbc.common.util.ValidationUtil.checkHTTPError;
 import static com.databricks.jdbc.telemetry.TelemetryHelper.getStatementIdString;
@@ -10,6 +11,7 @@ import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.util.DecompressionUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
+import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -23,12 +25,18 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.Map;
 import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.util.EntityUtils;
 
 public class ArrowResultChunk extends AbstractArrowResultChunk {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ArrowResultChunk.class);
+  private static final String CLOUD_STORAGE_FORBIDDEN_MESSAGE =
+      "Cloud storage (%s) rejected the Cloud Fetch download of result chunk %d with HTTP 403. "
+          + "Check that this client can access the storage, or set EnableQueryResultDownload=0 "
+          + "to disable Cloud Fetch. Storage response: %s";
   private final IDatabricksConnectionContext connectionContext;
 
   private ArrowResultChunk(Builder builder) throws DatabricksParsingException {
@@ -80,6 +88,9 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       addHeaders(getRequest, chunkLink.getHttpHeaders());
       // Retry would be done in http client, we should not bother about that here
       response = httpClient.execute(getRequest, true);
+      if (response.getStatusLine().getStatusCode() == HttpStatus.SC_FORBIDDEN) {
+        throw cloudStorageForbiddenException(response, uriBuilder.getHost());
+      }
       checkHTTPError(response);
       long downloadTimeMs = (System.nanoTime() - startTime) / 1_000_000;
 
@@ -157,6 +168,20 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
     LOGGER.error(this.errorMessage);
     setStatus(failedStatus);
     throw new DatabricksParsingException(errorMessage, exception, failedStatus.toString());
+  }
+
+  /**
+   * The generic HTTP error doesn't say the request went to cloud storage rather than Databricks, so
+   * a 403 here is easily misread as a Databricks credentials problem.
+   */
+  private DatabricksHttpException cloudStorageForbiddenException(
+      CloseableHttpResponse response, String storageHost) {
+    // Drain the body so the pooled connection stays reusable for retries.
+    EntityUtils.consumeQuietly(response.getEntity());
+    return new DatabricksHttpException(
+        String.format(
+            CLOUD_STORAGE_FORBIDDEN_MESSAGE, storageHost, chunkIndex, response.getStatusLine()),
+        DEFAULT_HTTP_EXCEPTION_SQLSTATE);
   }
 
   private void addHeaders(HttpGet getRequest, Map<String, String> headers) {

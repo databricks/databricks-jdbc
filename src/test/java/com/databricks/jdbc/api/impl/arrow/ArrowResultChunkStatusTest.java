@@ -1,7 +1,10 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -70,7 +73,62 @@ public class ArrowResultChunkStatusTest {
     assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
   }
 
+  @Test
+  void storageForbidden_explainsStorageDenialWithoutLeakingPresignedUrl() {
+    ArrowResultChunk chunk =
+        newChunk("https://dbstorageabc123.blob.core.windows.net/results/chunk-0?sig=SECRET-SAS");
+    IDatabricksHttpClient http =
+        httpWithStatus(403, "This request is not authorized to perform this operation.");
+
+    DatabricksParsingException exception =
+        assertThrows(
+            DatabricksParsingException.class,
+            () -> chunk.downloadData(http, CompressionCodec.NONE, 0.0));
+
+    DatabricksHttpException cause =
+        assertInstanceOf(DatabricksHttpException.class, exception.getCause());
+    String message = cause.getMessage();
+    assertTrue(
+        message.startsWith(
+            "Cloud storage (dbstorageabc123.blob.core.windows.net) rejected the Cloud Fetch"
+                + " download of result chunk 0 with HTTP 403."),
+        message);
+    assertTrue(message.contains("set EnableQueryResultDownload=0"), message);
+    assertTrue(
+        message.endsWith(
+            "Storage response: HTTP/1.1 403 This request is not authorized to perform this"
+                + " operation."),
+        message);
+    assertFalse(message.contains("SECRET-SAS"), message);
+    // SQL state and vendor code stay the same as other HTTP download failures, so telemetry keeps
+    // classifying this error the same way.
+    assertEquals("08000", cause.getSQLState());
+    assertEquals(0, cause.getErrorCode());
+    assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+  }
+
+  @Test
+  void nonForbiddenHttpError_keepsGenericHttpMessage() {
+    ArrowResultChunk chunk = newChunk();
+    IDatabricksHttpClient http = httpWithStatus(500, "Internal Server Error");
+
+    DatabricksParsingException exception =
+        assertThrows(
+            DatabricksParsingException.class,
+            () -> chunk.downloadData(http, CompressionCodec.NONE, 0.0));
+
+    DatabricksHttpException cause =
+        assertInstanceOf(DatabricksHttpException.class, exception.getCause());
+    assertTrue(
+        cause.getMessage().startsWith("HTTP request failed by code: 500"), cause.getMessage());
+    assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+  }
+
   private static ArrowResultChunk newChunk() {
+    return newChunk("https://example.com/chunk");
+  }
+
+  private static ArrowResultChunk newChunk(String url) {
     StatementId statementId = new StatementId("stmt-status-test");
     ArrowResultChunk chunk;
     try {
@@ -84,25 +142,34 @@ public class ArrowResultChunkStatusTest {
     }
     ExternalLink link =
         new ExternalLink()
-            .setExternalLink("https://example.com/chunk")
+            .setExternalLink(url)
             .setExpiration(Instant.now().plusSeconds(600).toString());
     chunk.setChunkLink(link);
     return chunk;
   }
 
   private static IDatabricksHttpClient httpWithEntity(InputStream content, long length) {
+    return httpClient(content, length, 200, "OK");
+  }
+
+  private static IDatabricksHttpClient httpWithStatus(int statusCode, String reason) {
+    return httpClient(new ByteArrayInputStream(new byte[0]), 0, statusCode, reason);
+  }
+
+  private static IDatabricksHttpClient httpClient(
+      InputStream content, long length, int statusCode, String reason) {
     return new IDatabricksHttpClient() {
       @Override
       public CloseableHttpResponse execute(org.apache.http.client.methods.HttpUriRequest request)
           throws DatabricksHttpException {
-        return response(content, length);
+        return response(content, length, statusCode, reason);
       }
 
       @Override
       public CloseableHttpResponse execute(
           org.apache.http.client.methods.HttpUriRequest request, boolean supportGzipEncoding)
           throws DatabricksHttpException {
-        return response(content, length);
+        return response(content, length, statusCode, reason);
       }
 
       @Override
@@ -115,7 +182,8 @@ public class ArrowResultChunkStatusTest {
     };
   }
 
-  private static CloseableHttpResponse response(InputStream content, long length) {
+  private static CloseableHttpResponse response(
+      InputStream content, long length, int statusCode, String reason) {
     HttpEntity entity = new InputStreamEntity(content, length);
     return new CloseableHttpResponse() {
       @Override
@@ -123,7 +191,7 @@ public class ArrowResultChunkStatusTest {
 
       @Override
       public StatusLine getStatusLine() {
-        return new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK");
+        return new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), statusCode, reason);
       }
 
       @Override
