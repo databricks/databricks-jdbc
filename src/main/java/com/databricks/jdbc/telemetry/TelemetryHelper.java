@@ -314,6 +314,7 @@ public class TelemetryHelper {
       case "createSession":
         return OperationType.CREATE_SESSION;
       case "executeStatement":
+      case "executeStatementBatch":
         return OperationType.EXECUTE_STATEMENT;
       case "executeStatementAsync":
         return OperationType.EXECUTE_STATEMENT_ASYNC;
