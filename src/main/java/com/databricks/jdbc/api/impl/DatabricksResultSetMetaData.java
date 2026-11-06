@@ -188,7 +188,7 @@ public class DatabricksResultSetMetaData implements ResultSetMetaData {
     LOGGER.debug(
         String.format(
             "Result manifest for statement {%s} has schema: {%s}",
-            statementId, resultManifest.getSchema()));
+            StatementId.loggableStatementId(statementId), resultManifest.getSchema()));
     int currIndex = 0;
     if (resultManifest.isSetIsStagingOperation() && resultManifest.isIsStagingOperation()) {
       ImmutableDatabricksColumn.Builder columnBuilder = getColumnBuilder();

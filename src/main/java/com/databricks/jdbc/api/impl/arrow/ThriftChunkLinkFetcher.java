@@ -28,7 +28,9 @@ public class ThriftChunkLinkFetcher implements ChunkLinkFetcher {
   public ThriftChunkLinkFetcher(IDatabricksSession session, StatementId statementId) {
     this.session = session;
     this.statementId = statementId;
-    LOGGER.debug("Created ThriftChunkLinkFetcher for statement {}", statementId);
+    LOGGER.debug(
+        "Created ThriftChunkLinkFetcher for statement {}",
+        StatementId.loggableStatementId(statementId));
   }
 
   @Override
@@ -39,7 +41,7 @@ public class ThriftChunkLinkFetcher implements ChunkLinkFetcher {
         "Fetching links starting from chunk index {}, row offset {} for statement {}",
         startChunkIndex,
         startRowOffset,
-        statementId);
+        StatementId.loggableStatementId(statementId));
 
     return session
         .getDatabricksClient()
@@ -53,7 +55,7 @@ public class ThriftChunkLinkFetcher implements ChunkLinkFetcher {
         "Refetching expired link for chunk {}, row offset {} of statement {}",
         chunkIndex,
         rowOffset,
-        statementId);
+        StatementId.loggableStatementId(statementId));
 
     // For Thrift, we may need to retry if hasMore=true but no links returned yet
     int maxRetries = 100; // Reasonable limit to prevent infinite loops
@@ -70,7 +72,7 @@ public class ThriftChunkLinkFetcher implements ChunkLinkFetcher {
             LOGGER.debug(
                 "Successfully refetched link for chunk {} of statement {}",
                 chunkIndex,
-                statementId);
+                StatementId.loggableStatementId(statementId));
             return link;
           }
         }
@@ -111,7 +113,9 @@ public class ThriftChunkLinkFetcher implements ChunkLinkFetcher {
 
   @Override
   public void close() {
-    LOGGER.debug("Closing ThriftChunkLinkFetcher for statement {}", statementId);
+    LOGGER.debug(
+        "Closing ThriftChunkLinkFetcher for statement {}",
+        StatementId.loggableStatementId(statementId));
     // No resources to clean up for Thrift fetcher
   }
 }

@@ -132,7 +132,7 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
     errorMessage =
         String.format(
             "Data parsing failed for chunk index [%d] and statement [%s]. Exception [%s]",
-            chunkIndex, statementId, exception);
+            chunkIndex, StatementId.loggableStatementId(statementId), exception);
     LOGGER.error(errorMessage);
     setStatus(failedStatus);
     // TODO: set correct error code
@@ -335,7 +335,7 @@ public class ArrowResultChunkV2 extends AbstractArrowResultChunk {
       String context =
           String.format(
               "Data decompression for chunk index [%d] and statement [%s]",
-              getChunkIndex(), statementId);
+              getChunkIndex(), StatementId.loggableStatementId(statementId));
       // Submit arrow data processing task to executor
       arrowDataProcessingExecutor.submit(() -> processArrowData(compressionCodec, context));
     }

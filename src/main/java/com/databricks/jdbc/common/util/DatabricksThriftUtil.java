@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -96,7 +97,14 @@ public class DatabricksThriftUtil {
 
   public static void verifySuccessStatus(TStatus status, String errorContext, String statementId)
       throws SQLException {
+    verifySuccessStatus(status, ignored -> errorContext, statementId);
+  }
+
+  private static void verifySuccessStatus(
+      TStatus status, Function<TStatus, String> errorContextFormatter, String statementId)
+      throws SQLException {
     if (!SUCCESS_STATUS_LIST.contains(status.getStatusCode())) {
+      String errorContext = errorContextFormatter.apply(status);
       String errorMessage =
           statementId != null
               ? String.format(
@@ -121,6 +129,42 @@ public class DatabricksThriftUtil {
       }
       throw new DatabricksHttpException(errorMessage, remappedSqlState);
     }
+  }
+
+  /** Returns the server error, falling back to available status diagnostics. */
+  public static String enrichErrorMessage(TStatus status) {
+    if (status == null) {
+      return "no error details from server";
+    }
+    String errorMessage = status.getErrorMessage();
+    if (errorMessage != null && !errorMessage.isEmpty()) {
+      return errorMessage;
+    }
+    StringBuilder detail = new StringBuilder();
+    if (status.isSetErrorCode()) {
+      detail.append("errorCode=").append(status.getErrorCode());
+    }
+    if (status.getDisplayMessage() != null && !status.getDisplayMessage().isEmpty()) {
+      if (detail.length() > 0) {
+        detail.append(", ");
+      }
+      detail.append("displayMessage=").append(status.getDisplayMessage());
+    }
+    if (status.isSetErrorDetailsJson()
+        && status.getErrorDetailsJson() != null
+        && !status.getErrorDetailsJson().isEmpty()) {
+      if (detail.length() > 0) {
+        detail.append(", ");
+      }
+      detail.append("details=").append(status.getErrorDetailsJson());
+    }
+    if (status.isSetInfoMessages() && status.getInfoMessages() != null) {
+      if (detail.length() > 0) {
+        detail.append(", ");
+      }
+      detail.append("infoMessages=").append(status.getInfoMessages());
+    }
+    return detail.length() > 0 ? detail.toString() : "no error details from server";
   }
 
   public static int getColumnCount(TGetResultSetMetadataResp resultManifest) {
@@ -386,6 +430,12 @@ public class DatabricksThriftUtil {
 
   public static void checkDirectResultsForErrorStatus(
       TSparkDirectResults directResults, String context, String statementId) throws SQLException {
+    checkDirectResultsForErrorStatus(directResults, ignored -> context, statementId);
+  }
+
+  public static void checkDirectResultsForErrorStatus(
+      TSparkDirectResults directResults, Function<TStatus, String> context, String statementId)
+      throws SQLException {
     if (directResults.isSetOperationStatus()) {
       LOGGER.debug(
           "direct result operation status being verified for success response for statementId {}",

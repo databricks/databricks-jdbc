@@ -345,7 +345,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       LOGGER.debug(
           "maxRows limit ({}) reached for statement {}; returning false after {} rows",
           maxRowsLimit,
-          statementId,
+          StatementId.loggableStatementId(statementId),
           rowsReturned);
       if (!truncatedByMaxRows) {
         truncatedByMaxRows = true;
@@ -2447,7 +2447,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   public String toString() {
     return (new ToStringer(DatabricksResultSet.class))
         .add("statementStatus", this.executionStatus)
-        .add("statementId", this.statementId)
+        .add("statementId", StatementId.loggableStatementId(this.statementId))
         .add("statementType", this.statementType)
         .add("updateCount", this.updateCount)
         .add("isClosed", this.isClosed)

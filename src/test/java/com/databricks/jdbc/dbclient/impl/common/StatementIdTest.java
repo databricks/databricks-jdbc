@@ -8,6 +8,7 @@ import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.thrift.ResourceId;
 import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.model.client.thrift.generated.THandleIdentifier;
+import com.databricks.jdbc.model.client.thrift.generated.TOperationHandle;
 import org.junit.jupiter.api.Test;
 
 /** Unit tests for the StatementId class. */
@@ -17,6 +18,23 @@ public class StatementIdTest {
       new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
   private static final byte[] testSecretBytes =
       new byte[] {17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32};
+
+  @Test
+  void testLoggableIdsExcludeSecretWithoutChangingSerialization() {
+    THandleIdentifier identifier =
+        new THandleIdentifier().setGuid(testGuidBytes).setSecret(testSecretBytes);
+    StatementId statementId = new StatementId(identifier);
+    String publicId = ResourceId.fromBytes(testGuidBytes).toString();
+    assertEquals(publicId, StatementId.loggableStatementId(statementId));
+    assertEquals(
+        publicId,
+        StatementId.loggableStatementId(new TOperationHandle().setOperationId(identifier)));
+    assertEquals(statementId, StatementId.deserialize(statementId.toString()));
+    assertArrayEquals(testSecretBytes, statementId.toOperationIdentifier().getSecret());
+    assertNull(StatementId.loggableStatementId((StatementId) null));
+    assertNull(StatementId.loggableStatementId((TOperationHandle) null));
+    assertNull(StatementId.loggableStatementId(new TOperationHandle()));
+  }
 
   /** Test the constructor with a SQL Exec statement ID string. */
   @Test

@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.thrift;
 
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
@@ -38,7 +39,7 @@ public class ThriftBatchFetcherImpl implements ThriftBatchFetcher {
     this.closed = false;
     LOGGER.debug(
         "Created ThriftBatchFetcherImpl for statement {}",
-        statement != null ? statement.getStatementId() : "null");
+        StatementId.loggableStatementId(statement != null ? statement.getStatementId() : null));
   }
 
   @Override
@@ -51,7 +52,7 @@ public class ThriftBatchFetcherImpl implements ThriftBatchFetcher {
 
     LOGGER.debug(
         "Fetching next batch for statement {}",
-        statement != null ? statement.getStatementId() : "null");
+        StatementId.loggableStatementId(statement != null ? statement.getStatementId() : null));
     long startTime = System.currentTimeMillis();
 
     TFetchResultsResp response = session.getDatabricksClient().getMoreResults(statement);

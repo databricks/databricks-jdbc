@@ -168,7 +168,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           LOGGER.debug(
               "Statement {} closed locally (server operation already closed — "
                   + "directResults={}, proactivelyClosed={}, skipping closeStatement RPC)",
-              statementId,
+              StatementId.loggableStatementId(statementId),
               directResultsReceived,
               serverOperationClosed);
         }
@@ -644,7 +644,9 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
   @Override
   public void setStatementId(StatementId statementId) {
-    LOGGER.debug("void setStatementId(Statement statementId = {})", statementId);
+    LOGGER.debug(
+        "void setStatementId(Statement statementId = {})",
+        StatementId.loggableStatementId(statementId));
     this.statementId = statementId;
   }
 
@@ -712,7 +714,9 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
 
   @Override
   public ResultSet getExecutionResult() throws SQLException {
-    LOGGER.debug("ResultSet getExecutionResult() for statementId {%s}", statementId);
+    LOGGER.debug(
+        "ResultSet getExecutionResult() for statementId {}",
+        StatementId.loggableStatementId(statementId));
     checkIfClosed();
 
     if (statementId == null) {
@@ -726,7 +730,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       if (resultSet != null) {
         LOGGER.debug(
             "Returning cached result for statement {} (server operation already closed)",
-            statementId);
+            StatementId.loggableStatementId(statementId));
         return resultSet;
       }
       throw new DatabricksSQLException(
@@ -880,13 +884,13 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
               sqlExceptionForClose,
               String.format(
                   "Error occurred while closing statement after timeout. StatementId %s",
-                  statementId));
+                  StatementId.loggableStatementId(statementId)));
         }
       }
       String timeoutErrorMessage =
           String.format(
               "Statement execution timed-out. ErrorMessage %s, statementId %s",
-              stackTraceMessage, statementId);
+              stackTraceMessage, StatementId.loggableStatementId(statementId));
       LOGGER.error(timeoutErrorMessage);
       futureResultSet.cancel(true); // Cancel execution run
       throw new DatabricksTimeoutException(
@@ -1022,13 +1026,14 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       // to avoid leaving the server operation alive until session timeout.
       this.serverOperationClosed = true;
       LOGGER.debug(
-          "Proactively closed server operation for statement {} (results consumed)", statementId);
+          "Proactively closed server operation for statement {} (results consumed)",
+          StatementId.loggableStatementId(statementId));
     } catch (SQLException | RuntimeException e) {
       // Best-effort — don't fail the user's close for a server cleanup failure.
       // serverOperationClosed stays false so Statement.close() will retry the RPC.
       LOGGER.warn(
           "Failed to proactively close server operation for statement {}: {}",
-          statementId,
+          StatementId.loggableStatementId(statementId),
           e.getMessage(),
           e);
     }
@@ -1056,17 +1061,18 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
                 try {
                   prevClient.closeStatement(prevStatementId);
                   LOGGER.debug(
-                      "Closed previous server operation {} during re-execution", prevStatementId);
+                      "Closed previous server operation {} during re-execution",
+                      StatementId.loggableStatementId(prevStatementId));
                 } catch (SQLException | RuntimeException e) {
                   LOGGER.warn(
                       "Failed to close previous server operation {} during re-execution: {}",
-                      prevStatementId,
+                      StatementId.loggableStatementId(prevStatementId),
                       e.getMessage(),
                       e);
                 }
               });
       closeThread.setDaemon(true);
-      closeThread.setName("close-stmt-" + prevStatementId);
+      closeThread.setName("close-stmt-" + StatementId.loggableStatementId(prevStatementId));
       closeThread.start();
       serverOperationClosed = true;
     }
@@ -1121,7 +1127,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   @Override
   public String toString() {
     return (new ToStringer(DatabricksStatement.class))
-        .add("statementId", this.statementId)
+        .add("statementId", StatementId.loggableStatementId(this.statementId))
         .toString();
   }
 }

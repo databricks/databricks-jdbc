@@ -164,7 +164,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
           e,
           "Caught interrupted exception while waiting for chunk [%s] for statement [%s]. Exception [%s]",
           chunk.getChunkIndex(),
-          statementId,
+          StatementId.loggableStatementId(statementId),
           e.getMessage());
       Thread.currentThread().interrupt();
       throw new DatabricksSQLException(
@@ -178,7 +178,7 @@ public abstract class AbstractRemoteChunkProvider<T extends AbstractArrowResultC
     long waitMs = (System.nanoTime() - waitStart) / 1_000_000;
     LOGGER.debug(
         "Chunk ready: statementId={}, chunkIndex={}, waitMs={}",
-        statementId,
+        StatementId.loggableStatementId(statementId),
         chunk.getChunkIndex(),
         waitMs);
 

@@ -63,20 +63,7 @@ public class DatabricksMetricsTimedProcessor {
           long executionTimeNanos = System.nanoTime() - startTime;
           // Convert to milliseconds for consistency with existing logging
           long executionTimeMillis = executionTimeNanos / 1_000_000;
-          // Log method name, arguments and execution time
-          String argsStr =
-              (args != null)
-                  ? String.join(
-                      ", ",
-                      java.util.Arrays.stream(args)
-                          .map(arg -> arg != null ? arg.toString() : "null")
-                          .toArray(String[]::new))
-                  : "none";
-          LOGGER.debug(
-              "Method [{}] with args [{}] execution time: {}ms",
-              methodName,
-              argsStr,
-              executionTimeMillis);
+          LOGGER.debug("Method [{}] execution time: {}ms", methodName, executionTimeMillis);
           try {
             // Resolve the collector from the timed target's own connection context so that
             // selection and stamping derive from the same per-connection source. Falling back to
