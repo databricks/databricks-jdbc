@@ -46,6 +46,8 @@ import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -193,6 +195,55 @@ public class DatabricksResultSetTest {
     // Test with column label
     when(mockedResultSetMetadata.getColumnNameIndex("columnLabel")).thenReturn(1);
     assertEquals("test", resultSet.getString("columnLabel"));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "0, 0",
+    "0.0000000, 0.0000000",
+    "0.000001, 0.000001",
+    "0.0000001, 0.0000001",
+    "-0.0000001, -0.0000001",
+    "0.00000010, 0.00000010",
+    "0.5000, 0.5000",
+    "-0.0500, -0.0500",
+    "100.00, 100.00",
+    "1234567890123456789012345678901.1234567, 1234567890123456789012345678901.1234567",
+    "1E+26, 100000000000000000000000000",
+    "1E-38, 0.00000000000000000000000000000000000001",
+    "0E-38, 0.00000000000000000000000000000000000000"
+  })
+  void testGetDecimalStringPreservesPlainNotationAndScale(String input, String expected)
+      throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.DECIMAL);
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    for (Object value : new Object[] {new BigDecimal(input), input}) {
+      when(mockedExecutionResult.getObject(0)).thenReturn(value);
+      assertEquals(expected, resultSet.getString(1));
+      assertFalse(resultSet.wasNull());
+      when(mockedResultSetMetadata.getColumnNameIndex("decimalColumn")).thenReturn(1);
+      assertEquals(expected, resultSet.getString("decimalColumn"));
+      assertFalse(resultSet.wasNull());
+      assertEquals(expected, resultSet.getObject(1, String.class));
+      assertEquals(expected, resultSet.getObject("decimalColumn", String.class));
+    }
+  }
+
+  @Test
+  void testGetDecimalStringAndWasNull() throws SQLException {
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.DECIMAL);
+    when(mockedResultSetMetadata.getColumnNameIndex("decimalColumn")).thenReturn(1);
+    when(mockedExecutionResult.getObject(0))
+        .thenReturn(new BigDecimal("0.0000001"), null, "0.0000000", null);
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    assertEquals("0.0000001", resultSet.getString(1));
+    assertFalse(resultSet.wasNull());
+    assertNull(resultSet.getString("decimalColumn"));
+    assertTrue(resultSet.wasNull());
+    assertEquals("0.0000000", resultSet.getString("decimalColumn"));
+    assertFalse(resultSet.wasNull());
+    assertNull(resultSet.getString(1));
+    assertTrue(resultSet.wasNull());
   }
 
   @Test
