@@ -8,11 +8,15 @@ import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.common.util.WildcardUtil;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import java.sql.SQLException;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -29,6 +33,82 @@ class CommandBuilderTest {
   @BeforeEach
   void setUp() {
     when(mockSession.toString()).thenReturn(TEST_SESSION_CONTEXT);
+  }
+
+  @ParameterizedTest
+  @MethodSource("sqlPatternLiterals")
+  void shouldEscapePatternsAsSqlLiterals(
+      CommandName command, String catalog, String prefix, String pattern, String literal)
+      throws SQLException {
+    CommandBuilder builder =
+        new CommandBuilder(catalog, mockSession)
+            .setSchemaPattern(pattern)
+            .setTablePattern(pattern)
+            .setColumnPattern(pattern)
+            .setFunctionPattern(pattern);
+    String clauses = "";
+    if (literal != null) {
+      switch (command) {
+        case LIST_SCHEMAS:
+          clauses = " LIKE '" + literal + "'";
+          break;
+        case LIST_TABLES:
+        case LIST_FUNCTIONS:
+          clauses = " SCHEMA LIKE '" + literal + "' LIKE '" + literal + "'";
+          break;
+        case LIST_COLUMNS:
+          clauses =
+              " SCHEMA LIKE '" + literal + "' TABLE LIKE '" + literal + "' LIKE '" + literal + "'";
+          break;
+        default:
+          fail("Unexpected command: " + command);
+      }
+    }
+    String expected = prefix + clauses;
+    assertEquals(expected, builder.getSQLString(command));
+    assertEquals(expected, builder.getSQLString(command));
+  }
+
+  static Stream<Arguments> sqlPatternLiterals() {
+    Object[][] commands = {
+      {CommandName.LIST_SCHEMAS, TEST_CATALOG, "SHOW SCHEMAS IN `test_catalog`"},
+      {CommandName.LIST_TABLES, TEST_CATALOG, "SHOW TABLES IN CATALOG `test_catalog`"},
+      {CommandName.LIST_COLUMNS, TEST_CATALOG, "SHOW COLUMNS IN CATALOG `test_catalog`"},
+      {CommandName.LIST_FUNCTIONS, TEST_CATALOG, "SHOW FUNCTIONS IN CATALOG `test_catalog`"},
+      {CommandName.LIST_SCHEMAS, null, "SHOW SCHEMAS IN ALL CATALOGS"},
+      {CommandName.LIST_TABLES, null, "SHOW TABLES IN ALL CATALOGS"},
+      {CommandName.LIST_COLUMNS, null, "SHOW COLUMNS IN ALL CATALOGS"}
+    };
+    String[][] patterns = {
+      {"a\\\\b", "a\\\\\\\\b"},
+      {"O'Brien", "O\\'Brien"},
+      {"a\\\\'b", "a\\\\\\\\\\'b"},
+      {"a\\\\b%_", "a\\\\\\\\b*."},
+      {"a\\%b\\_", "a%b_"},
+      {"", ""},
+      {null, null}
+    };
+    return Stream.of(commands)
+        .flatMap(
+            command ->
+                Stream.of(patterns)
+                    .map(
+                        pattern ->
+                            Arguments.of(
+                                command[0], command[1], command[2], pattern[0], pattern[1])));
+  }
+
+  @Test
+  void shouldReplacePatternWithoutAccumulatingSqlEscapes() throws SQLException {
+    CommandBuilder builder =
+        new CommandBuilder(TEST_CATALOG, mockSession).setSchemaPattern("a\\\\b");
+    assertEquals(
+        "SHOW SCHEMAS IN `test_catalog` LIKE 'a\\\\\\\\b'",
+        builder.getSQLString(CommandName.LIST_SCHEMAS));
+    builder.setSchemaPattern("c\\\\d");
+    assertEquals(
+        "SHOW SCHEMAS IN `test_catalog` LIKE 'c\\\\\\\\d'",
+        builder.getSQLString(CommandName.LIST_SCHEMAS));
   }
 
   @Nested

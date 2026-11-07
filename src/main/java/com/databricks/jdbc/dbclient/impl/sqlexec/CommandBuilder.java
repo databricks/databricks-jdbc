@@ -72,6 +72,11 @@ public class CommandBuilder {
     return this;
   }
 
+  private static String escapeSqlPattern(String pattern) {
+    // SQL parsing consumes backslashes before the SHOW pattern matcher sees them.
+    return pattern.replace("\\", "\\\\").replace("'", "\\'");
+  }
+
   private String fetchCatalogSQL() {
     return SHOW_CATALOGS_SQL;
   }
@@ -90,7 +95,7 @@ public class CommandBuilder {
       showSchemasSQL = String.format(SHOW_SCHEMAS_IN_CATALOG_SQL, escapeSqlIdentifier(catalogName));
     }
     if (schemaPattern != null) {
-      showSchemasSQL += String.format(LIKE_SQL, schemaPattern);
+      showSchemasSQL += String.format(LIKE_SQL, escapeSqlPattern(schemaPattern));
     }
     return showSchemasSQL;
   }
@@ -110,10 +115,10 @@ public class CommandBuilder {
       showTablesSQL = String.format(SHOW_TABLES_SQL, escapeSqlIdentifier(catalogName));
     }
     if (schemaPattern != null) {
-      showTablesSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
+      showTablesSQL += String.format(SCHEMA_LIKE_SQL, escapeSqlPattern(schemaPattern));
     }
     if (tablePattern != null) {
-      showTablesSQL += String.format(LIKE_SQL, tablePattern);
+      showTablesSQL += String.format(LIKE_SQL, escapeSqlPattern(tablePattern));
     }
     return showTablesSQL;
   }
@@ -133,15 +138,15 @@ public class CommandBuilder {
     }
 
     if (schemaPattern != null) {
-      showColumnsSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
+      showColumnsSQL += String.format(SCHEMA_LIKE_SQL, escapeSqlPattern(schemaPattern));
     }
 
     if (tablePattern != null) {
-      showColumnsSQL += String.format(TABLE_LIKE_SQL, tablePattern);
+      showColumnsSQL += String.format(TABLE_LIKE_SQL, escapeSqlPattern(tablePattern));
     }
 
     if (columnPattern != null) {
-      showColumnsSQL += String.format(LIKE_SQL, columnPattern);
+      showColumnsSQL += String.format(LIKE_SQL, escapeSqlPattern(columnPattern));
     }
     return showColumnsSQL;
   }
@@ -156,10 +161,10 @@ public class CommandBuilder {
     throwErrorIfNull(Collections.singletonMap(CATALOG, catalogName), contextString);
     String showFunctionsSQL = String.format(SHOW_FUNCTIONS_SQL, escapeSqlIdentifier(catalogName));
     if (schemaPattern != null) {
-      showFunctionsSQL += String.format(SCHEMA_LIKE_SQL, schemaPattern);
+      showFunctionsSQL += String.format(SCHEMA_LIKE_SQL, escapeSqlPattern(schemaPattern));
     }
     if (functionPattern != null) {
-      showFunctionsSQL += String.format(LIKE_SQL, functionPattern);
+      showFunctionsSQL += String.format(LIKE_SQL, escapeSqlPattern(functionPattern));
     }
     return showFunctionsSQL;
   }
