@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- Honor the requested scale when reading BigDecimal values by column label (#1617).
 - Removed Thrift handle secrets from timeout, operation, metadata, and session diagnostics.
 
 ---
