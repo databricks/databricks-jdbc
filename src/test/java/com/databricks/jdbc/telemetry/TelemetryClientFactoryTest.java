@@ -13,6 +13,12 @@ import com.databricks.sdk.core.DatabricksConfig;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +28,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -276,6 +283,68 @@ public class TelemetryClientFactoryTest {
       // Single close should remove client - UUID set deduplicates, old refCount would leak
       TelemetryClientFactory.getInstance().closeTelemetryClient(conn);
       assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClientHolders.size());
+    }
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("provideAuthenticationScenarios")
+  void testClosingLastConnectionDoesNotBlockGetClientForSameHost(
+      String scenario, boolean authenticated) throws Exception {
+    String host = "shared-host.databricks.net";
+    CountDownLatch closeStarted = new CountDownLatch(1);
+    CountDownLatch releaseClose = new CountDownLatch(1);
+    AtomicBoolean closeFinished = new AtomicBoolean(false);
+    ExecutorService closer = Executors.newSingleThreadExecutor();
+
+    try (MockedStatic<TelemetryHelper> mockedStatic = mockStatic(TelemetryHelper.class);
+        // The first client's close() stands in for a final flush stuck on a slow endpoint.
+        MockedConstruction<TelemetryClient> ignored =
+            mockConstruction(
+                TelemetryClient.class,
+                (client, context) -> {
+                  if (context.getCount() == 1) {
+                    doAnswer(
+                            invocation -> {
+                              closeStarted.countDown();
+                              // Bounded so the pre-fix lock wait fails the test instead of
+                              // hanging it; long enough that a slow runner cannot lapse it.
+                              releaseClose.await(30, TimeUnit.SECONDS);
+                              closeFinished.set(true);
+                              return null;
+                            })
+                        .when(client)
+                        .close();
+                  }
+                })) {
+      setupTelemetryHelperMock(mockedStatic);
+      if (authenticated) {
+        mockedStatic
+            .when(() -> TelemetryHelper.getDatabricksConfigSafely(any()))
+            .thenReturn(databricksConfig);
+      }
+      IDatabricksConnectionContext closingConn = createMockContext("uuid-1", host, authenticated);
+      IDatabricksConnectionContext openingConn = createMockContext("uuid-2", host, authenticated);
+      ITelemetryClient closingClient =
+          TelemetryClientFactory.getInstance().getTelemetryClient(closingConn);
+
+      Future<?> closeFuture =
+          closer.submit(
+              () -> TelemetryClientFactory.getInstance().closeTelemetryClient(closingConn));
+      assertTrue(closeStarted.await(5, TimeUnit.SECONDS));
+
+      ITelemetryClient openingClient =
+          TelemetryClientFactory.getInstance().getTelemetryClient(openingConn);
+
+      assertFalse(
+          closeFinished.get(), "getTelemetryClient() waited for another connection's close()");
+      assertNotSame(closingClient, openingClient, "New connection must not reuse a closing client");
+
+      releaseClose.countDown();
+      closeFuture.get(5, TimeUnit.SECONDS);
+      TelemetryClientFactory.getInstance().closeTelemetryClient(openingConn);
+    } finally {
+      releaseClose.countDown();
+      closer.shutdownNow();
     }
   }
 

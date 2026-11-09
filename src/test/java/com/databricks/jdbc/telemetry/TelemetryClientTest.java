@@ -14,8 +14,10 @@ import com.databricks.jdbc.model.telemetry.TelemetryResponse;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.MoreExecutors;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -166,6 +168,51 @@ public class TelemetryClientTest {
               client.exportEvent(
                   new TelemetryFrontendLog(TelemetryLogLevel.ERROR)
                       .setFrontendLogEventId("event2")));
+    }
+  }
+
+  @Test
+  public void testCloseGivesUpOnStuckFlushAfterTelemetrySocketTimeout() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + ";TelemetrySocketTimeout=1", new Properties());
+    // A push that never completes, like one held in retries by a degraded telemetry endpoint.
+    CompletableFuture<Void> stuckPush = new CompletableFuture<>();
+    ExecutorService executor = mock(ExecutorService.class);
+    doReturn(stuckPush).when(executor).submit(any(Runnable.class));
+    TelemetryClient client = new TelemetryClient(context, executor, createMockScheduler());
+    client.exportEvent(
+        new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event1"));
+
+    long start = System.nanoTime();
+    assertTimeoutPreemptively(Duration.ofSeconds(10), client::close);
+    long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+
+    // Waited for the configured 1s, not the 5s default, then gave up on the push.
+    assertTrue(elapsedMillis >= 900, "close() returned after " + elapsedMillis + " ms");
+    assertTrue(elapsedMillis < 5000, "close() returned after " + elapsedMillis + " ms");
+    assertTrue(stuckPush.isCancelled());
+  }
+
+  @Test
+  public void testCloseWaitsForFinalFlushWhenTelemetrySocketTimeoutIsZero() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL + ";TelemetrySocketTimeout=0", new Properties());
+    CompletableFuture<Void> slowPush = new CompletableFuture<>();
+    ExecutorService executor = mock(ExecutorService.class);
+    doReturn(slowPush).when(executor).submit(any(Runnable.class));
+    TelemetryClient client = new TelemetryClient(context, executor, createMockScheduler());
+    client.exportEvent(
+        new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event1"));
+    ScheduledExecutorService completer = createRealScheduler();
+    try {
+      completer.schedule(() -> slowPush.complete(null), 1, TimeUnit.SECONDS);
+
+      assertTimeoutPreemptively(Duration.ofSeconds(10), client::close);
+
+      assertTrue(slowPush.isDone());
+      assertFalse(slowPush.isCancelled());
+    } finally {
+      completer.shutdownNow();
     }
   }
 
