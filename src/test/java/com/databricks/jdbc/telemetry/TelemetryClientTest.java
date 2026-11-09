@@ -20,6 +20,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpHeaders;
@@ -213,6 +214,29 @@ public class TelemetryClientTest {
       assertFalse(slowPush.isCancelled());
     } finally {
       completer.shutdownNow();
+    }
+  }
+
+  @Test
+  public void testCloseRestoresInterruptFlagWhenInterruptedDuringFinalFlush() throws Exception {
+    IDatabricksConnectionContext context =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    // Never run, like a push queued on the shared pool. FutureTask.get() clears the interrupt
+    // flag before throwing InterruptedException, so close() has to restore it.
+    FutureTask<Void> pendingPush = new FutureTask<>(() -> null);
+    ExecutorService executor = mock(ExecutorService.class);
+    doReturn(pendingPush).when(executor).submit(any(Runnable.class));
+    TelemetryClient client = new TelemetryClient(context, executor, createMockScheduler());
+    client.exportEvent(
+        new TelemetryFrontendLog(TelemetryLogLevel.ERROR).setFrontendLogEventId("event1"));
+
+    Thread.currentThread().interrupt();
+    try {
+      client.close();
+      assertTrue(Thread.interrupted(), "close() swallowed the caller's interrupt");
+    } finally {
+      // Never leak the flag into later tests on this thread.
+      Thread.interrupted();
     }
   }
 
