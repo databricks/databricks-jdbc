@@ -569,15 +569,15 @@ class DatabricksConnectionContextTest {
   }
 
   @Test
-  public void testAllPurposeClusterExplicitSeaSelectionKeepsDefaultBehavior()
+  public void testAllPurposeClusterExplicitSeaSelectionUsesPrototypeDefault()
       throws DatabricksSQLException {
     IDatabricksConnectionContext connectionContext =
         DatabricksConnectionContext.parse(
             TestConstants.VALID_CLUSTER_URL + ";UseThriftClient=0", properties);
 
-    assertEquals(DatabricksClientType.THRIFT, connectionContext.getClientType());
-    assertFalse(connectionContext.isApcPrototypeEnabled());
-    assertFalse(connectionContext.isApcSeaPrototype());
+    assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
+    assertTrue(connectionContext.isApcPrototypeEnabled());
+    assertTrue(connectionContext.isApcSeaPrototype());
   }
 
   @Test

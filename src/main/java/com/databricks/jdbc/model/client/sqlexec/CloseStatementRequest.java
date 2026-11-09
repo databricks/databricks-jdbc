@@ -6,7 +6,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 
 public class CloseStatementRequest {
-  @JsonProperty("statement_id")
   private String statementId;
 
   @JsonProperty("backend_compute")
