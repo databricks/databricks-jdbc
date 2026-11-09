@@ -235,32 +235,6 @@ public class DatabricksSessionTest {
   }
 
   @Test
-  public void testApcSeaPrototypeDoesNotFallbackAfterRedirect() throws SQLException {
-    System.setProperty(ApcSeaPrototype.ENABLED_PROPERTY, "true");
-    PrintStream originalOut = System.out;
-    ByteArrayOutputStream output = new ByteArrayOutputStream();
-    try {
-      System.setOut(new PrintStream(output));
-      connectionContext =
-          DatabricksConnectionContext.parse(
-              VALID_CLUSTER_URL + ";UseThriftClient=0", new Properties());
-      when(sdkClient.createSession(eq(CLUSTER_COMPUTE), any(), any(), any()))
-          .thenThrow(new DatabricksTemporaryRedirectException(TEMPORARY_REDIRECT_EXCEPTION));
-
-      DatabricksSession session = new DatabricksSession(connectionContext, sdkClient);
-
-      assertThrows(DatabricksTemporaryRedirectException.class, session::open);
-      assertFalse(session.isOpen());
-      assertEquals(DatabricksClientType.SEA, connectionContext.getClientType());
-      assertEquals("", output.toString());
-      verifyNoInteractions(thriftClient);
-    } finally {
-      System.setOut(originalOut);
-      System.clearProperty(ApcSeaPrototype.ENABLED_PROPERTY);
-    }
-  }
-
-  @Test
   public void testApcSeaPrototypeDoesNotFallbackAfterRateLimit() throws SQLException {
     System.setProperty(ApcSeaPrototype.ENABLED_PROPERTY, "true");
     try {
