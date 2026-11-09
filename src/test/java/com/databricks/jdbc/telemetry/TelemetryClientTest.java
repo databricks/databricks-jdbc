@@ -218,7 +218,8 @@ public class TelemetryClientTest {
   }
 
   @Test
-  public void testCloseRestoresInterruptFlagWhenInterruptedDuringFinalFlush() throws Exception {
+  public void testCloseRestoresInterruptAndCancelsPushWhenInterruptedDuringFinalFlush()
+      throws Exception {
     IDatabricksConnectionContext context =
         DatabricksConnectionContext.parse(JDBC_URL, new Properties());
     // Never run, like a push queued on the shared pool. FutureTask.get() clears the interrupt
@@ -234,6 +235,7 @@ public class TelemetryClientTest {
     try {
       client.close();
       assertTrue(Thread.interrupted(), "close() swallowed the caller's interrupt");
+      assertTrue(pendingPush.isCancelled(), "close() left the abandoned push queued");
     } finally {
       // Never leak the flag into later tests on this thread.
       Thread.interrupted();

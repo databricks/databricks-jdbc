@@ -130,7 +130,9 @@ public class TelemetryClient implements ITelemetryClient {
       LOGGER.trace("Timed out waiting for final telemetry flush; dropping the batch.");
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
-      LOGGER.trace("Interrupted while waiting for final telemetry flush.");
+      // An interrupted close gives up on the final batch, as a timeout does.
+      finalFlush.cancel(true);
+      LOGGER.trace("Interrupted while waiting for final telemetry flush; dropping the batch.");
     } catch (Exception e) {
       // Log the exception but do not re-throw, as the goal is to shut down gracefully
       // even if the final flush fails.
