@@ -174,8 +174,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
     if (computeResource instanceof Warehouse) {
       request.setExecutionMode(FAST_SESSION_EXECUTION_MODE);
       createPath =
-          String.format(
-              WAREHOUSE_SESSION_PATH, ((Warehouse) computeResource).getWarehouseId());
+          String.format(WAREHOUSE_SESSION_PATH, ((Warehouse) computeResource).getWarehouseId());
     } else {
       request.setBackendCompute(apcBackendComputeFor(computeResource));
       createPath = SESSION_PATH;
@@ -213,7 +212,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
                 "createSession failed with HTTP %d (rate limit exceeded) after retries. "
                     + "Compute target: %s, Error: %s",
                 HttpStatus.SC_TOO_MANY_REQUESTS,
-                computeResource.getClass().getSimpleName(),
+                computeResource.getUniqueIdentifier(),
                 e.getMessage());
         LOGGER.warn(errorMessage, e);
         throw new DatabricksRateLimitException(errorMessage, e, HttpStatus.SC_TOO_MANY_REQUESTS);
@@ -337,8 +336,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           computeResource instanceof AllPurposeCluster
               ? STATEMENT_PATH
               : statementCollectionPath(session.getSessionInfo());
-      Request req =
-          new Request(Request.POST, executePath, apiClient.serialize(request));
+      Request req = new Request(Request.POST, executePath, apiClient.serialize(request));
       Map<String, String> additionalHeaders = new HashMap<>();
       if (metadataOperationType != null) {
         additionalHeaders.put(
@@ -423,9 +421,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         if (backendCompute == null) {
           req =
               new Request(
-                  Request.GET,
-                  getStatusPath,
-                  serializeStatementRequest(typedStatementId, request));
+                  Request.GET, getStatusPath, serializeStatementRequest(typedStatementId, request));
         } else {
           GetStatementResultQuery getRequest =
               new GetStatementResultQuery().setBackendCompute(backendCompute);
@@ -532,8 +528,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
           computeResource instanceof AllPurposeCluster
               ? STATEMENT_PATH
               : statementCollectionPath(session.getSessionInfo());
-      Request req =
-          new Request(Request.POST, executePath, apiClient.serialize(request));
+      Request req = new Request(Request.POST, executePath, apiClient.serialize(request));
       req.withHeaders(getHeaders("executeStatement", statementType, true));
       response = apiClient.execute(req, ExecuteStatementResponse.class);
     } catch (IOException e) {
@@ -610,9 +605,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       if (backendCompute == null) {
         req =
             new Request(
-                Request.GET,
-                getStatusPath,
-                serializeStatementRequest(typedStatementId, request));
+                Request.GET, getStatusPath, serializeStatementRequest(typedStatementId, request));
       } else {
         GetStatementResultQuery getRequest =
             new GetStatementResultQuery().setBackendCompute(backendCompute);
@@ -673,8 +666,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
       Request req;
       if (backendCompute == null) {
         req =
-            new Request(
-                Request.DELETE, path, serializeStatementRequest(typedStatementId, request));
+            new Request(Request.DELETE, path, serializeStatementRequest(typedStatementId, request));
       } else {
         request.setBackendCompute(backendCompute);
         req = new Request(Request.DELETE, path);
@@ -694,14 +686,20 @@ public class DatabricksSdkClient implements IDatabricksClient {
     String statementId = typedStatementId.toSQLExecStatementId();
     DatabricksThreadContextHolder.setStatementId(typedStatementId);
     LOGGER.debug("public void cancelStatement(String statementId = {})", statementId);
-    CancelStatementRequest request =
-        new CancelStatementRequest()
-            .setStatementId(statementId)
-            .setBackendCompute(apcBackendComputeFor(connectionContext.getComputeResource()));
+    BackendCompute backendCompute = apcBackendComputeFor(connectionContext.getComputeResource());
+    CancelStatementRequest request = new CancelStatementRequest().setStatementId(statementId);
     String path = statementPath(typedStatementId) + "/cancel";
     try {
-      Request req =
-          new Request(Request.POST, path, serializeStatementRequest(typedStatementId, request));
+      String body;
+      if (backendCompute == null) {
+        body = serializeStatementRequest(typedStatementId, request);
+      } else {
+        Map<String, Object> apcRequest = new HashMap<>();
+        apcRequest.put("statement_id", statementId);
+        apcRequest.put("backend_compute", backendCompute);
+        body = apiClient.serialize(apcRequest);
+      }
+      Request req = new Request(Request.POST, path, body);
       req.withHeaders(getHeaders("cancelStatement"));
       apiClient.execute(req, Void.class);
     } catch (IOException e) {
@@ -732,9 +730,7 @@ public class DatabricksSdkClient implements IDatabricksClient {
         if (connectionContext.isBoundedSeaApiEnabled()) {
           path = path + "?row_offset=" + chunkStartRowOffset;
         }
-        req =
-            new Request(
-                Request.GET, path, serializeStatementRequest(typedStatementId, request));
+        req = new Request(Request.GET, path, serializeStatementRequest(typedStatementId, request));
       } else {
         GetResultDataQuery request = new GetResultDataQuery().setBackendCompute(backendCompute);
         if (connectionContext.isBoundedSeaApiEnabled()) {
@@ -822,12 +818,12 @@ public class DatabricksSdkClient implements IDatabricksClient {
             new GetStatementResultChunkNRequest()
                 .setStatementId(statementId)
                 .setChunkIndex(chunkIndex);
-        if (chunkStartRowOffset != null) {
+        if (connectionContext.isBoundedSeaApiEnabled()
+            && chunkStartRowOffset != null
+            && chunkStartRowOffset > 0) {
           path = path + "?row_offset=" + chunkStartRowOffset;
         }
-        req =
-            new Request(
-                Request.GET, path, serializeStatementRequest(typedStatementId, request));
+        req = new Request(Request.GET, path, serializeStatementRequest(typedStatementId, request));
       } else {
         GetResultDataQuery request = new GetResultDataQuery().setBackendCompute(backendCompute);
         if (chunkStartRowOffset != null) {
