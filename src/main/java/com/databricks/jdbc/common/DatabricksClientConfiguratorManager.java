@@ -65,6 +65,13 @@ public class DatabricksClientConfiguratorManager {
     return holder != null ? holder.peek() : null;
   }
 
+  /** Allows recursive telemetry lookups to defer work that needs the unfinished configurator. */
+  public boolean isCreatingConfiguratorOnCurrentThread(IDatabricksConnectionContext context) {
+    String key = context.getConnectionUuid();
+    ConfiguratorHolder holder = key != null ? instances.get(key) : null;
+    return holder != null && holder.creatingThread == Thread.currentThread();
+  }
+
   @VisibleForTesting
   void setConfigurator(
       IDatabricksConnectionContext context, ClientConfigurator clientConfigurator) {
@@ -103,7 +110,7 @@ public class DatabricksClientConfiguratorManager {
   private static final class ConfiguratorHolder {
     private volatile ClientConfigurator configurator;
     private volatile boolean closed;
-    private boolean creating; // guarded by this
+    private volatile Thread creatingThread;
 
     ConfiguratorHolder() {}
 
@@ -124,10 +131,10 @@ public class DatabricksClientConfiguratorManager {
         if (configurator == null) {
           // Same-thread re-entry (e.g. via telemetry export from a failed creation) fails fast,
           // as the previous computeIfAbsent did, instead of building a second configurator.
-          if (creating) {
+          if (creatingThread == Thread.currentThread()) {
             throw new IllegalStateException("Recursive client configurator creation");
           }
-          creating = true;
+          creatingThread = Thread.currentThread();
           try {
             configurator = factory.get();
           } catch (RuntimeException | Error e) {
@@ -135,7 +142,7 @@ public class DatabricksClientConfiguratorManager {
             closed = true;
             throw e;
           } finally {
-            creating = false;
+            creatingThread = null;
           }
         }
         return configurator;

@@ -83,11 +83,15 @@ public class DatabricksDriverFeatureFlagsContext {
    * Performs the initial blocking fetch and schedules periodic refresh, once. Concurrent callers
    * wait for the first fetch so they see the server flags.
    *
-   * <p>A failed fetch builds an exception that exports telemetry, which reads feature flags on the
-   * same thread. That re-entrant call returns immediately and sees default flag values.
+   * <p>Re-entrant telemetry lookups during configurator creation or flag fetching see defaults
+   * without completing initialization.
    */
   void ensureInitialized(IDatabricksConnectionContext callerContext) {
     if (initialized || initializingThread == Thread.currentThread()) {
+      return;
+    }
+    if (DatabricksClientConfiguratorManager.getInstance()
+        .isCreatingConfiguratorOnCurrentThread(callerContext)) {
       return;
     }
     synchronized (initLock) {

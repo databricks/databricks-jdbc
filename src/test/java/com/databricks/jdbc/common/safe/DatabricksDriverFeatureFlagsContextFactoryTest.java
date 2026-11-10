@@ -238,20 +238,11 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void initialFetchUsesCallerWithoutWaitingForCreatorsConfigurator() throws Exception {
     when(connectionContext2.getHost()).thenReturn("host1.databricks.com");
     when(connectionContext2.getHostForOAuth()).thenReturn("host1.databricks.com");
-    DatabricksDriverFeatureFlagsContext flags =
-        DatabricksDriverFeatureFlagsContext.createUninitialized(connectionContext1);
     // Simulate the creator being preempted after publishing the holder, before initialization.
-    Field contextMap =
-        DatabricksDriverFeatureFlagsContextFactory.class.getDeclaredField("contextMap");
-    contextMap.setAccessible(true);
-    ((Map<String, FeatureFlagsContextHolder>) contextMap.get(null))
-        .put(
-            TelemetryHelper.keyOf(connectionContext1),
-            new FeatureFlagsContextHolder(flags, connectionContext1));
+    DatabricksDriverFeatureFlagsContext flags = publishUninitializedContext(connectionContext1);
 
     DatabricksClientConfiguratorManager manager = DatabricksClientConfiguratorManager.getInstance();
     CountDownLatch creating = new CountDownLatch(1);
@@ -305,6 +296,66 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
       manager.removeInstance(connectionContext1);
       manager.removeInstance(connectionContext2);
     }
+  }
+
+  @Test
+  void lookupDuringConfiguratorCreationDefersInitialFetchUntilNextCaller() throws Exception {
+    when(connectionContext2.getHost()).thenReturn("host1.databricks.com");
+    when(connectionContext2.getHostForOAuth()).thenReturn("host1.databricks.com");
+    DatabricksDriverFeatureFlagsContext flags = publishUninitializedContext(connectionContext1);
+    DatabricksClientConfiguratorManager manager = DatabricksClientConfiguratorManager.getInstance();
+    DatabricksConfig config = mock(DatabricksConfig.class);
+    when(config.authenticate()).thenReturn(Map.of());
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(response.getStatusLine()).thenReturn(new BasicStatusLine(HttpVersion.HTTP_1_1, 200, "OK"));
+    when(response.getEntity())
+        .thenReturn(
+            new StringEntity("{\"flags\":[{\"name\":\"caller.flag\",\"value\":\"true\"}]}"));
+    when(httpClient.execute(any(HttpGet.class))).thenReturn(response);
+    DatabricksHttpClientFactory httpClientFactory = mock(DatabricksHttpClientFactory.class);
+    when(httpClientFactory.getClient(any())).thenReturn(httpClient);
+    AtomicReference<DatabricksDriverFeatureFlagsContext> reentrantContext = new AtomicReference<>();
+    try (MockedStatic<DatabricksHttpClientFactory> mockedFactory =
+            mockStatic(DatabricksHttpClientFactory.class);
+        MockedConstruction<ClientConfigurator> mocked =
+            mockConstruction(
+                ClientConfigurator.class,
+                (mock, ctx) -> {
+                  if (ctx.arguments().get(0) == connectionContext2) {
+                    reentrantContext.set(
+                        DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext2));
+                  } else {
+                    when(mock.getDatabricksConfig()).thenReturn(config);
+                  }
+                })) {
+      mockedFactory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpClientFactory);
+
+      manager.getConfigurator(connectionContext2);
+
+      assertSame(flags, reentrantContext.get());
+      assertFalse(flags.getBoolean("caller.flag"));
+      assertSame(flags, DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1));
+      assertTrue(flags.getBoolean("caller.flag"));
+      verify(httpClientFactory).getClient(connectionContext1);
+      verify(httpClientFactory, never()).getClient(connectionContext2);
+    } finally {
+      manager.removeInstance(connectionContext1);
+      manager.removeInstance(connectionContext2);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private DatabricksDriverFeatureFlagsContext publishUninitializedContext(
+      IDatabricksConnectionContext owner) throws Exception {
+    DatabricksDriverFeatureFlagsContext flags =
+        DatabricksDriverFeatureFlagsContext.createUninitialized(owner);
+    Field contextMap =
+        DatabricksDriverFeatureFlagsContextFactory.class.getDeclaredField("contextMap");
+    contextMap.setAccessible(true);
+    ((Map<String, FeatureFlagsContextHolder>) contextMap.get(null))
+        .put(TelemetryHelper.keyOf(owner), new FeatureFlagsContextHolder(flags, owner));
+    return flags;
   }
 
   @Test
