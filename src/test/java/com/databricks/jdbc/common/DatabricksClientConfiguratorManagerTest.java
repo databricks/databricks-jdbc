@@ -6,6 +6,8 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksDriverException;
+import java.lang.reflect.Field;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -108,6 +110,45 @@ class DatabricksClientConfiguratorManagerTest {
   }
 
   @Test
+  void failedCreationRemovesHolderAndNextCallCanRetry() throws Exception {
+    try (MockedConstruction<ClientConfigurator> mocked =
+        mockConstruction(
+            ClientConfigurator.class,
+            (mock, ctx) -> {
+              throw new IllegalStateException("Failed configurator creation");
+            })) {
+      assertThrows(DatabricksDriverException.class, () -> manager.getConfigurator(contextA));
+    }
+
+    Field instances = DatabricksClientConfiguratorManager.class.getDeclaredField("instances");
+    instances.setAccessible(true);
+    assertFalse(((Map<?, ?>) instances.get(manager)).containsKey(UUID_A));
+
+    try (MockedConstruction<ClientConfigurator> mocked =
+        mockConstruction(ClientConfigurator.class)) {
+      ClientConfigurator configurator = manager.getConfigurator(contextA);
+      assertSame(mocked.constructed().get(0), configurator);
+      assertSame(configurator, manager.getConfiguratorOnlyIfExists(contextA));
+    }
+  }
+
+  @Test
+  void failedCreationDoesNotRemoveReplacementHolder() {
+    ClientConfigurator replacement = mock(ClientConfigurator.class);
+    try (MockedConstruction<ClientConfigurator> mocked =
+        mockConstruction(
+            ClientConfigurator.class,
+            (mock, ctx) -> {
+              manager.setConfigurator(contextA, replacement);
+              throw new IllegalStateException("Failed configurator creation");
+            })) {
+      assertThrows(DatabricksDriverException.class, () -> manager.getConfigurator(contextA));
+    }
+
+    assertSame(replacement, manager.getConfigurator(contextA));
+  }
+
+  @Test
   void reentrantCreationOnSameThreadFailsInsteadOfCreatingTwice() {
     AtomicReference<Exception> reentrantError = new AtomicReference<>();
     try (MockedConstruction<ClientConfigurator> mocked =
@@ -126,6 +167,7 @@ class DatabricksClientConfiguratorManagerTest {
       assertEquals(1, mocked.constructed().size());
       assertInstanceOf(DatabricksDriverException.class, reentrantError.get());
       assertTrue(reentrantError.get().getMessage().contains("Recursive client configurator"));
+      assertSame(configurator, manager.getConfigurator(contextA));
     }
   }
 

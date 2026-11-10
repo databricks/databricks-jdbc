@@ -30,12 +30,18 @@ public class DatabricksClientConfiguratorManager {
         // Only the cheap holder is created inside computeIfAbsent. Building the configurator
         // performs network I/O, which must not hold the map bin shared with other connections.
         ConfiguratorHolder holder = instances.computeIfAbsent(key, k -> new ConfiguratorHolder());
-        ClientConfigurator configurator = holder.getOrCreate(() -> createConfigurator(context));
+        ClientConfigurator configurator;
+        try {
+          configurator = holder.getOrCreate(() -> createConfigurator(context));
+        } finally {
+          if (holder.closed) {
+            instances.remove(key, holder);
+          }
+        }
         if (configurator != null) {
           return configurator;
         }
-        // A concurrent removeInstance closed this holder; retry with a fresh one.
-        instances.remove(key, holder);
+        // Creation failed for another caller or removeInstance closed this holder; retry.
       }
     } catch (Exception ex) {
       String message =
@@ -124,6 +130,10 @@ public class DatabricksClientConfiguratorManager {
           creating = true;
           try {
             configurator = factory.get();
+          } catch (RuntimeException | Error e) {
+            // Waiting callers must retry instead of populating the entry being removed.
+            closed = true;
+            throw e;
           } finally {
             creating = false;
           }
