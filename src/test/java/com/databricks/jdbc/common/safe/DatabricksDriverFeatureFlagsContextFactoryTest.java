@@ -12,6 +12,9 @@ import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.DatabricksConfig;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
@@ -235,6 +238,93 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
       other.shutdownNow();
       DatabricksDriverFeatureFlagsContextFactory.removeInstance(slowHost);
     }
+  }
+
+  @Test
+  void sameHostWaiterReadsFlagsAfterInitialFetchCompletes() throws Exception {
+    when(connectionContext2.getHost()).thenReturn("host1.databricks.com");
+    when(connectionContext2.getHostForOAuth()).thenReturn("host1.databricks.com");
+    DatabricksDriverFeatureFlagsContext flags = publishUninitializedContext(connectionContext1);
+    Field initLock = DatabricksDriverFeatureFlagsContext.class.getDeclaredField("initLock");
+    initLock.setAccessible(true);
+    Object monitor = initLock.get(flags);
+    CountDownLatch fetching = new CountDownLatch(1);
+    CountDownLatch waiting = new CountDownLatch(1);
+    AtomicReference<Thread> waitingThread = new AtomicReference<>();
+    DatabricksConfig config = mock(DatabricksConfig.class);
+    when(config.authenticate()).thenReturn(Map.of());
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(response.getStatusLine()).thenReturn(new BasicStatusLine(HttpVersion.HTTP_1_1, 200, "OK"));
+    when(response.getEntity())
+        .thenReturn(
+            new StringEntity("{\"flags\":[{\"name\":\"shared.flag\",\"value\":\"true\"}]}"));
+    when(httpClient.execute(any(HttpGet.class)))
+        .thenAnswer(
+            invocation -> {
+              fetching.countDown();
+              assertTrue(waiting.await(10, TimeUnit.SECONDS));
+              awaitBlockedOn(waitingThread.get(), monitor);
+              return response;
+            });
+    DatabricksHttpClientFactory httpClientFactory = mock(DatabricksHttpClientFactory.class);
+    when(httpClientFactory.getClient(any()))
+        .thenAnswer(
+            invocation -> {
+              assertSame(connectionContext1, invocation.getArgument(0));
+              return httpClient;
+            });
+    ExecutorService waiter = Executors.newSingleThreadExecutor();
+    try (MockedStatic<DatabricksHttpClientFactory> mockedFactory =
+            mockStatic(DatabricksHttpClientFactory.class);
+        MockedConstruction<ClientConfigurator> mocked =
+            mockConstruction(
+                ClientConfigurator.class,
+                (mock, ctx) -> when(mock.getDatabricksConfig()).thenReturn(config))) {
+      mockedFactory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpClientFactory);
+      Future<Boolean> firstFlagRead =
+          waiter.submit(
+              () -> {
+                assertTrue(fetching.await(10, TimeUnit.SECONDS));
+                try (MockedStatic<DatabricksHttpClientFactory> waiterFactory =
+                    mockStatic(DatabricksHttpClientFactory.class)) {
+                  waiterFactory
+                      .when(DatabricksHttpClientFactory::getInstance)
+                      .thenReturn(httpClientFactory);
+                  waitingThread.set(Thread.currentThread());
+                  waiting.countDown();
+                  return DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext2)
+                      .getBoolean("shared.flag");
+                }
+              });
+
+      assertSame(flags, DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1));
+
+      assertTrue(flags.getBoolean("shared.flag"));
+      assertTrue(firstFlagRead.get(10, TimeUnit.SECONDS));
+      verify(httpClient, times(1)).execute(any(HttpGet.class));
+      verify(httpClientFactory, never()).getClient(connectionContext2);
+    } finally {
+      waiter.shutdownNow();
+      assertTrue(waiter.awaitTermination(10, TimeUnit.SECONDS));
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext1);
+    }
+  }
+
+  private static void awaitBlockedOn(Thread thread, Object monitor) throws InterruptedException {
+    ThreadMXBean threads = ManagementFactory.getThreadMXBean();
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (System.nanoTime() < deadline) {
+      ThreadInfo info = threads.getThreadInfo(thread.getId());
+      if (info != null
+          && info.getThreadState() == Thread.State.BLOCKED
+          && info.getLockInfo() != null
+          && info.getLockInfo().getIdentityHashCode() == System.identityHashCode(monitor)) {
+        return;
+      }
+      Thread.sleep(1);
+    }
+    fail("Caller did not wait on the feature-flag initialization lock");
   }
 
   @Test

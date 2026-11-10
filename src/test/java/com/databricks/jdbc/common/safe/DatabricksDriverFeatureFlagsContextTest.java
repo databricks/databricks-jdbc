@@ -108,7 +108,7 @@ class DatabricksDriverFeatureFlagsContextTest {
       when(objectMapperMock.readValue(anyString(), eq(FeatureFlagsResponse.class)))
           .thenReturn(response);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
-      context.fetchAndSetFlagsFromServer(httpClientMock, request);
+      context.fetchAndSetFlagsFromServer(httpClientMock, request, connectionContextMock);
       assertTrue(context.getBoolean(FEATURE_FLAG_NAME));
       verify(httpClientMock).execute(request);
     }
@@ -130,7 +130,7 @@ class DatabricksDriverFeatureFlagsContextTest {
       when(objectMapperMock.readValue(anyString(), eq(FeatureFlagsResponse.class)))
           .thenReturn(response);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
-      context.fetchAndSetFlagsFromServer(httpClientMock, request);
+      context.fetchAndSetFlagsFromServer(httpClientMock, request, connectionContextMock);
       assertTrue(context.getBoolean(FEATURE_FLAG_NAME));
       verify(httpClientMock).execute(request);
     }
@@ -142,7 +142,7 @@ class DatabricksDriverFeatureFlagsContextTest {
     when(statusLineMock.getStatusCode()).thenReturn(500);
     when(httpClientMock.execute(any(HttpGet.class))).thenReturn(httpResponseMock);
     HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
-    context.fetchAndSetFlagsFromServer(httpClientMock, request);
+    context.fetchAndSetFlagsFromServer(httpClientMock, request, connectionContextMock);
     assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
     verify(httpClientMock).execute(request);
   }
@@ -194,7 +194,7 @@ class DatabricksDriverFeatureFlagsContextTest {
       when(objectMapperMock.readValue(anyString(), eq(FeatureFlagsResponse.class)))
           .thenReturn(response);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
-      context.fetchAndSetFlagsFromServer(httpClientMock, request);
+      context.fetchAndSetFlagsFromServer(httpClientMock, request, connectionContextMock);
       assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
       verify(httpClientMock).execute(request);
     }
@@ -215,7 +215,7 @@ class DatabricksDriverFeatureFlagsContextTest {
       when(objectMapperMock.readValue(anyString(), eq(FeatureFlagsResponse.class)))
           .thenReturn(response);
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
-      context.fetchAndSetFlagsFromServer(httpClientMock, request);
+      context.fetchAndSetFlagsFromServer(httpClientMock, request, connectionContextMock);
       assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
       verify(httpClientMock).execute(request);
     }
@@ -310,7 +310,7 @@ class DatabricksDriverFeatureFlagsContextTest {
           .thenReturn(response);
 
       HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
-      context.fetchAndSetFlagsFromServer(httpClientMock, request);
+      context.fetchAndSetFlagsFromServer(httpClientMock, request, connectionContextMock);
 
       assertTrue(context.getBoolean("flag1"));
       assertTrue(
@@ -327,7 +327,7 @@ class DatabricksDriverFeatureFlagsContextTest {
     when(httpClientMock.execute(any(HttpGet.class))).thenReturn(httpResponseMock);
 
     HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
-    context.fetchAndSetFlagsFromServer(httpClientMock, request);
+    context.fetchAndSetFlagsFromServer(httpClientMock, request, connectionContextMock);
 
     // Should not throw, and feature should be disabled by default
     assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
@@ -340,7 +340,7 @@ class DatabricksDriverFeatureFlagsContextTest {
     when(httpClientMock.execute(any(HttpGet.class))).thenReturn(httpResponseMock);
 
     HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
-    context.fetchAndSetFlagsFromServer(httpClientMock, request);
+    context.fetchAndSetFlagsFromServer(httpClientMock, request, connectionContextMock);
 
     assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
   }
@@ -352,7 +352,7 @@ class DatabricksDriverFeatureFlagsContextTest {
     when(httpClientMock.execute(any(HttpGet.class))).thenReturn(httpResponseMock);
 
     HttpGet request = new HttpGet(FEATURE_FLAGS_ENDPOINT);
-    context.fetchAndSetFlagsFromServer(httpClientMock, request);
+    context.fetchAndSetFlagsFromServer(httpClientMock, request, connectionContextMock);
 
     assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
   }

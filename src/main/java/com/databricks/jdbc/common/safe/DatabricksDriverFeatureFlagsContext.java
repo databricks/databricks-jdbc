@@ -81,7 +81,7 @@ public class DatabricksDriverFeatureFlagsContext {
 
   /**
    * Performs the initial blocking fetch and schedules periodic refresh, once. Concurrent callers
-   * wait for the first fetch so they see the server flags.
+   * wait for the result of the first fetch attempt.
    *
    * <p>Re-entrant telemetry lookups during configurator creation or flag fetching see defaults
    * without completing initialization.
@@ -167,7 +167,7 @@ public class DatabricksDriverFeatureFlagsContext {
           .authenticate()
           .forEach(request::addHeader);
       context.getCustomHeaders().forEach(request::addHeader);
-      fetchAndSetFlagsFromServer(httpClient, request);
+      fetchAndSetFlagsFromServer(httpClient, request, context);
     } catch (Exception e) {
       LOGGER.trace(
           "Error fetching feature flags for context: {}. Error: {}", context, e.getMessage());
@@ -175,7 +175,8 @@ public class DatabricksDriverFeatureFlagsContext {
   }
 
   @VisibleForTesting
-  void fetchAndSetFlagsFromServer(IDatabricksHttpClient httpClient, HttpGet request)
+  void fetchAndSetFlagsFromServer(
+      IDatabricksHttpClient httpClient, HttpGet request, IDatabricksConnectionContext context)
       throws DatabricksHttpException, IOException {
     try (CloseableHttpResponse response = httpClient.execute(request)) {
       if (response.getStatusLine().getStatusCode() == 200) {
@@ -200,7 +201,7 @@ public class DatabricksDriverFeatureFlagsContext {
       } else {
         LOGGER.trace(
             "Failed to fetch feature flags. Context: {}, Status code: {}",
-            connectionContext,
+            context,
             response.getStatusLine().getStatusCode());
       }
     }
