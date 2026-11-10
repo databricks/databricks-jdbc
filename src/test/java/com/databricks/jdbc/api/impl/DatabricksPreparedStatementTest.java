@@ -6,8 +6,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -290,6 +292,19 @@ public class DatabricksPreparedStatementTest {
     }
 
     assertNull(statement.getMetaData());
+  }
+
+  @Test
+  public void testGetMetaData_NoResultSet_CteDml_ReturnsNull() throws Exception {
+    String cteInsert = "WITH source AS (SELECT 1 AS id) INSERT INTO target SELECT id FROM source";
+    IDatabricksConnectionContext connectionContext =
+        DatabricksConnectionContext.parse(JDBC_URL, new Properties());
+    DatabricksConnection connection = new DatabricksConnection(connectionContext, client);
+    DatabricksPreparedStatement statement = new DatabricksPreparedStatement(connection, cteInsert);
+
+    assertNull(statement.getMetaData());
+    verify(client, never())
+        .executeStatement(startsWith("DESCRIBE QUERY"), any(), any(), any(), any(), any(), any());
   }
 
   @Test

@@ -20,16 +20,20 @@ import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.sql.*;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.regex.Pattern;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksStatement implements IDatabricksStatement, IDatabricksStatementInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
+  private static final Pattern CTE_DML_PATTERN =
+      Pattern.compile("^(INSERT|UPDATE|DELETE|MERGE)\\b", Pattern.CASE_INSENSITIVE);
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -801,6 +805,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       return true;
     }
 
+    if (isCteDml(trimmedQuery)) {
+      return false;
+    }
+
     // Check if the query matches any of the patterns that return a ResultSet
     return SELECT_PATTERN.matcher(trimmedQuery).find()
         || SHOW_PATTERN.matcher(trimmedQuery).find()
@@ -828,6 +836,70 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         query, connection.getConnectionContext().getNonRowcountQueryPrefixes());
   }
 
+  private static String skipCteDefinitions(String query) {
+    char[] syntax = new char[query.length()];
+    Arrays.fill(syntax, ' ');
+    SqlCommentParser.forEachNonCommentChar(
+        query,
+        (state, c, index) -> {
+          if (state == SqlCommentParser.State.NORMAL) {
+            syntax[index] = c;
+          }
+        });
+    int index = 0;
+    while (index < syntax.length) {
+      if (Character.isJavaIdentifierPart(syntax[index])) {
+        while (index < syntax.length && Character.isJavaIdentifierPart(syntax[index])) {
+          index++;
+        }
+      } else if (syntax[index] == '(') {
+        int depth = 1;
+        while (++index < syntax.length && depth > 0) {
+          if (syntax[index] == '(') {
+            depth++;
+          } else if (syntax[index] == ')') {
+            depth--;
+          }
+        }
+        if (depth != 0) {
+          return query;
+        }
+        while (index < syntax.length && Character.isWhitespace(syntax[index])) {
+          index++;
+        }
+        boolean followedByAs =
+            index + 2 <= syntax.length
+                && query.regionMatches(true, index, "AS", 0, 2)
+                && (index + 2 == syntax.length
+                    || !Character.isJavaIdentifierPart(syntax[index + 2]));
+        boolean followedByParenthesis = index < syntax.length && syntax[index] == '(';
+        boolean followedByMaxRecursion = startsWithKeyword(query, syntax, index, "MAX");
+        if (index < syntax.length
+            && syntax[index] != ','
+            && !followedByAs
+            && !followedByParenthesis
+            && !followedByMaxRecursion) {
+          return query.substring(index);
+        }
+      } else {
+        index++;
+      }
+    }
+    return query;
+  }
+
+  private static boolean isCteDml(String query) {
+    return WITH_PATTERN.matcher(query).find()
+        && CTE_DML_PATTERN.matcher(skipCteDefinitions(query)).find();
+  }
+
+  private static boolean startsWithKeyword(String query, char[] syntax, int index, String keyword) {
+    int end = index + keyword.length();
+    return end <= syntax.length
+        && query.regionMatches(true, index, keyword, 0, keyword.length())
+        && (end == syntax.length || !Character.isJavaIdentifierPart(syntax[end]));
+  }
+
   static boolean isSelectQuery(String query) {
     String trimmedQuery = trimCommentsAndWhitespaces(query);
     return SELECT_PATTERN.matcher(trimmedQuery).find();
@@ -844,7 +916,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   static boolean isDescribableQuery(String query) {
     String trimmedQuery = trimCommentsAndWhitespaces(query);
     return SELECT_PATTERN.matcher(trimmedQuery).find()
-        || WITH_PATTERN.matcher(trimmedQuery).find()
+        || (WITH_PATTERN.matcher(trimmedQuery).find() && !isCteDml(trimmedQuery))
         || VALUES_PATTERN.matcher(trimmedQuery).find()
         || FROM_PATTERN.matcher(trimmedQuery).find();
   }
