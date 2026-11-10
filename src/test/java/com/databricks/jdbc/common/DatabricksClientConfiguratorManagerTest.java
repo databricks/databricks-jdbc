@@ -6,6 +6,9 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.exception.DatabricksDriverException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
 import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -146,6 +149,121 @@ class DatabricksClientConfiguratorManagerTest {
     }
 
     assertSame(replacement, manager.getConfigurator(contextA));
+  }
+
+  @Test
+  void waitingCallerRetriesAfterAnotherThreadsCreationFails() throws Exception {
+    CountDownLatch creating = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    CountDownLatch waiting = new CountDownLatch(1);
+    AtomicReference<Thread> waitingThread = new AtomicReference<>();
+    AtomicReference<ClientConfigurator> failedConfigurator = new AtomicReference<>();
+    ExecutorService callers = Executors.newFixedThreadPool(2);
+    try {
+      Future<?> creator =
+          callers.submit(
+              () -> {
+                try (MockedConstruction<ClientConfigurator> mocked =
+                    mockConstruction(
+                        ClientConfigurator.class,
+                        (mock, ctx) -> {
+                          failedConfigurator.set(mock);
+                          creating.countDown();
+                          assertTrue(release.await(10, TimeUnit.SECONDS));
+                          throw new IllegalStateException("Failed configurator creation");
+                        })) {
+                  assertThrows(
+                      DatabricksDriverException.class, () -> manager.getConfigurator(contextA));
+                }
+              });
+      assertTrue(creating.await(10, TimeUnit.SECONDS));
+      Object failedHolder = getHolders().get(UUID_A);
+      Future<ClientConfigurator> waiter =
+          callers.submit(
+              () -> {
+                try (MockedConstruction<ClientConfigurator> mocked =
+                    mockConstruction(ClientConfigurator.class)) {
+                  waitingThread.set(Thread.currentThread());
+                  waiting.countDown();
+                  return manager.getConfigurator(contextA);
+                }
+              });
+      assertTrue(waiting.await(10, TimeUnit.SECONDS));
+      awaitBlockedOn(waitingThread.get(), failedHolder);
+
+      release.countDown();
+      creator.get(10, TimeUnit.SECONDS);
+      ClientConfigurator configurator = waiter.get(10, TimeUnit.SECONDS);
+
+      assertNotNull(configurator);
+      assertNotSame(failedConfigurator.get(), configurator);
+      assertNotSame(failedHolder, getHolders().get(UUID_A));
+      assertSame(configurator, manager.getConfiguratorOnlyIfExists(contextA));
+      verify(configurator, never()).close();
+    } finally {
+      release.countDown();
+      callers.shutdownNow();
+      assertTrue(callers.awaitTermination(10, TimeUnit.SECONDS));
+    }
+  }
+
+  @Test
+  void waitingCallerRetriesAfterItsHolderIsRemoved() throws Exception {
+    manager.setConfigurator(contextA, null);
+    Object removedHolder = getHolders().get(UUID_A);
+    CountDownLatch waiting = new CountDownLatch(1);
+    AtomicReference<Thread> waitingThread = new AtomicReference<>();
+    ExecutorService caller = Executors.newSingleThreadExecutor();
+    try {
+      Future<ClientConfigurator> waiter;
+      synchronized (removedHolder) {
+        waiter =
+            caller.submit(
+                () -> {
+                  try (MockedConstruction<ClientConfigurator> mocked =
+                      mockConstruction(ClientConfigurator.class)) {
+                    waitingThread.set(Thread.currentThread());
+                    waiting.countDown();
+                    return manager.getConfigurator(contextA);
+                  }
+                });
+        assertTrue(waiting.await(10, TimeUnit.SECONDS));
+        awaitBlockedOn(waitingThread.get(), removedHolder);
+
+        manager.removeInstance(contextA);
+      }
+      ClientConfigurator configurator = waiter.get(10, TimeUnit.SECONDS);
+
+      assertNotNull(configurator);
+      assertNotSame(removedHolder, getHolders().get(UUID_A));
+      assertSame(configurator, manager.getConfiguratorOnlyIfExists(contextA));
+      verify(configurator, never()).close();
+    } finally {
+      caller.shutdownNow();
+      assertTrue(caller.awaitTermination(10, TimeUnit.SECONDS));
+    }
+  }
+
+  private Map<?, ?> getHolders() throws Exception {
+    Field instances = DatabricksClientConfiguratorManager.class.getDeclaredField("instances");
+    instances.setAccessible(true);
+    return (Map<?, ?>) instances.get(manager);
+  }
+
+  private static void awaitBlockedOn(Thread thread, Object monitor) throws InterruptedException {
+    ThreadMXBean threads = ManagementFactory.getThreadMXBean();
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (System.nanoTime() < deadline) {
+      ThreadInfo info = threads.getThreadInfo(thread.getId());
+      if (info != null
+          && info.getThreadState() == Thread.State.BLOCKED
+          && info.getLockInfo() != null
+          && info.getLockInfo().getIdentityHashCode() == System.identityHashCode(monitor)) {
+        return;
+      }
+      Thread.sleep(1);
+    }
+    fail("Caller did not wait on the expected configurator holder");
   }
 
   @Test
