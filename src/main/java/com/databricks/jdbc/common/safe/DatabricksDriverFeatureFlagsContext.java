@@ -52,17 +52,56 @@ public class DatabricksDriverFeatureFlagsContext {
           });
   private ScheduledFuture<?> scheduledRefreshTask;
   private volatile int refreshIntervalSeconds = DEFAULT_TTL_SECONDS;
+  private final Object initLock = new Object();
+  private volatile boolean initialized;
+  private volatile Thread initializingThread;
 
   public DatabricksDriverFeatureFlagsContext(IDatabricksConnectionContext connectionContext) {
+    this(connectionContext, /* fetchNow= */ true);
+  }
+
+  private DatabricksDriverFeatureFlagsContext(
+      IDatabricksConnectionContext connectionContext, boolean fetchNow) {
     this.connectionContext = connectionContext;
     this.featureFlags = CacheBuilder.newBuilder().build();
     this.featureFlagEndpoint =
         String.format(
             "https://%s%s", connectionContext.getHostForOAuth(), FEATURE_FLAGS_ENDPOINT_SUFFIX);
-    // Make an initial blocking call to fetch featureFlags
-    refreshAllFeatureFlags();
-    // Async fetch eventually
-    scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
+    if (fetchNow) {
+      ensureInitialized();
+    }
+  }
+
+  /** Creates a context whose initial fetch is deferred to {@link #ensureInitialized()}. */
+  static DatabricksDriverFeatureFlagsContext createUninitialized(
+      IDatabricksConnectionContext connectionContext) {
+    return new DatabricksDriverFeatureFlagsContext(connectionContext, /* fetchNow= */ false);
+  }
+
+  /**
+   * Performs the initial blocking fetch and schedules periodic refresh, once. Concurrent callers
+   * wait for the first fetch so they see the server flags.
+   *
+   * <p>A failed fetch builds an exception that exports telemetry, which reads feature flags on the
+   * same thread. That re-entrant call returns immediately and sees default flag values.
+   */
+  void ensureInitialized() {
+    if (initialized || initializingThread == Thread.currentThread()) {
+      return;
+    }
+    synchronized (initLock) {
+      if (initialized) {
+        return;
+      }
+      initializingThread = Thread.currentThread();
+      try {
+        refreshAllFeatureFlags();
+        scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
+        initialized = true;
+      } finally {
+        initializingThread = null;
+      }
+    }
   }
 
   // Constructor for testing
@@ -75,6 +114,7 @@ public class DatabricksDriverFeatureFlagsContext {
             "https://%s%s", connectionContext.getHostForOAuth(), FEATURE_FLAGS_ENDPOINT_SUFFIX);
     initialFlags.forEach(this.featureFlags::put);
     scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
+    this.initialized = true;
   }
 
   private void scheduleOrRescheduleRefresh(int ttlSeconds) {

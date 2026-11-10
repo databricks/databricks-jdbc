@@ -1,0 +1,136 @@
+package com.databricks.jdbc.common;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.exception.DatabricksDriverException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
+
+class DatabricksClientConfiguratorManagerTest {
+  // "Aa" and "BB" have the same String.hashCode, so they always share a ConcurrentHashMap bin.
+  private static final String UUID_A = "Aa";
+  private static final String UUID_B = "BB";
+
+  private final DatabricksClientConfiguratorManager manager =
+      DatabricksClientConfiguratorManager.getInstance();
+  private IDatabricksConnectionContext contextA;
+  private IDatabricksConnectionContext contextB;
+
+  @BeforeEach
+  void setUp() {
+    contextA = mock(IDatabricksConnectionContext.class);
+    contextB = mock(IDatabricksConnectionContext.class);
+    when(contextA.getConnectionUuid()).thenReturn(UUID_A);
+    when(contextB.getConnectionUuid()).thenReturn(UUID_B);
+  }
+
+  @AfterEach
+  void tearDown() {
+    manager.removeInstance(contextA);
+    manager.removeInstance(contextB);
+  }
+
+  @Test
+  void slowConfiguratorCreationDoesNotBlockOtherConnections() throws Exception {
+    assertEquals(UUID_A.hashCode(), UUID_B.hashCode());
+    CountDownLatch creating = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    AtomicBoolean creationFinished = new AtomicBoolean();
+    ExecutorService other = Executors.newSingleThreadExecutor();
+    try (MockedConstruction<ClientConfigurator> mocked =
+        mockConstruction(
+            ClientConfigurator.class,
+            (mock, ctx) -> {
+              creating.countDown();
+              release.await(10, TimeUnit.SECONDS);
+              creationFinished.set(true);
+            })) {
+      Future<Boolean> otherReturnedAfterCreation =
+          other.submit(
+              () -> {
+                creating.await();
+                manager.removeInstance(contextB);
+                boolean finished = creationFinished.get();
+                release.countDown();
+                return finished;
+              });
+
+      ClientConfigurator configurator = manager.getConfigurator(contextA);
+
+      assertSame(mocked.constructed().get(0), configurator);
+      assertFalse(
+          otherReturnedAfterCreation.get(10, TimeUnit.SECONDS),
+          "removeInstance for another connection waited for this connection's configurator");
+    } finally {
+      release.countDown();
+      other.shutdownNow();
+    }
+  }
+
+  @Test
+  void sameConnectionReusesConfigurator() {
+    try (MockedConstruction<ClientConfigurator> mocked =
+        mockConstruction(ClientConfigurator.class)) {
+      ClientConfigurator first = manager.getConfigurator(contextA);
+
+      assertSame(first, manager.getConfigurator(contextA));
+      assertSame(first, manager.getConfiguratorOnlyIfExists(contextA));
+      assertEquals(1, mocked.constructed().size());
+    }
+  }
+
+  @Test
+  void removeInstanceClosesConfiguratorAndNextCallCreatesNewOne() {
+    try (MockedConstruction<ClientConfigurator> mocked =
+        mockConstruction(ClientConfigurator.class)) {
+      ClientConfigurator first = manager.getConfigurator(contextA);
+
+      manager.removeInstance(contextA);
+
+      verify(first).close();
+      assertNull(manager.getConfiguratorOnlyIfExists(contextA));
+      ClientConfigurator second = manager.getConfigurator(contextA);
+      assertNotSame(first, second);
+      assertEquals(2, mocked.constructed().size());
+    }
+  }
+
+  @Test
+  void reentrantCreationOnSameThreadFailsInsteadOfCreatingTwice() {
+    AtomicReference<Exception> reentrantError = new AtomicReference<>();
+    try (MockedConstruction<ClientConfigurator> mocked =
+        mockConstruction(
+            ClientConfigurator.class,
+            (mock, ctx) -> {
+              try {
+                manager.getConfigurator(contextA);
+              } catch (Exception e) {
+                reentrantError.set(e);
+              }
+            })) {
+      ClientConfigurator configurator = manager.getConfigurator(contextA);
+
+      assertSame(mocked.constructed().get(0), configurator);
+      assertEquals(1, mocked.constructed().size());
+      assertInstanceOf(DatabricksDriverException.class, reentrantError.get());
+      assertTrue(reentrantError.get().getMessage().contains("Recursive client configurator"));
+    }
+  }
+
+  @Test
+  void configuratorOnlyIfExistsIsNullBeforeCreation() {
+    assertNull(manager.getConfiguratorOnlyIfExists(contextA));
+  }
+}

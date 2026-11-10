@@ -33,12 +33,14 @@ public class DatabricksDriverFeatureFlagsContextFactory {
               if (existing == null) {
                 // First connection for this host
                 return new FeatureFlagsContextHolder(
-                    new DatabricksDriverFeatureFlagsContext(context), context);
+                    DatabricksDriverFeatureFlagsContext.createUninitialized(context), context);
               }
               // Track this connection UUID (idempotent for the same UUID)
               existing.addContext(context);
               return existing;
             });
+    // Fetch outside compute so the network call does not hold the map bin.
+    holder.context.ensureInitialized();
     return holder.context;
   }
 
@@ -54,6 +56,7 @@ public class DatabricksDriverFeatureFlagsContextFactory {
     if (connectionContext != null) {
       String key = TelemetryHelper.keyOf(connectionContext);
       String uuid = connectionContext.getConnectionUuid();
+      DatabricksDriverFeatureFlagsContext[] toShutdown = new DatabricksDriverFeatureFlagsContext[1];
       contextMap.computeIfPresent(
           key,
           (k, holder) -> {
@@ -61,7 +64,7 @@ public class DatabricksDriverFeatureFlagsContextFactory {
               holder.activeContexts.remove(uuid);
             }
             if (holder.activeContexts.isEmpty()) {
-              holder.context.shutdown();
+              toShutdown[0] = holder.context;
               return null;
             }
             // If the removed connection's UUID matches the one stored in the feature flags context,
@@ -74,6 +77,10 @@ public class DatabricksDriverFeatureFlagsContextFactory {
             }
             return holder;
           });
+      // Shutdown can wait for an in-flight refresh, so run it after releasing the map bin.
+      if (toShutdown[0] != null) {
+        toShutdown[0].shutdown();
+      }
     }
   }
 

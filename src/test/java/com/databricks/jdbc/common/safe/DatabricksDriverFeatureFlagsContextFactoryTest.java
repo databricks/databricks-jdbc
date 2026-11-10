@@ -6,13 +6,22 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -160,6 +169,88 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
 
     // Clean up
     DatabricksDriverFeatureFlagsContextFactory.removeInstance(connB);
+  }
+
+  @Test
+  void slowInitialFetchDoesNotBlockOtherHostsInSameBin() throws Exception {
+    // "Aa" and "BB" have the same String.hashCode, so they always share a ConcurrentHashMap bin.
+    IDatabricksConnectionContext slowHost =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
+    IDatabricksConnectionContext otherHost =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
+    when(slowHost.getHost()).thenReturn("Aa");
+    when(slowHost.getHostForOAuth()).thenReturn("Aa");
+    when(slowHost.getConnectionUuid()).thenReturn("uuid-slow");
+    when(otherHost.getHost()).thenReturn("BB");
+    when(otherHost.getHostForOAuth()).thenReturn("BB");
+    when(otherHost.getConnectionUuid()).thenReturn("uuid-other");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(otherHost, new HashMap<>());
+
+    CountDownLatch fetching = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    AtomicBoolean fetchFinished = new AtomicBoolean();
+    DatabricksHttpClientFactory httpClientFactory = mock(DatabricksHttpClientFactory.class);
+    when(httpClientFactory.getClient(slowHost))
+        .thenAnswer(
+            invocation -> {
+              fetching.countDown();
+              release.await(10, TimeUnit.SECONDS);
+              fetchFinished.set(true);
+              throw new IllegalStateException("simulated fetch failure");
+            });
+    ExecutorService other = Executors.newSingleThreadExecutor();
+    try (MockedStatic<DatabricksHttpClientFactory> mockedFactory =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      mockedFactory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpClientFactory);
+      Future<Boolean> otherReturnedAfterFetch =
+          other.submit(
+              () -> {
+                fetching.await();
+                DatabricksDriverFeatureFlagsContextFactory.removeInstance(otherHost);
+                boolean finished = fetchFinished.get();
+                release.countDown();
+                return finished;
+              });
+
+      assertNotNull(DatabricksDriverFeatureFlagsContextFactory.getInstance(slowHost));
+
+      assertFalse(
+          otherReturnedAfterFetch.get(10, TimeUnit.SECONDS),
+          "removeInstance for another host waited for this host's feature flag fetch");
+    } finally {
+      release.countDown();
+      other.shutdownNow();
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(slowHost);
+    }
+  }
+
+  @Test
+  void reentrantGetInstanceDuringInitialFetchDoesNotFetchAgain() {
+    IDatabricksConnectionContext ctx =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
+    when(ctx.getHost()).thenReturn("reentrant.databricks.com");
+    when(ctx.getHostForOAuth()).thenReturn("reentrant.databricks.com");
+    when(ctx.getConnectionUuid()).thenReturn("uuid-reentrant");
+    AtomicInteger fetches = new AtomicInteger();
+    DatabricksHttpClientFactory httpClientFactory = mock(DatabricksHttpClientFactory.class);
+    // A failed fetch exports telemetry, which looks up feature flags again on the same thread.
+    when(httpClientFactory.getClient(ctx))
+        .thenAnswer(
+            invocation -> {
+              fetches.incrementAndGet();
+              DatabricksDriverFeatureFlagsContextFactory.getInstance(ctx);
+              throw new IllegalStateException("simulated fetch failure");
+            });
+    try (MockedStatic<DatabricksHttpClientFactory> mockedFactory =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      mockedFactory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpClientFactory);
+
+      assertNotNull(DatabricksDriverFeatureFlagsContextFactory.getInstance(ctx));
+
+      assertEquals(1, fetches.get());
+    } finally {
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(ctx);
+    }
   }
 
   @Test
