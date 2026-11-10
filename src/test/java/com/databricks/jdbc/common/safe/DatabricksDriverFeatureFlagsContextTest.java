@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.exception.DatabricksHttpException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.ByteArrayInputStream;
@@ -15,6 +16,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -140,6 +145,38 @@ class DatabricksDriverFeatureFlagsContextTest {
     context.fetchAndSetFlagsFromServer(httpClientMock, request);
     assertFalse(context.getBoolean(FEATURE_FLAG_NAME));
     verify(httpClientMock).execute(request);
+  }
+
+  @Test
+  void shutdownBetweenSchedulerCheckAndSchedulingDoesNotFailInitialization() {
+    context.shutdown();
+    ScheduledExecutorService scheduler = spy(Executors.newSingleThreadScheduledExecutor());
+    DatabricksHttpClientFactory httpClientFactory = mock(DatabricksHttpClientFactory.class);
+    when(httpClientFactory.getClient(connectionContextMock))
+        .thenThrow(new IllegalStateException("simulated fetch failure"));
+    try (MockedStatic<Executors> mockedExecutors = mockStatic(Executors.class);
+        MockedStatic<DatabricksHttpClientFactory> mockedFactory =
+            mockStatic(DatabricksHttpClientFactory.class)) {
+      mockedExecutors
+          .when(() -> Executors.newSingleThreadScheduledExecutor(any(ThreadFactory.class)))
+          .thenReturn(scheduler);
+      mockedFactory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpClientFactory);
+      context = DatabricksDriverFeatureFlagsContext.createUninitialized(connectionContextMock);
+      doAnswer(
+              invocation -> {
+                context.shutdown();
+                return invocation.callRealMethod();
+              })
+          .when(scheduler)
+          .scheduleAtFixedRate(any(Runnable.class), anyLong(), anyLong(), eq(TimeUnit.SECONDS));
+
+      assertDoesNotThrow(() -> context.ensureInitialized(connectionContextMock));
+      assertTrue(scheduler.isShutdown());
+      assertDoesNotThrow(() -> context.ensureInitialized(connectionContextMock));
+      verify(httpClientFactory, times(1)).getClient(connectionContextMock);
+    } finally {
+      scheduler.shutdownNow();
+    }
   }
 
   @Test

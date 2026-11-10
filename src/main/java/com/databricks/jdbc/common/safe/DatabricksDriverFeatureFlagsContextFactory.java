@@ -40,7 +40,7 @@ public class DatabricksDriverFeatureFlagsContextFactory {
               return existing;
             });
     // Fetch outside compute so the network call does not hold the map bin.
-    holder.context.ensureInitialized();
+    holder.context.ensureInitialized(context);
     return holder.context;
   }
 

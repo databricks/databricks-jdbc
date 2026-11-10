@@ -24,6 +24,7 @@ import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -68,11 +69,11 @@ public class DatabricksDriverFeatureFlagsContext {
         String.format(
             "https://%s%s", connectionContext.getHostForOAuth(), FEATURE_FLAGS_ENDPOINT_SUFFIX);
     if (fetchNow) {
-      ensureInitialized();
+      ensureInitialized(connectionContext);
     }
   }
 
-  /** Creates a context whose initial fetch is deferred to {@link #ensureInitialized()}. */
+  /** Creates a context whose initial fetch is deferred until the first caller initializes it. */
   static DatabricksDriverFeatureFlagsContext createUninitialized(
       IDatabricksConnectionContext connectionContext) {
     return new DatabricksDriverFeatureFlagsContext(connectionContext, /* fetchNow= */ false);
@@ -85,7 +86,7 @@ public class DatabricksDriverFeatureFlagsContext {
    * <p>A failed fetch builds an exception that exports telemetry, which reads feature flags on the
    * same thread. That re-entrant call returns immediately and sees default flag values.
    */
-  void ensureInitialized() {
+  void ensureInitialized(IDatabricksConnectionContext callerContext) {
     if (initialized || initializingThread == Thread.currentThread()) {
       return;
     }
@@ -95,7 +96,8 @@ public class DatabricksDriverFeatureFlagsContext {
       }
       initializingThread = Thread.currentThread();
       try {
-        refreshAllFeatureFlags();
+        // The stored context may belong to another thread holding its configurator lock.
+        refreshAllFeatureFlags(callerContext);
         scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
         initialized = true;
       } finally {
@@ -126,37 +128,45 @@ public class DatabricksDriverFeatureFlagsContext {
       scheduledRefreshTask.cancel(false);
     }
     // Schedule refresh at a fixed rate.
-    scheduledRefreshTask =
-        scheduler.scheduleAtFixedRate(
-            this::refreshAllFeatureFlags,
-            this.refreshIntervalSeconds,
-            this.refreshIntervalSeconds,
-            TimeUnit.SECONDS);
+    try {
+      scheduledRefreshTask =
+          scheduler.scheduleAtFixedRate(
+              this::refreshAllFeatureFlags,
+              this.refreshIntervalSeconds,
+              this.refreshIntervalSeconds,
+              TimeUnit.SECONDS);
+    } catch (RejectedExecutionException e) {
+      if (!scheduler.isShutdown()) {
+        throw e;
+      }
+    }
   }
 
   private void refreshAllFeatureFlags() {
+    refreshAllFeatureFlags(connectionContext);
+  }
+
+  private void refreshAllFeatureFlags(IDatabricksConnectionContext context) {
     try {
       IDatabricksHttpClient httpClient =
-          DatabricksHttpClientFactory.getInstance().getClient(connectionContext);
+          DatabricksHttpClientFactory.getInstance().getClient(context);
       HttpGet request = new HttpGet(featureFlagEndpoint);
 
       // Set custom User-Agent for connector service (includes custom user agent without client
       // type)
-      String userAgent = UserAgentManager.buildUserAgentForConnectorService(connectionContext);
+      String userAgent = UserAgentManager.buildUserAgentForConnectorService(context);
       request.setHeader("User-Agent", userAgent);
 
       DatabricksClientConfiguratorManager.getInstance()
-          .getConfigurator(connectionContext)
+          .getConfigurator(context)
           .getDatabricksConfig()
           .authenticate()
           .forEach(request::addHeader);
-      connectionContext.getCustomHeaders().forEach(request::addHeader);
+      context.getCustomHeaders().forEach(request::addHeader);
       fetchAndSetFlagsFromServer(httpClient, request);
     } catch (Exception e) {
       LOGGER.trace(
-          "Error fetching feature flags for context: {}. Error: {}",
-          connectionContext,
-          e.getMessage());
+          "Error fetching feature flags for context: {}. Error: {}", context, e.getMessage());
     }
   }
 
