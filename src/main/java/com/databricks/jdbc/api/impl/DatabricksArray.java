@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
@@ -35,6 +36,8 @@ public class DatabricksArray implements Array {
 
   private final Object[] elements;
   private final String elementType;
+  // Exact java.time values of DATE/TIMESTAMP elements, parallel to elements; null when unknown.
+  private final Object[] temporalElements;
 
   /**
    * Constructs a DatabricksArray with the specified elements and metadata.
@@ -43,10 +46,29 @@ public class DatabricksArray implements Array {
    * @param metadata the metadata describing the type of array elements
    */
   public DatabricksArray(List<Object> elements, String metadata) {
+    this(elements, metadata, null);
+  }
+
+  /**
+   * Constructs a DatabricksArray that also keeps the exact {@code java.time} values of DATE and
+   * TIMESTAMP elements. {@link #getArray()} still returns {@code java.sql} values; the exact values
+   * are returned by {@link #getArray(Map)} with a {@code java.time} mapping and by {@code
+   * getResultSet().getObject(2, java.time class)}.
+   *
+   * @param elements the elements of the array as a list
+   * @param metadata the metadata describing the type of array elements
+   * @param temporalElements exact values parallel to {@code elements}, may be null; null entries
+   *     fall back to the {@code java.sql} element
+   */
+  DatabricksArray(List<Object> elements, String metadata, List<Object> temporalElements) {
     LOGGER.debug("Initializing DatabricksArray with metadata: {}", metadata);
     String elementType = MetadataParser.parseArrayMetadata(metadata);
     this.elements = convertElements(elements, elementType);
     this.elementType = elementType;
+    this.temporalElements =
+        temporalElements != null && temporalElements.size() == elements.size()
+            ? temporalElements.toArray()
+            : null;
   }
 
   /**
@@ -191,10 +213,19 @@ public class DatabricksArray implements Array {
     return this.elements;
   }
 
+  /**
+   * Returns the elements. If {@code map} maps the element type (DATE, TIMESTAMP or TIMESTAMP_NTZ)
+   * to a {@code java.time} class, for example {@code Map.of("DATE", LocalDate.class)}, the elements
+   * are returned as that class, built from the exact values instead of the {@code java.sql} ones.
+   * Other mappings are ignored.
+   */
   @Override
   public Object getArray(Map<String, Class<?>> map) throws SQLException {
     LOGGER.debug("Getting array with type map");
-    return this.getArray();
+    if (JavaTimeConverter.getJavaTimeMapping(map, this.elementType) == null) {
+      return this.getArray();
+    }
+    return this.getArray(1, this.elements.length, map);
   }
 
   @Override
@@ -203,10 +234,26 @@ public class DatabricksArray implements Array {
     return java.util.Arrays.copyOfRange(this.elements, (int) index - 1, (int) index - 1 + count);
   }
 
+  /** Returns a slice of the elements, applying {@code map} as {@link #getArray(Map)} does. */
   @Override
   public Object getArray(long index, int count, Map<String, Class<?>> map) throws SQLException {
     LOGGER.debug("Getting subarray with type map from index {} with count {}", index, count);
-    return this.getArray(index, count);
+    Class<?> javaTimeType = JavaTimeConverter.getJavaTimeMapping(map, this.elementType);
+    Object[] slice = (Object[]) this.getArray(index, count);
+    if (javaTimeType == null) {
+      return slice;
+    }
+    Object[] exactSlice =
+        this.temporalElements == null
+            ? slice
+            : java.util.Arrays.copyOfRange(
+                this.temporalElements, (int) index - 1, (int) index - 1 + count);
+    Object[] converted = new Object[slice.length];
+    for (int i = 0; i < slice.length; i++) {
+      Object value = exactSlice[i] != null ? exactSlice[i] : slice[i];
+      converted[i] = JavaTimeConverter.convertNested(javaTimeType, this.elementType, value);
+    }
+    return converted;
   }
 
   @Override
@@ -292,11 +339,19 @@ public class DatabricksArray implements Array {
             .build());
 
     List<List<Object>> rows = new ArrayList<>();
+    // Exact DATE/TIMESTAMP values for getObject(2, java.time class) and the numeric getters.
+    List<List<Object>> temporalRows = this.temporalElements == null ? null : new ArrayList<>();
     for (int i = start; i < end; i++) {
       List<Object> row = new ArrayList<>();
       row.add((long) (i + 1));
       row.add(this.elements[i]);
       rows.add(row);
+      if (temporalRows != null) {
+        List<Object> temporalRow = new ArrayList<>();
+        temporalRow.add(null);
+        temporalRow.add(this.temporalElements[i]);
+        temporalRows.add(temporalRow);
+      }
     }
 
     return new DatabricksResultSet(
@@ -304,6 +359,7 @@ public class DatabricksArray implements Array {
         new StatementId("array-result-set"),
         columnMetadataList,
         rows,
+        temporalRows,
         StatementType.QUERY,
         // A DatabricksArray only exists when complex datatype support is enabled.
         /* complexDatatypeSupport= */ true);

@@ -10,9 +10,12 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.Temporal;
 
 public class TimestampConverter implements ObjectConverter {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(IntConverter.class);
@@ -65,9 +68,50 @@ public class TimestampConverter implements ObjectConverter {
         DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
+  /**
+   * Returns epoch milliseconds, the same value as {@code toTimestamp(object).getTime()}.
+   *
+   * <p>The {@code java.time} values read from Arrow ({@link OffsetDateTime} for TIMESTAMP, {@link
+   * LocalDateTime} for TIMESTAMP_NTZ) and ISO text are computed without going through {@link
+   * Timestamp}, whose hybrid Julian/Gregorian calendar shifts pre-1582 values by days. The meaning
+   * is unchanged: the session-local fields are read in the JVM default time zone, as {@code
+   * getTimestamp()} does.
+   */
   @Override
   public long toLong(Object object) throws DatabricksSQLException {
+    if (object instanceof OffsetDateTime) {
+      return toEpochMilliInDefaultZone(((OffsetDateTime) object).toLocalDateTime());
+    }
+    if (object instanceof LocalDateTime) {
+      return toEpochMilliInDefaultZone((LocalDateTime) object);
+    }
+    if (object instanceof String) {
+      String text = ((String) object).trim();
+      Temporal parsed = JavaTimeConverter.parseTimestampText(text);
+      if (parsed instanceof OffsetDateTime) {
+        // parseStringToTimestamp reads text ending in 'Z' as an instant and ignores other offsets.
+        OffsetDateTime offsetDateTime = (OffsetDateTime) parsed;
+        return text.endsWith("Z") || text.endsWith("z")
+            ? offsetDateTime.toInstant().toEpochMilli()
+            : toEpochMilliInDefaultZone(offsetDateTime.toLocalDateTime());
+      }
+      if (parsed instanceof LocalDateTime) {
+        return toEpochMilliInDefaultZone((LocalDateTime) parsed);
+      }
+    }
     return toTimestamp(object).toInstant().toEpochMilli();
+  }
+
+  /**
+   * Reads the fields in the JVM default time zone like {@code Timestamp.valueOf(dateTime)}, which
+   * takes the later offset when the fields are ambiguous at the end of daylight saving time.
+   */
+  private static long toEpochMilliInDefaultZone(LocalDateTime dateTime) {
+    return dateTime
+        .atZone(ZoneId.systemDefault())
+        .withLaterOffsetAtOverlap()
+        .toInstant()
+        .toEpochMilli();
   }
 
   @Override

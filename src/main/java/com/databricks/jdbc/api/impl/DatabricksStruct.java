@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl;
 
+import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.exception.DatabricksDriverException;
@@ -23,6 +24,13 @@ public class DatabricksStruct implements Struct {
   // Field names to preserve ordering and allow mapping back in toString().
   private final List<String> fieldNames;
 
+  // Field types, parallel to fieldNames.
+  private final List<String> fieldTypes;
+
+  // Exact java.time values of DATE/TIMESTAMP fields, parallel to attributes; null entries are
+  // unknown.
+  private final Object[] temporalAttributes;
+
   /**
    * Constructs a DatabricksStruct with the specified attributes and metadata.
    *
@@ -30,14 +38,37 @@ public class DatabricksStruct implements Struct {
    * @param metadata the metadata describing types of struct fields
    */
   public DatabricksStruct(Map<String, Object> attributes, String metadata) {
+    this(attributes, metadata, null);
+  }
+
+  /**
+   * Constructs a DatabricksStruct that also keeps the exact {@code java.time} values of DATE and
+   * TIMESTAMP fields. {@link #getAttributes()} still returns {@code java.sql} values; the exact
+   * values are returned by {@link #getAttributes(Map)} with a {@code java.time} mapping.
+   *
+   * @param attributes the attributes of the struct as a map
+   * @param metadata the metadata describing types of struct fields
+   * @param temporalAttributes exact values by field name, may be null; missing fields fall back to
+   *     the {@code java.sql} attribute
+   */
+  DatabricksStruct(
+      Map<String, Object> attributes, String metadata, Map<String, Object> temporalAttributes) {
     // Parse the metadata into a map: fieldName -> fieldType
     Map<String, String> typeMap = MetadataParser.parseStructMetadata(metadata);
 
     // Capture field names (in the same order they appear in typeMap).
     this.fieldNames = new ArrayList<>(typeMap.keySet());
+    this.fieldTypes = new ArrayList<>(typeMap.values());
 
     // Convert attributes to the appropriate array of Objects.
     this.attributes = convertAttributes(attributes, typeMap);
+
+    this.temporalAttributes = new Object[fieldNames.size()];
+    if (temporalAttributes != null) {
+      for (int i = 0; i < fieldNames.size(); i++) {
+        this.temporalAttributes[i] = temporalAttributes.get(fieldNames.get(i));
+      }
+    }
 
     // Store the entire type definition for getSQLTypeName().
     this.typeName = metadata;
@@ -173,13 +204,31 @@ public class DatabricksStruct implements Struct {
   /**
    * Retrieves the attributes of this Struct as an array, using the specified type map.
    *
+   * <p>If {@code map} maps a field's type (DATE, TIMESTAMP or TIMESTAMP_NTZ) to a {@code java.time}
+   * class, for example {@code Map.of("TIMESTAMP", Instant.class)}, that field is returned as the
+   * class, built from the exact value instead of the {@code java.sql} one. Other mappings are
+   * ignored.
+   *
    * @param map a Map object that contains the mapping of SQL types to Java classes
    * @return an array containing the attributes of the Struct
-   * @throws SQLException if a database access error occurs
+   * @throws SQLException if a database access error occurs or a mapped conversion is not supported
    */
   @Override
   public Object[] getAttributes(Map<String, Class<?>> map) throws SQLException {
-    return this.getAttributes();
+    Object[] converted = null;
+    for (int i = 0; i < attributes.length; i++) {
+      String fieldType = fieldTypes.get(i);
+      Class<?> javaTimeType = JavaTimeConverter.getJavaTimeMapping(map, fieldType);
+      if (javaTimeType == null) {
+        continue;
+      }
+      if (converted == null) {
+        converted = attributes.clone();
+      }
+      Object value = temporalAttributes[i] != null ? temporalAttributes[i] : attributes[i];
+      converted[i] = JavaTimeConverter.convertNested(javaTimeType, fieldType, value);
+    }
+    return converted != null ? converted : this.getAttributes();
   }
 
   /** Returns a JSON-like string with field names. */

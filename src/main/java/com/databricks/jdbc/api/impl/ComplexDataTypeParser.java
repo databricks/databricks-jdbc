@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.impl.converters.GeospatialConverter;
+import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
 import com.databricks.jdbc.api.impl.converters.TimestampConverter;
 import com.databricks.jdbc.common.util.DatabricksTypeUtil;
 import com.databricks.jdbc.common.util.JsonUtil;
@@ -22,13 +23,16 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.sql.Types;
 import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -94,11 +98,16 @@ public class ComplexDataTypeParser {
     LOGGER.debug("Parsing array with metadata: {}", arrayMetadata);
     String elementType = MetadataParser.parseArrayMetadata(arrayMetadata);
     List<Object> list = new ArrayList<>();
+    List<Object> temporalList =
+        JavaTimeConverter.isTemporalTypeName(elementType) ? new ArrayList<>() : null;
     for (JsonNode elementNode : node) {
       Object converted = convertValueNode(elementNode, elementType);
       list.add(converted);
+      if (temporalList != null) {
+        temporalList.add(convertTemporalNode(elementNode, elementType));
+      }
     }
-    return new DatabricksArray(list, arrayMetadata);
+    return new DatabricksArray(list, arrayMetadata, temporalList);
   }
 
   public DatabricksMap<String, Object> parseToMap(JsonNode node, String mapMetadata)
@@ -126,6 +135,7 @@ public class ComplexDataTypeParser {
     LOGGER.debug("Parsing struct with metadata: {}", structMetadata);
     Map<String, String> fieldTypeMap = MetadataParser.parseStructMetadata(structMetadata);
     Map<String, Object> structMap = new LinkedHashMap<>();
+    Map<String, Object> temporalMap = new HashMap<>();
     Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
     while (fields.hasNext()) {
       Map.Entry<String, JsonNode> entry = fields.next();
@@ -134,8 +144,69 @@ public class ComplexDataTypeParser {
       String fieldType = fieldTypeMap.getOrDefault(fieldName, DatabricksTypeUtil.STRING);
       Object convertedValue = convertValueNode(fieldNode, fieldType);
       structMap.put(fieldName, convertedValue);
+      if (JavaTimeConverter.isTemporalTypeName(fieldType)) {
+        Temporal temporal = convertTemporalNode(fieldNode, fieldType);
+        if (temporal != null) {
+          temporalMap.put(fieldName, temporal);
+        }
+      }
     }
-    return new DatabricksStruct(structMap, structMetadata);
+    return new DatabricksStruct(structMap, structMetadata, temporalMap);
+  }
+
+  /**
+   * Returns the exact {@code java.time} value of a nested DATE, TIMESTAMP or TIMESTAMP_NTZ leaf, or
+   * null if it cannot be read exactly; callers then fall back to the {@code java.sql} value.
+   *
+   * <p>Arrow serializes these as epoch days, epoch microseconds, or TIMESTAMP_NTZ components, which
+   * {@link #convertPrimitive} turns into {@code java.sql} values that cannot represent BC or
+   * pre-1582 values. TIMESTAMP values carry no session time zone here, so they are returned in UTC,
+   * matching the fields of the {@code java.sql.Timestamp} built from them.
+   */
+  private static Temporal convertTemporalNode(JsonNode node, String expectedType) {
+    if (node == null || node.isNull()) {
+      return null;
+    }
+    String baseType = expectedType.trim().toUpperCase(Locale.ROOT);
+    if (node.isArray()) {
+      if (!baseType.equals(DatabricksTypeUtil.TIMESTAMP_NTZ) || node.size() < 6) {
+        return null;
+      }
+      try {
+        int nano = node.size() > 6 && node.get(6) != null ? node.get(6).asInt(0) : 0;
+        return LocalDateTime.of(
+            node.get(0).asInt(),
+            node.get(1).asInt(),
+            node.get(2).asInt(),
+            node.get(3).asInt(),
+            node.get(4).asInt(),
+            node.get(5).asInt(),
+            nano);
+      } catch (DateTimeException e) {
+        return null;
+      }
+    }
+    String text = node.asText();
+    boolean isDate = baseType.equals(DatabricksTypeUtil.DATE);
+    Temporal temporal =
+        JavaTimeConverter.toTemporal(isDate ? Types.DATE : Types.TIMESTAMP, baseType, text);
+    if (temporal != null) {
+      return temporal;
+    }
+    try {
+      long number = Long.parseLong(text.trim());
+      if (isDate) {
+        return LocalDate.ofEpochDay(number);
+      }
+      Instant instant =
+          Instant.ofEpochSecond(
+              Math.floorDiv(number, 1_000_000L), Math.floorMod(number, 1_000_000L) * 1_000);
+      return baseType.equals(DatabricksTypeUtil.TIMESTAMP_NTZ)
+          ? LocalDateTime.ofInstant(instant, ZoneOffset.UTC)
+          : instant.atOffset(ZoneOffset.UTC);
+    } catch (NumberFormatException | DateTimeException e) {
+      return null;
+    }
   }
 
   private Object convertValueNode(JsonNode node, String expectedType)

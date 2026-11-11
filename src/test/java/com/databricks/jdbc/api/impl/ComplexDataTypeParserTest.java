@@ -8,9 +8,14 @@ import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.sql.Date;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -665,5 +670,153 @@ public class ComplexDataTypeParserTest {
 
     String result = parser.formatMapString(jsonString, "MAP<STRING,ARRAY<STRING>>");
     assertEquals(expected, result);
+  }
+
+  // Arrow serializes nested DATE as epoch days: 1582-10-05 and -2015-01-01 (2016 BC).
+  private static final String NESTED_DATES_JSON = "[-141437,-1455491,null]";
+
+  @Test
+  void testNestedDateArrayKeepsJavaSqlElementsByDefault() throws Exception {
+    DatabricksArray array = parser.parseJsonStringToDbArray(NESTED_DATES_JSON, "ARRAY<DATE>");
+
+    Object[] elements = (Object[]) array.getArray();
+    assertInstanceOf(Date.class, elements[0]);
+    assertEquals("1582-10-15", elements[0].toString()); // hybrid-calendar shift, unchanged
+    assertNull(elements[2]);
+    // Mappings that are not java.time classes keep the existing behavior.
+    assertSame(elements, array.getArray(java.util.Map.of("DATE", String.class)));
+  }
+
+  @Test
+  void testNestedDateArrayWithJavaTimeTypeMapIsExact() throws Exception {
+    DatabricksArray array = parser.parseJsonStringToDbArray(NESTED_DATES_JSON, "ARRAY<DATE>");
+
+    assertArrayEquals(
+        new Object[] {LocalDate.of(1582, 10, 5), LocalDate.of(-2015, 1, 1), null},
+        (Object[]) array.getArray(java.util.Map.of("date", LocalDate.class)));
+    assertArrayEquals(
+        new Object[] {LocalDate.of(-2015, 1, 1)},
+        (Object[]) array.getArray(2, 1, java.util.Map.of("DATE", LocalDate.class)));
+    assertArrayEquals(
+        new Object[] {
+          LocalDateTime.of(1582, 10, 5, 0, 0), LocalDateTime.of(-2015, 1, 1, 0, 0), null
+        },
+        (Object[]) array.getArray(java.util.Map.of("DATE", LocalDateTime.class)));
+  }
+
+  @Test
+  void testNestedDateArrayResultSetIsExact() throws Exception {
+    DatabricksArray array = parser.parseJsonStringToDbArray(NESTED_DATES_JSON, "ARRAY<DATE>");
+
+    try (ResultSet resultSet = array.getResultSet()) {
+      assertTrue(resultSet.next());
+      assertEquals(LocalDate.of(1582, 10, 5), resultSet.getObject(2, LocalDate.class));
+      assertEquals(-141437L, resultSet.getLong(2));
+      assertEquals(-141437, resultSet.getInt(2));
+      assertInstanceOf(Date.class, resultSet.getObject(2)); // legacy getters unchanged
+      assertTrue(resultSet.next());
+      assertEquals(LocalDate.of(-2015, 1, 1), resultSet.getObject(2, LocalDate.class));
+      assertEquals(-1455491L, resultSet.getLong(2));
+      assertTrue(resultSet.next());
+      assertNull(resultSet.getObject(2, LocalDate.class));
+      assertTrue(resultSet.wasNull());
+      assertFalse(resultSet.next());
+    }
+  }
+
+  @Test
+  void testNestedTimestampArrayWithJavaTimeTypeMapIsExact() throws Exception {
+    // TO_TIMESTAMP('2016 bc', 'yyyy G') and TIMESTAMP '1000-01-01 00:00:00 UTC' as epoch micros.
+    DatabricksArray array =
+        parser.parseJsonStringToDbArray(
+            "[-125754422400000000,-30610224000000000]", "ARRAY<TIMESTAMP>");
+
+    assertArrayEquals(
+        new Object[] {
+          Instant.parse("-2015-01-01T00:00:00Z"), Instant.parse("1000-01-01T00:00:00Z")
+        },
+        (Object[]) array.getArray(java.util.Map.of("TIMESTAMP", Instant.class)));
+    assertInstanceOf(Timestamp.class, ((Object[]) array.getArray())[0]);
+  }
+
+  @Test
+  void testNestedStructWithJavaTimeTypeMapIsExact() throws Exception {
+    DatabricksStruct struct =
+        parser.parseJsonStringToDbStruct(
+            "{\"d\":-141437,\"ts\":-125754422400000000,\"ntz\":[1000,1,1,10,30,0],\"n\":5}",
+            "STRUCT<d:DATE,ts:TIMESTAMP,ntz:TIMESTAMP_NTZ,n:INT>");
+
+    Object[] legacy = struct.getAttributes();
+    assertInstanceOf(Date.class, legacy[0]);
+    assertInstanceOf(Timestamp.class, legacy[1]);
+    assertInstanceOf(Timestamp.class, legacy[2]);
+    assertSame(legacy, struct.getAttributes(java.util.Map.of("INT", Long.class)));
+
+    Object[] exact =
+        struct.getAttributes(
+            java.util.Map.of(
+                "DATE", LocalDate.class,
+                "TIMESTAMP", Instant.class,
+                "TIMESTAMP_NTZ", LocalDateTime.class));
+    assertArrayEquals(
+        new Object[] {
+          LocalDate.of(1582, 10, 5),
+          Instant.parse("-2015-01-01T00:00:00Z"),
+          LocalDateTime.of(1000, 1, 1, 10, 30),
+          5
+        },
+        exact);
+    // The struct's own attributes are not modified.
+    assertInstanceOf(Date.class, struct.getAttributes()[0]);
+  }
+
+  @Test
+  void testDeeplyNestedTemporalValuesAreExact() throws Exception {
+    DatabricksArray array =
+        parser.parseJsonStringToDbArray("[{\"d\":-141437}]", "ARRAY<STRUCT<d:DATE>>");
+    DatabricksStruct struct = (DatabricksStruct) ((Object[]) array.getArray())[0];
+    assertEquals(
+        LocalDate.of(1582, 10, 5),
+        struct.getAttributes(java.util.Map.of("DATE", LocalDate.class))[0]);
+
+    DatabricksMap<String, Object> map =
+        parser.parseJsonStringToDbMap(
+            "[{\"key\":\"k\",\"value\":[-1455491]}]", "MAP<STRING,ARRAY<DATE>>");
+    DatabricksArray value = (DatabricksArray) map.get("k");
+    assertArrayEquals(
+        new Object[] {LocalDate.of(-2015, 1, 1)},
+        (Object[]) value.getArray(java.util.Map.of("DATE", LocalDate.class)));
+  }
+
+  @Test
+  void testNestedTemporalTextIsExact() throws Exception {
+    DatabricksStruct struct =
+        parser.parseJsonStringToDbStruct(
+            "{\"d\":\"1582-10-05\",\"ts\":\"1000-01-01T00:00:00.000Z\"}",
+            "STRUCT<d:DATE,ts:TIMESTAMP>");
+
+    assertArrayEquals(
+        new Object[] {LocalDate.of(1582, 10, 5), Instant.parse("1000-01-01T00:00:00Z")},
+        struct.getAttributes(
+            java.util.Map.of("DATE", LocalDate.class, "TIMESTAMP", Instant.class)));
+  }
+
+  @Test
+  void testNestedJavaTimeTypeMapUnsupportedConversionThrows() throws Exception {
+    DatabricksArray array = parser.parseJsonStringToDbArray(NESTED_DATES_JSON, "ARRAY<DATE>");
+    DatabricksStruct struct =
+        parser.parseJsonStringToDbStruct("{\"ntz\":[1000,1,1,0,0,0]}", "STRUCT<ntz:TIMESTAMP_NTZ>");
+
+    for (SQLException exception :
+        List.of(
+            assertThrows(
+                SQLException.class, () -> array.getArray(java.util.Map.of("DATE", Instant.class))),
+            assertThrows(
+                SQLException.class,
+                () -> struct.getAttributes(java.util.Map.of("TIMESTAMP_NTZ", Instant.class))))) {
+      assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), exception.getSQLState());
+      assertEquals(
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode(), exception.getErrorCode());
+    }
   }
 }

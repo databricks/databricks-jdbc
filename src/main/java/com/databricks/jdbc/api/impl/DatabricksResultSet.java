@@ -40,6 +40,7 @@ import com.google.common.annotations.VisibleForTesting;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.sql.*;
@@ -303,10 +304,30 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<List<Object>> rows,
       StatementType statementType,
       boolean complexDatatypeSupport) {
+    this(
+        statementStatus,
+        statementId,
+        columnMetadataList,
+        rows,
+        /* temporalRows= */ null,
+        statementType,
+        complexDatatypeSupport);
+  }
+
+  // As above; temporalRows holds exact java.time values for DATE/TIMESTAMP cells, read by
+  // getObject(col, java.time class) and the numeric getters. It may be null.
+  DatabricksResultSet(
+      StatementStatus statementStatus,
+      StatementId statementId,
+      List<ColumnMetadata> columnMetadataList,
+      List<List<Object>> rows,
+      List<List<Object>> temporalRows,
+      StatementType statementType,
+      boolean complexDatatypeSupport) {
     this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     this.complexDatatypeSupport = complexDatatypeSupport;
-    this.executionResult = ExecutionResultFactory.getResultSet(rows);
+    this.executionResult = ExecutionResultFactory.getResultSet(rows, temporalRows);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(statementId, columnMetadataList, rows.size());
     this.statementType = statementType;
@@ -651,17 +672,17 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public short getShort(int columnIndex) throws SQLException {
-    return getConvertedObject(columnIndex, ObjectConverter::toShort, () -> (short) 0);
+    return getConvertedObject(columnIndex, ObjectConverter::toShort, () -> (short) 0, true);
   }
 
   @Override
   public int getInt(int columnIndex) throws SQLException {
-    return getConvertedObject(columnIndex, ObjectConverter::toInt, () -> 0);
+    return getConvertedObject(columnIndex, ObjectConverter::toInt, () -> 0, true);
   }
 
   @Override
   public long getLong(int columnIndex) throws SQLException {
-    return getConvertedObject(columnIndex, ObjectConverter::toLong, () -> 0L);
+    return getConvertedObject(columnIndex, ObjectConverter::toLong, () -> 0L, true);
   }
 
   @Override
@@ -1560,6 +1581,13 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     Class<?> returnObjectType = map.get(columnTypeText);
     if (returnObjectType != null) {
       try {
+        if (JavaTimeConverter.isJavaTimeType(returnObjectType)) {
+          return JavaTimeConverter.convert(
+              returnObjectType,
+              columnSqlType,
+              columnTypeText,
+              getExactTemporalValue(columnIndex, columnSqlType, obj));
+        }
         return ConverterHelper.convertSqlTypeToSpecificJavaType(
             returnObjectType, columnSqlType, obj);
       } catch (Exception e) {
@@ -2265,6 +2293,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return null;
     }
     int columnSqlType = resultSetMetaData.getColumnType(columnIndex);
+    if (isIntegralType(type)) {
+      // Match getLong()/getInt(): epoch days and milliseconds come from the exact value.
+      obj = getExactTemporalValue(columnIndex, columnSqlType, obj);
+    }
     try {
       return (T)
           ConverterHelper.convertSqlTypeToSpecificJavaType(
@@ -2407,6 +2439,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         object);
   }
 
+  private static boolean isIntegralType(Class<?> type) {
+    return type == Long.class
+        || type == long.class
+        || type == Integer.class
+        || type == int.class
+        || type == Short.class
+        || type == short.class
+        || type == BigInteger.class;
+  }
+
   private void checkColumnIndex(int columnIndex) throws DatabricksSQLException {
     if (columnIndex <= 0) {
       throw new DatabricksSQLException(
@@ -2436,6 +2478,21 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private <T> T getConvertedObject(
       int columnIndex, ConverterFunction<T> convertMethod, Supplier<T> defaultValue)
       throws SQLException {
+    return getConvertedObject(columnIndex, convertMethod, defaultValue, false);
+  }
+
+  /**
+   * Converts the value at columnIndex with convertMethod. When {@code exactTemporal} is true, DATE
+   * and TIMESTAMP values are read with {@link IExecutionResult#getTemporalObject} instead of as
+   * {@code java.sql.Date}/{@code java.sql.Timestamp}, so numeric conversions (epoch days and
+   * milliseconds) are exact for BC and pre-1582 values.
+   */
+  private <T> T getConvertedObject(
+      int columnIndex,
+      ConverterFunction<T> convertMethod,
+      Supplier<T> defaultValue,
+      boolean exactTemporal)
+      throws SQLException {
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
     if (obj == null) {
@@ -2443,11 +2500,27 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
+    if (exactTemporal) {
+      obj = getExactTemporalValue(columnIndex, columnType, obj);
+    }
 
     // Use metadata-aware converter selection for proper handling of databricks-specific types
     ObjectConverter converter =
         ConverterHelper.getConverterForColumnType(columnType, columnTypeName);
     return convertMethod.apply(converter, obj);
+  }
+
+  /**
+   * Returns the exact value of a DATE or TIMESTAMP column, see {@link
+   * IExecutionResult#getTemporalObject}, or {@code legacyValue} for other columns.
+   */
+  private Object getExactTemporalValue(int columnIndex, int columnSqlType, Object legacyValue)
+      throws SQLException {
+    if (columnSqlType != Types.DATE && columnSqlType != Types.TIMESTAMP) {
+      return legacyValue;
+    }
+    Object exact = executionResult.getTemporalObject(columnIndex - 1);
+    return exact != null ? exact : legacyValue;
   }
 
   private BigDecimal applyScaleToBigDecimal(BigDecimal bigDecimal, int columnIndex, int scale)

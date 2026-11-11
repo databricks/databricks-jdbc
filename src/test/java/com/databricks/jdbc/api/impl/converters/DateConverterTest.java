@@ -7,7 +7,10 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 public class DateConverterTest {
   private final Date DATE = Date.valueOf("2023-09-10");
@@ -63,5 +66,30 @@ public class DateConverterTest {
     assertEquals(
         new DateConverter().toBigInteger(DATE),
         BigInteger.valueOf(DATE.toLocalDate().toEpochDay()));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "-2015-01-01, -1455491", // 2016 BC
+    "1582-10-05, -141437", // inside the Julian/Gregorian cutover gap
+    "1000-01-01, -354285",
+    "2023-09-10, 19610"
+  })
+  public void testConvertToLong_ExactForJavaTimeAndText(String date, long epochDay)
+      throws DatabricksSQLException {
+    DateConverter converter = new DateConverter();
+    // The LocalDate read from Arrow and the server's text skip java.sql.Date.
+    assertEquals(epochDay, converter.toLong(LocalDate.parse(date)));
+    assertEquals(epochDay, converter.toLong(date));
+    assertEquals((int) epochDay, converter.toInt(LocalDate.parse(date)));
+    assertEquals(BigInteger.valueOf(epochDay), converter.toBigInteger(LocalDate.parse(date)));
+  }
+
+  @Test
+  public void testConvertToLong_LegacyDateUnchanged() throws DatabricksSQLException {
+    // A java.sql.Date has already lost the value; it keeps its existing result.
+    assertEquals(-141427L, new DateConverter().toLong(Date.valueOf(LocalDate.of(1582, 10, 5))));
+    // Text that is not an ISO date still goes through java.sql.Date.valueOf.
+    assertEquals(19610L, new DateConverter().toLong("2023-9-10"));
   }
 }

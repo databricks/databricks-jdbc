@@ -13,6 +13,8 @@ public class InlineJsonResult implements IExecutionResult {
 
   private long currentRow;
   private List<List<Object>> data;
+  // Exact java.time values for DATE/TIMESTAMP cells, parallel to data; null when there are none.
+  private List<List<Object>> temporalData;
   private JsonChunkProvider chunkProvider;
   private boolean isClosed;
 
@@ -44,6 +46,21 @@ public class InlineJsonResult implements IExecutionResult {
     this.isClosed = false;
   }
 
+  /**
+   * Creates an in-memory result whose DATE/TIMESTAMP cells also carry exact {@code java.time}
+   * values, returned by {@link #getTemporalObject}.
+   *
+   * @param rows the values returned by {@link #getObject}
+   * @param temporalRows exact values with the same shape as {@code rows}; null entries fall back to
+   *     {@code rows}
+   */
+  InlineJsonResult(List<List<Object>> rows, List<List<Object>> temporalRows) {
+    this(rows);
+    if (temporalRows != null && temporalRows.size() == rows.size()) {
+      this.temporalData = temporalRows.stream().map(ArrayList::new).collect(Collectors.toList());
+    }
+  }
+
   @Override
   public Object getObject(int columnIndex) throws DatabricksSQLException {
     if (isClosed()) {
@@ -59,6 +76,19 @@ public class InlineJsonResult implements IExecutionResult {
     }
     throw new DatabricksSQLException(
         "Column index out of bounds " + columnIndex, DatabricksDriverErrorCode.INVALID_STATE);
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public Object getTemporalObject(int columnIndex) throws DatabricksSQLException {
+    Object object = getObject(columnIndex);
+    if (object != null && temporalData != null) {
+      List<Object> row = temporalData.get((int) currentRow);
+      if (columnIndex < row.size() && row.get(columnIndex) != null) {
+        return row.get(columnIndex);
+      }
+    }
+    return object;
   }
 
   @Override
@@ -84,6 +114,7 @@ public class InlineJsonResult implements IExecutionResult {
   public void close() {
     this.isClosed = true;
     this.data = null;
+    this.temporalData = null;
     if (chunkProvider != null) {
       chunkProvider.close();
     }

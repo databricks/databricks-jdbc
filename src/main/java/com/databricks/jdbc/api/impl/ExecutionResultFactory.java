@@ -164,4 +164,8 @@ class ExecutionResultFactory {
   static IExecutionResult getResultSet(List<List<Object>> rows) {
     return new InlineJsonResult(rows);
   }
+
+  static IExecutionResult getResultSet(List<List<Object>> rows, List<List<Object>> temporalRows) {
+    return new InlineJsonResult(rows, temporalRows);
+  }
 }

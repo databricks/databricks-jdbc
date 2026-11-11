@@ -249,6 +249,46 @@ public class JavaTimeConverterTest {
     assertFalse(unparseable.getMessage().contains("secret-value"), unparseable.getMessage());
   }
 
+  @Test
+  public void testGetJavaTimeMapping() {
+    java.util.Map<String, Class<?>> typeMap =
+        java.util.Map.of(
+            "date", LocalDate.class,
+            "TIMESTAMP", Instant.class,
+            "TIMESTAMP_NTZ", String.class,
+            "INT", LocalDate.class);
+
+    assertEquals(LocalDate.class, JavaTimeConverter.getJavaTimeMapping(typeMap, "DATE"));
+    assertEquals(Instant.class, JavaTimeConverter.getJavaTimeMapping(typeMap, " timestamp "));
+    // Non-java.time classes and non-temporal type names are ignored.
+    assertNull(JavaTimeConverter.getJavaTimeMapping(typeMap, "TIMESTAMP_NTZ"));
+    assertNull(JavaTimeConverter.getJavaTimeMapping(typeMap, "INT"));
+    assertNull(JavaTimeConverter.getJavaTimeMapping(null, "DATE"));
+  }
+
+  @Test
+  public void testConvertNested() throws DatabricksSQLException {
+    assertEquals(BC_DATE, JavaTimeConverter.convertNested(LocalDate.class, "DATE", BC_DATE));
+    assertEquals(
+        BC_DATE_TIME,
+        JavaTimeConverter.convertNested(LocalDateTime.class, "TIMESTAMP_NTZ", BC_DATE_TIME));
+    assertEquals(
+        Instant.parse("2023-12-31T20:30:01.234567Z"),
+        JavaTimeConverter.convertNested(Instant.class, "TIMESTAMP", SESSION_TIMESTAMP));
+    assertUnsupported(() -> JavaTimeConverter.convertNested(Instant.class, "DATE", BC_DATE));
+  }
+
+  @Test
+  public void testTextParsersReturnNullForUnparseableText() {
+    assertEquals(GAP_DATE, JavaTimeConverter.parseDateText(" 1582-10-05 "));
+    assertNull(JavaTimeConverter.parseDateText("19598"));
+    assertEquals(
+        OffsetDateTime.parse("2016-01-01T00:00:00Z"),
+        JavaTimeConverter.parseTimestampText("2016-01-01T00:00:00.000Z"));
+    assertEquals(BC_DATE_TIME, JavaTimeConverter.parseTimestampText("-2015-01-01 10:30:00.000001"));
+    assertNull(JavaTimeConverter.parseTimestampText("1696519230000000"));
+  }
+
   private static DatabricksSQLException assertUnsupported(
       org.junit.jupiter.api.function.Executable executable) {
     DatabricksSQLException exception = assertThrows(DatabricksSQLException.class, executable);
