@@ -4,15 +4,40 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.Warehouse;
+import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
+import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
+import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
+import com.databricks.sdk.core.DatabricksConfig;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
+import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.http.HttpVersion;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.message.BasicStatusLine;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -160,6 +185,305 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
 
     // Clean up
     DatabricksDriverFeatureFlagsContextFactory.removeInstance(connB);
+  }
+
+  @Test
+  void slowInitialFetchDoesNotBlockOtherHostsInSameBin() throws Exception {
+    // "Aa" and "BB" have the same String.hashCode, so they always share a ConcurrentHashMap bin.
+    IDatabricksConnectionContext slowHost =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
+    IDatabricksConnectionContext otherHost =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
+    when(slowHost.getHost()).thenReturn("Aa");
+    when(slowHost.getHostForOAuth()).thenReturn("Aa");
+    when(slowHost.getConnectionUuid()).thenReturn("uuid-slow");
+    when(otherHost.getHost()).thenReturn("BB");
+    when(otherHost.getHostForOAuth()).thenReturn("BB");
+    when(otherHost.getConnectionUuid()).thenReturn("uuid-other");
+    DatabricksDriverFeatureFlagsContextFactory.setFeatureFlagsContext(otherHost, new HashMap<>());
+
+    CountDownLatch fetching = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    AtomicBoolean fetchFinished = new AtomicBoolean();
+    DatabricksHttpClientFactory httpClientFactory = mock(DatabricksHttpClientFactory.class);
+    when(httpClientFactory.getClient(slowHost))
+        .thenAnswer(
+            invocation -> {
+              fetching.countDown();
+              release.await(10, TimeUnit.SECONDS);
+              fetchFinished.set(true);
+              throw new IllegalStateException("simulated fetch failure");
+            });
+    ExecutorService other = Executors.newSingleThreadExecutor();
+    try (MockedStatic<DatabricksHttpClientFactory> mockedFactory =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      mockedFactory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpClientFactory);
+      Future<Boolean> otherReturnedAfterFetch =
+          other.submit(
+              () -> {
+                fetching.await();
+                DatabricksDriverFeatureFlagsContextFactory.removeInstance(otherHost);
+                boolean finished = fetchFinished.get();
+                release.countDown();
+                return finished;
+              });
+
+      assertNotNull(DatabricksDriverFeatureFlagsContextFactory.getInstance(slowHost));
+
+      assertFalse(
+          otherReturnedAfterFetch.get(10, TimeUnit.SECONDS),
+          "removeInstance for another host waited for this host's feature flag fetch");
+    } finally {
+      release.countDown();
+      other.shutdownNow();
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(slowHost);
+    }
+  }
+
+  @Test
+  void sameHostWaiterReadsFlagsAfterInitialFetchCompletes() throws Exception {
+    when(connectionContext2.getHost()).thenReturn("host1.databricks.com");
+    when(connectionContext2.getHostForOAuth()).thenReturn("host1.databricks.com");
+    DatabricksDriverFeatureFlagsContext flags = publishUninitializedContext(connectionContext1);
+    Field initLock = DatabricksDriverFeatureFlagsContext.class.getDeclaredField("initLock");
+    initLock.setAccessible(true);
+    Object monitor = initLock.get(flags);
+    CountDownLatch fetching = new CountDownLatch(1);
+    CountDownLatch waiting = new CountDownLatch(1);
+    AtomicReference<Thread> waitingThread = new AtomicReference<>();
+    DatabricksConfig config = mock(DatabricksConfig.class);
+    when(config.authenticate()).thenReturn(Map.of());
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(response.getStatusLine()).thenReturn(new BasicStatusLine(HttpVersion.HTTP_1_1, 200, "OK"));
+    when(response.getEntity())
+        .thenReturn(
+            new StringEntity("{\"flags\":[{\"name\":\"shared.flag\",\"value\":\"true\"}]}"));
+    when(httpClient.execute(any(HttpGet.class)))
+        .thenAnswer(
+            invocation -> {
+              fetching.countDown();
+              assertTrue(waiting.await(10, TimeUnit.SECONDS));
+              awaitBlockedOn(waitingThread.get(), monitor);
+              return response;
+            });
+    DatabricksHttpClientFactory httpClientFactory = mock(DatabricksHttpClientFactory.class);
+    when(httpClientFactory.getClient(any()))
+        .thenAnswer(
+            invocation -> {
+              assertSame(connectionContext1, invocation.getArgument(0));
+              return httpClient;
+            });
+    ExecutorService waiter = Executors.newSingleThreadExecutor();
+    try (MockedStatic<DatabricksHttpClientFactory> mockedFactory =
+            mockStatic(DatabricksHttpClientFactory.class);
+        MockedConstruction<ClientConfigurator> mocked =
+            mockConstruction(
+                ClientConfigurator.class,
+                (mock, ctx) -> when(mock.getDatabricksConfig()).thenReturn(config))) {
+      mockedFactory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpClientFactory);
+      Future<Boolean> firstFlagRead =
+          waiter.submit(
+              () -> {
+                assertTrue(fetching.await(10, TimeUnit.SECONDS));
+                try (MockedStatic<DatabricksHttpClientFactory> waiterFactory =
+                    mockStatic(DatabricksHttpClientFactory.class)) {
+                  waiterFactory
+                      .when(DatabricksHttpClientFactory::getInstance)
+                      .thenReturn(httpClientFactory);
+                  waitingThread.set(Thread.currentThread());
+                  waiting.countDown();
+                  return DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext2)
+                      .getBoolean("shared.flag");
+                }
+              });
+
+      assertSame(flags, DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1));
+
+      assertTrue(flags.getBoolean("shared.flag"));
+      assertTrue(firstFlagRead.get(10, TimeUnit.SECONDS));
+      verify(httpClient, times(1)).execute(any(HttpGet.class));
+      verify(httpClientFactory, never()).getClient(connectionContext2);
+    } finally {
+      waiter.shutdownNow();
+      assertTrue(waiter.awaitTermination(10, TimeUnit.SECONDS));
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(connectionContext1);
+    }
+  }
+
+  private static void awaitBlockedOn(Thread thread, Object monitor) throws InterruptedException {
+    ThreadMXBean threads = ManagementFactory.getThreadMXBean();
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (System.nanoTime() < deadline) {
+      ThreadInfo info = threads.getThreadInfo(thread.getId());
+      if (info != null
+          && info.getThreadState() == Thread.State.BLOCKED
+          && info.getLockInfo() != null
+          && info.getLockInfo().getIdentityHashCode() == System.identityHashCode(monitor)) {
+        return;
+      }
+      Thread.sleep(1);
+    }
+    fail("Caller did not wait on the feature-flag initialization lock");
+  }
+
+  @Test
+  void initialFetchUsesCallerWithoutWaitingForCreatorsConfigurator() throws Exception {
+    when(connectionContext2.getHost()).thenReturn("host1.databricks.com");
+    when(connectionContext2.getHostForOAuth()).thenReturn("host1.databricks.com");
+    // Simulate the creator being preempted after publishing the holder, before initialization.
+    DatabricksDriverFeatureFlagsContext flags = publishUninitializedContext(connectionContext1);
+
+    DatabricksClientConfiguratorManager manager = DatabricksClientConfiguratorManager.getInstance();
+    CountDownLatch creating = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    AtomicBoolean creationFinished = new AtomicBoolean();
+    ExecutorService creator = Executors.newSingleThreadExecutor();
+    Future<?> creatorResult =
+        creator.submit(
+            () -> {
+              try (MockedConstruction<ClientConfigurator> mocked =
+                  mockConstruction(
+                      ClientConfigurator.class,
+                      (mock, ctx) -> {
+                        creating.countDown();
+                        release.await(10, TimeUnit.SECONDS);
+                        creationFinished.set(true);
+                      })) {
+                manager.getConfigurator(connectionContext1);
+              }
+            });
+    DatabricksConfig config = mock(DatabricksConfig.class);
+    when(config.authenticate()).thenReturn(Map.of());
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(response.getStatusLine()).thenReturn(new BasicStatusLine(HttpVersion.HTTP_1_1, 200, "OK"));
+    when(response.getEntity())
+        .thenReturn(
+            new StringEntity("{\"flags\":[{\"name\":\"caller.flag\",\"value\":\"true\"}]}"));
+    when(httpClient.execute(any(HttpGet.class))).thenReturn(response);
+    DatabricksHttpClientFactory httpClientFactory = mock(DatabricksHttpClientFactory.class);
+    when(httpClientFactory.getClient(any())).thenReturn(httpClient);
+    try (MockedStatic<DatabricksHttpClientFactory> mockedFactory =
+            mockStatic(DatabricksHttpClientFactory.class);
+        MockedConstruction<ClientConfigurator> mocked =
+            mockConstruction(
+                ClientConfigurator.class,
+                (mock, ctx) -> when(mock.getDatabricksConfig()).thenReturn(config))) {
+      mockedFactory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpClientFactory);
+      assertTrue(creating.await(10, TimeUnit.SECONDS));
+
+      assertSame(flags, DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext2));
+
+      assertFalse(creationFinished.get(), "The caller waited for the creator's configurator");
+      assertTrue(flags.getBoolean("caller.flag"));
+      verify(httpClientFactory).getClient(connectionContext2);
+      assertSame(connectionContext1, flags.getConnectionContext());
+    } finally {
+      release.countDown();
+      creatorResult.get(10, TimeUnit.SECONDS);
+      creator.shutdownNow();
+      manager.removeInstance(connectionContext1);
+      manager.removeInstance(connectionContext2);
+    }
+  }
+
+  @Test
+  void lookupDuringConfiguratorCreationDefersInitialFetchUntilNextCaller() throws Exception {
+    when(connectionContext2.getHost()).thenReturn("host1.databricks.com");
+    when(connectionContext2.getHostForOAuth()).thenReturn("host1.databricks.com");
+    DatabricksDriverFeatureFlagsContext flags = publishUninitializedContext(connectionContext1);
+    DatabricksClientConfiguratorManager manager = DatabricksClientConfiguratorManager.getInstance();
+    DatabricksConfig config = mock(DatabricksConfig.class);
+    when(config.authenticate()).thenReturn(Map.of());
+    IDatabricksHttpClient httpClient = mock(IDatabricksHttpClient.class);
+    CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+    when(response.getStatusLine()).thenReturn(new BasicStatusLine(HttpVersion.HTTP_1_1, 200, "OK"));
+    when(response.getEntity())
+        .thenReturn(
+            new StringEntity("{\"flags\":[{\"name\":\"caller.flag\",\"value\":\"true\"}]}"));
+    when(httpClient.execute(any(HttpGet.class))).thenReturn(response);
+    DatabricksHttpClientFactory httpClientFactory = mock(DatabricksHttpClientFactory.class);
+    when(httpClientFactory.getClient(any())).thenReturn(httpClient);
+    AtomicReference<DatabricksDriverFeatureFlagsContext> reentrantContext = new AtomicReference<>();
+    try (MockedStatic<DatabricksHttpClientFactory> mockedFactory =
+            mockStatic(DatabricksHttpClientFactory.class);
+        MockedConstruction<ClientConfigurator> mocked =
+            mockConstruction(
+                ClientConfigurator.class,
+                (mock, ctx) -> {
+                  if (ctx.arguments().get(0) == connectionContext2) {
+                    reentrantContext.set(
+                        DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext2));
+                  } else {
+                    when(mock.getDatabricksConfig()).thenReturn(config);
+                  }
+                })) {
+      mockedFactory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpClientFactory);
+
+      manager.getConfigurator(connectionContext2);
+
+      assertSame(flags, reentrantContext.get());
+      assertFalse(flags.getBoolean("caller.flag"));
+      assertSame(flags, DatabricksDriverFeatureFlagsContextFactory.getInstance(connectionContext1));
+      assertTrue(flags.getBoolean("caller.flag"));
+      verify(httpClientFactory).getClient(connectionContext1);
+      verify(httpClientFactory, never()).getClient(connectionContext2);
+    } finally {
+      manager.removeInstance(connectionContext1);
+      manager.removeInstance(connectionContext2);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private DatabricksDriverFeatureFlagsContext publishUninitializedContext(
+      IDatabricksConnectionContext owner) throws Exception {
+    DatabricksDriverFeatureFlagsContext flags =
+        DatabricksDriverFeatureFlagsContext.createUninitialized(owner);
+    Field contextMap =
+        DatabricksDriverFeatureFlagsContextFactory.class.getDeclaredField("contextMap");
+    contextMap.setAccessible(true);
+    ((Map<String, FeatureFlagsContextHolder>) contextMap.get(null))
+        .put(TelemetryHelper.keyOf(owner), new FeatureFlagsContextHolder(flags, owner));
+    return flags;
+  }
+
+  @Test
+  void reentrantGetInstanceDuringInitialFetchDoesNotFetchAgain() {
+    IDatabricksConnectionContext ctx =
+        mock(IDatabricksConnectionContext.class, withSettings().lenient());
+    when(ctx.getHost()).thenReturn("reentrant.databricks.com");
+    when(ctx.getHostForOAuth()).thenReturn("reentrant.databricks.com");
+    when(ctx.getConnectionUuid()).thenReturn("uuid-reentrant");
+    AtomicInteger fetches = new AtomicInteger();
+    AtomicReference<DatabricksDriverFeatureFlagsContext> reentrantContext = new AtomicReference<>();
+    AtomicReference<Exception> reentrantError = new AtomicReference<>();
+    DatabricksHttpClientFactory httpClientFactory = mock(DatabricksHttpClientFactory.class);
+    // A failed fetch exports telemetry, which looks up feature flags again on the same thread.
+    when(httpClientFactory.getClient(ctx))
+        .thenAnswer(
+            invocation -> {
+              fetches.incrementAndGet();
+              try {
+                reentrantContext.set(DatabricksDriverFeatureFlagsContextFactory.getInstance(ctx));
+              } catch (Exception e) {
+                reentrantError.set(e);
+              }
+              throw new IllegalStateException("simulated fetch failure");
+            });
+    try (MockedStatic<DatabricksHttpClientFactory> mockedFactory =
+        mockStatic(DatabricksHttpClientFactory.class)) {
+      mockedFactory.when(DatabricksHttpClientFactory::getInstance).thenReturn(httpClientFactory);
+
+      DatabricksDriverFeatureFlagsContext context =
+          DatabricksDriverFeatureFlagsContextFactory.getInstance(ctx);
+
+      assertNull(reentrantError.get());
+      assertSame(context, reentrantContext.get());
+      assertEquals(1, fetches.get());
+    } finally {
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(ctx);
+    }
   }
 
   @Test
