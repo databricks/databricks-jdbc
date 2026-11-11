@@ -480,6 +480,11 @@ public class SqlCommentParserTest {
     String sql = "-- ?\r\nselect ? from t";
     assertArrayEquals(
         new int[] {sql.indexOf('?', 6)}, SqlCommentParser.findPlaceholderPositions(sql));
+
+    String backslashBeforeCrlf = "-- \\\r\nselect ? from t";
+    assertArrayEquals(
+        new int[] {backslashBeforeCrlf.lastIndexOf('?')},
+        SqlCommentParser.findPlaceholderPositions(backslashBeforeCrlf));
   }
 
   @Test

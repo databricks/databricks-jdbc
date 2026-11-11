@@ -990,10 +990,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   /**
    * Returns whether the query can have its result-set metadata retrieved via {@code DESCRIBE QUERY}
    * without executing it. {@code DESCRIBE QUERY} accepts the query forms that produce a result set
-   * from a top-level query expression: {@code SELECT}, {@code WITH} (CTEs), {@code VALUES}, {@code
-   * FROM (...)} and parenthesized selects. Other result-set-producing statements such as {@code
-   * SHOW}, {@code DESCRIBE} and {@code EXPLAIN} are not valid inputs to {@code DESCRIBE QUERY} and
-   * must be excluded.
+   * from a top-level query expression: {@code SELECT}, CTE queries, {@code VALUES}, {@code FROM
+   * (...)} queries and parenthesized selects. CTE-prefixed DML and {@code FROM}-led multi-insert
+   * are excluded, as are other result-set-producing statements such as {@code SHOW}, {@code
+   * DESCRIBE} and {@code EXPLAIN} that are not valid inputs to {@code DESCRIBE QUERY}.
    */
   static boolean isDescribableQuery(String query) {
     String trimmedQuery = trimCommentsAndWhitespaces(query);
