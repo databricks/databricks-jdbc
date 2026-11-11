@@ -1,5 +1,7 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
@@ -36,6 +38,8 @@ final class DiscoveryResponseCache {
   // Short, so a transient 404 (e.g. from a gateway during a rollout) doesn't stick for an hour.
   @VisibleForTesting static final long NOT_FOUND_TTL_MILLIS = TimeUnit.MINUTES.toMillis(5);
 
+  private static final JdbcLogger LOGGER =
+      JdbcLoggerFactory.getLogger(DiscoveryResponseCache.class);
   private static final Map<List<String>, CachedResponse> CACHE = new ConcurrentHashMap<>();
 
   private DiscoveryResponseCache() {}
@@ -54,7 +58,13 @@ final class DiscoveryResponseCache {
       }
       List<String> key = List.of(trustSettingsKey, url);
       CachedResponse cached = CACHE.get(key);
-      if (cached != null && !cached.isExpired(clockMillis.getAsLong())) {
+      long lookupMillis = clockMillis.getAsLong();
+      if (cached != null && !cached.isExpired(lookupMillis)) {
+        LOGGER.debug(
+            "Using cached discovery response (HTTP {}, {} s old) for {}",
+            cached.statusCode,
+            (lookupMillis - cached.fetchedAtMillis) / 1000,
+            url);
         return cached.toResponse(request);
       }
       Response response = delegate.execute(request);
@@ -67,6 +77,7 @@ final class DiscoveryResponseCache {
       // cache to hosts used recently.
       CACHE.values().removeIf(entry -> entry.isExpired(now));
       CACHE.put(key, fresh);
+      LOGGER.debug("Cached discovery response (HTTP {}) for {}", fresh.statusCode, url);
       return fresh.toResponse(request);
     };
   }
