@@ -64,6 +64,7 @@ class DatabricksCteStatementTest {
         "WITH a AS (SELECT 1 AS id) UPDATE target SET id = 2 WHERE id IN (SELECT id FROM a)",
         "WITH a AS (SELECT 1 AS id) DELETE FROM target WHERE id IN (SELECT id FROM a)",
         "WITH a AS (SELECT 1 AS id) MERGE INTO target t USING a ON t.id = a.id WHEN MATCHED THEN DELETE",
+        "WITH a AS (SELECT 1 AS id) FROM a INSERT INTO target SELECT id",
         "WITH AS(id) AS (VALUES (1)) INSERT INTO target SELECT id FROM AS",
         "WITH TABLE AS (SELECT 1 AS id) UPDATE target SET id = 2"
       })

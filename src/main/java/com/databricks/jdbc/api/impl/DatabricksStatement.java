@@ -837,15 +837,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   }
 
   private static String skipCteDefinitions(String query) {
-    char[] syntax = new char[query.length()];
-    Arrays.fill(syntax, ' ');
-    SqlCommentParser.forEachNonCommentChar(
-        query,
-        (state, c, index) -> {
-          if (state == SqlCommentParser.State.NORMAL) {
-            syntax[index] = c;
-          }
-        });
+    char[] syntax = syntaxCharacters(query);
     int index = 0;
     while (index < syntax.length) {
       if (Character.isJavaIdentifierPart(syntax[index])) {
@@ -864,14 +856,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         if (depth != 0) {
           return query;
         }
-        while (index < syntax.length && Character.isWhitespace(syntax[index])) {
-          index++;
-        }
-        boolean followedByAs =
-            index + 2 <= syntax.length
-                && query.regionMatches(true, index, "AS", 0, 2)
-                && (index + 2 == syntax.length
-                    || !Character.isJavaIdentifierPart(syntax[index + 2]));
+        index = skipWhitespace(syntax, index);
+        boolean followedByAs = startsWithKeyword(query, syntax, index, "AS");
         boolean followedByParenthesis = index < syntax.length && syntax[index] == '(';
         boolean followedByMaxRecursion = startsWithKeyword(query, syntax, index, "MAX");
         if (index < syntax.length
@@ -888,9 +874,89 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     return query;
   }
 
+  private static char[] syntaxCharacters(String query) {
+    char[] syntax = new char[query.length()];
+    Arrays.fill(syntax, ' ');
+    SqlCommentParser.forEachNonCommentChar(
+        query,
+        (state, c, index) -> {
+          if (state == SqlCommentParser.State.NORMAL) {
+            syntax[index] = c;
+          }
+        });
+    return syntax;
+  }
+
+  private static int skipWhitespace(char[] syntax, int index) {
+    while (index < syntax.length) {
+      if (!Character.isWhitespace(syntax[index])) {
+        break;
+      }
+      index++;
+    }
+    return index;
+  }
+
   private static boolean isCteDml(String query) {
-    return WITH_PATTERN.matcher(query).find()
-        && CTE_DML_PATTERN.matcher(skipCteDefinitions(query)).find();
+    if (!WITH_PATTERN.matcher(query).find()) {
+      return false;
+    }
+    String outerStatement = skipCteDefinitions(query);
+    return CTE_DML_PATTERN.matcher(outerStatement).find() || isMultiInsert(outerStatement);
+  }
+
+  private static boolean isMultiInsert(String query) {
+    char[] syntax = syntaxCharacters(query);
+    int index = skipWhitespace(syntax, 0);
+    if (!startsWithKeyword(query, syntax, index, "FROM")) {
+      return false;
+    }
+    index += "FROM".length();
+    int depth = 0;
+    while (index < syntax.length) {
+      if (syntax[index] == '(') {
+        depth++;
+        index++;
+      } else if (syntax[index] == ')') {
+        depth--;
+        index++;
+      } else if (depth == 0 && Character.isJavaIdentifierPart(syntax[index])) {
+        int keywordStart = index;
+        while (index < syntax.length && Character.isJavaIdentifierPart(syntax[index])) {
+          index++;
+        }
+        if (startsWithKeyword(query, syntax, keywordStart, "SELECT")) {
+          return false;
+        }
+        if (startsWithKeyword(query, syntax, keywordStart, "INSERT")
+            && startsWithMultiInsertTarget(query, syntax, index)) {
+          return true;
+        }
+      } else {
+        index++;
+      }
+    }
+    return false;
+  }
+
+  private static boolean startsWithMultiInsertTarget(String query, char[] syntax, int index) {
+    index = skipWhitespace(syntax, index);
+    if (startsWithKeyword(query, syntax, index, "WITH")) {
+      index = skipWhitespace(syntax, index + "WITH".length());
+      if (!startsWithKeyword(query, syntax, index, "SCHEMA")) {
+        return false;
+      }
+      index = skipWhitespace(syntax, index + "SCHEMA".length());
+      if (!startsWithKeyword(query, syntax, index, "EVOLUTION")) {
+        return false;
+      }
+      index = skipWhitespace(syntax, index + "EVOLUTION".length());
+    }
+    if (startsWithKeyword(query, syntax, index, "ONCE")) {
+      index = skipWhitespace(syntax, index + "ONCE".length());
+    }
+    return startsWithKeyword(query, syntax, index, "INTO")
+        || startsWithKeyword(query, syntax, index, "OVERWRITE");
   }
 
   private static boolean startsWithKeyword(String query, char[] syntax, int index, String keyword) {
