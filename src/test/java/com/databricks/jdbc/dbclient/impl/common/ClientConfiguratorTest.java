@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -845,6 +846,39 @@ public class ClientConfiguratorTest {
         clientPorts.get(1),
         clientPorts.get(2),
         "IdleHttpConnectionExpiry=0 keeps idle connections");
+  }
+
+  @Test
+  void hostMetadataIsFetchedOncePerHostAndTrustSettings() throws Exception {
+    AtomicInteger hostMetadataRequests = new AtomicInteger();
+    HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+    server.createContext(
+        "/.well-known/databricks-config",
+        exchange -> {
+          hostMetadataRequests.incrementAndGet();
+          byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
+          exchange.getResponseHeaders().add("Content-Type", "application/json");
+          exchange.sendResponseHeaders(200, body.length);
+          exchange.getResponseBody().write(body);
+          exchange.close();
+        });
+    server.start();
+    when(mockContext.getAuthMech()).thenReturn(AuthMech.PAT);
+    when(mockContext.getHostUrl()).thenReturn("http://localhost:" + server.getAddress().getPort());
+    when(mockContext.getToken()).thenReturn("test-token");
+    when(mockContext.getHttpConnectionPoolSize()).thenReturn(100);
+    when(mockContext.getHttpMaxConnectionsPerRoute()).thenReturn(100);
+    try {
+      new ClientConfigurator(mockContext).close();
+      new ClientConfigurator(mockContext).close();
+      assertEquals(1, hostMetadataRequests.get());
+
+      when(mockContext.allowSelfSignedCerts()).thenReturn(true);
+      new ClientConfigurator(mockContext).close();
+      assertEquals(2, hostMetadataRequests.get());
+    } finally {
+      server.stop(0);
+    }
   }
 
   /**

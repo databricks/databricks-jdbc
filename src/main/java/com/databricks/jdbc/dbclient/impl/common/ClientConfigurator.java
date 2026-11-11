@@ -61,7 +61,9 @@ public class ClientConfigurator implements Closeable {
     setupProxyConfig(httpClientBuilder);
     setupConnectionManager(httpClientBuilder);
     this.databricksConfig.setHttpClient(
-        DiscoveryResponseCache.wrap(withIdleConnectionExpiry(httpClientBuilder.build())));
+        DiscoveryResponseCache.wrap(
+            withIdleConnectionExpiry(httpClientBuilder.build()),
+            ConfiguratorUtils.trustSettingsKey(connectionContext)));
     setupDiscoveryEndpoint();
     setupAuthConfig();
     this.databricksConfig.resolve();

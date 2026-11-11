@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,33 +23,37 @@ import java.util.function.LongSupplier;
  * <p>Each connection builds its own {@code DatabricksConfig}, whose {@code resolve()} and default
  * credentials chain fetch these documents again on every connect. They do not change for a
  * workspace, so refetching only adds round trips and a TLS handshake to each connection.
+ *
+ * <p>Entries are also keyed by the client's TLS trust settings, so a document fetched by a client
+ * that trusts more servers is never served to one that trusts fewer.
  */
 final class DiscoveryResponseCache {
   private static final String HOST_METADATA_SUFFIX = "/.well-known/databricks-config";
   private static final String OIDC_DISCOVERY_SUFFIX = "/.well-known/oauth-authorization-server";
   @VisibleForTesting static final long TTL_MILLIS = TimeUnit.HOURS.toMillis(1);
 
-  private static final Map<String, CachedResponse> CACHE = new ConcurrentHashMap<>();
+  private static final Map<List<String>, CachedResponse> CACHE = new ConcurrentHashMap<>();
 
   private DiscoveryResponseCache() {}
 
-  static HttpClient wrap(HttpClient delegate) {
-    return wrap(delegate, System::currentTimeMillis);
+  static HttpClient wrap(HttpClient delegate, String trustSettingsKey) {
+    return wrap(delegate, trustSettingsKey, System::currentTimeMillis);
   }
 
   @VisibleForTesting
-  static HttpClient wrap(HttpClient delegate, LongSupplier clockMillis) {
+  static HttpClient wrap(HttpClient delegate, String trustSettingsKey, LongSupplier clockMillis) {
     return request -> {
-      String key = cacheKey(request);
-      if (key == null) {
+      String url = discoveryUrl(request);
+      if (url == null) {
         return delegate.execute(request);
       }
+      List<String> key = List.of(trustSettingsKey, url);
       CachedResponse cached = CACHE.get(key);
       if (cached != null && clockMillis.getAsLong() - cached.fetchedAtMillis < TTL_MILLIS) {
         return cached.toResponse(request);
       }
       Response response = delegate.execute(request);
-      if (!isCacheable(key, response.getStatusCode())) {
+      if (!isCacheable(url, response.getStatusCode())) {
         return response;
       }
       CachedResponse fresh = CachedResponse.from(response, clockMillis.getAsLong());
@@ -61,7 +67,7 @@ final class DiscoveryResponseCache {
     CACHE.clear();
   }
 
-  private static String cacheKey(Request request) {
+  private static String discoveryUrl(Request request) {
     if (!"GET".equalsIgnoreCase(request.getMethod()) || !request.getQuery().isEmpty()) {
       return null;
     }
@@ -72,9 +78,9 @@ final class DiscoveryResponseCache {
     return url.endsWith(HOST_METADATA_SUFFIX) || url.endsWith(OIDC_DISCOVERY_SUFFIX) ? url : null;
   }
 
-  private static boolean isCacheable(String key, int statusCode) {
+  private static boolean isCacheable(String url, int statusCode) {
     // A 404 from the host-metadata endpoint means the host does not support it.
-    return statusCode == 200 || (statusCode == 404 && key.endsWith(HOST_METADATA_SUFFIX));
+    return statusCode == 200 || (statusCode == 404 && url.endsWith(HOST_METADATA_SUFFIX));
   }
 
   private static final class CachedResponse {
@@ -105,17 +111,26 @@ final class DiscoveryResponseCache {
       try (InputStream in = response.getBody()) {
         body = in == null ? "" : new String(in.readAllBytes(), StandardCharsets.UTF_8);
       }
-      Map<String, List<String>> headers =
-          response.getAllHeaders() == null
-              ? new HashMap<>()
-              : new HashMap<>(response.getAllHeaders());
       return new CachedResponse(
           response.getUrl(),
           response.getStatusCode(),
           response.getStatus(),
-          headers,
+          readOnlyCopy(response.getAllHeaders()),
           body,
           fetchedAtMillis);
+    }
+
+    // Every cache hit shares this map, so no caller may change it.
+    private static Map<String, List<String>> readOnlyCopy(Map<String, List<String>> headers) {
+      Map<String, List<String>> copy = new HashMap<>();
+      if (headers != null) {
+        headers.forEach(
+            (name, values) ->
+                copy.put(
+                    name,
+                    values == null ? null : Collections.unmodifiableList(new ArrayList<>(values))));
+      }
+      return Collections.unmodifiableMap(copy);
     }
 
     Response toResponse(Request request) {

@@ -111,6 +111,22 @@ public class ConfiguratorUtils {
   }
 
   /**
+   * Identifies the settings {@link #getBaseConnectionManager} uses to decide which servers to
+   * trust. Keep it in sync with that method.
+   */
+  static String trustSettingsKey(IDatabricksConnectionContext connectionContext) {
+    return String.join(
+        "|",
+        String.valueOf(connectionContext.getSSLTrustStore()),
+        String.valueOf(connectionContext.getSSLTrustStoreType()),
+        String.valueOf(connectionContext.getSSLTrustStoreProvider()),
+        String.valueOf(connectionContext.useSystemTrustStore()),
+        String.valueOf(connectionContext.allowSelfSignedCerts()),
+        String.valueOf(connectionContext.checkCertificateRevocation()),
+        String.valueOf(connectionContext.acceptUndeterminedCertificateRevocation()));
+  }
+
+  /**
    * Creates a registry of connection socket factories based on the connection context.
    *
    * @param connectionContext The connection context to use for configuration.
