@@ -403,6 +403,9 @@ public class ConfiguratorUtilsTest {
             c -> when(c.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE),
             c -> when(c.getSSLTrustStoreProvider()).thenReturn("SUN"),
             c -> when(c.useSystemTrustStore()).thenReturn(true),
+            c -> when(c.getSSLKeyStore()).thenReturn(DUMMY_KEY_STORE_PATH),
+            c -> when(c.getSSLKeyStoreType()).thenReturn(KEY_STORE_TYPE),
+            c -> when(c.getSSLKeyStoreProvider()).thenReturn("SUN"),
             c -> when(c.allowSelfSignedCerts()).thenReturn(true),
             c -> when(c.checkCertificateRevocation()).thenReturn(true),
             c -> when(c.acceptUndeterminedCertificateRevocation()).thenReturn(true));
@@ -419,11 +422,13 @@ public class ConfiguratorUtilsTest {
   void trustSettingsKeyTracksSystemTrustStoreProperties(boolean useSystemTrustStore) {
     String originalTrustStore = System.getProperty("javax.net.ssl.trustStore");
     String originalType = System.getProperty("javax.net.ssl.trustStoreType");
+    String originalProvider = System.getProperty("javax.net.ssl.trustStoreProvider");
     IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
     when(context.useSystemTrustStore()).thenReturn(useSystemTrustStore);
     try {
       System.setProperty("javax.net.ssl.trustStore", DUMMY_TRUST_STORE_PATH);
       System.setProperty("javax.net.ssl.trustStoreType", TRUST_STORE_TYPE);
+      System.clearProperty("javax.net.ssl.trustStoreProvider");
       String key = ConfiguratorUtils.trustSettingsKey(context);
 
       System.setProperty("javax.net.ssl.trustStore", EMPTY_TRUST_STORE_PATH);
@@ -431,9 +436,13 @@ public class ConfiguratorUtilsTest {
       System.setProperty("javax.net.ssl.trustStore", DUMMY_TRUST_STORE_PATH);
       System.setProperty("javax.net.ssl.trustStoreType", "JKS");
       assertNotEquals(key, ConfiguratorUtils.trustSettingsKey(context));
+      System.setProperty("javax.net.ssl.trustStoreType", TRUST_STORE_TYPE);
+      System.setProperty("javax.net.ssl.trustStoreProvider", "SUN");
+      assertNotEquals(key, ConfiguratorUtils.trustSettingsKey(context));
     } finally {
       restoreProperty("javax.net.ssl.trustStore", originalTrustStore);
       restoreProperty("javax.net.ssl.trustStoreType", originalType);
+      restoreProperty("javax.net.ssl.trustStoreProvider", originalProvider);
     }
   }
 

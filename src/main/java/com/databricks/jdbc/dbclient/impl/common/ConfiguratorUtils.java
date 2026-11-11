@@ -66,6 +66,8 @@ public class ConfiguratorUtils {
   private static final String JAVA_TRUST_STORE_PASSWORD_PROPERTY =
       "javax.net.ssl.trustStorePassword";
   private static final String JAVA_TRUST_STORE_TYPE_PROPERTY = "javax.net.ssl.trustStoreType";
+  private static final String JAVA_TRUST_STORE_PROVIDER_PROPERTY =
+      "javax.net.ssl.trustStoreProvider";
 
   private static boolean isJDBCTestEnv() {
     return Boolean.parseBoolean(System.getenv(IS_JDBC_TEST_ENV));
@@ -111,8 +113,8 @@ public class ConfiguratorUtils {
   }
 
   /**
-   * Identifies the settings {@link #getBaseConnectionManager} uses to decide which servers to
-   * trust. Keep it in sync with that method.
+   * Identifies the settings {@link #getBaseConnectionManager} feeds into the TLS context: which
+   * servers to trust and which client certificate to present. Keep it in sync with that method.
    */
   static String trustSettingsKey(IDatabricksConnectionContext connectionContext) {
     return String.join(
@@ -125,6 +127,10 @@ public class ConfiguratorUtils {
         // the JSSE default trust manager that each new SSLContext initializes.
         String.valueOf(System.getProperty(JAVA_TRUST_STORE_PATH_PROPERTY)),
         String.valueOf(System.getProperty(JAVA_TRUST_STORE_TYPE_PROPERTY)),
+        String.valueOf(System.getProperty(JAVA_TRUST_STORE_PROVIDER_PROPERTY)),
+        String.valueOf(connectionContext.getSSLKeyStore()),
+        String.valueOf(connectionContext.getSSLKeyStoreType()),
+        String.valueOf(connectionContext.getSSLKeyStoreProvider()),
         String.valueOf(connectionContext.allowSelfSignedCerts()),
         String.valueOf(connectionContext.checkCertificateRevocation()),
         String.valueOf(connectionContext.acceptUndeterminedCertificateRevocation()));
