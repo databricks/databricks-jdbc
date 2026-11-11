@@ -24,13 +24,17 @@ import java.util.function.LongSupplier;
  * credentials chain fetch these documents again on every connect. They do not change for a
  * workspace, so refetching only adds round trips and a TLS handshake to each connection.
  *
- * <p>Entries are also keyed by the client's TLS trust settings, so a document fetched by a client
- * that trusts more servers is never served to one that trusts fewer.
+ * <p>Entries are also keyed by the client's TLS trust settings, so a document fetched under one
+ * trust configuration is never served to a client configured differently. Truststores are
+ * identified by path, so replacing a truststore file in place reaches cached documents within the
+ * TTL.
  */
 final class DiscoveryResponseCache {
   private static final String HOST_METADATA_SUFFIX = "/.well-known/databricks-config";
   private static final String OIDC_DISCOVERY_SUFFIX = "/.well-known/oauth-authorization-server";
   @VisibleForTesting static final long TTL_MILLIS = TimeUnit.HOURS.toMillis(1);
+  // Short, so a transient 404 (e.g. from a gateway during a rollout) doesn't stick for an hour.
+  @VisibleForTesting static final long NOT_FOUND_TTL_MILLIS = TimeUnit.MINUTES.toMillis(5);
 
   private static final Map<List<String>, CachedResponse> CACHE = new ConcurrentHashMap<>();
 
@@ -59,7 +63,7 @@ final class DiscoveryResponseCache {
       long now = clockMillis.getAsLong();
       CachedResponse fresh = CachedResponse.from(response, now);
       // Inserts are rare (about once per key per TTL), so this scan is cheap. It limits the
-      // cache to hosts used within the last TTL.
+      // cache to hosts used recently.
       CACHE.values().removeIf(entry -> entry.isExpired(now));
       CACHE.put(key, fresh);
       return fresh.toResponse(request);
@@ -143,7 +147,8 @@ final class DiscoveryResponseCache {
     }
 
     boolean isExpired(long nowMillis) {
-      return nowMillis - fetchedAtMillis >= TTL_MILLIS;
+      long ttlMillis = statusCode == 200 ? TTL_MILLIS : NOT_FOUND_TTL_MILLIS;
+      return nowMillis - fetchedAtMillis >= ttlMillis;
     }
 
     Response toResponse(Request request) {

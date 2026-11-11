@@ -150,6 +150,23 @@ class DiscoveryResponseCacheTest {
   }
 
   @Test
+  void notFoundExpiresSoonerThanSuccess() throws IOException {
+    AtomicLong now = new AtomicLong(1_000L);
+    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST, now::get);
+    nextStatus = 404;
+    client.execute(new Request("GET", HOST_METADATA));
+
+    now.addAndGet(DiscoveryResponseCache.NOT_FOUND_TTL_MILLIS - 1);
+    client.execute(new Request("GET", HOST_METADATA));
+    assertEquals(1, calls.get());
+
+    now.addAndGet(1);
+    nextStatus = 200;
+    assertEquals(200, client.execute(new Request("GET", HOST_METADATA)).getStatusCode());
+    assertEquals(2, calls.get());
+  }
+
+  @Test
   void doesNotCacheServerErrors() throws IOException {
     HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
     nextStatus = 503;

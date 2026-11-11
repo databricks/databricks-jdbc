@@ -41,6 +41,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -412,25 +414,23 @@ public class ConfiguratorUtilsTest {
     }
   }
 
-  @Test
-  void trustSettingsKeyTracksSystemTrustStorePropertiesOnlyWhenUsed() {
+  @ParameterizedTest
+  @ValueSource(booleans = {true, false})
+  void trustSettingsKeyTracksSystemTrustStoreProperties(boolean useSystemTrustStore) {
     String originalTrustStore = System.getProperty("javax.net.ssl.trustStore");
     String originalType = System.getProperty("javax.net.ssl.trustStoreType");
-    IDatabricksConnectionContext usesSystem = mock(IDatabricksConnectionContext.class);
-    when(usesSystem.useSystemTrustStore()).thenReturn(true);
-    IDatabricksConnectionContext ignoresSystem = mock(IDatabricksConnectionContext.class);
+    IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+    when(context.useSystemTrustStore()).thenReturn(useSystemTrustStore);
     try {
       System.setProperty("javax.net.ssl.trustStore", DUMMY_TRUST_STORE_PATH);
       System.setProperty("javax.net.ssl.trustStoreType", TRUST_STORE_TYPE);
-      String usesSystemKey = ConfiguratorUtils.trustSettingsKey(usesSystem);
-      String ignoresSystemKey = ConfiguratorUtils.trustSettingsKey(ignoresSystem);
+      String key = ConfiguratorUtils.trustSettingsKey(context);
 
       System.setProperty("javax.net.ssl.trustStore", EMPTY_TRUST_STORE_PATH);
-      assertNotEquals(usesSystemKey, ConfiguratorUtils.trustSettingsKey(usesSystem));
+      assertNotEquals(key, ConfiguratorUtils.trustSettingsKey(context));
       System.setProperty("javax.net.ssl.trustStore", DUMMY_TRUST_STORE_PATH);
       System.setProperty("javax.net.ssl.trustStoreType", "JKS");
-      assertNotEquals(usesSystemKey, ConfiguratorUtils.trustSettingsKey(usesSystem));
-      assertEquals(ignoresSystemKey, ConfiguratorUtils.trustSettingsKey(ignoresSystem));
+      assertNotEquals(key, ConfiguratorUtils.trustSettingsKey(context));
     } finally {
       restoreProperty("javax.net.ssl.trustStore", originalTrustStore);
       restoreProperty("javax.net.ssl.trustStoreType", originalType);
