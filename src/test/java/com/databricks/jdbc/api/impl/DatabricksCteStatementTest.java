@@ -32,6 +32,8 @@ class DatabricksCteStatementTest {
       "jdbc:databricks://sample-host.18.azuredatabricks.net:443/default;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;UseThriftClient=0;EnableTelemetry=0;EnableHeartbeat=0;";
   private static final String CTE_INSERT =
       "WITH src AS (SELECT 1 AS id) INSERT INTO target SELECT id FROM src";
+  private static final String MULTI_INSERT =
+      "FROM (SELECT 1 AS id) src INSERT INTO target SELECT id";
   private static final String CTE_SELECT = "WITH src AS (SELECT 1 AS id) SELECT id FROM src";
 
   @Mock private DatabricksSdkClient client;
@@ -140,18 +142,26 @@ class DatabricksCteStatementTest {
   }
 
   static Stream<Arguments> dmlExecutions() {
+    return Stream.of(CTE_INSERT, MULTI_INSERT)
+        .flatMap(DatabricksCteStatementTest::dmlExecutionsFor);
+  }
+
+  private static Stream<Arguments> dmlExecutionsFor(String sql) {
     return Stream.of(false, true)
         .flatMap(
             prepared ->
                 Stream.of("update", "largeUpdate", "execute")
                     .flatMap(
-                        api -> Stream.of(0L, 1L).map(count -> Arguments.of(prepared, api, count))));
+                        api ->
+                            Stream.of(0L, 1L)
+                                .map(count -> Arguments.of(sql, prepared, api, count))));
   }
 
   @ParameterizedTest
   @MethodSource("dmlExecutions")
-  void exposesCteUpdateCounts(boolean prepared, String api, long count) throws Exception {
-    try (Statement statement = statement(prepared, CTE_INSERT, "")) {
+  void exposesPrefixedDmlUpdateCounts(String sql, boolean prepared, String api, long count)
+      throws Exception {
+    try (Statement statement = statement(prepared, sql, "")) {
       when(resultSet.getUpdateCount()).thenReturn(count);
       switch (api) {
         case "update":
@@ -159,18 +169,18 @@ class DatabricksCteStatementTest {
               count,
               prepared
                   ? ((PreparedStatement) statement).executeUpdate()
-                  : statement.executeUpdate(CTE_INSERT));
+                  : statement.executeUpdate(sql));
           break;
         case "largeUpdate":
           assertEquals(
               count,
               prepared
                   ? ((PreparedStatement) statement).executeLargeUpdate()
-                  : statement.executeLargeUpdate(CTE_INSERT));
+                  : statement.executeLargeUpdate(sql));
           break;
         case "execute":
           assertFalse(
-              prepared ? ((PreparedStatement) statement).execute() : statement.execute(CTE_INSERT));
+              prepared ? ((PreparedStatement) statement).execute() : statement.execute(sql));
           break;
         default:
           fail("Unexpected API: " + api);
@@ -179,8 +189,16 @@ class DatabricksCteStatementTest {
       assertEquals(count, statement.getLargeUpdateCount());
       assertNull(statement.getResultSet());
       verifyExecution(
-          statement, CTE_INSERT, api.equals("execute") ? StatementType.SQL : StatementType.UPDATE);
+          statement, sql, api.equals("execute") ? StatementType.SQL : StatementType.UPDATE);
     }
+  }
+
+  static Stream<Arguments> optedOutDmlExecutions() {
+    return Stream.of(
+        Arguments.of(CTE_INSERT, "WITH", false),
+        Arguments.of(CTE_INSERT, "WITH", true),
+        Arguments.of(MULTI_INSERT, "FROM", false),
+        Arguments.of(MULTI_INSERT, "FROM", true));
   }
 
   @ParameterizedTest
@@ -219,36 +237,38 @@ class DatabricksCteStatementTest {
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void optOutReturnsCteDmlResultSet(boolean prepared) throws Exception {
-    try (Statement statement = statement(prepared, CTE_INSERT, "NonRowcountQueryPrefixes=WITH;")) {
+  @MethodSource("optedOutDmlExecutions")
+  void optOutReturnsDmlResultSet(String sql, String prefix, boolean prepared) throws Exception {
+    try (Statement statement =
+        statement(prepared, sql, "NonRowcountQueryPrefixes=" + prefix + ";")) {
       assertSame(
           resultSet,
-          prepared
-              ? ((PreparedStatement) statement).executeQuery()
-              : statement.executeQuery(CTE_INSERT));
+          prepared ? ((PreparedStatement) statement).executeQuery() : statement.executeQuery(sql));
       assertSame(resultSet, statement.getResultSet());
       assertEquals(-1, statement.getUpdateCount());
-      verifyExecution(statement, CTE_INSERT, StatementType.QUERY);
+      verifyExecution(statement, sql, StatementType.QUERY);
     }
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void optOutExecuteExposesCteDmlResultSet(boolean prepared) throws Exception {
-    try (Statement statement = statement(prepared, CTE_INSERT, "NonRowcountQueryPrefixes=WITH;")) {
-      assertTrue(
-          prepared ? ((PreparedStatement) statement).execute() : statement.execute(CTE_INSERT));
+  @MethodSource("optedOutDmlExecutions")
+  void optOutExecuteExposesDmlResultSet(String sql, String prefix, boolean prepared)
+      throws Exception {
+    try (Statement statement =
+        statement(prepared, sql, "NonRowcountQueryPrefixes=" + prefix + ";")) {
+      assertTrue(prepared ? ((PreparedStatement) statement).execute() : statement.execute(sql));
       assertSame(resultSet, statement.getResultSet());
       assertEquals(-1, statement.getUpdateCount());
-      verifyExecution(statement, CTE_INSERT, StatementType.SQL);
+      verifyExecution(statement, sql, StatementType.SQL);
     }
   }
 
   @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void optOutPreservesUpdateApiRejection(boolean prepared) throws Exception {
-    try (Statement statement = statement(prepared, CTE_INSERT, "NonRowcountQueryPrefixes=WITH;")) {
+  @MethodSource("optedOutDmlExecutions")
+  void optOutPreservesUpdateApiRejection(String sql, String prefix, boolean prepared)
+      throws Exception {
+    try (Statement statement =
+        statement(prepared, sql, "NonRowcountQueryPrefixes=" + prefix + ";")) {
       SQLException error =
           assertThrows(
               DatabricksSQLException.class,
@@ -256,12 +276,12 @@ class DatabricksCteStatementTest {
                 if (prepared) {
                   ((PreparedStatement) statement).executeUpdate();
                 } else {
-                  statement.executeUpdate(CTE_INSERT);
+                  statement.executeUpdate(sql);
                 }
               });
       assertEquals("RESULT_SET_ERROR", error.getSQLState());
       assertEquals(0, error.getErrorCode());
-      verifyExecution(statement, CTE_INSERT, StatementType.UPDATE);
+      verifyExecution(statement, sql, StatementType.UPDATE);
     }
   }
 

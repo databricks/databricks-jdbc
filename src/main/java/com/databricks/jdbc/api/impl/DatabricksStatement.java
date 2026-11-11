@@ -32,8 +32,6 @@ import org.apache.http.entity.InputStreamEntity;
 public class DatabricksStatement implements IDatabricksStatement, IDatabricksStatementInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
-  private static final Pattern CTE_DML_PATTERN =
-      Pattern.compile("^(INSERT|UPDATE|DELETE|MERGE)\\b", Pattern.CASE_INSENSITIVE);
   private static final Pattern MULTI_INSERT_PATTERN =
       Pattern.compile("^\\s*FROM\\b", Pattern.CASE_INSENSITIVE);
 
@@ -838,8 +836,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         query, connection.getConnectionContext().getNonRowcountQueryPrefixes());
   }
 
-  private static String skipCteDefinitions(String query) {
-    char[] syntax = syntaxCharacters(query);
+  private static int skipCteDefinitions(String query, char[] syntax) {
     int index = 0;
     while (index < syntax.length) {
       if (Character.isJavaIdentifierPart(syntax[index])) {
@@ -856,7 +853,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
           }
         }
         if (depth != 0) {
-          return query;
+          return 0;
         }
         index = skipWhitespace(syntax, index);
         boolean followedByAs = startsWithKeyword(query, syntax, index, "AS");
@@ -867,13 +864,13 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
             && !followedByAs
             && !followedByParenthesis
             && !followedByMaxRecursion) {
-          return query.substring(index);
+          return index;
         }
       } else {
         index++;
       }
     }
-    return query;
+    return 0;
   }
 
   private static char[] syntaxCharacters(String query) {
@@ -900,15 +897,14 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   }
 
   private static boolean isCteDml(String query) {
-    if (!WITH_PATTERN.matcher(query).find()) {
-      return false;
-    }
-    String outerStatement = skipCteDefinitions(query);
-    return CTE_DML_PATTERN.matcher(outerStatement).find() || isMultiInsert(outerStatement);
+    char[] syntax = syntaxCharacters(query);
+    int outerStatement = skipCteDefinitions(query, syntax);
+    return startsWithDmlKeyword(query, syntax, outerStatement)
+        || isMultiInsert(query, syntax, outerStatement);
   }
 
   private static boolean isDmlWithQueryPrefix(String query) {
-    return isCteDml(query) || isMultiInsert(query);
+    return WITH_PATTERN.matcher(query).find() ? isCteDml(query) : isMultiInsert(query);
   }
 
   private static boolean isMultiInsert(String query) {
@@ -916,7 +912,14 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       return false;
     }
     char[] syntax = syntaxCharacters(query);
-    int index = skipWhitespace(syntax, 0);
+    return isMultiInsert(query, syntax, 0);
+  }
+
+  private static boolean isMultiInsert(String query, char[] syntax, int outerStatementStart) {
+    int index = skipWhitespace(syntax, outerStatementStart);
+    if (!startsWithKeyword(query, syntax, index, "FROM")) {
+      return false;
+    }
     index += "FROM".length();
     int depth = 0;
     while (index < syntax.length) {
@@ -943,6 +946,13 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       }
     }
     return false;
+  }
+
+  private static boolean startsWithDmlKeyword(String query, char[] syntax, int index) {
+    return startsWithKeyword(query, syntax, index, "INSERT")
+        || startsWithKeyword(query, syntax, index, "UPDATE")
+        || startsWithKeyword(query, syntax, index, "DELETE")
+        || startsWithKeyword(query, syntax, index, "MERGE");
   }
 
   private static boolean startsWithMultiInsertTarget(String query, char[] syntax, int index) {
