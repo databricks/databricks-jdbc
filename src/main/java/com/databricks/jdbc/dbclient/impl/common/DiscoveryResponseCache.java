@@ -93,7 +93,9 @@ final class DiscoveryResponseCache {
   }
 
   private static String discoveryUrl(Request request) {
-    if (!"GET".equalsIgnoreCase(request.getMethod()) || !request.getQuery().isEmpty()) {
+    if (!"GET".equalsIgnoreCase(request.getMethod())
+        || !request.getQuery().isEmpty()
+        || hasCredentials(request)) {
       return null;
     }
     String url = request.getUrl();
@@ -101,6 +103,13 @@ final class DiscoveryResponseCache {
       return null;
     }
     return url.endsWith(HOST_METADATA_SUFFIX) || url.endsWith(OIDC_DISCOVERY_SUFFIX) ? url : null;
+  }
+
+  // Responses are shared across users, so only cache requests that carry no credentials.
+  private static boolean hasCredentials(Request request) {
+    return request.getHeaders().keySet().stream()
+        .anyMatch(
+            name -> "Authorization".equalsIgnoreCase(name) || "Cookie".equalsIgnoreCase(name));
   }
 
   private static boolean isCacheable(String url, int statusCode) {

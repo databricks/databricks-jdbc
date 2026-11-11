@@ -121,8 +121,8 @@ public class ConfiguratorUtils {
         String.valueOf(connectionContext.getSSLTrustStoreType()),
         String.valueOf(connectionContext.getSSLTrustStoreProvider()),
         String.valueOf(connectionContext.useSystemTrustStore()),
-        // Read again on every connection, by the driver under UseSystemTrustStore and by JSSE's
-        // default trust manager otherwise, so an application can change them at runtime.
+        // Read again on every connection: by the driver under UseSystemTrustStore, otherwise by
+        // the JSSE default trust manager that each new SSLContext initializes.
         String.valueOf(System.getProperty(JAVA_TRUST_STORE_PATH_PROPERTY)),
         String.valueOf(System.getProperty(JAVA_TRUST_STORE_TYPE_PROPERTY)),
         String.valueOf(connectionContext.allowSelfSignedCerts()),

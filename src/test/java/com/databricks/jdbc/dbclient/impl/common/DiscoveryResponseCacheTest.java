@@ -137,6 +137,18 @@ class DiscoveryResponseCacheTest {
   }
 
   @Test
+  void doesNotCacheRequestsWithCredentials() throws IOException {
+    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
+
+    client.execute(new Request("GET", OIDC_DISCOVERY).withHeader("Authorization", "Bearer a"));
+    client.execute(new Request("GET", OIDC_DISCOVERY).withHeader("authorization", "Bearer b"));
+    client.execute(new Request("GET", OIDC_DISCOVERY).withHeader("Cookie", "session=c"));
+
+    assertEquals(3, calls.get());
+    assertEquals(0, DiscoveryResponseCache.size());
+  }
+
+  @Test
   void cachesNotFoundOnlyForHostMetadata() throws IOException {
     HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
     nextStatus = 404;

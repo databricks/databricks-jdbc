@@ -39,6 +39,8 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -49,6 +51,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class ClientConfiguratorTest {
   @Mock private IDatabricksConnectionContext mockContext;
   private ClientConfigurator configurator;
+
+  // Local test servers reuse ephemeral ports, so cached discovery responses must not leak.
+  @BeforeEach
+  @AfterEach
+  void clearDiscoveryCache() {
+    DiscoveryResponseCache.clear();
+  }
 
   @Test
   void getWorkspaceClient_PAT_AuthenticatesWithAccessToken()
