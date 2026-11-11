@@ -51,7 +51,7 @@ public class DatabricksDriverFeatureFlagsContext {
             t.setDaemon(true);
             return t;
           });
-  private ScheduledFuture<?> scheduledRefreshTask;
+  private volatile ScheduledFuture<?> scheduledRefreshTask;
   private volatile int refreshIntervalSeconds = DEFAULT_TTL_SECONDS;
   private final Object initLock = new Object();
   private volatile boolean initialized;
@@ -81,7 +81,7 @@ public class DatabricksDriverFeatureFlagsContext {
 
   /**
    * Performs the initial blocking fetch and schedules periodic refresh, once. Concurrent callers
-   * wait for the result of the first fetch attempt.
+   * wait for the first fetch attempt, including any required authentication.
    *
    * <p>Re-entrant telemetry lookups during configurator creation or flag fetching see defaults
    * without completing initialization.
