@@ -8,6 +8,7 @@ import com.databricks.sdk.core.http.Response;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -69,7 +70,7 @@ final class DiscoveryResponseCache {
         return cached.toResponse(request);
       }
       Response response = delegate.execute(request);
-      if (!isCacheable(url, response.getStatusCode())) {
+      if (!isCacheable(url, response)) {
         return response;
       }
       long now = clockMillis.getAsLong();
@@ -113,9 +114,21 @@ final class DiscoveryResponseCache {
             name -> "Authorization".equalsIgnoreCase(name) || "Cookie".equalsIgnoreCase(name));
   }
 
-  private static boolean isCacheable(String url, int statusCode) {
+  private static boolean isCacheable(String requestedUrl, Response response) {
+    if (response.getUrl() == null
+        || !URI.create(requestedUrl).getRawPath().equals(response.getUrl().getPath())) {
+      return false;
+    }
     // A 404 from the host-metadata endpoint means the host does not support it.
-    return statusCode == 200 || (statusCode == 404 && url.endsWith(HOST_METADATA_SUFFIX));
+    if (response.getStatusCode() == 404) {
+      return requestedUrl.endsWith(HOST_METADATA_SUFFIX);
+    }
+    if (response.getStatusCode() != 200 || response.getAllHeaders() == null) {
+      return false;
+    }
+    String contentType = response.getFirstHeader("Content-Type");
+    return contentType != null
+        && "application/json".equalsIgnoreCase(contentType.split(";", 2)[0].trim());
   }
 
   private static final class CachedResponse {

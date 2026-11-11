@@ -7,6 +7,7 @@ import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class DiscoveryResponseCacheTest {
   private static final String HOST_METADATA =
@@ -25,15 +30,18 @@ class DiscoveryResponseCacheTest {
 
   private final AtomicInteger calls = new AtomicInteger();
   private int nextStatus = 200;
+  private URL nextUrl;
+  private String nextContentType = "application/json";
 
   private final HttpClient delegate =
       request -> {
         calls.incrementAndGet();
         return new Response(
             request,
+            nextUrl == null ? request.getUri().toURL() : nextUrl,
             nextStatus,
             "status",
-            Map.of("Content-Type", List.of("application/json")),
+            nextContentType == null ? Map.of() : Map.of("Content-Type", List.of(nextContentType)),
             "body-" + calls.get());
       };
 
@@ -43,8 +51,15 @@ class DiscoveryResponseCacheTest {
     DiscoveryResponseCache.clear();
   }
 
-  @Test
-  void cachesSuccessfulHostMetadataAndOidcDiscovery() throws IOException {
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "application/json",
+        "application/json; charset=utf-8",
+        "Application/JSON ; charset=UTF-8"
+      })
+  void cachesSuccessfulHostMetadataAndOidcDiscovery(String contentType) throws IOException {
+    nextContentType = contentType;
     HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
 
     Response first = client.execute(new Request("GET", HOST_METADATA));
@@ -54,10 +69,48 @@ class DiscoveryResponseCacheTest {
 
     assertEquals(2, calls.get());
     assertEquals(200, second.getStatusCode());
-    assertEquals("application/json", second.getFirstHeader("Content-Type"));
+    assertEquals(contentType, second.getFirstHeader("Content-Type"));
     assertEquals("body-1", read(first));
     assertEquals("body-1", read(second));
     assertEquals("body-2", read(oidcAgain));
+  }
+
+  @ParameterizedTest
+  @CsvSource({HOST_METADATA + ",200", HOST_METADATA + ",404", OIDC_DISCOVERY + ",200"})
+  void redirectedResponsesAreNotCached(String url, int statusCode) throws IOException {
+    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
+    nextStatus = statusCode;
+    nextUrl = new URL("https://host-a.example.com/login.html?error=private-link-validation-error");
+
+    Response redirected = client.execute(new Request("GET", url));
+    assertSame(nextUrl, redirected.getUrl());
+    assertEquals(statusCode, redirected.getStatusCode());
+    assertEquals("body-1", read(redirected));
+    assertEquals(0, DiscoveryResponseCache.size());
+
+    nextUrl = null;
+    nextStatus = 200;
+    assertEquals("body-2", read(client.execute(new Request("GET", url))));
+    assertEquals("body-2", read(client.execute(new Request("GET", url))));
+    assertEquals(2, calls.get());
+  }
+
+  @ParameterizedTest
+  @NullSource
+  @ValueSource(strings = {"text/html", "application/jsonp"})
+  void nonJsonSuccessIsNotCached(String contentType) throws IOException {
+    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
+    nextContentType = contentType;
+
+    Response blocked = client.execute(new Request("GET", OIDC_DISCOVERY));
+    assertEquals(contentType, blocked.getFirstHeader("Content-Type"));
+    assertEquals("body-1", read(blocked));
+    assertEquals(0, DiscoveryResponseCache.size());
+
+    nextContentType = "application/json";
+    assertEquals("body-2", read(client.execute(new Request("GET", OIDC_DISCOVERY))));
+    assertEquals("body-2", read(client.execute(new Request("GET", OIDC_DISCOVERY))));
+    assertEquals(2, calls.get());
   }
 
   @Test
