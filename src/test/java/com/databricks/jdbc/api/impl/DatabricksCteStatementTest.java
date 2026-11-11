@@ -201,10 +201,15 @@ class DatabricksCteStatementTest {
         Arguments.of(MULTI_INSERT, "FROM", true));
   }
 
+  static Stream<Arguments> prefixedDmlStatements() {
+    return Stream.of(CTE_INSERT, MULTI_INSERT)
+        .flatMap(sql -> Stream.of(false, true).map(prepared -> Arguments.of(sql, prepared)));
+  }
+
   @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void rejectsCteDmlInExecuteQuery(boolean prepared) throws Exception {
-    try (Statement statement = statement(prepared, CTE_INSERT, "")) {
+  @MethodSource("prefixedDmlStatements")
+  void rejectsPrefixedDmlInExecuteQuery(String sql, boolean prepared) throws Exception {
+    try (Statement statement = statement(prepared, sql, "")) {
       SQLException error =
           assertThrows(
               DatabricksSQLException.class,
@@ -212,13 +217,13 @@ class DatabricksCteStatementTest {
                 if (prepared) {
                   ((PreparedStatement) statement).executeQuery();
                 } else {
-                  statement.executeQuery(CTE_INSERT);
+                  statement.executeQuery(sql);
                 }
               });
       assertEquals("RESULT_SET_ERROR", error.getSQLState());
       assertEquals(0, error.getErrorCode());
       assertTrue(error.getMessage().contains("execution was successful"));
-      verifyExecution(statement, CTE_INSERT, StatementType.QUERY);
+      verifyExecution(statement, sql, StatementType.QUERY);
     }
   }
 
