@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 
 /**
  * Caches the SDK's unauthenticated discovery GETs (host metadata and OIDC discovery) per URL.
@@ -31,20 +32,25 @@ final class DiscoveryResponseCache {
   private DiscoveryResponseCache() {}
 
   static HttpClient wrap(HttpClient delegate) {
+    return wrap(delegate, System::currentTimeMillis);
+  }
+
+  @VisibleForTesting
+  static HttpClient wrap(HttpClient delegate, LongSupplier clockMillis) {
     return request -> {
       String key = cacheKey(request);
       if (key == null) {
         return delegate.execute(request);
       }
       CachedResponse cached = CACHE.get(key);
-      if (cached != null && System.currentTimeMillis() - cached.fetchedAtMillis < TTL_MILLIS) {
+      if (cached != null && clockMillis.getAsLong() - cached.fetchedAtMillis < TTL_MILLIS) {
         return cached.toResponse(request);
       }
       Response response = delegate.execute(request);
       if (!isCacheable(key, response.getStatusCode())) {
         return response;
       }
-      CachedResponse fresh = CachedResponse.from(response);
+      CachedResponse fresh = CachedResponse.from(response, clockMillis.getAsLong());
       CACHE.put(key, fresh);
       return fresh.toResponse(request);
     };
@@ -80,16 +86,21 @@ final class DiscoveryResponseCache {
     final long fetchedAtMillis;
 
     private CachedResponse(
-        URL url, int statusCode, String status, Map<String, List<String>> headers, String body) {
+        URL url,
+        int statusCode,
+        String status,
+        Map<String, List<String>> headers,
+        String body,
+        long fetchedAtMillis) {
       this.url = url;
       this.statusCode = statusCode;
       this.status = status;
       this.headers = headers;
       this.body = body;
-      this.fetchedAtMillis = System.currentTimeMillis();
+      this.fetchedAtMillis = fetchedAtMillis;
     }
 
-    static CachedResponse from(Response response) throws IOException {
+    static CachedResponse from(Response response, long fetchedAtMillis) throws IOException {
       String body;
       try (InputStream in = response.getBody()) {
         body = in == null ? "" : new String(in.readAllBytes(), StandardCharsets.UTF_8);
@@ -99,7 +110,12 @@ final class DiscoveryResponseCache {
               ? new HashMap<>()
               : new HashMap<>(response.getAllHeaders());
       return new CachedResponse(
-          response.getUrl(), response.getStatusCode(), response.getStatus(), headers, body);
+          response.getUrl(),
+          response.getStatusCode(),
+          response.getStatus(),
+          headers,
+          body,
+          fetchedAtMillis);
     }
 
     Response toResponse(Request request) {

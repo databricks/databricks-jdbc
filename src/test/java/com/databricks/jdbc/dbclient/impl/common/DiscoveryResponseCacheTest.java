@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,21 @@ class DiscoveryResponseCacheTest {
     assertEquals("body-1", read(first));
     assertEquals("body-1", read(second));
     assertEquals("body-2", read(oidcAgain));
+  }
+
+  @Test
+  void expiredEntryIsRefetchedAndReplaced() throws IOException {
+    AtomicLong now = new AtomicLong(1_000L);
+    HttpClient client = DiscoveryResponseCache.wrap(delegate, now::get);
+
+    client.execute(new Request("GET", HOST_METADATA));
+    now.addAndGet(DiscoveryResponseCache.TTL_MILLIS - 1);
+    assertEquals("body-1", read(client.execute(new Request("GET", HOST_METADATA))));
+
+    now.addAndGet(1);
+    assertEquals("body-2", read(client.execute(new Request("GET", HOST_METADATA))));
+    assertEquals("body-2", read(client.execute(new Request("GET", HOST_METADATA))));
+    assertEquals(2, calls.get());
   }
 
   @Test
