@@ -5,19 +5,18 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
+import com.google.common.base.Ticker;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -29,6 +28,15 @@ class DiscoveryResponseCacheTest {
   private static final List<Object> TRUST = List.of("default-trust");
 
   private final AtomicInteger calls = new AtomicInteger();
+  private final AtomicLong nowMillis = new AtomicLong(1_000L);
+  private final DiscoveryResponseCache cache =
+      new DiscoveryResponseCache(
+          new Ticker() {
+            @Override
+            public long read() {
+              return TimeUnit.MILLISECONDS.toNanos(nowMillis.get());
+            }
+          });
   private int nextStatus = 200;
   private URL nextUrl;
   private String nextContentType = "application/json";
@@ -45,12 +53,6 @@ class DiscoveryResponseCacheTest {
             "body-" + calls.get());
       };
 
-  @BeforeEach
-  @AfterEach
-  void clearCache() {
-    DiscoveryResponseCache.clear();
-  }
-
   @ParameterizedTest
   @ValueSource(
       strings = {
@@ -60,7 +62,7 @@ class DiscoveryResponseCacheTest {
       })
   void cachesSuccessfulHostMetadataAndOidcDiscovery(String contentType) throws IOException {
     nextContentType = contentType;
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
+    HttpClient client = cache.wrapClient(delegate, TRUST);
 
     Response first = client.execute(new Request("GET", HOST_METADATA));
     Response second = client.execute(new Request("GET", HOST_METADATA));
@@ -76,20 +78,18 @@ class DiscoveryResponseCacheTest {
   }
 
   @ParameterizedTest
-  @CsvSource({HOST_METADATA + ",200", HOST_METADATA + ",404", OIDC_DISCOVERY + ",200"})
-  void redirectedResponsesAreNotCached(String url, int statusCode) throws IOException {
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
-    nextStatus = statusCode;
+  @ValueSource(strings = {HOST_METADATA, OIDC_DISCOVERY})
+  void redirectedResponsesAreNotCached(String url) throws IOException {
+    HttpClient client = cache.wrapClient(delegate, TRUST);
     nextUrl = new URL("https://host-a.example.com/login.html?error=private-link-validation-error");
 
     Response redirected = client.execute(new Request("GET", url));
     assertSame(nextUrl, redirected.getUrl());
-    assertEquals(statusCode, redirected.getStatusCode());
+    assertEquals(200, redirected.getStatusCode());
     assertEquals("body-1", read(redirected));
-    assertEquals(0, DiscoveryResponseCache.size());
+    assertEquals(0, cache.size());
 
     nextUrl = null;
-    nextStatus = 200;
     assertEquals("body-2", read(client.execute(new Request("GET", url))));
     assertEquals("body-2", read(client.execute(new Request("GET", url))));
     assertEquals(2, calls.get());
@@ -99,13 +99,13 @@ class DiscoveryResponseCacheTest {
   @NullSource
   @ValueSource(strings = {"text/html", "application/jsonp"})
   void nonJsonSuccessIsNotCached(String contentType) throws IOException {
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
+    HttpClient client = cache.wrapClient(delegate, TRUST);
     nextContentType = contentType;
 
     Response blocked = client.execute(new Request("GET", OIDC_DISCOVERY));
     assertEquals(contentType, blocked.getFirstHeader("Content-Type"));
     assertEquals("body-1", read(blocked));
-    assertEquals(0, DiscoveryResponseCache.size());
+    assertEquals(0, cache.size());
 
     nextContentType = "application/json";
     assertEquals("body-2", read(client.execute(new Request("GET", OIDC_DISCOVERY))));
@@ -115,8 +115,8 @@ class DiscoveryResponseCacheTest {
 
   @Test
   void clientsWithDifferentTrustSettingsDoNotShareEntries() throws IOException {
-    HttpClient strict = DiscoveryResponseCache.wrap(delegate, TRUST);
-    HttpClient lax = DiscoveryResponseCache.wrap(delegate, List.of("allow-self-signed"));
+    HttpClient strict = cache.wrapClient(delegate, TRUST);
+    HttpClient lax = cache.wrapClient(delegate, List.of("allow-self-signed"));
 
     lax.execute(new Request("GET", OIDC_DISCOVERY));
     assertEquals("body-2", read(strict.execute(new Request("GET", OIDC_DISCOVERY))));
@@ -127,7 +127,7 @@ class DiscoveryResponseCacheTest {
 
   @Test
   void cachedHeadersAreReadOnly() throws IOException {
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
+    HttpClient client = cache.wrapClient(delegate, TRUST);
     client.execute(new Request("GET", HOST_METADATA));
     Response hit = client.execute(new Request("GET", HOST_METADATA));
 
@@ -139,36 +139,34 @@ class DiscoveryResponseCacheTest {
 
   @Test
   void expiredEntryIsRefetchedAndReplaced() throws IOException {
-    AtomicLong now = new AtomicLong(1_000L);
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST, now::get);
+    HttpClient client = cache.wrapClient(delegate, TRUST);
 
     client.execute(new Request("GET", HOST_METADATA));
-    now.addAndGet(DiscoveryResponseCache.TTL_MILLIS - 1);
+    nowMillis.addAndGet(DiscoveryResponseCache.TTL_MILLIS - 1);
     assertEquals("body-1", read(client.execute(new Request("GET", HOST_METADATA))));
 
-    now.addAndGet(1);
+    nowMillis.addAndGet(1);
     assertEquals("body-2", read(client.execute(new Request("GET", HOST_METADATA))));
     assertEquals("body-2", read(client.execute(new Request("GET", HOST_METADATA))));
     assertEquals(2, calls.get());
   }
 
   @Test
-  void storingAnEntryDropsExpiredOnes() throws IOException {
-    AtomicLong now = new AtomicLong(1_000L);
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST, now::get);
-    client.execute(new Request("GET", HOST_METADATA));
-    client.execute(new Request("GET", OIDC_DISCOVERY));
-    assertEquals(2, DiscoveryResponseCache.size());
+  void cacheSizeIsBounded() throws IOException {
+    HttpClient client = cache.wrapClient(delegate, TRUST);
+    int requests = 2 * DiscoveryResponseCache.MAX_ENTRIES;
+    for (int i = 0; i < requests; i++) {
+      client.execute(
+          new Request("GET", "https://host-" + i + ".example.com/.well-known/databricks-config"));
+    }
 
-    now.addAndGet(DiscoveryResponseCache.TTL_MILLIS);
-    client.execute(new Request("GET", "https://host-b.example.com/.well-known/databricks-config"));
-
-    assertEquals(1, DiscoveryResponseCache.size());
+    assertEquals(requests, calls.get());
+    assertTrue(cache.size() <= DiscoveryResponseCache.MAX_ENTRIES);
   }
 
   @Test
   void cachedResponseCarriesCurrentRequest() throws IOException {
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
+    HttpClient client = cache.wrapClient(delegate, TRUST);
     client.execute(new Request("GET", HOST_METADATA));
 
     Request again = new Request("GET", HOST_METADATA);
@@ -177,7 +175,7 @@ class DiscoveryResponseCacheTest {
 
   @Test
   void doesNotCacheOtherRequests() throws IOException {
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
+    HttpClient client = cache.wrapClient(delegate, TRUST);
 
     client.execute(new Request("GET", "https://host-a.example.com/api/2.0/sql/statements"));
     client.execute(new Request("GET", "https://host-a.example.com/api/2.0/sql/statements"));
@@ -191,19 +189,19 @@ class DiscoveryResponseCacheTest {
 
   @Test
   void doesNotCacheRequestsWithCredentials() throws IOException {
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
+    HttpClient client = cache.wrapClient(delegate, TRUST);
 
     client.execute(new Request("GET", OIDC_DISCOVERY).withHeader("Authorization", "Bearer a"));
     client.execute(new Request("GET", OIDC_DISCOVERY).withHeader("authorization", "Bearer b"));
     client.execute(new Request("GET", OIDC_DISCOVERY).withHeader("Cookie", "session=c"));
 
     assertEquals(3, calls.get());
-    assertEquals(0, DiscoveryResponseCache.size());
+    assertEquals(0, cache.size());
   }
 
   @Test
-  void cachesNotFoundOnlyForHostMetadata() throws IOException {
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
+  void doesNotCacheNotFound() throws IOException {
+    HttpClient client = cache.wrapClient(delegate, TRUST);
     nextStatus = 404;
 
     client.execute(new Request("GET", HOST_METADATA));
@@ -211,29 +209,13 @@ class DiscoveryResponseCacheTest {
     client.execute(new Request("GET", OIDC_DISCOVERY));
     client.execute(new Request("GET", OIDC_DISCOVERY));
 
-    assertEquals(3, calls.get());
-  }
-
-  @Test
-  void notFoundExpiresSoonerThanSuccess() throws IOException {
-    AtomicLong now = new AtomicLong(1_000L);
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST, now::get);
-    nextStatus = 404;
-    client.execute(new Request("GET", HOST_METADATA));
-
-    now.addAndGet(DiscoveryResponseCache.NOT_FOUND_TTL_MILLIS - 1);
-    client.execute(new Request("GET", HOST_METADATA));
-    assertEquals(1, calls.get());
-
-    now.addAndGet(1);
-    nextStatus = 200;
-    assertEquals(200, client.execute(new Request("GET", HOST_METADATA)).getStatusCode());
-    assertEquals(2, calls.get());
+    assertEquals(4, calls.get());
+    assertEquals(0, cache.size());
   }
 
   @Test
   void doesNotCacheServerErrors() throws IOException {
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
+    HttpClient client = cache.wrapClient(delegate, TRUST);
     nextStatus = 503;
 
     client.execute(new Request("GET", HOST_METADATA));
@@ -244,7 +226,7 @@ class DiscoveryResponseCacheTest {
 
   @Test
   void hostsAreCachedSeparately() throws IOException {
-    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
+    HttpClient client = cache.wrapClient(delegate, TRUST);
 
     client.execute(new Request("GET", HOST_METADATA));
     client.execute(new Request("GET", "https://host-b.example.com/.well-known/databricks-config"));

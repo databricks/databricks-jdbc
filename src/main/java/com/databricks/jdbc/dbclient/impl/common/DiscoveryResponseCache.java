@@ -6,6 +6,9 @@ import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ticker;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -16,9 +19,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.function.LongSupplier;
 
 /**
  * Caches the SDK's unauthenticated discovery GETs (host metadata and OIDC discovery) per URL.
@@ -36,49 +37,47 @@ final class DiscoveryResponseCache {
   private static final String HOST_METADATA_SUFFIX = "/.well-known/databricks-config";
   private static final String OIDC_DISCOVERY_SUFFIX = "/.well-known/oauth-authorization-server";
   @VisibleForTesting static final long TTL_MILLIS = TimeUnit.HOURS.toMillis(1);
-  // Short, so a transient 404 (e.g. from a gateway during a rollout) doesn't stick for an hour.
-  @VisibleForTesting static final long NOT_FOUND_TTL_MILLIS = TimeUnit.MINUTES.toMillis(5);
+  @VisibleForTesting static final int MAX_ENTRIES = 1024;
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DiscoveryResponseCache.class);
-  private static final Map<List<Object>, CachedResponse> CACHE = new ConcurrentHashMap<>();
+  private static final DiscoveryResponseCache INSTANCE =
+      new DiscoveryResponseCache(Ticker.systemTicker());
+  private final Cache<List<Object>, CachedResponse> cache;
 
-  private DiscoveryResponseCache() {}
+  @VisibleForTesting
+  DiscoveryResponseCache(Ticker ticker) {
+    cache =
+        CacheBuilder.newBuilder()
+            .expireAfterWrite(TTL_MILLIS, TimeUnit.MILLISECONDS)
+            .maximumSize(MAX_ENTRIES)
+            .ticker(ticker)
+            .build();
+  }
 
   static HttpClient wrap(HttpClient delegate, List<Object> trustSettingsKey) {
-    // Monotonic, so wall-clock jumps can't stretch or cut short an entry's TTL.
-    return wrap(delegate, trustSettingsKey, () -> TimeUnit.NANOSECONDS.toMillis(System.nanoTime()));
+    return INSTANCE.wrapClient(delegate, trustSettingsKey);
   }
 
   @VisibleForTesting
-  static HttpClient wrap(
-      HttpClient delegate, List<Object> trustSettingsKey, LongSupplier clockMillis) {
+  HttpClient wrapClient(HttpClient delegate, List<Object> trustSettingsKey) {
     return request -> {
       String url = discoveryUrl(request);
       if (url == null) {
         return delegate.execute(request);
       }
       List<Object> key = List.of(trustSettingsKey, url);
-      CachedResponse cached = CACHE.get(key);
-      long lookupMillis = clockMillis.getAsLong();
-      if (cached != null && !cached.isExpired(lookupMillis)) {
-        LOGGER.debug(
-            "Using cached discovery response (HTTP {}, {} s old) for {}",
-            cached.statusCode,
-            (lookupMillis - cached.fetchedAtMillis) / 1000,
-            url);
+      CachedResponse cached = cache.getIfPresent(key);
+      if (cached != null) {
+        LOGGER.debug("Using cached discovery response (HTTP {}) for {}", cached.statusCode, url);
         return cached.toResponse(request);
       }
       Response response = delegate.execute(request);
       if (!isCacheable(url, response)) {
         return response;
       }
-      long now = clockMillis.getAsLong();
-      CachedResponse fresh = new CachedResponse(response, now);
-      // Inserts are rare (about once per key per TTL), so this scan is cheap. It limits the
-      // cache to hosts used recently.
-      CACHE.values().removeIf(entry -> entry.isExpired(now));
-      CACHE.put(key, fresh);
+      CachedResponse fresh = new CachedResponse(response);
+      cache.put(key, fresh);
       LOGGER.debug("Cached discovery response (HTTP {}) for {}", fresh.statusCode, url);
       return fresh.toResponse(request);
     };
@@ -86,12 +85,13 @@ final class DiscoveryResponseCache {
 
   @VisibleForTesting
   static void clear() {
-    CACHE.clear();
+    INSTANCE.cache.invalidateAll();
   }
 
   @VisibleForTesting
-  static int size() {
-    return CACHE.size();
+  long size() {
+    cache.cleanUp();
+    return cache.size();
   }
 
   private static String discoveryUrl(Request request) {
@@ -119,10 +119,6 @@ final class DiscoveryResponseCache {
         || !URI.create(requestedUrl).getRawPath().equals(response.getUrl().getPath())) {
       return false;
     }
-    // A 404 from the host-metadata endpoint means the host does not support it.
-    if (response.getStatusCode() == 404) {
-      return requestedUrl.endsWith(HOST_METADATA_SUFFIX);
-    }
     if (response.getStatusCode() != 200 || response.getAllHeaders() == null) {
       return false;
     }
@@ -137,9 +133,8 @@ final class DiscoveryResponseCache {
     final String status;
     final Map<String, List<String>> headers;
     final String body;
-    final long fetchedAtMillis;
 
-    private CachedResponse(Response response, long fetchedAtMillis) throws IOException {
+    private CachedResponse(Response response) throws IOException {
       try (InputStream in = response.getBody()) {
         this.body = in == null ? "" : new String(in.readAllBytes(), StandardCharsets.UTF_8);
       }
@@ -147,7 +142,6 @@ final class DiscoveryResponseCache {
       this.statusCode = response.getStatusCode();
       this.status = response.getStatus();
       this.headers = readOnlyCopy(response.getAllHeaders());
-      this.fetchedAtMillis = fetchedAtMillis;
     }
 
     // Every cache hit shares this map, so no caller may change it.
@@ -161,11 +155,6 @@ final class DiscoveryResponseCache {
                     values == null ? null : Collections.unmodifiableList(new ArrayList<>(values))));
       }
       return Collections.unmodifiableMap(copy);
-    }
-
-    boolean isExpired(long nowMillis) {
-      long ttlMillis = statusCode == 200 ? TTL_MILLIS : NOT_FOUND_TTL_MILLIS;
-      return nowMillis - fetchedAtMillis >= ttlMillis;
     }
 
     Response toResponse(Request request) {
