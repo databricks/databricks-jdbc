@@ -34,6 +34,8 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
   private static final Pattern CTE_DML_PATTERN =
       Pattern.compile("^(INSERT|UPDATE|DELETE|MERGE)\\b", Pattern.CASE_INSENSITIVE);
+  private static final Pattern MULTI_INSERT_PATTERN =
+      Pattern.compile("^\\s*FROM\\b", Pattern.CASE_INSENSITIVE);
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -910,11 +912,11 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   }
 
   private static boolean isMultiInsert(String query) {
-    char[] syntax = syntaxCharacters(query);
-    int index = skipWhitespace(syntax, 0);
-    if (!startsWithKeyword(query, syntax, index, "FROM")) {
+    if (!MULTI_INSERT_PATTERN.matcher(query).find()) {
       return false;
     }
+    char[] syntax = syntaxCharacters(query);
+    int index = skipWhitespace(syntax, 0);
     index += "FROM".length();
     int depth = 0;
     while (index < syntax.length) {
