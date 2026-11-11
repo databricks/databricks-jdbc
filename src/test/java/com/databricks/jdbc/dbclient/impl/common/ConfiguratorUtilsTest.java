@@ -396,10 +396,12 @@ public class ConfiguratorUtilsTest {
 
   @Test
   void trustSettingsKeyChangesWithEveryTrustInput() {
-    String baseKey = ConfiguratorUtils.trustSettingsKey(mock(IDatabricksConnectionContext.class));
+    List<Object> baseKey =
+        ConfiguratorUtils.trustSettingsKey(mock(IDatabricksConnectionContext.class));
     List<Consumer<IDatabricksConnectionContext>> changes =
         List.of(
             c -> when(c.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH),
+            c -> when(c.getSSLTrustStore()).thenReturn("null"),
             c -> when(c.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE),
             c -> when(c.getSSLTrustStoreProvider()).thenReturn("SUN"),
             c -> when(c.useSystemTrustStore()).thenReturn(true),
@@ -429,7 +431,7 @@ public class ConfiguratorUtilsTest {
       System.setProperty("javax.net.ssl.trustStore", DUMMY_TRUST_STORE_PATH);
       System.setProperty("javax.net.ssl.trustStoreType", TRUST_STORE_TYPE);
       System.clearProperty("javax.net.ssl.trustStoreProvider");
-      String key = ConfiguratorUtils.trustSettingsKey(context);
+      List<Object> key = ConfiguratorUtils.trustSettingsKey(context);
 
       System.setProperty("javax.net.ssl.trustStore", EMPTY_TRUST_STORE_PATH);
       assertNotEquals(key, ConfiguratorUtils.trustSettingsKey(context));

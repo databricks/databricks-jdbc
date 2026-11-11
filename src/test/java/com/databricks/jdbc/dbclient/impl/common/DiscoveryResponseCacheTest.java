@@ -21,7 +21,7 @@ class DiscoveryResponseCacheTest {
       "https://host-a.example.com/.well-known/databricks-config";
   private static final String OIDC_DISCOVERY =
       "https://host-a.example.com/oidc/.well-known/oauth-authorization-server";
-  private static final String TRUST = "default-trust";
+  private static final List<Object> TRUST = List.of("default-trust");
 
   private final AtomicInteger calls = new AtomicInteger();
   private int nextStatus = 200;
@@ -63,7 +63,7 @@ class DiscoveryResponseCacheTest {
   @Test
   void clientsWithDifferentTrustSettingsDoNotShareEntries() throws IOException {
     HttpClient strict = DiscoveryResponseCache.wrap(delegate, TRUST);
-    HttpClient lax = DiscoveryResponseCache.wrap(delegate, "allow-self-signed");
+    HttpClient lax = DiscoveryResponseCache.wrap(delegate, List.of("allow-self-signed"));
 
     lax.execute(new Request("GET", OIDC_DISCOVERY));
     assertEquals("body-2", read(strict.execute(new Request("GET", OIDC_DISCOVERY))));

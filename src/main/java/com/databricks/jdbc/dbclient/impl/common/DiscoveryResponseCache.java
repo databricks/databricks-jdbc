@@ -40,23 +40,24 @@ final class DiscoveryResponseCache {
 
   private static final JdbcLogger LOGGER =
       JdbcLoggerFactory.getLogger(DiscoveryResponseCache.class);
-  private static final Map<List<String>, CachedResponse> CACHE = new ConcurrentHashMap<>();
+  private static final Map<List<Object>, CachedResponse> CACHE = new ConcurrentHashMap<>();
 
   private DiscoveryResponseCache() {}
 
-  static HttpClient wrap(HttpClient delegate, String trustSettingsKey) {
+  static HttpClient wrap(HttpClient delegate, List<Object> trustSettingsKey) {
     // Monotonic, so wall-clock jumps can't stretch or cut short an entry's TTL.
     return wrap(delegate, trustSettingsKey, () -> TimeUnit.NANOSECONDS.toMillis(System.nanoTime()));
   }
 
   @VisibleForTesting
-  static HttpClient wrap(HttpClient delegate, String trustSettingsKey, LongSupplier clockMillis) {
+  static HttpClient wrap(
+      HttpClient delegate, List<Object> trustSettingsKey, LongSupplier clockMillis) {
     return request -> {
       String url = discoveryUrl(request);
       if (url == null) {
         return delegate.execute(request);
       }
-      List<String> key = List.of(trustSettingsKey, url);
+      List<Object> key = List.of(trustSettingsKey, url);
       CachedResponse cached = CACHE.get(key);
       long lookupMillis = clockMillis.getAsLong();
       if (cached != null && !cached.isExpired(lookupMillis)) {
@@ -72,7 +73,7 @@ final class DiscoveryResponseCache {
         return response;
       }
       long now = clockMillis.getAsLong();
-      CachedResponse fresh = CachedResponse.from(response, now);
+      CachedResponse fresh = new CachedResponse(response, now);
       // Inserts are rare (about once per key per TTL), so this scan is cheap. It limits the
       // cache to hosts used recently.
       CACHE.values().removeIf(entry -> entry.isExpired(now));
@@ -125,33 +126,15 @@ final class DiscoveryResponseCache {
     final String body;
     final long fetchedAtMillis;
 
-    private CachedResponse(
-        URL url,
-        int statusCode,
-        String status,
-        Map<String, List<String>> headers,
-        String body,
-        long fetchedAtMillis) {
-      this.url = url;
-      this.statusCode = statusCode;
-      this.status = status;
-      this.headers = headers;
-      this.body = body;
-      this.fetchedAtMillis = fetchedAtMillis;
-    }
-
-    static CachedResponse from(Response response, long fetchedAtMillis) throws IOException {
-      String body;
+    private CachedResponse(Response response, long fetchedAtMillis) throws IOException {
       try (InputStream in = response.getBody()) {
-        body = in == null ? "" : new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        this.body = in == null ? "" : new String(in.readAllBytes(), StandardCharsets.UTF_8);
       }
-      return new CachedResponse(
-          response.getUrl(),
-          response.getStatusCode(),
-          response.getStatus(),
-          readOnlyCopy(response.getAllHeaders()),
-          body,
-          fetchedAtMillis);
+      this.url = response.getUrl();
+      this.statusCode = response.getStatusCode();
+      this.status = response.getStatus();
+      this.headers = readOnlyCopy(response.getAllHeaders());
+      this.fetchedAtMillis = fetchedAtMillis;
     }
 
     // Every cache hit shares this map, so no caller may change it.
