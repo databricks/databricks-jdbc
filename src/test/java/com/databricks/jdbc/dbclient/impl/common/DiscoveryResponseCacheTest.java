@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -93,6 +94,42 @@ class DiscoveryResponseCacheTest {
     assertEquals("body-2", read(client.execute(new Request("GET", url))));
     assertEquals("body-2", read(client.execute(new Request("GET", url))));
     assertEquals(2, calls.get());
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "http://host-a.example.com",
+        "https://host-b.example.com",
+        "https://host-a.example.com:8443"
+      })
+  void doesNotCacheResponsesFromDifferentOrigins(String responseOrigin) throws IOException {
+    HttpClient client = cache.wrapClient(delegate, TRUST);
+    nextUrl = new URL(responseOrigin + "/oidc/.well-known/oauth-authorization-server");
+
+    assertEquals("body-1", read(client.execute(new Request("GET", OIDC_DISCOVERY))));
+    assertEquals("body-2", read(client.execute(new Request("GET", OIDC_DISCOVERY))));
+    assertEquals(2, calls.get());
+    assertEquals(0, cache.size());
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "https://host-a.example.com, https://HOST-A.example.com:443",
+    "https://host-a.example.com:443, https://host-a.example.com",
+    "http://host-a.example.com, http://host-a.example.com:80",
+    "http://host-a.example.com:80, http://host-a.example.com",
+    "HTTPS://HOST-A.example.com, https://host-a.example.com",
+    "https://host-a.example.com:8443, https://host-a.example.com:8443"
+  })
+  void matchingOriginsAreCached(String requestOrigin, String responseOrigin) throws IOException {
+    HttpClient client = cache.wrapClient(delegate, TRUST);
+    String url = requestOrigin + "/oidc/.well-known/oauth-authorization-server";
+    nextUrl = new URL(responseOrigin + "/oidc/.well-known/oauth-authorization-server");
+
+    assertEquals("body-1", read(client.execute(new Request("GET", url))));
+    assertEquals("body-1", read(client.execute(new Request("GET", url))));
+    assertEquals(1, calls.get());
   }
 
   @ParameterizedTest

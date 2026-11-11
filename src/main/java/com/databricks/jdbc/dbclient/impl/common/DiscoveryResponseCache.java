@@ -115,11 +115,20 @@ final class DiscoveryResponseCache {
   }
 
   private static boolean isCacheable(String requestedUrl, Response response) {
-    if (response.getUrl() == null
-        || !URI.create(requestedUrl).getRawPath().equals(response.getUrl().getPath())) {
+    URI requestedUri = URI.create(requestedUrl);
+    URL finalUrl = response.getUrl();
+    if (finalUrl == null
+        || !finalUrl.getProtocol().equalsIgnoreCase(requestedUri.getScheme())
+        || !finalUrl.getHost().equalsIgnoreCase(requestedUri.getHost())
+        || !finalUrl.getPath().equals(requestedUri.getRawPath())) {
       return false;
     }
-    if (response.getStatusCode() != 200 || response.getAllHeaders() == null) {
+    int requestedPort =
+        requestedUri.getPort() == -1 ? finalUrl.getDefaultPort() : requestedUri.getPort();
+    int finalPort = finalUrl.getPort() == -1 ? finalUrl.getDefaultPort() : finalUrl.getPort();
+    if (requestedPort != finalPort
+        || response.getStatusCode() != 200
+        || response.getAllHeaders() == null) {
       return false;
     }
     String contentType = response.getFirstHeader("Content-Type");
