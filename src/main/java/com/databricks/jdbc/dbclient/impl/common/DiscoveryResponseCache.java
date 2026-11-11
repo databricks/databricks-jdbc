@@ -41,7 +41,8 @@ final class DiscoveryResponseCache {
   private DiscoveryResponseCache() {}
 
   static HttpClient wrap(HttpClient delegate, String trustSettingsKey) {
-    return wrap(delegate, trustSettingsKey, System::currentTimeMillis);
+    // Monotonic, so wall-clock jumps can't stretch or cut short an entry's TTL.
+    return wrap(delegate, trustSettingsKey, () -> TimeUnit.NANOSECONDS.toMillis(System.nanoTime()));
   }
 
   @VisibleForTesting
