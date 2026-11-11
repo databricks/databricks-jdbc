@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.Properties;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -70,6 +71,28 @@ class DatabricksCteStatementTest {
       })
   void classifiesCteDmlAsUpdateCount(String sql) {
     assertFalse(DatabricksStatement.shouldReturnResultSet(sql, Collections.emptyList()));
+    assertFalse(DatabricksStatement.isDescribableQuery(sql));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "FROM (SELECT 1 AS id) src INSERT INTO target SELECT id",
+        "FROM (SELECT 1 AS id) src INSERT OVERWRITE target SELECT id",
+        "FROM (SELECT 1 AS id) src INSERT WITH SCHEMA EVOLUTION INTO target SELECT id",
+        "FROM (SELECT 1 AS id) src INSERT ONCE INTO target SELECT id"
+      })
+  void classifiesMultiInsertAsUpdateCount(String sql) {
+    assertFalse(DatabricksStatement.shouldReturnResultSet(sql, Collections.emptyList()));
+    assertFalse(DatabricksStatement.isDescribableQuery(sql));
+  }
+
+  @Test
+  void configuredPrefixPreservesMultiInsertResultSet() {
+    assertTrue(
+        DatabricksStatement.shouldReturnResultSet(
+            "FROM (SELECT 1 AS id) src INSERT INTO target SELECT id",
+            Collections.singletonList("FROM")));
   }
 
   @ParameterizedTest
@@ -92,6 +115,19 @@ class DatabricksCteStatementTest {
       })
   void preservesCteQueryClassification(String sql) {
     assertTrue(DatabricksStatement.shouldReturnResultSet(sql, Collections.emptyList()));
+    assertTrue(DatabricksStatement.isDescribableQuery(sql));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "FROM (SELECT 1 AS id) src SELECT id",
+        "FROM (SELECT 'INSERT INTO target' AS value) src SELECT value",
+        "FROM (SELECT 1 AS id) src INSERT WITH SCHEMA INTO target SELECT id"
+      })
+  void preservesFromQueryClassification(String sql) {
+    assertTrue(DatabricksStatement.shouldReturnResultSet(sql, Collections.emptyList()));
+    assertTrue(DatabricksStatement.isDescribableQuery(sql));
   }
 
   @ParameterizedTest

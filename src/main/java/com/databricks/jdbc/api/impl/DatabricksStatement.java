@@ -805,7 +805,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       return true;
     }
 
-    if (isCteDml(trimmedQuery)) {
+    if (isDmlWithQueryPrefix(trimmedQuery)) {
       return false;
     }
 
@@ -905,6 +905,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
     return CTE_DML_PATTERN.matcher(outerStatement).find() || isMultiInsert(outerStatement);
   }
 
+  private static boolean isDmlWithQueryPrefix(String query) {
+    return isCteDml(query) || isMultiInsert(query);
+  }
+
   private static boolean isMultiInsert(String query) {
     char[] syntax = syntaxCharacters(query);
     int index = skipWhitespace(syntax, 0);
@@ -982,9 +986,9 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   static boolean isDescribableQuery(String query) {
     String trimmedQuery = trimCommentsAndWhitespaces(query);
     return SELECT_PATTERN.matcher(trimmedQuery).find()
-        || (WITH_PATTERN.matcher(trimmedQuery).find() && !isCteDml(trimmedQuery))
-        || VALUES_PATTERN.matcher(trimmedQuery).find()
-        || FROM_PATTERN.matcher(trimmedQuery).find();
+        || ((WITH_PATTERN.matcher(trimmedQuery).find() || FROM_PATTERN.matcher(trimmedQuery).find())
+            && !isDmlWithQueryPrefix(trimmedQuery))
+        || VALUES_PATTERN.matcher(trimmedQuery).find();
   }
 
   static boolean isInsertQuery(String query) {
