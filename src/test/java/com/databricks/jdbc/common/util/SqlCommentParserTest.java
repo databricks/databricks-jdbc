@@ -454,10 +454,15 @@ public class SqlCommentParserTest {
   }
 
   @Test
-  public void testFindPlaceholderPositionsHandlesBackslashEscapedQuote() {
+  public void testFindPlaceholderPositionsHandlesBackslashEscapedQuotes() {
     String sql = "select 'it\\'s ?' as x, ? as y from t";
     assertArrayEquals(
         new int[] {sql.lastIndexOf('?')}, SqlCommentParser.findPlaceholderPositions(sql));
+
+    String doubleQuoted = "select \"dir\\\"name?\" as x, ? as y";
+    assertArrayEquals(
+        new int[] {doubleQuoted.lastIndexOf('?')},
+        SqlCommentParser.findPlaceholderPositions(doubleQuoted));
   }
 
   @Test
