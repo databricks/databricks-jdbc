@@ -49,14 +49,18 @@ final class DiscoveryResponseCache {
       }
       List<String> key = List.of(trustSettingsKey, url);
       CachedResponse cached = CACHE.get(key);
-      if (cached != null && clockMillis.getAsLong() - cached.fetchedAtMillis < TTL_MILLIS) {
+      if (cached != null && !cached.isExpired(clockMillis.getAsLong())) {
         return cached.toResponse(request);
       }
       Response response = delegate.execute(request);
       if (!isCacheable(url, response.getStatusCode())) {
         return response;
       }
-      CachedResponse fresh = CachedResponse.from(response, clockMillis.getAsLong());
+      long now = clockMillis.getAsLong();
+      CachedResponse fresh = CachedResponse.from(response, now);
+      // Inserts are rare (about once per key per TTL), so this scan is cheap. It limits the
+      // cache to hosts used within the last TTL.
+      CACHE.values().removeIf(entry -> entry.isExpired(now));
       CACHE.put(key, fresh);
       return fresh.toResponse(request);
     };
@@ -65,6 +69,11 @@ final class DiscoveryResponseCache {
   @VisibleForTesting
   static void clear() {
     CACHE.clear();
+  }
+
+  @VisibleForTesting
+  static int size() {
+    return CACHE.size();
   }
 
   private static String discoveryUrl(Request request) {
@@ -131,6 +140,10 @@ final class DiscoveryResponseCache {
                     values == null ? null : Collections.unmodifiableList(new ArrayList<>(values))));
       }
       return Collections.unmodifiableMap(copy);
+    }
+
+    boolean isExpired(long nowMillis) {
+      return nowMillis - fetchedAtMillis >= TTL_MILLIS;
     }
 
     Response toResponse(Request request) {

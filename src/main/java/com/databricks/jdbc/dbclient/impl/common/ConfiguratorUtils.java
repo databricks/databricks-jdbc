@@ -115,12 +115,20 @@ public class ConfiguratorUtils {
    * trust. Keep it in sync with that method.
    */
   static String trustSettingsKey(IDatabricksConnectionContext connectionContext) {
+    boolean useSystemTrustStore = connectionContext.useSystemTrustStore();
     return String.join(
         "|",
         String.valueOf(connectionContext.getSSLTrustStore()),
         String.valueOf(connectionContext.getSSLTrustStoreType()),
         String.valueOf(connectionContext.getSSLTrustStoreProvider()),
-        String.valueOf(connectionContext.useSystemTrustStore()),
+        String.valueOf(useSystemTrustStore),
+        // Read again on every connection, so an application can change them at runtime.
+        useSystemTrustStore
+            ? String.valueOf(System.getProperty(JAVA_TRUST_STORE_PATH_PROPERTY))
+            : "",
+        useSystemTrustStore
+            ? String.valueOf(System.getProperty(JAVA_TRUST_STORE_TYPE_PROPERTY))
+            : "",
         String.valueOf(connectionContext.allowSelfSignedCerts()),
         String.valueOf(connectionContext.checkCertificateRevocation()),
         String.valueOf(connectionContext.acceptUndeterminedCertificateRevocation()));

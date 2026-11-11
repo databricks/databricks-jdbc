@@ -19,7 +19,9 @@ import java.security.cert.TrustAnchor;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
@@ -387,6 +389,59 @@ public class ConfiguratorUtilsTest {
       } else {
         System.clearProperty("javax.net.ssl.trustStoreType");
       }
+    }
+  }
+
+  @Test
+  void trustSettingsKeyChangesWithEveryTrustInput() {
+    String baseKey = ConfiguratorUtils.trustSettingsKey(mock(IDatabricksConnectionContext.class));
+    List<Consumer<IDatabricksConnectionContext>> changes =
+        List.of(
+            c -> when(c.getSSLTrustStore()).thenReturn(DUMMY_TRUST_STORE_PATH),
+            c -> when(c.getSSLTrustStoreType()).thenReturn(TRUST_STORE_TYPE),
+            c -> when(c.getSSLTrustStoreProvider()).thenReturn("SUN"),
+            c -> when(c.useSystemTrustStore()).thenReturn(true),
+            c -> when(c.allowSelfSignedCerts()).thenReturn(true),
+            c -> when(c.checkCertificateRevocation()).thenReturn(true),
+            c -> when(c.acceptUndeterminedCertificateRevocation()).thenReturn(true));
+
+    for (Consumer<IDatabricksConnectionContext> change : changes) {
+      IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+      change.accept(context);
+      assertNotEquals(baseKey, ConfiguratorUtils.trustSettingsKey(context));
+    }
+  }
+
+  @Test
+  void trustSettingsKeyTracksSystemTrustStorePropertiesOnlyWhenUsed() {
+    String originalTrustStore = System.getProperty("javax.net.ssl.trustStore");
+    String originalType = System.getProperty("javax.net.ssl.trustStoreType");
+    IDatabricksConnectionContext usesSystem = mock(IDatabricksConnectionContext.class);
+    when(usesSystem.useSystemTrustStore()).thenReturn(true);
+    IDatabricksConnectionContext ignoresSystem = mock(IDatabricksConnectionContext.class);
+    try {
+      System.setProperty("javax.net.ssl.trustStore", DUMMY_TRUST_STORE_PATH);
+      System.setProperty("javax.net.ssl.trustStoreType", TRUST_STORE_TYPE);
+      String usesSystemKey = ConfiguratorUtils.trustSettingsKey(usesSystem);
+      String ignoresSystemKey = ConfiguratorUtils.trustSettingsKey(ignoresSystem);
+
+      System.setProperty("javax.net.ssl.trustStore", EMPTY_TRUST_STORE_PATH);
+      assertNotEquals(usesSystemKey, ConfiguratorUtils.trustSettingsKey(usesSystem));
+      System.setProperty("javax.net.ssl.trustStore", DUMMY_TRUST_STORE_PATH);
+      System.setProperty("javax.net.ssl.trustStoreType", "JKS");
+      assertNotEquals(usesSystemKey, ConfiguratorUtils.trustSettingsKey(usesSystem));
+      assertEquals(ignoresSystemKey, ConfiguratorUtils.trustSettingsKey(ignoresSystem));
+    } finally {
+      restoreProperty("javax.net.ssl.trustStore", originalTrustStore);
+      restoreProperty("javax.net.ssl.trustStoreType", originalType);
+    }
+  }
+
+  private static void restoreProperty(String name, String value) {
+    if (value != null) {
+      System.setProperty(name, value);
+    } else {
+      System.clearProperty(name);
     }
   }
 

@@ -100,6 +100,20 @@ class DiscoveryResponseCacheTest {
   }
 
   @Test
+  void storingAnEntryDropsExpiredOnes() throws IOException {
+    AtomicLong now = new AtomicLong(1_000L);
+    HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST, now::get);
+    client.execute(new Request("GET", HOST_METADATA));
+    client.execute(new Request("GET", OIDC_DISCOVERY));
+    assertEquals(2, DiscoveryResponseCache.size());
+
+    now.addAndGet(DiscoveryResponseCache.TTL_MILLIS);
+    client.execute(new Request("GET", "https://host-b.example.com/.well-known/databricks-config"));
+
+    assertEquals(1, DiscoveryResponseCache.size());
+  }
+
+  @Test
   void cachedResponseCarriesCurrentRequest() throws IOException {
     HttpClient client = DiscoveryResponseCache.wrap(delegate, TRUST);
     client.execute(new Request("GET", HOST_METADATA));
