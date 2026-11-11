@@ -4,6 +4,8 @@
 
 ### Added
 
+- `ResultSet.getObject(column, Class)` now supports the JDBC 4.2 `java.time` types: `LocalDate` and `LocalDateTime` for DATE, TIMESTAMP and TIMESTAMP_NTZ columns, and `Instant` and `OffsetDateTime` (UTC offset) for TIMESTAMP columns. With Arrow results (the default), these values are read straight from the server's epoch values, so BC and pre-1582 dates and timestamps are returned exactly. Previously, `Instant`, `LocalDateTime` and `OffsetDateTime` requests returned a `String`, and `LocalDate` went through `java.sql.Date` (for example, `DATE '1582-10-05'` came back as 1582-10-15). Requests that have no meaningful answer, such as `Instant` from a TIMESTAMP_NTZ or DATE column, or a `java.time` class on a non-temporal column, now throw an `SQLException` with `UNSUPPORTED_OPERATION`. `getDate`, `getTimestamp`, `getString` and `getObject(column)` are unchanged. ([#1779](https://github.com/databricks/databricks-jdbc/issues/1779))
+
 ### Updated
 
 ### Fixed

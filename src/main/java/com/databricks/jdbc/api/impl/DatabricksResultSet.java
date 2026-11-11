@@ -11,6 +11,7 @@ import com.databricks.jdbc.api.impl.arrow.ChunkProvider;
 import com.databricks.jdbc.api.impl.arrow.LazyThriftInlineArrowResult;
 import com.databricks.jdbc.api.impl.arrow.StreamingInlineArrowResult;
 import com.databricks.jdbc.api.impl.converters.ConverterHelper;
+import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
 import com.databricks.jdbc.api.impl.converters.ObjectConverter;
 import com.databricks.jdbc.api.impl.thrift.StreamingColumnarResult;
 import com.databricks.jdbc.api.impl.volume.VolumeOperationResult;
@@ -2256,6 +2257,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   @Override
   public <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
     checkIfClosed();
+    if (JavaTimeConverter.isJavaTimeType(type)) {
+      return type.cast(getJavaTimeObject(columnIndex, type));
+    }
     Object obj = getObjectInternal(columnIndex);
     if (obj == null) {
       return null;
@@ -2377,15 +2381,39 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   private Object getObjectInternal(int columnIndex) throws SQLException {
+    checkColumnIndex(columnIndex);
+    Object object = executionResult.getObject(columnIndex - 1);
+    this.wasNull = object == null;
+    return object;
+  }
+
+  /**
+   * Returns the value of a DATE or TIMESTAMP column as a {@code java.time} type. The value is built
+   * from the source value instead of from {@code java.sql.Date}/{@code java.sql.Timestamp}, so BC
+   * and pre-1582 values are exact for Arrow results. Unsupported combinations, such as an {@link
+   * Instant} from a TIMESTAMP_NTZ column, throw an {@code UNSUPPORTED_OPERATION} error.
+   */
+  private Object getJavaTimeObject(int columnIndex, Class<?> type) throws SQLException {
+    checkColumnIndex(columnIndex);
+    Object object = executionResult.getTemporalObject(columnIndex - 1);
+    this.wasNull = object == null;
+    if (object == null) {
+      return null;
+    }
+    return JavaTimeConverter.convert(
+        type,
+        resultSetMetaData.getColumnType(columnIndex),
+        resultSetMetaData.getColumnTypeName(columnIndex),
+        object);
+  }
+
+  private void checkColumnIndex(int columnIndex) throws DatabricksSQLException {
     if (columnIndex <= 0) {
       throw new DatabricksSQLException(
           "Invalid column index",
           DatabricksDriverErrorCode.INVALID_STATE,
           silenceNonTerminalExceptions);
     }
-    Object object = executionResult.getObject(columnIndex - 1);
-    this.wasNull = object == null;
-    return object;
   }
 
   private int getColumnNameIndex(String columnName) {

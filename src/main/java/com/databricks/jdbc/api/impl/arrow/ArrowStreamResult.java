@@ -271,6 +271,18 @@ public class ArrowStreamResult implements IExecutionResult {
         session, chunkIterator, columnIndex, requiredType, arrowMetadata, columnInfo);
   }
 
+  /** {@inheritDoc} */
+  @Override
+  public Object getTemporalObject(int columnIndex) throws DatabricksSQLException {
+    if (columnIndex >= 0
+        && columnIndex < columnInfos.size()
+        && chunkIterator != null
+        && chunkIterator.hasJavaTimeVector(columnIndex)) {
+      return chunkIterator.getJavaTimeObjectAtCurrentRow(columnIndex);
+    }
+    return getObject(columnIndex);
+  }
+
   /**
    * Checks if the given type is a complex type (ARRAY, MAP, STRUCT, GEOMETRY, or GEOGRAPHY).
    *

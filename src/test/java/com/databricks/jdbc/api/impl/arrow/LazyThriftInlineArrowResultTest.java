@@ -13,14 +13,22 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.ByteArrayOutputStream;
+import java.sql.Date;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.TimeStampMicroTZVector;
+import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
@@ -390,5 +398,84 @@ public class LazyThriftInlineArrowResultTest {
         new LazyThriftInlineArrowResult(initialResponse, statement, session);
 
     assertEquals(rowCount, result.getRowCount());
+  }
+
+  /**
+   * Creates Arrow IPC bytes with DATE, TIMESTAMP (UTC session), TIMESTAMP_NTZ and INT columns. Row
+   * 0 holds BC and pre-1582 values; row 1 holds nulls.
+   */
+  private static byte[] createTemporalArrowData() {
+    try (BufferAllocator allocator = new RootAllocator();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        DateDayVector dateVector = new DateDayVector("date_column", allocator);
+        TimeStampMicroTZVector timestampVector =
+            new TimeStampMicroTZVector("timestamp_column", allocator, "UTC");
+        TimeStampMicroVector timestampNtzVector =
+            new TimeStampMicroVector("timestamp_ntz_column", allocator);
+        IntVector intVector = new IntVector("int_column", allocator)) {
+      dateVector.allocateNew(2);
+      timestampVector.allocateNew(2);
+      timestampNtzVector.allocateNew(2);
+      intVector.allocateNew(2);
+
+      dateVector.set(0, -141437); // DATE '1582-10-05'
+      timestampVector.set(0, -125754422400000000L); // TO_TIMESTAMP('2016 bc', 'yyyy G')
+      timestampNtzVector.set(0, -30610224000000000L); // TIMESTAMP_NTZ '1000-01-01 00:00:00'
+      intVector.set(0, 19598);
+      dateVector.setNull(1);
+      timestampVector.setNull(1);
+      timestampNtzVector.setNull(1);
+      intVector.setNull(1);
+
+      try (VectorSchemaRoot root =
+              VectorSchemaRoot.of(dateVector, timestampVector, timestampNtzVector, intVector);
+          ArrowStreamWriter writer = new ArrowStreamWriter(root, null, out)) {
+        root.setRowCount(2);
+        writer.start();
+        writer.writeBatch();
+        writer.end();
+      }
+      return out.toByteArray();
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to create test Arrow data", e);
+    }
+  }
+
+  @Test
+  void testGetTemporalObjectReadsExactValuesFromArrow() throws SQLException {
+    TFetchResultsResp initialResponse = createFetchResultsResp(createTemporalArrowData(), 2, false);
+    initialResponse
+        .getResultSetMetadata()
+        .setSchema(
+            createTableSchema(
+                TTypeId.DATE_TYPE,
+                TTypeId.TIMESTAMP_TYPE,
+                TTypeId.TIMESTAMP_TYPE,
+                TTypeId.INT_TYPE));
+
+    when(statement.getStatementId()).thenReturn(STATEMENT_ID);
+    when(session.getConnectionContext()).thenReturn(connectionContext);
+
+    LazyThriftInlineArrowResult result =
+        new LazyThriftInlineArrowResult(initialResponse, statement, session);
+
+    DatabricksSQLException beforeFirstRow =
+        assertThrows(DatabricksSQLException.class, () -> result.getTemporalObject(0));
+    assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), beforeFirstRow.getSQLState());
+
+    assertTrue(result.next());
+    assertEquals(LocalDate.of(1582, 10, 5), result.getTemporalObject(0));
+    assertEquals(OffsetDateTime.parse("-2015-01-01T00:00:00Z"), result.getTemporalObject(1));
+    assertEquals(LocalDateTime.of(1000, 1, 1, 0, 0), result.getTemporalObject(2));
+    // Non-temporal columns return the same value as getObject.
+    assertEquals(19598, result.getTemporalObject(3));
+    // getObject keeps returning the legacy java.sql values.
+    assertEquals(Date.valueOf(LocalDate.of(1582, 10, 5)), result.getObject(0));
+    assertInstanceOf(Timestamp.class, result.getObject(1));
+
+    assertTrue(result.next());
+    for (int column = 0; column < 4; column++) {
+      assertNull(result.getTemporalObject(column));
+    }
   }
 }

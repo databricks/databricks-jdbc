@@ -23,7 +23,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.TimeStampMicroTZVector;
+import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.util.Text;
 
@@ -248,10 +250,67 @@ public class ArrowToJavaObjectConverter {
       return Timestamp.valueOf((LocalDateTime) object);
     }
     long timeMicros = object instanceof Integer ? ((int) object) : ((long) object);
-    Instant instant = Instant.ofEpochSecond(timeMicros / 1000_000, (timeMicros % 1000_000) * 1000);
+    Instant instant = instantFromEpochMicros(timeMicros);
     ZoneId zoneId = getZoneIdFromTimeZoneOpt(timeZoneOpt);
     LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, zoneId);
     return Timestamp.valueOf(localDateTime);
+  }
+
+  private static Instant instantFromEpochMicros(long epochMicros) {
+    return Instant.ofEpochSecond(epochMicros / 1000_000, (epochMicros % 1000_000) * 1000);
+  }
+
+  /**
+   * Returns true if {@link #convertToJavaTime} can read values from the vector. These vector types
+   * are only used for DATE, TIMESTAMP and TIMESTAMP_NTZ columns.
+   *
+   * @param columnVector an Arrow column vector
+   * @return true for the vector types the server uses for DATE, TIMESTAMP and TIMESTAMP_NTZ
+   */
+  public static boolean isJavaTimeVector(ValueVector columnVector) {
+    return columnVector instanceof DateDayVector
+        || columnVector instanceof TimeStampMicroTZVector
+        || columnVector instanceof TimeStampMicroVector;
+  }
+
+  /**
+   * Reads a DATE or TIMESTAMP value straight from the Arrow vector, for {@link JavaTimeConverter}.
+   *
+   * <p>The server sends proleptic Gregorian epoch days and epoch microseconds. Unlike {@link
+   * #convert}, this does not build {@link Date} or {@link Timestamp} values, which use the hybrid
+   * Julian/Gregorian calendar and cannot represent BC or pre-1582 values exactly.
+   *
+   * @param columnVector a vector accepted by {@link #isJavaTimeVector}
+   * @param vectorIndex the row index in the vector
+   * @return a {@link LocalDate} for DATE, a {@link LocalDateTime} for TIMESTAMP_NTZ, an {@link
+   *     OffsetDateTime} in the vector's (session) time zone for TIMESTAMP, or null for SQL NULL
+   * @throws DatabricksSQLException if the vector type is not supported
+   */
+  public static Object convertToJavaTime(ValueVector columnVector, int vectorIndex)
+      throws DatabricksSQLException {
+    if (columnVector.isNull(vectorIndex)) {
+      return null;
+    }
+    if (columnVector instanceof DateDayVector) {
+      return LocalDate.ofEpochDay(((DateDayVector) columnVector).get(vectorIndex));
+    }
+    if (columnVector instanceof TimeStampMicroTZVector) {
+      TimeStampMicroTZVector timestampVector = (TimeStampMicroTZVector) columnVector;
+      ZoneId zoneId = getZoneIdFromTimeZoneOpt(Optional.ofNullable(timestampVector.getTimeZone()));
+      return instantFromEpochMicros(timestampVector.get(vectorIndex))
+          .atZone(zoneId)
+          .toOffsetDateTime();
+    }
+    if (columnVector instanceof TimeStampMicroVector) {
+      // Arrow builds this LocalDateTime from the epoch microseconds with java.time, so it is exact.
+      return ((TimeStampMicroVector) columnVector).getObject(vectorIndex);
+    }
+    String errorMessage =
+        String.format(
+            "Unsupported Arrow vector %s for java.time conversion",
+            columnVector.getClass().getSimpleName());
+    LOGGER.error(errorMessage);
+    throw new DatabricksValidationException(errorMessage);
   }
 
   /**

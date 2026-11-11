@@ -29,6 +29,8 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.Text;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 public class ArrowToJavaObjectConverterTest {
   private final BufferAllocator bufferAllocator;
@@ -680,6 +682,111 @@ public class ArrowToJavaObjectConverterTest {
 
     assertInstanceOf(Timestamp.class, convertedObject);
     assertEquals(getTimestampAdjustedToTimeZone(timestamp, timeZone), convertedObject);
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    "-1455491, -2015-01-01", // DATE '-2015-01-01' (2016 BC)
+    "-141437, 1582-10-05", // inside the Julian/Gregorian cutover gap
+    "0, 1970-01-01",
+    "19598, 2023-08-29"
+  })
+  public void testConvertToJavaTime_DateIsExact(int epochDay, String expected) throws SQLException {
+    DateDayVector dateDayVector = new DateDayVector("dateDayVector", this.bufferAllocator);
+    dateDayVector.allocateNew(1);
+    dateDayVector.set(0, epochDay);
+    dateDayVector.setValueCount(1);
+
+    assertTrue(ArrowToJavaObjectConverter.isJavaTimeVector(dateDayVector));
+    assertEquals(
+        LocalDate.parse(expected), ArrowToJavaObjectConverter.convertToJavaTime(dateDayVector, 0));
+  }
+
+  @ParameterizedTest
+  @CsvSource({
+    // TO_TIMESTAMP('2016 bc', 'yyyy G')
+    "-125754422400000000, UTC, -2015-01-01T00:00Z",
+    // TIMESTAMP '1000-01-01 00:00:00 UTC'
+    "-30610224000000000, UTC, 1000-01-01T00:00Z",
+    "1704054601234567, Asia/Tokyo, 2024-01-01T05:30:01.234567+09:00",
+    "-1, +5:30, 1970-01-01T05:29:59.999999+05:30"
+  })
+  public void testConvertToJavaTime_TimestampIsExactInSessionZone(
+      long epochMicros, String timeZone, String expected) throws SQLException {
+    TimeStampMicroTZVector timeStampMicroTZVector =
+        new TimeStampMicroTZVector("timeStampMicroTzVector", this.bufferAllocator, timeZone);
+    timeStampMicroTZVector.allocateNew(1);
+    timeStampMicroTZVector.set(0, epochMicros);
+    timeStampMicroTZVector.setValueCount(1);
+
+    assertTrue(ArrowToJavaObjectConverter.isJavaTimeVector(timeStampMicroTZVector));
+    assertEquals(
+        OffsetDateTime.parse(expected),
+        ArrowToJavaObjectConverter.convertToJavaTime(timeStampMicroTZVector, 0));
+  }
+
+  @Test
+  public void testConvertToJavaTime_TimestampNtzIsExact() throws SQLException {
+    TimeStampMicroVector timestampMicroVector =
+        new TimeStampMicroVector("timestampMicroVector", this.bufferAllocator);
+    timestampMicroVector.allocateNew(1);
+    timestampMicroVector.set(0, -125754422400000001L);
+    timestampMicroVector.setValueCount(1);
+
+    assertTrue(ArrowToJavaObjectConverter.isJavaTimeVector(timestampMicroVector));
+    assertEquals(
+        LocalDateTime.parse("-2016-12-31T23:59:59.999999"),
+        ArrowToJavaObjectConverter.convertToJavaTime(timestampMicroVector, 0));
+  }
+
+  @Test
+  public void testConvertToJavaTime_NullValue() throws SQLException {
+    DateDayVector dateDayVector = new DateDayVector("dateDayVector", this.bufferAllocator);
+    dateDayVector.allocateNew(1);
+    dateDayVector.setNull(0);
+    dateDayVector.setValueCount(1);
+
+    assertNull(ArrowToJavaObjectConverter.convertToJavaTime(dateDayVector, 0));
+  }
+
+  @Test
+  public void testConvertToJavaTime_UnsupportedVector() {
+    IntVector intVector = new IntVector("intVector", this.bufferAllocator);
+    intVector.allocateNew(1);
+    intVector.set(0, 19598);
+    intVector.setValueCount(1);
+
+    assertFalse(ArrowToJavaObjectConverter.isJavaTimeVector(intVector));
+    assertThrows(
+        DatabricksValidationException.class,
+        () -> ArrowToJavaObjectConverter.convertToJavaTime(intVector, 0));
+  }
+
+  @Test
+  public void testConvert_LegacyDateAndTimestampUnchanged() throws SQLException {
+    // The java.sql values keep their existing hybrid-calendar behaviour; only the java.time path
+    // is exact.
+    DateDayVector dateDayVector = new DateDayVector("dateDayVector", this.bufferAllocator);
+    dateDayVector.allocateNew(1);
+    dateDayVector.set(0, -141437); // 1582-10-05
+    dateDayVector.setValueCount(1);
+    assertEquals(
+        Date.valueOf(LocalDate.of(1582, 10, 5)),
+        convert(dateDayVector, 0, ColumnInfoTypeName.DATE, "DATE", new ColumnInfo()));
+
+    TimeStampMicroTZVector timeStampMicroTZVector =
+        new TimeStampMicroTZVector("timeStampMicroTzVector", this.bufferAllocator, "UTC");
+    timeStampMicroTZVector.allocateNew(1);
+    timeStampMicroTZVector.set(0, -30610224000000000L); // 1000-01-01T00:00:00Z
+    timeStampMicroTZVector.setValueCount(1);
+    assertEquals(
+        Timestamp.valueOf(LocalDateTime.of(1000, 1, 1, 0, 0)),
+        convert(
+            timeStampMicroTZVector,
+            0,
+            ColumnInfoTypeName.TIMESTAMP,
+            "TIMESTAMP",
+            new ColumnInfo()));
   }
 
   private static Timestamp getTimestampAdjustedToTimeZone(long timestampMicro, String timeZone) {
