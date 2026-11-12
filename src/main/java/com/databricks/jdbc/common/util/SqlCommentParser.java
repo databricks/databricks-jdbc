@@ -34,6 +34,8 @@ public class SqlCommentParser {
    * Iterates over each character in the SQL string while keeping track of comment, string literal,
    * and identifier state. Each character that is not part of a comment calls the consumer with the
    * current state and character. Emits a ' ' character after each comment to avoid token fusion.
+   * Quote boundaries follow Spark's {@code SqlBaseLexer}; parser settings that change how token
+   * contents are interpreted do not change those boundaries.
    *
    * @param sql the SQL string to parse
    * @param consumer called for each visible character with its parsing state
@@ -54,6 +56,7 @@ public class SqlCommentParser {
 
     State state = State.NORMAL;
     int blockCommentDepth = 0;
+    boolean rawString = false;
 
     for (int i = 0; i < sql.length(); i++) {
       char c = sql.charAt(i);
@@ -69,9 +72,11 @@ public class SqlCommentParser {
             blockCommentDepth = 1;
             i++; // skip '*'
           } else if (c == '\'') {
+            rawString = hasRawStringPrefix(sql, i);
             state = State.IN_SINGLE_QUOTE;
             consumer.accept(state, c, i);
           } else if (c == '"') {
+            rawString = hasRawStringPrefix(sql, i);
             state = State.IN_DOUBLE_QUOTE;
             consumer.accept(state, c, i);
           } else if (c == '`') {
@@ -84,21 +89,29 @@ public class SqlCommentParser {
 
         case IN_SINGLE_QUOTE:
           consumer.accept(state, c, i);
-          if (c == '\'' && next == '\'') {
+          if (!rawString && c == '\\' && next != '\0') {
+            consumer.accept(state, next, i + 1);
+            i++;
+          } else if (!rawString && c == '\'' && next == '\'') {
             consumer.accept(state, next, i + 1);
             i++; // skip escaped quote
           } else if (c == '\'') {
             state = State.NORMAL;
+            rawString = false;
           }
           break;
 
         case IN_DOUBLE_QUOTE:
           consumer.accept(state, c, i);
-          if (c == '"' && next == '"') {
+          if (!rawString && c == '\\' && next != '\0') {
+            consumer.accept(state, next, i + 1);
+            i++;
+          } else if (!rawString && c == '"' && next == '"') {
             consumer.accept(state, next, i + 1);
             i++; // skip escaped quote
           } else if (c == '"') {
             state = State.NORMAL;
+            rawString = false;
           }
           break;
 
@@ -113,7 +126,9 @@ public class SqlCommentParser {
           break;
 
         case IN_LINE_COMMENT:
-          if (c == '\n' || c == '\r') {
+          if (c == '\\' && next == '\n') {
+            i++;
+          } else if (c == '\n' || c == '\r') {
             state = State.NORMAL;
             consumer.accept(state, ' ', i);
             if (c == '\r' && next == '\n') {
@@ -139,6 +154,17 @@ public class SqlCommentParser {
           break;
       }
     }
+  }
+
+  private static boolean hasRawStringPrefix(String sql, int quoteIndex) {
+    if (quoteIndex == 0) {
+      return false;
+    }
+    char prefix = sql.charAt(quoteIndex - 1);
+    if (prefix != 'r' && prefix != 'R') {
+      return false;
+    }
+    return quoteIndex == 1 || !Character.isJavaIdentifierPart(sql.charAt(quoteIndex - 2));
   }
 
   /**

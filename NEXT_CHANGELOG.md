@@ -6,6 +6,8 @@
 
 ### Updated
 
+- Affected-row APIs now classify CTE-prefixed and `FROM`-led multi-insert DML as updates. By default, `execute()` returns `false`, and `executeQuery()` throws `RESULT_SET_ERROR` after successful execution. Set `NonRowcountQueryPrefixes=WITH,FROM` to retain the previous counter ResultSet behavior for both forms. SQL classification and client-side placeholder detection now recognize backslash-escaped quotes, raw string literals, and backslash-continued line comments.
+
 ### Fixed
 
 - Removed Thrift handle secrets from timeout, operation, metadata, and session diagnostics.

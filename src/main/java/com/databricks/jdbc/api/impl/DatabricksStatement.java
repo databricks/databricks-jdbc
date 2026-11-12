@@ -20,16 +20,20 @@ import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.sql.*;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.regex.Pattern;
 import org.apache.http.entity.InputStreamEntity;
 
 public class DatabricksStatement implements IDatabricksStatement, IDatabricksStatementInternal {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksStatement.class);
+  private static final Pattern MULTI_INSERT_PATTERN =
+      Pattern.compile("^\\s*FROM\\b", Pattern.CASE_INSENSITIVE);
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to
@@ -801,6 +805,10 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
       return true;
     }
 
+    if (isDmlWithQueryPrefix(trimmedQuery)) {
+      return false;
+    }
+
     // Check if the query matches any of the patterns that return a ResultSet
     return SELECT_PATTERN.matcher(trimmedQuery).find()
         || SHOW_PATTERN.matcher(trimmedQuery).find()
@@ -828,6 +836,152 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
         query, connection.getConnectionContext().getNonRowcountQueryPrefixes());
   }
 
+  private static int skipCteDefinitions(String query, char[] syntax) {
+    int index = 0;
+    while (index < syntax.length) {
+      if (Character.isJavaIdentifierPart(syntax[index])) {
+        while (index < syntax.length && Character.isJavaIdentifierPart(syntax[index])) {
+          index++;
+        }
+      } else if (syntax[index] == '(') {
+        int depth = 1;
+        while (++index < syntax.length && depth > 0) {
+          if (syntax[index] == '(') {
+            depth++;
+          } else if (syntax[index] == ')') {
+            depth--;
+          }
+        }
+        if (depth != 0) {
+          return 0;
+        }
+        index = skipWhitespace(syntax, index);
+        boolean followedByAs = startsWithKeyword(query, syntax, index, "AS");
+        boolean followedByParenthesis = index < syntax.length && syntax[index] == '(';
+        boolean followedByMaxRecursion = startsWithKeyword(query, syntax, index, "MAX");
+        if (index < syntax.length
+            && syntax[index] != ','
+            && !followedByAs
+            && !followedByParenthesis
+            && !followedByMaxRecursion) {
+          return index;
+        }
+      } else {
+        index++;
+      }
+    }
+    return 0;
+  }
+
+  private static char[] syntaxCharacters(String query) {
+    char[] syntax = new char[query.length()];
+    Arrays.fill(syntax, ' ');
+    SqlCommentParser.forEachNonCommentChar(
+        query,
+        (state, c, index) -> {
+          if (state == SqlCommentParser.State.NORMAL) {
+            syntax[index] = c;
+          }
+        });
+    return syntax;
+  }
+
+  private static int skipWhitespace(char[] syntax, int index) {
+    while (index < syntax.length) {
+      if (!Character.isWhitespace(syntax[index])) {
+        break;
+      }
+      index++;
+    }
+    return index;
+  }
+
+  private static boolean isCteDml(String query) {
+    char[] syntax = syntaxCharacters(query);
+    int outerStatement = skipCteDefinitions(query, syntax);
+    return startsWithDmlKeyword(query, syntax, outerStatement)
+        || isMultiInsert(query, syntax, outerStatement);
+  }
+
+  private static boolean isDmlWithQueryPrefix(String query) {
+    return WITH_PATTERN.matcher(query).find() ? isCteDml(query) : isMultiInsert(query);
+  }
+
+  private static boolean isMultiInsert(String query) {
+    if (!MULTI_INSERT_PATTERN.matcher(query).find()) {
+      return false;
+    }
+    char[] syntax = syntaxCharacters(query);
+    return isMultiInsert(query, syntax, 0);
+  }
+
+  private static boolean isMultiInsert(String query, char[] syntax, int outerStatementStart) {
+    int index = skipWhitespace(syntax, outerStatementStart);
+    if (!startsWithKeyword(query, syntax, index, "FROM")) {
+      return false;
+    }
+    index += "FROM".length();
+    int depth = 0;
+    while (index < syntax.length) {
+      if (syntax[index] == '(') {
+        depth++;
+        index++;
+      } else if (syntax[index] == ')') {
+        depth--;
+        index++;
+      } else if (depth == 0 && Character.isJavaIdentifierPart(syntax[index])) {
+        int keywordStart = index;
+        while (index < syntax.length && Character.isJavaIdentifierPart(syntax[index])) {
+          index++;
+        }
+        if (startsWithKeyword(query, syntax, keywordStart, "SELECT")) {
+          return false;
+        }
+        if (startsWithKeyword(query, syntax, keywordStart, "INSERT")
+            && startsWithMultiInsertTarget(query, syntax, index)) {
+          return true;
+        }
+      } else {
+        index++;
+      }
+    }
+    return false;
+  }
+
+  private static boolean startsWithDmlKeyword(String query, char[] syntax, int index) {
+    return startsWithKeyword(query, syntax, index, "INSERT")
+        || startsWithKeyword(query, syntax, index, "UPDATE")
+        || startsWithKeyword(query, syntax, index, "DELETE")
+        || startsWithKeyword(query, syntax, index, "MERGE");
+  }
+
+  private static boolean startsWithMultiInsertTarget(String query, char[] syntax, int index) {
+    index = skipWhitespace(syntax, index);
+    if (startsWithKeyword(query, syntax, index, "WITH")) {
+      index = skipWhitespace(syntax, index + "WITH".length());
+      if (!startsWithKeyword(query, syntax, index, "SCHEMA")) {
+        return false;
+      }
+      index = skipWhitespace(syntax, index + "SCHEMA".length());
+      if (!startsWithKeyword(query, syntax, index, "EVOLUTION")) {
+        return false;
+      }
+      index = skipWhitespace(syntax, index + "EVOLUTION".length());
+    }
+    if (startsWithKeyword(query, syntax, index, "ONCE")) {
+      index = skipWhitespace(syntax, index + "ONCE".length());
+    }
+    return startsWithKeyword(query, syntax, index, "INTO")
+        || startsWithKeyword(query, syntax, index, "OVERWRITE");
+  }
+
+  private static boolean startsWithKeyword(String query, char[] syntax, int index, String keyword) {
+    int end = index + keyword.length();
+    return end <= syntax.length
+        && query.regionMatches(true, index, keyword, 0, keyword.length())
+        && (end == syntax.length || !Character.isJavaIdentifierPart(syntax[end]));
+  }
+
   static boolean isSelectQuery(String query) {
     String trimmedQuery = trimCommentsAndWhitespaces(query);
     return SELECT_PATTERN.matcher(trimmedQuery).find();
@@ -836,17 +990,17 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   /**
    * Returns whether the query can have its result-set metadata retrieved via {@code DESCRIBE QUERY}
    * without executing it. {@code DESCRIBE QUERY} accepts the query forms that produce a result set
-   * from a top-level query expression: {@code SELECT}, {@code WITH} (CTEs), {@code VALUES}, {@code
-   * FROM (...)} and parenthesized selects. Other result-set-producing statements such as {@code
-   * SHOW}, {@code DESCRIBE} and {@code EXPLAIN} are not valid inputs to {@code DESCRIBE QUERY} and
-   * must be excluded.
+   * from a top-level query expression: {@code SELECT}, CTE queries, {@code VALUES}, {@code FROM
+   * (...)} queries and parenthesized selects. CTE-prefixed DML and {@code FROM}-led multi-insert
+   * are excluded, as are other result-set-producing statements such as {@code SHOW}, {@code
+   * DESCRIBE} and {@code EXPLAIN} that are not valid inputs to {@code DESCRIBE QUERY}.
    */
   static boolean isDescribableQuery(String query) {
     String trimmedQuery = trimCommentsAndWhitespaces(query);
     return SELECT_PATTERN.matcher(trimmedQuery).find()
-        || WITH_PATTERN.matcher(trimmedQuery).find()
-        || VALUES_PATTERN.matcher(trimmedQuery).find()
-        || FROM_PATTERN.matcher(trimmedQuery).find();
+        || ((WITH_PATTERN.matcher(trimmedQuery).find() || FROM_PATTERN.matcher(trimmedQuery).find())
+            && !isDmlWithQueryPrefix(trimmedQuery))
+        || VALUES_PATTERN.matcher(trimmedQuery).find();
   }
 
   static boolean isInsertQuery(String query) {
