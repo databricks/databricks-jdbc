@@ -15,9 +15,12 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -41,6 +44,7 @@ class DiscoveryResponseCacheTest {
   private int nextStatus = 200;
   private URL nextUrl;
   private String nextContentType = "application/json";
+  private String nextBody;
 
   private final HttpClient delegate =
       request -> {
@@ -51,7 +55,7 @@ class DiscoveryResponseCacheTest {
             nextStatus,
             "status",
             nextContentType == null ? Map.of() : Map.of("Content-Type", List.of(nextContentType)),
-            "body-" + calls.get());
+            nextBody == null ? discoveryBody(calls.get()) : nextBody);
       };
 
   @ParameterizedTest
@@ -73,9 +77,9 @@ class DiscoveryResponseCacheTest {
     assertEquals(2, calls.get());
     assertEquals(200, second.getStatusCode());
     assertEquals(contentType, second.getFirstHeader("Content-Type"));
-    assertEquals("body-1", read(first));
-    assertEquals("body-1", read(second));
-    assertEquals("body-2", read(oidcAgain));
+    assertEquals(discoveryBody(1), read(first));
+    assertEquals(discoveryBody(1), read(second));
+    assertEquals(discoveryBody(2), read(oidcAgain));
   }
 
   @ParameterizedTest
@@ -87,12 +91,12 @@ class DiscoveryResponseCacheTest {
     Response redirected = client.execute(new Request("GET", url));
     assertSame(nextUrl, redirected.getUrl());
     assertEquals(200, redirected.getStatusCode());
-    assertEquals("body-1", read(redirected));
+    assertEquals(discoveryBody(1), read(redirected));
     assertEquals(0, cache.size());
 
     nextUrl = null;
-    assertEquals("body-2", read(client.execute(new Request("GET", url))));
-    assertEquals("body-2", read(client.execute(new Request("GET", url))));
+    assertEquals(discoveryBody(2), read(client.execute(new Request("GET", url))));
+    assertEquals(discoveryBody(2), read(client.execute(new Request("GET", url))));
     assertEquals(2, calls.get());
   }
 
@@ -107,8 +111,8 @@ class DiscoveryResponseCacheTest {
     HttpClient client = cache.wrapClient(delegate, TRUST);
     nextUrl = new URL(responseOrigin + "/oidc/.well-known/oauth-authorization-server");
 
-    assertEquals("body-1", read(client.execute(new Request("GET", OIDC_DISCOVERY))));
-    assertEquals("body-2", read(client.execute(new Request("GET", OIDC_DISCOVERY))));
+    assertEquals(discoveryBody(1), read(client.execute(new Request("GET", OIDC_DISCOVERY))));
+    assertEquals(discoveryBody(2), read(client.execute(new Request("GET", OIDC_DISCOVERY))));
     assertEquals(2, calls.get());
     assertEquals(0, cache.size());
   }
@@ -127,8 +131,8 @@ class DiscoveryResponseCacheTest {
     String url = requestOrigin + "/oidc/.well-known/oauth-authorization-server";
     nextUrl = new URL(responseOrigin + "/oidc/.well-known/oauth-authorization-server");
 
-    assertEquals("body-1", read(client.execute(new Request("GET", url))));
-    assertEquals("body-1", read(client.execute(new Request("GET", url))));
+    assertEquals(discoveryBody(1), read(client.execute(new Request("GET", url))));
+    assertEquals(discoveryBody(1), read(client.execute(new Request("GET", url))));
     assertEquals(1, calls.get());
   }
 
@@ -141,13 +145,38 @@ class DiscoveryResponseCacheTest {
 
     Response blocked = client.execute(new Request("GET", OIDC_DISCOVERY));
     assertEquals(contentType, blocked.getFirstHeader("Content-Type"));
-    assertEquals("body-1", read(blocked));
+    assertEquals(discoveryBody(1), read(blocked));
     assertEquals(0, cache.size());
 
     nextContentType = "application/json";
-    assertEquals("body-2", read(client.execute(new Request("GET", OIDC_DISCOVERY))));
-    assertEquals("body-2", read(client.execute(new Request("GET", OIDC_DISCOVERY))));
+    assertEquals(discoveryBody(2), read(client.execute(new Request("GET", OIDC_DISCOVERY))));
+    assertEquals(discoveryBody(2), read(client.execute(new Request("GET", OIDC_DISCOVERY))));
     assertEquals(2, calls.get());
+  }
+
+  @ParameterizedTest
+  @MethodSource("invalidDiscoveryDocuments")
+  void invalidDiscoveryIsRefetchedAndHealthyResponseIsCached(String url, String invalidBody)
+      throws IOException {
+    HttpClient client = cache.wrapClient(delegate, TRUST);
+    nextBody = invalidBody;
+
+    assertEquals(invalidBody, read(client.execute(new Request("GET", url))));
+    assertEquals(0, cache.size());
+
+    nextBody = null;
+    assertEquals(discoveryBody(2), read(client.execute(new Request("GET", url))));
+    assertEquals(discoveryBody(2), read(client.execute(new Request("GET", url))));
+    assertEquals(2, calls.get());
+    assertEquals(1, cache.size());
+  }
+
+  private static Stream<Arguments> invalidDiscoveryDocuments() {
+    return Stream.of(HOST_METADATA, OIDC_DISCOVERY)
+        .flatMap(
+            url ->
+                Stream.of("", " ", "{", "null", "[]", "{\"workspace_id\":{},\"token_endpoint\":{}}")
+                    .map(body -> Arguments.of(url, body)));
   }
 
   @Test
@@ -156,9 +185,9 @@ class DiscoveryResponseCacheTest {
     HttpClient lax = cache.wrapClient(delegate, List.of("allow-self-signed"));
 
     lax.execute(new Request("GET", OIDC_DISCOVERY));
-    assertEquals("body-2", read(strict.execute(new Request("GET", OIDC_DISCOVERY))));
-    assertEquals("body-2", read(strict.execute(new Request("GET", OIDC_DISCOVERY))));
-    assertEquals("body-1", read(lax.execute(new Request("GET", OIDC_DISCOVERY))));
+    assertEquals(discoveryBody(2), read(strict.execute(new Request("GET", OIDC_DISCOVERY))));
+    assertEquals(discoveryBody(2), read(strict.execute(new Request("GET", OIDC_DISCOVERY))));
+    assertEquals(discoveryBody(1), read(lax.execute(new Request("GET", OIDC_DISCOVERY))));
     assertEquals(2, calls.get());
   }
 
@@ -180,11 +209,11 @@ class DiscoveryResponseCacheTest {
 
     client.execute(new Request("GET", HOST_METADATA));
     nowMillis.addAndGet(DiscoveryResponseCache.TTL_MILLIS - 1);
-    assertEquals("body-1", read(client.execute(new Request("GET", HOST_METADATA))));
+    assertEquals(discoveryBody(1), read(client.execute(new Request("GET", HOST_METADATA))));
 
     nowMillis.addAndGet(1);
-    assertEquals("body-2", read(client.execute(new Request("GET", HOST_METADATA))));
-    assertEquals("body-2", read(client.execute(new Request("GET", HOST_METADATA))));
+    assertEquals(discoveryBody(2), read(client.execute(new Request("GET", HOST_METADATA))));
+    assertEquals(discoveryBody(2), read(client.execute(new Request("GET", HOST_METADATA))));
     assertEquals(2, calls.get());
   }
 
@@ -269,6 +298,13 @@ class DiscoveryResponseCacheTest {
     client.execute(new Request("GET", "https://host-b.example.com/.well-known/databricks-config"));
 
     assertEquals(2, calls.get());
+  }
+
+  private static String discoveryBody(int version) {
+    return String.format(
+        "{\"workspace_id\":\"%d\",\"token_endpoint\":\"https://host-a.example.com/token/%d\","
+            + "\"authorization_endpoint\":\"https://host-a.example.com/authorize\"}",
+        version, version);
   }
 
   private static String read(Response response) throws IOException {

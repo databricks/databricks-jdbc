@@ -1,10 +1,13 @@
 package com.databricks.jdbc.dbclient.impl.common;
 
+import com.databricks.jdbc.common.util.JsonUtil;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.sdk.core.http.HttpClient;
 import com.databricks.sdk.core.http.Request;
 import com.databricks.sdk.core.http.Response;
+import com.databricks.sdk.core.oauth.HostMetadata;
+import com.databricks.sdk.core.oauth.OpenIDConnectEndpoints;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.cache.Cache;
@@ -77,8 +80,10 @@ final class DiscoveryResponseCache {
         return response;
       }
       CachedResponse fresh = new CachedResponse(response);
-      cache.put(key, fresh);
-      LOGGER.debug("Cached discovery response (HTTP {}) for {}", fresh.statusCode, url);
+      if (canParseDiscovery(url, fresh.body)) {
+        cache.put(key, fresh);
+        LOGGER.debug("Cached discovery response (HTTP {}) for {}", fresh.statusCode, url);
+      }
       return fresh.toResponse(request);
     };
   }
@@ -134,6 +139,17 @@ final class DiscoveryResponseCache {
     String contentType = response.getFirstHeader("Content-Type");
     return contentType != null
         && "application/json".equalsIgnoreCase(contentType.split(";", 2)[0].trim());
+  }
+
+  private static boolean canParseDiscovery(String url, String body) {
+    Class<?> responseType =
+        url.endsWith(HOST_METADATA_SUFFIX) ? HostMetadata.class : OpenIDConnectEndpoints.class;
+    try {
+      return JsonUtil.getMapper().readValue(body, responseType) != null;
+    } catch (IOException e) {
+      // Let the SDK handle the parsing failure without retaining the invalid document.
+      return false;
+    }
   }
 
   private static final class CachedResponse {
