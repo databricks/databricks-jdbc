@@ -95,12 +95,17 @@ public class IdleConnectionReaperTest {
   void testFailingManagerDoesNotStopEviction() {
     HttpClientConnectionManager failing = mock(HttpClientConnectionManager.class);
     doThrow(new IllegalStateException("pool shut down")).when(failing).closeExpiredConnections();
+    HttpClientConnectionManager erroring = mock(HttpClientConnectionManager.class);
+    doThrow(new NoClassDefFoundError("missing")).when(erroring).closeExpiredConnections();
     HttpClientConnectionManager healthy = mock(HttpClientConnectionManager.class);
     try (IdleConnectionReaper.Registration a =
             IdleConnectionReaper.register(failing, 20, TimeUnit.MILLISECONDS);
         IdleConnectionReaper.Registration b =
+            IdleConnectionReaper.register(erroring, 20, TimeUnit.MILLISECONDS);
+        IdleConnectionReaper.Registration c =
             IdleConnectionReaper.register(healthy, 20, TimeUnit.MILLISECONDS)) {
       verify(failing, timeout(5_000).atLeast(3)).closeExpiredConnections();
+      verify(erroring, timeout(5_000).atLeast(3)).closeExpiredConnections();
       verify(healthy, timeout(5_000).atLeast(3)).closeIdleConnections(20, TimeUnit.MILLISECONDS);
     }
   }

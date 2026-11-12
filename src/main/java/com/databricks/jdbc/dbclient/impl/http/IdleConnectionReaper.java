@@ -14,6 +14,10 @@ import org.apache.http.conn.HttpClientConnectionManager;
  * thread, instead of one {@code IdleConnectionEvictor} thread per client. Each registration keeps
  * its own connection manager and idle limit, on the same schedule as {@code IdleConnectionEvictor}.
  * The thread starts with the first registration and stops when the last one is closed.
+ *
+ * <p>Runs are serialized on that thread, which is fine because closing an idle pooled connection
+ * does not wait on the peer: the pool resets the socket timeout to 0 on release, so JSSE skips its
+ * close-time read, and the close_notify write fits in the socket's send buffer.
  */
 final class IdleConnectionReaper {
 
@@ -56,9 +60,10 @@ final class IdleConnectionReaper {
       if (maxIdleMs > 0) {
         manager.closeIdleConnections(maxIdleMs, TimeUnit.MILLISECONDS);
       }
-    } catch (RuntimeException e) {
-      // Keep the shared schedule alive; a failing pool must not stop eviction for the others.
-      LOGGER.debug("Idle connection eviction failed: {}", e.getMessage());
+    } catch (Throwable t) {
+      // A throw would silently cancel this pool's schedule (nothing reads the future); log and
+      // retry on the next run instead.
+      LOGGER.error(t, "Idle connection eviction failed");
     }
   }
 
