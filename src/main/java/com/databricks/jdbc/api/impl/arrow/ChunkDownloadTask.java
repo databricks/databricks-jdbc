@@ -43,6 +43,7 @@ class ChunkDownloadTask implements DatabricksCallableTask {
   public Void call() throws DatabricksSQLException, ExecutionException, InterruptedException {
     int retries = 0;
     boolean downloadSuccessful = false;
+    boolean refreshedAfterWait = false;
 
     // Sets context in the newly spawned thread
     DatabricksThreadContextHolder.setConnectionContext(this.connectionContext);
@@ -72,14 +73,25 @@ class ChunkDownloadTask implements DatabricksCallableTask {
           if (limiter == null) {
             limiter = ChunkDownloadLimiter.forHost(null);
           }
-          limiter.acquire();
+          boolean waited = limiter.acquire();
+          boolean linkExpiredWhileWaiting;
           try {
-            chunk.downloadData(
-                httpClient,
-                chunkDownloader.getCompressionCodec(),
-                connectionContext != null ? connectionContext.getCloudFetchSpeedThreshold() : 0.1);
+            // The link can expire while waiting for a permit; refresh it once, not as a retry.
+            linkExpiredWhileWaiting = waited && !refreshedAfterWait && chunk.isChunkLinkInvalid();
+            if (!linkExpiredWhileWaiting) {
+              chunk.downloadData(
+                  httpClient,
+                  chunkDownloader.getCompressionCodec(),
+                  connectionContext != null
+                      ? connectionContext.getCloudFetchSpeedThreshold()
+                      : 0.1);
+            }
           } finally {
             limiter.release();
+          }
+          if (linkExpiredWhileWaiting) {
+            refreshedAfterWait = true;
+            continue;
           }
           downloadSuccessful = true;
           long taskTotalMs = (System.nanoTime() - taskStartTime) / 1_000_000;

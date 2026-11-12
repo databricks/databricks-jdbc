@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
@@ -11,6 +12,7 @@ import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
+import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
@@ -188,6 +190,79 @@ class ChunkDownloadLimiterTest {
   }
 
   @Test
+  void testLinkExpiredWhileWaitingIsRefreshedWithoutRetry() throws Exception {
+    ChunkDownloadLimiter limiter = newLimiter();
+    CompletableFuture<Void> ready = new CompletableFuture<>();
+    when(remoteChunkProvider.getDownloadLimiter()).thenReturn(limiter);
+    when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(chunk.getChunkReadyFuture()).thenReturn(ready);
+    // Valid before the permit wait, expired after it, then refreshed.
+    when(chunk.isChunkLinkInvalid()).thenReturn(false, true, true);
+    ExternalLink link = mock(ExternalLink.class);
+    when(linkDownloadService.getLinkForChunk(anyLong()))
+        .thenReturn(CompletableFuture.completedFuture(link));
+
+    runAfterWaitingForPermit(
+        limiter,
+        new ChunkDownloadTask(chunk, httpClient, remoteChunkProvider, linkDownloadService));
+
+    verify(chunk).setChunkLink(link);
+    verify(chunk, times(1)).downloadData(any(), any(), anyDouble());
+    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    assertTrue(ready.isDone() && !ready.isCompletedExceptionally());
+    assertEquals(limiter.totalPermits(), limiter.availablePermits());
+  }
+
+  @Test
+  void testStreamingLinkExpiredWhileWaitingIsRefreshedWithoutRetry() throws Exception {
+    ChunkDownloadLimiter limiter = newLimiter();
+    CompletableFuture<Void> ready = new CompletableFuture<>();
+    when(chunk.getChunkReadyFuture()).thenReturn(ready);
+    when(chunk.isChunkLinkInvalid()).thenReturn(false, true, true);
+
+    runAfterWaitingForPermit(
+        limiter,
+        new StreamingChunkDownloadTask(
+            chunk, httpClient, CompressionCodec.NONE, linkRefresher, 0.1, limiter));
+
+    verify(linkRefresher, times(1)).refreshLink(anyLong(), anyLong());
+    verify(chunk, times(1)).downloadData(any(), any(), anyDouble());
+    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    assertTrue(ready.isDone() && !ready.isCompletedExceptionally());
+    assertEquals(limiter.totalPermits(), limiter.availablePermits());
+  }
+
+  /** Runs the task so it has to wait for a permit: holds them all, then frees one once it waits. */
+  private static void runAfterWaitingForPermit(ChunkDownloadLimiter limiter, Callable<Void> task)
+      throws Exception {
+    int held = limiter.availablePermits();
+    for (int i = 0; i < held; i++) {
+      limiter.acquire();
+    }
+    ExecutorService pool = Executors.newSingleThreadExecutor();
+    try {
+      Future<Void> result = pool.submit(task);
+      long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+      while (!limiter.hasQueuedThreads() && System.nanoTime() < deadline) {
+        Thread.sleep(5);
+      }
+      assertTrue(limiter.hasQueuedThreads(), "task never waited for a permit");
+      limiter.release();
+      result.get(30, TimeUnit.SECONDS);
+    } finally {
+      pool.shutdownNow();
+      for (int i = 1; i < held; i++) {
+        limiter.release();
+      }
+    }
+  }
+
+  /** A pool size above the heap-based default, so the provider tests must see the limiter grow. */
+  private static int poolSizeAboveDefault() {
+    return Math.min(256, ChunkDownloadLimiter.defaultPermits(Runtime.getRuntime().maxMemory()) + 1);
+  }
+
+  @Test
   void testRemoteChunkProviderGrowsItsHostLimiterToPoolSize() throws Exception {
     String host = "limiter-test-" + UUID.randomUUID();
     IDatabricksSession session = mock(IDatabricksSession.class);
@@ -201,11 +276,13 @@ class ChunkDownloadLimiterTest {
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()));
     ResultData data = new ResultData().setExternalLinks(new ArrayList<>());
 
+    int poolSize = poolSizeAboveDefault();
     RemoteChunkProvider provider =
-        new RemoteChunkProvider(new StatementId("statement"), manifest, data, session, null, 100);
+        new RemoteChunkProvider(
+            new StatementId("statement"), manifest, data, session, null, poolSize);
     try {
       assertSame(ChunkDownloadLimiter.forHost(host), provider.getDownloadLimiter());
-      assertEquals(100, ChunkDownloadLimiter.forHost(host).totalPermits());
+      assertEquals(poolSize, ChunkDownloadLimiter.forHost(host).totalPermits());
     } finally {
       provider.close();
     }
@@ -216,6 +293,7 @@ class ChunkDownloadLimiterTest {
     String host = "limiter-test-" + UUID.randomUUID();
     IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
     when(context.getHost()).thenReturn(host);
+    int poolSize = poolSizeAboveDefault();
 
     StreamingChunkProvider provider =
         new StreamingChunkProvider(
@@ -223,14 +301,14 @@ class ChunkDownloadLimiterTest {
             httpClient,
             CompressionCodec.NONE,
             new StatementId("statement"),
-            100,
+            poolSize,
             1,
             0,
             0.1,
             context,
             ChunkLinkFetchResult.endOfStream());
     try {
-      assertEquals(100, ChunkDownloadLimiter.forHost(host).totalPermits());
+      assertEquals(poolSize, ChunkDownloadLimiter.forHost(host).totalPermits());
     } finally {
       provider.close();
     }

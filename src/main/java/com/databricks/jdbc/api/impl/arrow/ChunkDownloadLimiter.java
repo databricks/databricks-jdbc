@@ -3,6 +3,7 @@ package com.databricks.jdbc.api.impl.arrow;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Bounds how many CloudFetch chunks are downloaded and parsed at once for one workspace host.
@@ -14,8 +15,13 @@ import java.util.concurrent.Semaphore;
  * downloads from different queries are served in arrival order.
  *
  * <p>There is one limiter per host, so throttled or stalled storage for one workspace cannot hold
- * up downloads for another. Within one host, downloads that are retrying or stalled keep their
- * permits, which can delay that host's other queries.
+ * up downloads for another. Within one host, a download keeps its permit through the HTTP client's
+ * own retries and slow reads (but not through the task's retry backoff), which can delay that
+ * host's other queries.
+ *
+ * <p>A query whose {@code cloudFetchThreadPoolSize} is above the heap-based default raises its
+ * host's total to that size (up to 256) for the life of the JVM, so it keeps the parallelism it
+ * asked for, as before this limiter.
  */
 final class ChunkDownloadLimiter {
   // Heap budget per in-progress download. Generous for the ~10-20 MB a download needs; more
@@ -60,8 +66,14 @@ final class ChunkDownloadLimiter {
     }
   }
 
-  void acquire() throws InterruptedException {
+  /** Acquires a permit and returns whether the caller had to wait for it. */
+  boolean acquire() throws InterruptedException {
+    // tryAcquire(0, unit) honors fairness, unlike tryAcquire().
+    if (permits.tryAcquire(0, TimeUnit.SECONDS)) {
+      return false;
+    }
     permits.acquire();
+    return true;
   }
 
   void release() {

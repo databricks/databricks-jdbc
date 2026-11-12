@@ -72,6 +72,7 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
   public Void call() throws DatabricksSQLException {
     int retries = 0;
     boolean downloadSuccessful = false;
+    boolean refreshedAfterWait = false;
     Throwable uncaughtException = null;
 
     // Propagate caller's thread context for telemetry/logging
@@ -91,11 +92,20 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
           }
 
           // Perform the download
-          downloadLimiter.acquire();
+          boolean waited = downloadLimiter.acquire();
+          boolean linkExpiredWhileWaiting;
           try {
-            chunk.downloadData(httpClient, compressionCodec, cloudFetchSpeedThreshold);
+            // The link can expire while waiting for a permit; refresh it once, not as a retry.
+            linkExpiredWhileWaiting = waited && !refreshedAfterWait && chunk.isChunkLinkInvalid();
+            if (!linkExpiredWhileWaiting) {
+              chunk.downloadData(httpClient, compressionCodec, cloudFetchSpeedThreshold);
+            }
           } finally {
             downloadLimiter.release();
+          }
+          if (linkExpiredWhileWaiting) {
+            refreshedAfterWait = true;
+            continue;
           }
           downloadSuccessful = true;
 
