@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.TelemetryLogLevel;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
+import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.latency.ChunkDetails;
 import com.databricks.jdbc.model.telemetry.latency.OperationType;
@@ -45,6 +46,20 @@ public class TelemetryCollectorTest {
     assertEquals(100L, details.getInitialChunkLatencyMillis());
     assertEquals(200L, details.getSlowestChunkLatencyMillis());
     assertEquals(300L, details.getSumChunksDownloadTimeMillis());
+  }
+
+  @Test
+  void testRecordResultSetIteration_UnknownChunkCountKeepsRecordedTotal() {
+    StatementId statementId = new StatementId(TEST_STATEMENT_ID);
+    handler.recordTotalChunks(statementId, 5);
+
+    // Streaming results report -1 until the stream ends.
+    handler.recordResultSetIteration(TEST_STATEMENT_ID, -1L, true);
+    ChunkDetails details = handler.getOrCreateTelemetryDetails(TEST_STATEMENT_ID).getChunkDetails();
+    assertEquals(5L, details.getTotalChunksPresent());
+
+    handler.recordResultSetIteration(TEST_STATEMENT_ID, 7L, false);
+    assertEquals(7L, details.getTotalChunksPresent());
   }
 
   @Test

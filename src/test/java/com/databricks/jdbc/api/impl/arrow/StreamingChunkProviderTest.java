@@ -13,6 +13,7 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
+import com.databricks.jdbc.telemetry.TelemetryHelper;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.time.Instant;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -331,6 +333,21 @@ class StreamingChunkProviderTest {
       // After consuming all chunks
       assertFalse(provider.hasNextChunk(), "Should not have more chunks after consuming all");
       assertFalse(provider.next(), "next() should return false after all chunks consumed");
+    }
+
+    @Test
+    @DisplayName("Should record the total chunk count once the end of the stream is known")
+    void testRecordsTotalChunksAtEndOfStream() throws Exception {
+      // End of stream comes from the initial links, so it is reached on this thread (static mocks
+      // are thread-local).
+      ChunkLinkFetchResult initialLinks =
+          createLinkBatch(0, 4, 100L, false, Collections.emptySet());
+      try (MockedStatic<TelemetryHelper> telemetry = mockStatic(TelemetryHelper.class)) {
+        provider = createProvider(initialLinks, LINK_PREFETCH_WINDOW, MAX_CHUNKS_IN_MEMORY);
+
+        telemetry.verify(
+            () -> TelemetryHelper.recordTotalChunks(isNull(), eq(STATEMENT_ID), eq(4L)));
+      }
     }
 
     @Test
