@@ -21,10 +21,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>There is one limiter per host, so throttled or stalled storage for one workspace cannot hold
  * up downloads for another. Each host gets the full heap-based budget, so a JVM querying several
  * workspaces at once can have that many downloads in progress per host. Within one host, a download
- * keeps its permit through the HTTP client's own retries and slow reads, and while it refreshes a
- * link that expired as it waited (on Thrift, only when the new link is already fetched), but not
- * through the task's retry backoff. This can delay that host's other queries. A user-set {@code
- * ChunkReadyTimeoutSeconds} includes the time spent waiting for a permit.
+ * keeps its permit through the HTTP client's own retries and slow reads, which can delay that
+ * host's other queries, but never through a link-fetch RPC or the task's retry backoff. A user-set
+ * {@code ChunkReadyTimeoutSeconds} includes the time spent waiting for a permit.
  *
  * <p>While a query whose {@code cloudFetchThreadPoolSize} is above the heap-based default is open,
  * its host's total is raised to that size (up to 256), so it keeps the parallelism it asked for.

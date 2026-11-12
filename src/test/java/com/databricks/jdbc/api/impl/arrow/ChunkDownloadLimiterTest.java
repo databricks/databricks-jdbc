@@ -353,7 +353,8 @@ class ChunkDownloadLimiterTest {
         new StreamingChunkDownloadTask(
             chunk, httpClient, CompressionCodec.NONE, linkRefresher, 0.1, limiter));
 
-    assertEquals(0, permitsDuringRefresh.get());
+    // The task gave back the only free permit before the refresh RPC.
+    assertEquals(1, permitsDuringRefresh.get());
     verify(linkRefresher, times(1)).refreshLink(anyLong(), anyLong());
     verify(chunk, times(1)).downloadData(any(), any(), anyDouble());
     verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);

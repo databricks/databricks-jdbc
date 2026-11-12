@@ -99,14 +99,19 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
                 (System.nanoTime() - permitWaitStart) / 1_000_000,
                 chunk.getChunkIndex());
           }
+          boolean linkExpired = false;
           try {
-            if (waited && chunk.isChunkLinkInvalid()) {
-              // Expired while waiting; refresh it without giving up the permit and waiting again.
-              linkRefresher.refreshLink(chunk.getChunkIndex(), chunk.getStartRowOffset());
+            // A batch refresh by another task updates this chunk's link in place, so only a link
+            // that still needs the refresh RPC is expired here.
+            linkExpired = waited && chunk.isChunkLinkInvalid();
+            if (!linkExpired) {
+              chunk.downloadData(httpClient, compressionCodec, cloudFetchSpeedThreshold);
             }
-            chunk.downloadData(httpClient, compressionCodec, cloudFetchSpeedThreshold);
           } finally {
             downloadLimiter.release();
+          }
+          if (linkExpired) {
+            continue; // refreshes at the top of the loop, without holding a permit
           }
           downloadSuccessful = true;
 
