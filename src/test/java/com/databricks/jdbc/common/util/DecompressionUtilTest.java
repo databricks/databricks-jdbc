@@ -8,6 +8,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Random;
 import net.jpountz.lz4.LZ4Factory;
 import net.jpountz.lz4.LZ4FrameOutputStream;
 import org.apache.commons.io.IOUtils;
@@ -62,8 +64,8 @@ public class DecompressionUtilTest {
   @Test
   public void testDecompressChecksummedMultiBlockFrames() throws Exception {
     byte[] first = new byte[200_000];
-    new java.util.Random(7).nextBytes(first);
-    byte[] second = "second frame".getBytes();
+    new Random(7).nextBytes(first);
+    byte[] second = "second frame".getBytes(StandardCharsets.UTF_8);
     ByteArrayOutputStream concatenated = new ByteArrayOutputStream();
     concatenated.write(checksummedFrame(first));
     concatenated.write(checksummedFrame(second));
@@ -96,7 +98,7 @@ public class DecompressionUtilTest {
 
   @Test
   public void testInlineDecompressionDoesNotLookUpLz4FactoryPerStream() throws Exception {
-    byte[] compressed = checksummedFrame("data".getBytes());
+    byte[] compressed = checksummedFrame("data".getBytes(StandardCharsets.UTF_8));
     // Initialize DecompressionUtil's shared instances before counting lookups.
     DecompressionUtil.decompress(compressed, CompressionCodec.LZ4_FRAME, CONTEXT);
     try (MockedStatic<LZ4Factory> factory =
