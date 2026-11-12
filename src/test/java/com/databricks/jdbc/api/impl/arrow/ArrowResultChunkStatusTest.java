@@ -38,6 +38,8 @@ import org.apache.http.message.BasicStatusLine;
 import org.apache.http.params.HttpParams;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests around when DOWNLOAD_SUCCEEDED is set and error handling during streamed body read. */
 public class ArrowResultChunkStatusTest {
@@ -90,14 +92,16 @@ public class ArrowResultChunkStatusTest {
     assertTrue(chunk.releaseChunk());
   }
 
-  @Test
-  void midBodyReadError_isRetryableAndFreesPartialBatches() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void midBodyFailure_isRetryableAndFreesPartialBatches(boolean unchecked) throws Exception {
     byte[] payload = lz4(arrowStream(4, 20_000));
     ArrowResultChunk chunk = newChunk();
 
     // Fail after most of the body, i.e. after some batches were already parsed.
-    IDatabricksHttpClient failing =
-        httpWithEntity(new TrackingInputStream(payload, payload.length * 3 / 4), payload.length);
+    TrackingInputStream body = new TrackingInputStream(payload, payload.length * 3 / 4);
+    body.unchecked = unchecked;
+    IDatabricksHttpClient failing = httpWithEntity(body, payload.length);
     assertThrows(
         DatabricksParsingException.class,
         () -> chunk.downloadData(failing, CompressionCodec.LZ4_FRAME, 0.0));
@@ -364,11 +368,15 @@ public class ArrowResultChunkStatusTest {
     return out.toByteArray();
   }
 
-  /** Serves {@code data}, throws once {@code failAt} bytes were read, and records close(). */
+  /**
+   * Serves {@code data}, throws (checked or {@code unchecked}) once {@code failAt} bytes were read,
+   * and records close().
+   */
   private static final class TrackingInputStream extends FilterInputStream {
     private final int failAt;
     private int read;
     private boolean closed;
+    private boolean unchecked;
 
     TrackingInputStream(byte[] data, int failAt) {
       super(new ByteArrayInputStream(data));
@@ -384,6 +392,9 @@ public class ArrowResultChunkStatusTest {
     @Override
     public int read(byte[] b, int off, int len) throws IOException {
       if ((long) read + len > failAt) {
+        if (unchecked) {
+          throw new IllegalStateException("Simulated unchecked failure");
+        }
         throw new SocketException("Simulated connection reset");
       }
       int n = super.read(b, off, len);

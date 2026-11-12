@@ -384,7 +384,7 @@ public abstract class AbstractArrowResultChunk {
           StatementId.loggableStatementId(statementId),
           e.getMessage());
       purgeArrowData(recordBatchList);
-    } catch (IOException e) {
+    } catch (IOException | RuntimeException e) {
       LOGGER.error(
           "Error while reading arrow data, purging the local list and rethrowing the exception.");
       purgeArrowData(recordBatchList);
