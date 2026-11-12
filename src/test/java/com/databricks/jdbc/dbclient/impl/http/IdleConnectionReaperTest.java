@@ -1,0 +1,146 @@
+package com.databricks.jdbc.dbclient.impl.http;
+
+import static com.databricks.jdbc.TestConstants.WAREHOUSE_JDBC_URL;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
+import com.databricks.jdbc.common.HttpClientType;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+import org.apache.http.conn.HttpClientConnectionManager;
+import org.junit.jupiter.api.Test;
+
+public class IdleConnectionReaperTest {
+
+  private static long reaperThreads() {
+    return Thread.getAllStackTraces().keySet().stream()
+        .filter(t -> t.isAlive() && IdleConnectionReaper.THREAD_NAME.equals(t.getName()))
+        .count();
+  }
+
+  private static void awaitNoReaperThread() throws InterruptedException {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (reaperThreads() > 0 && System.nanoTime() < deadline) {
+      Thread.sleep(20);
+    }
+  }
+
+  @Test
+  void testRegistrationsShareOneThreadThatStopsWithTheLast() throws Exception {
+    int before = IdleConnectionReaper.registrationCount();
+    List<IdleConnectionReaper.Registration> registrations = new ArrayList<>();
+    for (int i = 0; i < 50; i++) {
+      registrations.add(
+          IdleConnectionReaper.register(
+              mock(HttpClientConnectionManager.class), 1, TimeUnit.HOURS));
+    }
+    assertTrue(IdleConnectionReaper.isRunning());
+    assertEquals(before + 50, IdleConnectionReaper.registrationCount());
+    assertTrue(reaperThreads() <= 1);
+
+    for (IdleConnectionReaper.Registration registration : registrations) {
+      registration.close();
+      registration.close(); // idempotent
+      assertFalse(registration.isActive());
+    }
+    assertEquals(before, IdleConnectionReaper.registrationCount());
+    if (before == 0) {
+      assertFalse(IdleConnectionReaper.isRunning());
+      awaitNoReaperThread();
+      assertEquals(0, reaperThreads());
+
+      // A later registration starts a new thread.
+      HttpClientConnectionManager manager = mock(HttpClientConnectionManager.class);
+      try (IdleConnectionReaper.Registration again =
+          IdleConnectionReaper.register(manager, 20, TimeUnit.MILLISECONDS)) {
+        assertTrue(IdleConnectionReaper.isRunning());
+        verify(manager, timeout(5_000).atLeastOnce()).closeExpiredConnections();
+      }
+    }
+  }
+
+  @Test
+  void testEachManagerIsEvictedWithItsOwnIdleLimit() {
+    HttpClientConnectionManager first = mock(HttpClientConnectionManager.class);
+    HttpClientConnectionManager second = mock(HttpClientConnectionManager.class);
+    try (IdleConnectionReaper.Registration a =
+            IdleConnectionReaper.register(first, 30, TimeUnit.MILLISECONDS);
+        IdleConnectionReaper.Registration b =
+            IdleConnectionReaper.register(second, 50, TimeUnit.MILLISECONDS)) {
+      verify(first, timeout(5_000).atLeast(2)).closeExpiredConnections();
+      verify(first, timeout(5_000).atLeast(2)).closeIdleConnections(30, TimeUnit.MILLISECONDS);
+      verify(second, timeout(5_000).atLeast(2)).closeExpiredConnections();
+      verify(second, timeout(5_000).atLeast(2)).closeIdleConnections(50, TimeUnit.MILLISECONDS);
+      verify(first, never()).closeIdleConnections(50, TimeUnit.MILLISECONDS);
+      verify(second, never()).closeIdleConnections(30, TimeUnit.MILLISECONDS);
+    }
+  }
+
+  @Test
+  void testWithoutIdleLimitOnlyExpiredConnectionsAreClosed() {
+    HttpClientConnectionManager manager = mock(HttpClientConnectionManager.class);
+    try (IdleConnectionReaper.Registration registration =
+        IdleConnectionReaper.register(manager, 0, TimeUnit.SECONDS)) {
+      // Same 5-second interval as IdleConnectionEvictor when there is no idle limit.
+      verify(manager, timeout(10_000)).closeExpiredConnections();
+      verify(manager, never()).closeIdleConnections(anyLong(), any());
+    }
+  }
+
+  @Test
+  void testFailingManagerDoesNotStopEviction() {
+    HttpClientConnectionManager failing = mock(HttpClientConnectionManager.class);
+    doThrow(new IllegalStateException("pool shut down")).when(failing).closeExpiredConnections();
+    HttpClientConnectionManager healthy = mock(HttpClientConnectionManager.class);
+    try (IdleConnectionReaper.Registration a =
+            IdleConnectionReaper.register(failing, 20, TimeUnit.MILLISECONDS);
+        IdleConnectionReaper.Registration b =
+            IdleConnectionReaper.register(healthy, 20, TimeUnit.MILLISECONDS)) {
+      verify(failing, timeout(5_000).atLeast(3)).closeExpiredConnections();
+      verify(healthy, timeout(5_000).atLeast(3)).closeIdleConnections(20, TimeUnit.MILLISECONDS);
+    }
+  }
+
+  @Test
+  void testClosingOneHttpClientKeepsEvictionForOthers() throws Exception {
+    IDatabricksConnectionContext first =
+        DatabricksConnectionContext.parse(
+            WAREHOUSE_JDBC_URL + ";IdleHttpConnectionExpiry=30", new Properties());
+    IDatabricksConnectionContext second =
+        DatabricksConnectionContext.parse(
+            WAREHOUSE_JDBC_URL + ";IdleHttpConnectionExpiry=90", new Properties());
+    int before = IdleConnectionReaper.registrationCount();
+    DatabricksHttpClient firstClient = new DatabricksHttpClient(first, HttpClientType.COMMON);
+    DatabricksHttpClient secondClient = new DatabricksHttpClient(second, HttpClientType.COMMON);
+    try {
+      assertEquals(before + 2, IdleConnectionReaper.registrationCount());
+      assertTrue(reaperThreads() <= 1);
+      firstClient.close();
+      assertFalse(firstClient.isIdleConnectionEvictionActive());
+      assertTrue(secondClient.isIdleConnectionEvictionActive());
+      assertTrue(IdleConnectionReaper.isRunning());
+    } finally {
+      firstClient.close();
+      secondClient.close();
+    }
+    assertFalse(secondClient.isIdleConnectionEvictionActive());
+    assertEquals(before, IdleConnectionReaper.registrationCount());
+  }
+
+  @Test
+  void testClosedRegistrationIsNoLongerEvicted() throws Exception {
+    HttpClientConnectionManager manager = mock(HttpClientConnectionManager.class);
+    IdleConnectionReaper.Registration registration =
+        IdleConnectionReaper.register(manager, 20, TimeUnit.MILLISECONDS);
+    verify(manager, timeout(5_000).atLeastOnce()).closeExpiredConnections();
+    registration.close();
+    Thread.sleep(100); // let a run that was already in progress finish
+    clearInvocations(manager);
+    Thread.sleep(200);
+    verifyNoInteractions(manager);
+  }
+}
