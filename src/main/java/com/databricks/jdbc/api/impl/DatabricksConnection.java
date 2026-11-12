@@ -540,7 +540,9 @@ public class DatabricksConnection implements IDatabricksConnection, IDatabricksC
             try {
               runInOrder(steps);
             } catch (RuntimeException e) {
-              LOGGER.debug("Error while finishing connection close: {}", e.getMessage());
+              // Inline, this failure would propagate from close(); keep it and its suppressed
+              // failures visible, since a failed client close can leak resources.
+              LOGGER.error(e, "Error while finishing connection close in the background");
             }
           });
     } catch (RejectedExecutionException e) {

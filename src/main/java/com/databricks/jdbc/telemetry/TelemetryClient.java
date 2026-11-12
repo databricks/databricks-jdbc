@@ -191,8 +191,12 @@ public class TelemetryClient implements ITelemetryClient {
         List<TelemetryFrontendLog> logsToBeFlushed = eventsBatch;
         try {
           // Submit the task to the executor service and return the Future.
+          // Read the push client when the task runs, so a batch queued before a rebind still goes
+          // through an open connection.
           Future<?> future =
-              executorService.submit(new TelemetryPushTask(logsToBeFlushed, telemetryPushClient));
+              executorService.submit(
+                  new TelemetryPushTask(
+                      logsToBeFlushed, request -> telemetryPushClient.pushEvent(request)));
           eventsBatch = new LinkedList<>();
           lastFlushedTime = System.currentTimeMillis();
           return future;

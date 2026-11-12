@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -53,6 +55,35 @@ public class TelemetryClientTest {
 
   private ScheduledExecutorService createRealScheduler() {
     return Executors.newSingleThreadScheduledExecutor();
+  }
+
+  @Test
+  void testBatchQueuedBeforeRebindIsPushedThroughTheNewConnection() throws Exception {
+    IDatabricksConnectionContext closing = mock(IDatabricksConnectionContext.class);
+    IDatabricksConnectionContext open = mock(IDatabricksConnectionContext.class);
+    when(closing.getConnectionUuid()).thenReturn("closing");
+    when(closing.getTelemetryBatchSize()).thenReturn(1);
+    when(closing.getTelemetryFlushIntervalInMilliseconds()).thenReturn(60_000);
+    CountDownLatch release = new CountDownLatch(1);
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    // Keep the only worker busy so the batch below stays queued across the rebind.
+    executor.submit(() -> release.await(10, TimeUnit.SECONDS));
+    try (MockedConstruction<TelemetryPushClient> pushClients =
+        mockConstruction(TelemetryPushClient.class)) {
+      TelemetryClient client = new TelemetryClient(closing, executor, createMockScheduler());
+      client.exportEvent(new TelemetryFrontendLog(TelemetryLogLevel.INFO));
+
+      client.rebindIfBoundTo("closing", open);
+      release.countDown();
+      executor.shutdown();
+      assertTrue(executor.awaitTermination(10, TimeUnit.SECONDS));
+
+      verify(pushClients.constructed().get(0), never()).pushEvent(any());
+      verify(pushClients.constructed().get(1)).pushEvent(any());
+    } finally {
+      release.countDown();
+      executor.shutdownNow();
+    }
   }
 
   @Test
