@@ -13,12 +13,14 @@ import java.sql.Types;
 import java.time.LocalDate;
 import java.time.Year;
 import java.util.Calendar;
+import java.util.Locale;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -242,5 +244,59 @@ class ConverterHelperTest {
     assertNull(ConverterHelper.convertSqlTypeToSpecificJavaType(Double.class, Types.DOUBLE, null));
     assertNull(
         ConverterHelper.convertSqlTypeToSpecificJavaType(BigDecimal.class, Types.DECIMAL, null));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "GEOMETRY",
+        "GEOGRAPHY",
+        "geometry",
+        "Geography",
+        "GEOMETRY(4326)",
+        "GEOGRAPHY(4326)",
+        "geometry (4326)",
+        "  GEOMETRY  ",
+        "\tGEOGRAPHY\n(4326)",
+        "GEOMETRY(",
+        "(GEOMETRY)",
+        "GEOMETRYX",
+        "GEOMETR",
+        "XGEOMETRY",
+        "GEO METRY",
+        "GEOMETRY)",
+        "STRING",
+        "DECIMAL(10,2)",
+        "ARRAY<GEOMETRY>",
+        "",
+        " ",
+        "(",
+        "GEOMETRYK",
+        "ıNT",
+        "GEOGRAPHŸ"
+      })
+  void isGeospatialBaseTypeNameMatchesLegacyParsing(String typeName) {
+    String legacyBaseTypeName = typeName.split("\\(", 2)[0].trim().toUpperCase(Locale.ROOT);
+    boolean expected =
+        legacyBaseTypeName.equals("GEOMETRY") || legacyBaseTypeName.equals("GEOGRAPHY");
+    assertEquals(expected, ConverterHelper.isGeospatialBaseTypeName(typeName), typeName);
+  }
+
+  @Test
+  void getConverterForColumnTypeUsesTypeNameForGeospatialColumns() {
+    assertInstanceOf(
+        GeospatialConverter.class,
+        ConverterHelper.getConverterForColumnType(Types.OTHER, "GEOMETRY(4326)"));
+    assertInstanceOf(
+        GeospatialConverter.class,
+        ConverterHelper.getConverterForColumnType(Types.VARCHAR, " geography "));
+    assertInstanceOf(
+        BooleanConverter.class,
+        ConverterHelper.getConverterForColumnType(Types.BOOLEAN, "BOOLEAN"));
+    assertInstanceOf(
+        DoubleConverter.class, ConverterHelper.getConverterForColumnType(Types.DOUBLE, null));
+    assertInstanceOf(
+        BigDecimalConverter.class,
+        ConverterHelper.getConverterForColumnType(Types.DECIMAL, "DECIMAL(10,2)"));
   }
 }

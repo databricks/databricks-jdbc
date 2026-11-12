@@ -6,6 +6,8 @@
 
 ### Updated
 
+- Reduced driver CPU when reading Arrow results: `ResultSet.next()` and the `getXxx`/`getObject` getters no longer re-read connection settings, re-parse the column type name, or record telemetry on every row or value. Reading narrow primitive columns (for example a single `BOOLEAN` or `DOUBLE` column) now takes several times less CPU per row.
+
 ### Fixed
 
 - Removed Thrift handle secrets from timeout, operation, metadata, and session diagnostics.

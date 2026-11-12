@@ -31,6 +31,7 @@ import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.core.StatementStatus;
+import com.databricks.jdbc.model.telemetry.StatementTelemetryDetails;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
@@ -1604,6 +1605,35 @@ public class DatabricksResultSetTest {
     TelemetryCollector collector =
         TelemetryCollectorManager.getInstance().getOrCreateCollector(verifyContext);
     assertNotNull(collector);
+  }
+
+  @Test
+  void testIterationTelemetryRecordedOnFirstRowAndEndOfStreamOnly() throws SQLException {
+    when(mockedExecutionResult.next()).thenReturn(true, true, true, false);
+    when(mockedResultSetMetadata.getChunkCount()).thenReturn(5L);
+    DatabricksResultSet resultSet = getResultSetWithTelemetry();
+    IDatabricksConnectionContext verifyContext = mock(IDatabricksConnectionContext.class);
+    when(verifyContext.getConnectionUuid()).thenReturn("test-connection-uuid");
+    StatementTelemetryDetails details =
+        TelemetryCollectorManager.getInstance()
+            .getOrCreateCollector(verifyContext)
+            .getOrCreateTelemetryDetails(STATEMENT_ID.toSQLExecStatementId());
+
+    assertTrue(resultSet.next());
+    assertEquals(5L, details.getChunkDetails().getTotalChunksPresent());
+    assertNull(details.getResultLatency().getResultSetConsumptionLatencyMillis());
+    assertTrue(resultSet.next());
+    assertTrue(resultSet.next());
+    assertNull(details.getResultLatency().getResultSetConsumptionLatencyMillis());
+    verify(mockedResultSetMetadata, times(1)).getChunkCount();
+
+    assertFalse(resultSet.next());
+    assertNotNull(details.getResultLatency().getResultSetConsumptionLatencyMillis());
+    verify(mockedResultSetMetadata, times(2)).getChunkCount();
+
+    // Calls after the end still refresh the consumption latency, as before.
+    assertFalse(resultSet.next());
+    verify(mockedResultSetMetadata, times(3)).getChunkCount();
   }
 
   // --- maxRows truncation tests ---
