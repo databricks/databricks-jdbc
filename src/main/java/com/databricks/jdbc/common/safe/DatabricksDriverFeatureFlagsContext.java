@@ -14,15 +14,19 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.hash.Hashing;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.TreeMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,6 +45,15 @@ public class DatabricksDriverFeatureFlagsContext {
           "/api/2.0/connector-service/feature-flags/OSS_JDBC/%s",
           DriverUtil.getDriverVersionWithoutOSSSuffix());
   private static final int DEFAULT_TTL_SECONDS = 900; // 15 minutes
+  private static final int MAX_SNAPSHOTS = 128;
+
+  /**
+   * Last successful response per request shape, so a context created after the previous one for the
+   * same host shut down can skip the initial fetch while the response is within its TTL.
+   */
+  private static final Cache<String, FlagsSnapshot> SNAPSHOTS =
+      CacheBuilder.newBuilder().maximumSize(MAX_SNAPSHOTS).build();
+
   private final String featureFlagEndpoint;
   private volatile IDatabricksConnectionContext connectionContext;
   private final Cache<String, String> featureFlags;
@@ -52,7 +65,6 @@ public class DatabricksDriverFeatureFlagsContext {
             return t;
           });
   private volatile ScheduledFuture<?> scheduledRefreshTask;
-  private volatile int refreshIntervalSeconds = DEFAULT_TTL_SECONDS;
   private final Object initLock = new Object();
   private volatile boolean initialized;
   private volatile Thread initializingThread;
@@ -80,8 +92,9 @@ public class DatabricksDriverFeatureFlagsContext {
   }
 
   /**
-   * Performs the initial blocking fetch and schedules periodic refresh, once. Concurrent callers
-   * wait for the first fetch attempt, including any required authentication.
+   * Loads flags once, from an unexpired snapshot of the same request or else with a blocking fetch,
+   * and schedules periodic refresh. Concurrent callers wait for the first attempt, including any
+   * required authentication.
    *
    * <p>Re-entrant telemetry lookups during configurator creation or flag fetching see defaults
    * without completing initialization.
@@ -100,14 +113,65 @@ public class DatabricksDriverFeatureFlagsContext {
       }
       initializingThread = Thread.currentThread();
       try {
-        // The stored context may belong to another thread holding its configurator lock.
-        refreshAllFeatureFlags(callerContext);
-        scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
+        if (!seedFromSnapshot(callerContext)) {
+          // The stored context may belong to another thread holding its configurator lock.
+          refreshAllFeatureFlags(callerContext);
+          scheduleOrRescheduleRefresh(DEFAULT_TTL_SECONDS);
+        }
         initialized = true;
       } finally {
         initializingThread = null;
       }
     }
+  }
+
+  /**
+   * Loads the caller's last fetched flags if still within their TTL and schedules the next refresh
+   * for when they expire, so flags are no staler than in a context that stayed open.
+   */
+  private boolean seedFromSnapshot(IDatabricksConnectionContext callerContext) {
+    String key =
+        snapshotKey(
+            featureFlagEndpoint,
+            UserAgentManager.buildUserAgentForConnectorService(callerContext),
+            callerContext.getCustomHeaders());
+    FlagsSnapshot snapshot = SNAPSHOTS.getIfPresent(key);
+    if (snapshot == null) {
+      return false;
+    }
+    long remainingNanos = snapshot.expiresAtNanos - System.nanoTime();
+    if (remainingNanos <= 0) {
+      SNAPSHOTS.asMap().remove(key, snapshot);
+      return false;
+    }
+    snapshot.flags.forEach(featureFlags::put);
+    long remainingSeconds = TimeUnit.NANOSECONDS.toSeconds(remainingNanos);
+    scheduleRefresh(remainingSeconds, snapshot.ttlSeconds);
+    LOGGER.debug(
+        "Reusing feature flags fetched for {} (next refresh in {}s)",
+        featureFlagEndpoint,
+        remainingSeconds);
+    return true;
+  }
+
+  /**
+   * Identifies everything the request sends except credentials. The server evaluates flags per
+   * workspace (the host, or the org-id header on shared hosts), driver version, and User-Agent.
+   * Hashed so custom header values are not retained after their connections close.
+   */
+  @VisibleForTesting
+  static String snapshotKey(String endpoint, String userAgent, Map<String, String> customHeaders) {
+    StringBuilder raw = new StringBuilder(endpoint).append('\0').append(userAgent);
+    if (customHeaders != null) {
+      new TreeMap<>(customHeaders)
+          .forEach((name, value) -> raw.append('\0').append(name).append('\0').append(value));
+    }
+    return Hashing.sha256().hashString(raw, StandardCharsets.UTF_8).toString();
+  }
+
+  @VisibleForTesting
+  static void clearSnapshots() {
+    SNAPSHOTS.invalidateAll();
   }
 
   // Constructor for testing
@@ -124,7 +188,11 @@ public class DatabricksDriverFeatureFlagsContext {
   }
 
   private void scheduleOrRescheduleRefresh(int ttlSeconds) {
-    this.refreshIntervalSeconds = ttlSeconds > 0 ? ttlSeconds : DEFAULT_TTL_SECONDS;
+    int interval = ttlSeconds > 0 ? ttlSeconds : DEFAULT_TTL_SECONDS;
+    scheduleRefresh(interval, interval);
+  }
+
+  private void scheduleRefresh(long initialDelaySeconds, int intervalSeconds) {
     if (scheduler.isShutdown()) {
       return;
     }
@@ -135,10 +203,7 @@ public class DatabricksDriverFeatureFlagsContext {
     try {
       scheduledRefreshTask =
           scheduler.scheduleAtFixedRate(
-              this::refreshAllFeatureFlags,
-              this.refreshIntervalSeconds,
-              this.refreshIntervalSeconds,
-              TimeUnit.SECONDS);
+              this::refreshAllFeatureFlags, initialDelaySeconds, intervalSeconds, TimeUnit.SECONDS);
     } catch (RejectedExecutionException e) {
       if (!scheduler.isShutdown()) {
         throw e;
@@ -167,26 +232,34 @@ public class DatabricksDriverFeatureFlagsContext {
           .authenticate()
           .forEach(request::addHeader);
       context.getCustomHeaders().forEach(request::addHeader);
-      fetchAndSetFlagsFromServer(httpClient, request, context);
+      FlagsSnapshot fetched = fetchAndSetFlagsFromServer(httpClient, request, context);
+      if (fetched != null) {
+        SNAPSHOTS.put(
+            snapshotKey(featureFlagEndpoint, userAgent, context.getCustomHeaders()), fetched);
+      }
     } catch (Exception e) {
       LOGGER.trace(
           "Error fetching feature flags for context: {}. Error: {}", context, e.getMessage());
     }
   }
 
+  /** Returns the applied flags on a successful response, otherwise null. */
   @VisibleForTesting
-  void fetchAndSetFlagsFromServer(
+  FlagsSnapshot fetchAndSetFlagsFromServer(
       IDatabricksHttpClient httpClient, HttpGet request, IDatabricksConnectionContext context)
       throws DatabricksHttpException, IOException {
+    long requestStartNanos = System.nanoTime();
     try (CloseableHttpResponse response = httpClient.execute(request)) {
       if (response.getStatusLine().getStatusCode() == 200) {
         String responseBody = EntityUtils.toString(response.getEntity());
         FeatureFlagsResponse featureFlagsResponse =
             JsonUtil.getMapper().readValue(responseBody, FeatureFlagsResponse.class);
         featureFlags.invalidateAll();
+        Map<String, String> applied = new HashMap<>();
         if (featureFlagsResponse.getFlags() != null) {
           for (FeatureFlagsResponse.FeatureFlagEntry flag : featureFlagsResponse.getFlags()) {
             featureFlags.put(flag.getName(), flag.getValue());
+            applied.put(flag.getName(), flag.getValue());
           }
         }
         LOGGER.debug(
@@ -198,12 +271,13 @@ public class DatabricksDriverFeatureFlagsContext {
         if (ttlSeconds != null) {
           scheduleOrRescheduleRefresh(ttlSeconds);
         }
-      } else {
-        LOGGER.trace(
-            "Failed to fetch feature flags. Context: {}, Status code: {}",
-            context,
-            response.getStatusLine().getStatusCode());
+        return new FlagsSnapshot(applied, ttlSeconds, requestStartNanos);
       }
+      LOGGER.trace(
+          "Failed to fetch feature flags. Context: {}, Status code: {}",
+          context,
+          response.getStatusLine().getStatusCode());
+      return null;
     }
   }
 
@@ -293,6 +367,19 @@ public class DatabricksDriverFeatureFlagsContext {
     } catch (InterruptedException ie) {
       Thread.currentThread().interrupt();
       scheduler.shutdownNow();
+    }
+  }
+
+  static final class FlagsSnapshot {
+    final Map<String, String> flags;
+    final int ttlSeconds;
+    final long expiresAtNanos;
+
+    /** Expiry counts from when the request was sent, so it never outlives the server's TTL. */
+    FlagsSnapshot(Map<String, String> flags, Integer ttlSeconds, long requestStartNanos) {
+      this.flags = Collections.unmodifiableMap(flags);
+      this.ttlSeconds = ttlSeconds != null && ttlSeconds > 0 ? ttlSeconds : DEFAULT_TTL_SECONDS;
+      this.expiresAtNanos = requestStartNanos + TimeUnit.SECONDS.toNanos(this.ttlSeconds);
     }
   }
 }
