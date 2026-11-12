@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -202,6 +204,8 @@ public class DatabricksHttpClientTest {
 
   @Test
   void testRetryHandlerWithTemporarilyUnavailableRetryInterval() throws IOException {
+    // Read only when debug logging is enabled, which depends on earlier tests in the JVM.
+    lenient().when(mockRequest.getURI()).thenReturn(URI.create("TestURI"));
     when(mockHttpClient.execute(mockRequest))
         .thenThrow(new DatabricksRetryHandlerException("Retry http request.Error code: ", 503));
     assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(mockRequest));
@@ -209,8 +213,25 @@ public class DatabricksHttpClientTest {
 
   @Test
   void testExecute() throws IOException, DatabricksHttpException {
+    // Read only when debug logging is enabled, which depends on earlier tests in the JVM.
+    lenient().when(mockRequest.getURI()).thenReturn(URI.create("TestURI"));
     when(mockHttpClient.execute(mockRequest)).thenReturn(mockCloseableHttpResponse);
     assertEquals(mockCloseableHttpResponse, databricksHttpClient.execute(mockRequest));
+  }
+
+  @Test
+  void testExecuteLogsSanitizedRequestWhenDebugEnabled() throws Exception {
+    Logger logger = Logger.getLogger(DatabricksHttpClient.class.getName());
+    Level previous = logger.getLevel();
+    logger.setLevel(Level.FINE);
+    try {
+      when(mockRequest.getURI()).thenReturn(URI.create("https://host/path?token=secret"));
+      when(mockHttpClient.execute(mockRequest)).thenReturn(mockCloseableHttpResponse);
+      assertEquals(mockCloseableHttpResponse, databricksHttpClient.execute(mockRequest));
+      verify(mockRequest, atLeastOnce()).getURI();
+    } finally {
+      logger.setLevel(previous);
+    }
   }
 
   @Test
