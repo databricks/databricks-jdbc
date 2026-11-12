@@ -199,6 +199,16 @@ final class DatabricksThriftAccessor {
     return executeFetchRequest(req);
   }
 
+  /** Like {@link #getMoreResults}, for results already known to be CloudFetch links. */
+  TFetchResultsResp getMoreResultLinks(IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    TFetchResultsReq req =
+        createFetchResultsReqWithDefaults(getOperationHandle(parentStatement.getStatementId()))
+            .setMaxBytes(CLOUD_FETCH_LINKS_BYTE_LIMIT);
+    setFetchMetadata(req);
+    return executeFetchRequest(req);
+  }
+
   DatabricksResultSet execute(
       TExecuteStatementReq request,
       IDatabricksStatementInternal parentStatement,

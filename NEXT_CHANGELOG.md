@@ -6,6 +6,8 @@
 
 ### Updated
 
+- Large CloudFetch results over Thrift start downloading sooner: the driver now asks for up to 1 GiB of result files per `FetchResults` link request instead of ~400 MB, so it needs about 2.7x fewer serial round trips before the first chunk download.
+
 ### Fixed
 
 - Removed Thrift handle secrets from timeout, operation, metadata, and session diagnostics.
