@@ -235,6 +235,21 @@ public class DatabricksHttpClientTest {
   }
 
   @Test
+  void testExecuteSkipsRequestSanitizationWhenDebugDisabled() throws Exception {
+    Logger logger = Logger.getLogger(DatabricksHttpClient.class.getName());
+    Level previous = logger.getLevel();
+    logger.setLevel(Level.INFO);
+    try {
+      when(mockHttpClient.execute(mockRequest)).thenReturn(mockCloseableHttpResponse);
+      assertEquals(mockCloseableHttpResponse, databricksHttpClient.execute(mockRequest));
+      // Only the debug line reads the URI, so it is untouched when debug is off.
+      verify(mockRequest, never()).getURI();
+    } finally {
+      logger.setLevel(previous);
+    }
+  }
+
+  @Test
   public void testDifferentInstancesForDifferentContexts() {
     System.setProperty(IS_FAKE_SERVICE_TEST_PROP, "true");
 
