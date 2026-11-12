@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,6 +39,7 @@ import com.databricks.sdk.service.sql.ServiceError;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.*;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.*;
 import java.sql.Date;
 import java.time.*;
@@ -1478,10 +1480,239 @@ public class DatabricksResultSetTest {
   @Test
   void testGetObjectWithClassType_NullLocalDate_ReturnsNull() throws SQLException {
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
-    when(mockedExecutionResult.getObject(0)).thenReturn(null);
+    when(mockedExecutionResult.getTemporalObject(0)).thenReturn(null);
 
     assertNull(resultSet.getObject(1, LocalDate.class));
     assertTrue(resultSet.wasNull());
+  }
+
+  @Test
+  void testGetObjectWithJavaTimeClass_DateIsExact() throws SQLException {
+    // DATE '1582-10-05' and DATE '-2015-01-01' (2016 BC), as read from Arrow.
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getTemporalObject(0)).thenReturn(LocalDate.of(1582, 10, 5));
+    when(mockedExecutionResult.getTemporalObject(1)).thenReturn(LocalDate.of(-2015, 1, 1));
+    when(mockedResultSetMetadata.getColumnType(anyInt())).thenReturn(Types.DATE);
+    when(mockedResultSetMetadata.getColumnTypeName(anyInt())).thenReturn("DATE");
+    when(mockedResultSetMetadata.getColumnNameIndex("bc_date")).thenReturn(2);
+
+    assertEquals(LocalDate.of(1582, 10, 5), resultSet.getObject(1, LocalDate.class));
+    assertFalse(resultSet.wasNull());
+    assertEquals(LocalDate.of(-2015, 1, 1), resultSet.getObject("bc_date", LocalDate.class));
+    assertEquals(LocalDateTime.of(-2015, 1, 1, 0, 0), resultSet.getObject(2, LocalDateTime.class));
+    // The legacy java.sql value is not used for java.time requests.
+    verify(mockedExecutionResult, never()).getObject(anyInt());
+  }
+
+  @Test
+  void testGetObjectWithJavaTimeClass_TimestampIsExact() throws SQLException {
+    // TO_TIMESTAMP('2016 bc', 'yyyy G') in a UTC session, as read from Arrow.
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getTemporalObject(0))
+        .thenReturn(OffsetDateTime.parse("-2015-01-01T00:00:00Z"));
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.TIMESTAMP);
+    when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn("TIMESTAMP");
+
+    Instant instant = resultSet.getObject(1, Instant.class);
+    assertEquals(Instant.parse("-2015-01-01T00:00:00Z"), instant);
+    assertEquals(
+        OffsetDateTime.of(-2015, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC),
+        resultSet.getObject(1, OffsetDateTime.class));
+    assertEquals(LocalDateTime.of(-2015, 1, 1, 0, 0), resultSet.getObject(1, LocalDateTime.class));
+    assertEquals(LocalDate.of(-2015, 1, 1), resultSet.getObject(1, LocalDate.class));
+  }
+
+  @Test
+  void testGetObjectWithJavaTimeClass_TimestampText() throws SQLException {
+    // SEA JSON results send TIMESTAMP as text with an offset.
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getTemporalObject(0)).thenReturn("1000-01-01T00:00:00.000Z");
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.TIMESTAMP);
+    when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn("TIMESTAMP");
+
+    assertEquals(Instant.parse("1000-01-01T00:00:00Z"), resultSet.getObject(1, Instant.class));
+  }
+
+  @Test
+  void testGetObjectWithJavaTimeClass_UnsupportedConversionThrows() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getTemporalObject(0))
+        .thenReturn(LocalDateTime.of(2023, 1, 1, 12, 30));
+    when(mockedExecutionResult.getTemporalObject(1)).thenReturn(LocalDate.of(2023, 1, 1));
+    when(mockedExecutionResult.getTemporalObject(2)).thenReturn(42L);
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.TIMESTAMP);
+    when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn("TIMESTAMP_NTZ");
+    when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.DATE);
+    when(mockedResultSetMetadata.getColumnTypeName(2)).thenReturn("DATE");
+    when(mockedResultSetMetadata.getColumnType(3)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnTypeName(3)).thenReturn("BIGINT");
+
+    for (SQLException exception :
+        List.of(
+            assertThrows(SQLException.class, () -> resultSet.getObject(1, Instant.class)),
+            assertThrows(SQLException.class, () -> resultSet.getObject(1, OffsetDateTime.class)),
+            assertThrows(SQLException.class, () -> resultSet.getObject(2, Instant.class)),
+            assertThrows(SQLException.class, () -> resultSet.getObject(3, LocalDateTime.class)))) {
+      assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), exception.getSQLState());
+      assertEquals(
+          DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode(), exception.getErrorCode());
+    }
+  }
+
+  @Test
+  void testGetObjectWithJavaTimeClass_StringColumnParsesIsoText() throws SQLException {
+    // JDBC 4.2 allows CHAR/VARCHAR sources for java.time types.
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getTemporalObject(0)).thenReturn("1582-10-05");
+    when(mockedExecutionResult.getTemporalObject(1)).thenReturn("2023-01-01T10:30:00Z");
+    when(mockedResultSetMetadata.getColumnType(anyInt())).thenReturn(Types.VARCHAR);
+    when(mockedResultSetMetadata.getColumnTypeName(anyInt())).thenReturn("STRING");
+    when(mockedResultSetMetadata.getColumnCount()).thenReturn(2);
+
+    assertEquals(LocalDate.of(1582, 10, 5), resultSet.getObject(1, LocalDate.class));
+    assertEquals(Instant.parse("2023-01-01T10:30:00Z"), resultSet.getObject(2, Instant.class));
+    // Type-map keys match case-insensitively, as for nested values.
+    assertEquals(
+        LocalDate.of(1582, 10, 5),
+        resultSet.getObject(1, java.util.Map.of("string", LocalDate.class)));
+    SQLException exception =
+        assertThrows(SQLException.class, () -> resultSet.getObject(1, Instant.class));
+    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), exception.getSQLState());
+  }
+
+  @Test
+  void testGetObjectWithJavaTimeTypeMapOnNumericColumnReturnsNullWithWarning() throws SQLException {
+    // Non-temporal columns keep the getObject(int, Map) behavior: null and a warning.
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(5);
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.INTEGER);
+    when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn("INT");
+    when(mockedResultSetMetadata.getColumnCount()).thenReturn(1);
+
+    assertNull(resultSet.getObject(1, java.util.Map.of("INT", LocalDate.class)));
+    assertNotNull(resultSet.getWarnings());
+    verify(mockedExecutionResult, never()).getTemporalObject(anyInt());
+  }
+
+  @Test
+  void testNumericGettersOnDateUseExactValue() throws SQLException {
+    // DATE '1582-10-05': java.sql.Date shifts it to 1582-10-15 (epoch day -141427).
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(Date.valueOf(LocalDate.of(1582, 10, 5)));
+    when(mockedExecutionResult.getTemporalObject(0)).thenReturn(LocalDate.of(1582, 10, 5));
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.DATE);
+    when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn("DATE");
+    when(mockedResultSetMetadata.getColumnCount()).thenReturn(1);
+
+    assertEquals(-141437L, resultSet.getLong(1));
+    assertEquals(-141437, resultSet.getInt(1));
+    assertEquals(-141437L, resultSet.getObject(1, Long.class));
+    assertEquals(-141437, resultSet.getObject(1, Integer.class));
+    assertEquals(BigInteger.valueOf(-141437), resultSet.getObject(1, BigInteger.class));
+    assertEquals(-141437L, resultSet.getObject(1, java.util.Map.of("DATE", Long.class)));
+    assertEquals(
+        LocalDate.of(1582, 10, 5),
+        resultSet.getObject(1, java.util.Map.of("DATE", LocalDate.class)));
+  }
+
+  @Test
+  void testNumericGettersOnLastGapDateUseExactValue() throws SQLException {
+    // DATE '1582-10-14': java.sql.Date pushes it 10 days forward, to 1582-10-24 (-141418).
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(Date.valueOf(LocalDate.of(1582, 10, 14)));
+    when(mockedExecutionResult.getTemporalObject(0)).thenReturn(LocalDate.of(1582, 10, 14));
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.DATE);
+
+    assertEquals(-141428L, resultSet.getLong(1));
+    assertEquals(-141428, resultSet.getInt(1));
+    assertEquals(-141428L, resultSet.getObject(1, Long.class));
+  }
+
+  @Test
+  void testNumericGettersOnModernDateReadTheJavaSqlValueOnly() throws SQLException {
+    // After the 1582 Gregorian cutover the java.sql.Date is exact, so it is used as is.
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(Date.valueOf("2023-09-10"));
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.DATE);
+
+    assertEquals(19610L, resultSet.getLong(1));
+    assertEquals(19610, resultSet.getInt(1));
+    assertEquals(19610L, resultSet.getObject(1, Long.class));
+    verify(mockedExecutionResult, never()).getTemporalObject(anyInt());
+  }
+
+  @Test
+  void testJavaTimeOnTimestampNtzTextReportedAsTimestampThrows() throws SQLException {
+    // With EnableTimestampNtzTypeName=0 the metadata reports TIMESTAMP_NTZ as TIMESTAMP; the column
+    // still has no time zone.
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getTemporalObject(0)).thenReturn("2023-10-05 15:20:30");
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.TIMESTAMP);
+    when(mockedResultSetMetadata.isTimestampNtz(1)).thenReturn(true);
+
+    assertEquals(
+        LocalDateTime.of(2023, 10, 5, 15, 20, 30), resultSet.getObject(1, LocalDateTime.class));
+    SQLException exception =
+        assertThrows(SQLException.class, () -> resultSet.getObject(1, Instant.class));
+    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), exception.getSQLState());
+    assertEquals(
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode(), exception.getErrorCode());
+  }
+
+  @Test
+  void testTypeMapMatchesTimestampNtzKeyForNtzReportedAsTimestamp() throws SQLException {
+    // With EnableTimestampNtzTypeName=0 the metadata reports TIMESTAMP_NTZ as TIMESTAMP.
+    LocalDateTime value = LocalDateTime.of(2023, 10, 5, 15, 20, 30);
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getTemporalObject(0)).thenReturn(value);
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.TIMESTAMP);
+    when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn("TIMESTAMP");
+    when(mockedResultSetMetadata.isTimestampNtz(1)).thenReturn(true);
+    when(mockedResultSetMetadata.getColumnCount()).thenReturn(1);
+
+    assertEquals(
+        value, resultSet.getObject(1, java.util.Map.of("timestamp_ntz", LocalDateTime.class)));
+    assertEquals(
+        value.toLocalDate(),
+        resultSet.getObject(1, java.util.Map.of("TIMESTAMP_NTZ", LocalDate.class)));
+    // The reported type name is matched first.
+    assertEquals(
+        value,
+        resultSet.getObject(
+            1,
+            java.util.Map.of("TIMESTAMP", LocalDateTime.class, "TIMESTAMP_NTZ", LocalDate.class)));
+    SQLException exception =
+        assertThrows(
+            SQLException.class,
+            () -> resultSet.getObject(1, java.util.Map.of("TIMESTAMP_NTZ", Instant.class)));
+    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), exception.getSQLState());
+  }
+
+  @Test
+  void testNumericGettersOnTimestampUseExactValue() throws SQLException {
+    // TIMESTAMP_NTZ '1000-01-01 10:30:00': java.sql.Timestamp moves it 5 days later.
+    LocalDateTime value = LocalDateTime.of(1000, 1, 1, 10, 30);
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(Timestamp.valueOf(value));
+    when(mockedExecutionResult.getTemporalObject(0)).thenReturn(value);
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.TIMESTAMP);
+    when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn("TIMESTAMP_NTZ");
+
+    long expected = value.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    assertNotEquals(Timestamp.valueOf(value).getTime(), expected);
+    assertEquals(expected, resultSet.getLong(1));
+    assertEquals(expected, resultSet.getObject(1, Long.class));
+  }
+
+  @Test
+  void testNumericGettersOnOtherColumnsDoNotReadTemporalValue() throws SQLException {
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(42L);
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.BIGINT);
+
+    assertEquals(42L, resultSet.getLong(1));
+    assertEquals(42L, resultSet.getObject(1, Long.class));
+    verify(mockedExecutionResult, never()).getTemporalObject(anyInt());
   }
 
   @Test
