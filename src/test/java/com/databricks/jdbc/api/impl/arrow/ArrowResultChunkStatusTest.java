@@ -1,6 +1,8 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -19,6 +21,11 @@ import java.net.SocketException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 import net.jpountz.lz4.LZ4FrameOutputStream;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -135,6 +142,61 @@ public class ArrowResultChunkStatusTest {
     } finally {
       Thread.interrupted();
     }
+    assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+    assertEquals(0, chunk.rootAllocator.getAllocatedMemory());
+  }
+
+  @Test
+  void interruptFromAnotherThread_doesNotCloseBodyOnInterruptingThread() throws Exception {
+    byte[] payload = lz4(arrowStream(4, 20_000));
+    ArrowResultChunk chunk = newChunk();
+    CountDownLatch blocked = new CountDownLatch(1);
+    AtomicBoolean release = new AtomicBoolean();
+    AtomicReference<Thread> closedBy = new AtomicReference<>();
+    // Blocks mid-body like a socket read: ignores interrupts until released.
+    InputStream body =
+        new FilterInputStream(new ByteArrayInputStream(payload)) {
+          private int read;
+
+          @Override
+          public int read(byte[] b, int off, int len) throws IOException {
+            if (read > payload.length / 2) {
+              blocked.countDown();
+              while (!release.get()) {
+                LockSupport.parkNanos(1_000_000);
+              }
+            }
+            int n = super.read(b, off, len);
+            read += Math.max(n, 0);
+            return n;
+          }
+
+          @Override
+          public void close() throws IOException {
+            closedBy.compareAndSet(null, Thread.currentThread());
+            super.close();
+          }
+        };
+    IDatabricksHttpClient http = httpWithEntity(body, payload.length);
+    AtomicReference<Throwable> failure = new AtomicReference<>();
+    Thread worker =
+        new Thread(
+            () -> {
+              try {
+                chunk.downloadData(http, CompressionCodec.LZ4_FRAME, 0.0);
+              } catch (Throwable t) {
+                failure.set(t);
+              }
+            });
+    worker.start();
+    assertTrue(blocked.await(10, TimeUnit.SECONDS));
+
+    worker.interrupt();
+    assertNotEquals(Thread.currentThread(), closedBy.get());
+    release.set(true);
+    worker.join(10_000);
+
+    assertInstanceOf(DatabricksParsingException.class, failure.get());
     assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
     assertEquals(0, chunk.rootAllocator.getAllocatedMemory());
   }

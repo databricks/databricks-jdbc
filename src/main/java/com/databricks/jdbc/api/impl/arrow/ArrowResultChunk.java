@@ -24,6 +24,7 @@ import java.io.InterruptedIOException;
 import java.time.Instant;
 import java.util.Map;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.commons.io.input.CloseShieldInputStream;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
@@ -98,14 +99,23 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
           String.format(
               "Data decompression for chunk index [%d] and statement [%s]",
               this.chunkIndex, StatementId.loggableStatementId(this.statementId));
-      ArrowData arrowData =
-          readArrowData(
-              DecompressionUtil.decompressToInputStream(
-                  response.getEntity().getContent(), compressionCodec, ctx));
+      InputStream body =
+          DecompressionUtil.decompressToInputStream(
+              response.getEntity().getContent(), compressionCodec, ctx);
+      // Arrow's interruptible channel closes its source on the interrupting thread (e.g. the one
+      // closing the result set), which would drain the live body there. Only this thread closes it.
+      ArrowData arrowData = readArrowData(CloseShieldInputStream.wrap(body));
       if (Thread.currentThread().isInterrupted()) {
         // An interrupted Arrow read returns early without batches; never report it as complete.
         arrowData.getValueVectors().forEach(batch -> batch.forEach(ValueVector::close));
         throw new InterruptedIOException("Chunk download interrupted");
+      }
+      try {
+        // Drain the few trailing bytes so the connection is reused. On failure paths
+        // response.close() discards the connection instead of draining it.
+        body.close();
+      } catch (IOException e) {
+        LOGGER.debug("Ignoring error closing chunk body after a complete read: {}", e.getMessage());
       }
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
       setArrowData(arrowData);
