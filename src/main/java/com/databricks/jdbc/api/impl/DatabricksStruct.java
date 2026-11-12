@@ -243,6 +243,10 @@ public class DatabricksStruct implements Struct {
    * The exact {@code java.time} value of the attribute at {@code i}, or null if unknown. A JSON
    * leaf is parsed on the first call and replaced by its result, so later reads neither parse it
    * again nor repeat the warning for a value that has no exact form.
+   *
+   * <p>The cache is not synchronized. If threads share this struct, a leaf may be parsed twice or
+   * the warning logged twice, but every read returns the same value: each parse gives the same
+   * result and the cached values are immutable.
    */
   private Object exactAttribute(int i, String fieldType) {
     if (temporalAttributes == null) {

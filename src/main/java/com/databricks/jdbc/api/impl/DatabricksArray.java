@@ -238,6 +238,10 @@ public class DatabricksArray implements Array {
    * The exact {@code java.time} value of the element at 0-based {@code i}, or null if unknown. A
    * JSON leaf is parsed on the first call and replaced by its result, so later reads neither parse
    * it again nor repeat the warning for a value that has no exact form.
+   *
+   * <p>The cache is not synchronized. If threads share this array, a leaf may be parsed twice or
+   * the warning logged twice, but every read returns the same value: each parse gives the same
+   * result and the cached values are immutable.
    */
   private Object exactElement(int i) {
     if (this.temporalElements == null || i < 0 || i >= this.temporalElements.length) {
