@@ -107,7 +107,7 @@ public class TelemetryClientFactory {
                             getTelemetryExecutorService(),
                             getSharedSchedulerService(),
                             databricksConfig),
-                        connectionContext.getConnectionUuid());
+                        connectionContext);
                   } catch (Exception e) {
                     // Validation or other errors during client creation - fail silently
                     LOGGER.trace("Skipping telemetry, client creation failed {}", e);
@@ -115,7 +115,7 @@ public class TelemetryClientFactory {
                   }
                 }
                 // Track this unique connection
-                existing.connectionUuids.add(connectionContext.getConnectionUuid());
+                existing.add(connectionContext);
                 return existing;
               });
       return holder != null ? holder.client : NoopTelemetryClient.getInstance();
@@ -133,7 +133,7 @@ public class TelemetryClientFactory {
                           connectionContext,
                           getTelemetryExecutorService(),
                           getSharedSchedulerService()),
-                      connectionContext.getConnectionUuid());
+                      connectionContext);
                 } catch (Exception e) {
                   // Validation or other errors during client creation - fail silently
                   LOGGER.trace("Skipping no-auth telemetry, client creation failed {}", e);
@@ -141,7 +141,7 @@ public class TelemetryClientFactory {
                 }
               }
               // Track this unique connection
-              existing.connectionUuids.add(connectionContext.getConnectionUuid());
+              existing.add(connectionContext);
               return existing;
             });
     return holder != null ? holder.client : NoopTelemetryClient.getInstance();
@@ -161,6 +161,19 @@ public class TelemetryClientFactory {
    * must not wait behind it. See GitHub issue #1442.
    */
   public void closeTelemetryClient(IDatabricksConnectionContext connectionContext) {
+    Runnable finalFlush = detachTelemetryClient(connectionContext);
+    if (finalFlush != null) {
+      finalFlush.run();
+    }
+  }
+
+  /**
+   * Same as {@link #closeTelemetryClient(IDatabricksConnectionContext)}, but when this was the
+   * host's last connection, returns the remaining final flush and client close (bounded by
+   * TelemetrySocketTimeout) for the caller to run, possibly on another thread. Returns null when
+   * nothing is left to do.
+   */
+  public Runnable detachTelemetryClient(IDatabricksConnectionContext connectionContext) {
     String key = TelemetryHelper.keyOf(connectionContext);
     String connectionUuid = connectionContext.getConnectionUuid();
 
@@ -172,26 +185,47 @@ public class TelemetryClientFactory {
 
     // Export pending events inside try-finally so holder cleanup always runs,
     // even if export throws (F6).
+    TelemetryClient client = null;
+    TelemetryClient noauthClient = null;
+    boolean exported = false;
     try {
       TelemetryCollector collector =
           TelemetryCollectorManager.getInstance().removeCollector(connectionContext);
       if (collector != null) {
         collector.exportAllPendingTelemetryDetails();
       }
+      exported = true;
     } finally {
-      TelemetryClient client = detachIfLastConnection(telemetryClientHolders, key, connectionUuid);
-      TelemetryClient noauthClient =
-          detachIfLastConnection(noauthTelemetryClientHolders, key, connectionUuid);
+      client = detachIfLastConnection(telemetryClientHolders, key, connectionUuid);
+      noauthClient = detachIfLastConnection(noauthTelemetryClientHolders, key, connectionUuid);
+      if (!exported) {
+        // The exception propagates; close the detached clients now so none is leaked.
+        closeDetachedClients(client, noauthClient, connectionUuid);
+      }
+    }
+    if (client == null && noauthClient == null) {
+      TelemetryHelper.removeConnectionParameters(connectionUuid);
+      return null;
+    }
+    TelemetryClient detachedClient = client;
+    TelemetryClient detachedNoauthClient = noauthClient;
+    return () -> closeDetachedClients(detachedClient, detachedNoauthClient, connectionUuid);
+  }
+
+  private void closeDetachedClients(
+      TelemetryClient client, TelemetryClient noauthClient, String connectionUuid) {
+    try {
       closeTelemetryClient(client, "telemetry client");
       closeTelemetryClient(noauthClient, "unauthenticated telemetry client");
-
+    } finally {
       TelemetryHelper.removeConnectionParameters(connectionUuid);
     }
   }
 
   /**
    * Removes the connection from its host's holder. If it was the last connection, removes the
-   * holder and returns its client for the caller to close; otherwise returns null.
+   * holder and returns its client for the caller to close; otherwise moves the client off this
+   * connection if needed and returns null.
    */
   private static TelemetryClient detachIfLastConnection(
       Map<String, TelemetryClientHolder> holders, String key, String connectionUuid) {
@@ -199,11 +233,15 @@ public class TelemetryClientFactory {
     holders.computeIfPresent(
         key,
         (k, holder) -> {
-          holder.connectionUuids.remove(connectionUuid);
-          if (holder.connectionUuids.isEmpty()) {
+          if (connectionUuid != null) {
+            holder.connections.remove(connectionUuid);
+          }
+          if (holder.connections.isEmpty()) {
             detached[0] = holder.client;
             return null;
           }
+          holder.client.rebindIfBoundTo(
+              connectionUuid, holder.connections.values().iterator().next());
           return holder;
         });
     return detached[0];
@@ -282,12 +320,16 @@ public class TelemetryClientFactory {
 
   private static final class TelemetryClientHolder {
     final TelemetryClient client;
-    final Set<String> connectionUuids; // Track unique connections
+    // Open connections using this client, by connection UUID.
+    final Map<String, IDatabricksConnectionContext> connections = new ConcurrentHashMap<>();
 
-    TelemetryClientHolder(TelemetryClient client, String connectionUuid) {
+    TelemetryClientHolder(TelemetryClient client, IDatabricksConnectionContext connectionContext) {
       this.client = client;
-      this.connectionUuids = ConcurrentHashMap.newKeySet();
-      this.connectionUuids.add(connectionUuid);
+      add(connectionContext);
+    }
+
+    void add(IDatabricksConnectionContext connectionContext) {
+      connections.put(connectionContext.getConnectionUuid(), connectionContext);
     }
   }
 

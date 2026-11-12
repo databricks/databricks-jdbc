@@ -167,10 +167,10 @@ public enum DatabricksJdbcUrlParams {
       "TelemetryFlushInterval", "Flush interval in milliseconds", "300000"), // 5 MINUTES
   TELEMETRY_SOCKET_TIMEOUT(
       "TelemetrySocketTimeout",
-      "Socket timeout in seconds for telemetry HTTP client. Also caps how long Connection.close()"
-          + " waits for each final telemetry flush (authenticated and unauthenticated telemetry"
-          + " flush separately), including time queued behind other telemetry pushes and"
-          + " retries; 0 means no limit",
+      "Socket timeout in seconds for telemetry HTTP client. Also caps each final telemetry flush"
+          + " after Connection.close() (authenticated and unauthenticated telemetry flush"
+          + " separately), including time queued behind other telemetry pushes and retries; 0"
+          + " means no limit",
       "5"),
   MAX_CONCURRENT_PRESIGNED_REQUESTS(
       "MaxVolumeOperationConcurrentPresignedRequests",

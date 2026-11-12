@@ -15,11 +15,13 @@ import java.util.concurrent.CompletableFuture;
 public class TelemetryClient implements ITelemetryClient {
   private static final int MINIMUM_TELEMETRY_FLUSH_MILLISECONDS = 1000;
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(TelemetryClient.class);
-  private final IDatabricksConnectionContext context;
-  private final DatabricksConfig databricksConfig;
+  // The connection whose HTTP client and auth config the pushes use; see rebindIfBoundTo.
+  private volatile IDatabricksConnectionContext context;
+  private volatile DatabricksConfig databricksConfig;
+  private final boolean authenticated;
   private final int eventsBatchSize;
   private final ExecutorService executorService;
-  private final ITelemetryPushClient telemetryPushClient;
+  private volatile ITelemetryPushClient telemetryPushClient;
   private final ScheduledExecutorService scheduledExecutorService;
   private List<TelemetryFrontendLog> eventsBatch;
   private volatile long lastFlushedTime;
@@ -35,6 +37,7 @@ public class TelemetryClient implements ITelemetryClient {
     this.eventsBatchSize = connectionContext.getTelemetryBatchSize();
     this.context = connectionContext;
     this.databricksConfig = config;
+    this.authenticated = true;
     this.executorService = executorService;
     /*
      * The scheduledExecutorService is shared across all telemetry clients and only schedules
@@ -62,6 +65,7 @@ public class TelemetryClient implements ITelemetryClient {
     eventsBatchSize = connectionContext.getTelemetryBatchSize();
     this.context = connectionContext;
     this.databricksConfig = null;
+    this.authenticated = false;
     this.executorService = executorService;
     this.scheduledExecutorService = scheduledExecutorService;
     this.flushIntervalMillis =
@@ -74,6 +78,28 @@ public class TelemetryClient implements ITelemetryClient {
         TelemetryClientFactory.getTelemetryPushClient(
             false /* isAuthEnabled */, context, null /* databricksConfig */);
     schedulePeriodicFlush();
+  }
+
+  /**
+   * Called when a connection sharing this client closes while others stay open. If pushes were
+   * bound to that connection, moves them to {@code replacement}: the closing connection's HTTP
+   * client is shut down with it, and pushes through it would be skipped.
+   */
+  void rebindIfBoundTo(String closingUuid, IDatabricksConnectionContext replacement) {
+    if (closingUuid == null || !closingUuid.equals(context.getConnectionUuid())) {
+      return;
+    }
+    DatabricksConfig config = databricksConfig;
+    if (authenticated) {
+      DatabricksConfig replacementConfig = TelemetryHelper.getDatabricksConfigSafely(replacement);
+      if (replacementConfig != null) {
+        config = replacementConfig;
+      }
+    }
+    telemetryPushClient =
+        TelemetryClientFactory.getTelemetryPushClient(authenticated, replacement, config);
+    databricksConfig = config;
+    context = replacement;
   }
 
   private void schedulePeriodicFlush() {
@@ -105,10 +131,12 @@ public class TelemetryClient implements ITelemetryClient {
 
   @Override
   public void close() {
-    // Export any pending latency telemetry before flushing for this connection
-    TelemetryCollector collector =
-        TelemetryCollectorManager.getInstance().getOrCreateCollector(context);
-    collector.exportAllPendingTelemetryDetails();
+    // Export any pending latency telemetry before flushing for this connection. Remove rather than
+    // getOrCreate: the connection has closed, and re-creating its collector leaked one per close.
+    TelemetryCollector collector = TelemetryCollectorManager.getInstance().removeCollector(context);
+    if (collector != null) {
+      collector.exportAllPendingTelemetryDetails();
+    }
 
     Future<?> finalFlush = null;
     try {
