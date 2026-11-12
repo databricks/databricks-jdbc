@@ -436,7 +436,8 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
   }
 
   @Override
-  public ResultData getResultChunksData(StatementId statementId, long chunkIndex, long rowOffset)
+  public ResultData getResultChunksData(
+      StatementId statementId, long chunkIndex, long chunkStartRowOffset)
       throws DatabricksSQLException {
     return getResultChunksData(statementId, chunkIndex);
   }

@@ -501,6 +501,9 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   public DatabricksClientType getClientTypeFromContext() {
     if (computeResource instanceof AllPurposeCluster) {
+      if (isApcSeaPrototype()) {
+        return DatabricksClientType.SEA;
+      }
       return DatabricksClientType.THRIFT;
     }
     // First we will check if user as explicitly provided a client type, and we will honour that
@@ -558,6 +561,17 @@ public class DatabricksConnectionContext implements IDatabricksConnectionContext
 
   public void setClientType(DatabricksClientType clientType) {
     this.clientTypeSupplier = () -> clientType;
+  }
+
+  @Override
+  public boolean isApcPrototypeEnabled() {
+    return computeResource instanceof AllPurposeCluster && ApcSeaPrototype.isEnabled();
+  }
+
+  @Override
+  public boolean isApcSeaPrototype() {
+    return isApcPrototypeEnabled()
+        && "0".equals(getParameterIgnoreDefault(DatabricksJdbcUrlParams.USE_THRIFT_CLIENT));
   }
 
   @Override

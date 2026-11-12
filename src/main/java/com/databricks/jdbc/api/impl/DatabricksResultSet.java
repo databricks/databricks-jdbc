@@ -132,6 +132,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
               resultData.getExternalLinks() != null,
               session.getConnectionContext());
       switch (resultManifest.getFormat()) {
+        case ARROW_BATCH:
         case ARROW_STREAM:
           this.resultSetType = ResultSetType.SEA_ARROW_ENABLED;
           break;

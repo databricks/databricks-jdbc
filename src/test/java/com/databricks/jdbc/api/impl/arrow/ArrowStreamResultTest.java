@@ -29,6 +29,7 @@ import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ExternalLink;
+import com.databricks.jdbc.model.core.Format;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
@@ -948,10 +949,11 @@ public class ArrowStreamResultTest {
   }
 
   /**
-   * Verifies the bounded-SEA contract: with UseBoundedSeaApi=1 and external links,
-   * ArrowStreamResult routes to StreamingChunkProvider and passes null for totalChunkCount (must
-   * not rely on manifest.total_chunk_count). A regression that reverts to getTotalChunkCount() for
-   * the bounded path would break against real bounded servers that omit the field.
+   * Verifies the bounded-SEA contract: with UseBoundedSeaApi=1 and an ARROW_BATCH response carrying
+   * external links, ArrowStreamResult routes to StreamingChunkProvider and passes null for
+   * totalChunkCount (must not rely on manifest.total_chunk_count). A regression that treats the
+   * response as inline native batches or reverts to getTotalChunkCount() would break against real
+   * bounded servers.
    */
   @Test
   public void testBoundedSeaApiUsesStreamingChunkProviderWithNullTotalChunkCount()
@@ -969,6 +971,7 @@ public class ArrowStreamResultTest {
     // Intentionally omit total_chunk_count (null) — bounded servers don't populate it.
     ResultManifest resultManifest =
         new ResultManifest()
+            .setFormat(Format.ARROW_BATCH)
             .setTotalRowCount(110L)
             .setTotalByteCount(1000L)
             .setResultCompression(CompressionCodec.NONE)
