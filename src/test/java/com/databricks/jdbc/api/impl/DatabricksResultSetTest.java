@@ -1343,9 +1343,11 @@ public class DatabricksResultSetTest {
             mockedDatabricksStatement,
             session);
     try {
+      DatabricksResultSetMetaData metaData = (DatabricksResultSetMetaData) resultSet.getMetaData();
       assertFalse(
-          ((DatabricksResultSetMetaData) resultSet.getMetaData()).hasKnownTotalRows(),
+          metaData.hasKnownTotalRows(),
           "Only the first link batch is known, so the total row count must be unknown");
+      assertEquals(-1L, metaData.getChunkCount());
     } finally {
       releaseLinkFetch.countDown();
       resultSet.close();

@@ -186,15 +186,17 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       this.executionResult =
           ExecutionResultFactory.getResultSet(resultsResp, session, parentStatement);
       // A streaming CloudFetch result reports chunkCount -1 until all links are known; its row
-      // count so far is partial, so report the total as unknown.
-      long rowSize = executionResult.getChunkCount() < 0 ? -1 : executionResult.getRowCount();
+      // count so far is partial, so report the total as unknown. Read the chunk count once: the
+      // stream can end in the background between two reads.
+      long chunkCount = executionResult.getChunkCount();
+      long rowSize = chunkCount < 0 ? -1 : executionResult.getRowCount();
       List<String> arrowMetadata = getArrowMetadata(resultsResp.getResultSetMetadata());
       this.resultSetMetaData =
           new DatabricksResultSetMetaData(
               statementId,
               resultsResp.getResultSetMetadata(),
               rowSize,
-              executionResult.getChunkCount(),
+              chunkCount,
               arrowMetadata,
               session.getConnectionContext());
       switch (resultsResp.getResultSetMetadata().getResultFormat()) {
