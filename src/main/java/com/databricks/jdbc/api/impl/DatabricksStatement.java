@@ -34,7 +34,7 @@ public class DatabricksStatement implements IDatabricksStatement, IDatabricksSta
   // statement-type pattern reads after the leading whitespace and '(' run ("BEGIN TRANSACTION"
   // plus a word boundary is the longest).
   private static final int CLASSIFICATION_SCAN_CHARS = 8192;
-  private static final int CLASSIFICATION_KEYWORD_CHARS = 32;
+  @VisibleForTesting static final int CLASSIFICATION_KEYWORD_CHARS = 32;
 
   /**
    * Sentinel value indicating update count has not yet been evaluated. Used for lazy evaluation to

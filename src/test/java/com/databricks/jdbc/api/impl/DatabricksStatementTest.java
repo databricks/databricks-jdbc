@@ -26,6 +26,7 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.IDatabricksResultSet;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
+import com.databricks.jdbc.common.DatabricksJdbcConstants;
 import com.databricks.jdbc.common.IDatabricksComputeResource;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
@@ -40,12 +41,16 @@ import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.sql.*;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -993,6 +998,48 @@ public class DatabricksStatementTest {
         assertClassifiedLikeFullStrip(lead + head + largeInList(20_000));
       }
     }
+  }
+
+  @Test
+  public void testStatementTypePatternsReadWithinClassificationLimit() throws Exception {
+    // Characters read by each known suffix after the keyword, in stripped text where whitespace
+    // runs are collapsed to one character.
+    Map<String, Integer> suffixChars =
+        Map.of(
+            "", 0,
+            "\\s*\\(", 2,
+            "\\s+", 1,
+            "\\s+INTO", 5,
+            "(?!\\s*TRANSACTION\\b)", 13);
+    List<String> leads = List.of("^(\\s*\\()*\\s*", "(?i)^\\s*");
+    Set<Pattern> anchored = new HashSet<>();
+    for (Field field : DatabricksJdbcConstants.class.getFields()) {
+      if (field.getType() != Pattern.class) {
+        continue;
+      }
+      Pattern pattern = (Pattern) field.get(null);
+      String source = pattern.pattern();
+      String lead = leads.stream().filter(source::startsWith).findFirst().orElse(null);
+      if (lead == null) {
+        assertFalse(
+            source.startsWith("^") || source.startsWith("(?i)^"),
+            "unexpected anchored pattern " + field.getName());
+        continue;
+      }
+      anchored.add(pattern);
+      String rest = source.substring(lead.length());
+      int keywordEnd = 0;
+      while (keywordEnd < rest.length() && Character.isUpperCase(rest.charAt(keywordEnd))) {
+        keywordEnd++;
+      }
+      Integer suffix = suffixChars.get(rest.substring(keywordEnd));
+      assertNotNull(suffix, "unknown suffix in " + field.getName() + ": " + source);
+      // +1 for the character a word boundary or the next pattern element may look at.
+      assertTrue(
+          keywordEnd + suffix + 1 <= DatabricksStatement.CLASSIFICATION_KEYWORD_CHARS,
+          field.getName());
+    }
+    assertEquals(anchored, new HashSet<>(STATEMENT_TYPE_PATTERNS));
   }
 
   @Test
