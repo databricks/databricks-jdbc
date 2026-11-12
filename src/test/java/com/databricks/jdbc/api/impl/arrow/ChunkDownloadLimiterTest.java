@@ -253,13 +253,20 @@ class ChunkDownloadLimiterTest {
     // Valid before the permit wait, expired after it, then refreshed.
     when(chunk.isChunkLinkInvalid()).thenReturn(false, true, true);
     ExternalLink link = mock(ExternalLink.class);
+    AtomicInteger permitsDuringRefresh = new AtomicInteger(-1);
     when(linkDownloadService.getLinkForChunk(anyLong()))
-        .thenReturn(CompletableFuture.completedFuture(link));
+        .thenAnswer(
+            invocation -> {
+              permitsDuringRefresh.set(limiter.availablePermits());
+              return CompletableFuture.completedFuture(link);
+            });
 
     runAfterWaitingForPermit(
         limiter,
         new ChunkDownloadTask(chunk, httpClient, remoteChunkProvider, linkDownloadService));
 
+    // The task refreshed while holding the only free permit, so it did not queue again.
+    assertEquals(0, permitsDuringRefresh.get());
     verify(chunk).setChunkLink(link);
     verify(chunk, times(1)).downloadData(any(), any(), anyDouble());
     verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
@@ -273,12 +280,20 @@ class ChunkDownloadLimiterTest {
     CompletableFuture<Void> ready = new CompletableFuture<>();
     when(chunk.getChunkReadyFuture()).thenReturn(ready);
     when(chunk.isChunkLinkInvalid()).thenReturn(false, true, true);
+    AtomicInteger permitsDuringRefresh = new AtomicInteger(-1);
+    when(linkRefresher.refreshLink(anyLong(), anyLong()))
+        .thenAnswer(
+            invocation -> {
+              permitsDuringRefresh.set(limiter.availablePermits());
+              return null;
+            });
 
     runAfterWaitingForPermit(
         limiter,
         new StreamingChunkDownloadTask(
             chunk, httpClient, CompressionCodec.NONE, linkRefresher, 0.1, limiter));
 
+    assertEquals(0, permitsDuringRefresh.get());
     verify(linkRefresher, times(1)).refreshLink(anyLong(), anyLong());
     verify(chunk, times(1)).downloadData(any(), any(), anyDouble());
     verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);

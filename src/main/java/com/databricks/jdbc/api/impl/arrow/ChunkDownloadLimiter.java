@@ -25,7 +25,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>While a query whose {@code cloudFetchThreadPoolSize} is above the heap-based default is open,
  * its host's total is raised to that size (up to 256), so it keeps the parallelism it asked for.
- * The total drops back when the query closes.
+ * The total drops back when the query closes; a result set that is never closed keeps it raised,
+ * just as it keeps its download threads.
  */
 final class ChunkDownloadLimiter {
   // Heap budget per in-progress download. Generous for the ~10-20 MB a download needs; more
