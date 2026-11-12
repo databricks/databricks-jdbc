@@ -20,12 +20,15 @@ public class DecompressionUtil {
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DecompressionUtil.class);
 
-  // LZ4FrameInputStream(InputStream) looks these up per stream through synchronized factory
-  // methods that retry the native library on every call when it can't load (as in the shaded jar).
-  // Both instances are stateless and thread-safe.
-  private static final LZ4SafeDecompressor LZ4_DECOMPRESSOR =
-      LZ4Factory.fastestInstance().safeDecompressor();
-  private static final XXHash32 XXHASH_32 = XXHashFactory.fastestInstance().hash32();
+  /**
+   * LZ4FrameInputStream(InputStream) looks these up per stream through synchronized factory methods
+   * that retry the native library on every call when it can't load (as in the shaded jar). Both
+   * instances are stateless and thread-safe. Held lazily so that only LZ4 paths load lz4-java.
+   */
+  private static final class Lz4 {
+    static final LZ4SafeDecompressor DECOMPRESSOR = LZ4Factory.fastestInstance().safeDecompressor();
+    static final XXHash32 XXHASH_32 = XXHashFactory.fastestInstance().hash32();
+  }
 
   private static byte[] decompressLZ4Frame(byte[] compressedInput, String context)
       throws DatabricksSQLException {
@@ -33,7 +36,7 @@ public class DecompressionUtil {
     try {
       return IOUtils.toByteArray(
           new LZ4FrameInputStream(
-              new ByteArrayInputStream(compressedInput), LZ4_DECOMPRESSOR, XXHASH_32));
+              new ByteArrayInputStream(compressedInput), Lz4.DECOMPRESSOR, Lz4.XXHASH_32));
     } catch (IOException e) {
       String errorMessage =
           String.format("Unable to de-compress LZ4 Frame compressed result %s", context);
@@ -104,7 +107,7 @@ public class DecompressionUtil {
       case LZ4_FRAME:
         try {
           return new LZ4FrameInputStream(
-              new ByteArrayInputStream(compressedInput), LZ4_DECOMPRESSOR, XXHASH_32);
+              new ByteArrayInputStream(compressedInput), Lz4.DECOMPRESSOR, Lz4.XXHASH_32);
         } catch (IOException e) {
           String errorMessage =
               String.format("Unable to create LZ4 Frame decompression stream %s", context);
