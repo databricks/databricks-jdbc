@@ -1,16 +1,21 @@
 package com.databricks.jdbc.api.impl.arrow;
 
 import com.google.common.annotations.VisibleForTesting;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 
 /**
- * Bounds how many CloudFetch chunks are downloaded and parsed at once across the JVM.
+ * Bounds how many CloudFetch chunks are downloaded and parsed at once for one workspace host.
  *
  * <p>Each query still uses up to {@code cloudFetchThreadPoolSize} download threads, but a download
- * holds a permit only while it reads and parses its chunk. This bounds the transient heap that many
- * concurrent queries need. Permits are released when the download ends, not when the chunk is
+ * holds a permit only while it fetches and parses its chunk. This bounds the transient heap that
+ * many concurrent queries need. Permits are released when the download ends, not when the chunk is
  * consumed, so a slow reader cannot block other queries. The semaphore is fair, so waiting
  * downloads from different queries are served in arrival order.
+ *
+ * <p>There is one limiter per host, so throttled or stalled storage for one workspace cannot hold
+ * up downloads for another. Within one host, downloads that are retrying or stalled keep their
+ * permits, which can delay that host's other queries.
  */
 final class ChunkDownloadLimiter {
   // Heap budget per in-progress download. Generous for the ~10-20 MB a download needs; more
@@ -20,14 +25,22 @@ final class ChunkDownloadLimiter {
   private static final int MIN_PERMITS = 16;
   private static final int MAX_PERMITS = 256;
 
-  private static final Semaphore PERMITS = new Semaphore(0, true);
-  private static int totalPermits = 0;
+  private static final ConcurrentHashMap<String, ChunkDownloadLimiter> BY_HOST =
+      new ConcurrentHashMap<>();
 
-  static {
-    ensureAtLeast(defaultPermits(Runtime.getRuntime().maxMemory()));
+  private final Semaphore permits = new Semaphore(0, true);
+  private int totalPermits = 0;
+
+  private ChunkDownloadLimiter(int initialPermits) {
+    ensureAtLeast(initialPermits);
   }
 
-  private ChunkDownloadLimiter() {}
+  /** Returns the limiter for a workspace host; an unknown host shares one default limiter. */
+  static ChunkDownloadLimiter forHost(String host) {
+    return BY_HOST.computeIfAbsent(
+        host == null ? "" : host,
+        h -> new ChunkDownloadLimiter(defaultPermits(Runtime.getRuntime().maxMemory())));
+  }
 
   @VisibleForTesting
   static int defaultPermits(long maxHeapBytes) {
@@ -39,34 +52,34 @@ final class ChunkDownloadLimiter {
    * Lets one query use up to {@code permits} parallel downloads, e.g. its cloudFetchThreadPoolSize.
    * The total only grows (it is the largest size seen so far) and never exceeds MAX_PERMITS.
    */
-  static synchronized void ensureAtLeast(int permits) {
+  synchronized void ensureAtLeast(int permits) {
     int target = Math.min(permits, MAX_PERMITS);
     if (target > totalPermits) {
-      PERMITS.release(target - totalPermits);
+      this.permits.release(target - totalPermits);
       totalPermits = target;
     }
   }
 
-  static void acquire() throws InterruptedException {
-    PERMITS.acquire();
+  void acquire() throws InterruptedException {
+    permits.acquire();
   }
 
-  static void release() {
-    PERMITS.release();
+  void release() {
+    permits.release();
   }
 
   @VisibleForTesting
-  static synchronized int totalPermits() {
+  synchronized int totalPermits() {
     return totalPermits;
   }
 
   @VisibleForTesting
-  static int availablePermits() {
-    return PERMITS.availablePermits();
+  int availablePermits() {
+    return permits.availablePermits();
   }
 
   @VisibleForTesting
-  static boolean hasQueuedThreads() {
-    return PERMITS.hasQueuedThreads();
+  boolean hasQueuedThreads() {
+    return permits.hasQueuedThreads();
   }
 }

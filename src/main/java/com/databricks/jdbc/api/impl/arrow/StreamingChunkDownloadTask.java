@@ -30,6 +30,7 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
   private final CompressionCodec compressionCodec;
   private final LinkRefresher linkRefresher;
   private final double cloudFetchSpeedThreshold;
+  private final ChunkDownloadLimiter downloadLimiter;
 
   // Capture caller's thread context for telemetry/logging on the download thread
   private final IDatabricksConnectionContext connectionContext;
@@ -41,11 +42,28 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
       CompressionCodec compressionCodec,
       LinkRefresher linkRefresher,
       double cloudFetchSpeedThreshold) {
+    this(
+        chunk,
+        httpClient,
+        compressionCodec,
+        linkRefresher,
+        cloudFetchSpeedThreshold,
+        ChunkDownloadLimiter.forHost(null));
+  }
+
+  StreamingChunkDownloadTask(
+      ArrowResultChunk chunk,
+      IDatabricksHttpClient httpClient,
+      CompressionCodec compressionCodec,
+      LinkRefresher linkRefresher,
+      double cloudFetchSpeedThreshold,
+      ChunkDownloadLimiter downloadLimiter) {
     this.chunk = chunk;
     this.httpClient = httpClient;
     this.compressionCodec = compressionCodec;
     this.linkRefresher = linkRefresher;
     this.cloudFetchSpeedThreshold = cloudFetchSpeedThreshold;
+    this.downloadLimiter = downloadLimiter;
     this.connectionContext = DatabricksThreadContextHolder.getConnectionContext();
     this.statementId = DatabricksThreadContextHolder.getStatementId();
   }
@@ -73,11 +91,11 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
           }
 
           // Perform the download
-          ChunkDownloadLimiter.acquire();
+          downloadLimiter.acquire();
           try {
             chunk.downloadData(httpClient, compressionCodec, cloudFetchSpeedThreshold);
           } finally {
-            ChunkDownloadLimiter.release();
+            downloadLimiter.release();
           }
           downloadSuccessful = true;
 

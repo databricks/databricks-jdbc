@@ -76,6 +76,7 @@ public class StreamingChunkProvider implements ChunkProvider {
   private final StatementId statementId;
   private final double cloudFetchSpeedThreshold;
   private final IDatabricksConnectionContext connectionContext;
+  private final ChunkDownloadLimiter downloadLimiter;
 
   // Chunk storage
   private final ConcurrentMap<Long, ArrowResultChunk> chunks = new ConcurrentHashMap<>();
@@ -166,6 +167,9 @@ public class StreamingChunkProvider implements ChunkProvider {
     this.chunkReadyTimeoutSeconds = chunkReadyTimeoutSeconds;
     this.cloudFetchSpeedThreshold = cloudFetchSpeedThreshold;
     this.connectionContext = connectionContext;
+    this.downloadLimiter =
+        ChunkDownloadLimiter.forHost(
+            connectionContext == null ? null : connectionContext.getHost());
 
     LOGGER.info(
         "Creating StreamingChunkProvider for statement {}: maxChunksInMemory={}, linkPrefetchWindow={}",
@@ -725,7 +729,12 @@ public class StreamingChunkProvider implements ChunkProvider {
 
     StreamingChunkDownloadTask task =
         new StreamingChunkDownloadTask(
-            chunk, httpClient, compressionCodec, this::getRefreshedLink, cloudFetchSpeedThreshold);
+            chunk,
+            httpClient,
+            compressionCodec,
+            this::getRefreshedLink,
+            cloudFetchSpeedThreshold,
+            downloadLimiter);
 
     downloadExecutor.submit(task);
   }
@@ -858,7 +867,7 @@ public class StreamingChunkProvider implements ChunkProvider {
           }
         };
 
-    ChunkDownloadLimiter.ensureAtLeast(poolSize);
+    downloadLimiter.ensureAtLeast(poolSize);
     return Executors.newFixedThreadPool(poolSize, threadFactory);
   }
 }

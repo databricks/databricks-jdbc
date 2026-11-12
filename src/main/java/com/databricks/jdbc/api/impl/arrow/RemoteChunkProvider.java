@@ -1,5 +1,6 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.CompressionCodec;
@@ -128,6 +129,13 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
 
   /** {@inheritDoc} */
   @Override
+  public ChunkDownloadLimiter getDownloadLimiter() {
+    IDatabricksConnectionContext context = session == null ? null : session.getConnectionContext();
+    return ChunkDownloadLimiter.forHost(context == null ? null : context.getHost());
+  }
+
+  /** {@inheritDoc} */
+  @Override
   protected void doClose() {
     LOGGER.debug(
         "doClose() called — shutting down executor and releasing all {} chunks (thread: {})",
@@ -165,7 +173,7 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
             return thread;
           }
         };
-    ChunkDownloadLimiter.ensureAtLeast(maxParallelChunkDownloadsPerQuery);
+    getDownloadLimiter().ensureAtLeast(maxParallelChunkDownloadsPerQuery);
     return Executors.newFixedThreadPool(maxParallelChunkDownloadsPerQuery, threadFactory);
   }
 }
