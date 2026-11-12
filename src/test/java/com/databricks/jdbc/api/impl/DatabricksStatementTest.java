@@ -1,5 +1,23 @@
 package com.databricks.jdbc.api.impl;
 
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.BEGIN_PATTERN_FOR_SQL_SCRIPT;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.CALL_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.DECLARE_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.DESCRIBE_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.EXPLAIN_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.FROM_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.GET_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.INSERT_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.LIST_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.MAP_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.PUT_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.REMOVE_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.SELECT_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.SET_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.SHOW_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.TABLE_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.VALUES_PATTERN;
+import static com.databricks.jdbc.common.DatabricksJdbcConstants.WITH_PATTERN;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -13,6 +31,7 @@ import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.Warehouse;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.dbclient.impl.sqlexec.DatabricksSdkClient;
+import com.databricks.jdbc.exception.DatabricksDriverException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.exception.DatabricksTimeoutException;
@@ -30,6 +49,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Pattern;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -884,6 +904,140 @@ public class DatabricksStatementTest {
     assertFalse(
         DatabricksStatement.shouldReturnResultSet(
             "BEGIN    transaction ", Collections.emptyList()));
+  }
+
+  private static final List<Pattern> STATEMENT_TYPE_PATTERNS =
+      List.of(
+          SELECT_PATTERN,
+          SHOW_PATTERN,
+          DESCRIBE_PATTERN,
+          EXPLAIN_PATTERN,
+          WITH_PATTERN,
+          SET_PATTERN,
+          MAP_PATTERN,
+          FROM_PATTERN,
+          VALUES_PATTERN,
+          TABLE_PATTERN,
+          DECLARE_PATTERN,
+          PUT_PATTERN,
+          GET_PATTERN,
+          REMOVE_PATTERN,
+          LIST_PATTERN,
+          INSERT_PATTERN,
+          CALL_PATTERN,
+          BEGIN_PATTERN_FOR_SQL_SCRIPT);
+
+  private static String largeInList(int minLength) {
+    StringBuilder sb = new StringBuilder(" WHERE id IN (-1");
+    for (int i = 0; sb.length() < minLength; i++) {
+      sb.append(", ").append(i);
+    }
+    return sb.append(")").toString();
+  }
+
+  /** Asserts that classifying on classificationText(query) matches classifying the full strip. */
+  private static void assertClassifiedLikeFullStrip(String query) {
+    String full = DatabricksStatement.trimCommentsAndWhitespaces(query);
+    String head = DatabricksStatement.classificationText(query);
+    String label = query.substring(0, Math.min(60, query.length()));
+    assertTrue(full.startsWith(head), "not a prefix of the full strip: " + label);
+    for (Pattern pattern : STATEMENT_TYPE_PATTERNS) {
+      assertEquals(
+          pattern.matcher(full).find(), pattern.matcher(head).find(), pattern + " for " + label);
+    }
+    assertEquals(
+        DatabricksStatement.matchesResultSetPattern(full),
+        DatabricksStatement.shouldReturnResultSet(query, Collections.emptyList()),
+        label);
+  }
+
+  @Test
+  public void testClassificationTextMatchesFullStripForLargeStatements() {
+    List<String> heads =
+        List.of(
+            "SELECT * FROM t",
+            "  ( ( SELECT a FROM t",
+            "WITH x AS (SELECT 1) SELECT * FROM x",
+            "VALUES (1)",
+            "FROM (SELECT 1)",
+            "FROM t SELECT a",
+            "TABLE t",
+            "TABLEt",
+            "INSERT INTO t SELECT * FROM s",
+            "INSERT /* c */ \n INTO t SELECT * FROM s",
+            "INSERT OVERWRITE t SELECT * FROM s",
+            "DESCRIBE t",
+            "BEGIN SELECT 1; END",
+            "BEGIN TRANSACTION",
+            "begin /* c */ transaction",
+            "BEGIN TRANSACTIONS",
+            "CALL p(1)",
+            "UPDATE t SET a = 1",
+            "DELETE FROM t",
+            "MERGE INTO t USING s ON 1 = 1",
+            "SHOW TABLES",
+            "SET a = 1",
+            "'SELECT' AS x");
+    List<String> leading =
+        List.of(
+            "",
+            "-- comment\n",
+            "/* comment */ ",
+            "/* " + "x".repeat(9_000) + " */ ",
+            "-- " + "y".repeat(9_000) + "\n",
+            "(".repeat(300),
+            "( ".repeat(200),
+            " \t\r\n".repeat(3_000));
+    for (String lead : leading) {
+      for (String head : heads) {
+        assertClassifiedLikeFullStrip(lead + head + largeInList(20_000));
+      }
+    }
+  }
+
+  @Test
+  public void testClassificationTextAtScanBoundary() {
+    // Tokens that change the parser state, placed across the 8192-character scan boundary.
+    List<String> tokens =
+        List.of("--", "/*", "*/", "'", "''", "\"\"", "``", "\r\n", "  ", "😀", "-");
+    String start = "SELECT * FROM t WHERE c = ";
+    for (String token : tokens) {
+      for (int offset = 8_185; offset <= 8_195; offset++) {
+        String pad = "a".repeat(offset - start.length());
+        assertClassifiedLikeFullStrip(start + pad + token + " x" + largeInList(9_000));
+        assertClassifiedLikeFullStrip(start + pad + token);
+        assertClassifiedLikeFullStrip("UPDATE t SET c = " + pad + token + largeInList(9_000));
+      }
+    }
+  }
+
+  @Test
+  public void testClassificationTextFallsBackToFullStrip() {
+    String comment = "/* " + "x".repeat(20_000) + " */ ";
+    String select = comment + "SELECT 1" + largeInList(20_000);
+    assertEquals(
+        DatabricksStatement.trimCommentsAndWhitespaces(select),
+        DatabricksStatement.classificationText(select));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(select, Collections.emptyList()));
+    // Without a long leading comment only the scanned prefix is stripped.
+    assertTrue(
+        DatabricksStatement.classificationText("SELECT 1" + largeInList(20_000)).length() < 8192);
+    // A leading '(' run that fills the scanned prefix also uses the full strip.
+    String parens = "(".repeat(9_000) + "SELECT 1" + largeInList(20_000);
+    assertEquals(
+        DatabricksStatement.trimCommentsAndWhitespaces(parens),
+        DatabricksStatement.classificationText(parens));
+    String shortQuery = "-- c\n  SELECT  1 /* x */ ";
+    assertEquals(
+        DatabricksStatement.trimCommentsAndWhitespaces(shortQuery),
+        DatabricksStatement.classificationText(shortQuery));
+    assertThrows(
+        DatabricksDriverException.class,
+        () -> DatabricksStatement.classificationText(" ".repeat(20_000)));
+    // Configured prefixes are matched against the full strip.
+    String update = "UPDATE t SET a = 1" + largeInList(20_000);
+    assertFalse(DatabricksStatement.shouldReturnResultSet(update, Collections.emptyList()));
+    assertTrue(DatabricksStatement.shouldReturnResultSet(update, List.of("UPDATE")));
   }
 
   @Test

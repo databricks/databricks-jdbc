@@ -4,9 +4,17 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class StringUtil {
+  private static final String ESCAPE_KEYWORD = "ESCAPE";
+
+  // Whitespace + ESCAPE + whitespace + empty string ('') or (""), followed by a delimiter
+  // (whitespace, semicolon, end-of-string, closing paren, or comma).
+  private static final Pattern REDUNDANT_ESCAPE_CLAUSE =
+      Pattern.compile("(?i)\\s+ESCAPE\\s+['\"]['\"](?=\\s|;|$|\\)|,)");
+
   public static String convertJdbcEscapeSequences(String sql) {
     // Replace JDBC escape sequences;
     sql =
@@ -87,9 +95,25 @@ public class StringUtil {
     if (sql == null) {
       return null;
     }
-    // Match whitespace + ESCAPE + whitespace + empty string ('') or ("")
-    // followed by delimiter (whitespace, semicolon, end-of-string, closing paren, or comma)
-    return sql.replaceAll("(?i)\\s+ESCAPE\\s+['\"]['\"](?=\\s|;|$|\\)|,)", "");
+    // The regex is slow on large statements, and most statements have no ESCAPE keyword.
+    if (!containsIgnoreCase(sql, ESCAPE_KEYWORD)) {
+      return sql;
+    }
+    return REDUNDANT_ESCAPE_CLAUSE.matcher(sql).replaceAll("");
+  }
+
+  /** ASCII case-insensitive search; {@code word} must be upper-case ASCII letters. */
+  private static boolean containsIgnoreCase(String text, String word) {
+    char first = word.charAt(0);
+    char firstLower = Character.toLowerCase(first);
+    int last = text.length() - word.length();
+    for (int i = 0; i <= last; i++) {
+      char c = text.charAt(i);
+      if ((c == first || c == firstLower) && text.regionMatches(true, i, word, 0, word.length())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
