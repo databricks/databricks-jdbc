@@ -805,6 +805,19 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
+  void testNestedTemporalTextOnlyJavaSqlReadsFallsBackToJavaSqlValue() throws Exception {
+    // Timestamp.valueOf accepts non-padded fields, which the ISO parser rejects. With no exact
+    // value, the java.sql value is used (exact after the 1582 cutover) and a warning is logged.
+    DatabricksStruct struct =
+        parser.parseJsonStringToDbStruct("{\"ts\":\"2023-1-5 10:20:30\"}", "STRUCT<ts:TIMESTAMP>");
+
+    assertEquals(Timestamp.valueOf("2023-01-05 10:20:30"), struct.getAttributes()[0]);
+    assertEquals(
+        LocalDateTime.of(2023, 1, 5, 10, 20, 30),
+        struct.getAttributes(java.util.Map.of("TIMESTAMP", LocalDateTime.class))[0]);
+  }
+
+  @Test
   void testNestedTimestampNtzWithZeroSecondsParses() throws Exception {
     // Arrow omits trailing zero components: 2023-10-05 15:20:00 arrives as five elements.
     DatabricksArray array =
