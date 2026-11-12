@@ -127,31 +127,37 @@ public class DatabricksDriverFeatureFlagsContext {
 
   /**
    * Loads the caller's last fetched flags if still within their TTL and schedules the next refresh
-   * for when they expire, so flags are no staler than in a context that stayed open.
+   * for when they expire, so flags are no staler than in a context that stayed open. Returns false,
+   * so the caller fetches, if there is no usable snapshot or the lookup fails.
    */
   private boolean seedFromSnapshot(IDatabricksConnectionContext callerContext) {
-    String key =
-        snapshotKey(
-            featureFlagEndpoint,
-            UserAgentManager.buildUserAgentForConnectorService(callerContext),
-            callerContext.getCustomHeaders());
-    FlagsSnapshot snapshot = SNAPSHOTS.getIfPresent(key);
-    if (snapshot == null) {
+    try {
+      String key =
+          snapshotKey(
+              featureFlagEndpoint,
+              UserAgentManager.buildUserAgentForConnectorService(callerContext),
+              callerContext.getCustomHeaders());
+      FlagsSnapshot snapshot = SNAPSHOTS.getIfPresent(key);
+      if (snapshot == null) {
+        return false;
+      }
+      long remainingNanos = snapshot.expiresAtNanos - System.nanoTime();
+      if (remainingNanos <= 0) {
+        SNAPSHOTS.asMap().remove(key, snapshot);
+        return false;
+      }
+      snapshot.flags.forEach(featureFlags::put);
+      long remainingSeconds = TimeUnit.NANOSECONDS.toSeconds(remainingNanos);
+      scheduleRefresh(remainingSeconds, snapshot.ttlSeconds);
+      LOGGER.debug(
+          "Reusing feature flags fetched for {} (next refresh in {}s)",
+          featureFlagEndpoint,
+          remainingSeconds);
+      return true;
+    } catch (RuntimeException e) {
+      LOGGER.trace("Feature flag snapshot lookup failed: {}", e.getMessage());
       return false;
     }
-    long remainingNanos = snapshot.expiresAtNanos - System.nanoTime();
-    if (remainingNanos <= 0) {
-      SNAPSHOTS.asMap().remove(key, snapshot);
-      return false;
-    }
-    snapshot.flags.forEach(featureFlags::put);
-    long remainingSeconds = TimeUnit.NANOSECONDS.toSeconds(remainingNanos);
-    scheduleRefresh(remainingSeconds, snapshot.ttlSeconds);
-    LOGGER.debug(
-        "Reusing feature flags fetched for {} (next refresh in {}s)",
-        featureFlagEndpoint,
-        remainingSeconds);
-    return true;
   }
 
   /**

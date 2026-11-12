@@ -602,6 +602,25 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
     }
   }
 
+  @Test
+  void snapshotLookupFailureFallsBackToFetch() throws Exception {
+    IDatabricksConnectionContext ctx = hostContext("lookup.databricks.com", "uuid-lookup");
+    // Only the snapshot lookup, which reads the headers first, sees the failure.
+    when(ctx.getCustomHeaders())
+        .thenThrow(new IllegalStateException("simulated lookup failure"))
+        .thenReturn(Map.of());
+    IDatabricksHttpClient httpClient =
+        httpClientReturning(flagsResponse(200, "[{\"name\":\"f\",\"value\":\"true\"}]", 300));
+    try (MockedStatic<DatabricksHttpClientFactory> factory = mockHttpClientFactory(httpClient);
+        MockedConstruction<ClientConfigurator> configurators = mockConfigurators()) {
+      assertTrue(DatabricksDriverFeatureFlagsContextFactory.getInstance(ctx).getBoolean("f"));
+      verify(httpClient, times(1)).execute(any(HttpGet.class));
+    } finally {
+      DatabricksDriverFeatureFlagsContextFactory.removeInstance(ctx);
+      DatabricksClientConfiguratorManager.getInstance().removeInstance(ctx);
+    }
+  }
+
   private static IDatabricksConnectionContext hostContext(String host, String uuid) {
     IDatabricksConnectionContext ctx =
         mock(IDatabricksConnectionContext.class, withSettings().lenient());
