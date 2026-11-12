@@ -682,6 +682,8 @@ public class ComplexDataTypeParserTest {
     Object[] elements = (Object[]) array.getArray();
     assertInstanceOf(Date.class, elements[0]);
     assertEquals("1582-10-15", elements[0].toString()); // hybrid-calendar shift, unchanged
+    // The BC date keeps its era, as getDate() does for a top-level DATE column.
+    assertEquals(Date.valueOf(LocalDate.of(-2015, 1, 1)), elements[1]);
     assertNull(elements[2]);
     // Mappings that are not java.time classes keep the existing behavior.
     assertSame(elements, array.getArray(java.util.Map.of("DATE", String.class)));
@@ -799,6 +801,69 @@ public class ComplexDataTypeParserTest {
         new Object[] {LocalDate.of(1582, 10, 5), Instant.parse("1000-01-01T00:00:00Z")},
         struct.getAttributes(
             java.util.Map.of("DATE", LocalDate.class, "TIMESTAMP", Instant.class)));
+  }
+
+  @Test
+  void testNestedTimestampNtzWithZeroSecondsParses() throws Exception {
+    // Arrow omits trailing zero components: 2023-10-05 15:20:00 arrives as five elements.
+    DatabricksArray array =
+        parser.parseJsonStringToDbArray(
+            "[[2023,10,5,15,20],[2023,10,5,15,20,30],[2023,10,5,15,20,30,123000000]]",
+            "ARRAY<TIMESTAMP_NTZ>");
+
+    Object[] legacy = (Object[]) array.getArray();
+    assertEquals(Timestamp.valueOf("2023-10-05 15:20:00"), legacy[0]);
+    assertEquals(Timestamp.valueOf("2023-10-05 15:20:30"), legacy[1]);
+    assertEquals(Timestamp.valueOf("2023-10-05 15:20:30.123"), legacy[2]);
+    assertArrayEquals(
+        new Object[] {
+          LocalDateTime.of(2023, 10, 5, 15, 20),
+          LocalDateTime.of(2023, 10, 5, 15, 20, 30),
+          LocalDateTime.of(2023, 10, 5, 15, 20, 30, 123_000_000)
+        },
+        (Object[]) array.getArray(java.util.Map.of("TIMESTAMP_NTZ", LocalDateTime.class)));
+  }
+
+  @Test
+  void testNestedTimestampTextWithZKeepsGetLong() throws Exception {
+    java.util.TimeZone defaultTimeZone = java.util.TimeZone.getDefault();
+    try {
+      java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Los_Angeles"));
+      DatabricksArray array =
+          parser.parseJsonStringToDbArray(
+              "[\"2023-10-05T15:20:30.000Z\",\"1000-01-01T00:00:00.000Z\"]", "ARRAY<TIMESTAMP>");
+
+      try (ResultSet resultSet = array.getResultSet()) {
+        assertTrue(resultSet.next());
+        // Text ending in 'Z' is an instant, before and after the Gregorian cutover.
+        assertEquals(1696519230000L, resultSet.getLong(2));
+        assertEquals(resultSet.getTimestamp(2).getTime(), resultSet.getLong(2));
+        assertEquals(Instant.parse("2023-10-05T15:20:30Z"), resultSet.getObject(2, Instant.class));
+        assertTrue(resultSet.next());
+        assertEquals(-30610224000000L, resultSet.getLong(2));
+        assertEquals(Instant.parse("1000-01-01T00:00:00Z"), resultSet.getObject(2, Instant.class));
+      }
+    } finally {
+      java.util.TimeZone.setDefault(defaultTimeZone);
+    }
+  }
+
+  @Test
+  void testNestedDateArrayResultSetWithJavaTimeTypeMapIsExact() throws Exception {
+    DatabricksArray array = parser.parseJsonStringToDbArray(NESTED_DATES_JSON, "ARRAY<DATE>");
+
+    try (ResultSet resultSet = array.getResultSet(java.util.Map.of("DATE", LocalDate.class))) {
+      assertTrue(resultSet.next());
+      assertEquals(LocalDate.of(1582, 10, 5), resultSet.getObject(2));
+      assertEquals(1L, resultSet.getObject(1)); // other columns are unchanged
+      assertInstanceOf(Date.class, resultSet.getDate(2));
+    }
+    try (ResultSet resultSet =
+        array.getResultSet(2, 1, java.util.Map.of("DATE", LocalDate.class))) {
+      assertTrue(resultSet.next());
+      assertEquals(LocalDate.of(-2015, 1, 1), resultSet.getObject(2));
+      assertFalse(resultSet.next());
+    }
   }
 
   @Test

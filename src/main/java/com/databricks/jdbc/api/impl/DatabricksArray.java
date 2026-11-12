@@ -170,7 +170,8 @@ public class DatabricksArray implements Array {
         case DatabricksTypeUtil.BOOLEAN:
           return Boolean.parseBoolean(value.toString());
         case DatabricksTypeUtil.DATE:
-          return Date.valueOf(value.toString());
+          // Keep a parsed Date: rebuilding it from toString() drops the BC era.
+          return value instanceof Date ? value : Date.valueOf(value.toString());
         case DatabricksTypeUtil.TIMESTAMP:
         case DatabricksTypeUtil.TIMESTAMP_NTZ:
           return value instanceof Timestamp ? value : Timestamp.valueOf(value.toString());
@@ -267,30 +268,37 @@ public class DatabricksArray implements Array {
     return getResultSet(1, this.elements.length);
   }
 
+  /**
+   * Returns the elements as a result set. A {@code java.time} mapping for the element type, as in
+   * {@link #getArray(Map)}, makes {@code getObject(2)} return that class; other mappings are
+   * ignored.
+   */
   @Override
   public java.sql.ResultSet getResultSet(Map<String, Class<?>> map) throws SQLException {
     LOGGER.debug("Getting result set with type map for array");
-    return getResultSet();
+    return getResultSet(1, this.elements.length, map);
   }
 
   @Override
   public java.sql.ResultSet getResultSet(long index, int count) throws SQLException {
     LOGGER.debug("Getting result set from index {} with count {}", index, count);
-    return buildResultSet(index, count);
+    return buildResultSet(index, count, null);
   }
 
+  /** Returns a slice of the elements, applying {@code map} as {@link #getResultSet(Map)} does. */
   @Override
   public java.sql.ResultSet getResultSet(long index, int count, Map<String, Class<?>> map)
       throws SQLException {
     LOGGER.debug("Getting result set with type map from index {} with count {}", index, count);
-    return getResultSet(index, count);
+    return buildResultSet(index, count, map);
   }
 
   /**
    * Builds a result set with one row per element in the requested window. Per the {@link
    * Array#getResultSet()} contract, column 1 is the 1-based element index and column 2 the value.
    */
-  private java.sql.ResultSet buildResultSet(long index, int count) throws SQLException {
+  private java.sql.ResultSet buildResultSet(long index, int count, Map<String, Class<?>> map)
+      throws SQLException {
     if (index < 1) {
       throw new DatabricksSQLException(
           "Array index must be >= 1 but was " + index,
@@ -360,6 +368,7 @@ public class DatabricksArray implements Array {
         columnMetadataList,
         rows,
         temporalRows,
+        map,
         StatementType.QUERY,
         // A DatabricksArray only exists when complex datatype support is enabled.
         /* complexDatatypeSupport= */ true);

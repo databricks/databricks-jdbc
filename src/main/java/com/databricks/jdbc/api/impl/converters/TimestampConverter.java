@@ -20,6 +20,9 @@ import java.time.temporal.Temporal;
 public class TimestampConverter implements ObjectConverter {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(IntConverter.class);
 
+  // Two days after the 1582-10-15 Gregorian cutover; java.sql.Timestamp is exact from here on.
+  private static final LocalDateTime EXACT_FROM = LocalDateTime.of(1582, 10, 17, 0, 0);
+
   @Override
   public Time toTime(Object object) throws DatabricksSQLException {
     Timestamp timestamp = toTimestamp(object);
@@ -69,45 +72,50 @@ public class TimestampConverter implements ObjectConverter {
   }
 
   /**
-   * Returns epoch milliseconds, the same value as {@code toTimestamp(object).getTime()}.
+   * Returns epoch milliseconds: the same value as {@code toTimestamp(object).getTime()}, except
+   * before the 1582-10-15 Gregorian cutover, where {@link Timestamp}'s Julian calendar shifts the
+   * value by days and BC years lose their era.
    *
-   * <p>The {@code java.time} values read from Arrow ({@link OffsetDateTime} for TIMESTAMP, {@link
-   * LocalDateTime} for TIMESTAMP_NTZ) and ISO text are computed without going through {@link
-   * Timestamp}, whose hybrid Julian/Gregorian calendar shifts pre-1582 values by days. The meaning
-   * is unchanged: the session-local fields are read in the JVM default time zone, as {@code
-   * getTimestamp()} does.
+   * <p>Before the cutover, the {@code java.time} values read from Arrow ({@link OffsetDateTime} for
+   * TIMESTAMP, {@link LocalDateTime} for TIMESTAMP_NTZ) and ISO text are read on the proleptic
+   * Gregorian calendar, with the same meaning as {@code getTimestamp()}: the session-local fields
+   * in the JVM default time zone (text ending in 'Z' is an instant).
    */
   @Override
   public long toLong(Object object) throws DatabricksSQLException {
     if (object instanceof OffsetDateTime) {
-      return toEpochMilliInDefaultZone(((OffsetDateTime) object).toLocalDateTime());
+      return toEpochMilli(((OffsetDateTime) object).toLocalDateTime());
     }
     if (object instanceof LocalDateTime) {
-      return toEpochMilliInDefaultZone((LocalDateTime) object);
+      return toEpochMilli((LocalDateTime) object);
     }
-    if (object instanceof String) {
-      String text = ((String) object).trim();
-      Temporal parsed = JavaTimeConverter.parseTimestampText(text);
-      if (parsed instanceof OffsetDateTime) {
-        // parseStringToTimestamp reads text ending in 'Z' as an instant and ignores other offsets.
-        OffsetDateTime offsetDateTime = (OffsetDateTime) parsed;
-        return text.endsWith("Z") || text.endsWith("z")
-            ? offsetDateTime.toInstant().toEpochMilli()
-            : toEpochMilliInDefaultZone(offsetDateTime.toLocalDateTime());
-      }
-      if (parsed instanceof LocalDateTime) {
-        return toEpochMilliInDefaultZone((LocalDateTime) parsed);
-      }
+    Timestamp timestamp = toTimestamp(object);
+    long epochMilli = timestamp.toInstant().toEpochMilli();
+    if (!(object instanceof String) || !JavaTimeConverter.mayBeCalendarShifted(timestamp)) {
+      return epochMilli;
     }
-    return toTimestamp(object).toInstant().toEpochMilli();
+    String text = ((String) object).trim();
+    Temporal parsed = JavaTimeConverter.parseTimestampText(text);
+    if (parsed instanceof OffsetDateTime) {
+      // parseStringToTimestamp reads text ending in 'Z' as an instant and ignores other offsets.
+      OffsetDateTime offsetDateTime = (OffsetDateTime) parsed;
+      return text.endsWith("Z") || text.endsWith("z")
+          ? offsetDateTime.toInstant().toEpochMilli()
+          : toEpochMilli(offsetDateTime.toLocalDateTime());
+    }
+    return parsed instanceof LocalDateTime ? toEpochMilli((LocalDateTime) parsed) : epochMilli;
   }
 
   /**
-   * Reads the fields in the JVM default time zone like {@code Timestamp.valueOf(dateTime)}, which
-   * takes the later offset when the fields are ambiguous at the end of daylight saving time.
+   * Reads the fields in the JVM default time zone: {@code Timestamp.valueOf(fields).getTime()} from
+   * two days after the Gregorian cutover, and {@code java.time} on the proleptic Gregorian calendar
+   * before it.
    */
-  private static long toEpochMilliInDefaultZone(LocalDateTime dateTime) {
-    return dateTime
+  private static long toEpochMilli(LocalDateTime fields) {
+    if (!fields.isBefore(EXACT_FROM)) {
+      return Timestamp.valueOf(fields).toInstant().toEpochMilli();
+    }
+    return fields
         .atZone(ZoneId.systemDefault())
         .withLaterOffsetAtOverlap()
         .toInstant()

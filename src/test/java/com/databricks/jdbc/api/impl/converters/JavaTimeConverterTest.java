@@ -170,6 +170,39 @@ public class JavaTimeConverterTest {
         JavaTimeConverter.convert(OffsetDateTime.class, Types.TIMESTAMP, "TIMESTAMP", text));
   }
 
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "2024-11-03 01:30:00", // ambiguous in America/New_York
+        "2024-03-10 02:30:00", // skipped in America/New_York
+        "2024-06-15 12:00:00"
+      })
+  public void testConvert_TimestampTextWithoutOffsetMatchesGetTimestampAroundDst(String text)
+      throws DatabricksSQLException {
+    java.util.TimeZone defaultTimeZone = java.util.TimeZone.getDefault();
+    try {
+      java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/New_York"));
+      Timestamp legacy = Timestamp.valueOf(text);
+      assertEquals(
+          legacy.toInstant(),
+          JavaTimeConverter.convert(Instant.class, Types.TIMESTAMP, "TIMESTAMP", text));
+      assertEquals(
+          legacy.toLocalDateTime(),
+          JavaTimeConverter.convert(LocalDateTime.class, Types.TIMESTAMP, "TIMESTAMP", text));
+    } finally {
+      java.util.TimeZone.setDefault(defaultTimeZone);
+    }
+  }
+
+  @Test
+  public void testMayBeCalendarShifted() {
+    assertTrue(JavaTimeConverter.mayBeCalendarShifted(Date.valueOf(LocalDate.of(1582, 10, 5))));
+    assertTrue(JavaTimeConverter.mayBeCalendarShifted(Date.valueOf(BC_DATE)));
+    assertTrue(JavaTimeConverter.mayBeCalendarShifted(Timestamp.valueOf("1582-10-15 12:00:00")));
+    assertFalse(JavaTimeConverter.mayBeCalendarShifted(Date.valueOf("1582-10-18")));
+    assertFalse(JavaTimeConverter.mayBeCalendarShifted(Timestamp.valueOf("1900-01-01 00:00:00")));
+  }
+
   @Test
   public void testConvert_LegacyTimestamp() throws DatabricksSQLException {
     Timestamp timestamp = Timestamp.valueOf("2023-06-15 12:30:00.123456789");
@@ -281,6 +314,8 @@ public class JavaTimeConverterTest {
   @Test
   public void testTextParsersReturnNullForUnparseableText() {
     assertEquals(GAP_DATE, JavaTimeConverter.parseDateText(" 1582-10-05 "));
+    // Forms java.sql.Date.valueOf accepts are still read
+    assertEquals(LocalDate.of(2024, 1, 5), JavaTimeConverter.parseDateText("2024-1-5"));
     assertNull(JavaTimeConverter.parseDateText("19598"));
     assertEquals(
         OffsetDateTime.parse("2016-01-01T00:00:00Z"),

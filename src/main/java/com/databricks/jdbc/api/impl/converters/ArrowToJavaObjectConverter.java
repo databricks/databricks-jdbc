@@ -11,6 +11,7 @@ import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Date;
@@ -284,7 +285,8 @@ public class ArrowToJavaObjectConverter {
    * @param vectorIndex the row index in the vector
    * @return a {@link LocalDate} for DATE, a {@link LocalDateTime} for TIMESTAMP_NTZ, an {@link
    *     OffsetDateTime} in the vector's (session) time zone for TIMESTAMP, or null for SQL NULL
-   * @throws DatabricksSQLException if the vector type is not supported
+   * @throws DatabricksSQLException with {@code UNSUPPORTED_OPERATION} if the vector type is not
+   *     supported
    */
   public static Object convertToJavaTime(ValueVector columnVector, int vectorIndex)
       throws DatabricksSQLException {
@@ -310,7 +312,10 @@ public class ArrowToJavaObjectConverter {
             "Unsupported Arrow vector %s for java.time conversion",
             columnVector.getClass().getSimpleName());
     LOGGER.error(errorMessage);
-    throw new DatabricksValidationException(errorMessage);
+    throw new DatabricksSQLException(
+        errorMessage,
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
   }
 
   /**

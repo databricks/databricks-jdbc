@@ -159,7 +159,8 @@ public class DatabricksStruct implements Struct {
         case DatabricksTypeUtil.BOOLEAN:
           return Boolean.parseBoolean(value.toString());
         case DatabricksTypeUtil.DATE:
-          return Date.valueOf(value.toString());
+          // Keep a parsed Date: rebuilding it from toString() drops the BC era.
+          return value instanceof Date ? value : Date.valueOf(value.toString());
         case DatabricksTypeUtil.TIMESTAMP:
         case DatabricksTypeUtil.TIMESTAMP_NTZ:
           return value instanceof Timestamp ? value : Timestamp.valueOf(value.toString());

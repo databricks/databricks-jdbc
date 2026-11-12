@@ -157,8 +157,8 @@ public class TimestampConverterTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = {"UTC", "America/Los_Angeles", "Asia/Kolkata"})
-  public void testConvertToLong_JavaTimeAndTextMatchLegacyForModernValues(String defaultZone)
+  @ValueSource(strings = {"UTC", "America/Los_Angeles", "America/New_York", "Asia/Kolkata"})
+  public void testConvertToLong_JavaTimeAndTextMatchLegacyAfterGregorianCutover(String defaultZone)
       throws DatabricksSQLException {
     TimeZone defaultTimeZone = TimeZone.getDefault();
     try {
@@ -168,7 +168,11 @@ public class TimestampConverterTest {
             "2023-06-15T12:30:00.123456",
             "2023-11-05T01:30:00", // ambiguous in America/Los_Angeles
             "2024-03-10T02:30:00", // skipped in America/Los_Angeles
-            "1950-06-01T00:00:00"
+            "1950-06-01T00:00:00",
+            // java.util.TimeZone and java.time disagree on these offsets (local mean time)
+            "1890-01-01T00:00:00",
+            "1850-01-01T12:00:00",
+            "1582-10-17T00:00:00"
           }) {
         LocalDateTime localDateTime = LocalDateTime.parse(fields);
         long legacy = Timestamp.valueOf(localDateTime).getTime();
@@ -188,6 +192,9 @@ public class TimestampConverterTest {
       String utcText = "2023-06-15T12:30:00.123Z";
       assertEquals(converter.toTimestamp(utcText).getTime(), converter.toLong(utcText));
       assertEquals(Instant.parse(utcText).toEpochMilli(), converter.toLong(utcText));
+      // Text that toTimestamp rejects is rejected by toLong too
+      assertThrows(
+          DatabricksSQLException.class, () -> converter.toLong("2023-03-15 12:34:56+05:30"));
     } finally {
       TimeZone.setDefault(defaultTimeZone);
     }
@@ -217,17 +224,17 @@ public class TimestampConverterTest {
   }
 
   @Test
-  public void testConvertToLong_UsesJavaTimeZoneRulesForHistoricalOffsets()
-      throws DatabricksSQLException {
+  public void testConvertToLong_ExactBefore1582InNonUtcZone() throws DatabricksSQLException {
     TimeZone defaultTimeZone = TimeZone.getDefault();
     try {
-      // java.util.TimeZone uses +05:30 for 1890 Kolkata; java.time (and Databricks) use the
-      // historical +05:21:10. With the session zone equal to the JVM zone, the value read from
-      // Arrow now round-trips to the exact instant.
-      TimeZone.setDefault(TimeZone.getTimeZone("Asia/Kolkata"));
-      Instant instant = Instant.parse("1890-01-01T00:00:00Z");
-      OffsetDateTime sessionValue = instant.atZone(ZoneId.of("Asia/Kolkata")).toOffsetDateTime();
-      assertEquals(instant.toEpochMilli(), converter.toLong(sessionValue));
+      TimeZone.setDefault(TimeZone.getTimeZone("America/Los_Angeles"));
+      LocalDateTime year1000 = LocalDateTime.of(1000, 1, 1, 0, 0);
+      long expected = year1000.atZone(ZoneId.of("America/Los_Angeles")).toInstant().toEpochMilli();
+
+      assertEquals(expected, converter.toLong(year1000));
+      assertEquals(expected, converter.toLong("1000-01-01 00:00:00"));
+      // Text ending in 'Z' stays an instant
+      assertEquals(-30610224000000L, converter.toLong("1000-01-01T00:00:00.000Z"));
     } finally {
       TimeZone.setDefault(defaultTimeZone);
     }

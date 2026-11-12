@@ -20,6 +20,8 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalQueries;
 import java.util.Locale;
 import java.util.Map;
 
@@ -38,12 +40,18 @@ import java.util.Map;
  * <ul>
  *   <li>{@link LocalDate}: a DATE read from Arrow.
  *   <li>{@link LocalDateTime}: a TIMESTAMP_NTZ read from Arrow.
- *   <li>{@link OffsetDateTime}: a TIMESTAMP read from Arrow, in the session time zone (in UTC for
- *       values nested in ARRAY, STRUCT or MAP, which carry no session time zone).
- *   <li>{@link String}: the server's text for the value (JSON and Thrift columnar results). This is
- *       best effort, because the server may already have lost precision or the era.
+ *   <li>{@link OffsetDateTime}: a TIMESTAMP read from Arrow, in the session time zone. Values
+ *       nested in ARRAY or STRUCT carry no session time zone; their fields match the {@code
+ *       java.sql.Timestamp} the driver builds for them (UTC for Arrow's epoch microseconds).
+ *   <li>{@link String}: the server's text for the value (JSON and Thrift columnar results).
  *   <li>{@link java.sql.Date} or {@link Timestamp}: a value that only exists as a legacy type.
  * </ul>
+ *
+ * <p>Text is best effort, the same way {@code getTimestamp()} reads it: the server may already have
+ * lost precision or the era; TIMESTAMP text without an offset is read in the JVM time zone, so
+ * {@link Instant} and {@link OffsetDateTime} assume the session time zone matches it; and
+ * TIMESTAMP_NTZ is recognized from the column metadata, which Thrift columnar results without an
+ * Arrow schema report as TIMESTAMP.
  *
  * <p>Supported conversions:
  *
@@ -71,6 +79,11 @@ public final class JavaTimeConverter {
           .optionalEnd()
           .toFormatter()
           .withResolverStyle(ResolverStyle.STRICT);
+
+  /** 1582-10-15T00:00:00Z, the default cutover of {@link java.util.GregorianCalendar}. */
+  private static final long GREGORIAN_CUTOVER_EPOCH_MILLI = -12219292800000L;
+
+  private static final long MILLIS_PER_DAY = 86_400_000L;
 
   private JavaTimeConverter() {}
 
@@ -295,14 +308,20 @@ public final class JavaTimeConverter {
   /**
    * Parses the server's text for a DATE without going through {@code java.sql.Date}.
    *
-   * @param text an ISO date, e.g. {@code 1582-10-05} or {@code -2015-01-01}
-   * @return the date, or null if the text is not an ISO date
+   * @param text an ISO date, e.g. {@code 1582-10-05} or {@code -2015-01-01}; other forms accepted
+   *     by {@code java.sql.Date.valueOf}, e.g. {@code 2024-1-5}, are read through it
+   * @return the date, or null if the text cannot be parsed
    */
   public static LocalDate parseDateText(String text) {
+    String trimmed = text.trim();
     try {
-      return LocalDate.parse(text.trim());
+      return LocalDate.parse(trimmed);
     } catch (DateTimeParseException e) {
-      return null;
+      try {
+        return java.sql.Date.valueOf(trimmed).toLocalDate();
+      } catch (IllegalArgumentException notADate) {
+        return null;
+      }
     }
   }
 
@@ -315,19 +334,34 @@ public final class JavaTimeConverter {
    *     null if the text cannot be parsed
    */
   public static Temporal parseTimestampText(String text) {
+    TemporalAccessor parsed;
     try {
-      return (Temporal)
-          TIMESTAMP_TEXT_FORMATTER.parseBest(
-              text.trim(), OffsetDateTime::from, LocalDateTime::from);
+      parsed = TIMESTAMP_TEXT_FORMATTER.parse(text.trim());
     } catch (DateTimeParseException e) {
       return null;
     }
+    return parsed.query(TemporalQueries.offset()) != null
+        ? OffsetDateTime.from(parsed)
+        : LocalDateTime.from(parsed);
+  }
+
+  /**
+   * Returns true if a {@code java.sql.Date} or {@code java.sql.Timestamp} built by the driver may
+   * have been shifted by the hybrid Julian/Gregorian calendar: it is before the 1582-10-15
+   * Gregorian cutover, or within two days after it to allow for any time zone. Later values are
+   * exact.
+   *
+   * @param legacyValue a {@code java.sql.Date} or {@code java.sql.Timestamp}
+   * @return true if the value may differ from the server's value
+   */
+  public static boolean mayBeCalendarShifted(java.util.Date legacyValue) {
+    return legacyValue.getTime() < GREGORIAN_CUTOVER_EPOCH_MILLI + 2 * MILLIS_PER_DAY;
   }
 
   /**
    * Parses the server's text for a timestamp. Text without an offset holds the session-local
    * fields; for TIMESTAMP columns it is placed in the JVM default time zone, the same way {@code
-   * getTimestamp()} interprets it.
+   * getTimestamp()} interprets it (the later offset when the fields are ambiguous).
    */
   private static Temporal normalizeTimestampText(String text, boolean isTimestampNtz) {
     Temporal parsed = parseTimestampText(text);
@@ -338,9 +372,10 @@ public final class JavaTimeConverter {
     if (parsed == null || isTimestampNtz) {
       return parsed;
     }
-    LocalDateTime localDateTime = (LocalDateTime) parsed;
-    ZoneOffset offset = ZoneId.systemDefault().getRules().getOffset(localDateTime);
-    return OffsetDateTime.of(localDateTime, offset);
+    return ((LocalDateTime) parsed)
+        .atZone(ZoneId.systemDefault())
+        .withLaterOffsetAtOverlap()
+        .toOffsetDateTime();
   }
 
   private static boolean isTimestampNtz(String columnTypeName) {
