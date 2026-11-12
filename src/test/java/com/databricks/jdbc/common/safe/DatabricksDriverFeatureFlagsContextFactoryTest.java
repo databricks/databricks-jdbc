@@ -515,10 +515,14 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
 
       assertTrue(reopened.getBoolean("snap.flag"));
       verify(httpClient, times(1)).execute(any(HttpGet.class));
-      // The first refresh is due when the snapshot expires, then every server TTL.
+      // The first refresh is due when the snapshot expires (just under 300 s from now), then every
+      // server TTL.
       verify(scheduler)
           .scheduleAtFixedRate(
-              any(Runnable.class), longThat(delay -> delay < 300), eq(300L), eq(TimeUnit.SECONDS));
+              any(Runnable.class),
+              longThat(delay -> delay >= 290 && delay < 300),
+              eq(300L),
+              eq(TimeUnit.SECONDS));
     } finally {
       DatabricksDriverFeatureFlagsContextFactory.removeInstance(second);
       scheduler.shutdownNow();
