@@ -3,9 +3,11 @@ package com.databricks.jdbc.api.impl.arrow;
 import com.databricks.jdbc.log.JdbcLogger;
 import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Bounds how many CloudFetch chunks are downloaded and parsed at once for one workspace host.
@@ -21,9 +23,9 @@ import java.util.concurrent.TimeUnit;
  * own retries and slow reads (but not through the task's retry backoff), which can delay that
  * host's other queries.
  *
- * <p>A query whose {@code cloudFetchThreadPoolSize} is above the heap-based default raises its
- * host's total to that size (up to 256) for the life of the JVM, so it keeps the parallelism it
- * asked for, as before this limiter.
+ * <p>While a query whose {@code cloudFetchThreadPoolSize} is above the heap-based default is open,
+ * its host's total is raised to that size (up to 256), so it keeps the parallelism it asked for.
+ * The total drops back when the query closes.
  */
 final class ChunkDownloadLimiter {
   // Heap budget per in-progress download. Generous for the ~10-20 MB a download needs; more
@@ -38,9 +40,11 @@ final class ChunkDownloadLimiter {
   private static final ConcurrentHashMap<String, ChunkDownloadLimiter> BY_HOST =
       new ConcurrentHashMap<>();
 
-  private final Semaphore permits = new Semaphore(0, true);
+  private final Permits permits = new Permits();
   private final String host;
   private final int defaultPermits;
+  // Pool size -> number of open queries with that size. Guarded by this.
+  private final TreeMap<Integer, Integer> openPoolSizes = new TreeMap<>();
   private int totalPermits = 0;
 
   private ChunkDownloadLimiter(String host, int defaultPermits) {
@@ -78,21 +82,43 @@ final class ChunkDownloadLimiter {
   }
 
   /**
-   * Lets one query use up to {@code permits} parallel downloads, e.g. its cloudFetchThreadPoolSize.
-   * The total only grows (it is the largest size seen so far) and never exceeds MAX_PERMITS.
+   * Lets an open query use up to {@code poolSize} parallel downloads (its
+   * cloudFetchThreadPoolSize). The total is the largest pool size among open queries, at least the
+   * heap-based default and at most MAX_PERMITS. Close the returned registration when the query
+   * closes.
    */
-  synchronized void ensureAtLeast(int permits) {
-    int target = Math.min(permits, MAX_PERMITS);
-    if (target > totalPermits) {
-      this.permits.release(target - totalPermits);
-      totalPermits = target;
-      LOGGER.info(
-          "Raised the concurrent CloudFetch download limit for host [{}] to {} to match "
-              + "cloudFetchThreadPoolSize; the heap-based default is {}",
-          host,
-          target,
-          defaultPermits);
+  synchronized PoolRegistration registerPool(int poolSize) {
+    openPoolSizes.merge(poolSize, 1, Integer::sum);
+    resize();
+    return new PoolRegistration(poolSize);
+  }
+
+  private synchronized void unregisterPool(int poolSize) {
+    openPoolSizes.computeIfPresent(poolSize, (size, count) -> count == 1 ? null : count - 1);
+    resize();
+  }
+
+  private void resize() {
+    int largestOpen = openPoolSizes.isEmpty() ? 0 : openPoolSizes.lastKey();
+    int target = Math.max(defaultPermits, Math.min(largestOpen, MAX_PERMITS));
+    if (target == totalPermits) {
+      return;
     }
+    if (target > totalPermits) {
+      permits.release(target - totalPermits);
+    } else {
+      // Permits still in use make availablePermits negative, so no new download starts until
+      // enough in-progress downloads finish.
+      permits.reduce(totalPermits - target);
+    }
+    LOGGER.info(
+        "Set the concurrent CloudFetch download limit for host [{}] to {} (largest open "
+            + "cloudFetchThreadPoolSize {}, heap-based default {})",
+        host,
+        target,
+        largestOpen,
+        defaultPermits);
+    totalPermits = target;
   }
 
   /** Acquires a permit and returns whether the caller had to wait for it. */
@@ -122,5 +148,32 @@ final class ChunkDownloadLimiter {
   @VisibleForTesting
   boolean hasQueuedThreads() {
     return permits.hasQueuedThreads();
+  }
+
+  /** An open query's share of its host's download limit; see {@link #registerPool}. */
+  final class PoolRegistration {
+    private final int poolSize;
+    private final AtomicBoolean closed = new AtomicBoolean();
+
+    private PoolRegistration(int poolSize) {
+      this.poolSize = poolSize;
+    }
+
+    /** Idempotent. */
+    void close() {
+      if (closed.compareAndSet(false, true)) {
+        unregisterPool(poolSize);
+      }
+    }
+  }
+
+  private static final class Permits extends Semaphore {
+    Permits() {
+      super(0, true);
+    }
+
+    void reduce(int reduction) {
+      reducePermits(reduction);
+    }
   }
 }

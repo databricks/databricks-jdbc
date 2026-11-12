@@ -73,27 +73,72 @@ class ChunkDownloadLimiterTest {
   }
 
   @Test
-  void testEnsureAtLeastOnlyGrowsUpToMaxPermits() {
+  void testTotalFollowsLargestOpenPoolSize() {
     ChunkDownloadLimiter limiter = newLimiter();
-    int total = limiter.totalPermits();
+    int base = TEST_DEFAULT_PERMITS;
 
-    limiter.ensureAtLeast(total - 1);
-    assertEquals(total, limiter.totalPermits());
-    assertEquals(total, limiter.availablePermits());
+    ChunkDownloadLimiter.PoolRegistration small = limiter.registerPool(base - 1);
+    assertTotal(limiter, base);
+    ChunkDownloadLimiter.PoolRegistration medium = limiter.registerPool(base + 1);
+    assertTotal(limiter, base + 1);
+    ChunkDownloadLimiter.PoolRegistration huge = limiter.registerPool(10_000);
+    assertTotal(limiter, 256);
 
-    limiter.ensureAtLeast(total + 1);
-    assertEquals(total + 1, limiter.totalPermits());
-    assertEquals(total + 1, limiter.availablePermits());
+    huge.close();
+    assertTotal(limiter, base + 1);
+    medium.close();
+    assertTotal(limiter, base);
+    small.close();
+    assertTotal(limiter, base);
+  }
 
-    limiter.ensureAtLeast(10_000);
-    assertEquals(256, limiter.totalPermits());
-    assertEquals(256, limiter.availablePermits());
+  @Test
+  void testRegistrationCloseIsIdempotent() {
+    ChunkDownloadLimiter limiter = newLimiter();
+    int size = TEST_DEFAULT_PERMITS + 4;
+    ChunkDownloadLimiter.PoolRegistration first = limiter.registerPool(size);
+    ChunkDownloadLimiter.PoolRegistration second = limiter.registerPool(size);
+
+    first.close();
+    first.close();
+    assertTotal(limiter, size);
+    second.close();
+    assertTotal(limiter, TEST_DEFAULT_PERMITS);
+  }
+
+  @Test
+  void testLoweringTotalWaitsForDownloadsInProgress() throws Exception {
+    ChunkDownloadLimiter limiter = newLimiter();
+    int size = TEST_DEFAULT_PERMITS + 4;
+    ChunkDownloadLimiter.PoolRegistration registration = limiter.registerPool(size);
+    for (int i = 0; i < size; i++) {
+      limiter.acquire();
+    }
+
+    registration.close();
+    assertEquals(TEST_DEFAULT_PERMITS, limiter.totalPermits());
+    assertEquals(-4, limiter.availablePermits());
+    for (int i = 0; i < 4; i++) {
+      limiter.release();
+    }
+    // Back at the lowered total with every permit in use, so a new download has to wait.
+    assertEquals(0, limiter.availablePermits());
+    for (int i = 4; i < size; i++) {
+      limiter.release();
+    }
+    assertEquals(TEST_DEFAULT_PERMITS, limiter.availablePermits());
+  }
+
+  private static void assertTotal(ChunkDownloadLimiter limiter, int expected) {
+    assertEquals(expected, limiter.totalPermits());
+    assertEquals(expected, limiter.availablePermits());
   }
 
   @Test
   void testHostsDoNotBlockEachOther() throws Exception {
-    ChunkDownloadLimiter stalled = newLimiter();
-    ChunkDownloadLimiter other = newLimiter();
+    ChunkDownloadLimiter stalled = ChunkDownloadLimiter.forHost(newHost());
+    ChunkDownloadLimiter other = ChunkDownloadLimiter.forHost(newHost());
+    assertNotSame(stalled, other);
     int held = stalled.availablePermits();
     for (int i = 0; i < held; i++) {
       stalled.acquire();
@@ -267,7 +312,7 @@ class ChunkDownloadLimiterTest {
   }
 
   @Test
-  void testRemoteChunkProviderGrowsItsHostLimiterToPoolSize() throws Exception {
+  void testRemoteChunkProviderRaisesItsHostLimitWhileOpen() throws Exception {
     String host = newHost();
     IDatabricksSession session = mock(IDatabricksSession.class);
     IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
@@ -290,10 +335,11 @@ class ChunkDownloadLimiterTest {
     } finally {
       provider.close();
     }
+    assertEquals(TEST_DEFAULT_PERMITS, ChunkDownloadLimiter.forHost(host).totalPermits());
   }
 
   @Test
-  void testStreamingChunkProviderGrowsItsHostLimiterToPoolSize() throws Exception {
+  void testStreamingChunkProviderRaisesItsHostLimitWhileOpen() throws Exception {
     String host = newHost();
     IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
     when(context.getHost()).thenReturn(host);
@@ -316,6 +362,7 @@ class ChunkDownloadLimiterTest {
     } finally {
       provider.close();
     }
+    assertEquals(TEST_DEFAULT_PERMITS, ChunkDownloadLimiter.forHost(host).totalPermits());
   }
 
   /** Holds every permit, then interrupts a task blocked on the limiter, as close() does. */

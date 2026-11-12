@@ -28,6 +28,7 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
       "databricks-jdbc-chunks-downloader-";
   private ExecutorService chunkDownloaderExecutorService;
   private volatile ChunkDownloadLimiter downloadLimiter;
+  private volatile ChunkDownloadLimiter.PoolRegistration poolRegistration;
 
   RemoteChunkProvider(
       StatementId statementId,
@@ -164,6 +165,9 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
         Thread.currentThread().interrupt();
       }
     }
+    if (poolRegistration != null) {
+      poolRegistration.close();
+    }
     chunkIndexToChunksMap.values().forEach(ArrowResultChunk::releaseChunk);
     DatabricksThreadContextHolder.clearStatementInfo();
   }
@@ -180,7 +184,7 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
             return thread;
           }
         };
-    getDownloadLimiter().ensureAtLeast(maxParallelChunkDownloadsPerQuery);
+    poolRegistration = getDownloadLimiter().registerPool(maxParallelChunkDownloadsPerQuery);
     return Executors.newFixedThreadPool(maxParallelChunkDownloadsPerQuery, threadFactory);
   }
 }
