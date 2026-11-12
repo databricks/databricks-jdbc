@@ -389,15 +389,16 @@ public final class JavaTimeConverter {
 
   /**
    * Returns true if a {@code java.sql.Date} or {@code java.sql.Timestamp} built by the driver may
-   * have been shifted by the hybrid Julian/Gregorian calendar: it is before the 1582-10-15
-   * Gregorian cutover, or within two days after it to allow for any time zone. Later values are
-   * exact.
+   * have been shifted by the hybrid Julian/Gregorian calendar. That covers values before the
+   * 1582-10-15 Gregorian cutover and up to 12 days after it: dates in the 1582-10-05..14 gap are
+   * pushed forward by 10 days (1582-10-14 becomes 1582-10-24), plus a margin for any time zone.
+   * Later values are exact.
    *
    * @param legacyValue a {@code java.sql.Date} or {@code java.sql.Timestamp}
    * @return true if the value may differ from the server's value
    */
   public static boolean mayBeCalendarShifted(java.util.Date legacyValue) {
-    return legacyValue.getTime() < GREGORIAN_CUTOVER_EPOCH_MILLI + 2 * MILLIS_PER_DAY;
+    return legacyValue.getTime() < GREGORIAN_CUTOVER_EPOCH_MILLI + 12 * MILLIS_PER_DAY;
   }
 
   /**

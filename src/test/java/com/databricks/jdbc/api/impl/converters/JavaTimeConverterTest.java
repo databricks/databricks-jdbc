@@ -228,10 +228,17 @@ public class JavaTimeConverterTest {
 
   @Test
   public void testMayBeCalendarShifted() {
-    assertTrue(JavaTimeConverter.mayBeCalendarShifted(Date.valueOf(LocalDate.of(1582, 10, 5))));
     assertTrue(JavaTimeConverter.mayBeCalendarShifted(Date.valueOf(BC_DATE)));
-    assertTrue(JavaTimeConverter.mayBeCalendarShifted(Timestamp.valueOf("1582-10-15 12:00:00")));
-    assertFalse(JavaTimeConverter.mayBeCalendarShifted(Date.valueOf("1582-10-18")));
+    assertTrue(JavaTimeConverter.mayBeCalendarShifted(Date.valueOf(LocalDate.of(1582, 10, 4))));
+    // Every day of the 1582-10-05..14 gap, which java.sql pushes forward by 10 days
+    for (int day = 5; day <= 14; day++) {
+      LocalDate gapDate = LocalDate.of(1582, 10, day);
+      assertTrue(JavaTimeConverter.mayBeCalendarShifted(Date.valueOf(gapDate)), gapDate.toString());
+      assertTrue(
+          JavaTimeConverter.mayBeCalendarShifted(Timestamp.valueOf(gapDate.atTime(23, 59, 59))),
+          gapDate.toString());
+    }
+    assertFalse(JavaTimeConverter.mayBeCalendarShifted(Date.valueOf("1582-10-28")));
     assertFalse(JavaTimeConverter.mayBeCalendarShifted(Timestamp.valueOf("1900-01-01 00:00:00")));
   }
 

@@ -72,6 +72,7 @@ public class DateConverterTest {
   @CsvSource({
     "-2015-01-01, -1455491", // 2016 BC
     "1582-10-05, -141437", // inside the Julian/Gregorian cutover gap
+    "1582-10-14, -141428", // last day of the gap
     "1000-01-01, -354285",
     "2023-09-10, 19610"
   })

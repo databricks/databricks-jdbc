@@ -1602,6 +1602,19 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testNumericGettersOnLastGapDateUseExactValue() throws SQLException {
+    // DATE '1582-10-14': java.sql.Date pushes it 10 days forward, to 1582-10-24 (-141418).
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(Date.valueOf(LocalDate.of(1582, 10, 14)));
+    when(mockedExecutionResult.getTemporalObject(0)).thenReturn(LocalDate.of(1582, 10, 14));
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.DATE);
+
+    assertEquals(-141428L, resultSet.getLong(1));
+    assertEquals(-141428, resultSet.getInt(1));
+    assertEquals(-141428L, resultSet.getObject(1, Long.class));
+  }
+
+  @Test
   void testNumericGettersOnModernDateReadTheJavaSqlValueOnly() throws SQLException {
     // After the 1582 Gregorian cutover the java.sql.Date is exact, so it is used as is.
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);

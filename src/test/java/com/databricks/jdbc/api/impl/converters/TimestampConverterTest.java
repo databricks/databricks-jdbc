@@ -218,6 +218,13 @@ public class TimestampConverterTest {
           -125754422400000L, // TO_TIMESTAMP('2016 bc', 'yyyy G')
           converter.toLong(OffsetDateTime.parse("-2015-01-01T00:00:00Z")));
       assertEquals(BigInteger.valueOf(exact), converter.toBigInteger(year1000));
+      // The last day of the 1582-10-05..14 gap, which java.sql.Timestamp moves 10 days later
+      long lastGapDay =
+          LocalDateTime.of(1582, 10, 14, 12, 0).toInstant(ZoneOffset.UTC).toEpochMilli();
+      assertEquals(
+          lastGapDay + 10 * 86_400_000L, Timestamp.valueOf("1582-10-14 12:00:00").getTime());
+      assertEquals(lastGapDay, converter.toLong("1582-10-14 12:00:00"));
+      assertEquals(lastGapDay, converter.toLong(LocalDateTime.of(1582, 10, 14, 12, 0)));
     } finally {
       TimeZone.setDefault(defaultTimeZone);
     }
