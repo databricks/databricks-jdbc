@@ -355,7 +355,7 @@ public class LazyThriftInlineArrowResultTest {
 
     when(statement.getStatementId()).thenReturn(STATEMENT_ID);
     when(session.getDatabricksClient()).thenReturn(databricksClient);
-    when(databricksClient.getMoreResults(statement)).thenReturn(secondResponse);
+    when(databricksClient.getMoreInlineArrowResults(statement)).thenReturn(secondResponse);
 
     LazyThriftInlineArrowResult result =
         new LazyThriftInlineArrowResult(initialResponse, statement, session);
@@ -374,8 +374,9 @@ public class LazyThriftInlineArrowResultTest {
     assertTrue(result.isCompletelyFetched());
     assertEquals(rowsPerChunk * 2, result.getTotalRowsFetched());
 
-    // Verify that getMoreResults was called
-    verify(databricksClient).getMoreResults(statement);
+    // Inline Arrow results use the inline Arrow fetch, not the generic one
+    verify(databricksClient).getMoreInlineArrowResults(statement);
+    verify(databricksClient, never()).getMoreResults(statement);
   }
 
   @Test

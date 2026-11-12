@@ -84,7 +84,7 @@ public class StreamingInlineArrowResult implements IExecutionResult {
     this.columnInfos = getColumnInfoList(initialResponse.getResultSetMetadata());
 
     // Create batch fetcher and type-safe generic provider for Arrow
-    ThriftBatchFetcher fetcher = new ThriftBatchFetcherImpl(session, statement);
+    ThriftBatchFetcher fetcher = new ThriftBatchFetcherImpl(session, statement, true);
     this.provider =
         ThriftStreamingProvider.forInlineArrow(
             fetcher,

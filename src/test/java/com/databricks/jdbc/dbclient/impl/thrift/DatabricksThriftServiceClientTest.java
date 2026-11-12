@@ -1070,6 +1070,17 @@ public class DatabricksThriftServiceClientTest {
   }
 
   @Test
+  void testGetMoreInlineArrowResultsDelegatesToAccessor() throws Exception {
+    DatabricksThriftServiceClient client =
+        new DatabricksThriftServiceClient(thriftAccessor, connectionContext);
+    TFetchResultsResp response = new TFetchResultsResp();
+    when(thriftAccessor.getMoreInlineArrowResults(parentStatement)).thenReturn(response);
+
+    assertSame(response, client.getMoreInlineArrowResults(parentStatement));
+    verify(thriftAccessor, never()).getMoreResults(any());
+  }
+
+  @Test
   void testConnectionContext() {
     DatabricksThriftServiceClient client =
         new DatabricksThriftServiceClient(thriftAccessor, connectionContext);

@@ -12,6 +12,7 @@ import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksSession;
 import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.DatabricksClientConfiguratorManager;
+import com.databricks.jdbc.common.DatabricksJdbcUrlParams;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.dbclient.impl.common.ClientConfigurator;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
@@ -438,6 +439,49 @@ public class DatabricksThriftAccessorTest {
                     .setOperationType(TOperationType.UNKNOWN));
     when(thriftClient.CloseOperation(request)).thenThrow(new TException("failed"));
     assertThrows(DatabricksHttpException.class, () -> accessor.closeOperation(request));
+  }
+
+  private List<TFetchResultsReq> fetchInlineArrowThenGeneric(boolean rowsPerBlockSet)
+      throws TException, SQLException {
+    when(connectionContext.getRowsFetchedPerBlock()).thenReturn(5_000);
+    when(connectionContext.isPropertyPresent(DatabricksJdbcUrlParams.ROWS_FETCHED_PER_BLOCK))
+        .thenReturn(rowsPerBlockSet);
+    DatabricksThriftAccessor accessor = spy(new DatabricksThriftAccessor(connectionContext));
+    doReturn(thriftClient).when(accessor).getThriftClient();
+    when(parentStatement.getStatementId()).thenReturn(StatementId.deserialize(TEST_STMT_ID));
+    when(thriftClient.FetchResults(any(TFetchResultsReq.class))).thenReturn(fetchResultsResponse);
+
+    accessor.getMoreInlineArrowResults(parentStatement);
+    accessor.getMoreResults(parentStatement);
+
+    org.mockito.ArgumentCaptor<TFetchResultsReq> requests =
+        org.mockito.ArgumentCaptor.forClass(TFetchResultsReq.class);
+    verify(thriftClient, times(2)).FetchResults(requests.capture());
+    return requests.getAllValues();
+  }
+
+  @Test
+  void testGetMoreInlineArrowResultsRequestsLargerBlocksByDefault()
+      throws TException, SQLException {
+    List<TFetchResultsReq> requests = fetchInlineArrowThenGeneric(false);
+
+    TFetchResultsReq inlineArrow = requests.get(0);
+    assertEquals(DEFAULT_ROW_LIMIT_PER_BLOCK, inlineArrow.getMaxRows());
+    assertEquals(10L * 1024 * 1024, inlineArrow.getMaxBytes());
+    assertTrue(inlineArrow.isIncludeResultSetMetadata());
+    // Columnar and link fetches keep RowsFetchedPerBlock and the default byte limit.
+    assertEquals(5_000, requests.get(1).getMaxRows());
+    assertEquals(DEFAULT_BYTE_LIMIT, requests.get(1).getMaxBytes());
+  }
+
+  @Test
+  void testGetMoreInlineArrowResultsHonorsExplicitRowsFetchedPerBlock()
+      throws TException, SQLException {
+    List<TFetchResultsReq> requests = fetchInlineArrowThenGeneric(true);
+
+    assertEquals(requests.get(1), requests.get(0));
+    assertEquals(5_000, requests.get(0).getMaxRows());
+    assertEquals(DEFAULT_BYTE_LIMIT, requests.get(0).getMaxBytes());
   }
 
   @Test

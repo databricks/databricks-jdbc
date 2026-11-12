@@ -24,6 +24,7 @@ public class ThriftBatchFetcherImpl implements ThriftBatchFetcher {
 
   private final IDatabricksSession session;
   private final IDatabricksStatementInternal statement;
+  private final boolean inlineArrow;
   private volatile boolean closed;
 
   /**
@@ -34,8 +35,21 @@ public class ThriftBatchFetcherImpl implements ThriftBatchFetcher {
    */
   public ThriftBatchFetcherImpl(
       IDatabricksSession session, IDatabricksStatementInternal statement) {
+    this(session, statement, false);
+  }
+
+  /**
+   * Creates a new ThriftBatchFetcherImpl.
+   *
+   * @param session The session to use for fetching
+   * @param statement The statement that generated the result
+   * @param inlineArrow whether the result is inline Arrow, which allows larger fetches
+   */
+  public ThriftBatchFetcherImpl(
+      IDatabricksSession session, IDatabricksStatementInternal statement, boolean inlineArrow) {
     this.session = session;
     this.statement = statement;
+    this.inlineArrow = inlineArrow;
     this.closed = false;
     LOGGER.debug(
         "Created ThriftBatchFetcherImpl for statement {}",
@@ -55,7 +69,10 @@ public class ThriftBatchFetcherImpl implements ThriftBatchFetcher {
         StatementId.loggableStatementId(statement != null ? statement.getStatementId() : null));
     long startTime = System.currentTimeMillis();
 
-    TFetchResultsResp response = session.getDatabricksClient().getMoreResults(statement);
+    TFetchResultsResp response =
+        inlineArrow
+            ? session.getDatabricksClient().getMoreInlineArrowResults(statement)
+            : session.getDatabricksClient().getMoreResults(statement);
 
     long duration = System.currentTimeMillis() - startTime;
     LOGGER.debug(

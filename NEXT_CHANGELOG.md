@@ -6,6 +6,8 @@
 
 ### Updated
 
+- Large inline (non-CloudFetch) Arrow results over Thrift now arrive in fewer round trips: after the first block, the driver requests up to 2,000,000 rows or 10 MiB per `FetchResults` call instead of `RowsFetchedPerBlock` (100,000) rows. A `RowsFetchedPerBlock` value set on the connection is still used as is, and columnar results are unchanged.
+
 ### Fixed
 
 - Removed Thrift handle secrets from timeout, operation, metadata, and session diagnostics.

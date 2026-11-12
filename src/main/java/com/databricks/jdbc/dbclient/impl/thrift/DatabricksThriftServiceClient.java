@@ -890,6 +890,12 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     }
   }
 
+  @Override
+  public TFetchResultsResp getMoreInlineArrowResults(IDatabricksStatementInternal parentStatement)
+      throws SQLException {
+    return thriftAccessor.getMoreInlineArrowResults(parentStatement);
+  }
+
   public TFetchResultsResp getMoreResults(IDatabricksStatementInternal parentStatement)
       throws SQLException {
     return thriftAccessor.getMoreResults(parentStatement);
