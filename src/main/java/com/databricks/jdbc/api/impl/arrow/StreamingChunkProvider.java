@@ -475,7 +475,11 @@ public class StreamingChunkProvider implements ChunkProvider {
   /** Marks the end of the stream, records the final chunk count and wakes a waiting consumer. */
   private void markEndOfStream() {
     endOfStreamReached = true;
-    TelemetryHelper.recordTotalChunks(connectionContext, statementId, createdChunkCount.get());
+    // An in-flight link fetch can return after close(), when the statement's telemetry has
+    // already been exported; recording then would leave a partial entry behind.
+    if (!closed) {
+      TelemetryHelper.recordTotalChunks(connectionContext, statementId, createdChunkCount.get());
+    }
     notifyChunkCreated(); // Wake consumer parked in waitForNextChunkEnqueued
   }
 
