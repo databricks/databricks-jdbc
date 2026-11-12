@@ -22,7 +22,6 @@ import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -226,9 +225,8 @@ public class UserAgentManagerTest {
     CountDownLatch inSlowFill = new CountDownLatch(1);
     CountDownLatch releaseSlowFill = new CountDownLatch(1);
     AtomicInteger fills = new AtomicInteger();
-    Supplier<String> original = UserAgentManager.sdkUserAgentSupplier;
     try {
-      UserAgentManager.sdkUserAgentSupplier =
+      UserAgentManager.setSdkUserAgentSupplier(
           () -> {
             if (fills.incrementAndGet() == 1) {
               inSlowFill.countDown();
@@ -240,8 +238,7 @@ public class UserAgentManagerTest {
               return "Old/1.0";
             }
             return "New/1.0";
-          };
-      UserAgentManager.resetRegisteredOtherInfo();
+          });
       Thread slow = new Thread(UserAgentManager::getSdkUserAgentString);
       slow.start();
       assertTrue(inSlowFill.await(10, TimeUnit.SECONDS));
@@ -252,10 +249,11 @@ public class UserAgentManagerTest {
 
       releaseSlowFill.countDown();
       slow.join(10_000);
+      assertFalse(slow.isAlive(), "slow fill did not finish");
       assertEquals("New/1.0", UserAgentManager.getSdkUserAgentString());
       assertEquals(2, fills.get());
     } finally {
-      UserAgentManager.sdkUserAgentSupplier = original;
+      UserAgentManager.setSdkUserAgentSupplier(UserAgent::asString);
       UserAgentManager.resetRegisteredOtherInfo();
     }
   }

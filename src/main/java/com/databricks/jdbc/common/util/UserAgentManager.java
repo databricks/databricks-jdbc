@@ -45,7 +45,7 @@ public class UserAgentManager {
   // connection open). Changes made to the SDK UserAgent outside the driver show up at that point.
   private static final AtomicLong userAgentGeneration = new AtomicLong();
   private static volatile CachedUserAgent cachedUserAgent;
-  @VisibleForTesting static Supplier<String> sdkUserAgentSupplier = UserAgent::asString;
+  private static volatile Supplier<String> sdkUserAgentSupplier = UserAgent::asString;
 
   private static final class CachedUserAgent {
     final long generation;
@@ -125,6 +125,13 @@ public class UserAgentManager {
 
   private static void invalidateCachedUserAgent() {
     userAgentGeneration.incrementAndGet();
+  }
+
+  /** Replaces the source of the SDK user agent and drops the cached strings. */
+  @VisibleForTesting
+  static void setSdkUserAgentSupplier(Supplier<String> supplier) {
+    sdkUserAgentSupplier = supplier;
+    invalidateCachedUserAgent();
   }
 
   private static CachedUserAgent cachedUserAgent() {
