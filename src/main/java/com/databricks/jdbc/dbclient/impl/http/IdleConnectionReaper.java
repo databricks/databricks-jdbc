@@ -93,8 +93,9 @@ final class IdleConnectionReaper {
       this.future = future;
     }
 
+    /** Whether this manager's eviction is still scheduled. */
     boolean isActive() {
-      return !closed.get();
+      return !future.isDone();
     }
 
     /** Stops eviction for this manager. Idempotent. */

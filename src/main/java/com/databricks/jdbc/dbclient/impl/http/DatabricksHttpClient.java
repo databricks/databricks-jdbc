@@ -53,10 +53,11 @@ public class DatabricksHttpClient implements IDatabricksHttpClient, Closeable {
   DatabricksHttpClient(IDatabricksConnectionContext connectionContext, HttpClientType type) {
     connectionManager = initializeConnectionManager(connectionContext);
     httpClient = makeClosableHttpClient(connectionContext, type);
+    asyncClient = GlobalAsyncHttpClient.getClient();
+    // Last, so a failure above cannot leave a registration in the shared reaper.
     idleConnectionEviction =
         IdleConnectionReaper.register(
             connectionManager, connectionContext.getIdleHttpConnectionExpiry(), TimeUnit.SECONDS);
-    asyncClient = GlobalAsyncHttpClient.getClient();
   }
 
   @VisibleForTesting

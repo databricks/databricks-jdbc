@@ -43,6 +43,7 @@ public class IdleConnectionReaperTest {
     assertTrue(reaperThreads() <= 1);
 
     for (IdleConnectionReaper.Registration registration : registrations) {
+      assertTrue(registration.isActive());
       registration.close();
       registration.close(); // idempotent
       assertFalse(registration.isActive());
