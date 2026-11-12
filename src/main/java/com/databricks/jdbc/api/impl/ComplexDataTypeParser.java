@@ -164,26 +164,30 @@ public class ComplexDataTypeParser {
    *
    * <p>A leaf in a form only the {@code java.sql} parser accepts (not ISO text, epoch days or
    * microseconds, or TIMESTAMP_NTZ components) has no exact value. The caller then uses the {@code
-   * java.sql} value, which is exact after the 1582 Gregorian cutover, and a warning is logged.
+   * java.sql} value, which is exact after the 1582 Gregorian cutover, and logs {@link
+   * #warnInexactNestedValue} once.
    *
    * @param source a JSON leaf, a {@code java.time} value, or null
    * @param expectedType the leaf's type name, e.g. {@code DATE}
    * @return the exact value, or null if there is none and the {@code java.sql} value should be used
    */
   static Object toExactTemporal(Object source, String expectedType) {
-    if (!(source instanceof JsonNode)) {
-      return source;
-    }
-    JsonNode node = (JsonNode) source;
-    Temporal exact = convertTemporalNode(node, expectedType);
-    if (exact == null && !node.isNull()) {
-      // Do not log the value: it may contain sensitive data.
-      LOGGER.warn(
-          "Could not read a nested {} value exactly; using its java.sql value, which is shifted"
-              + " for dates before 1582-10-15",
-          expectedType);
-    }
-    return exact;
+    return source instanceof JsonNode
+        ? convertTemporalNode((JsonNode) source, expectedType)
+        : source;
+  }
+
+  /** Returns true if {@code source} is a non-null leaf that {@link #toExactTemporal} parses. */
+  static boolean isUnparsedLeaf(Object source) {
+    return source instanceof JsonNode && !((JsonNode) source).isNull();
+  }
+
+  /** Logs that a nested value fell back to its {@code java.sql} value, without the value. */
+  static void warnInexactNestedValue(String expectedType) {
+    LOGGER.warn(
+        "Could not read a nested {} value exactly; using its java.sql value, which is shifted for"
+            + " dates before 1582-10-15",
+        expectedType);
   }
 
   /**

@@ -421,8 +421,10 @@ public class JavaTimeConverterTest {
   @Test
   public void testTextParsersReturnNullForUnparseableText() {
     assertEquals(GAP_DATE, JavaTimeConverter.parseDateText(" 1582-10-05 "));
-    // Forms java.sql.Date.valueOf accepts are still read
+    // Non-padded forms that java.sql.Date.valueOf accepts are still read, on the proleptic calendar
     assertEquals(LocalDate.of(2024, 1, 5), JavaTimeConverter.parseDateText("2024-1-5"));
+    assertEquals(GAP_DATE, JavaTimeConverter.parseDateText("1582-10-5"));
+    assertNull(JavaTimeConverter.parseDateText("2024-2-30"));
     assertNull(JavaTimeConverter.parseDateText("19598"));
     assertEquals(
         OffsetDateTime.parse("2016-01-01T00:00:00Z"),

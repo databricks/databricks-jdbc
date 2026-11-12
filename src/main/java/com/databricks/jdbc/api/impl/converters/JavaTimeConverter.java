@@ -75,6 +75,10 @@ public final class JavaTimeConverter {
   private static final DateTimeFormatter TIMESTAMP_TEXT_WITH_SPACE_FORMATTER =
       timestampTextFormatter(' ');
 
+  /** A date with non-padded month and day, e.g. {@code 2024-1-5}, as Date.valueOf accepts. */
+  private static final DateTimeFormatter NON_PADDED_DATE_FORMATTER =
+      DateTimeFormatter.ofPattern("uuuu-M-d").withResolverStyle(ResolverStyle.STRICT);
+
   /** 1582-10-15T00:00:00Z, the default cutover of {@link java.util.GregorianCalendar}. */
   private static final long GREGORIAN_CUTOVER_EPOCH_MILLI = -12219292800000L;
 
@@ -397,8 +401,9 @@ public final class JavaTimeConverter {
   /**
    * Parses the server's text for a DATE without going through {@code java.sql.Date}.
    *
-   * @param text an ISO date, e.g. {@code 1582-10-05} or {@code -2015-01-01}; other forms accepted
-   *     by {@code java.sql.Date.valueOf}, e.g. {@code 2024-1-5}, are read through it
+   * @param text an ISO date, e.g. {@code 1582-10-05} or {@code -2015-01-01}, or one with non-padded
+   *     month and day as {@code java.sql.Date.valueOf} accepts, e.g. {@code 2024-1-5}; both are
+   *     read on the proleptic Gregorian calendar
    * @return the date, or null if the text cannot be parsed
    */
   public static LocalDate parseDateText(String text) {
@@ -407,8 +412,8 @@ public final class JavaTimeConverter {
       return LocalDate.parse(trimmed);
     } catch (DateTimeParseException e) {
       try {
-        return java.sql.Date.valueOf(trimmed).toLocalDate();
-      } catch (IllegalArgumentException notADate) {
+        return LocalDate.parse(trimmed, NON_PADDED_DATE_FORMATTER);
+      } catch (DateTimeParseException notADate) {
         return null;
       }
     }

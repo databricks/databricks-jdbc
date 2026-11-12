@@ -812,9 +812,19 @@ public class ComplexDataTypeParserTest {
         parser.parseJsonStringToDbStruct("{\"ts\":\"2023-1-5 10:20:30\"}", "STRUCT<ts:TIMESTAMP>");
 
     assertEquals(Timestamp.valueOf("2023-01-05 10:20:30"), struct.getAttributes()[0]);
-    assertEquals(
-        LocalDateTime.of(2023, 1, 5, 10, 20, 30),
-        struct.getAttributes(java.util.Map.of("TIMESTAMP", LocalDateTime.class))[0]);
+    java.util.Map<String, Class<?>> typeMap = java.util.Map.of("TIMESTAMP", LocalDateTime.class);
+    LocalDateTime expected = LocalDateTime.of(2023, 1, 5, 10, 20, 30);
+    // The result is cached after the first read; later reads give the same value.
+    assertEquals(expected, struct.getAttributes(typeMap)[0]);
+    assertEquals(expected, struct.getAttributes(typeMap)[0]);
+
+    DatabricksArray array =
+        parser.parseJsonStringToDbArray(
+            "[\"2023-1-5 10:20:30\",\"2023-01-06T10:20:30Z\"]", "ARRAY<TIMESTAMP>");
+    Object[] first = (Object[]) array.getArray(java.util.Map.of("TIMESTAMP", Instant.class));
+    assertArrayEquals(
+        first, (Object[]) array.getArray(java.util.Map.of("TIMESTAMP", Instant.class)));
+    assertEquals(Instant.parse("2023-01-06T10:20:30Z"), first[1]);
   }
 
   @Test

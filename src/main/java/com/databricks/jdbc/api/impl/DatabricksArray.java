@@ -40,6 +40,8 @@ public class DatabricksArray implements Array {
   // Sources of the exact java.time values of DATE/TIMESTAMP elements (JSON leaves, converted on
   // demand, or java.time values), parallel to elements; null when unknown.
   private final Object[] temporalElements;
+  // Set once an element fell back to its java.sql value, so the warning is logged once.
+  private boolean warnedInexact;
 
   /**
    * Constructs a DatabricksArray with the specified elements and metadata.
@@ -232,12 +234,25 @@ public class DatabricksArray implements Array {
     return this.getArray(1, this.elements.length, map);
   }
 
-  /** The exact {@code java.time} value of the element at 0-based {@code i}, or null if unknown. */
+  /**
+   * The exact {@code java.time} value of the element at 0-based {@code i}, or null if unknown. A
+   * JSON leaf is parsed on the first call and replaced by its result, so later reads neither parse
+   * it again nor repeat the warning for a value that has no exact form.
+   */
   private Object exactElement(int i) {
     if (this.temporalElements == null || i < 0 || i >= this.temporalElements.length) {
       return null;
     }
-    return ComplexDataTypeParser.toExactTemporal(this.temporalElements[i], this.elementType);
+    Object source = this.temporalElements[i];
+    Object exact = ComplexDataTypeParser.toExactTemporal(source, this.elementType);
+    if (ComplexDataTypeParser.isUnparsedLeaf(source)) {
+      if (exact == null && !this.warnedInexact) {
+        this.warnedInexact = true;
+        ComplexDataTypeParser.warnInexactNestedValue(this.elementType);
+      }
+      this.temporalElements[i] = exact;
+    }
+    return exact;
   }
 
   @Override

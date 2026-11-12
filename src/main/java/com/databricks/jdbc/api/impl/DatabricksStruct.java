@@ -31,6 +31,9 @@ public class DatabricksStruct implements Struct {
   // demand, or java.time values), parallel to attributes; null when there are none.
   private final Object[] temporalAttributes;
 
+  // Set once an attribute fell back to its java.sql value, so the warning is logged once.
+  private boolean warnedInexact;
+
   /**
    * Constructs a DatabricksStruct with the specified attributes and metadata.
    *
@@ -229,14 +232,32 @@ public class DatabricksStruct implements Struct {
       if (converted == null) {
         converted = attributes.clone();
       }
-      Object exact =
-          temporalAttributes == null
-              ? null
-              : ComplexDataTypeParser.toExactTemporal(temporalAttributes[i], fieldType);
+      Object exact = exactAttribute(i, fieldType);
       Object value = exact != null ? exact : attributes[i];
       converted[i] = JavaTimeConverter.convertNested(javaTimeType, fieldType, value);
     }
     return converted != null ? converted : this.getAttributes();
+  }
+
+  /**
+   * The exact {@code java.time} value of the attribute at {@code i}, or null if unknown. A JSON
+   * leaf is parsed on the first call and replaced by its result, so later reads neither parse it
+   * again nor repeat the warning for a value that has no exact form.
+   */
+  private Object exactAttribute(int i, String fieldType) {
+    if (temporalAttributes == null) {
+      return null;
+    }
+    Object source = temporalAttributes[i];
+    Object exact = ComplexDataTypeParser.toExactTemporal(source, fieldType);
+    if (ComplexDataTypeParser.isUnparsedLeaf(source)) {
+      if (exact == null && !warnedInexact) {
+        warnedInexact = true;
+        ComplexDataTypeParser.warnInexactNestedValue(fieldType);
+      }
+      temporalAttributes[i] = exact;
+    }
+    return exact;
   }
 
   /** Returns a JSON-like string with field names. */

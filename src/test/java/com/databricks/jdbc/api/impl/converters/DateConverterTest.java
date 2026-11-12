@@ -90,7 +90,8 @@ public class DateConverterTest {
   public void testConvertToLong_LegacyDateUnchanged() throws DatabricksSQLException {
     // A java.sql.Date has already lost the value; it keeps its existing result.
     assertEquals(-141427L, new DateConverter().toLong(Date.valueOf(LocalDate.of(1582, 10, 5))));
-    // Text that is not an ISO date still goes through java.sql.Date.valueOf.
+    // Non-padded text is read on the proleptic calendar too.
     assertEquals(19610L, new DateConverter().toLong("2023-9-10"));
+    assertEquals(-141437L, new DateConverter().toLong("1582-10-5"));
   }
 }
