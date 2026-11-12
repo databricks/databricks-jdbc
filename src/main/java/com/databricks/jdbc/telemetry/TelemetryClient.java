@@ -105,10 +105,12 @@ public class TelemetryClient implements ITelemetryClient {
 
   @Override
   public void close() {
-    // Export any pending latency telemetry before flushing for this connection
-    TelemetryCollector collector =
-        TelemetryCollectorManager.getInstance().getOrCreateCollector(context);
-    collector.exportAllPendingTelemetryDetails();
+    // Export any pending latency telemetry before flushing for this connection. Remove rather than
+    // getOrCreate: the connection has closed, and re-creating its collector leaked one per close.
+    TelemetryCollector collector = TelemetryCollectorManager.getInstance().removeCollector(context);
+    if (collector != null) {
+      collector.exportAllPendingTelemetryDetails();
+    }
 
     Future<?> finalFlush = null;
     try {

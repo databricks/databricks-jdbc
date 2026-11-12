@@ -2,6 +2,7 @@ package com.databricks.jdbc.telemetry;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
@@ -11,6 +12,8 @@ import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
 import com.databricks.jdbc.dbclient.impl.http.DatabricksHttpClientFactory;
 import com.databricks.jdbc.model.telemetry.TelemetryFrontendLog;
 import com.databricks.jdbc.model.telemetry.TelemetryResponse;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
+import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.core.DatabricksConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -371,5 +374,45 @@ public class TelemetryClientTest {
       verify(mockHttpResponse, atLeastOnce()).getStatusLine();
       verify(mockStatusLine, atLeastOnce()).getStatusCode();
     }
+  }
+
+  @Test
+  void testCloseDoesNotLeaveACollectorForTheClosedConnection() {
+    IDatabricksConnectionContext context = mockContext("closed-connection-no-collector");
+    TelemetryClient client =
+        new TelemetryClient(
+            context, MoreExecutors.newDirectExecutorService(), createMockScheduler());
+
+    client.close();
+
+    assertNull(
+        TelemetryCollectorManager.getInstance().removeCollector(context),
+        "close() must not re-create a collector for a connection that already closed");
+  }
+
+  @Test
+  void testCloseExportsAndRemovesAPendingCollector() {
+    IDatabricksConnectionContext context = mockContext("closed-connection-pending");
+    TelemetryCollector collector =
+        TelemetryCollectorManager.getInstance().getOrCreateCollector(context);
+    collector.recordGetOperationStatus("statement-id", 5);
+    TelemetryClient client =
+        new TelemetryClient(
+            context, MoreExecutors.newDirectExecutorService(), createMockScheduler());
+
+    try (MockedStatic<TelemetryHelper> helper = mockStatic(TelemetryHelper.class)) {
+      client.close();
+
+      helper.verify(() -> TelemetryHelper.exportTelemetryLog(eq(context), any(), any()));
+    }
+    assertNull(TelemetryCollectorManager.getInstance().removeCollector(context));
+  }
+
+  private static IDatabricksConnectionContext mockContext(String uuid) {
+    IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
+    when(context.getConnectionUuid()).thenReturn(uuid);
+    when(context.getTelemetryBatchSize()).thenReturn(10);
+    when(context.getTelemetryFlushIntervalInMilliseconds()).thenReturn(60_000);
+    return context;
   }
 }
