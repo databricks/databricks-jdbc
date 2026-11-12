@@ -3,8 +3,11 @@ package com.databricks.jdbc.api.impl;
 import static com.databricks.jdbc.api.impl.DatabricksResultSet.AFFECTED_ROWS_COUNT;
 import static com.databricks.jdbc.common.util.DatabricksTypeUtil.VARIANT;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -22,10 +25,12 @@ import com.databricks.jdbc.api.internal.IDatabricksStatementInternal;
 import com.databricks.jdbc.common.StatementType;
 import com.databricks.jdbc.common.util.DatabricksThreadContextHolder;
 import com.databricks.jdbc.common.util.JsonUtil;
+import com.databricks.jdbc.dbclient.IDatabricksClient;
 import com.databricks.jdbc.dbclient.impl.common.StatementId;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
+import com.databricks.jdbc.model.core.ChunkLinkFetchResult;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
 import com.databricks.jdbc.model.core.ResultManifest;
@@ -42,6 +47,7 @@ import java.sql.*;
 import java.sql.Date;
 import java.time.*;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -1280,6 +1286,70 @@ public class DatabricksResultSetTest {
 
   private static ColumnInfo intColumn(String name) {
     return new ColumnInfo().setName(name).setTypeName(ColumnInfoTypeName.INT).setTypeText("INT");
+  }
+
+  @Test
+  void testThriftStreamingCloudFetchResultReportsUnknownTotalRows() throws Exception {
+    IDatabricksConnectionContext ctx =
+        DatabricksConnectionContextFactory.create(
+            "jdbc:databricks://sample-host.18.azuredatabricks.net:4423/default;transportMode=http;"
+                + "ssl=1;AuthMech=3;httpPath=/sql/1.0/warehouses/99999999;"
+                + "EnableStreamingChunkProvider=1",
+            new Properties());
+    IDatabricksClient client = mock(IDatabricksClient.class);
+    // Hold the background link fetch so the stream cannot reach its end during construction.
+    CountDownLatch releaseLinkFetch = new CountDownLatch(1);
+    lenient()
+        .when(client.getResultChunks(any(), anyLong(), anyLong()))
+        .thenAnswer(
+            invocation -> {
+              releaseLinkFetch.await();
+              return ChunkLinkFetchResult.endOfStream();
+            });
+    when(session.getConnectionContext()).thenReturn(ctx);
+    lenient().when(session.getDatabricksClient()).thenReturn(client);
+    when(mockedDatabricksStatement.getStatementId()).thenReturn(THRIFT_STATEMENT_ID);
+    TColumnDesc column =
+        new TColumnDesc()
+            .setColumnName("id")
+            .setTypeDesc(
+                new TTypeDesc()
+                    .setTypes(
+                        Collections.singletonList(
+                            TTypeEntry.primitiveEntry(new TPrimitiveTypeEntry(TTypeId.INT_TYPE)))));
+    TFetchResultsResp firstBatch =
+        new TFetchResultsResp()
+            .setResultSetMetadata(
+                new TGetResultSetMetadataResp()
+                    .setResultFormat(TSparkRowSetType.URL_BASED_SET)
+                    .setSchema(new TTableSchema().setColumns(Collections.singletonList(column))))
+            .setResults(
+                new TRowSet()
+                    .setResultLinks(
+                        Collections.singletonList(
+                            new TSparkArrowResultLink()
+                                .setFileLink("https://chunk.databricks.com/0")
+                                .setStartRowOffset(0)
+                                .setRowCount(10)
+                                .setExpiryTime(Instant.now().plusSeconds(3600).toEpochMilli()))))
+            .setHasMoreRows(true);
+
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            THRIFT_STATEMENT_ID,
+            firstBatch,
+            StatementType.QUERY,
+            mockedDatabricksStatement,
+            session);
+    try {
+      assertFalse(
+          ((DatabricksResultSetMetaData) resultSet.getMetaData()).hasKnownTotalRows(),
+          "Only the first link batch is known, so the total row count must be unknown");
+    } finally {
+      releaseLinkFetch.countDown();
+      resultSet.close();
+    }
   }
 
   @Test

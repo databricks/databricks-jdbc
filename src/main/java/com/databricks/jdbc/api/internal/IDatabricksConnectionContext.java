@@ -458,6 +458,12 @@ public interface IDatabricksConnectionContext {
   boolean isStreamingChunkProviderEnabled();
 
   /**
+   * Returns whether Thrift CloudFetch results use the streaming chunk provider. An explicit {@code
+   * EnableStreamingChunkProvider} setting wins; otherwise warehouses follow a server-side flag.
+   */
+  boolean isThriftStreamingChunkProviderEnabled();
+
+  /**
    * Returns whether streaming mode is enabled for inline results (Thrift columnar and inline
    * Arrow).
    */
