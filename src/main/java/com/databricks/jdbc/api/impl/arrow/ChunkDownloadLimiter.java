@@ -57,6 +57,20 @@ final class ChunkDownloadLimiter {
         h -> new ChunkDownloadLimiter(h, defaultPermits(Runtime.getRuntime().maxMemory())));
   }
 
+  /** A limiter with a fixed default that is not shared with any host. */
+  @VisibleForTesting
+  static ChunkDownloadLimiter forTesting(int defaultPermits) {
+    return new ChunkDownloadLimiter("test", defaultPermits);
+  }
+
+  /** Registers a limiter with a fixed default for {@code host}, for tests that build providers. */
+  @VisibleForTesting
+  static ChunkDownloadLimiter registerForTesting(String host, int defaultPermits) {
+    ChunkDownloadLimiter limiter = new ChunkDownloadLimiter(host, defaultPermits);
+    BY_HOST.put(host, limiter);
+    return limiter;
+  }
+
   @VisibleForTesting
   static int defaultPermits(long maxHeapBytes) {
     long byHeap = maxHeapBytes / HEAP_BYTES_PER_PERMIT;

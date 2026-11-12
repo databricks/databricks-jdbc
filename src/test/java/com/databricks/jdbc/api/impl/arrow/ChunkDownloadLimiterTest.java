@@ -39,9 +39,18 @@ class ChunkDownloadLimiterTest {
   @Mock ChunkLinkDownloadService<ArrowResultChunk> linkDownloadService;
   @Mock LinkRefresher linkRefresher;
 
-  /** A limiter of its own for each test, so tests do not share permits. */
+  private static final int TEST_DEFAULT_PERMITS = 16;
+
+  /** A limiter of its own for each test, with a fixed default that does not depend on the heap. */
   private static ChunkDownloadLimiter newLimiter() {
-    return ChunkDownloadLimiter.forHost("limiter-test-" + UUID.randomUUID());
+    return ChunkDownloadLimiter.forTesting(TEST_DEFAULT_PERMITS);
+  }
+
+  /** Registers a fresh host whose limiter starts at TEST_DEFAULT_PERMITS. */
+  private static String newHost() {
+    String host = "limiter-test-" + UUID.randomUUID();
+    ChunkDownloadLimiter.registerForTesting(host, TEST_DEFAULT_PERMITS);
+    return host;
   }
 
   @Test
@@ -257,14 +266,9 @@ class ChunkDownloadLimiterTest {
     }
   }
 
-  /** A pool size above the heap-based default, so the provider tests must see the limiter grow. */
-  private static int poolSizeAboveDefault() {
-    return Math.min(256, ChunkDownloadLimiter.defaultPermits(Runtime.getRuntime().maxMemory()) + 1);
-  }
-
   @Test
   void testRemoteChunkProviderGrowsItsHostLimiterToPoolSize() throws Exception {
-    String host = "limiter-test-" + UUID.randomUUID();
+    String host = newHost();
     IDatabricksSession session = mock(IDatabricksSession.class);
     IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
     when(session.getConnectionContext()).thenReturn(context);
@@ -276,7 +280,7 @@ class ChunkDownloadLimiterTest {
             .setSchema(new ResultSchema().setColumns(new ArrayList<>()));
     ResultData data = new ResultData().setExternalLinks(new ArrayList<>());
 
-    int poolSize = poolSizeAboveDefault();
+    int poolSize = TEST_DEFAULT_PERMITS + 1;
     RemoteChunkProvider provider =
         new RemoteChunkProvider(
             new StatementId("statement"), manifest, data, session, null, poolSize);
@@ -290,10 +294,10 @@ class ChunkDownloadLimiterTest {
 
   @Test
   void testStreamingChunkProviderGrowsItsHostLimiterToPoolSize() throws Exception {
-    String host = "limiter-test-" + UUID.randomUUID();
+    String host = newHost();
     IDatabricksConnectionContext context = mock(IDatabricksConnectionContext.class);
     when(context.getHost()).thenReturn(host);
-    int poolSize = poolSizeAboveDefault();
+    int poolSize = TEST_DEFAULT_PERMITS + 1;
 
     StreamingChunkProvider provider =
         new StreamingChunkProvider(
