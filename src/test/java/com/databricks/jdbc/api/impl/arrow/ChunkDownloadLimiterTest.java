@@ -362,6 +362,45 @@ class ChunkDownloadLimiterTest {
     assertEquals(limiter.totalPermits(), limiter.availablePermits());
   }
 
+  @Test
+  void testStreamingRefreshAfterWaitHappensOncePerTask() throws Exception {
+    ChunkDownloadLimiter limiter = newLimiter();
+    CompletableFuture<Void> ready = new CompletableFuture<>();
+    when(chunk.getChunkReadyFuture()).thenReturn(ready);
+    // Valid at first, then never valid again, e.g. a refreshed link inside the expiry buffer.
+    when(chunk.isChunkLinkInvalid()).thenReturn(false, true);
+    ExecutorService otherQuery = Executors.newSingleThreadExecutor();
+    when(linkRefresher.refreshLink(anyLong(), anyLong()))
+        .thenAnswer(
+            invocation -> {
+              // Another query takes the freed permit, so the task has to wait again.
+              limiter.acquire();
+              otherQuery.submit(
+                  () -> {
+                    awaitTrue(limiter::hasQueuedThreads, "task never waited again");
+                    limiter.release();
+                    return null;
+                  });
+              return null;
+            });
+
+    try {
+      runAfterWaitingForPermit(
+          limiter,
+          new StreamingChunkDownloadTask(
+              chunk, httpClient, CompressionCodec.NONE, linkRefresher, 0.1, limiter));
+    } finally {
+      otherQuery.shutdown();
+      assertTrue(otherQuery.awaitTermination(10, TimeUnit.SECONDS));
+    }
+
+    // The second wait goes straight to the download instead of refreshing again.
+    verify(linkRefresher, times(1)).refreshLink(anyLong(), anyLong());
+    verify(chunk, times(1)).downloadData(any(), any(), anyDouble());
+    assertTrue(ready.isDone() && !ready.isCompletedExceptionally());
+    assertEquals(limiter.totalPermits(), limiter.availablePermits());
+  }
+
   /** Runs the task so it has to wait for a permit: holds them all, then frees one once it waits. */
   private static void runAfterWaitingForPermit(ChunkDownloadLimiter limiter, Callable<Void> task)
       throws Exception {
