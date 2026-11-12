@@ -20,8 +20,10 @@ import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.time.Instant;
 import java.util.Map;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
@@ -100,6 +102,11 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
           readArrowData(
               DecompressionUtil.decompressToInputStream(
                   response.getEntity().getContent(), compressionCodec, ctx));
+      if (Thread.currentThread().isInterrupted()) {
+        // An interrupted Arrow read returns early without batches; never report it as complete.
+        arrowData.getValueVectors().forEach(batch -> batch.forEach(ValueVector::close));
+        throw new InterruptedIOException("Chunk download interrupted");
+      }
       setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
       setArrowData(arrowData);
       LOGGER.debug(

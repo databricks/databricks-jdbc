@@ -116,6 +116,26 @@ public class ArrowResultChunkStatusTest {
   }
 
   @Test
+  void interruptedRead_isNotReportedAsSucceeded() throws Exception {
+    byte[] payload = lz4(arrowStream(4, 20_000));
+    ArrowResultChunk chunk = newChunk();
+    IDatabricksHttpClient http =
+        httpWithEntity(new TrackingInputStream(payload, Integer.MAX_VALUE), payload.length);
+
+    // Arrow reads through an interruptible channel, which fails with ClosedByInterruptException.
+    Thread.currentThread().interrupt();
+    try {
+      assertThrows(
+          DatabricksParsingException.class,
+          () -> chunk.downloadData(http, CompressionCodec.LZ4_FRAME, 0.0));
+    } finally {
+      Thread.interrupted();
+    }
+    assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+    assertEquals(0, chunk.rootAllocator.getAllocatedMemory());
+  }
+
+  @Test
   void corruptBody_isRetryableDownloadFailure() {
     byte[] payload = "not an lz4 frame".getBytes();
     ArrowResultChunk chunk = newChunk();
