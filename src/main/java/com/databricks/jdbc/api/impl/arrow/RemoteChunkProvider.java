@@ -165,6 +165,7 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
             return thread;
           }
         };
+    ChunkDownloadLimiter.ensureAtLeast(maxParallelChunkDownloadsPerQuery);
     return Executors.newFixedThreadPool(maxParallelChunkDownloadsPerQuery, threadFactory);
   }
 }

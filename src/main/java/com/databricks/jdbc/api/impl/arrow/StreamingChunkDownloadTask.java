@@ -73,7 +73,20 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
           }
 
           // Perform the download
-          chunk.downloadData(httpClient, compressionCodec, cloudFetchSpeedThreshold);
+          try {
+            ChunkDownloadLimiter.acquire();
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new DatabricksSQLException(
+                "Chunk download interrupted",
+                ie,
+                DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
+          }
+          try {
+            chunk.downloadData(httpClient, compressionCodec, cloudFetchSpeedThreshold);
+          } finally {
+            ChunkDownloadLimiter.release();
+          }
           downloadSuccessful = true;
 
           long taskTotalMs = (System.nanoTime() - taskStartTime) / 1_000_000;

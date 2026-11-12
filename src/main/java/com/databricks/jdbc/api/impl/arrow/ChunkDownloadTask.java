@@ -68,10 +68,15 @@ class ChunkDownloadTask implements DatabricksCallableTask {
             chunk.setChunkLink(link);
           }
 
-          chunk.downloadData(
-              httpClient,
-              chunkDownloader.getCompressionCodec(),
-              connectionContext != null ? connectionContext.getCloudFetchSpeedThreshold() : 0.1);
+          ChunkDownloadLimiter.acquire();
+          try {
+            chunk.downloadData(
+                httpClient,
+                chunkDownloader.getCompressionCodec(),
+                connectionContext != null ? connectionContext.getCloudFetchSpeedThreshold() : 0.1);
+          } finally {
+            ChunkDownloadLimiter.release();
+          }
           downloadSuccessful = true;
           long taskTotalMs = (System.nanoTime() - taskStartTime) / 1_000_000;
           LOGGER.debug(

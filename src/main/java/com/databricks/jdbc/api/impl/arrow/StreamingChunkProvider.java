@@ -858,6 +858,7 @@ public class StreamingChunkProvider implements ChunkProvider {
           }
         };
 
+    ChunkDownloadLimiter.ensureAtLeast(poolSize);
     return Executors.newFixedThreadPool(poolSize, threadFactory);
   }
 }
