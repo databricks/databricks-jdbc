@@ -22,11 +22,13 @@ public class IdleConnectionReaperTest {
         .count();
   }
 
-  private static void awaitNoReaperThread() throws InterruptedException {
+  /** A shut-down executor's thread exits asynchronously, so give stale ones time to go. */
+  private static long awaitReaperThreadsAtMost(long max) throws InterruptedException {
     long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-    while (reaperThreads() > 0 && System.nanoTime() < deadline) {
+    while (reaperThreads() > max && System.nanoTime() < deadline) {
       Thread.sleep(20);
     }
+    return reaperThreads();
   }
 
   @Test
@@ -40,7 +42,7 @@ public class IdleConnectionReaperTest {
     }
     assertTrue(IdleConnectionReaper.isRunning());
     assertEquals(before + 50, IdleConnectionReaper.registrationCount());
-    assertTrue(reaperThreads() <= 1);
+    assertEquals(1, awaitReaperThreadsAtMost(1));
 
     for (IdleConnectionReaper.Registration registration : registrations) {
       assertTrue(registration.isActive());
@@ -51,8 +53,7 @@ public class IdleConnectionReaperTest {
     assertEquals(before, IdleConnectionReaper.registrationCount());
     if (before == 0) {
       assertFalse(IdleConnectionReaper.isRunning());
-      awaitNoReaperThread();
-      assertEquals(0, reaperThreads());
+      assertEquals(0, awaitReaperThreadsAtMost(0));
 
       // A later registration starts a new thread.
       HttpClientConnectionManager manager = mock(HttpClientConnectionManager.class);
@@ -124,7 +125,7 @@ public class IdleConnectionReaperTest {
     DatabricksHttpClient secondClient = new DatabricksHttpClient(second, HttpClientType.COMMON);
     try {
       assertEquals(before + 2, IdleConnectionReaper.registrationCount());
-      assertTrue(reaperThreads() <= 1);
+      assertEquals(1, awaitReaperThreadsAtMost(1));
       firstClient.close();
       assertFalse(firstClient.isIdleConnectionEvictionActive());
       assertTrue(secondClient.isIdleConnectionEvictionActive());
