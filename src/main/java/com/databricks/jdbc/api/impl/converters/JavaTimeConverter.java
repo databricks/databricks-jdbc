@@ -67,20 +67,13 @@ import java.util.Map;
 public final class JavaTimeConverter {
 
   /**
-   * Parses the text forms the server uses for timestamps: an ISO date, a space or 'T', an ISO time
-   * with an optional fraction, and an optional offset. Years outside 0000-9999 carry a sign.
+   * Parse the text forms the server uses for timestamps: an ISO date, a 'T' (or a space), an ISO
+   * time with an optional fraction, and an optional offset. Years outside 0000-9999 carry a sign.
    */
-  private static final DateTimeFormatter TIMESTAMP_TEXT_FORMATTER =
-      new DateTimeFormatterBuilder()
-          .parseCaseInsensitive()
-          .append(DateTimeFormatter.ISO_LOCAL_DATE)
-          .appendPattern("[ ]['T']")
-          .append(DateTimeFormatter.ISO_LOCAL_TIME)
-          .optionalStart()
-          .appendOffsetId()
-          .optionalEnd()
-          .toFormatter()
-          .withResolverStyle(ResolverStyle.STRICT);
+  private static final DateTimeFormatter TIMESTAMP_TEXT_FORMATTER = timestampTextFormatter('T');
+
+  private static final DateTimeFormatter TIMESTAMP_TEXT_WITH_SPACE_FORMATTER =
+      timestampTextFormatter(' ');
 
   /** 1582-10-15T00:00:00Z, the default cutover of {@link java.util.GregorianCalendar}. */
   private static final long GREGORIAN_CUTOVER_EPOCH_MILLI = -12219292800000L;
@@ -88,6 +81,19 @@ public final class JavaTimeConverter {
   private static final long MILLIS_PER_DAY = 86_400_000L;
 
   private JavaTimeConverter() {}
+
+  private static DateTimeFormatter timestampTextFormatter(char separator) {
+    return new DateTimeFormatterBuilder()
+        .parseCaseInsensitive()
+        .append(DateTimeFormatter.ISO_LOCAL_DATE)
+        .appendLiteral(separator)
+        .append(DateTimeFormatter.ISO_LOCAL_TIME)
+        .optionalStart()
+        .appendOffsetId()
+        .optionalEnd()
+        .toFormatter()
+        .withResolverStyle(ResolverStyle.STRICT);
+  }
 
   /**
    * Returns true if {@code type} is a {@code java.time} class handled by this converter.
@@ -126,12 +132,17 @@ public final class JavaTimeConverter {
       return null;
     }
     boolean isText = isCharacterType(columnSqlType);
-    if (columnSqlType != Types.DATE && columnSqlType != Types.TIMESTAMP && !isText) {
+    if (!isSupportedColumnType(columnSqlType)) {
       throw unsupported(
           String.format(
               "Cannot convert a %s column to %s; only DATE, TIMESTAMP and string columns are"
                   + " supported",
               describeColumn(columnSqlType, columnTypeName), type.getName()));
+    }
+    if (columnSqlType == Types.TIMESTAMP
+        && value instanceof Timestamp
+        && !isTimestampNtz(columnTypeName)) {
+      return fromLegacyTimestamp(type, (Timestamp) value);
     }
     Temporal temporal = toTemporal(columnSqlType, columnTypeName, value);
     if (temporal == null && value instanceof String) {
@@ -157,6 +168,18 @@ public final class JavaTimeConverter {
       return fromTimestampNtz(type, (LocalDateTime) temporal, isText);
     }
     return fromTimestamp(type, (OffsetDateTime) temporal);
+  }
+
+  /**
+   * Returns true if values of the column type can be converted to {@code java.time} types.
+   *
+   * @param columnSqlType the column type, as defined in {@link Types}
+   * @return true for DATE, TIMESTAMP and string columns
+   */
+  public static boolean isSupportedColumnType(int columnSqlType) {
+    return columnSqlType == Types.DATE
+        || columnSqlType == Types.TIMESTAMP
+        || isCharacterType(columnSqlType);
   }
 
   private static boolean isCharacterType(int columnSqlType) {
@@ -205,7 +228,10 @@ public final class JavaTimeConverter {
    * @return the mapped {@code java.time} class, or null
    */
   public static Class<?> getJavaTimeMapping(Map<String, Class<?>> typeMap, String typeName) {
-    return isTemporalTypeName(typeName) ? findJavaTimeMapping(typeMap, typeName) : null;
+    if (typeMap == null || typeMap.isEmpty() || !isTemporalTypeName(typeName)) {
+      return null;
+    }
+    return findJavaTimeMapping(typeMap, typeName);
   }
 
   /**
@@ -336,6 +362,25 @@ public final class JavaTimeConverter {
                 type.getName()));
   }
 
+  /**
+   * Converts a TIMESTAMP that only exists as a {@code java.sql.Timestamp}: its own fields for
+   * {@link LocalDate} and {@link LocalDateTime} and its instant for {@link Instant} and {@link
+   * OffsetDateTime}, the same as {@code getTimestamp()}. Reading the instant back into fields with
+   * {@code java.time} would move pre-1582 values by days and use different historical offsets.
+   */
+  private static Object fromLegacyTimestamp(Class<?> type, Timestamp timestamp) {
+    if (type == LocalDate.class) {
+      return timestamp.toLocalDateTime().toLocalDate();
+    }
+    if (type == LocalDateTime.class) {
+      return timestamp.toLocalDateTime();
+    }
+    if (type == Instant.class) {
+      return timestamp.toInstant();
+    }
+    return timestamp.toInstant().atOffset(ZoneOffset.UTC);
+  }
+
   private static Object fromTimestamp(Class<?> type, OffsetDateTime dateTime) {
     if (type == LocalDate.class) {
       return dateTime.toLocalDate();
@@ -378,9 +423,15 @@ public final class JavaTimeConverter {
    *     null if the text cannot be parsed
    */
   public static Temporal parseTimestampText(String text) {
+    String trimmed = text.trim();
+    // Exactly one separator between the date and the time: 'T' if there is one, else a space.
+    DateTimeFormatter formatter =
+        trimmed.indexOf('T') >= 0 || trimmed.indexOf('t') >= 0
+            ? TIMESTAMP_TEXT_FORMATTER
+            : TIMESTAMP_TEXT_WITH_SPACE_FORMATTER;
     TemporalAccessor parsed;
     try {
-      parsed = TIMESTAMP_TEXT_FORMATTER.parse(text.trim());
+      parsed = formatter.parse(trimmed);
     } catch (DateTimeParseException e) {
       return null;
     }

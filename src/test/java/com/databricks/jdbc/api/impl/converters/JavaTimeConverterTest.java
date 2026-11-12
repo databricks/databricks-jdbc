@@ -282,6 +282,46 @@ public class JavaTimeConverterTest {
             JavaTimeConverter.convert(Instant.class, Types.TIMESTAMP, "TIMESTAMP_NTZ", timestamp));
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = {"UTC", "America/Los_Angeles", "Asia/Kolkata"})
+  public void testConvert_LegacyTimestampKeepsItsFieldsBefore1900(String defaultZone)
+      throws DatabricksSQLException {
+    java.util.TimeZone defaultTimeZone = java.util.TimeZone.getDefault();
+    try {
+      java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(defaultZone));
+      // Pre-1582 (hybrid calendar) and pre-1900 (historical offsets): the fields must not move.
+      for (String text : new String[] {"1000-01-01 00:00:00", "1850-01-01 12:00:00"}) {
+        Timestamp timestamp = Timestamp.valueOf(text);
+        assertEquals(
+            timestamp.toLocalDateTime(),
+            JavaTimeConverter.convert(LocalDateTime.class, Types.TIMESTAMP, "TIMESTAMP", timestamp),
+            text);
+        assertEquals(
+            timestamp.toLocalDateTime().toLocalDate(),
+            JavaTimeConverter.convert(LocalDate.class, Types.TIMESTAMP, "TIMESTAMP", timestamp),
+            text);
+        assertEquals(
+            timestamp.toInstant(),
+            JavaTimeConverter.convert(Instant.class, Types.TIMESTAMP, "TIMESTAMP", timestamp),
+            text);
+      }
+    } finally {
+      java.util.TimeZone.setDefault(defaultTimeZone);
+    }
+  }
+
+  @Test
+  public void testParseTimestampTextNeedsExactlyOneSeparator() {
+    assertEquals(
+        LocalDateTime.of(2023, 1, 1, 10, 30),
+        JavaTimeConverter.parseTimestampText("2023-01-01T10:30"));
+    assertEquals(
+        LocalDateTime.of(2023, 1, 1, 10, 30),
+        JavaTimeConverter.parseTimestampText("2023-01-01 10:30"));
+    assertNull(JavaTimeConverter.parseTimestampText("2023-01-0110:30"));
+    assertNull(JavaTimeConverter.parseTimestampText("2023-01-01 T10:30"));
+  }
+
   @Test
   public void testConvert_NullValue() throws DatabricksSQLException {
     assertNull(JavaTimeConverter.convert(Instant.class, Types.TIMESTAMP, "TIMESTAMP", null));

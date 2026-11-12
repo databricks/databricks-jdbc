@@ -874,9 +874,12 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     int columnType = resultSetMetaData.getColumnType(columnIndex);
     String columnTypeName = resultSetMetaData.getColumnTypeName(columnIndex);
-    Class<?> javaTimeType = JavaTimeConverter.getJavaTimeMapping(typeMap, columnTypeName);
-    if (javaTimeType != null) {
-      return getJavaTimeObject(columnIndex, javaTimeType);
+    if (typeMap != null) {
+      // Only in-memory array result sets have a type map; skip the lookup for everything else.
+      Class<?> javaTimeType = JavaTimeConverter.getJavaTimeMapping(typeMap, columnTypeName);
+      if (javaTimeType != null) {
+        return getJavaTimeObject(columnIndex, javaTimeType);
+      }
     }
     // Geospatial types: handle independently of complex datatype flag
     if (isGeospatialType(columnTypeName)) {
@@ -1583,10 +1586,11 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   /**
    * {@inheritDoc}
    *
-   * <p>A {@code java.time} mapping (e.g. {@code Map.of("DATE", LocalDate.class)}) returns the value
-   * as {@link #getObject(int, Class)} does, and an unsupported one throws {@code
-   * UNSUPPORTED_OPERATION}, the same as the type maps of nested arrays and structs. For other
-   * mappings, a failed conversion returns null and adds a warning.
+   * <p>On a DATE, TIMESTAMP or string column, a {@code java.time} mapping (e.g. {@code
+   * Map.of("DATE", LocalDate.class)}) returns the value as {@link #getObject(int, Class)} does, and
+   * an unsupported one throws {@code UNSUPPORTED_OPERATION}, the same as the type maps of nested
+   * arrays and structs. For other mappings and columns, a failed conversion returns null and adds a
+   * warning.
    */
   @Override
   public Object getObject(int columnIndex, Map<String, Class<?>> map) throws SQLException {
@@ -2466,12 +2470,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   /**
    * Returns the {@code java.time} class that {@code map} assigns to the column's type name, matched
-   * case-insensitively as for nested values, or null if there is none (including for an invalid
-   * column index, which the caller reports).
+   * case-insensitively as for nested values, for DATE, TIMESTAMP and string columns. Returns null
+   * otherwise, including for an invalid column index (which the caller reports), so other columns
+   * keep the overload's null-with-warning behavior.
    */
   private Class<?> getMappedJavaTimeType(int columnIndex, Map<String, Class<?>> map)
       throws SQLException {
-    if (map == null || columnIndex <= 0 || columnIndex > resultSetMetaData.getColumnCount()) {
+    if (map == null
+        || columnIndex <= 0
+        || columnIndex > resultSetMetaData.getColumnCount()
+        || !JavaTimeConverter.isSupportedColumnType(resultSetMetaData.getColumnType(columnIndex))) {
       return null;
     }
     return JavaTimeConverter.findJavaTimeMapping(

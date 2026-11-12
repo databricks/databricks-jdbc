@@ -1581,6 +1581,20 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testGetObjectWithJavaTimeTypeMapOnNumericColumnReturnsNullWithWarning() throws SQLException {
+    // Non-temporal columns keep the getObject(int, Map) behavior: null and a warning.
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getObject(0)).thenReturn(5);
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.INTEGER);
+    when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn("INT");
+    when(mockedResultSetMetadata.getColumnCount()).thenReturn(1);
+
+    assertNull(resultSet.getObject(1, java.util.Map.of("INT", LocalDate.class)));
+    assertNotNull(resultSet.getWarnings());
+    verify(mockedExecutionResult, never()).getTemporalObject(anyInt());
+  }
+
+  @Test
   void testNumericGettersOnDateUseExactValue() throws SQLException {
     // DATE '1582-10-05': java.sql.Date shifts it to 1582-10-15 (epoch day -141427).
     DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
