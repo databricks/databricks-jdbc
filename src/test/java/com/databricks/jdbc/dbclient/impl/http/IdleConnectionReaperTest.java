@@ -42,6 +42,7 @@ public class IdleConnectionReaperTest {
         new IdleConnectionReaper(
             runnable -> {
               Thread thread = IdleConnectionReaper.newThread(runnable);
+              thread.setName("private-test-reaper"); // not counted by reaperThreads()
               threads.add(thread);
               return thread;
             });
