@@ -82,6 +82,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   // Type map for getObject(int) on in-memory array result sets (Array.getResultSet(Map)); only
   // java.time mappings for DATE/TIMESTAMP columns are applied.
   private Map<String, Class<?>> typeMap = null;
+  // Session time zone of the nested Arrow TIMESTAMP values in an in-memory array result set, in
+  // which java.time results are reported; null otherwise.
+  private ZoneId timestampZone = null;
   private boolean geoSpatialSupport = false;
   private boolean boundedSeaApiEnabled = false;
   // Set when next() exhausts an Arrow stream whose manifest row count cannot be relied on.
@@ -314,13 +317,16 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         rows,
         /* temporalRows= */ null,
         /* typeMap= */ null,
+        /* timestampZone= */ null,
         statementType,
         complexDatatypeSupport);
   }
 
   // As above. temporalRows holds exact java.time values for DATE/TIMESTAMP cells, read by
   // getObject(col, java.time class) and the numeric getters. typeMap's java.time mappings are
-  // applied by getObject(int). Both may be null.
+  // applied by getObject(int). timestampZone is the session time zone of nested Arrow TIMESTAMP
+  // values: java.time results are reported in it, while the numeric getters keep reading the
+  // exact values as is, matching the java.sql values. All three may be null.
   DatabricksResultSet(
       StatementStatus statementStatus,
       StatementId statementId,
@@ -328,12 +334,14 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       List<List<Object>> rows,
       List<List<Object>> temporalRows,
       Map<String, Class<?>> typeMap,
+      ZoneId timestampZone,
       StatementType statementType,
       boolean complexDatatypeSupport) {
     this.executionStatus = new ExecutionStatus(statementStatus);
     this.statementId = statementId;
     this.complexDatatypeSupport = complexDatatypeSupport;
     this.typeMap = typeMap;
+    this.timestampZone = timestampZone;
     this.executionResult = ExecutionResultFactory.getResultSet(rows, temporalRows);
     this.resultSetMetaData =
         new DatabricksResultSetMetaData(statementId, columnMetadataList, rows.size());
@@ -2458,7 +2466,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         type,
         resultSetMetaData.getColumnType(columnIndex),
         getTemporalTypeName(columnIndex),
-        object);
+        ComplexDataTypeParser.inTimestampZone(object, timestampZone));
   }
 
   private Object getTemporalObjectInternal(int columnIndex) throws SQLException {

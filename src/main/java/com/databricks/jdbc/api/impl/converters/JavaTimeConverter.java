@@ -22,6 +22,8 @@ import java.time.format.ResolverStyle;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
+import java.time.zone.ZoneOffsetTransition;
+import java.time.zone.ZoneRules;
 import java.util.Locale;
 import java.util.Map;
 
@@ -41,8 +43,8 @@ import java.util.Map;
  *   <li>{@link LocalDate}: a DATE read from Arrow.
  *   <li>{@link LocalDateTime}: a TIMESTAMP_NTZ read from Arrow.
  *   <li>{@link OffsetDateTime}: a TIMESTAMP read from Arrow, in the session time zone. Values
- *       nested in ARRAY or STRUCT carry no session time zone; Arrow's epoch microseconds are read
- *       in UTC.
+ *       nested in ARRAY or STRUCT are in the time zone of the nested Arrow field, which is the
+ *       session time zone, or in UTC if no zone is known.
  *   <li>{@link String}: the server's text for the value (JSON and Thrift columnar results).
  *   <li>{@link java.sql.Date} or {@link Timestamp}: a value that only exists as a legacy type.
  * </ul>
@@ -50,10 +52,12 @@ import java.util.Map;
  * <p>Text is best effort: the server may already have lost precision or the era. TIMESTAMP text
  * with an offset keeps its rendered (session-local) fields for {@link LocalDate} and {@link
  * LocalDateTime}, as for Arrow results, at the top level and nested; {@code getTimestamp()} instead
- * reads text ending in 'Z' as an instant in the JVM time zone. TIMESTAMP text without an offset is
- * read in the JVM time zone, as {@code getTimestamp()} does, so {@link Instant} and {@link
- * OffsetDateTime} assume the session time zone matches it. TIMESTAMP_NTZ is recognized from the
- * column metadata, which Thrift columnar results without an Arrow schema report as TIMESTAMP.
+ * reads text ending in 'Z' as an instant in the JVM time zone. TIMESTAMP text without an offset
+ * also keeps its fields for {@link LocalDate} and {@link LocalDateTime}, even inside a DST gap of
+ * the JVM time zone; {@link Instant} and {@link OffsetDateTime} read it in the JVM time zone, as
+ * {@code getTimestamp()} does, so they assume the session time zone matches it. TIMESTAMP_NTZ is
+ * recognized from the column metadata, which Thrift columnar results without an Arrow schema report
+ * as TIMESTAMP.
  *
  * <p>Supported conversions:
  *
@@ -461,8 +465,9 @@ public final class JavaTimeConverter {
 
   /**
    * Parses the server's text for a timestamp. Text without an offset holds the session-local
-   * fields; for TIMESTAMP columns it is placed in the JVM default time zone, the same way {@code
-   * getTimestamp()} interprets it (the later offset when the fields are ambiguous).
+   * fields; for TIMESTAMP columns they get the JVM default time zone's offset (see {@link
+   * #jvmOffsetOf}), so the instant is the one {@code getTimestamp()} reads while the fields stay as
+   * written.
    */
   private static Temporal normalizeTimestampText(String text, boolean isTimestampNtz) {
     Temporal parsed = parseTimestampText(text);
@@ -473,10 +478,25 @@ public final class JavaTimeConverter {
     if (parsed == null || isTimestampNtz) {
       return parsed;
     }
-    return ((LocalDateTime) parsed)
-        .atZone(ZoneId.systemDefault())
-        .withLaterOffsetAtOverlap()
-        .toOffsetDateTime();
+    LocalDateTime fields = (LocalDateTime) parsed;
+    return OffsetDateTime.of(fields, jvmOffsetOf(fields));
+  }
+
+  /**
+   * Returns the JVM default time zone's offset for local fields, chosen the way {@code
+   * java.sql.Timestamp} resolves them: the later offset when the fields are ambiguous, and the
+   * offset before the transition when they fall in a DST gap. Unlike a {@code ZonedDateTime}, which
+   * would move fields in a gap forward (02:30 becomes 03:30), an {@link OffsetDateTime} with this
+   * offset keeps the fields and, around DST transitions, has the same instant as {@code
+   * Timestamp.valueOf(fields)}.
+   */
+  private static ZoneOffset jvmOffsetOf(LocalDateTime fields) {
+    ZoneRules rules = ZoneId.systemDefault().getRules();
+    ZoneOffsetTransition transition = rules.getTransition(fields);
+    if (transition == null) {
+      return rules.getOffset(fields);
+    }
+    return transition.isGap() ? transition.getOffsetBefore() : transition.getOffsetAfter();
   }
 
   private static boolean isTimestampNtz(String columnTypeName) {

@@ -4,7 +4,6 @@ import static com.databricks.jdbc.common.util.DatabricksTypeUtil.*;
 
 import com.databricks.jdbc.api.IDatabricksGeospatial;
 import com.databricks.jdbc.api.impl.*;
-import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.exception.DatabricksValidationException;
 import com.databricks.jdbc.log.JdbcLogger;
@@ -22,12 +21,15 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.Text;
 
 public class ArrowToJavaObjectConverter {
@@ -153,11 +155,14 @@ public class ArrowToJavaObjectConverter {
       case CHAR:
         return convertToChar(object);
       case STRUCT:
-        return convertToStruct(object, arrowMetadata, geoSpatialSupportEnabled);
+        return parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled)
+            .parseJsonStringToDbStruct(object.toString(), arrowMetadata);
       case ARRAY:
-        return convertToArray(object, arrowMetadata, geoSpatialSupportEnabled);
+        return parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled)
+            .parseJsonStringToDbArray(object.toString(), arrowMetadata);
       case MAP:
-        return convertToMap(object, arrowMetadata, geoSpatialSupportEnabled);
+        return parserFor(columnVector, arrowMetadata, geoSpatialSupportEnabled)
+            .parseJsonStringToDbMap(object.toString(), arrowMetadata);
       case STRING:
         if (logicalGeospatialType != null && object instanceof java.util.Map<?, ?>) {
           IDatabricksGeospatial geospatial = convertNativeGeospatial(object, logicalGeospatialType);
@@ -220,25 +225,51 @@ public class ArrowToJavaObjectConverter {
         .toDatabricksGeography(object);
   }
 
-  private static DatabricksMap convertToMap(
-      Object object, String arrowMetadata, boolean geoSpatialSupportEnabled)
-      throws DatabricksParsingException {
-    ComplexDataTypeParser parser = new ComplexDataTypeParser(geoSpatialSupportEnabled);
-    return parser.parseJsonStringToDbMap(object.toString(), arrowMetadata);
+  /**
+   * Returns the parser for an ARRAY, STRUCT or MAP value. Arrow serializes nested TIMESTAMP values
+   * to JSON as epoch microseconds, which drops the time zone of their field, so the zone is passed
+   * to the parser for the {@code java.time} values.
+   */
+  private static ComplexDataTypeParser parserFor(
+      ValueVector columnVector, String arrowMetadata, boolean geoSpatialSupportEnabled) {
+    return new ComplexDataTypeParser(
+        geoSpatialSupportEnabled, nestedTimestampZone(columnVector, arrowMetadata));
   }
 
-  private static DatabricksArray convertToArray(
-      Object object, String arrowMetadata, boolean geoSpatialSupportEnabled)
-      throws DatabricksParsingException {
-    ComplexDataTypeParser parser = new ComplexDataTypeParser(geoSpatialSupportEnabled);
-    return parser.parseJsonStringToDbArray(object.toString(), arrowMetadata);
+  /**
+   * Returns the time zone of the first TIMESTAMP field nested in a complex column, which is the
+   * session time zone, or null if it has none or the zone cannot be read.
+   */
+  static ZoneId nestedTimestampZone(ValueVector columnVector, String arrowMetadata) {
+    if (arrowMetadata != null && !arrowMetadata.toUpperCase(Locale.ROOT).contains(TIMESTAMP)) {
+      return null; // no nested TIMESTAMP; skip walking the field tree
+    }
+    String timeZone = findTimestampTimeZone(columnVector.getField());
+    if (timeZone == null) {
+      return null;
+    }
+    try {
+      return getZoneIdFromTimeZoneOpt(Optional.of(timeZone));
+    } catch (DateTimeException | NumberFormatException e) {
+      LOGGER.debug("Cannot read the nested TIMESTAMP time zone; using UTC for java.time values");
+      return null;
+    }
   }
 
-  private static Object convertToStruct(
-      Object object, String arrowMetadata, boolean geoSpatialSupportEnabled)
-      throws DatabricksParsingException {
-    ComplexDataTypeParser parser = new ComplexDataTypeParser(geoSpatialSupportEnabled);
-    return parser.parseJsonStringToDbStruct(object.toString(), arrowMetadata);
+  private static String findTimestampTimeZone(Field field) {
+    if (field.getType() instanceof ArrowType.Timestamp) {
+      String timeZone = ((ArrowType.Timestamp) field.getType()).getTimezone();
+      if (timeZone != null) {
+        return timeZone;
+      }
+    }
+    for (Field child : field.getChildren()) {
+      String timeZone = findTimestampTimeZone(child);
+      if (timeZone != null) {
+        return timeZone;
+      }
+    }
+    return null;
   }
 
   private static Object convertToTimestamp(Object object, Optional<String> timeZoneOpt)

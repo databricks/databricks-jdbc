@@ -209,18 +209,53 @@ public class JavaTimeConverterTest {
         "2024-03-10 02:30:00", // skipped in America/New_York
         "2024-06-15 12:00:00"
       })
-  public void testConvert_TimestampTextWithoutOffsetMatchesGetTimestampAroundDst(String text)
+  public void testConvert_TimestampTextWithoutOffsetAroundDst(String text)
       throws DatabricksSQLException {
     java.util.TimeZone defaultTimeZone = java.util.TimeZone.getDefault();
     try {
       java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/New_York"));
-      Timestamp legacy = Timestamp.valueOf(text);
+      // The instant is the one getTimestamp() reads in the JVM time zone.
+      Instant legacyInstant = Timestamp.valueOf(text).toInstant();
       assertEquals(
-          legacy.toInstant(),
+          legacyInstant,
           JavaTimeConverter.convert(Instant.class, Types.TIMESTAMP, "TIMESTAMP", text));
       assertEquals(
-          legacy.toLocalDateTime(),
+          legacyInstant.atOffset(ZoneOffset.UTC),
+          JavaTimeConverter.convert(OffsetDateTime.class, Types.TIMESTAMP, "TIMESTAMP", text));
+      // The fields are kept as written, also inside the DST gap, where getTimestamp() moves them.
+      LocalDateTime fields = LocalDateTime.parse(text.replace(' ', 'T'));
+      assertEquals(
+          fields,
           JavaTimeConverter.convert(LocalDateTime.class, Types.TIMESTAMP, "TIMESTAMP", text));
+      assertEquals(
+          fields.toLocalDate(),
+          JavaTimeConverter.convert(LocalDate.class, Types.TIMESTAMP, "TIMESTAMP", text));
+    } finally {
+      java.util.TimeZone.setDefault(defaultTimeZone);
+    }
+  }
+
+  @Test
+  public void testConvert_TimestampTextMatchesArrowWhenSessionAndJvmZonesDifferAcrossDstGap()
+      throws DatabricksSQLException {
+    java.util.TimeZone defaultTimeZone = java.util.TimeZone.getDefault();
+    try {
+      // A UTC session renders 2024-03-10T02:30Z as text without an offset; 02:30 does not exist on
+      // that day in the JVM time zone.
+      java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/New_York"));
+      OffsetDateTime arrowValue = OffsetDateTime.parse("2024-03-10T02:30:00Z");
+      for (String text : new String[] {"2024-03-10 02:30:00", "2024-03-10T02:30:00.000"}) {
+        assertEquals(
+            LocalDateTime.of(2024, 3, 10, 2, 30),
+            JavaTimeConverter.convert(LocalDateTime.class, Types.TIMESTAMP, "TIMESTAMP", text),
+            text);
+        for (Class<?> type : new Class<?>[] {LocalDate.class, LocalDateTime.class}) {
+          assertEquals(
+              JavaTimeConverter.convert(type, Types.TIMESTAMP, "TIMESTAMP", arrowValue),
+              JavaTimeConverter.convert(type, Types.TIMESTAMP, "TIMESTAMP", text),
+              text + " as " + type.getSimpleName());
+        }
+      }
     } finally {
       java.util.TimeZone.setDefault(defaultTimeZone);
     }

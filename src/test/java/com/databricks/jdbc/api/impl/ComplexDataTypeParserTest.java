@@ -886,6 +886,70 @@ public class ComplexDataTypeParserTest {
   }
 
   @Test
+  void testNestedTimestampTextWithoutOffsetKeepsFieldsInDstGap() throws Exception {
+    java.util.TimeZone defaultTimeZone = java.util.TimeZone.getDefault();
+    try {
+      // 02:30 does not exist on 2024-03-10 in the JVM time zone.
+      java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/New_York"));
+      String text = "2024-03-10 02:30:00";
+      LocalDateTime fields = LocalDateTime.of(2024, 3, 10, 2, 30);
+      Instant instant = Timestamp.valueOf(text).toInstant(); // as getTimestamp() reads it
+
+      DatabricksStruct struct =
+          parser.parseJsonStringToDbStruct("{\"ts\":\"" + text + "\"}", "STRUCT<ts:TIMESTAMP>");
+      assertEquals(
+          fields, struct.getAttributes(java.util.Map.of("TIMESTAMP", LocalDateTime.class))[0]);
+      assertEquals(instant, struct.getAttributes(java.util.Map.of("TIMESTAMP", Instant.class))[0]);
+
+      DatabricksArray array =
+          parser.parseJsonStringToDbArray("[\"" + text + "\"]", "ARRAY<TIMESTAMP>");
+      try (ResultSet resultSet = array.getResultSet()) {
+        assertTrue(resultSet.next());
+        assertEquals(fields, resultSet.getObject(2, LocalDateTime.class));
+        assertEquals(instant, resultSet.getObject(2, Instant.class));
+        assertEquals(resultSet.getTimestamp(2).getTime(), resultSet.getLong(2));
+      }
+    } finally {
+      java.util.TimeZone.setDefault(defaultTimeZone);
+    }
+  }
+
+  @Test
+  void testNestedTimestampJavaTimeUsesTimestampZone() throws Exception {
+    // 2023-01-01T03:00:00Z as epoch micros, which is 2022-12-31T19:00 in the session time zone.
+    ComplexDataTypeParser arrowParser =
+        new ComplexDataTypeParser(true, java.time.ZoneId.of("America/Los_Angeles"));
+    DatabricksStruct struct =
+        arrowParser.parseJsonStringToDbStruct(
+            "{\"ts\":1672542000000000,\"ntz\":[2023,1,1,3,0,0]}",
+            "STRUCT<ts:TIMESTAMP,ntz:TIMESTAMP_NTZ>");
+    assertArrayEquals(
+        new Object[] {LocalDateTime.of(2022, 12, 31, 19, 0), LocalDateTime.of(2023, 1, 1, 3, 0)},
+        struct.getAttributes(
+            java.util.Map.of(
+                "TIMESTAMP", LocalDateTime.class, "TIMESTAMP_NTZ", LocalDateTime.class)));
+    assertEquals(
+        Instant.parse("2023-01-01T03:00:00Z"),
+        struct.getAttributes(java.util.Map.of("TIMESTAMP", Instant.class))[0]);
+
+    // Arrays nested in a struct or map get the zone too.
+    DatabricksMap<String, Object> map =
+        arrowParser.parseJsonStringToDbMap(
+            "[{\"key\":\"k\",\"value\":[1672542000000000]}]", "MAP<STRING,ARRAY<TIMESTAMP>>");
+    assertArrayEquals(
+        new Object[] {LocalDate.of(2022, 12, 31)},
+        (Object[])
+            ((DatabricksArray) map.get("k"))
+                .getArray(java.util.Map.of("TIMESTAMP", LocalDate.class)));
+
+    // Without a zone the epoch micros are read at UTC, as before.
+    assertEquals(
+        LocalDateTime.of(2023, 1, 1, 3, 0),
+        parser.parseJsonStringToDbStruct("{\"ts\":1672542000000000}", "STRUCT<ts:TIMESTAMP>")
+            .getAttributes(java.util.Map.of("TIMESTAMP", LocalDateTime.class))[0]);
+  }
+
+  @Test
   void testNestedDateArrayResultSetWithJavaTimeTypeMapIsExact() throws Exception {
     DatabricksArray array = parser.parseJsonStringToDbArray(NESTED_DATES_JSON, "ARRAY<DATE>");
 

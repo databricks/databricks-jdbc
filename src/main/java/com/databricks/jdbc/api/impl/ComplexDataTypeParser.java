@@ -28,6 +28,8 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
@@ -45,13 +47,27 @@ public class ComplexDataTypeParser {
   private static final TimestampConverter TIMESTAMP_CONVERTER = new TimestampConverter();
   private static final GeospatialConverter GEOSPATIAL_CONVERTER = new GeospatialConverter();
   private final boolean geoSpatialSupportEnabled;
+  private final ZoneId timestampZone;
 
   public ComplexDataTypeParser() {
     this(true);
   }
 
   public ComplexDataTypeParser(boolean geoSpatialSupportEnabled) {
+    this(geoSpatialSupportEnabled, null);
+  }
+
+  /**
+   * Creates a parser for values serialized from Arrow.
+   *
+   * @param geoSpatialSupportEnabled whether geospatial values are returned as geospatial objects
+   * @param timestampZone the time zone of the nested Arrow TIMESTAMP fields, which is the session
+   *     time zone, or null if unknown. The {@code java.time} values of nested TIMESTAMP values are
+   *     reported in it (see {@link #inTimestampZone}); {@code java.sql} values are unchanged.
+   */
+  public ComplexDataTypeParser(boolean geoSpatialSupportEnabled, ZoneId timestampZone) {
     this.geoSpatialSupportEnabled = geoSpatialSupportEnabled;
+    this.timestampZone = timestampZone;
   }
 
   public DatabricksArray parseJsonStringToDbArray(String json, String arrayMetadata)
@@ -109,7 +125,7 @@ public class ComplexDataTypeParser {
         temporalList.add(elementNode);
       }
     }
-    return new DatabricksArray(list, arrayMetadata, temporalList);
+    return new DatabricksArray(list, arrayMetadata, temporalList, timestampZone);
   }
 
   public DatabricksMap<String, Object> parseToMap(JsonNode node, String mapMetadata)
@@ -154,7 +170,7 @@ public class ComplexDataTypeParser {
         temporalMap.put(fieldName, fieldNode);
       }
     }
-    return new DatabricksStruct(structMap, structMetadata, temporalMap);
+    return new DatabricksStruct(structMap, structMetadata, temporalMap, timestampZone);
   }
 
   /**
@@ -177,6 +193,20 @@ public class ComplexDataTypeParser {
         : source;
   }
 
+  /**
+   * Returns an exact TIMESTAMP value in {@code timestampZone}, so that its {@code LocalDate} and
+   * {@code LocalDateTime} are the session-local ones, as for a top-level TIMESTAMP column. The
+   * instant is unchanged. Other values, or a null zone, return {@code exact} as is.
+   *
+   * <p>Only Arrow results have a zone, and Arrow serializes nested TIMESTAMP values as epoch
+   * microseconds, which {@link #toExactTemporal} reads at UTC; text keeps its rendered offset.
+   */
+  static Object inTimestampZone(Object exact, ZoneId timestampZone) {
+    return timestampZone != null && exact instanceof OffsetDateTime
+        ? ((OffsetDateTime) exact).atZoneSameInstant(timestampZone).toOffsetDateTime()
+        : exact;
+  }
+
   /** Returns true if {@code source} is a non-null leaf that {@link #toExactTemporal} parses. */
   static boolean isUnparsedLeaf(Object source) {
     return source instanceof JsonNode && !((JsonNode) source).isNull();
@@ -196,9 +226,10 @@ public class ComplexDataTypeParser {
    *
    * <p>Arrow serializes these as epoch days, epoch microseconds, or TIMESTAMP_NTZ components, which
    * {@link #convertPrimitive} turns into {@code java.sql} values that cannot represent BC or
-   * pre-1582 values. TIMESTAMP values carry no session time zone here: epoch microseconds are read
-   * in UTC, matching the {@code java.sql.Timestamp} built from them, and text keeps its rendered
-   * fields and offset, as at the top level.
+   * pre-1582 values. TIMESTAMP epoch microseconds are read at UTC, matching the {@code
+   * java.sql.Timestamp} built from them; {@link #inTimestampZone} moves them to the session time
+   * zone for {@code java.time} results. Text keeps its rendered fields and offset, as at the top
+   * level.
    */
   private static Temporal convertTemporalNode(JsonNode node, String expectedType) {
     if (node == null || node.isNull()) {

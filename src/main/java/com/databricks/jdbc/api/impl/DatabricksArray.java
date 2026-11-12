@@ -21,6 +21,7 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -40,6 +41,8 @@ public class DatabricksArray implements Array {
   // Sources of the exact java.time values of DATE/TIMESTAMP elements (JSON leaves, converted on
   // demand, or java.time values), parallel to elements; null when unknown.
   private final Object[] temporalElements;
+  // Session time zone of nested Arrow TIMESTAMP values, for java.time results; null if unknown.
+  private final ZoneId timestampZone;
   // Set once an element fell back to its java.sql value, so the warning is logged once.
   private boolean warnedInexact;
 
@@ -50,7 +53,7 @@ public class DatabricksArray implements Array {
    * @param metadata the metadata describing the type of array elements
    */
   public DatabricksArray(List<Object> elements, String metadata) {
-    this(elements, metadata, null);
+    this(elements, metadata, null, null);
   }
 
   /**
@@ -64,8 +67,11 @@ public class DatabricksArray implements Array {
    * @param temporalElements sources of the exact values parallel to {@code elements} (JSON leaves,
    *     converted only when requested, or {@code java.time} values), may be null; null entries fall
    *     back to the {@code java.sql} element
+   * @param timestampZone the session time zone of nested Arrow TIMESTAMP values, in which their
+   *     {@code java.time} values are reported, or null if unknown
    */
-  DatabricksArray(List<Object> elements, String metadata, List<Object> temporalElements) {
+  DatabricksArray(
+      List<Object> elements, String metadata, List<Object> temporalElements, ZoneId timestampZone) {
     LOGGER.debug("Initializing DatabricksArray with metadata: {}", metadata);
     String elementType = MetadataParser.parseArrayMetadata(metadata);
     this.elements = convertElements(elements, elementType);
@@ -74,6 +80,7 @@ public class DatabricksArray implements Array {
         temporalElements != null && temporalElements.size() == elements.size()
             ? temporalElements.toArray()
             : null;
+    this.timestampZone = timestampZone;
   }
 
   /**
@@ -277,7 +284,8 @@ public class DatabricksArray implements Array {
     Object[] converted = new Object[slice.length];
     for (int i = 0; i < slice.length; i++) {
       Object exact = exactElement((int) index - 1 + i);
-      Object value = exact != null ? exact : slice[i];
+      Object value =
+          exact != null ? ComplexDataTypeParser.inTimestampZone(exact, timestampZone) : slice[i];
       converted[i] = JavaTimeConverter.convertNested(javaTimeType, this.elementType, value);
     }
     return converted;
@@ -397,6 +405,7 @@ public class DatabricksArray implements Array {
         rows,
         temporalRows,
         map,
+        timestampZone,
         StatementType.QUERY,
         // A DatabricksArray only exists when complex datatype support is enabled.
         /* complexDatatypeSupport= */ true);

@@ -9,6 +9,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.math.BigDecimal;
 import java.sql.*;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -31,6 +32,9 @@ public class DatabricksStruct implements Struct {
   // demand, or java.time values), parallel to attributes; null when there are none.
   private final Object[] temporalAttributes;
 
+  // Session time zone of nested Arrow TIMESTAMP values, for java.time results; null if unknown.
+  private final ZoneId timestampZone;
+
   // Set once an attribute fell back to its java.sql value, so the warning is logged once.
   private boolean warnedInexact;
 
@@ -41,7 +45,7 @@ public class DatabricksStruct implements Struct {
    * @param metadata the metadata describing types of struct fields
    */
   public DatabricksStruct(Map<String, Object> attributes, String metadata) {
-    this(attributes, metadata, null);
+    this(attributes, metadata, null, null);
   }
 
   /**
@@ -54,9 +58,15 @@ public class DatabricksStruct implements Struct {
    * @param temporalAttributes sources of the exact values by field name (JSON leaves, converted
    *     only when requested, or {@code java.time} values), may be null; missing fields fall back to
    *     the {@code java.sql} attribute
+   * @param timestampZone the session time zone of nested Arrow TIMESTAMP values, in which their
+   *     {@code java.time} values are reported, or null if unknown
    */
   DatabricksStruct(
-      Map<String, Object> attributes, String metadata, Map<String, Object> temporalAttributes) {
+      Map<String, Object> attributes,
+      String metadata,
+      Map<String, Object> temporalAttributes,
+      ZoneId timestampZone) {
+    this.timestampZone = timestampZone;
     // Parse the metadata into a map: fieldName -> fieldType
     Map<String, String> typeMap = MetadataParser.parseStructMetadata(metadata);
 
@@ -233,7 +243,10 @@ public class DatabricksStruct implements Struct {
         converted = attributes.clone();
       }
       Object exact = exactAttribute(i, fieldType);
-      Object value = exact != null ? exact : attributes[i];
+      Object value =
+          exact != null
+              ? ComplexDataTypeParser.inTimestampZone(exact, timestampZone)
+              : attributes[i];
       converted[i] = JavaTimeConverter.convertNested(javaTimeType, fieldType, value);
     }
     return converted != null ? converted : this.getAttributes();
