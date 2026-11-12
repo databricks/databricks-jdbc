@@ -36,6 +36,7 @@ import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
 import com.databricks.sdk.support.ToStringer;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.primitives.Primitives;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -73,6 +74,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private SQLWarning warnings = null;
   private boolean wasNull;
   private boolean silenceNonTerminalExceptions = false;
+  // Off by default: callers may rely on getObject(int, Class) returning a String for classes the
+  // driver cannot convert to (EnableStrictGetObjectConversion).
+  private boolean strictGetObjectConversion = false;
 
   private ResultSetType resultSetType = ResultSetType.UNASSIGNED;
 
@@ -138,6 +142,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     this.complexDatatypeSupport = session.getConnectionContext().isComplexDatatypeSupportEnabled();
     this.geoSpatialSupport = session.getConnectionContext().isGeoSpatialSupportEnabled();
     this.boundedSeaApiEnabled = session.getConnectionContext().isBoundedSeaApiEnabled();
+    this.strictGetObjectConversion =
+        session.getConnectionContext().isStrictGetObjectConversionEnabled();
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -210,6 +216,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     this.complexDatatypeSupport = session.getConnectionContext().isComplexDatatypeSupportEnabled();
     this.geoSpatialSupport = session.getConnectionContext().isGeoSpatialSupportEnabled();
+    this.strictGetObjectConversion =
+        session.getConnectionContext().isStrictGetObjectConversionEnabled();
     this.statementType = statementType;
     this.updateCount = null;
     this.parentStatement = parentStatement;
@@ -2255,6 +2263,32 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   @Override
   public <T> T getObject(int columnIndex, Class<T> type) throws SQLException {
+    if (!strictGetObjectConversion) {
+      return getObjectWithoutTypeCheck(columnIndex, type);
+    }
+    // JDBC: return an instance of type or throw. The default path instead returns a String for
+    // classes the converters do not handle (e.g. UUID), and a Timestamp for Calendar.
+    if (type == null) {
+      throw unsupportedGetObjectConversion("getObject(int, Class) requires a non-null type");
+    }
+    Object value = getObjectWithoutTypeCheck(columnIndex, type);
+    if (value != null && !Primitives.wrap(type).isInstance(value)) {
+      throw unsupportedGetObjectConversion(
+          String.format(
+              "Cannot convert a %s column to %s",
+              resultSetMetaData.getColumnTypeName(columnIndex), type.getName()));
+    }
+    return (T) value;
+  }
+
+  private static DatabricksSQLException unsupportedGetObjectConversion(String message) {
+    return new DatabricksSQLException(
+        message,
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(),
+        DatabricksDriverErrorCode.UNSUPPORTED_OPERATION);
+  }
+
+  private <T> T getObjectWithoutTypeCheck(int columnIndex, Class<T> type) throws SQLException {
     checkIfClosed();
     Object obj = getObjectInternal(columnIndex);
     if (obj == null) {

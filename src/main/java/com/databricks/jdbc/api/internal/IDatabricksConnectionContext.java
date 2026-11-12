@@ -316,6 +316,13 @@ public interface IDatabricksConnectionContext {
    */
   boolean isTimestampNtzTypeNameEnabled();
 
+  /**
+   * Returns true if {@code ResultSet.getObject(column, Class)} should throw when it cannot return
+   * an instance of the requested class. When false, such values are returned as a String, which
+   * older driver versions did and some callers rely on.
+   */
+  boolean isStrictGetObjectConversionEnabled();
+
   /** Returns the size for HTTP connection pool */
   int getHttpConnectionPoolSize() throws DatabricksValidationException;
 
