@@ -994,7 +994,7 @@ public class ArrowToJavaObjectConverterTest {
         assertEquals(entry.getValue(), getZoneIdFromTimeZoneOpt(Optional.of(entry.getKey())));
       }
     }
-    // A failed parse is not cached and does not disturb the cached zone.
+    // An invalid zone throws on every call, and valid zones still resolve after it.
     assertEquals(ZoneId.of("UTC"), getZoneIdFromTimeZoneOpt(Optional.of("UTC")));
     assertThrows(
         DateTimeException.class, () -> getZoneIdFromTimeZoneOpt(Optional.of("Invalid/TimeZone")));
@@ -1002,6 +1002,60 @@ public class ArrowToJavaObjectConverterTest {
         DateTimeException.class, () -> getZoneIdFromTimeZoneOpt(Optional.of("Invalid/TimeZone")));
     assertEquals(ZoneId.of("UTC"), getZoneIdFromTimeZoneOpt(Optional.of("UTC")));
     assertEquals(ZoneId.systemDefault(), getZoneIdFromTimeZoneOpt(Optional.empty()));
+  }
+
+  @Test
+  public void testZoneIdCacheStaysCorrectPastItsSizeCap() {
+    // More distinct custom offsets than the cache holds; the extra ones are parsed every time.
+    int checked = 0;
+    for (int sign : new int[] {1, -1}) {
+      for (int hours = 0; hours < 18; hours++) {
+        for (int minutes = 0; minutes < 60; minutes++) {
+          String tz = (sign > 0 ? "+" : "-") + hours + ":" + (minutes < 10 ? "0" : "") + minutes;
+          ZoneOffset expected = ZoneOffset.ofHoursMinutes(sign * hours, sign * minutes);
+          assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of(tz)), tz);
+          assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of(tz)), tz);
+          checked++;
+        }
+      }
+    }
+    assertTrue(checked > ArrowToJavaObjectConverter.MAX_CACHED_ZONE_IDS);
+    assertEquals(ZoneId.of("Asia/Tokyo"), getZoneIdFromTimeZoneOpt(Optional.of("Asia/Tokyo")));
+  }
+
+  @Test
+  public void testZoneIdCacheWithConcurrentReadersInDifferentZones() throws Exception {
+    String[] zones = {"Asia/Tokyo", "America/New_York", "Europe/Berlin", "+5:30"};
+    ZoneId[] expected = {
+      ZoneId.of("Asia/Tokyo"),
+      ZoneId.of("America/New_York"),
+      ZoneId.of("Europe/Berlin"),
+      ZoneOffset.ofHoursMinutes(5, 30)
+    };
+    java.util.concurrent.ExecutorService pool =
+        java.util.concurrent.Executors.newFixedThreadPool(zones.length);
+    try {
+      List<java.util.concurrent.Future<Boolean>> results = new ArrayList<>();
+      for (int t = 0; t < zones.length; t++) {
+        int index = t;
+        results.add(
+            pool.submit(
+                () -> {
+                  for (int i = 0; i < 10_000; i++) {
+                    if (!expected[index].equals(
+                        getZoneIdFromTimeZoneOpt(Optional.of(zones[index])))) {
+                      return false;
+                    }
+                  }
+                  return true;
+                }));
+      }
+      for (java.util.concurrent.Future<Boolean> result : results) {
+        assertTrue(result.get());
+      }
+    } finally {
+      pool.shutdownNow();
+    }
   }
 
   @Test

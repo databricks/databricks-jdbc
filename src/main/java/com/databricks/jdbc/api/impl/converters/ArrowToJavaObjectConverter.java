@@ -22,6 +22,7 @@ import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.arrow.vector.TimeStampMicroTZVector;
 import org.apache.arrow.vector.ValueVector;
@@ -264,30 +265,24 @@ public class ArrowToJavaObjectConverter {
   static ZoneId getZoneIdFromTimeZoneOpt(Optional<String> timeZoneOpt) {
     if (timeZoneOpt.isPresent()) {
       String tz = timeZoneOpt.get();
-      // Called for every value, and all values of a column share one time zone.
-      CachedZoneId cached = lastZoneId;
-      if (cached != null && cached.timeZone.equals(tz)) {
-        return cached.zoneId;
+      // Called for every value; time zone strings come from a small set, so cache the parse.
+      ZoneId zoneId = ZONE_ID_CACHE.get(tz);
+      if (zoneId == null) {
+        zoneId = parseZoneId(tz);
+        if (ZONE_ID_CACHE.size() < MAX_CACHED_ZONE_IDS) {
+          ZONE_ID_CACHE.putIfAbsent(tz, zoneId);
+        }
       }
-      ZoneId zoneId = parseZoneId(tz);
-      lastZoneId = new CachedZoneId(tz, zoneId);
       return zoneId;
     }
     // This will happen when reading timestamp_ntz columns
     return ZoneId.systemDefault();
   }
 
-  private static volatile CachedZoneId lastZoneId;
+  // The cap only guards against unbounded growth; real time zone strings stay far below it.
+  static final int MAX_CACHED_ZONE_IDS = 1024;
 
-  private static final class CachedZoneId {
-    final String timeZone;
-    final ZoneId zoneId;
-
-    CachedZoneId(String timeZone, ZoneId zoneId) {
-      this.timeZone = timeZone;
-      this.zoneId = zoneId;
-    }
-  }
+  private static final ConcurrentHashMap<String, ZoneId> ZONE_ID_CACHE = new ConcurrentHashMap<>();
 
   private static ZoneId parseZoneId(String tz) {
     try {
