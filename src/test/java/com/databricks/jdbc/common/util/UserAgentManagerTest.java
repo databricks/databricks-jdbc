@@ -19,6 +19,10 @@ import com.databricks.jdbc.exception.DatabricksSQLException;
 import com.databricks.jdbc.telemetry.TelemetryHelper;
 import com.databricks.sdk.core.UserAgent;
 import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -214,6 +218,45 @@ public class UserAgentManagerTest {
       UserAgentManager.setUserAgent(connectionContext);
       getUserAgentString();
       userAgent.verify(UserAgent::asString, times(2));
+    }
+  }
+
+  @Test
+  void testSlowFillDoesNotReplaceNewerEntry() throws Exception {
+    CountDownLatch inSlowFill = new CountDownLatch(1);
+    CountDownLatch releaseSlowFill = new CountDownLatch(1);
+    AtomicInteger fills = new AtomicInteger();
+    Supplier<String> original = UserAgentManager.sdkUserAgentSupplier;
+    try {
+      UserAgentManager.sdkUserAgentSupplier =
+          () -> {
+            if (fills.incrementAndGet() == 1) {
+              inSlowFill.countDown();
+              try {
+                releaseSlowFill.await(10, TimeUnit.SECONDS);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+              return "Old/1.0";
+            }
+            return "New/1.0";
+          };
+      UserAgentManager.resetRegisteredOtherInfo();
+      Thread slow = new Thread(UserAgentManager::getSdkUserAgentString);
+      slow.start();
+      assertTrue(inSlowFill.await(10, TimeUnit.SECONDS));
+
+      // A change while the slow fill is in progress; the next read fills the newer entry.
+      UserAgentManager.resetRegisteredOtherInfo();
+      assertEquals("New/1.0", UserAgentManager.getSdkUserAgentString());
+
+      releaseSlowFill.countDown();
+      slow.join(10_000);
+      assertEquals("New/1.0", UserAgentManager.getSdkUserAgentString());
+      assertEquals(2, fills.get());
+    } finally {
+      UserAgentManager.sdkUserAgentSupplier = original;
+      UserAgentManager.resetRegisteredOtherInfo();
     }
   }
 

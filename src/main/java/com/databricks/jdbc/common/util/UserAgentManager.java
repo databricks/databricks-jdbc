@@ -13,6 +13,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 public class UserAgentManager {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(UserAgentManager.class);
@@ -44,6 +45,7 @@ public class UserAgentManager {
   // connection open). Changes made to the SDK UserAgent outside the driver show up at that point.
   private static final AtomicLong userAgentGeneration = new AtomicLong();
   private static volatile CachedUserAgent cachedUserAgent;
+  @VisibleForTesting static Supplier<String> sdkUserAgentSupplier = UserAgent::asString;
 
   private static final class CachedUserAgent {
     final long generation;
@@ -132,9 +134,12 @@ public class UserAgentManager {
     if (cached != null && cached.generation == generation) {
       return cached;
     }
-    String sdkUserAgent = UserAgent.asString();
+    String sdkUserAgent = sdkUserAgentSupplier.get();
     cached = new CachedUserAgent(generation, sdkUserAgent, toHttpUserAgent(sdkUserAgent));
-    cachedUserAgent = cached;
+    // Don't let a fill that started before a change replace the entry for the newer generation.
+    if (userAgentGeneration.get() == generation) {
+      cachedUserAgent = cached;
+    }
     return cached;
   }
 
