@@ -240,8 +240,13 @@ public class TelemetryClientFactory {
             detached[0] = holder.client;
             return null;
           }
-          holder.client.rebindIfBoundTo(
-              connectionUuid, holder.connections.values().iterator().next());
+          try {
+            holder.client.rebindIfBoundTo(
+                connectionUuid, holder.connections.values().iterator().next());
+          } catch (RuntimeException e) {
+            // Telemetry must not fail close(); keep the old binding.
+            LOGGER.debug("Could not move telemetry off a closing connection: {}", e.toString());
+          }
           return holder;
         });
     return detached[0];

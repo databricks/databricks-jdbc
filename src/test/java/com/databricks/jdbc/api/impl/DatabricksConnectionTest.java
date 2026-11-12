@@ -1759,6 +1759,8 @@ public class DatabricksConnectionTest {
 
   @Test
   public void testCloseFinishesInlineWhenBackgroundClosesAreSaturated() throws Exception {
+    // The executor is JVM-wide; start only once other tests' workers have finished.
+    awaitNoBackgroundCloseThreads();
     int busy = DatabricksConnection.MAX_BACKGROUND_CLOSES;
     Thread testThread = Thread.currentThread();
     CountDownLatch backgroundStarted = new CountDownLatch(busy);

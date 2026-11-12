@@ -370,6 +370,26 @@ public class TelemetryClientFactoryTest {
     }
   }
 
+  @Test
+  void testFailedRebindDoesNotFailClose() throws Exception {
+    String host = "shared-host.databricks.net";
+    try (MockedStatic<TelemetryHelper> mockedStatic = mockStatic(TelemetryHelper.class)) {
+      setupTelemetryHelperMock(mockedStatic);
+      IDatabricksConnectionContext first = createMockContext("uuid-1", host, false);
+      IDatabricksConnectionContext second = createMockContext("uuid-2", host, false);
+      TelemetryClientFactory.getInstance().getTelemetryClient(first);
+      TelemetryClientFactory.getInstance().getTelemetryClient(second);
+      // Building the replacement push client fails.
+      when(second.isTelemetryCircuitBreakerEnabled()).thenThrow(new IllegalStateException("boom"));
+
+      assertDoesNotThrow(() -> TelemetryClientFactory.getInstance().closeTelemetryClient(first));
+
+      assertEquals(1, TelemetryClientFactory.getInstance().noauthTelemetryClientHolders.size());
+      TelemetryClientFactory.getInstance().closeTelemetryClient(second);
+      assertEquals(0, TelemetryClientFactory.getInstance().noauthTelemetryClientHolders.size());
+    }
+  }
+
   private static Object boundContext(ITelemetryClient client) throws Exception {
     java.lang.reflect.Field field = TelemetryClient.class.getDeclaredField("context");
     field.setAccessible(true);
