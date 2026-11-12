@@ -83,7 +83,9 @@ public class TelemetryClient implements ITelemetryClient {
   /**
    * Called when a connection sharing this client closes while others stay open. If pushes were
    * bound to that connection, moves them to {@code replacement}: the closing connection's HTTP
-   * client is shut down with it, and pushes through it would be skipped.
+   * client is shut down with it, and pushes through it would be skipped. Queued batches read the
+   * new binding when they run; a push already running through the closing connection can still fail
+   * when its HTTP client closes.
    */
   void rebindIfBoundTo(String closingUuid, IDatabricksConnectionContext replacement) {
     if (closingUuid == null || !closingUuid.equals(context.getConnectionUuid())) {
