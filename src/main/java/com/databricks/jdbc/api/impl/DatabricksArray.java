@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -353,7 +354,8 @@ public class DatabricksArray implements Array {
             .build());
 
     List<List<Object>> rows = new ArrayList<>();
-    // Exact DATE/TIMESTAMP values for getObject(2, java.time class) and the numeric getters.
+    // Exact DATE/TIMESTAMP values for getObject(2, java.time class) and the numeric getters,
+    // converted only when a cell is read.
     List<List<Object>> temporalRows = this.temporalElements == null ? null : new ArrayList<>();
     for (int i = start; i < end; i++) {
       List<Object> row = new ArrayList<>();
@@ -361,9 +363,10 @@ public class DatabricksArray implements Array {
       row.add(this.elements[i]);
       rows.add(row);
       if (temporalRows != null) {
+        int elementIndex = i;
         List<Object> temporalRow = new ArrayList<>();
         temporalRow.add(null);
-        temporalRow.add(exactElement(i));
+        temporalRow.add((Supplier<Object>) () -> exactElement(elementIndex));
         temporalRows.add(temporalRow);
       }
     }

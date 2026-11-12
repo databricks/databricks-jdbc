@@ -64,8 +64,6 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(DatabricksResultSet.class);
   protected static final String AFFECTED_ROWS_COUNT = "num_affected_rows";
-  private static final String MAP_CONVERSION_FAILED_WARNING =
-      "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Map<String, Class<?>> map). Returning null. Exception: ";
   private final ExecutionStatus executionStatus;
   private final StatementId statementId;
   private final IExecutionResult executionResult;
@@ -1582,26 +1580,20 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     return (parentStatement != null) ? parentStatement.getStatement() : null;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>A {@code java.time} mapping (e.g. {@code Map.of("DATE", LocalDate.class)}) returns the value
+   * as {@link #getObject(int, Class)} does, and an unsupported one throws {@code
+   * UNSUPPORTED_OPERATION}, the same as the type maps of nested arrays and structs. For other
+   * mappings, a failed conversion returns null and adds a warning.
+   */
   @Override
   public Object getObject(int columnIndex, Map<String, Class<?>> map) throws SQLException {
     checkIfClosed();
     Class<?> javaTimeType = getMappedJavaTimeType(columnIndex, map);
     if (javaTimeType != null) {
-      // Read the exact value once, instead of the java.sql value.
-      Object value = getTemporalObjectInternal(columnIndex);
-      if (value == null) {
-        return null;
-      }
-      try {
-        return JavaTimeConverter.convert(
-            javaTimeType,
-            resultSetMetaData.getColumnType(columnIndex),
-            getTemporalTypeName(columnIndex),
-            value);
-      } catch (DatabricksSQLException e) {
-        addWarningAndLog(MAP_CONVERSION_FAILED_WARNING + e.getMessage());
-        return null;
-      }
+      return getJavaTimeObject(columnIndex, javaTimeType);
     }
     Object obj = getObjectInternal(columnIndex);
     if (obj == null) {
@@ -1619,7 +1611,9 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         return ConverterHelper.convertSqlTypeToSpecificJavaType(
             returnObjectType, columnSqlType, obj);
       } catch (Exception e) {
-        addWarningAndLog(MAP_CONVERSION_FAILED_WARNING + e.getMessage());
+        addWarningAndLog(
+            "Exception occurred while converting object into corresponding return object type using getObject(int columnIndex, Map<String, Class<?>> map). Returning null. Exception: "
+                + e.getMessage());
         return null;
       }
     }

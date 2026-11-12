@@ -7,6 +7,7 @@ import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class InlineJsonResult implements IExecutionResult {
@@ -51,8 +52,8 @@ public class InlineJsonResult implements IExecutionResult {
    * values, returned by {@link #getTemporalObject}.
    *
    * @param rows the values returned by {@link #getObject}
-   * @param temporalRows exact values with the same shape as {@code rows}; null entries fall back to
-   *     {@code rows}
+   * @param temporalRows exact values with the same shape as {@code rows}, or {@link Supplier}s of
+   *     them, which are evaluated when the cell is read; null entries fall back to {@code rows}
    */
   InlineJsonResult(List<List<Object>> rows, List<List<Object>> temporalRows) {
     this(rows);
@@ -84,8 +85,12 @@ public class InlineJsonResult implements IExecutionResult {
     Object object = getObject(columnIndex);
     if (object != null && temporalData != null) {
       List<Object> row = temporalData.get((int) currentRow);
-      if (columnIndex < row.size() && row.get(columnIndex) != null) {
-        return row.get(columnIndex);
+      Object exact = columnIndex < row.size() ? row.get(columnIndex) : null;
+      if (exact instanceof Supplier) {
+        exact = ((Supplier<?>) exact).get();
+      }
+      if (exact != null) {
+        return exact;
       }
     }
     return object;

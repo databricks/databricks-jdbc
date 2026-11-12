@@ -885,14 +885,23 @@ public class ComplexDataTypeParserTest {
     DatabricksArray array = parser.parseJsonStringToDbArray(NESTED_DATES_JSON, "ARRAY<DATE>");
     DatabricksStruct struct =
         parser.parseJsonStringToDbStruct("{\"ntz\":[1000,1,1,0,0,0]}", "STRUCT<ntz:TIMESTAMP_NTZ>");
+    ResultSet mappedResultSet = array.getResultSet(java.util.Map.of("DATE", Instant.class));
+    assertTrue(mappedResultSet.next());
+    ResultSet resultSet = array.getResultSet();
+    assertTrue(resultSet.next());
 
+    // Every type-map path throws for an unsupported java.time mapping instead of returning null.
     for (SQLException exception :
         List.of(
             assertThrows(
                 SQLException.class, () -> array.getArray(java.util.Map.of("DATE", Instant.class))),
             assertThrows(
                 SQLException.class,
-                () -> struct.getAttributes(java.util.Map.of("TIMESTAMP_NTZ", Instant.class))))) {
+                () -> struct.getAttributes(java.util.Map.of("TIMESTAMP_NTZ", Instant.class))),
+            assertThrows(SQLException.class, () -> mappedResultSet.getObject(2)),
+            assertThrows(
+                SQLException.class,
+                () -> resultSet.getObject(2, java.util.Map.of("DATE", Instant.class))))) {
       assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), exception.getSQLState());
       assertEquals(
           DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode(), exception.getErrorCode());
