@@ -32,6 +32,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
+import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.sdk.service.sql.BaseChunkInfo;
 import com.google.common.collect.ImmutableList;
 import java.io.*;
@@ -1082,6 +1083,11 @@ public class ArrowStreamResultTest {
         new ArrowStreamResult(resultManifest, resultData, STATEMENT_ID, session, mockHttpClient);
     try {
       assertInstanceOf(InlineChunkProvider.class, result.getChunkProvider());
+      DatabricksSQLException beforeFirstRow =
+          assertThrows(DatabricksSQLException.class, () -> result.getTemporalObject(0));
+      assertEquals(DatabricksDriverErrorCode.INVALID_STATE.name(), beforeFirstRow.getSQLState());
+      assertEquals(
+          DatabricksDriverErrorCode.INVALID_STATE.getCode(), beforeFirstRow.getErrorCode());
       TemporalArrowTestData.assertRows(result);
     } finally {
       result.close();

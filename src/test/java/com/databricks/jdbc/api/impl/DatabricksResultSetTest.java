@@ -1660,6 +1660,35 @@ public class DatabricksResultSetTest {
   }
 
   @Test
+  void testTypeMapMatchesTimestampNtzKeyForNtzReportedAsTimestamp() throws SQLException {
+    // With EnableTimestampNtzTypeName=0 the metadata reports TIMESTAMP_NTZ as TIMESTAMP.
+    LocalDateTime value = LocalDateTime.of(2023, 10, 5, 15, 20, 30);
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getTemporalObject(0)).thenReturn(value);
+    when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.TIMESTAMP);
+    when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn("TIMESTAMP");
+    when(mockedResultSetMetadata.isTimestampNtz(1)).thenReturn(true);
+    when(mockedResultSetMetadata.getColumnCount()).thenReturn(1);
+
+    assertEquals(
+        value, resultSet.getObject(1, java.util.Map.of("timestamp_ntz", LocalDateTime.class)));
+    assertEquals(
+        value.toLocalDate(),
+        resultSet.getObject(1, java.util.Map.of("TIMESTAMP_NTZ", LocalDate.class)));
+    // The reported type name is matched first.
+    assertEquals(
+        value,
+        resultSet.getObject(
+            1,
+            java.util.Map.of("TIMESTAMP", LocalDateTime.class, "TIMESTAMP_NTZ", LocalDate.class)));
+    SQLException exception =
+        assertThrows(
+            SQLException.class,
+            () -> resultSet.getObject(1, java.util.Map.of("TIMESTAMP_NTZ", Instant.class)));
+    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), exception.getSQLState());
+  }
+
+  @Test
   void testNumericGettersOnTimestampUseExactValue() throws SQLException {
     // TIMESTAMP_NTZ '1000-01-01 10:30:00': java.sql.Timestamp moves it 5 days later.
     LocalDateTime value = LocalDateTime.of(1000, 1, 1, 10, 30);

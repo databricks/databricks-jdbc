@@ -274,10 +274,16 @@ public class ArrowStreamResult implements IExecutionResult {
   /** {@inheritDoc} */
   @Override
   public Object getTemporalObject(int columnIndex) throws DatabricksSQLException {
-    if (columnIndex >= 0
-        && columnIndex < columnInfos.size()
-        && chunkIterator != null
-        && chunkIterator.hasJavaTimeVector(columnIndex)) {
+    if (columnIndex < 0 || columnIndex >= columnInfos.size()) {
+      return getObject(columnIndex); // reports the invalid index
+    }
+    if (chunkIterator == null) {
+      throw new DatabricksSQLException(
+          "Cursor is before first row",
+          DatabricksDriverErrorCode.INVALID_STATE.name(),
+          DatabricksDriverErrorCode.INVALID_STATE);
+    }
+    if (chunkIterator.hasJavaTimeVector(columnIndex)) {
       return chunkIterator.getJavaTimeObjectAtCurrentRow(columnIndex);
     }
     return getObject(columnIndex);

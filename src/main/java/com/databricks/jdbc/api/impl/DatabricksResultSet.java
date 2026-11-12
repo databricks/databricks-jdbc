@@ -2478,9 +2478,10 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
 
   /**
    * Returns the {@code java.time} class that {@code map} assigns to the column's type name, matched
-   * case-insensitively as for nested values, for DATE, TIMESTAMP and string columns. Returns null
-   * otherwise, including for an invalid column index (which the caller reports), so other columns
-   * keep the overload's null-with-warning behavior.
+   * case-insensitively as for nested values, for DATE, TIMESTAMP and string columns. A
+   * TIMESTAMP_NTZ column reported as TIMESTAMP ({@code EnableTimestampNtzTypeName=0}) also matches
+   * the key {@code TIMESTAMP_NTZ}. Returns null otherwise, including for an invalid column index
+   * (which the caller reports), so other columns keep the overload's null-with-warning behavior.
    */
   private Class<?> getMappedJavaTimeType(int columnIndex, Map<String, Class<?>> map)
       throws SQLException {
@@ -2490,8 +2491,13 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
         || !JavaTimeConverter.isSupportedColumnType(resultSetMetaData.getColumnType(columnIndex))) {
       return null;
     }
-    return JavaTimeConverter.findJavaTimeMapping(
-        map, resultSetMetaData.getColumnTypeName(columnIndex));
+    Class<?> mapped =
+        JavaTimeConverter.findJavaTimeMapping(
+            map, resultSetMetaData.getColumnTypeName(columnIndex));
+    if (mapped == null && resultSetMetaData.isTimestampNtz(columnIndex)) {
+      mapped = JavaTimeConverter.findJavaTimeMapping(map, TIMESTAMP_NTZ);
+    }
+    return mapped;
   }
 
   private static boolean isIntegralType(Class<?> type) {
