@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Random;
 import net.jpountz.lz4.LZ4Factory;
 import net.jpountz.lz4.LZ4FrameOutputStream;
+import net.jpountz.xxhash.XXHashFactory;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -107,6 +108,31 @@ public class DecompressionUtilTest {
       IOUtils.toByteArray(
           DecompressionUtil.decompressLazy(compressed, CompressionCodec.LZ4_FRAME, CONTEXT));
       factory.verify(LZ4Factory::fastestInstance, Mockito.never());
+    }
+  }
+
+  @Test
+  public void testInlineDecompressionDoesNotLookUpXxHashFactoryPerStream() throws Exception {
+    // Without CONTENT_CHECKSUM, LZ4FrameInputStream.readHeader() needs no XXHashFactory lookup, so
+    // any lookup would come from building a per-stream header checksum.
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (LZ4FrameOutputStream lz4 =
+        new LZ4FrameOutputStream(
+            out,
+            LZ4FrameOutputStream.BLOCKSIZE.SIZE_64KB,
+            LZ4FrameOutputStream.FLG.Bits.BLOCK_INDEPENDENCE)) {
+      lz4.write("data".getBytes(StandardCharsets.UTF_8));
+    }
+    byte[] compressed = out.toByteArray();
+    DecompressionUtil.decompress(compressed, CompressionCodec.LZ4_FRAME, CONTEXT);
+    try (MockedStatic<XXHashFactory> factory =
+        Mockito.mockStatic(XXHashFactory.class, Mockito.CALLS_REAL_METHODS)) {
+      assertArrayEquals(
+          "data".getBytes(StandardCharsets.UTF_8),
+          DecompressionUtil.decompress(compressed, CompressionCodec.LZ4_FRAME, CONTEXT));
+      IOUtils.toByteArray(
+          DecompressionUtil.decompressLazy(compressed, CompressionCodec.LZ4_FRAME, CONTEXT));
+      factory.verify(XXHashFactory::fastestInstance, Mockito.never());
     }
   }
 
