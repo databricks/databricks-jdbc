@@ -36,7 +36,8 @@ public class DatabricksArray implements Array {
 
   private final Object[] elements;
   private final String elementType;
-  // Exact java.time values of DATE/TIMESTAMP elements, parallel to elements; null when unknown.
+  // Sources of the exact java.time values of DATE/TIMESTAMP elements (JSON leaves, converted on
+  // demand, or java.time values), parallel to elements; null when unknown.
   private final Object[] temporalElements;
 
   /**
@@ -57,8 +58,9 @@ public class DatabricksArray implements Array {
    *
    * @param elements the elements of the array as a list
    * @param metadata the metadata describing the type of array elements
-   * @param temporalElements exact values parallel to {@code elements}, may be null; null entries
-   *     fall back to the {@code java.sql} element
+   * @param temporalElements sources of the exact values parallel to {@code elements} (JSON leaves,
+   *     converted only when requested, or {@code java.time} values), may be null; null entries fall
+   *     back to the {@code java.sql} element
    */
   DatabricksArray(List<Object> elements, String metadata, List<Object> temporalElements) {
     LOGGER.debug("Initializing DatabricksArray with metadata: {}", metadata);
@@ -229,6 +231,14 @@ public class DatabricksArray implements Array {
     return this.getArray(1, this.elements.length, map);
   }
 
+  /** The exact {@code java.time} value of the element at 0-based {@code i}, or null if unknown. */
+  private Object exactElement(int i) {
+    if (this.temporalElements == null || i < 0 || i >= this.temporalElements.length) {
+      return null;
+    }
+    return ComplexDataTypeParser.toExactTemporal(this.temporalElements[i], this.elementType);
+  }
+
   @Override
   public Object getArray(long index, int count) throws SQLException {
     LOGGER.debug("Getting subarray from index {} with count {}", index, count);
@@ -244,14 +254,10 @@ public class DatabricksArray implements Array {
     if (javaTimeType == null) {
       return slice;
     }
-    Object[] exactSlice =
-        this.temporalElements == null
-            ? slice
-            : java.util.Arrays.copyOfRange(
-                this.temporalElements, (int) index - 1, (int) index - 1 + count);
     Object[] converted = new Object[slice.length];
     for (int i = 0; i < slice.length; i++) {
-      Object value = exactSlice[i] != null ? exactSlice[i] : slice[i];
+      Object exact = exactElement((int) index - 1 + i);
+      Object value = exact != null ? exact : slice[i];
       converted[i] = JavaTimeConverter.convertNested(javaTimeType, this.elementType, value);
     }
     return converted;
@@ -357,7 +363,7 @@ public class DatabricksArray implements Array {
       if (temporalRows != null) {
         List<Object> temporalRow = new ArrayList<>();
         temporalRow.add(null);
-        temporalRow.add(this.temporalElements[i]);
+        temporalRow.add(exactElement(i));
         temporalRows.add(temporalRow);
       }
     }

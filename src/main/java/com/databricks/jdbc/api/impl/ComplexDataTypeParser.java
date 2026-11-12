@@ -100,13 +100,15 @@ public class ComplexDataTypeParser {
     LOGGER.debug("Parsing array with metadata: {}", arrayMetadata);
     String elementType = MetadataParser.parseArrayMetadata(arrayMetadata);
     List<Object> list = new ArrayList<>();
+    // Keep the JSON leaves of DATE/TIMESTAMP elements; their exact java.time values are built
+    // only if requested (see toExactTemporal).
     List<Object> temporalList =
         JavaTimeConverter.isTemporalTypeName(elementType) ? new ArrayList<>() : null;
     for (JsonNode elementNode : node) {
       Object converted = convertValueNode(elementNode, elementType);
       list.add(converted);
       if (temporalList != null) {
-        temporalList.add(convertTemporalNode(elementNode, elementType));
+        temporalList.add(elementNode);
       }
     }
     return new DatabricksArray(list, arrayMetadata, temporalList);
@@ -137,7 +139,8 @@ public class ComplexDataTypeParser {
     LOGGER.debug("Parsing struct with metadata: {}", structMetadata);
     Map<String, String> fieldTypeMap = MetadataParser.parseStructMetadata(structMetadata);
     Map<String, Object> structMap = new LinkedHashMap<>();
-    Map<String, Object> temporalMap = new HashMap<>();
+    // JSON leaves of DATE/TIMESTAMP fields, created only for structs that have one.
+    Map<String, Object> temporalMap = null;
     Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
     while (fields.hasNext()) {
       Map.Entry<String, JsonNode> entry = fields.next();
@@ -146,14 +149,29 @@ public class ComplexDataTypeParser {
       String fieldType = fieldTypeMap.getOrDefault(fieldName, DatabricksTypeUtil.STRING);
       Object convertedValue = convertValueNode(fieldNode, fieldType);
       structMap.put(fieldName, convertedValue);
-      if (JavaTimeConverter.isTemporalTypeName(fieldType)) {
-        Temporal temporal = convertTemporalNode(fieldNode, fieldType);
-        if (temporal != null) {
-          temporalMap.put(fieldName, temporal);
+      if (!fieldNode.isNull() && JavaTimeConverter.isTemporalTypeName(fieldType)) {
+        if (temporalMap == null) {
+          temporalMap = new HashMap<>();
         }
+        temporalMap.put(fieldName, fieldNode);
       }
     }
     return new DatabricksStruct(structMap, structMetadata, temporalMap);
+  }
+
+  /**
+   * Returns the exact {@code java.time} value of a nested DATE, TIMESTAMP or TIMESTAMP_NTZ leaf
+   * kept by {@link #parseToArray} or {@link #parseToStruct}. A JSON leaf is converted now, so the
+   * cost is paid only when a {@code java.time} value is requested; other values are returned as is.
+   *
+   * @param source a JSON leaf, a {@code java.time} value, or null
+   * @param expectedType the leaf's type name, e.g. {@code DATE}
+   * @return the exact value, or null if there is none and the {@code java.sql} value should be used
+   */
+  static Object toExactTemporal(Object source, String expectedType) {
+    return source instanceof JsonNode
+        ? convertTemporalNode((JsonNode) source, expectedType)
+        : source;
   }
 
   /**

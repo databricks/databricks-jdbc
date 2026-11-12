@@ -27,8 +27,8 @@ public class DatabricksStruct implements Struct {
   // Field types, parallel to fieldNames.
   private final List<String> fieldTypes;
 
-  // Exact java.time values of DATE/TIMESTAMP fields, parallel to attributes; null entries are
-  // unknown.
+  // Sources of the exact java.time values of DATE/TIMESTAMP fields (JSON leaves, converted on
+  // demand, or java.time values), parallel to attributes; null when there are none.
   private final Object[] temporalAttributes;
 
   /**
@@ -48,7 +48,8 @@ public class DatabricksStruct implements Struct {
    *
    * @param attributes the attributes of the struct as a map
    * @param metadata the metadata describing types of struct fields
-   * @param temporalAttributes exact values by field name, may be null; missing fields fall back to
+   * @param temporalAttributes sources of the exact values by field name (JSON leaves, converted
+   *     only when requested, or {@code java.time} values), may be null; missing fields fall back to
    *     the {@code java.sql} attribute
    */
   DatabricksStruct(
@@ -63,8 +64,10 @@ public class DatabricksStruct implements Struct {
     // Convert attributes to the appropriate array of Objects.
     this.attributes = convertAttributes(attributes, typeMap);
 
-    this.temporalAttributes = new Object[fieldNames.size()];
-    if (temporalAttributes != null) {
+    if (temporalAttributes == null || temporalAttributes.isEmpty()) {
+      this.temporalAttributes = null;
+    } else {
+      this.temporalAttributes = new Object[fieldNames.size()];
       for (int i = 0; i < fieldNames.size(); i++) {
         this.temporalAttributes[i] = temporalAttributes.get(fieldNames.get(i));
       }
@@ -226,7 +229,11 @@ public class DatabricksStruct implements Struct {
       if (converted == null) {
         converted = attributes.clone();
       }
-      Object value = temporalAttributes[i] != null ? temporalAttributes[i] : attributes[i];
+      Object exact =
+          temporalAttributes == null
+              ? null
+              : ComplexDataTypeParser.toExactTemporal(temporalAttributes[i], fieldType);
+      Object value = exact != null ? exact : attributes[i];
       converted[i] = JavaTimeConverter.convertNested(javaTimeType, fieldType, value);
     }
     return converted != null ? converted : this.getAttributes();
