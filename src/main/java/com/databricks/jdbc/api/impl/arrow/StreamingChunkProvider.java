@@ -182,7 +182,6 @@ public class StreamingChunkProvider implements ChunkProvider {
     processInitialLinks(initialLinks);
 
     // Create download executor
-    this.poolRegistration = downloadLimiter.registerPool(maxChunksInMemory);
     this.downloadExecutor = createDownloadExecutor(maxChunksInMemory);
 
     // Start link prefetch thread
@@ -193,6 +192,9 @@ public class StreamingChunkProvider implements ChunkProvider {
     // Trigger initial downloads and prefetch
     triggerDownloads();
     notifyConsumerAdvanced();
+
+    // Last, so a constructor that throws leaves no registration that close() would never undo.
+    this.poolRegistration = downloadLimiter.registerPool(maxChunksInMemory);
   }
 
   // ==================== ChunkProvider Interface ====================
