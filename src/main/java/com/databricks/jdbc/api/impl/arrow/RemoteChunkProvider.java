@@ -27,6 +27,7 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
   private static final String CHUNKS_DOWNLOADER_THREAD_POOL_PREFIX =
       "databricks-jdbc-chunks-downloader-";
   private ExecutorService chunkDownloaderExecutorService;
+  private volatile ChunkDownloadLimiter downloadLimiter;
 
   RemoteChunkProvider(
       StatementId statementId,
@@ -130,8 +131,14 @@ public class RemoteChunkProvider extends AbstractRemoteChunkProvider<ArrowResult
   /** {@inheritDoc} */
   @Override
   public ChunkDownloadLimiter getDownloadLimiter() {
-    IDatabricksConnectionContext context = session == null ? null : session.getConnectionContext();
-    return ChunkDownloadLimiter.forHost(context == null ? null : context.getHost());
+    ChunkDownloadLimiter limiter = downloadLimiter;
+    if (limiter == null) {
+      IDatabricksConnectionContext context =
+          session == null ? null : session.getConnectionContext();
+      limiter = ChunkDownloadLimiter.forHost(context == null ? null : context.getHost());
+      downloadLimiter = limiter;
+    }
+    return limiter;
   }
 
   /** {@inheritDoc} */

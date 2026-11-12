@@ -92,7 +92,14 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
           }
 
           // Perform the download
+          long permitWaitStart = System.nanoTime();
           boolean waited = downloadLimiter.acquire();
+          if (waited) {
+            LOGGER.debug(
+                "Waited {} ms for a download permit: chunkIndex={}",
+                (System.nanoTime() - permitWaitStart) / 1_000_000,
+                chunk.getChunkIndex());
+          }
           boolean linkExpiredWhileWaiting;
           try {
             // The link can expire while waiting for a permit; refresh it once, not as a retry.

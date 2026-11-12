@@ -1,5 +1,7 @@
 package com.databricks.jdbc.api.impl.arrow;
 
+import com.databricks.jdbc.log.JdbcLogger;
+import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
@@ -31,21 +33,28 @@ final class ChunkDownloadLimiter {
   private static final int MIN_PERMITS = 16;
   private static final int MAX_PERMITS = 256;
 
+  private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(ChunkDownloadLimiter.class);
+
   private static final ConcurrentHashMap<String, ChunkDownloadLimiter> BY_HOST =
       new ConcurrentHashMap<>();
 
   private final Semaphore permits = new Semaphore(0, true);
+  private final String host;
+  private final int defaultPermits;
   private int totalPermits = 0;
 
-  private ChunkDownloadLimiter(int initialPermits) {
-    ensureAtLeast(initialPermits);
+  private ChunkDownloadLimiter(String host, int defaultPermits) {
+    this.host = host;
+    this.defaultPermits = defaultPermits;
+    permits.release(defaultPermits);
+    totalPermits = defaultPermits;
   }
 
   /** Returns the limiter for a workspace host; an unknown host shares one default limiter. */
   static ChunkDownloadLimiter forHost(String host) {
     return BY_HOST.computeIfAbsent(
         host == null ? "" : host,
-        h -> new ChunkDownloadLimiter(defaultPermits(Runtime.getRuntime().maxMemory())));
+        h -> new ChunkDownloadLimiter(h, defaultPermits(Runtime.getRuntime().maxMemory())));
   }
 
   @VisibleForTesting
@@ -63,6 +72,12 @@ final class ChunkDownloadLimiter {
     if (target > totalPermits) {
       this.permits.release(target - totalPermits);
       totalPermits = target;
+      LOGGER.info(
+          "Raised the concurrent CloudFetch download limit for host [{}] to {} to match "
+              + "cloudFetchThreadPoolSize; the heap-based default is {}",
+          host,
+          target,
+          defaultPermits);
     }
   }
 

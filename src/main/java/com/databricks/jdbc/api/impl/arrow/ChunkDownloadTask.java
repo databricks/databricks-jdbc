@@ -73,7 +73,15 @@ class ChunkDownloadTask implements DatabricksCallableTask {
           if (limiter == null) {
             limiter = ChunkDownloadLimiter.forHost(null);
           }
+          long permitWaitStart = System.nanoTime();
           boolean waited = limiter.acquire();
+          if (waited) {
+            LOGGER.debug(
+                "Waited {} ms for a download permit: statementId={}, chunkIndex={}",
+                (System.nanoTime() - permitWaitStart) / 1_000_000,
+                statementId,
+                chunk.getChunkIndex());
+          }
           boolean linkExpiredWhileWaiting;
           try {
             // The link can expire while waiting for a permit; refresh it once, not as a retry.
