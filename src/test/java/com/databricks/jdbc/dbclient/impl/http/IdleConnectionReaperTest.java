@@ -12,6 +12,7 @@ import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import org.apache.http.conn.HttpClientConnectionManager;
 import org.junit.jupiter.api.Test;
@@ -35,16 +36,22 @@ public class IdleConnectionReaperTest {
 
   @Test
   void testRegistrationsShareOneThreadThatStopsWithTheLast() throws Exception {
-    int before = IdleConnectionReaper.registrationCount();
+    // A private reaper, so registrations left open elsewhere in this JVM can't hide the lifecycle.
+    List<Thread> threads = new CopyOnWriteArrayList<>();
+    IdleConnectionReaper reaper =
+        new IdleConnectionReaper(
+            runnable -> {
+              Thread thread = IdleConnectionReaper.newThread(runnable);
+              threads.add(thread);
+              return thread;
+            });
     List<IdleConnectionReaper.Registration> registrations = new ArrayList<>();
     for (int i = 0; i < 50; i++) {
-      registrations.add(
-          IdleConnectionReaper.register(
-              mock(HttpClientConnectionManager.class), 1, TimeUnit.HOURS));
+      registrations.add(reaper.add(mock(HttpClientConnectionManager.class), 1, TimeUnit.HOURS));
     }
-    assertTrue(IdleConnectionReaper.isRunning());
-    assertEquals(before + 50, IdleConnectionReaper.registrationCount());
-    assertEquals(1, awaitReaperThreadsAtMost(1));
+    assertTrue(reaper.isRunning());
+    assertEquals(50, reaper.registrationCount());
+    assertEquals(1, threads.size());
 
     for (IdleConnectionReaper.Registration registration : registrations) {
       assertTrue(registration.isActive());
@@ -52,19 +59,20 @@ public class IdleConnectionReaperTest {
       registration.close(); // idempotent
       assertFalse(registration.isActive());
     }
-    assertEquals(before, IdleConnectionReaper.registrationCount());
-    if (before == 0) {
-      assertFalse(IdleConnectionReaper.isRunning());
-      assertEquals(0, awaitReaperThreadsAtMost(0));
+    assertEquals(0, reaper.registrationCount());
+    assertFalse(reaper.isRunning());
+    threads.get(0).join(10_000);
+    assertFalse(threads.get(0).isAlive());
 
-      // A later registration starts a new thread.
-      HttpClientConnectionManager manager = mock(HttpClientConnectionManager.class);
-      try (IdleConnectionReaper.Registration again =
-          IdleConnectionReaper.register(manager, 20, TimeUnit.MILLISECONDS)) {
-        assertTrue(IdleConnectionReaper.isRunning());
-        verify(manager, timeout(5_000).atLeastOnce()).closeExpiredConnections();
-      }
+    // A later registration starts a new thread.
+    HttpClientConnectionManager manager = mock(HttpClientConnectionManager.class);
+    try (IdleConnectionReaper.Registration again = reaper.add(manager, 20, TimeUnit.MILLISECONDS)) {
+      assertTrue(reaper.isRunning());
+      assertEquals(2, threads.size());
+      verify(manager, timeout(5_000).atLeastOnce()).closeExpiredConnections();
     }
+    threads.get(1).join(10_000);
+    assertFalse(threads.get(1).isAlive());
   }
 
   @Test
@@ -122,22 +130,23 @@ public class IdleConnectionReaperTest {
     IDatabricksConnectionContext second =
         DatabricksConnectionContext.parse(
             WAREHOUSE_JDBC_URL + ";IdleHttpConnectionExpiry=90", new Properties());
-    int before = IdleConnectionReaper.registrationCount();
+    IdleConnectionReaper shared = IdleConnectionReaper.shared();
+    int before = shared.registrationCount();
     DatabricksHttpClient firstClient = new DatabricksHttpClient(first, HttpClientType.COMMON);
     DatabricksHttpClient secondClient = new DatabricksHttpClient(second, HttpClientType.COMMON);
     try {
-      assertEquals(before + 2, IdleConnectionReaper.registrationCount());
+      assertEquals(before + 2, shared.registrationCount());
       assertEquals(1, awaitReaperThreadsAtMost(1));
       firstClient.close();
       assertFalse(firstClient.isIdleConnectionEvictionActive());
       assertTrue(secondClient.isIdleConnectionEvictionActive());
-      assertTrue(IdleConnectionReaper.isRunning());
+      assertTrue(shared.isRunning());
     } finally {
       firstClient.close();
       secondClient.close();
     }
     assertFalse(secondClient.isIdleConnectionEvictionActive());
-    assertEquals(before, IdleConnectionReaper.registrationCount());
+    assertEquals(before, shared.registrationCount());
   }
 
   @Test

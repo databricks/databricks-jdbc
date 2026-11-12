@@ -5,6 +5,7 @@ import com.databricks.jdbc.log.JdbcLoggerFactory;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.http.conn.HttpClientConnectionManager;
@@ -25,17 +26,35 @@ final class IdleConnectionReaper {
   @VisibleForTesting static final String THREAD_NAME = "databricks-jdbc-connection-evictor";
   // IdleConnectionEvictor's check interval when there is no idle limit.
   private static final long DEFAULT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(5);
+  private static final IdleConnectionReaper SHARED =
+      new IdleConnectionReaper(IdleConnectionReaper::newThread);
 
-  private static ScheduledThreadPoolExecutor executor; // guarded by IdleConnectionReaper.class
-  private static int registrations; // guarded by IdleConnectionReaper.class
+  private final ThreadFactory threadFactory;
+  private ScheduledThreadPoolExecutor executor; // guarded by this
+  private int registrations; // guarded by this
 
-  private IdleConnectionReaper() {}
+  @VisibleForTesting
+  IdleConnectionReaper(ThreadFactory threadFactory) {
+    this.threadFactory = threadFactory;
+  }
 
-  /** Starts evicting connections of {@code manager} idle longer than {@code maxIdle}. */
-  static synchronized Registration register(
-      HttpClientConnectionManager manager, long maxIdle, TimeUnit unit) {
+  /**
+   * Starts evicting connections of {@code manager} idle longer than {@code maxIdle}, on the thread
+   * shared by all clients.
+   */
+  static Registration register(HttpClientConnectionManager manager, long maxIdle, TimeUnit unit) {
+    return SHARED.add(manager, maxIdle, unit);
+  }
+
+  @VisibleForTesting
+  static IdleConnectionReaper shared() {
+    return SHARED;
+  }
+
+  @VisibleForTesting
+  synchronized Registration add(HttpClientConnectionManager manager, long maxIdle, TimeUnit unit) {
     if (executor == null) {
-      executor = new ScheduledThreadPoolExecutor(1, IdleConnectionReaper::newThread);
+      executor = new ScheduledThreadPoolExecutor(1, threadFactory);
       executor.setRemoveOnCancelPolicy(true);
     }
     long maxIdleMs = unit.toMillis(maxIdle);
@@ -44,7 +63,7 @@ final class IdleConnectionReaper {
         executor.scheduleWithFixedDelay(
             () -> evict(manager, maxIdleMs), intervalMs, intervalMs, TimeUnit.MILLISECONDS);
     registrations++;
-    return new Registration(future);
+    return new Registration(this, future);
   }
 
   @VisibleForTesting
@@ -69,7 +88,7 @@ final class IdleConnectionReaper {
     }
   }
 
-  private static synchronized void release() {
+  private synchronized void release() {
     if (--registrations == 0) {
       executor.shutdown();
       executor = null;
@@ -77,21 +96,23 @@ final class IdleConnectionReaper {
   }
 
   @VisibleForTesting
-  static synchronized boolean isRunning() {
+  synchronized boolean isRunning() {
     return executor != null;
   }
 
   @VisibleForTesting
-  static synchronized int registrationCount() {
+  synchronized int registrationCount() {
     return registrations;
   }
 
   /** An active eviction schedule for one connection manager. */
   static final class Registration implements AutoCloseable {
+    private final IdleConnectionReaper reaper;
     private final ScheduledFuture<?> future;
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    private Registration(ScheduledFuture<?> future) {
+    private Registration(IdleConnectionReaper reaper, ScheduledFuture<?> future) {
+      this.reaper = reaper;
       this.future = future;
     }
 
@@ -105,7 +126,7 @@ final class IdleConnectionReaper {
     public void close() {
       if (closed.compareAndSet(false, true)) {
         future.cancel(false);
-        release();
+        reaper.release();
       }
     }
   }
