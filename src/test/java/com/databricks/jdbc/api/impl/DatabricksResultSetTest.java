@@ -29,12 +29,14 @@ import com.databricks.jdbc.exception.DatabricksSQLFeatureNotSupportedException;
 import com.databricks.jdbc.model.client.thrift.generated.*;
 import com.databricks.jdbc.model.core.ColumnInfo;
 import com.databricks.jdbc.model.core.ColumnInfoTypeName;
+import com.databricks.jdbc.model.core.ResultData;
 import com.databricks.jdbc.model.core.ResultManifest;
 import com.databricks.jdbc.model.core.ResultSchema;
 import com.databricks.jdbc.model.core.StatementStatus;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollector;
 import com.databricks.jdbc.telemetry.latency.TelemetryCollectorManager;
+import com.databricks.sdk.service.sql.Format;
 import com.databricks.sdk.service.sql.ServiceError;
 import com.databricks.sdk.service.sql.StatementState;
 import java.io.*;
@@ -48,6 +50,7 @@ import org.apache.http.entity.InputStreamEntity;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.Executable;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -1730,6 +1733,121 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.getObject(0)).thenReturn(null);
 
     assertNull(resultSet.getObject(1, String.class));
+    assertTrue(resultSet.wasNull());
+  }
+
+  // Typed so that getObject(column, NULL_TYPE) picks the Class overload over the Map one.
+  private static final Class<?> NULL_TYPE = null;
+
+  private static ColumnInfo inlineColumn(
+      String name, ColumnInfoTypeName typeName, String typeText, long position) {
+    return new ColumnInfo()
+        .setName(name)
+        .setTypeName(typeName)
+        .setTypeText(typeText)
+        .setPosition(position);
+  }
+
+  /**
+   * One row of a SEA JSON_ARRAY result with columns s STRING = 'abc', i INT = 5, ts TIMESTAMP and n
+   * STRING = NULL, built through the production constructor so that the connection property is read
+   * as for a real connection.
+   */
+  private DatabricksResultSet getInlineResultSet(boolean strictGetObjectConversion)
+      throws SQLException {
+    when(session.getConnectionContext()).thenReturn(databricksConnectionContext);
+    when(databricksConnectionContext.isStrictGetObjectConversionEnabled())
+        .thenReturn(strictGetObjectConversion);
+    List<ColumnInfo> columns =
+        List.of(
+            inlineColumn("s", ColumnInfoTypeName.STRING, "STRING", 0),
+            inlineColumn("i", ColumnInfoTypeName.INT, "INT", 1),
+            inlineColumn("ts", ColumnInfoTypeName.TIMESTAMP, "TIMESTAMP", 2),
+            inlineColumn("n", ColumnInfoTypeName.STRING, "STRING", 3));
+    ResultManifest manifest =
+        new ResultManifest()
+            .setFormat(Format.JSON_ARRAY)
+            .setTotalChunkCount(1L)
+            .setTotalRowCount(1L)
+            .setSchema(new ResultSchema().setColumns(columns).setColumnCount(4L));
+    Collection<Collection<String>> rows =
+        List.of(Arrays.asList("abc", "5", "2026-01-01 05:00:00", null));
+    DatabricksResultSet resultSet =
+        new DatabricksResultSet(
+            new StatementStatus().setState(StatementState.SUCCEEDED),
+            STATEMENT_ID,
+            new ResultData().setChunkIndex(0L).setDataArray(rows),
+            manifest,
+            StatementType.QUERY,
+            session,
+            null);
+    assertTrue(resultSet.next());
+    return resultSet;
+  }
+
+  private static DatabricksSQLException assertUnsupportedConversion(Executable getObjectCall) {
+    DatabricksSQLException e = assertThrows(DatabricksSQLException.class, getObjectCall);
+    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), e.getSQLState());
+    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode(), e.getErrorCode());
+    return e;
+  }
+
+  @Test
+  void testGetObjectWithClass_unconvertibleClassReturnsStringByDefault() throws SQLException {
+    // Existing callers may read these Strings, so the default stays unchanged.
+    DatabricksResultSet resultSet = getInlineResultSet(false);
+
+    assertEquals("abc", resultSet.getObject(1, UUID.class));
+    assertEquals("abc", resultSet.getObject("s", UUID.class));
+    assertEquals("5", resultSet.getObject(2, UUID.class));
+    assertEquals("abc", resultSet.getObject(1, NULL_TYPE));
+    assertInstanceOf(Timestamp.class, resultSet.getObject(3, Calendar.class));
+  }
+
+  @Test
+  void testGetObjectWithClass_strictThrowsWhenValueIsNotAnInstanceOfClass() throws SQLException {
+    DatabricksResultSet resultSet = getInlineResultSet(true);
+
+    assertEquals(
+        "Cannot convert a STRING column to java.util.UUID",
+        assertUnsupportedConversion(() -> resultSet.getObject(1, UUID.class)).getMessage());
+    assertUnsupportedConversion(() -> resultSet.getObject("s", UUID.class));
+    assertUnsupportedConversion(() -> resultSet.getObject(2, UUID.class));
+    // The converter returns a Timestamp, which is not a Calendar.
+    assertUnsupportedConversion(() -> resultSet.getObject(3, Calendar.class));
+  }
+
+  @Test
+  void testGetObjectWithClass_strictThrowsForNullType() throws SQLException {
+    DatabricksResultSet resultSet = getInlineResultSet(true);
+
+    assertUnsupportedConversion(() -> resultSet.getObject(1, NULL_TYPE));
+    assertUnsupportedConversion(() -> resultSet.getObject("s", NULL_TYPE));
+    // Even when the value is NULL.
+    assertUnsupportedConversion(() -> resultSet.getObject(4, NULL_TYPE));
+
+    // A closed result set reports that it is closed, as the other getters do.
+    resultSet.close();
+    DatabricksSQLException e =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getObject(1, NULL_TYPE));
+    assertEquals(DatabricksDriverErrorCode.RESULT_SET_CLOSED.name(), e.getSQLState());
+  }
+
+  @Test
+  void testGetObjectWithClass_strictKeepsSupportedConversions() throws SQLException {
+    DatabricksResultSet resultSet = getInlineResultSet(true);
+
+    assertEquals("abc", resultSet.getObject(1, String.class));
+    // A String is an instance of these classes, so the JDBC contract holds.
+    assertEquals("abc", resultSet.getObject(1, Object.class));
+    assertEquals("abc", resultSet.getObject(1, CharSequence.class));
+    assertEquals(5, resultSet.getObject(2, Integer.class));
+    assertEquals(5, resultSet.getObject(2, int.class));
+    assertEquals(5L, resultSet.getObject(2, Long.class));
+    assertEquals(new BigDecimal("5"), resultSet.getObject(2, BigDecimal.class));
+    assertEquals("5", resultSet.getObject(2, String.class));
+    assertEquals(Timestamp.valueOf("2026-01-01 05:00:00"), resultSet.getObject(3, Timestamp.class));
+    assertNull(resultSet.getObject(4, UUID.class));
     assertTrue(resultSet.wasNull());
   }
 
