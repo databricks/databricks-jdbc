@@ -159,6 +159,43 @@ public class JulLoggerTest {
   }
 
   @Test
+  void testFormattedLogDoesNotFormatWhenLevelDisabled() {
+    Mockito.when(mockLogger.isLoggable(Mockito.any())).thenReturn(false);
+    Object failingArg =
+        new Object() {
+          @Override
+          public String toString() {
+            throw new AssertionError("argument formatted for a disabled level");
+          }
+        };
+
+    julLogger.trace("trace {}", failingArg);
+    julLogger.debug("debug {}", failingArg);
+    julLogger.info("info {}", failingArg);
+    julLogger.warn("warn {}", failingArg);
+    julLogger.error("error {}", failingArg);
+    julLogger.error(new Exception("boom"), "error {}", failingArg);
+
+    Mockito.verify(mockLogger, Mockito.never())
+        .logp(
+            Mockito.any(Level.class),
+            Mockito.anyString(),
+            Mockito.anyString(),
+            Mockito.anyString());
+  }
+
+  @Test
+  void testFormattedDebugWhenLevelEnabled() {
+    julLogger.debug("value {} in {{}}", 42, "braces");
+    verify(mockLogger)
+        .logp(
+            Level.FINE,
+            "com.databricks.jdbc.log.JulLoggerTest",
+            "testFormattedDebugWhenLevelEnabled",
+            "value 42 in {braces}");
+  }
+
+  @Test
   void testInitLoggerWithStdout() throws IOException {
     JulLogger.initLogger(Level.INFO, JulLogger.STDOUT, 1024, 1);
     Logger jdbcLogger = Logger.getLogger(JulLogger.PARENT_CLASS_PREFIX);

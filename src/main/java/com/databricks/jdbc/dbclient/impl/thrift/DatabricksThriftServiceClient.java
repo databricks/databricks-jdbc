@@ -158,9 +158,11 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
     // Note: metadataOperationType is ignored in Thrift mode as metadata operations use native
     // Thrift RPCs (GetTables, GetColumns, etc.) which are already logged correctly.
     LOGGER.debug(
-        String.format(
-            "public DatabricksResultSet executeStatement(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s}, StatementType statementType = {%s}, IDatabricksSession session)",
-            sql, computeResource, parameters.toString(), statementType));
+        "public DatabricksResultSet executeStatement(String sql = {{}}, Compute cluster = {{}}, Map<Integer, ImmutableSqlParameter> parameters = {{}}, StatementType statementType = {{}}, IDatabricksSession session)",
+        sql,
+        computeResource,
+        parameters,
+        statementType);
 
     DatabricksThreadContextHolder.setStatementType(statementType);
 
@@ -180,9 +182,10 @@ public class DatabricksThriftServiceClient implements IDatabricksClient, IDatabr
       throws SQLException {
 
     LOGGER.debug(
-        String.format(
-            "public DatabricksResultSet executeStatementAsync(String sql = {%s}, Compute cluster = {%s}, Map<Integer, ImmutableSqlParameter> parameters = {%s})",
-            sql, computeResource.toString(), parameters.toString()));
+        "public DatabricksResultSet executeStatementAsync(String sql = {{}}, Compute cluster = {{}}, Map<Integer, ImmutableSqlParameter> parameters = {{}})",
+        sql,
+        computeResource,
+        parameters);
 
     TExecuteStatementReq request =
         getRequest(sql, parameters, session, parentStatement, true, StatementType.SQL);

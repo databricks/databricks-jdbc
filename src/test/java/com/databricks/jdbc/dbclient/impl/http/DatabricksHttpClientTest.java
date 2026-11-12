@@ -202,7 +202,6 @@ public class DatabricksHttpClientTest {
 
   @Test
   void testRetryHandlerWithTemporarilyUnavailableRetryInterval() throws IOException {
-    when(mockRequest.getURI()).thenReturn(URI.create("TestURI"));
     when(mockHttpClient.execute(mockRequest))
         .thenThrow(new DatabricksRetryHandlerException("Retry http request.Error code: ", 503));
     assertThrows(DatabricksHttpException.class, () -> databricksHttpClient.execute(mockRequest));
@@ -210,7 +209,6 @@ public class DatabricksHttpClientTest {
 
   @Test
   void testExecute() throws IOException, DatabricksHttpException {
-    when(mockRequest.getURI()).thenReturn(URI.create("TestURI"));
     when(mockHttpClient.execute(mockRequest)).thenReturn(mockCloseableHttpResponse);
     assertEquals(mockCloseableHttpResponse, databricksHttpClient.execute(mockRequest));
   }

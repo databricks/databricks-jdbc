@@ -54,7 +54,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void trace(String format, Object... arguments) {
-    trace(String.format(slf4jToJavaFormat(format), arguments));
+    logFormatted(Level.FINEST, null, format, arguments);
   }
 
   /** {@inheritDoc} */
@@ -65,7 +65,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void debug(String format, Object... arguments) {
-    debug(String.format(slf4jToJavaFormat(format), arguments));
+    logFormatted(Level.FINE, null, format, arguments);
   }
 
   /** {@inheritDoc} */
@@ -76,7 +76,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void info(String format, Object... arguments) {
-    info(String.format(slf4jToJavaFormat(format), arguments));
+    logFormatted(Level.INFO, null, format, arguments);
   }
 
   /** {@inheritDoc} */
@@ -87,7 +87,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void warn(String format, Object... arguments) {
-    warn(String.format(slf4jToJavaFormat(format), arguments));
+    logFormatted(Level.WARNING, null, format, arguments);
   }
 
   /** {@inheritDoc} */
@@ -98,7 +98,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void error(String format, Object... arguments) {
-    error(String.format(slf4jToJavaFormat(format), arguments));
+    logFormatted(Level.SEVERE, null, format, arguments);
   }
 
   /** {@inheritDoc} */
@@ -109,7 +109,7 @@ public class JulLogger implements JdbcLogger {
 
   @Override
   public void error(Throwable throwable, String format, Object... arguments) {
-    error(throwable, String.format(slf4jToJavaFormat(format), arguments));
+    logFormatted(Level.SEVERE, throwable, format, arguments);
   }
 
   /**
@@ -161,6 +161,14 @@ public class JulLogger implements JdbcLogger {
     jdbcJulLogger.addHandler(handler);
     jdbcJulLogger.setLevel(level);
     isLoggerInitialized = true;
+  }
+
+  private void logFormatted(Level level, Throwable throwable, String format, Object... arguments) {
+    // Check the level first so disabled levels skip String.format and the arguments' toString().
+    if (!logger.isLoggable(level)) {
+      return;
+    }
+    log(level, String.format(slf4jToJavaFormat(format), arguments), throwable);
   }
 
   private void log(Level level, String message, Throwable throwable) {

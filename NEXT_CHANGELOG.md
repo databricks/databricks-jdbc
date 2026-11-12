@@ -6,6 +6,8 @@
 
 ### Updated
 
+- Debug and trace log calls no longer format their messages when that log level is disabled, which removes per-statement formatting work (including the full SQL text) on the execute path.
+
 ### Fixed
 
 - Removed Thrift handle secrets from timeout, operation, metadata, and session diagnostics.
