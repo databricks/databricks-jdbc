@@ -2269,6 +2269,7 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
     }
     // JDBC: return an instance of type or throw. The default path instead returns a String for
     // classes the converters do not handle (e.g. UUID), and a Timestamp for Calendar.
+    checkIfClosed();
     if (type == null) {
       throw unsupportedGetObjectConversion("getObject(int, Class) requires a non-null type");
     }

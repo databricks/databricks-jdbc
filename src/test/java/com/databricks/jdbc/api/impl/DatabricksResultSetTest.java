@@ -1594,6 +1594,12 @@ public class DatabricksResultSetTest {
     assertUnsupportedConversion(() -> resultSet.getObject("s", NULL_TYPE));
     // Even when the value is NULL.
     assertUnsupportedConversion(() -> resultSet.getObject(4, NULL_TYPE));
+
+    // A closed result set reports that it is closed, as the other getters do.
+    resultSet.close();
+    DatabricksSQLException e =
+        assertThrows(DatabricksSQLException.class, () -> resultSet.getObject(1, NULL_TYPE));
+    assertEquals(DatabricksDriverErrorCode.RESULT_SET_CLOSED.name(), e.getSQLState());
   }
 
   @Test
