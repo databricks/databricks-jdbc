@@ -60,7 +60,10 @@ public class ClientConfigurator implements Closeable {
     httpClientBuilder.withTimeoutSeconds(connectionContext.getSocketTimeout());
     setupProxyConfig(httpClientBuilder);
     setupConnectionManager(httpClientBuilder);
-    this.databricksConfig.setHttpClient(withIdleConnectionExpiry(httpClientBuilder.build()));
+    this.databricksConfig.setHttpClient(
+        DiscoveryResponseCache.wrap(
+            withIdleConnectionExpiry(httpClientBuilder.build()),
+            ConfiguratorUtils.trustSettingsKey(connectionContext)));
     setupDiscoveryEndpoint();
     setupAuthConfig();
     this.databricksConfig.resolve();
