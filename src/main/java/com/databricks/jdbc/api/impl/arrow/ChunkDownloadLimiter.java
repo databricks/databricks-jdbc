@@ -13,7 +13,8 @@ import java.util.concurrent.Semaphore;
  * downloads from different queries are served in arrival order.
  */
 final class ChunkDownloadLimiter {
-  // A download buffers its compressed chunk on-heap; budget this much heap per permit.
+  // Heap budget per in-progress download. Generous for the ~10-20 MB a download needs; more
+  // permits did not raise aggregate throughput in benchmarks.
   private static final long HEAP_BYTES_PER_PERMIT = 128L << 20;
   // The default cloudFetchThreadPoolSize, so a single query keeps its parallelism.
   private static final int MIN_PERMITS = 16;
@@ -34,11 +35,15 @@ final class ChunkDownloadLimiter {
     return (int) Math.max(MIN_PERMITS, Math.min(MAX_PERMITS, byHeap));
   }
 
-  /** Lets one query use {@code permits} parallel downloads, e.g. its cloudFetchThreadPoolSize. */
+  /**
+   * Lets one query use up to {@code permits} parallel downloads, e.g. its cloudFetchThreadPoolSize.
+   * The total only grows (it is the largest size seen so far) and never exceeds MAX_PERMITS.
+   */
   static synchronized void ensureAtLeast(int permits) {
-    if (permits > totalPermits) {
-      PERMITS.release(permits - totalPermits);
-      totalPermits = permits;
+    int target = Math.min(permits, MAX_PERMITS);
+    if (target > totalPermits) {
+      PERMITS.release(target - totalPermits);
+      totalPermits = target;
     }
   }
 

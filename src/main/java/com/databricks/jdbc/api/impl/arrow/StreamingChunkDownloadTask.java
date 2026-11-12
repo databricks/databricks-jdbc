@@ -73,15 +73,7 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
           }
 
           // Perform the download
-          try {
-            ChunkDownloadLimiter.acquire();
-          } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new DatabricksSQLException(
-                "Chunk download interrupted",
-                ie,
-                DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
-          }
+          ChunkDownloadLimiter.acquire();
           try {
             chunk.downloadData(httpClient, compressionCodec, cloudFetchSpeedThreshold);
           } finally {
@@ -96,6 +88,11 @@ public class StreamingChunkDownloadTask implements Callable<Void> {
               taskTotalMs,
               retries);
 
+        } catch (InterruptedException ie) {
+          // Interrupted while waiting for a download permit, e.g. by close(); do not retry.
+          Thread.currentThread().interrupt();
+          throw new DatabricksSQLException(
+              "Chunk download interrupted", ie, DatabricksDriverErrorCode.THREAD_INTERRUPTED_ERROR);
         } catch (IOException | SQLException e) {
           retries++;
           if (retries >= MAX_RETRIES) {

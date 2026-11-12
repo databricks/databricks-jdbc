@@ -39,7 +39,7 @@ class ChunkDownloadLimiterTest {
   }
 
   @Test
-  void testEnsureAtLeastOnlyGrows() {
+  void testEnsureAtLeastOnlyGrowsUpToMaxPermits() {
     int total = ChunkDownloadLimiter.totalPermits();
     int available = ChunkDownloadLimiter.availablePermits();
 
@@ -47,14 +47,35 @@ class ChunkDownloadLimiterTest {
     assertEquals(total, ChunkDownloadLimiter.totalPermits());
     assertEquals(available, ChunkDownloadLimiter.availablePermits());
 
-    ChunkDownloadLimiter.ensureAtLeast(total + 2);
-    assertEquals(total + 2, ChunkDownloadLimiter.totalPermits());
-    assertEquals(available + 2, ChunkDownloadLimiter.availablePermits());
+    if (total < 256) {
+      ChunkDownloadLimiter.ensureAtLeast(total + 1);
+      assertEquals(total + 1, ChunkDownloadLimiter.totalPermits());
+      assertEquals(available + 1, ChunkDownloadLimiter.availablePermits());
+    }
+
+    ChunkDownloadLimiter.ensureAtLeast(10_000);
+    assertEquals(256, ChunkDownloadLimiter.totalPermits());
+    assertEquals(available + 256 - total, ChunkDownloadLimiter.availablePermits());
   }
 
   @Test
   void testConcurrentDownloadsNeverExceedPermits() throws Exception {
-    int permits = ChunkDownloadLimiter.totalPermits();
+    // Hold all but a few permits so the bound is small no matter how large the limiter is.
+    int permits = 4;
+    int held = ChunkDownloadLimiter.availablePermits() - permits;
+    for (int i = 0; i < held; i++) {
+      ChunkDownloadLimiter.acquire();
+    }
+    try {
+      runDownloadsAndCheckBound(permits);
+    } finally {
+      for (int i = 0; i < held; i++) {
+        ChunkDownloadLimiter.release();
+      }
+    }
+  }
+
+  private void runDownloadsAndCheckBound(int permits) throws Exception {
     int available = ChunkDownloadLimiter.availablePermits();
     AtomicInteger inFlight = new AtomicInteger();
     AtomicInteger maxInFlight = new AtomicInteger();
@@ -121,6 +142,8 @@ class ChunkDownloadLimiterTest {
     assertInterruptedWhileWaitingFailsChunk(
         new StreamingChunkDownloadTask(
             chunk, httpClient, CompressionCodec.NONE, linkRefresher, 0.1));
+    // An interrupt while waiting for a permit fails the chunk without going through a retry.
+    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
   }
 
   /** Holds every permit, then interrupts a task blocked on the limiter, as close() does. */
