@@ -12,6 +12,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class UserAgentManager {
   private static final JdbcLogger LOGGER = JdbcLoggerFactory.getLogger(UserAgentManager.class);
@@ -37,6 +38,24 @@ public class UserAgentManager {
   private static final Set<String> registeredOtherInfo = new HashSet<>();
   private static int registeredCustomerEntries = 0;
   private static boolean customerEntryLimitLogged = false;
+
+  // UserAgent.asString() formats every segment under a JVM-wide lock, and is needed on every
+  // request, so both strings are cached until the driver next changes the SDK user agent (every
+  // connection open). Changes made to the SDK UserAgent outside the driver show up at that point.
+  private static final AtomicLong userAgentGeneration = new AtomicLong();
+  private static volatile CachedUserAgent cachedUserAgent;
+
+  private static final class CachedUserAgent {
+    final long generation;
+    final String sdkUserAgent;
+    final String httpUserAgent;
+
+    CachedUserAgent(long generation, String sdkUserAgent, String httpUserAgent) {
+      this.generation = generation;
+      this.sdkUserAgent = sdkUserAgent;
+      this.httpUserAgent = httpUserAgent;
+    }
+  }
 
   /**
    * Parse custom user agent string into name and version components.
@@ -83,19 +102,40 @@ public class UserAgentManager {
    * @param connectionContext The connection context.
    */
   public static void setUserAgent(IDatabricksConnectionContext connectionContext) {
-    // Set the base product
-    UserAgent.withProduct(DEFAULT_USER_AGENT, DriverUtil.getDriverVersion());
+    try {
+      // Set the base product
+      UserAgent.withProduct(DEFAULT_USER_AGENT, DriverUtil.getDriverVersion());
 
-    // Set client info (this may trigger getClientType which fetches feature flags). Not capped:
-    // getClientUserAgent only returns USER_AGENT_THRIFT_CLIENT or USER_AGENT_SEA_CLIENT.
-    registerOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent(), false);
+      // Set client info (this may trigger getClientType which fetches feature flags). Not capped:
+      // getClientUserAgent only returns USER_AGENT_THRIFT_CLIENT or USER_AGENT_SEA_CLIENT.
+      registerOtherInfo(CLIENT_USER_AGENT_PREFIX, connectionContext.getClientUserAgent(), false);
 
-    String customerSegment = customerUserAgentSegment(connectionContext.getCustomerUserAgent());
-    if (customerSegment != null) {
-      int slash = customerSegment.indexOf('/');
-      registerOtherInfo(
-          customerSegment.substring(0, slash), customerSegment.substring(slash + 1), true);
+      String customerSegment = customerUserAgentSegment(connectionContext.getCustomerUserAgent());
+      if (customerSegment != null) {
+        int slash = customerSegment.indexOf('/');
+        registerOtherInfo(
+            customerSegment.substring(0, slash), customerSegment.substring(slash + 1), true);
+      }
+    } finally {
+      invalidateCachedUserAgent();
     }
+  }
+
+  private static void invalidateCachedUserAgent() {
+    userAgentGeneration.incrementAndGet();
+  }
+
+  private static CachedUserAgent cachedUserAgent() {
+    // Read the generation before building so a concurrent change marks this entry stale.
+    long generation = userAgentGeneration.get();
+    CachedUserAgent cached = cachedUserAgent;
+    if (cached != null && cached.generation == generation) {
+      return cached;
+    }
+    String sdkUserAgent = UserAgent.asString();
+    cached = new CachedUserAgent(generation, sdkUserAgent, toHttpUserAgent(sdkUserAgent));
+    cachedUserAgent = cached;
+    return cached;
   }
 
   private static synchronized void registerOtherInfo(
@@ -131,6 +171,7 @@ public class UserAgentManager {
     registeredOtherInfo.clear();
     registeredCustomerEntries = 0;
     customerEntryLimitLogged = false;
+    invalidateCachedUserAgent();
   }
 
   /**
@@ -174,7 +215,15 @@ public class UserAgentManager {
 
   /** Gets the user agent string for Databricks Driver HTTP Client. */
   public static String getUserAgentString() {
-    String sdkUserAgent = UserAgent.asString();
+    return cachedUserAgent().httpUserAgent;
+  }
+
+  /** Returns {@link UserAgent#asString()} as of the driver's last user-agent change. */
+  public static String getSdkUserAgentString() {
+    return cachedUserAgent().sdkUserAgent;
+  }
+
+  private static String toHttpUserAgent(String sdkUserAgent) {
     // Split the string into parts
     String[] parts = sdkUserAgent.split("\\s+");
     // User Agent is in format:

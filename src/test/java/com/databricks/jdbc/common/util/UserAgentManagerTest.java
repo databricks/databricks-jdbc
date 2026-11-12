@@ -197,6 +197,41 @@ public class UserAgentManagerTest {
   }
 
   @Test
+  void testUserAgentStringsAreCachedUntilNextChange() {
+    when(connectionContext.getCustomerUserAgent()).thenReturn("CachedApp/1.0");
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_THRIFT_CLIENT);
+    try (MockedStatic<UserAgent> userAgent =
+        Mockito.mockStatic(UserAgent.class, Mockito.CALLS_REAL_METHODS)) {
+      UserAgentManager.setUserAgent(connectionContext);
+      String http = getUserAgentString();
+      String sdk = UserAgentManager.getSdkUserAgentString();
+      for (int i = 0; i < 100; i++) {
+        assertEquals(http, getUserAgentString());
+        assertEquals(sdk, UserAgentManager.getSdkUserAgentString());
+      }
+      userAgent.verify(UserAgent::asString, times(1));
+
+      UserAgentManager.setUserAgent(connectionContext);
+      getUserAgentString();
+      userAgent.verify(UserAgent::asString, times(2));
+    }
+  }
+
+  @Test
+  void testCachedUserAgentReflectsLaterChanges() {
+    when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_THRIFT_CLIENT);
+    when(connectionContext.getCustomerUserAgent()).thenReturn("FirstCachedApp/1.0");
+    UserAgentManager.setUserAgent(connectionContext);
+    assertTrue(getUserAgentString().contains("FirstCachedApp/1.0"));
+    assertFalse(getUserAgentString().contains("SecondCachedApp/2.0"));
+
+    when(connectionContext.getCustomerUserAgent()).thenReturn("SecondCachedApp/2.0");
+    UserAgentManager.setUserAgent(connectionContext);
+    assertTrue(getUserAgentString().contains("SecondCachedApp/2.0"));
+    assertEquals(UserAgent.asString(), UserAgentManager.getSdkUserAgentString());
+  }
+
+  @Test
   void testDistinctCustomerUserAgentEntriesAreCapped() {
     when(connectionContext.getClientUserAgent()).thenReturn(USER_AGENT_THRIFT_CLIENT);
     try (MockedStatic<UserAgent> userAgent =
