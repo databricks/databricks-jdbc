@@ -4,7 +4,7 @@
 
 ### Added
 
-- Added the connection property `EnableStrictGetObjectConversion`. When set to `1`, `ResultSet.getObject(column, Class)` throws a `SQLException` if the type is `null` or the value cannot be returned as an instance of the type (for example `UUID` on a `STRING` column, or `Calendar` on a `TIMESTAMP` column), as the JDBC specification requires. The default (`0`) is unchanged: such values are returned as a `String` (a `Timestamp` for `Calendar`). ([#1782](https://github.com/databricks/databricks-jdbc/issues/1782))
+- Added the connection property `EnableStrictGetObjectConversion`. When set to `1`, `ResultSet.getObject(column, Class)` on query results throws a `SQLException` if the type is `null` or the value cannot be returned as an instance of the type (for example `UUID` on a `STRING` column, or `Calendar` on a `TIMESTAMP` column), as the JDBC specification requires. The default (`0`) is unchanged: such values are returned as a `String` (a `Timestamp` for `Calendar`). `DatabaseMetaData` result sets always use the default. ([#1782](https://github.com/databricks/databricks-jdbc/issues/1782))
 
 ### Updated
 

@@ -145,10 +145,11 @@ public enum DatabricksJdbcUrlParams {
       "1"),
   ENABLE_STRICT_GET_OBJECT_CONVERSION(
       "EnableStrictGetObjectConversion",
-      "When enabled, ResultSet.getObject(column, Class) throws a SQLException if the type is null "
-          + "or the value cannot be returned as an instance of the type, as the JDBC "
-          + "specification requires. When disabled (default), a value that cannot be converted "
-          + "is returned as a String.",
+      "When enabled, ResultSet.getObject(column, Class) on query results throws a SQLException "
+          + "if the type is null or the value cannot be returned as an instance of the type, as "
+          + "the JDBC specification requires. When disabled (default), a value that cannot be "
+          + "converted is returned as a String. DatabaseMetaData result sets always use the "
+          + "default.",
       "0"),
   ROWS_FETCHED_PER_BLOCK(
       "RowsFetchedPerBlock",

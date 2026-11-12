@@ -75,7 +75,8 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   private boolean wasNull;
   private boolean silenceNonTerminalExceptions = false;
   // Off by default: callers may rely on getObject(int, Class) returning a String for classes the
-  // driver cannot convert to (EnableStrictGetObjectConversion).
+  // driver cannot convert to (EnableStrictGetObjectConversion). Only the session constructors
+  // (query results) read the property; metadata and in-memory result sets keep the default.
   private boolean strictGetObjectConversion = false;
 
   private ResultSetType resultSetType = ResultSetType.UNASSIGNED;

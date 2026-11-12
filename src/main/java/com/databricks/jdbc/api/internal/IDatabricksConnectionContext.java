@@ -317,9 +317,11 @@ public interface IDatabricksConnectionContext {
   boolean isTimestampNtzTypeNameEnabled();
 
   /**
-   * Returns true if {@code ResultSet.getObject(column, Class)} should throw when it cannot return
-   * an instance of the requested class. When false, such values are returned as a String, which
-   * older driver versions did and some callers rely on.
+   * Returns true if {@code ResultSet.getObject(column, Class)} on query results should throw when
+   * it cannot return an instance of the requested class. When false, such values are returned as a
+   * String, which older driver versions did and some callers rely on. Result sets built without a
+   * session ({@code DatabaseMetaData} results, {@code Array.getResultSet()}) always use the
+   * default.
    */
   boolean isStrictGetObjectConversionEnabled();
 
