@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl.arrow;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.databricks.jdbc.common.CompressionCodec;
 import com.databricks.jdbc.dbclient.IDatabricksHttpClient;
@@ -14,11 +15,15 @@ import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
+import net.jpountz.lz4.LZ4FrameOutputStream;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.http.Header;
@@ -34,7 +39,7 @@ import org.apache.http.params.HttpParams;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-/** Tests around when DOWNLOAD_SUCCEEDED is set and error handling during body read. */
+/** Tests around when DOWNLOAD_SUCCEEDED is set and error handling during streamed body read. */
 public class ArrowResultChunkStatusTest {
 
   @AfterEach
@@ -68,6 +73,66 @@ public class ArrowResultChunkStatusTest {
         DatabricksParsingException.class,
         () -> chunk.downloadData(http, CompressionCodec.NONE, 0.0));
     assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+  }
+
+  @Test
+  void lz4Body_isStreamedIntoArrowAndClosed() throws Exception {
+    byte[] payload = lz4(arrowStream(3, 100));
+    ArrowResultChunk chunk = newChunk();
+    TrackingInputStream body = new TrackingInputStream(payload, Integer.MAX_VALUE);
+
+    chunk.downloadData(httpWithEntity(body, payload.length), CompressionCodec.LZ4_FRAME, 0.0);
+
+    assertEquals(ChunkStatus.PROCESSING_SUCCEEDED, chunk.getStatus());
+    assertEquals(300, rowCount(chunk));
+    // Closing the body lets the HTTP client drain it and reuse the connection.
+    assertTrue(body.closed);
+    assertTrue(chunk.releaseChunk());
+  }
+
+  @Test
+  void midBodyReadError_isRetryableAndFreesPartialBatches() throws Exception {
+    byte[] payload = lz4(arrowStream(4, 20_000));
+    ArrowResultChunk chunk = newChunk();
+
+    // Fail after most of the body, i.e. after some batches were already parsed.
+    IDatabricksHttpClient failing =
+        httpWithEntity(new TrackingInputStream(payload, payload.length * 3 / 4), payload.length);
+    assertThrows(
+        DatabricksParsingException.class,
+        () -> chunk.downloadData(failing, CompressionCodec.LZ4_FRAME, 0.0));
+    assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+    assertEquals(0, chunk.rootAllocator.getAllocatedMemory());
+
+    // Retry the way ChunkDownloadTask does.
+    chunk.setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    chunk.downloadData(
+        httpWithEntity(new TrackingInputStream(payload, Integer.MAX_VALUE), payload.length),
+        CompressionCodec.LZ4_FRAME,
+        0.0);
+    assertEquals(ChunkStatus.PROCESSING_SUCCEEDED, chunk.getStatus());
+    assertEquals(80_000, rowCount(chunk));
+    assertTrue(chunk.releaseChunk());
+  }
+
+  @Test
+  void corruptBody_isRetryableDownloadFailure() {
+    byte[] payload = "not an lz4 frame".getBytes();
+    ArrowResultChunk chunk = newChunk();
+    IDatabricksHttpClient http = httpWithEntity(new ByteArrayInputStream(payload), payload.length);
+
+    assertThrows(
+        DatabricksParsingException.class,
+        () -> chunk.downloadData(http, CompressionCodec.LZ4_FRAME, 0.0));
+    assertEquals(ChunkStatus.DOWNLOAD_FAILED, chunk.getStatus());
+  }
+
+  private static long rowCount(ArrowResultChunk chunk) {
+    long rows = 0;
+    for (List<ValueVector> batch : chunk.getRecordBatchList()) {
+      rows += batch.get(0).getValueCount();
+    }
+    return rows;
   }
 
   private static ArrowResultChunk newChunk() {
@@ -245,6 +310,71 @@ public class ArrowResultChunkStatusTest {
       }
     } finally {
       allocator.close();
+    }
+  }
+
+  private static byte[] arrowStream(int batches, int rowsPerBatch) throws IOException {
+    try (BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+        IntVector intVector = new IntVector("c1", allocator);
+        VectorSchemaRoot root = VectorSchemaRoot.of(intVector)) {
+      java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+      try (ArrowStreamWriter writer = new ArrowStreamWriter(root, null, baos)) {
+        writer.start();
+        for (int b = 0; b < batches; b++) {
+          intVector.allocateNew(rowsPerBatch);
+          for (int i = 0; i < rowsPerBatch; i++) {
+            intVector.set(i, b * rowsPerBatch + i);
+          }
+          root.setRowCount(rowsPerBatch);
+          writer.writeBatch();
+        }
+        writer.end();
+      }
+      return baos.toByteArray();
+    }
+  }
+
+  private static byte[] lz4(byte[] raw) throws IOException {
+    java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+    // Small blocks so a mid-body failure lands after some batches were parsed.
+    try (LZ4FrameOutputStream lz4 =
+        new LZ4FrameOutputStream(out, LZ4FrameOutputStream.BLOCKSIZE.SIZE_64KB)) {
+      lz4.write(raw);
+    }
+    return out.toByteArray();
+  }
+
+  /** Serves {@code data}, throws once {@code failAt} bytes were read, and records close(). */
+  private static final class TrackingInputStream extends FilterInputStream {
+    private final int failAt;
+    private int read;
+    private boolean closed;
+
+    TrackingInputStream(byte[] data, int failAt) {
+      super(new ByteArrayInputStream(data));
+      this.failAt = failAt;
+    }
+
+    @Override
+    public int read() throws IOException {
+      byte[] one = new byte[1];
+      return read(one, 0, 1) < 0 ? -1 : one[0] & 0xff;
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len) throws IOException {
+      if ((long) read + len > failAt) {
+        throw new SocketException("Simulated connection reset");
+      }
+      int n = super.read(b, off, len);
+      read += Math.max(n, 0);
+      return n;
+    }
+
+    @Override
+    public void close() throws IOException {
+      closed = true;
+      super.close();
     }
   }
 

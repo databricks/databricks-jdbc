@@ -310,11 +310,22 @@ public abstract class AbstractArrowResultChunk {
    */
   protected void initializeData(InputStream inputStream)
       throws DatabricksSQLException, IOException {
+    setArrowData(readArrowData(inputStream));
+  }
+
+  /** Parses an Arrow IPC stream into record batches without changing the chunk status. */
+  ArrowData readArrowData(InputStream inputStream) throws IOException {
     LOGGER.debug(
         "Parsing data for chunk index {} and statement {}",
         chunkIndex,
         StatementId.loggableStatementId(statementId));
-    ArrowData arrowData = getRecordBatchList(inputStream, rootAllocator, statementId, chunkIndex);
+    return getRecordBatchList(inputStream, rootAllocator, statementId, chunkIndex);
+  }
+
+  /**
+   * Installs parsed record batches and marks the chunk {@link ChunkStatus#PROCESSING_SUCCEEDED}.
+   */
+  void setArrowData(ArrowData arrowData) {
     recordBatchList = arrowData.getValueVectors();
     arrowMetadata = arrowData.getMetadata();
     LOGGER.debug(

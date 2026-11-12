@@ -74,6 +74,20 @@ public class DecompressionUtil {
   }
 
   /**
+   * Stream variant of {@link #decompressToInputStream(byte[], CompressionCodec, String)}: wraps
+   * {@code compressedStream} so it is decompressed lazily as it is read, without buffering it.
+   */
+  public static InputStream decompressToInputStream(
+      InputStream compressedStream, CompressionCodec compressionCodec, String context)
+      throws IOException {
+    if (compressionCodec == CompressionCodec.LZ4_FRAME) {
+      LOGGER.debug("Streaming LZ4 Frame decompression. Context: {}", context);
+      return new LZ4FrameInputStream(compressedStream);
+    }
+    return compressedStream;
+  }
+
+  /**
    * Returns a streaming decompression wrapper around compressed bytes. Unlike {@link
    * #decompressToStream}, this does NOT materialize the full decompressed output in memory — it
    * decompresses lazily as the returned stream is read.

@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.Map;
-import org.apache.commons.io.IOUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
@@ -87,46 +86,30 @@ public class ArrowResultChunk extends AbstractArrowResultChunk {
       TelemetryHelper.recordChunkDownloadLatency(
           connectionContext, getStatementIdString(statementId), chunkIndex, downloadTimeMs);
 
-      // Read compressed stream fully (download latency excludes decompression)
-      byte[] compressed = IOUtils.toByteArray(response.getEntity().getContent());
-      long readTimeMs = (System.nanoTime() - startTime) / 1_000_000;
-
-      // Set status to DOWNLOAD_SUCCEEDED after reading the compressed stream fully
-      setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
-
       long size = response.getEntity().getContentLength();
-      logDownloadMetrics(
-          downloadTimeMs,
-          size > 0 ? size : compressed.length,
-          chunkLink.getExternalLink(),
-          speedThreshold);
+      logDownloadMetrics(downloadTimeMs, size, chunkLink.getExternalLink(), speedThreshold);
 
-      // Decompress and parse. The decompression is streamed straight into the Arrow reader so the
-      // full decompressed payload is never materialized on-heap alongside the compressed bytes.
-      long decompressStart = System.nanoTime();
-      try {
-        String ctx =
-            String.format(
-                "Data decompression for chunk index [%d] and statement [%s]",
-                this.chunkIndex, StatementId.loggableStatementId(this.statementId));
-        initializeData(
-            DecompressionUtil.decompressToInputStream(compressed, compressionCodec, ctx));
-      } catch (Exception e) {
-        handleFailure(e, ChunkStatus.PROCESSING_FAILED);
-      }
-      long decompressTimeMs = (System.nanoTime() - decompressStart) / 1_000_000;
-      long totalTimeMs = (System.nanoTime() - startTime) / 1_000_000;
+      // Stream the body through decompression straight into the Arrow reader so no copy of the
+      // chunk payload is buffered on-heap. Network errors can surface mid-parse, so any failure
+      // here is a retryable DOWNLOAD_FAILED; the body has been fully read once parsing returns.
+      String ctx =
+          String.format(
+              "Data decompression for chunk index [%d] and statement [%s]",
+              this.chunkIndex, StatementId.loggableStatementId(this.statementId));
+      ArrowData arrowData =
+          readArrowData(
+              DecompressionUtil.decompressToInputStream(
+                  response.getEntity().getContent(), compressionCodec, ctx));
+      setStatus(ChunkStatus.DOWNLOAD_SUCCEEDED);
+      setArrowData(arrowData);
       LOGGER.debug(
-          "Chunk download complete: statementId={}, chunkIndex={}, "
-              + "compressedBytes={}, httpResponseMs={}, streamReadMs={}, decompressAndParseMs={}, "
-              + "totalMs={}",
+          "Chunk download complete: statementId={}, chunkIndex={}, contentLength={}, "
+              + "httpResponseMs={}, readAndParseMs={}",
           StatementId.loggableStatementId(statementId),
           chunkIndex,
-          compressed.length,
+          size,
           downloadTimeMs,
-          readTimeMs - downloadTimeMs,
-          decompressTimeMs,
-          totalTimeMs);
+          (System.nanoTime() - startTime) / 1_000_000 - downloadTimeMs);
     } catch (Exception e) {
       handleFailure(e, ChunkStatus.DOWNLOAD_FAILED);
     } finally {

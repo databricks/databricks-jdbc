@@ -213,14 +213,10 @@ public class StreamingChunkDownloadTaskTest {
         .when(spiedChunk)
         .setStatus(any(ChunkStatus.class));
 
-    // Mock the initializeData method to avoid Arrow parsing issues
-    doAnswer(
-            invocation -> {
-              spiedChunk.setStatus(ChunkStatus.PROCESSING_SUCCEEDED);
-              return null;
-            })
+    // Mock Arrow parsing; status transitions still run for real
+    doReturn(new AbstractArrowResultChunk.ArrowData(new ArrayList<>(), Collections.emptyList(), 0L))
         .when(spiedChunk)
-        .initializeData(any(InputStream.class));
+        .readArrowData(any(InputStream.class));
 
     // Mock HTTP client to fail twice, then succeed
     CloseableHttpResponse mockResponse = mock(CloseableHttpResponse.class);

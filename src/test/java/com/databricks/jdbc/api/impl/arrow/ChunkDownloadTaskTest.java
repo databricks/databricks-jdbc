@@ -145,15 +145,10 @@ public class ChunkDownloadTaskTest {
         .when(spiedChunk)
         .setStatus(any(ChunkStatus.class));
 
-    // Mock the initializeData method to avoid Arrow parsing issues
-    doAnswer(
-            invocation -> {
-              // Simulate successful data initialization
-              spiedChunk.setStatus(ChunkStatus.PROCESSING_SUCCEEDED);
-              return null;
-            })
+    // Mock Arrow parsing; status transitions still run for real
+    doReturn(new AbstractArrowResultChunk.ArrowData(new ArrayList<>(), Collections.emptyList(), 0L))
         .when(spiedChunk)
-        .initializeData(any(InputStream.class));
+        .readArrowData(any(InputStream.class));
 
     // Create a valid Arrow stream for successful response
     byte[] validArrowData = createValidArrowStreamData();
@@ -204,8 +199,8 @@ public class ChunkDownloadTaskTest {
     assertTrue(chunkFuture.isDone());
     assertDoesNotThrow(() -> chunkFuture.get());
 
-    // Verify initializeData was called once (on successful download)
-    verify(spiedChunk, times(1)).initializeData(any(InputStream.class));
+    // Verify Arrow parsing ran once (on successful download)
+    verify(spiedChunk, times(1)).readArrowData(any(InputStream.class));
   }
 
   private BaseChunkInfo createMockBaseChunkInfo(long chunkIndex, long rowCount, long rowOffset) {
