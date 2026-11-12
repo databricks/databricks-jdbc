@@ -8,10 +8,13 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import net.jpountz.lz4.LZ4Factory;
 import net.jpountz.lz4.LZ4FrameOutputStream;
 import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 public class DecompressionUtilTest {
   private static final String CONTEXT = "testContext";
@@ -83,6 +86,26 @@ public class DecompressionUtilTest {
     assertThrows(
         DatabricksParsingException.class,
         () -> DecompressionUtil.decompress(corrupted, CompressionCodec.LZ4_FRAME, CONTEXT));
+    // The lazy path reports the mismatch when the stream is read.
+    assertThrows(
+        IOException.class,
+        () ->
+            IOUtils.toByteArray(
+                DecompressionUtil.decompressLazy(corrupted, CompressionCodec.LZ4_FRAME, CONTEXT)));
+  }
+
+  @Test
+  public void testInlineDecompressionDoesNotLookUpLz4FactoryPerStream() throws Exception {
+    byte[] compressed = checksummedFrame("data".getBytes());
+    // Initialize DecompressionUtil's shared instances before counting lookups.
+    DecompressionUtil.decompress(compressed, CompressionCodec.LZ4_FRAME, CONTEXT);
+    try (MockedStatic<LZ4Factory> factory =
+        Mockito.mockStatic(LZ4Factory.class, Mockito.CALLS_REAL_METHODS)) {
+      DecompressionUtil.decompress(compressed, CompressionCodec.LZ4_FRAME, CONTEXT);
+      IOUtils.toByteArray(
+          DecompressionUtil.decompressLazy(compressed, CompressionCodec.LZ4_FRAME, CONTEXT));
+      factory.verify(LZ4Factory::fastestInstance, Mockito.never());
+    }
   }
 
   @Test
