@@ -3,6 +3,7 @@ package com.databricks.jdbc.common.util;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.databricks.jdbc.common.CompressionCodec;
+import com.databricks.jdbc.exception.DatabricksParsingException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -37,6 +38,51 @@ public class DecompressionUtilTest {
     assertNotNull(resultStream, "The decompressed stream should not be null.");
     assertTrue(
         IOUtils.contentEquals(resultStream, new ByteArrayInputStream(INITIAL_STRING.getBytes())));
+  }
+
+  private static byte[] checksummedFrame(byte[] data) throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (LZ4FrameOutputStream lz4 =
+        new LZ4FrameOutputStream(
+            out,
+            LZ4FrameOutputStream.BLOCKSIZE.SIZE_64KB,
+            data.length,
+            LZ4FrameOutputStream.FLG.Bits.BLOCK_INDEPENDENCE,
+            LZ4FrameOutputStream.FLG.Bits.BLOCK_CHECKSUM,
+            LZ4FrameOutputStream.FLG.Bits.CONTENT_CHECKSUM,
+            LZ4FrameOutputStream.FLG.Bits.CONTENT_SIZE)) {
+      lz4.write(data);
+    }
+    return out.toByteArray();
+  }
+
+  @Test
+  public void testDecompressChecksummedMultiBlockFrames() throws Exception {
+    byte[] first = new byte[200_000];
+    new java.util.Random(7).nextBytes(first);
+    byte[] second = "second frame".getBytes();
+    ByteArrayOutputStream concatenated = new ByteArrayOutputStream();
+    concatenated.write(checksummedFrame(first));
+    concatenated.write(checksummedFrame(second));
+    byte[] compressed = concatenated.toByteArray();
+    ByteArrayOutputStream expected = new ByteArrayOutputStream();
+    expected.write(first);
+    expected.write(second);
+
+    assertArrayEquals(
+        expected.toByteArray(),
+        DecompressionUtil.decompress(compressed, CompressionCodec.LZ4_FRAME, CONTEXT));
+    assertArrayEquals(
+        expected.toByteArray(),
+        IOUtils.toByteArray(
+            DecompressionUtil.decompressLazy(compressed, CompressionCodec.LZ4_FRAME, CONTEXT)));
+
+    // Flip a byte of the trailing content checksum.
+    byte[] corrupted = checksummedFrame(second);
+    corrupted[corrupted.length - 1] ^= 0x1;
+    assertThrows(
+        DatabricksParsingException.class,
+        () -> DecompressionUtil.decompress(corrupted, CompressionCodec.LZ4_FRAME, CONTEXT));
   }
 
   @Test
