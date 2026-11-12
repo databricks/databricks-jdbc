@@ -496,7 +496,7 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
     IDatabricksConnectionContext second = hostContext("snapshot.databricks.com", "uuid-snap-2");
     IDatabricksHttpClient httpClient =
         httpClientReturning(
-            flagsResponse(200, "[{\"name\":\"snap.flag\",\"value\":\"true\"}]", 300));
+            flagsResponse(200, "[{\"name\":\"snap.flag\",\"value\":\"true\"}]", 3600));
     ScheduledExecutorService scheduler = spy(Executors.newSingleThreadScheduledExecutor());
     try (MockedStatic<DatabricksHttpClientFactory> factory = mockHttpClientFactory(httpClient);
         MockedConstruction<ClientConfigurator> configurators = mockConfigurators()) {
@@ -515,13 +515,13 @@ class DatabricksDriverFeatureFlagsContextFactoryTest {
 
       assertTrue(reopened.getBoolean("snap.flag"));
       verify(httpClient, times(1)).execute(any(HttpGet.class));
-      // The first refresh is due when the snapshot expires (just under 300 s from now), then every
-      // server TTL.
+      // Reuse is capped at the 15 minutes a newly fetched context waits before its first refresh,
+      // even with a longer server TTL; the first refresh is due when the snapshot expires.
       verify(scheduler)
           .scheduleAtFixedRate(
               any(Runnable.class),
-              longThat(delay -> delay >= 290 && delay < 300),
-              eq(300L),
+              longThat(delay -> delay >= 890 && delay < 900),
+              eq(900L),
               eq(TimeUnit.SECONDS));
     } finally {
       DatabricksDriverFeatureFlagsContextFactory.removeInstance(second);

@@ -49,7 +49,7 @@ public class DatabricksDriverFeatureFlagsContext {
 
   /**
    * Last successful response per request shape, so a context created after the previous one for the
-   * same host shut down can skip the initial fetch while the response is within its TTL.
+   * same host shut down can skip the initial fetch while the response is recent.
    */
   private static final Cache<String, FlagsSnapshot> SNAPSHOTS =
       CacheBuilder.newBuilder().maximumSize(MAX_SNAPSHOTS).build();
@@ -126,9 +126,9 @@ public class DatabricksDriverFeatureFlagsContext {
   }
 
   /**
-   * Loads the caller's last fetched flags if still within their TTL and schedules the next refresh
-   * for when they expire, so flags are no staler than in a context that stayed open. Returns false,
-   * so the caller fetches, if there is no usable snapshot or the lookup fails.
+   * Loads the caller's last fetched flags if they are unexpired and schedules the first refresh for
+   * when they expire, then refreshes as a newly fetched context does. Returns false, so the caller
+   * fetches, if there is no usable snapshot or the lookup fails.
    */
   private boolean seedFromSnapshot(IDatabricksConnectionContext callerContext) {
     try {
@@ -148,7 +148,7 @@ public class DatabricksDriverFeatureFlagsContext {
       }
       snapshot.flags.forEach(featureFlags::put);
       long remainingSeconds = TimeUnit.NANOSECONDS.toSeconds(remainingNanos);
-      scheduleRefresh(remainingSeconds, snapshot.ttlSeconds);
+      scheduleRefresh(remainingSeconds, DEFAULT_TTL_SECONDS);
       LOGGER.debug(
           "Reusing feature flags fetched for {} (next refresh in {}s)",
           featureFlagEndpoint,
@@ -378,14 +378,19 @@ public class DatabricksDriverFeatureFlagsContext {
 
   static final class FlagsSnapshot {
     final Map<String, String> flags;
-    final int ttlSeconds;
     final long expiresAtNanos;
 
-    /** Expiry counts from when the request was sent, so it never outlives the server's TTL. */
+    /**
+     * Expires when a newly fetched context would first refresh (the default interval, or the
+     * server's TTL if shorter), counted from when the request was sent.
+     */
     FlagsSnapshot(Map<String, String> flags, Integer ttlSeconds, long requestStartNanos) {
       this.flags = Collections.unmodifiableMap(flags);
-      this.ttlSeconds = ttlSeconds != null && ttlSeconds > 0 ? ttlSeconds : DEFAULT_TTL_SECONDS;
-      this.expiresAtNanos = requestStartNanos + TimeUnit.SECONDS.toNanos(this.ttlSeconds);
+      int lifetimeSeconds =
+          ttlSeconds != null && ttlSeconds > 0
+              ? Math.min(ttlSeconds, DEFAULT_TTL_SECONDS)
+              : DEFAULT_TTL_SECONDS;
+      this.expiresAtNanos = requestStartNanos + TimeUnit.SECONDS.toNanos(lifetimeSeconds);
     }
   }
 }

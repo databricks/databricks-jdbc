@@ -6,7 +6,7 @@
 
 ### Updated
 
-- Reduced `getConnection()` latency for apps that open connections one at a time or after idle periods: a new connection reuses the driver feature flags fetched for the same host, User-Agent, and custom headers within the server-provided TTL (15 minutes if none) instead of fetching them again.
+- Reduced `getConnection()` latency for apps that open connections one at a time or after idle periods: a new connection reuses the driver feature flags fetched in the last 15 minutes (or within the server's TTL, if shorter) for the same host, User-Agent, and custom headers instead of fetching them again.
 
 ### Fixed
 
