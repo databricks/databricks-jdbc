@@ -22,7 +22,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * up downloads for another. Each host gets the full heap-based budget, so a JVM querying several
  * workspaces at once can have that many downloads in progress per host. Within one host, a download
  * keeps its permit through the HTTP client's own retries and slow reads, which can delay that
- * host's other queries, but never through a link-fetch RPC or the task's retry backoff. A user-set
+ * host's other queries, but never while waiting on a link-fetch RPC or in the task's retry backoff
+ * (a Thrift task may briefly hold it while it checks for an already refreshed link). A user-set
  * {@code ChunkReadyTimeoutSeconds} includes the time spent waiting for a permit.
  *
  * <p>While a query whose {@code cloudFetchThreadPoolSize} is above the heap-based default is open,
