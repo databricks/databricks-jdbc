@@ -10,6 +10,7 @@ import com.databricks.jdbc.model.core.ExternalLink;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 /** Task class to manage download for a single chunk. */
@@ -81,17 +82,32 @@ class ChunkDownloadTask implements DatabricksCallableTask {
                 statementId,
                 chunk.getChunkIndex());
           }
+          boolean refreshPending = false;
           try {
             if (waited && chunk.isChunkLinkInvalid()) {
-              // Expired while waiting; refresh it without giving up the permit and waiting again.
-              chunk.setChunkLink(linkDownloadService.getLinkForChunk(chunk.getChunkIndex()).get());
+              // Expired while waiting. Use a refreshed link that is already there without waiting
+              // for a permit again, but do not hold the permit while a link fetch is in flight.
+              CompletableFuture<ExternalLink> link =
+                  linkDownloadService.getLinkForChunk(chunk.getChunkIndex());
+              if (link.isDone()) {
+                chunk.setChunkLink(link.get());
+              } else {
+                refreshPending = true;
+              }
             }
-            chunk.downloadData(
-                httpClient,
-                chunkDownloader.getCompressionCodec(),
-                connectionContext != null ? connectionContext.getCloudFetchSpeedThreshold() : 0.1);
+            if (!refreshPending) {
+              chunk.downloadData(
+                  httpClient,
+                  chunkDownloader.getCompressionCodec(),
+                  connectionContext != null
+                      ? connectionContext.getCloudFetchSpeedThreshold()
+                      : 0.1);
+            }
           } finally {
             limiter.release();
+          }
+          if (refreshPending) {
+            continue; // waits for the link at the top of the loop
           }
           downloadSuccessful = true;
           long taskTotalMs = (System.nanoTime() - taskStartTime) / 1_000_000;

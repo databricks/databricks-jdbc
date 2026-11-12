@@ -275,6 +275,63 @@ class ChunkDownloadLimiterTest {
   }
 
   @Test
+  void testPendingLinkRefreshAfterWaitDoesNotHoldPermit() throws Exception {
+    ChunkDownloadLimiter limiter = newLimiter();
+    CompletableFuture<Void> ready = new CompletableFuture<>();
+    when(remoteChunkProvider.getDownloadLimiter()).thenReturn(limiter);
+    when(remoteChunkProvider.getCompressionCodec()).thenReturn(CompressionCodec.NONE);
+    when(chunk.getChunkReadyFuture()).thenReturn(ready);
+    // Valid before the permit wait, expired after it and until the refresh lands.
+    when(chunk.isChunkLinkInvalid()).thenReturn(false, true, true);
+    CompletableFuture<ExternalLink> pendingLink = new CompletableFuture<>();
+    AtomicInteger linkRequests = new AtomicInteger();
+    when(linkDownloadService.getLinkForChunk(anyLong()))
+        .thenAnswer(
+            invocation -> {
+              linkRequests.incrementAndGet();
+              return pendingLink;
+            });
+
+    int held = limiter.availablePermits();
+    for (int i = 0; i < held; i++) {
+      limiter.acquire();
+    }
+    ExecutorService pool = Executors.newSingleThreadExecutor();
+    try {
+      Future<Void> result =
+          pool.submit(
+              new ChunkDownloadTask(chunk, httpClient, remoteChunkProvider, linkDownloadService));
+      awaitTrue(limiter::hasQueuedThreads, "task never waited for a permit");
+      limiter.release();
+      // The second request comes after the task gave its permit back to wait for the link.
+      awaitTrue(() -> linkRequests.get() == 2, "task never waited for the pending link");
+      assertEquals(1, limiter.availablePermits());
+      verify(chunk, never()).downloadData(any(), any(), anyDouble());
+
+      pendingLink.complete(mock(ExternalLink.class));
+      result.get(30, TimeUnit.SECONDS);
+    } finally {
+      pool.shutdownNow();
+      for (int i = 1; i < held; i++) {
+        limiter.release();
+      }
+    }
+    verify(chunk, times(1)).downloadData(any(), any(), anyDouble());
+    verify(chunk, never()).setStatus(ChunkStatus.DOWNLOAD_RETRY);
+    assertTrue(ready.isDone() && !ready.isCompletedExceptionally());
+    assertEquals(limiter.totalPermits(), limiter.availablePermits());
+  }
+
+  private static void awaitTrue(java.util.function.BooleanSupplier condition, String message)
+      throws InterruptedException {
+    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+    while (!condition.getAsBoolean() && System.nanoTime() < deadline) {
+      Thread.sleep(5);
+    }
+    assertTrue(condition.getAsBoolean(), message);
+  }
+
+  @Test
   void testStreamingLinkExpiredWhileWaitingIsRefreshedWithoutRetry() throws Exception {
     ChunkDownloadLimiter limiter = newLimiter();
     CompletableFuture<Void> ready = new CompletableFuture<>();
