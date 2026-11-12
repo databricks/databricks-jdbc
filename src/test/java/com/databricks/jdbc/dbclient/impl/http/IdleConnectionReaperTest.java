@@ -7,6 +7,8 @@ import static org.mockito.Mockito.*;
 import com.databricks.jdbc.api.impl.DatabricksConnectionContext;
 import com.databricks.jdbc.api.internal.IDatabricksConnectionContext;
 import com.databricks.jdbc.common.HttpClientType;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -136,6 +138,21 @@ public class IdleConnectionReaperTest {
     }
     assertFalse(secondClient.isIdleConnectionEvictionActive());
     assertEquals(before, IdleConnectionReaper.registrationCount());
+  }
+
+  @Test
+  void testThreadDoesNotPinTheStartingCallersContextClassLoader() throws Exception {
+    Thread current = Thread.currentThread();
+    ClassLoader original = current.getContextClassLoader();
+    try (URLClassLoader webapp = new URLClassLoader(new URL[0], original)) {
+      current.setContextClassLoader(webapp);
+      Thread thread = IdleConnectionReaper.newThread(() -> {});
+      assertSame(IdleConnectionReaper.class.getClassLoader(), thread.getContextClassLoader());
+      assertTrue(thread.isDaemon());
+      assertEquals(IdleConnectionReaper.THREAD_NAME, thread.getName());
+    } finally {
+      current.setContextClassLoader(original);
+    }
   }
 
   @Test

@@ -35,14 +35,7 @@ final class IdleConnectionReaper {
   static synchronized Registration register(
       HttpClientConnectionManager manager, long maxIdle, TimeUnit unit) {
     if (executor == null) {
-      executor =
-          new ScheduledThreadPoolExecutor(
-              1,
-              runnable -> {
-                Thread thread = new Thread(runnable, THREAD_NAME);
-                thread.setDaemon(true);
-                return thread;
-              });
+      executor = new ScheduledThreadPoolExecutor(1, IdleConnectionReaper::newThread);
       executor.setRemoveOnCancelPolicy(true);
     }
     long maxIdleMs = unit.toMillis(maxIdle);
@@ -52,6 +45,15 @@ final class IdleConnectionReaper {
             () -> evict(manager, maxIdleMs), intervalMs, intervalMs, TimeUnit.MILLISECONDS);
     registrations++;
     return new Registration(future);
+  }
+
+  @VisibleForTesting
+  static Thread newThread(Runnable runnable) {
+    Thread thread = new Thread(runnable, THREAD_NAME);
+    thread.setDaemon(true);
+    // The thread outlives the caller that starts it, so don't pin that caller's class loader.
+    thread.setContextClassLoader(IdleConnectionReaper.class.getClassLoader());
+    return thread;
   }
 
   private static void evict(HttpClientConnectionManager manager, long maxIdleMs) {
