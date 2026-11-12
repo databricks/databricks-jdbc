@@ -26,9 +26,9 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Converts DATE and TIMESTAMP values to the JDBC 4.2 {@code java.time} types for {@code
- * ResultSet.getObject(column, Class)}, and for nested values read through a type map ({@code
- * Array.getArray(Map)}, {@code Struct.getAttributes(Map)}).
+ * Converts DATE and TIMESTAMP values, and ISO date or timestamp text in string columns, to the JDBC
+ * 4.2 {@code java.time} types for {@code ResultSet.getObject(column, Class)}, and for nested values
+ * read through a type map ({@code Array.getArray(Map)}, {@code Struct.getAttributes(Map)}).
  *
  * <p>Databricks stores DATE and TIMESTAMP on the proleptic Gregorian calendar. {@code
  * java.sql.Date} and {@code java.sql.Timestamp} use the hybrid Julian/Gregorian calendar and have
@@ -102,7 +102,12 @@ public final class JavaTimeConverter {
   }
 
   /**
-   * Converts a DATE or TIMESTAMP value to the requested {@code java.time} type.
+   * Converts a DATE or TIMESTAMP value, or ISO date or timestamp text in a string column, to the
+   * requested {@code java.time} type.
+   *
+   * <p>String columns (as JDBC 4.2 allows) follow the rules of the type the text reads as: a date
+   * alone as DATE, a date and time as TIMESTAMP_NTZ, and a date and time with an offset as
+   * TIMESTAMP.
    *
    * @param type the requested class, one of the types accepted by {@link #isJavaTimeType}
    * @param columnSqlType the column type, as defined in {@link Types}
@@ -118,10 +123,12 @@ public final class JavaTimeConverter {
     if (value == null) {
       return null;
     }
-    if (columnSqlType != Types.DATE && columnSqlType != Types.TIMESTAMP) {
+    boolean isText = isCharacterType(columnSqlType);
+    if (columnSqlType != Types.DATE && columnSqlType != Types.TIMESTAMP && !isText) {
       throw unsupported(
           String.format(
-              "Cannot convert a %s column to %s; only DATE and TIMESTAMP columns are supported",
+              "Cannot convert a %s column to %s; only DATE, TIMESTAMP and string columns are"
+                  + " supported",
               describeColumn(columnSqlType, columnTypeName), type.getName()));
     }
     Temporal temporal = toTemporal(columnSqlType, columnTypeName, value);
@@ -142,12 +149,21 @@ public final class JavaTimeConverter {
               type.getName()));
     }
     if (temporal instanceof LocalDate) {
-      return fromDate(type, (LocalDate) temporal);
+      return fromDate(type, (LocalDate) temporal, isText);
     }
     if (temporal instanceof LocalDateTime) {
-      return fromTimestampNtz(type, (LocalDateTime) temporal);
+      return fromTimestampNtz(type, (LocalDateTime) temporal, isText);
     }
     return fromTimestamp(type, (OffsetDateTime) temporal);
+  }
+
+  private static boolean isCharacterType(int columnSqlType) {
+    return columnSqlType == Types.VARCHAR
+        || columnSqlType == Types.CHAR
+        || columnSqlType == Types.LONGVARCHAR
+        || columnSqlType == Types.NVARCHAR
+        || columnSqlType == Types.NCHAR
+        || columnSqlType == Types.LONGNVARCHAR;
   }
 
   /**
@@ -187,7 +203,19 @@ public final class JavaTimeConverter {
    * @return the mapped {@code java.time} class, or null
    */
   public static Class<?> getJavaTimeMapping(Map<String, Class<?>> typeMap, String typeName) {
-    if (typeMap == null || !isTemporalTypeName(typeName)) {
+    return isTemporalTypeName(typeName) ? findJavaTimeMapping(typeMap, typeName) : null;
+  }
+
+  /**
+   * Returns the {@code java.time} class that a JDBC type map assigns to {@code typeName}, for any
+   * column type. Keys are matched case-insensitively; non-{@code java.time} classes are ignored.
+   *
+   * @param typeMap a JDBC type map, may be null
+   * @param typeName the column type name, may be null
+   * @return the mapped {@code java.time} class, or null
+   */
+  public static Class<?> findJavaTimeMapping(Map<String, Class<?>> typeMap, String typeName) {
+    if (typeMap == null || typeName == null) {
       return null;
     }
     for (Map.Entry<String, Class<?>> entry : typeMap.entrySet()) {
@@ -218,8 +246,8 @@ public final class JavaTimeConverter {
    * @param columnSqlType the column type, as defined in {@link Types}
    * @param columnTypeName the column type name, used to tell TIMESTAMP_NTZ text apart; may be null
    * @param value the source value, see the class documentation
-   * @return the normalized value, or null if the column is not DATE or TIMESTAMP, the value type
-   *     does not match the column, or the text cannot be parsed
+   * @return the normalized value, or null if the column is not DATE, TIMESTAMP or a string type,
+   *     the value type does not match the column, or the text cannot be parsed
    */
   public static Temporal toTemporal(int columnSqlType, String columnTypeName, Object value) {
     if (columnSqlType == Types.DATE) {
@@ -249,6 +277,10 @@ public final class JavaTimeConverter {
       if (value instanceof String) {
         return normalizeTimestampText((String) value, isTimestampNtz);
       }
+    } else if (isCharacterType(columnSqlType) && value instanceof String) {
+      // A date and time, with or without an offset, or a date alone.
+      Temporal timestamp = parseTimestampText((String) value);
+      return timestamp != null ? timestamp : parseDateText((String) value);
     }
     return null;
   }
@@ -264,7 +296,8 @@ public final class JavaTimeConverter {
     }
   }
 
-  private static Object fromDate(Class<?> type, LocalDate date) throws DatabricksSQLException {
+  private static Object fromDate(Class<?> type, LocalDate date, boolean isText)
+      throws DatabricksSQLException {
     if (type == LocalDate.class) {
       return date;
     }
@@ -272,12 +305,16 @@ public final class JavaTimeConverter {
       return date.atStartOfDay();
     }
     throw unsupported(
-        String.format(
-            "Cannot convert a DATE value to %s: DATE has no time of day or time zone",
-            type.getName()));
+        isText
+            ? String.format(
+                "Cannot convert date text to %s: it has no time of day or time zone",
+                type.getName())
+            : String.format(
+                "Cannot convert a DATE value to %s: DATE has no time of day or time zone",
+                type.getName()));
   }
 
-  private static Object fromTimestampNtz(Class<?> type, LocalDateTime dateTime)
+  private static Object fromTimestampNtz(Class<?> type, LocalDateTime dateTime, boolean isText)
       throws DatabricksSQLException {
     if (type == LocalDate.class) {
       return dateTime.toLocalDate();
@@ -286,10 +323,15 @@ public final class JavaTimeConverter {
       return dateTime;
     }
     throw unsupported(
-        String.format(
-            "Cannot convert a TIMESTAMP_NTZ value to %s: TIMESTAMP_NTZ has no time zone; "
-                + "use java.time.LocalDateTime",
-            type.getName()));
+        isText
+            ? String.format(
+                "Cannot convert timestamp text without an offset to %s; "
+                    + "use java.time.LocalDateTime",
+                type.getName())
+            : String.format(
+                "Cannot convert a TIMESTAMP_NTZ value to %s: TIMESTAMP_NTZ has no time zone; "
+                    + "use java.time.LocalDateTime",
+                type.getName()));
   }
 
   private static Object fromTimestamp(Class<?> type, OffsetDateTime dateTime) {

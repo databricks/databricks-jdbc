@@ -1539,13 +1539,13 @@ public class DatabricksResultSetTest {
     when(mockedExecutionResult.getTemporalObject(0))
         .thenReturn(LocalDateTime.of(2023, 1, 1, 12, 30));
     when(mockedExecutionResult.getTemporalObject(1)).thenReturn(LocalDate.of(2023, 1, 1));
-    when(mockedExecutionResult.getTemporalObject(2)).thenReturn("2023-01-01T00:00:00Z");
+    when(mockedExecutionResult.getTemporalObject(2)).thenReturn(42L);
     when(mockedResultSetMetadata.getColumnType(1)).thenReturn(Types.TIMESTAMP);
     when(mockedResultSetMetadata.getColumnTypeName(1)).thenReturn("TIMESTAMP_NTZ");
     when(mockedResultSetMetadata.getColumnType(2)).thenReturn(Types.DATE);
     when(mockedResultSetMetadata.getColumnTypeName(2)).thenReturn("DATE");
-    when(mockedResultSetMetadata.getColumnType(3)).thenReturn(Types.VARCHAR);
-    when(mockedResultSetMetadata.getColumnTypeName(3)).thenReturn("STRING");
+    when(mockedResultSetMetadata.getColumnType(3)).thenReturn(Types.BIGINT);
+    when(mockedResultSetMetadata.getColumnTypeName(3)).thenReturn("BIGINT");
 
     for (SQLException exception :
         List.of(
@@ -1557,6 +1557,27 @@ public class DatabricksResultSetTest {
       assertEquals(
           DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.getCode(), exception.getErrorCode());
     }
+  }
+
+  @Test
+  void testGetObjectWithJavaTimeClass_StringColumnParsesIsoText() throws SQLException {
+    // JDBC 4.2 allows CHAR/VARCHAR sources for java.time types.
+    DatabricksResultSet resultSet = getResultSet(StatementState.SUCCEEDED, null);
+    when(mockedExecutionResult.getTemporalObject(0)).thenReturn("1582-10-05");
+    when(mockedExecutionResult.getTemporalObject(1)).thenReturn("2023-01-01T10:30:00Z");
+    when(mockedResultSetMetadata.getColumnType(anyInt())).thenReturn(Types.VARCHAR);
+    when(mockedResultSetMetadata.getColumnTypeName(anyInt())).thenReturn("STRING");
+    when(mockedResultSetMetadata.getColumnCount()).thenReturn(2);
+
+    assertEquals(LocalDate.of(1582, 10, 5), resultSet.getObject(1, LocalDate.class));
+    assertEquals(Instant.parse("2023-01-01T10:30:00Z"), resultSet.getObject(2, Instant.class));
+    // Type-map keys match case-insensitively, as for nested values.
+    assertEquals(
+        LocalDate.of(1582, 10, 5),
+        resultSet.getObject(1, java.util.Map.of("string", LocalDate.class)));
+    SQLException exception =
+        assertThrows(SQLException.class, () -> resultSet.getObject(1, Instant.class));
+    assertEquals(DatabricksDriverErrorCode.UNSUPPORTED_OPERATION.name(), exception.getSQLState());
   }
 
   @Test

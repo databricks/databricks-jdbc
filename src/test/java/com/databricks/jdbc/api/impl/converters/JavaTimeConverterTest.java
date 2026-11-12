@@ -142,7 +142,39 @@ public class JavaTimeConverterTest {
             "TIMESTAMP",
             "1000-01-01 00:00:00.123456",
             LocalDateTime.class,
-            LocalDateTime.of(1000, 1, 1, 0, 0, 0, 123_456_000)));
+            LocalDateTime.of(1000, 1, 1, 0, 0, 0, 123_456_000)),
+        // ISO text in string columns (JDBC 4.2 allows CHAR/VARCHAR sources)
+        Arguments.of(Types.VARCHAR, "STRING", "1582-10-05", LocalDate.class, GAP_DATE),
+        Arguments.of(
+            Types.VARCHAR,
+            "STRING",
+            "2023-01-01",
+            LocalDateTime.class,
+            LocalDateTime.of(2023, 1, 1, 0, 0)),
+        Arguments.of(
+            Types.CHAR,
+            "STRING",
+            "2023-01-01 10:30:00",
+            LocalDateTime.class,
+            LocalDateTime.of(2023, 1, 1, 10, 30)),
+        Arguments.of(
+            Types.VARCHAR,
+            "STRING",
+            "2023-01-01 10:30:00",
+            LocalDate.class,
+            LocalDate.of(2023, 1, 1)),
+        Arguments.of(
+            Types.VARCHAR,
+            "STRING",
+            "2023-01-01T10:30:00Z",
+            Instant.class,
+            Instant.parse("2023-01-01T10:30:00Z")),
+        Arguments.of(
+            Types.LONGVARCHAR,
+            "STRING",
+            "2023-01-01T10:30:00+05:30",
+            OffsetDateTime.class,
+            OffsetDateTime.parse("2023-01-01T05:00:00Z")));
   }
 
   @ParameterizedTest
@@ -238,10 +270,12 @@ public class JavaTimeConverterTest {
         Arguments.of(Types.TIMESTAMP, "TIMESTAMP_NTZ", BC_DATE_TIME, Instant.class),
         Arguments.of(Types.TIMESTAMP, "TIMESTAMP", BC_DATE_TIME, OffsetDateTime.class),
         Arguments.of(Types.TIMESTAMP, "TIMESTAMP_NTZ", "2023-01-01 12:30:00", Instant.class),
-        // Non-temporal columns
-        Arguments.of(Types.VARCHAR, "STRING", "2023-01-01", LocalDate.class),
-        Arguments.of(Types.VARCHAR, "STRING", "2023-01-01T00:00:00Z", Instant.class),
+        // Non-temporal, non-string columns
         Arguments.of(Types.BIGINT, "BIGINT", 1L, LocalDateTime.class),
+        // String columns: no zone in the text, or not a date
+        Arguments.of(Types.VARCHAR, "STRING", "2023-01-01", Instant.class),
+        Arguments.of(Types.VARCHAR, "STRING", "2023-01-01 10:30:00", OffsetDateTime.class),
+        Arguments.of(Types.VARCHAR, "STRING", "hello", LocalDate.class),
         Arguments.of(Types.DECIMAL, null, BigDecimal.ONE, OffsetDateTime.class),
         // Value types that do not match the column type
         Arguments.of(Types.DATE, "DATE", BC_DATE_TIME, LocalDate.class),
@@ -297,6 +331,11 @@ public class JavaTimeConverterTest {
     assertNull(JavaTimeConverter.getJavaTimeMapping(typeMap, "TIMESTAMP_NTZ"));
     assertNull(JavaTimeConverter.getJavaTimeMapping(typeMap, "INT"));
     assertNull(JavaTimeConverter.getJavaTimeMapping(null, "DATE"));
+    // findJavaTimeMapping applies to any type name, still case-insensitively.
+    assertEquals(LocalDate.class, JavaTimeConverter.findJavaTimeMapping(typeMap, "int"));
+    assertEquals(LocalDate.class, JavaTimeConverter.findJavaTimeMapping(typeMap, "Date"));
+    assertNull(JavaTimeConverter.findJavaTimeMapping(typeMap, "TIMESTAMP_NTZ"));
+    assertNull(JavaTimeConverter.findJavaTimeMapping(typeMap, null));
   }
 
   @Test

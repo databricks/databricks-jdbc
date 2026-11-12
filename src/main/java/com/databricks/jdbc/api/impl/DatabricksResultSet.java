@@ -2471,16 +2471,17 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
   }
 
   /**
-   * Returns the {@code java.time} class that {@code map} assigns to the column's type name, or null
-   * if there is none (including for an invalid column index, which the caller reports).
+   * Returns the {@code java.time} class that {@code map} assigns to the column's type name, matched
+   * case-insensitively as for nested values, or null if there is none (including for an invalid
+   * column index, which the caller reports).
    */
   private Class<?> getMappedJavaTimeType(int columnIndex, Map<String, Class<?>> map)
       throws SQLException {
     if (map == null || columnIndex <= 0 || columnIndex > resultSetMetaData.getColumnCount()) {
       return null;
     }
-    Class<?> type = map.get(resultSetMetaData.getColumnTypeName(columnIndex));
-    return JavaTimeConverter.isJavaTimeType(type) ? type : null;
+    return JavaTimeConverter.findJavaTimeMapping(
+        map, resultSetMetaData.getColumnTypeName(columnIndex));
   }
 
   private static boolean isIntegralType(Class<?> type) {
