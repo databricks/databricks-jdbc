@@ -901,4 +901,136 @@ public class ArrowToJavaObjectConverterTest {
 
     varCharVector.close();
   }
+
+  /** What convertToDecimal returned before it skipped the string round trip for BigDecimal. */
+  private static BigDecimal decimalViaString(Object value, Long scale) {
+    BigDecimal bigDecimal = new BigDecimal(value.toString());
+    return scale == null
+        ? bigDecimal
+        : bigDecimal.setScale(scale.intValue(), java.math.RoundingMode.HALF_UP);
+  }
+
+  @Test
+  public void testConvertToDecimalMatchesStringRoundTripForBigDecimal()
+      throws DatabricksValidationException {
+    String[] values = {
+      "0",
+      "0E-10",
+      "123",
+      "-123",
+      "1.2300",
+      "-1.2300",
+      "0.0000000001",
+      "-0.0000000001",
+      "1E+3",
+      "-4.5E-12",
+      "9999999999999999999999999999.9999999999",
+      "-9999999999999999999999999999.9999999999",
+      "99999999999999999999999999999999999999",
+      "-12345678901234567890123456789012345678"
+    };
+    Long[] columnScales = {null, 0L, 2L, 10L};
+    for (String value : values) {
+      for (Long columnScale : columnScales) {
+        BigDecimal input = new BigDecimal(value);
+        ColumnInfo columnInfo = new ColumnInfo().setTypeScale(columnScale).setTypePrecision(38L);
+        // BigDecimal.equals compares both the value and the scale.
+        assertEquals(
+            decimalViaString(input, columnScale),
+            ArrowToJavaObjectConverter.convertToDecimal(input, columnInfo),
+            value + " with column scale " + columnScale);
+      }
+    }
+  }
+
+  @Test
+  public void testDecimal38VectorConversionMatchesStringRoundTrip() throws SQLException {
+    String[] values = {
+      "-9999999999999999999999999999.9999999999",
+      "9999999999999999999999999999.9999999999",
+      "0E-10",
+      "1.2300000000",
+      "-0.0000000001",
+      null,
+      "-42.0000000000",
+      "1234567890123456789012345678.1234567890"
+    };
+    ColumnInfo columnInfo = new ColumnInfo().setTypeScale(10L).setTypePrecision(38L);
+    try (DecimalVector vector = new DecimalVector("decimal38", bufferAllocator, 38, 10)) {
+      vector.allocateNew(values.length);
+      for (int i = 0; i < values.length; i++) {
+        if (values[i] == null) {
+          vector.setNull(i);
+        } else {
+          vector.set(i, new BigDecimal(values[i]));
+        }
+      }
+      vector.setValueCount(values.length);
+      for (int i = 0; i < values.length; i++) {
+        Object actual =
+            convert(vector, i, ColumnInfoTypeName.DECIMAL, "DECIMAL(38,10)", columnInfo);
+        if (values[i] == null) {
+          assertNull(actual);
+        } else {
+          assertEquals(new BigDecimal(values[i]), actual);
+          assertEquals(decimalViaString(vector.getObject(i), 10L), actual);
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testZoneIdCacheHandlesAlternatingTimeZones() {
+    Map<String, ZoneId> expected = new LinkedHashMap<>();
+    expected.put("Asia/Tokyo", ZoneId.of("Asia/Tokyo"));
+    expected.put("UTC", ZoneId.of("UTC"));
+    expected.put("+4:15", ZoneOffset.ofHoursMinutes(4, 15));
+    expected.put("America/New_York", ZoneId.of("America/New_York"));
+    expected.put("-9:30", ZoneOffset.ofHoursMinutes(-9, -30));
+    expected.put("Etc/UTC", ZoneId.of("Etc/UTC"));
+    for (int round = 0; round < 2; round++) {
+      for (Map.Entry<String, ZoneId> entry : expected.entrySet()) {
+        assertEquals(entry.getValue(), getZoneIdFromTimeZoneOpt(Optional.of(entry.getKey())));
+        assertEquals(entry.getValue(), getZoneIdFromTimeZoneOpt(Optional.of(entry.getKey())));
+      }
+    }
+    // A failed parse is not cached and does not disturb the cached zone.
+    assertEquals(ZoneId.of("UTC"), getZoneIdFromTimeZoneOpt(Optional.of("UTC")));
+    assertThrows(
+        DateTimeException.class, () -> getZoneIdFromTimeZoneOpt(Optional.of("Invalid/TimeZone")));
+    assertThrows(
+        DateTimeException.class, () -> getZoneIdFromTimeZoneOpt(Optional.of("Invalid/TimeZone")));
+    assertEquals(ZoneId.of("UTC"), getZoneIdFromTimeZoneOpt(Optional.of("UTC")));
+    assertEquals(ZoneId.systemDefault(), getZoneIdFromTimeZoneOpt(Optional.empty()));
+  }
+
+  @Test
+  public void testTimestampConversionWithInterleavedTimeZones() throws SQLException {
+    long[] micros = {1704054601234567L, -1L, 0L, 1699999999999999L};
+    try (TimeStampMicroTZVector tokyo =
+            new TimeStampMicroTZVector("tokyo", bufferAllocator, "Asia/Tokyo");
+        TimeStampMicroTZVector newYork =
+            new TimeStampMicroTZVector("newYork", bufferAllocator, "America/New_York")) {
+      tokyo.allocateNew(micros.length);
+      newYork.allocateNew(micros.length);
+      for (int i = 0; i < micros.length; i++) {
+        tokyo.set(i, micros[i]);
+        newYork.set(i, micros[i]);
+      }
+      tokyo.setValueCount(micros.length);
+      newYork.setValueCount(micros.length);
+      for (int i = 0; i < micros.length; i++) {
+        for (TimeStampMicroTZVector vector : new TimeStampMicroTZVector[] {tokyo, newYork}) {
+          Instant instant =
+              Instant.ofEpochSecond(
+                  Math.floorDiv(micros[i], 1_000_000L),
+                  Math.floorMod(micros[i], 1_000_000L) * 1000);
+          assertEquals(
+              Timestamp.valueOf(LocalDateTime.ofInstant(instant, ZoneId.of(vector.getTimeZone()))),
+              convert(vector, i, ColumnInfoTypeName.TIMESTAMP, "TIMESTAMP", new ColumnInfo()),
+              vector.getTimeZone() + " " + micros[i]);
+        }
+      }
+    }
+  }
 }

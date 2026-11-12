@@ -264,27 +264,50 @@ public class ArrowToJavaObjectConverter {
   static ZoneId getZoneIdFromTimeZoneOpt(Optional<String> timeZoneOpt) {
     if (timeZoneOpt.isPresent()) {
       String tz = timeZoneOpt.get();
-      try {
-        // Try standard parsing first
-        return ZoneId.of(tz);
-      } catch (DateTimeException e) {
-        if (tz.matches("[+-]\\d+:\\d+")) {
-          // Parse custom format like +4:15
-          boolean isNegative = tz.startsWith("-");
-          String[] parts = tz.substring(1).split(":");
-          int hours = Integer.parseInt(parts[0]);
-          int minutes = Integer.parseInt(parts[1]);
-
-          // Always pass positive values and use the sign parameter
-          return ZoneOffset.ofHoursMinutes(
-              isNegative ? -hours : hours, isNegative ? -minutes : minutes);
-        } else {
-          throw e;
-        }
+      // Called for every value, and all values of a column share one time zone.
+      CachedZoneId cached = lastZoneId;
+      if (cached != null && cached.timeZone.equals(tz)) {
+        return cached.zoneId;
       }
+      ZoneId zoneId = parseZoneId(tz);
+      lastZoneId = new CachedZoneId(tz, zoneId);
+      return zoneId;
     }
     // This will happen when reading timestamp_ntz columns
     return ZoneId.systemDefault();
+  }
+
+  private static volatile CachedZoneId lastZoneId;
+
+  private static final class CachedZoneId {
+    final String timeZone;
+    final ZoneId zoneId;
+
+    CachedZoneId(String timeZone, ZoneId zoneId) {
+      this.timeZone = timeZone;
+      this.zoneId = zoneId;
+    }
+  }
+
+  private static ZoneId parseZoneId(String tz) {
+    try {
+      // Try standard parsing first
+      return ZoneId.of(tz);
+    } catch (DateTimeException e) {
+      if (tz.matches("[+-]\\d+:\\d+")) {
+        // Parse custom format like +4:15
+        boolean isNegative = tz.startsWith("-");
+        String[] parts = tz.substring(1).split(":");
+        int hours = Integer.parseInt(parts[0]);
+        int minutes = Integer.parseInt(parts[1]);
+
+        // Always pass positive values and use the sign parameter
+        return ZoneOffset.ofHoursMinutes(
+            isNegative ? -hours : hours, isNegative ? -minutes : minutes);
+      } else {
+        throw e;
+      }
+    }
   }
 
   private static Object convertArrowTextToTimestamp(String arrowText)
@@ -340,7 +363,11 @@ public class ArrowToJavaObjectConverter {
   static BigDecimal convertToDecimal(Object object, ColumnInfo columnInfo)
       throws DatabricksValidationException {
     if (object instanceof Text || object instanceof Number) {
-      BigDecimal bigDecimal = new BigDecimal(object.toString());
+      // BigDecimal(String) recovers a BigDecimal's toString() exactly, so skip the round trip.
+      BigDecimal bigDecimal =
+          object.getClass() == BigDecimal.class
+              ? (BigDecimal) object
+              : new BigDecimal(object.toString());
       Optional<Integer> bigDecimalScale =
           columnInfo.getTypeScale() != null
               ? Optional.of(columnInfo.getTypeScale().intValue())

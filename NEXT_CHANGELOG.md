@@ -6,6 +6,8 @@
 
 ### Updated
 
+- Reading `TIMESTAMP` and `DECIMAL` values from Arrow results takes less CPU: the driver no longer parses the column's time zone for every `TIMESTAMP` value or converts every `DECIMAL` value to a string and back.
+
 ### Fixed
 
 - Removed Thrift handle secrets from timeout, operation, metadata, and session diagnostics.
