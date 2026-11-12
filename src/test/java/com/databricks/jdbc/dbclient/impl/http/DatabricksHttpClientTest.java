@@ -15,7 +15,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.logging.Handler;
 import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
@@ -223,13 +225,35 @@ public class DatabricksHttpClientTest {
   void testExecuteLogsSanitizedRequestWhenDebugEnabled() throws Exception {
     Logger logger = Logger.getLogger(DatabricksHttpClient.class.getName());
     Level previous = logger.getLevel();
+    List<String> messages = new ArrayList<>();
+    Handler capture =
+        new Handler() {
+          @Override
+          public void publish(LogRecord record) {
+            messages.add(record.getMessage());
+          }
+
+          @Override
+          public void flush() {}
+
+          @Override
+          public void close() {}
+        };
+    capture.setLevel(Level.ALL);
     logger.setLevel(Level.FINE);
+    logger.addHandler(capture);
     try {
-      when(mockRequest.getURI()).thenReturn(URI.create("https://host/path?token=secret"));
+      when(mockRequest.getURI())
+          .thenReturn(URI.create("https://host/path?X-Amz-Signature=secret&a=b"));
       when(mockHttpClient.execute(mockRequest)).thenReturn(mockCloseableHttpResponse);
       assertEquals(mockCloseableHttpResponse, databricksHttpClient.execute(mockRequest));
-      verify(mockRequest, atLeastOnce()).getURI();
+      assertTrue(
+          messages.contains(
+              "Executing HTTP request https://host/path?X-Amz-Signature=REDACTED&a=b"),
+          messages.toString());
+      assertTrue(messages.stream().noneMatch(m -> m.contains("secret")), messages.toString());
     } finally {
+      logger.removeHandler(capture);
       logger.setLevel(previous);
     }
   }
