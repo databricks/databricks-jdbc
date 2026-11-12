@@ -2568,6 +2568,13 @@ public class DatabricksResultSet implements IDatabricksResultSet, IDatabricksRes
       return legacyValue;
     }
     Object exact = executionResult.getTemporalObject(columnIndex - 1);
+    if (exact instanceof OffsetDateTime
+        && legacyValue instanceof Timestamp
+        && ((Timestamp) legacyValue).toInstant().equals(((OffsetDateTime) exact).toInstant())) {
+      // The java.sql value already holds the exact instant, e.g. text ending in 'Z', which
+      // java.sql reads as an instant; keep it so the meaning stays the same.
+      return legacyValue;
+    }
     return exact != null ? exact : legacyValue;
   }
 

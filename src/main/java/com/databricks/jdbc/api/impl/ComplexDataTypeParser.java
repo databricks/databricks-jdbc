@@ -28,8 +28,6 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
@@ -180,9 +178,9 @@ public class ComplexDataTypeParser {
    *
    * <p>Arrow serializes these as epoch days, epoch microseconds, or TIMESTAMP_NTZ components, which
    * {@link #convertPrimitive} turns into {@code java.sql} values that cannot represent BC or
-   * pre-1582 values. TIMESTAMP values carry no session time zone here; the fields of the returned
-   * {@link OffsetDateTime} match the {@code java.sql.Timestamp} built from the same value (UTC for
-   * epoch microseconds).
+   * pre-1582 values. TIMESTAMP values carry no session time zone here: epoch microseconds are read
+   * in UTC, matching the {@code java.sql.Timestamp} built from them, and text keeps its rendered
+   * fields and offset, as at the top level.
    */
   private static Temporal convertTemporalNode(JsonNode node, String expectedType) {
     if (node == null || node.isNull()) {
@@ -203,18 +201,7 @@ public class ComplexDataTypeParser {
         return date != null ? date : fromEpochNumber(Long.parseLong(text), baseType);
       }
       Temporal temporal = JavaTimeConverter.toTemporal(Types.TIMESTAMP, baseType, text);
-      if (temporal == null) {
-        return fromEpochNumber(Long.parseLong(text), baseType);
-      }
-      if (temporal instanceof OffsetDateTime && (text.endsWith("Z") || text.endsWith("z"))) {
-        // convertPrimitive reads text ending in 'Z' as an instant in the JVM time zone
-        // (Timestamp.from); keep the same fields.
-        return ((OffsetDateTime) temporal)
-            .toInstant()
-            .atZone(ZoneId.systemDefault())
-            .toOffsetDateTime();
-      }
-      return temporal;
+      return temporal != null ? temporal : fromEpochNumber(Long.parseLong(text), baseType);
     } catch (NumberFormatException | DateTimeException e) {
       return null;
     }

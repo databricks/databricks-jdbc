@@ -41,17 +41,19 @@ import java.util.Map;
  *   <li>{@link LocalDate}: a DATE read from Arrow.
  *   <li>{@link LocalDateTime}: a TIMESTAMP_NTZ read from Arrow.
  *   <li>{@link OffsetDateTime}: a TIMESTAMP read from Arrow, in the session time zone. Values
- *       nested in ARRAY or STRUCT carry no session time zone; their fields match the {@code
- *       java.sql.Timestamp} the driver builds for them (UTC for Arrow's epoch microseconds).
+ *       nested in ARRAY or STRUCT carry no session time zone; Arrow's epoch microseconds are read
+ *       in UTC.
  *   <li>{@link String}: the server's text for the value (JSON and Thrift columnar results).
  *   <li>{@link java.sql.Date} or {@link Timestamp}: a value that only exists as a legacy type.
  * </ul>
  *
- * <p>Text is best effort, the same way {@code getTimestamp()} reads it: the server may already have
- * lost precision or the era; TIMESTAMP text without an offset is read in the JVM time zone, so
- * {@link Instant} and {@link OffsetDateTime} assume the session time zone matches it; and
- * TIMESTAMP_NTZ is recognized from the column metadata, which Thrift columnar results without an
- * Arrow schema report as TIMESTAMP.
+ * <p>Text is best effort: the server may already have lost precision or the era. TIMESTAMP text
+ * with an offset keeps its rendered (session-local) fields for {@link LocalDate} and {@link
+ * LocalDateTime}, as for Arrow results, at the top level and nested; {@code getTimestamp()} instead
+ * reads text ending in 'Z' as an instant in the JVM time zone. TIMESTAMP text without an offset is
+ * read in the JVM time zone, as {@code getTimestamp()} does, so {@link Instant} and {@link
+ * OffsetDateTime} assume the session time zone matches it. TIMESTAMP_NTZ is recognized from the
+ * column metadata, which Thrift columnar results without an Arrow schema report as TIMESTAMP.
  *
  * <p>Supported conversions:
  *

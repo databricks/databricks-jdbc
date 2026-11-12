@@ -227,6 +227,27 @@ public class JavaTimeConverterTest {
   }
 
   @Test
+  public void testConvert_TimestampTextWithZKeepsRenderedFieldsInAnyJvmZone()
+      throws DatabricksSQLException {
+    java.util.TimeZone defaultTimeZone = java.util.TimeZone.getDefault();
+    try {
+      java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Los_Angeles"));
+      String text = "2023-10-05T23:20:30.000Z"; // the previous day in Los Angeles
+      assertEquals(
+          LocalDateTime.of(2023, 10, 5, 23, 20, 30),
+          JavaTimeConverter.convert(LocalDateTime.class, Types.TIMESTAMP, "TIMESTAMP", text));
+      assertEquals(
+          LocalDate.of(2023, 10, 5),
+          JavaTimeConverter.convert(LocalDate.class, Types.TIMESTAMP, "TIMESTAMP", text));
+      assertEquals(
+          Instant.parse("2023-10-05T23:20:30Z"),
+          JavaTimeConverter.convert(Instant.class, Types.TIMESTAMP, "TIMESTAMP", text));
+    } finally {
+      java.util.TimeZone.setDefault(defaultTimeZone);
+    }
+  }
+
+  @Test
   public void testMayBeCalendarShifted() {
     assertTrue(JavaTimeConverter.mayBeCalendarShifted(Date.valueOf(BC_DATE)));
     assertTrue(JavaTimeConverter.mayBeCalendarShifted(Date.valueOf(LocalDate.of(1582, 10, 4))));

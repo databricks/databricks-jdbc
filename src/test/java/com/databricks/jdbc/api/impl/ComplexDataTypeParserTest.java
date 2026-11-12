@@ -2,6 +2,7 @@ package com.databricks.jdbc.api.impl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.databricks.jdbc.api.impl.converters.JavaTimeConverter;
 import com.databricks.jdbc.api.impl.converters.WKTConverter;
 import com.databricks.jdbc.exception.DatabricksParsingException;
 import com.databricks.jdbc.model.telemetry.enums.DatabricksDriverErrorCode;
@@ -835,14 +836,27 @@ public class ComplexDataTypeParserTest {
 
       try (ResultSet resultSet = array.getResultSet()) {
         assertTrue(resultSet.next());
-        // Text ending in 'Z' is an instant, before and after the Gregorian cutover.
+        // getLong keeps reading text ending in 'Z' as an instant, before and after the cutover.
         assertEquals(1696519230000L, resultSet.getLong(2));
         assertEquals(resultSet.getTimestamp(2).getTime(), resultSet.getLong(2));
         assertEquals(Instant.parse("2023-10-05T15:20:30Z"), resultSet.getObject(2, Instant.class));
+        // java.time keeps the rendered fields, the same as a top-level TIMESTAMP column.
+        LocalDateTime rendered = LocalDateTime.of(2023, 10, 5, 15, 20, 30);
+        assertEquals(rendered, resultSet.getObject(2, LocalDateTime.class));
+        assertEquals(
+            JavaTimeConverter.convert(
+                LocalDateTime.class, Types.TIMESTAMP, "TIMESTAMP", "2023-10-05T15:20:30.000Z"),
+            resultSet.getObject(2, LocalDateTime.class));
         assertTrue(resultSet.next());
         assertEquals(-30610224000000L, resultSet.getLong(2));
         assertEquals(Instant.parse("1000-01-01T00:00:00Z"), resultSet.getObject(2, Instant.class));
       }
+      DatabricksStruct struct =
+          parser.parseJsonStringToDbStruct(
+              "{\"ts\":\"2023-10-05T15:20:30.000Z\"}", "STRUCT<ts:TIMESTAMP>");
+      assertEquals(
+          LocalDateTime.of(2023, 10, 5, 15, 20, 30),
+          struct.getAttributes(java.util.Map.of("TIMESTAMP", LocalDateTime.class))[0]);
     } finally {
       java.util.TimeZone.setDefault(defaultTimeZone);
     }
