@@ -284,6 +284,15 @@ public class ArrowToJavaObjectConverter {
 
   private static final ConcurrentHashMap<String, ZoneId> ZONE_ID_CACHE = new ConcurrentHashMap<>();
 
+  // Test hooks for the zone cache.
+  static int zoneIdCacheSize() {
+    return ZONE_ID_CACHE.size();
+  }
+
+  static void clearZoneIdCache() {
+    ZONE_ID_CACHE.clear();
+  }
+
   private static ZoneId parseZoneId(String tz) {
     try {
       // Try standard parsing first

@@ -1007,20 +1007,29 @@ public class ArrowToJavaObjectConverterTest {
   @Test
   public void testZoneIdCacheStaysCorrectPastItsSizeCap() {
     // More distinct custom offsets than the cache holds; the extra ones are parsed every time.
-    int checked = 0;
-    for (int sign : new int[] {1, -1}) {
-      for (int hours = 0; hours < 18; hours++) {
-        for (int minutes = 0; minutes < 60; minutes++) {
-          String tz = (sign > 0 ? "+" : "-") + hours + ":" + (minutes < 10 ? "0" : "") + minutes;
-          ZoneOffset expected = ZoneOffset.ofHoursMinutes(sign * hours, sign * minutes);
-          assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of(tz)), tz);
-          assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of(tz)), tz);
-          checked++;
+    ArrowToJavaObjectConverter.clearZoneIdCache();
+    try {
+      for (int sign : new int[] {1, -1}) {
+        for (int hours = 0; hours < 18; hours++) {
+          for (int minutes = 0; minutes < 60; minutes++) {
+            String tz = (sign > 0 ? "+" : "-") + hours + ":" + (minutes < 10 ? "0" : "") + minutes;
+            ZoneOffset expected = ZoneOffset.ofHoursMinutes(sign * hours, sign * minutes);
+            assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of(tz)), tz);
+            assertEquals(expected, getZoneIdFromTimeZoneOpt(Optional.of(tz)), tz);
+          }
         }
       }
+      assertEquals(
+          ArrowToJavaObjectConverter.MAX_CACHED_ZONE_IDS,
+          ArrowToJavaObjectConverter.zoneIdCacheSize());
+      assertEquals(ZoneId.of("Asia/Tokyo"), getZoneIdFromTimeZoneOpt(Optional.of("Asia/Tokyo")));
+      assertEquals(
+          ArrowToJavaObjectConverter.MAX_CACHED_ZONE_IDS,
+          ArrowToJavaObjectConverter.zoneIdCacheSize());
+    } finally {
+      // Leave an empty cache so later tests exercise the cached path.
+      ArrowToJavaObjectConverter.clearZoneIdCache();
     }
-    assertTrue(checked > ArrowToJavaObjectConverter.MAX_CACHED_ZONE_IDS);
-    assertEquals(ZoneId.of("Asia/Tokyo"), getZoneIdFromTimeZoneOpt(Optional.of("Asia/Tokyo")));
   }
 
   @Test
